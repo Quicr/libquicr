@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <quicr/detail/base_track_handler.h>
+#include <quicr/detail/messages.h>
 #include <quicr/metrics.h>
 #include <quicr/object.h>
 
@@ -50,10 +51,16 @@ namespace quicr {
             /// Previous object payload has not been completed and new object cannot start in per-track track mode
             /// without creating a new track. This requires to unpublish and to publish track again.
             kPreviousObjectNotCompleteMustStartNewTrack,
+
+            kPaused
         };
 
         /**
          * @brief  Status codes for the publish track
+         *
+         * @note kOk is not the only status that means it is okay to publish.
+         *      CanPublish() method should be used to determine if the status is okay to still publish or not.
+         *
          */
         enum class Status : uint8_t
         {
@@ -66,6 +73,8 @@ namespace quicr {
             kSendingUnannounce, ///< In this state, callbacks will not be called
             kSubscriptionUpdated,
             kNewGroupRequested,
+            kPendingPublishOk,
+            kPaused,
         };
 
       protected:
@@ -76,16 +85,31 @@ namespace quicr {
          * @param track_mode            The track mode to operate using
          * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
          * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
+         * @param stream_mode           Stream to use when track mode is kStream.
          */
         PublishTrackHandler(const FullTrackName& full_track_name,
                             TrackMode track_mode,
                             uint8_t default_priority,
-                            uint32_t default_ttl)
+                            uint32_t default_ttl,
+                            std::optional<messages::StreamHeaderType> stream_mode = std::nullopt)
           : BaseTrackHandler(full_track_name)
           , default_track_mode_(track_mode)
           , default_priority_(default_priority)
           , default_ttl_(default_ttl)
         {
+            switch (track_mode) {
+                case TrackMode::kDatagram:
+                    if (stream_mode.has_value()) {
+                        throw std::invalid_argument("Datagram track mode should not specify a stream mode");
+                    }
+                    break;
+                case TrackMode::kStream:
+                    // TODO: Is a default acceptable, or enforce?
+                    stream_mode_ = stream_mode.has_value()
+                                     ? stream_mode.value()
+                                     : messages::StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions;
+                    break;
+            }
         }
 
       public:
@@ -106,6 +130,8 @@ namespace quicr {
               new PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl));
         }
 
+        // TODO: Is this all the info needed for an alias calculation?
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
@@ -115,7 +141,7 @@ namespace quicr {
 
         /**
          * @brief Notification of publish track status change
-         * @details Notification of a change to publish track status, such as
+         * @details Notification of a change to  publish track status, such as
          *      when it's ready to publish or not ready to publish
          *
          * @param status        Indicates the status of being able to publish
@@ -144,6 +170,12 @@ namespace quicr {
         void SetDefaultPriority(const uint8_t priority) noexcept { default_priority_ = priority; }
 
         /**
+         * @brief Get the default priority for published objects.
+         * @return The default priority.
+         */
+        constexpr uint8_t GetDefaultPriority() const noexcept { return default_priority_; }
+
+        /**
          * @brief set/update the default TTL expiry for published objects
          */
         void SetDefaultTTL(const uint32_t ttl) noexcept { default_ttl_ = ttl; }
@@ -154,15 +186,66 @@ namespace quicr {
         void SetDefaultTrackMode(const TrackMode track_mode) noexcept { default_track_mode_ = track_mode; }
 
         /**
+         * @brief Get the current stream mode.
+         * @return The current stream mode.
+         */
+        constexpr messages::StreamHeaderType GetStreamMode() const noexcept { return stream_mode_; }
+
+        /**
          * @brief Get the publish status
          *
          * @return Status of publish
          */
         constexpr Status GetStatus() const noexcept { return publish_status_; }
 
+        /**
+         * @brief  Get use announce setting.
+         * @return true to indicate announce flow will be used. false to indicate publish flow will be used
+         */
+        constexpr bool UsingAnnounce() const noexcept { return use_announce; }
+
+        /**
+         * @brief Set use announce
+         * @param use           True to request announce flow to be used. False to use publish flow.
+         */
+        constexpr void SetUseAnnounce(bool use) noexcept { use_announce = use; }
+
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
         // --------------------------------------------------------------------------
+
+        /**
+         * @brief Check if the state allows publishing or not
+         *
+         * @return true to indicate that the publisher can publish, false if the publisher cannot
+         */
+        constexpr bool CanPublish() const noexcept
+        {
+            switch (publish_status_) {
+                case Status::kOk:
+                case Status::kNewGroupRequested:
+                case Status::kSubscriptionUpdated:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /**
+         * @brief Set the track alias
+         *
+         * @param track_alias       MoQ track alias for track namespace+name
+         */
+        void SetTrackAlias(uint64_t track_alias) { track_alias_ = track_alias; }
+
+        /**
+         * @brief Get the track alias
+         *
+         * @details If the track alias is set, it will be returned, otherwise std::nullopt.
+         *
+         * @return Track alias if set, otherwise std::nullopt.
+         */
+        std::optional<uint64_t> GetTrackAlias() const noexcept { return track_alias_; }
 
         /**
          * @brief Publish [full] object
@@ -191,7 +274,7 @@ namespace quicr {
          *
          * @returns Publish status of the publish
          */
-        PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+        virtual PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
 
         /**
          * @brief Forward received object data to subscriber/relay/remote client
@@ -253,49 +336,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Internals
         // --------------------------------------------------------------------------
-      private:
-        /**
-         * @brief Publish Object function via the MoQ instance
-         *
-         * @details This is set by the MoQInstance.
-         *   Publish object function provides direct access to the MoQInstance that will publish
-         *   the object based on the track mode.
-         *
-         * @param priority              Priority to use for object; set on next track change
-         * @param ttl                   Expire time to live in milliseconds
-         * @param stream_header_needed  Indicates if group or track header is needed before this data object
-         * @param group_id              The ID of the group the message belongs to
-         * @param object_id             The ID of the object this message represents
-         * @param extensions            Extensions to send along with the message
-         * @param data                  Raw data/object that should be transmitted - MoQInstance serializes the data
-         */
-        using PublishObjFunction = std::function<PublishObjectStatus(uint8_t priority,
-                                                                     uint32_t ttl,
-                                                                     bool stream_header_needed,
-                                                                     uint64_t group_id,
-                                                                     uint64_t subgroup_id,
-                                                                     uint64_t object_id,
-                                                                     std::optional<Extensions> extensions,
-                                                                     BytesSpan data)>;
-
-        /**
-         * @brief Forward data function via the MoQ instance
-         *
-         * @details This is set by the MoQInstance.
-         *   Forward data function provides direct access to the MoQInstance that will forward data
-         *   based on the parameters passed.
-         *
-         * @param priority              Priority to use for object; set on next track change
-         * @param ttl                   Expire time to live in milliseconds
-         * @param stream_header_needed  Indicates if group or track header is needed before this data object
-         * @param data                  MoQ Serialized data to write to the remote connection/stream
-         */
-        using ForwardDataFunction =
-          std::function<PublishObjectStatus(uint8_t priority,
-                                            uint32_t ttl,
-                                            bool stream_header_needed,
-                                            std::shared_ptr<const std::vector<uint8_t>> data)>;
-
+      protected:
         /**
          * @brief Set the Data context ID
          *
@@ -323,20 +364,24 @@ namespace quicr {
         // --------------------------------------------------------------------------
         Status publish_status_{ Status::kNotAnnounced };
         TrackMode default_track_mode_;
+        messages::StreamHeaderType stream_mode_;
         uint8_t default_priority_; // Set by caller and is used when priority is not specified
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
-        uint64_t publish_data_ctx_id_;                  // set byte the transport; publishing data context ID
-        PublishObjFunction publish_object_func_;        // set by the transport
-        ForwardDataFunction forward_publish_data_func_; // set by the transport
+        uint64_t publish_data_ctx_id_; // set byte the transport; publishing data context ID
 
-        uint64_t prev_object_group_id_{ 0 };
-        uint64_t prev_sub_group_id_{ 0 };
-        uint64_t prev_object_id_{ 0 };
+        uint64_t latest_group_id_{ 0 };
+        uint64_t latest_sub_group_id_{ 0 };
+        uint64_t latest_object_id_{ 0 };
         uint64_t object_payload_remaining_length_{ 0 };
-        bool sent_first_header_{ false }; // Used to indicate if the first stream has sent the header or not
+        std::optional<uint64_t> track_alias_;
+
+        // Used to indicate if the first object has been seen or not (start of publish)
+        bool seen_first_object_{ false };
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
+
+        bool use_announce{ false }; // Indicates to use announce publish flow if true, otherwise use publish flow
 
         friend class Transport;
         friend class Client;

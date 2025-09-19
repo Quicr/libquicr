@@ -53,3 +53,7 @@ cmake-build-release
 .tmp.dprobes.h
 libquicr.spdx
 
+# Python
+.venv
+.vscode/
+__pycache__/

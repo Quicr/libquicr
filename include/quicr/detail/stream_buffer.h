@@ -4,8 +4,8 @@
 #pragma once
 
 #include "data_storage.h"
-#include "span.h"
 #include "uintvar.h"
+#include <span>
 
 #include <algorithm>
 #include <any>
@@ -195,16 +195,16 @@ namespace quicr {
             buffer_.push_back(std::move(value));
         }
 
-        void Push(Span<const T> value)
+        void Push(std::span<const T> value)
         {
             std::lock_guard _(rw_lock_);
             PushInternal(std::move(value));
         }
 
-        void PushLengthBytes(Span<const T> value)
+        void PushLengthBytes(std::span<const T> value)
         {
             std::lock_guard _(rw_lock_);
-            PushInternal(Span{ UintVar(static_cast<uint64_t>(value.size())) });
+            PushInternal(std::span{ UintVar(static_cast<uint64_t>(value.size())) });
             PushInternal(std::move(value));
         }
 
@@ -215,12 +215,12 @@ namespace quicr {
          *      unsigned 64bit integer will be returned and the buffer
          *      will be moved past the uintV. Nullopt will be returned if not enough
          *      bytes are available.
-         *
+         * @param pop True to move the buffer past the uintV.
          * @return Returns uint64 decoded value or nullopt if not enough bytes are available
          */
-        std::optional<uint64_t> DecodeUintV()
+        std::optional<uint64_t> DecodeUintV(bool pop = true)
         {
-            const auto uintv = ReadUintV();
+            const auto uintv = ReadUintV(pop);
             if (uintv) {
                 return uint64_t(*uintv);
             }
@@ -234,10 +234,10 @@ namespace quicr {
          *      encoded uintV will be returned and the buffer
          *      will be moved past the uintV. Nullopt will be returned if not enough
          *      bytes are available.
-         *
+         * @param pop True to move the buffer past the uintV.
          * @return Returns uintV or nullopt if not enough bytes are available
          */
-        std::optional<UintVar> ReadUintV()
+        std::optional<UintVar> ReadUintV(bool pop = true)
         {
             if (buffer_.empty()) {
                 return std::nullopt;
@@ -251,7 +251,9 @@ namespace quicr {
             if (Available(uv_len)) {
 
                 auto val = UintVar(FrontInternal(uv_len));
-                PopInternal(uv_len);
+                if (pop) {
+                    PopInternal(uv_len);
+                }
 
                 return val;
             }
@@ -315,7 +317,10 @@ namespace quicr {
             }
         }
 
-        inline void PushInternal(Span<const T> value) { buffer_.insert(buffer_.end(), value.begin(), value.end()); }
+        inline void PushInternal(std::span<const T> value)
+        {
+            buffer_.insert(buffer_.end(), value.begin(), value.end());
+        }
 
       private:
         BufferT buffer_;

@@ -4,43 +4,31 @@
 #pragma once
 
 #include "detail/quic_transport.h"
+
+#include <span>
 #include <string>
 
 namespace quicr {
-    namespace messages {
-        enum struct GroupOrder : uint8_t;
-    }
 
-    constexpr uint64_t kMoqtVersion = 0xff000008; ///< draft-ietf-quicr-transport-08
-
-    constexpr uint64_t kSubscribeExpires = 0; ///< Never expires
+    constexpr uint64_t kMoqtVersion = 0xff00000E; ///< draft-ietf-moq-transport-14
+    constexpr uint64_t kSubscribeExpires = 0;     ///< Never expires
     constexpr int kReadLoopMaxPerStream = 60; ///< Support packet/frame bursts, but do not allow starving other streams
 
     using namespace quicr;
 
     using Byte = uint8_t;
     using Bytes = std::vector<Byte>;
-    using BytesSpan = Span<const Byte>;
+    using BytesSpan = std::span<const Byte>;
     using ConnectionHandle = uint64_t;
-
-    /**
-     * @brief Subscribe attributes
-     *
-     * @details Various attributes relative to the subscribe
-     */
-    struct SubscribeAttributes
-    {
-        uint8_t priority;                 ///< Subscriber priority
-        messages::GroupOrder group_order; ///< Subscriber group order
-    };
-
     /**
      * @brief Publish announce attributes
      *
      * @details Various attributes relative to the publish announce
      */
     struct PublishAnnounceAttributes
-    {};
+    {
+        uint64_t request_id{ 0 };
+    };
 
     /**
      * @brief Client Setup Attributes
@@ -70,19 +58,6 @@ namespace quicr {
         kPendingAnnounceResponse,
         kAnnounceNotAuthorized,
         kSendingUnannounce, ///< In this state, callbacks will not be called
-    };
-
-    /**
-     * @brief Fetch attributes
-     */
-    struct FetchAttributes
-    {
-        uint8_t priority;                 ///< Fetch priority
-        messages::GroupOrder group_order; ///< Fetch group order
-        uint64_t start_group;             ///< Fetch starting group in range
-        uint64_t start_object;            ///< Fetch starting object in group
-        uint64_t end_group;               ///< Fetch final group in range
-        uint64_t end_object;              ///< Fetch final object in group
     };
 }
 // namespace quicr

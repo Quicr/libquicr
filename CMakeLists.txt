@@ -3,6 +3,8 @@
 
 cmake_minimum_required(VERSION 3.13)
 
+set (CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 # Build tests by default only if not a sub-project
 if(DEFINED PROJECT_NAME)
     option(QUICR_BUILD_TESTS "Build tests for quicr" OFF)
@@ -10,10 +12,11 @@ if(DEFINED PROJECT_NAME)
 else()
     option(QUICR_BUILD_TESTS "Build tests for quicr" ON)
     option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" ON)
+    option(QUICR_BUILD_INTEGRATION_TESTS "Also build integration tests for quicr" ON)
 endif()
 
 project(quicr
-        VERSION 1.0.2
+        VERSION 1.12.4
         DESCRIPTION "QuicR, a Media over QUIC Library"
         LANGUAGES CXX)
 
@@ -25,7 +28,7 @@ endif()
 
 configure_file( src/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h )
 
-IF (NOT UNIX AND NOT APPLE)
+IF (NOT UNIX AND NOT APPLE AND NOT PLATFORM_ESP_IDF)
     message(FATAL_ERROR "Unsupported platform, Linux and Apple are the only supported platforms")
 endif ()
 
@@ -40,6 +43,18 @@ option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(PLATFORM_ESP_IDF "Enabble support for esp-idf (Default OFF)" OFF)
 option(USE_MBEDTLS OFF)
+option(DRAFT_PARSER_SETUP_VENV "Set up Python virtual environment for draft parser" ON)
+option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
+
+# Which MOQ draft to use.
+# Addendum is added automatically
+set(DEFAULT_DRAFT "${CMAKE_CURRENT_SOURCE_DIR}/tools/draft_parser/drafts/draft-ietf-moq-transport-14_edited.txt")
+set(DRAFT "" CACHE FILEPATH "MOQ Draft to build against")
+if (DRAFT STREQUAL "")
+    set(DRAFT_INTERNAL ${DEFAULT_DRAFT})
+else()
+    set(DRAFT_INTERNAL ${DRAFT})
+endif()
 
 if (NOT PLATFORM_ESP_IDF)
   find_package(Threads REQUIRED)
@@ -53,8 +68,11 @@ endif()
 ###
 set (BUILD_SHARED_LIBS OFF)
 set (BUILD_STATIC_LIBS ON)
-set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/transport/cmake)
+
+if (NOT PLATFORM_ESP_IDF)
+    set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+    list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/transport/cmake)
+endif()
 
 ###
 ### Include Ctest to ensure BUILD_TESTING is set
@@ -65,6 +83,17 @@ include(CTest)
 ### Dependencies
 ###
 add_subdirectory(dependencies)
+
+###
+### Draft Parser Integration
+###
+include(tools/draft_parser/cmake/ParseDraft.cmake)
+parse_draft(
+    RFC_FILE ${DRAFT_INTERNAL}
+    OUTPUT_NAME "ctrl_messages"
+    OUTPUT_DIR "${CMAKE_BINARY_DIR}/include/quicr/detail"
+    SETUP_VENV ${DRAFT_PARSER_SETUP_VENV}
+)
 
 ###
 ### Build the quicr library
@@ -80,6 +109,13 @@ endif()
 
 if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
    add_subdirectory(benchmark)
+endif()
+
+###
+### Fuzzing targets
+###
+if(QUICR_BUILD_FUZZ)
+   add_subdirectory(fuzz)
 endif()
 
 ###

@@ -7,19 +7,21 @@
 #include "quicr/detail/data_storage.h"
 #include "quicr/detail/tick_service.h"
 #include "safe_queue.h"
-#include "span.h"
 #include "stream_buffer.h"
 #include "uintvar.h"
+#include <span>
 
 #include <spdlog/spdlog.h>
 
 #include <any>
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <source_location>
 #include <string>
 #include <sys/socket.h>
 #include <vector>
@@ -89,7 +91,7 @@ namespace quicr {
         std::string tls_cert_filename;               /// QUIC TLS certificate to use
         std::string tls_key_filename;                /// QUIC TLS private key to use
         uint32_t time_queue_init_queue_size{ 1000 }; /// Initial queue size to reserve upfront
-        uint32_t time_queue_max_duration{ 1000 };    /// Max duration for the time queue in milliseconds
+        uint32_t time_queue_max_duration{ 2000 };    /// Max duration for the time queue in milliseconds
         uint32_t time_queue_bucket_interval{ 1 };    /// The bucket interval in milliseconds
         uint32_t time_queue_rx_size{ 1000 };         /// Receive queue size
         bool debug{ false };                         /// Enable debug logging/processing
@@ -104,6 +106,8 @@ namespace quicr {
         bool use_bbr{ true };                  /// Use BBR if true, NewReno if false
         std::string quic_qlog_path;            /// If present, log QUIC LOG file to this path
         uint8_t quic_priority_limit{ 0 };      /// Lowest priority that will not be bypassed from pacing/CC in picoquic
+        std::size_t max_connections{ 1 };
+        bool ssl_keylog{ false }; ///< Enable SSL key logging for QUIC connections
     };
 
     /// Stream action that should be done by send/receive processing
@@ -135,6 +139,13 @@ namespace quicr {
 
         /// Data queue for received data on the stream
         SafeQueue<std::shared_ptr<const std::vector<uint8_t>>> data_queue;
+    };
+
+    struct TransportException : std::runtime_error
+    {
+        TransportException(TransportError, std::source_location = std::source_location::current());
+
+        TransportError Error;
     };
 
     /**
@@ -408,16 +419,18 @@ namespace quicr {
          *
          * @param[in] context_id	Identifying the connection
          * @param[in] data_ctx_id	stream Id to send data on
-         * @param[in] bytes		Data to send/write
-         * @param[in] priority          Priority of the object, range should be 0 - 255
-         * @param[in] ttl_ms            The age the object should exist in queue in milliseconds
-         * @param[in] delay_ms          Delay the pop by millisecond value
-         * @param[in] flags             Flags for stream and queue handling on enqueue of object
+         * @param[in] group_id     The id of the group we're currently enqueuing.
+         * @param[in] bytes		    Data to send/write
+         * @param[in] priority      Priority of the object, range should be 0 - 255
+         * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
+         * @param[in] delay_ms      Delay the pop by millisecond value
+         * @param[in] flags         Flags for stream and queue handling on enqueue of object
          *
          * @returns TransportError is returned indicating status of the operation
          */
         virtual TransportError Enqueue(const TransportConnId& context_id,
                                        const DataContextId& data_ctx_id,
+                                       std::uint64_t group_id,
                                        std::shared_ptr<const std::vector<uint8_t>> bytes,
                                        uint8_t priority = 1,
                                        uint32_t ttl_ms = 350,

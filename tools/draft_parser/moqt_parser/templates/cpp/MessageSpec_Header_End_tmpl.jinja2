@@ -1,0 +1,15 @@
+{% set unique_types = [] %}
+{% for key in using_map if using_map[key].cpp_using_type not in unique_types %}
+    {% if using_map[key].is_repeated %}
+    {{ unique_types.append(using_map[key].cpp_using_type) or "" }}
+    {% endif %}
+{% endfor %}
+{% for utype in unique_types %}
+    Bytes& operator<<(Bytes& buffer, const {{utype}}& vec);
+    BytesSpan operator>>(BytesSpan buffer, {{utype}}& vec);
+
+{% endfor %}
+
+    Bytes& operator<<(Bytes& buffer, ControlMessageType message_type);
+
+} // namespace

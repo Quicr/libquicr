@@ -31,7 +31,7 @@ namespace qperf {
       : SubscribeTrackHandler(perf_config.full_track_name,
                               perf_config.priority,
                               quicr::messages::GroupOrder::kOriginalPublisherOrder,
-                              quicr::messages::FilterType::kLatestObject)
+                              quicr::messages::FilterType::kLargestObject)
       , terminate_(false)
       , perf_config_(perf_config)
       , first_pass_(true)
@@ -344,7 +344,7 @@ namespace qperf {
             case Status::kNotConnected:
                 SPDLOG_INFO("Client status - kNotConnected");
                 break;
-            case Status::kPendingSeverSetup:
+            case Status::kPendingServerSetup:
                 SPDLOG_INFO("Client status - kPendingSeverSetup");
                 break;
 

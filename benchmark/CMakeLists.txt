@@ -19,8 +19,10 @@ add_executable(quicr_benchmark
     stream_buffer.cpp
     time_queue.cpp
     uintvar.cpp
+    priority_queue.cpp
     hash.cpp
     data_storage.cpp
+    tick_service.cpp
 )
 
 target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)
@@ -33,7 +35,7 @@ target_compile_options(quicr_benchmark
 
 set_target_properties(quicr_benchmark
     PROPERTIES
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 

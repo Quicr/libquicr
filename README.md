@@ -10,13 +10,43 @@ API documentation can be found under https://quicr.github.io/libquicr
 
 ## Build
 
-### Dependencies
+### Minimum Requirements
 
-#### Linux
+* GCC/G++ version 12 or higher
+* Clang/llvm version 17 or higher 
+* AppleClang/llvm version 17 or higher
+* Clang-tidy version 15 or higher
+* Python 3 with virtual environment
+* Golang 1.19 or higher
+* Cmake 3.13 or higher
+
+### Ubuntu 22.04 Jammy
 
 ```
-sudo apt-get update && sudo apt-get install -y gcc g++ golang pkgconf cmake make git
+sudo apt-get update
+sudo apt-get install -y cmake make gcc-12 g++-12 clang-tidy-15 openssl golang \
+            wget git libssl-dev python3 python3-venv
 ```
+
+> [!IMPORTANT]
+> If default gcc/g++ is installed, then you will need to set the default
+> compiler to gcc-12/g++-12.  You can do that using:
+> `export CC=/usr/bin/gcc-12`
+> and `export CXX=/usr/bin/g++-12`
+
+
+
+### Debian Bookworm
+
+```
+sudo apt-get update
+sudo apt-get install -y make wget git cmake openssl golang \
+             libssl-dev python3 python3-venv clang-tidy-15
+```
+
+> [!NOTE]
+> GCC/G++ version 12 is default on bookworm and will install via
+> dependency of the above packages.
 
 ### Apple/Mac
 
@@ -111,27 +141,6 @@ Use `qclient -h` to get help.
 
 ---
 
-### CMake
-
-Generate the cmake build directory:
-
-```bash
-cmake -B build
-```
-
-Available options to append to the above command for building tests, benchmarks, and with linting:
-
-```
--DBUILD_TESTS=ON
--DBUILD_BENCHMARKS=ON
--DLINT=ON
-```
-
-To build the project, run:
-```bash
-cmake --build build -j
-```
-
 ### Make
 
 Use `make` to build libquicr.
@@ -139,6 +148,8 @@ Use `make` to build libquicr.
 Use `make test` to run tests.
 
 Use `make cclean` to clean build files.
+
+Use `make fuzz` to run the fuzzer tests.
 
 ## Self-signed Certificate
 

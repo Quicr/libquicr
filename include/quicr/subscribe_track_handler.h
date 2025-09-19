@@ -43,7 +43,21 @@ namespace quicr {
             kNotAuthorized,
             kNotSubscribed,
             kPendingResponse,
-            kSendingUnsubscribe ///< In this state, callbacks will not be called
+            kSendingUnsubscribe, ///< In this state, callbacks will not be called,
+            kPaused,
+            kNewGroupRequested,
+        };
+
+        /**
+         * @brief Attributes to use when subscribing with a Joining Fetch.
+         */
+        struct JoiningFetch
+        {
+            const messages::SubscriberPriority priority;
+            const messages::GroupOrder group_order;
+            const messages::Parameters parameters;
+            const messages::GroupId joining_start;
+            const bool absolute;
         };
 
       protected:
@@ -51,15 +65,21 @@ namespace quicr {
          * @brief Subscribe track handler constructor
          *
          * @param full_track_name           Full track name struct
+         * @param joining_fetch             If set, subscribe with a joining fetch using these attributes.
+         * @param publisher_initiated       True if publisher initiated the subscribe, otherwise False
          */
         SubscribeTrackHandler(const FullTrackName& full_track_name,
-                              messages::ObjectPriority priority,
+                              messages::SubscriberPriority priority,
                               messages::GroupOrder group_order,
-                              messages::FilterType filter_type)
+                              messages::FilterType filter_type,
+                              const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
+                              bool publisher_initiated = false)
           : BaseTrackHandler(full_track_name)
           , priority_(priority)
           , group_order_(group_order)
           , filter_type_(filter_type)
+          , joining_fetch_(publisher_initiated ? std::nullopt : joining_fetch)
+          , publisher_initiated_(publisher_initiated)
         {
         }
 
@@ -74,9 +94,9 @@ namespace quicr {
          */
         static std::shared_ptr<SubscribeTrackHandler> Create(
           const FullTrackName& full_track_name,
-          messages::ObjectPriority priority,
+          messages::SubscriberPriority priority,
           messages::GroupOrder group_order = messages::GroupOrder::kAscending,
-          messages::FilterType filter_type = messages::FilterType::kLatestObject)
+          messages::FilterType filter_type = messages::FilterType::kLargestObject)
         {
             return std::shared_ptr<SubscribeTrackHandler>(
               new SubscribeTrackHandler(full_track_name, priority, group_order, filter_type));
@@ -101,7 +121,7 @@ namespace quicr {
          *
          * @return Priority value
          */
-        constexpr messages::ObjectPriority GetPriority() const noexcept { return priority_; }
+        constexpr messages::SubscriberPriority GetPriority() const noexcept { return priority_; }
 
         /**
          * @brief Get subscription group order
@@ -119,11 +139,69 @@ namespace quicr {
 
         constexpr messages::FilterType GetFilterType() const noexcept { return filter_type_; }
 
-        constexpr std::optional<messages::GroupId> GetLatestGroupID() const noexcept { return latest_group_id_; }
-        constexpr std::optional<messages::ObjectId> GetLatestObjectID() const noexcept { return latest_object_id_; }
+        constexpr std::optional<messages::Location> GetLatestLocation() const noexcept { return latest_location_; }
 
-        constexpr void SetLatestGroupID(messages::GroupId new_id) noexcept { latest_group_id_ = new_id; }
-        constexpr void SetLatestObjectID(messages::ObjectId new_id) noexcept { latest_object_id_ = new_id; }
+        constexpr void SetLatestLocation(messages::Location new_location) noexcept { latest_location_ = new_location; }
+
+        /**
+         * @brief Get joining fetch info, if any.
+         */
+        std::optional<JoiningFetch> GetJoiningFetch() const noexcept { return joining_fetch_; }
+
+        /**
+         * @brief Set the track alias
+         *
+         * @param track_alias       MoQ track alias for track namespace+name that
+         *                          is relative to the QUIC connection session
+         */
+        void SetTrackAlias(uint64_t track_alias) { track_alias_ = track_alias; }
+
+        /**
+         * @brief Get the track alias
+         *
+         * @details If the track alias is set, it will be returned, otherwise std::nullopt.
+         *
+         * @return Track alias if set, otherwise std::nullopt.
+         */
+        std::optional<uint64_t> GetTrackAlias() const noexcept { return track_alias_; }
+
+        /**
+         * @brief Set the received track alias
+         *
+         * @param track_alias       MoQ track alias for track namespace+name that
+         *                          is relative to the QUIC connection session
+         */
+        void SetReceivedTrackAlias(uint64_t track_alias) { received_track_alias_ = track_alias; }
+
+        /**
+         * @brief Get the received track alias
+         *
+         * @details If the track alias is set, it will be returned, otherwise std::nullopt.
+         *
+         * @return Track alias if set, otherwise std::nullopt.
+         */
+        std::optional<uint64_t> GetReceivedTrackAlias() const noexcept { return received_track_alias_; }
+
+        /**
+         * @brief Pause receiving data
+         * @details Pause will send a MoQT SUBSCRIBE_UPDATE to change the forwarding state to be stopped         *
+         */
+        void Pause() noexcept;
+
+        /**
+         * @brief Resume receiving data
+         * @details Rresume will send a MoQT SUBSCRIBE_UPDATE to change the forwarding state to send
+         */
+        void Resume() noexcept;
+
+        /**
+         * @brief Generate a new group request for this subscription
+         */
+        void RequestNewGroup() noexcept;
+
+        std::chrono::milliseconds GetDeliveryTimeout() const noexcept { return delivery_timeout_; }
+
+        void SetDeliveryTimeout(std::chrono::milliseconds timeout) noexcept { delivery_timeout_ = timeout; }
 
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
@@ -202,9 +280,13 @@ namespace quicr {
          */
         virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
 
-        void RequestNewGroup() noexcept;
-
         ///@}
+
+        /**
+         * @brief Check if the subscribe is publisher initiated or not
+         * @return True if publisher initiated, false if initiated by the relay/server
+         */
+        bool IsPublisherInitiated() const noexcept { return publisher_initiated_; }
 
         /**
          * @brief Subscribe metrics for the track
@@ -213,8 +295,6 @@ namespace quicr {
          *     period.
          */
         SubscribeTrackMetrics subscribe_track_metrics_;
-
-        std::function<void(messages::SubscribeId, messages::TrackAlias)> new_group_request_callback_;
 
       protected:
         /**
@@ -227,15 +307,25 @@ namespace quicr {
             StatusChanged(status);
         }
 
+        StreamBuffer<uint8_t> stream_buffer_;
+
+        uint64_t next_object_id_{ 0 };
+        uint64_t current_group_id_{ 0 };
+        bool sent_first_object_{ false };
+
       private:
         Status status_{ Status::kNotSubscribed };
-        messages::ObjectPriority priority_;
+        messages::SubscriberPriority priority_;
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
-        StreamBuffer<uint8_t> stream_buffer_;
         uint64_t current_stream_id_{ 0 };
-        std::optional<messages::GroupId> latest_group_id_;
-        std::optional<messages::ObjectId> latest_object_id_;
+        std::optional<messages::Location> latest_location_;
+        std::optional<JoiningFetch> joining_fetch_;
+        std::optional<uint64_t> track_alias_;
+        std::optional<uint64_t> received_track_alias_; ///< Received track alias from publisher client or relay
+        std::chrono::milliseconds delivery_timeout_{ 0 };
+
+        bool publisher_initiated_{ false };
 
         friend class Transport;
         friend class Client;

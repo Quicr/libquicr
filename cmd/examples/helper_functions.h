@@ -39,8 +39,7 @@ namespace quicr::example {
      * @return quicr::FullTrackName of the params
      */
     static FullTrackName const MakeFullTrackName(const std::string& track_namespace,
-                                                 const std::string& track_name,
-                                                 const std::optional<uint64_t> track_alias) noexcept
+                                                 const std::string& track_name) noexcept
     {
         const auto split = [](std::string str, const std::string& delimiter) {
             std::vector<std::string> tokens;
@@ -56,8 +55,7 @@ namespace quicr::example {
         };
 
         FullTrackName full_track_name{ TrackNamespace{ split(track_namespace, ",") },
-                                       { track_name.begin(), track_name.end() },
-                                       track_alias };
+                                       { track_name.begin(), track_name.end() } };
         return full_track_name;
     }
 }

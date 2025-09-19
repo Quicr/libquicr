@@ -14,6 +14,7 @@ jobs:
   format-check:
     name: Format Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: jidicula/clang-format-action@v4.13.0
@@ -27,10 +28,11 @@ jobs:
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     strategy:
       matrix:
-        os: [  macos-latest, ubuntu-latest ]
+        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
 
     runs-on: ${{ matrix.os }}
     continue-on-error: true
+    timeout-minutes: 10
 
     steps:
     - uses: actions/checkout@v4
@@ -46,17 +48,30 @@ jobs:
 
     - name: Install Packages (Ubuntu)
       run: |
-        sudo apt-get install -y clang-tidy
-      if: matrix.os == 'ubuntu-latest'
+        sudo apt-get install -y clang-tidy-15
+      if: matrix.os == 'ubuntu-22.04'
 
-    - name: Configure CMake
+    - name: Configure CMake (Ubuntu)
+      if: matrix.os == 'ubuntu-22.04' || matrix.os == 'ubuntu-22.04-arm'
+      env:
+        CC: "/usr/bin/gcc-12"
+        CXX: "/usr/bin/g++-12"
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
+      run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
+
+    - name: Configure CMake (macOS)
+      if: matrix.os == 'macos-latest'
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
+
+    - name: Generate Certificates
+      run: make cert
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j$(getconf _NPROCESSORS_ONLN) --parallel 16
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j $(getconf _NPROCESSORS_ONLN)
 
     - name: Test
       working-directory: ${{github.workspace}}/build

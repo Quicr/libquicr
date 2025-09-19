@@ -1,0 +1,11 @@
+
+   
+    Bytes &operator<<(Bytes &buffer, ControlMessageType message_type)
+    {
+        UintVar varint = static_cast<std::uint64_t>(message_type);
+        buffer << varint;
+        return buffer;
+    }
+
+} // namespace
+

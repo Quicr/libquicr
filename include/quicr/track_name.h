@@ -3,17 +3,16 @@
 
 #pragma once
 
-#include "detail/span.h"
 #include "hash.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <tuple>
 #include <vector>
 
 namespace quicr {
-
     /**
      * @brief An N-tuple representation of a MOQ namespace.
      */
@@ -37,8 +36,8 @@ namespace quicr {
 
             std::size_t offset = 0;
             const auto add_entry = [&](auto&& e) {
-                const auto& entry = entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
-                hash_.emplace_back(quicr::hash({ entry.begin(), entry.end() }));
+                const auto& entry = entries_.emplace_back(std::span{ bytes_ }.subspan(offset, e.size()));
+                hashes_.emplace_back(quicr::hash({ entry.begin(), entry.end() }));
 
                 offset += e.size();
             };
@@ -61,8 +60,8 @@ namespace quicr {
 
             std::size_t offset = 0;
             const auto add_entry = [&](auto&& e) {
-                const auto& entry = entries_.emplace_back(Span{ bytes_ }.subspan(offset, e.size()));
-                hash_.emplace_back(quicr::hash({ entry.begin(), entry.end() }));
+                const auto& entry = entries_.emplace_back(std::span{ bytes_ }.subspan(offset, e.size()));
+                hashes_.emplace_back(quicr::hash({ entry.begin(), entry.end() }));
                 offset += e.size();
             };
 
@@ -84,8 +83,8 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries) {
-                entries_[i] = Span{ bytes_ }.subspan(offset, entry.size());
-                hash_.emplace_back(quicr::hash(entry));
+                entries_[i] = std::span{ bytes_ }.subspan(offset, entry.size());
+                hashes_.emplace_back(quicr::hash(entry));
                 offset += entry.size();
                 ++i;
             }
@@ -105,8 +104,8 @@ namespace quicr {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries) {
-                entries_[i] = Span{ bytes_ }.subspan(offset, entry.size());
-                hash_.emplace_back(quicr::hash(entries_[i]));
+                entries_[i] = std::span{ bytes_ }.subspan(offset, entry.size());
+                hashes_.emplace_back(quicr::hash(entries_[i]));
                 offset += entry.size();
                 ++i;
             }
@@ -115,12 +114,12 @@ namespace quicr {
         TrackNamespace(const TrackNamespace& other)
           : bytes_(other.bytes_)
           , entries_(other.entries_)
-          , hash_(other.hash_)
+          , hashes_(other.hashes_)
         {
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = std::span{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
         }
@@ -128,14 +127,14 @@ namespace quicr {
         TrackNamespace(TrackNamespace&& other)
           : bytes_(std::move(other.bytes_))
           , entries_(std::move(other.entries_))
-          , hash_(std::move(other.hash_))
+          , hashes_(std::move(other.hashes_))
         {
             other.entries_.clear();
 
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = std::span{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
         }
@@ -144,12 +143,12 @@ namespace quicr {
         {
             this->bytes_ = other.bytes_;
             this->entries_ = other.entries_;
-            this->hash_ = other.hash_;
+            this->hashes_ = other.hashes_;
 
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = std::span{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
 
@@ -160,20 +159,20 @@ namespace quicr {
         {
             this->bytes_ = std::move(other.bytes_);
             this->entries_ = std::move(other.entries_);
-            this->hash_ = std::move(other.hash_);
+            this->hashes_ = std::move(other.hashes_);
 
             std::size_t offset = 0;
             std::size_t i = 0;
             for (auto& entry : entries_) {
-                entries_[i++] = Span{ bytes_ }.subspan(offset, entry.size());
+                entries_[i++] = std::span{ bytes_ }.subspan(offset, entry.size());
                 offset += entry.size();
             }
 
             return *this;
         }
 
-        const std::vector<Span<const uint8_t>>& GetEntries() const noexcept { return entries_; }
-        const auto& GetHashes() const noexcept { return hash_; }
+        const std::vector<std::span<const uint8_t>>& GetEntries() const noexcept { return entries_; }
+        const auto& GetHashes() const noexcept { return hashes_; }
 
         // NOLINTBEGIN(readability-identifier-naming)
         auto begin() noexcept { return bytes_.begin(); }
@@ -208,12 +207,12 @@ namespace quicr {
 
         bool IsPrefixOf(const TrackNamespace& other) const noexcept
         {
-            if (this->hash_.size() > other.hash_.size()) {
+            if (this->hashes_.size() > other.hashes_.size()) {
                 return false;
             }
 
-            for (size_t i = 0; i < this->hash_.size(); i++) {
-                if (this->hash_[i] != other.hash_[i]) {
+            for (size_t i = 0; i < this->hashes_.size(); i++) {
+                if (this->hashes_[i] != other.hashes_[i]) {
                     return false;
                 }
             }
@@ -223,9 +222,9 @@ namespace quicr {
 
         bool HasSamePrefix(const TrackNamespace& other) const noexcept
         {
-            const std::size_t prefix_size = std::min(this->hash_.size(), other.hash_.size());
+            const std::size_t prefix_size = std::min(this->hashes_.size(), other.hashes_.size());
             for (size_t i = 0; i < prefix_size; i++) {
-                if (this->hash_[i] != other.hash_[i]) {
+                if (this->hashes_[i] != other.hashes_[i]) {
                     return false;
                 }
             }
@@ -234,21 +233,16 @@ namespace quicr {
         }
 
       private:
-        uint64_t hash() const noexcept { return quicr::hash(bytes_); }
-
-      private:
         std::vector<uint8_t> bytes_;
-        std::vector<Span<const uint8_t>> entries_;
-        std::vector<std::size_t> hash_;
-
-        friend struct std::hash<quicr::TrackNamespace>;
+        std::vector<std::span<const uint8_t>> entries_;
+        std::vector<std::size_t> hashes_;
     };
 }
 
 template<>
 struct std::hash<quicr::TrackNamespace>
 {
-    std::size_t operator()(const quicr::TrackNamespace& value) const noexcept { return value.hash(); }
+    constexpr std::uint64_t operator()(const quicr::TrackNamespace& value) const { return quicr::hash(value); }
 };
 
 namespace quicr {
@@ -261,14 +255,29 @@ namespace quicr {
      * @brief Full track name struct
      *
      * @details Struct of the full track name, which includes the namespace tuple, name, and track alias
-     *   Track alias will be set by the Transport.
      */
     struct FullTrackName
     {
         TrackNamespace name_space;
         std::vector<uint8_t> name;
-        std::optional<uint64_t> track_alias;
     };
+}
+
+template<>
+struct std::hash<quicr::FullTrackName>
+{
+    constexpr std::uint64_t operator()(const quicr::FullTrackName& ftn) const
+    {
+        std::uint64_t h = 0;
+        quicr::hash_combine(h, std::hash<quicr::TrackNamespace>{}(ftn.name_space));
+        quicr::hash_combine(h, std::hash<std::span<const std::uint8_t>>{}(ftn.name));
+
+        // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
+        return (h << 2) >> 2;
+    }
+};
+
+namespace quicr {
 
     struct TrackHash
     {
@@ -289,15 +298,13 @@ namespace quicr {
         }
 
         TrackHash(const FullTrackName& ftn) noexcept
-          : track_namespace_hash{ hash({ ftn.name_space.begin(), ftn.name_space.end() }) }
-          , track_name_hash{ hash({ ftn.name.begin(), ftn.name.end() }) }
+          : track_namespace_hash{ hash(ftn.name_space) }
+          , track_name_hash{ hash(ftn.name) }
+          , track_fullname_hash(std::hash<FullTrackName>{}(ftn))
         {
-            hash_combine(track_fullname_hash, track_namespace_hash);
-            hash_combine(track_fullname_hash, track_name_hash);
-
-            // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
-            track_fullname_hash = (track_fullname_hash << 2) >> 2;
         }
-    };
 
+        TrackHash(const TrackHash&) = default;
+        TrackHash& operator=(const TrackHash&) = default;
+    };
 }

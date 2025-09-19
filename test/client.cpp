@@ -9,7 +9,28 @@
 
 TEST_CASE("Multiple client creation")
 {
-    auto client = std::make_shared<quicr::Client>(quicr::ClientConfig());
-    client = nullptr;
-    client = std::make_shared<quicr::Client>(quicr::ClientConfig());
+    CHECK_NOTHROW({
+        auto client = quicr::Client::Create(quicr::ClientConfig());
+        client = nullptr;
+        client = quicr::Client::Create(quicr::ClientConfig());
+    });
+}
+
+TEST_CASE("Construction")
+{
+    CHECK_NOTHROW(quicr::Client::Create(quicr::ClientConfig()));
+}
+
+struct BadClient : public quicr::Client
+{
+    BadClient()
+      : quicr::Client(quicr::ClientConfig())
+    {
+    }
+};
+
+TEST_CASE("Construction Non-shared")
+{
+    BadClient client;
+    CHECK_THROWS(client.Connect());
 }

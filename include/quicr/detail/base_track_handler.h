@@ -3,13 +3,16 @@
 
 #pragma once
 
+#include "quicr/common.h"
+#include "quicr/detail/ctrl_message_types.h"
+#include "quicr/track_name.h"
+
 #include <optional>
-#include <quicr/common.h>
-#include <quicr/detail/span.h>
-#include <quicr/track_name.h>
+#include <span>
 #include <vector>
 
 namespace quicr {
+    class Transport;
 
     /**
      * @brief Track mode object of object published or received
@@ -37,15 +40,41 @@ namespace quicr {
             kOk = 0,
             kInternalError,
             kInvalidRange,
-            kRetryTrackAlias,
+            kUnauthorized,
+            kTimeout,
+            kNotSupported,
+            kTrackDoesNotExist,
+            kMalformedAuthToken,
+            kExpiredAuthToken,
         };
         ReasonCode reason_code;
 
-        std::optional<std::string> reason_phrase = std::nullopt;
-        std::optional<uint64_t> track_alias = std::nullopt; ///< Set only when ResponseCode is kRetryTrackAlias
+        std::optional<std::string> error_reason = std::nullopt;
 
-        std::optional<uint64_t> largest_group = std::nullopt;
-        std::optional<uint64_t> largest_object = std::nullopt;
+        std::optional<messages::Location> largest_location = std::nullopt;
+    };
+
+    /**
+     * @brief Response to received MOQT Publish message
+     */
+    struct PublishResponse
+    {
+        /**
+         * @details **kOK** indicates that the publish is accepted and OK should be sent. Any other
+         *       value indicates that the publish is not accepted and the reason code and other
+         *       fields will be set.
+         */
+        enum class ReasonCode : uint8_t
+        {
+            kOk = 0,
+            kInternalError,
+            kNotSupported,
+        };
+        ReasonCode reason_code;
+
+        std::optional<std::string> error_reason = std::nullopt;
+
+        std::optional<messages::Location> largest_location = std::nullopt;
     };
 
     /**
@@ -58,6 +87,7 @@ namespace quicr {
       public:
         friend class Transport;
         friend class Server;
+        friend class Client;
 
         virtual ~BaseTrackHandler() = default;
 
@@ -78,42 +108,27 @@ namespace quicr {
         {
         }
 
+        FullTrackName full_track_name_;
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods to be overridden
         // --------------------------------------------------------------------------
       public:
         /**
-         * @brief Set the track alias
-         * @details MOQ transport instance will set the track alias when the track has
-         *   been assigned.
-         *
-         * @param track_alias       MoQ track alias for track namespace+name that
-         *                          is relative to the QUIC connection session
-         */
-        void SetTrackAlias(uint64_t track_alias) { full_track_name_.track_alias = track_alias; }
-
-        /**
-         * @brief Get the track alias
-         * @returns Track alias as an optional. Track alias may not be set yet. If not
-         *   set, nullopt will be returned.
-         */
-        std::optional<uint64_t> GetTrackAlias() const noexcept { return full_track_name_.track_alias; }
-
-        /**
-         * @brief Sets the subscribe ID
-         * @details MoQ instance sets the subscribe id based on subscribe track method call. Subscribe
+         * @brief Sets the reqeust ID
+         * @details MoQ instance sets the request id based on subscribe track method call. Request
          *      id is specific to the connection, so it must be set by the moq instance/connection.
          *
-         * @param subscribe_id          62bit subscribe ID
+         * @param request_id          62bit request ID
          */
-        void SetSubscribeId(std::optional<uint64_t> subscribe_id) { subscribe_id_ = subscribe_id; }
+        void SetRequestId(std::optional<uint64_t> request_id) { request_id_ = request_id; }
 
         /**
-         * @brief Get the subscribe ID
+         * @brief Get the request ID
          *
-         * @return nullopt if not subscribed, otherwise the subscribe ID
+         * @return nullopt if not subscribed, otherwise the request ID
          */
-        std::optional<uint64_t> GetSubscribeId() const noexcept { return subscribe_id_; }
+        std::optional<uint64_t> GetRequestId() const noexcept { return request_id_; }
 
         /**
          * @brief Get the full track name
@@ -128,6 +143,15 @@ namespace quicr {
          * @brief Get the connection ID
          */
         uint64_t GetConnectionId() const noexcept { return connection_handle_; };
+
+      protected:
+        /**
+         * Set the transport to use.
+         * @param transport The new transport for the handler to use.
+         */
+        void SetTransport(std::shared_ptr<Transport> transport);
+
+        const std::weak_ptr<Transport>& GetTransport() const noexcept;
 
         // --------------------------------------------------------------------------
         // Internal
@@ -144,17 +168,17 @@ namespace quicr {
         // Member variables
         // --------------------------------------------------------------------------
 
-        FullTrackName full_track_name_;
-
         ConnectionHandle connection_handle_; // QUIC transport connection ID
 
         /**
-         * subscribe_id_ is the primary index/key for subscribe subscribe context/delegate storage.
-         *   It is use as the subscribe_id in MoQ related subscribes.  Subscribe ID will adapt
-         *   to received subscribe IDs, so the value will reflect either the received subscribe ID
+         * request_id_ is the primary index/key for subscribe context/delegate storage.
+         *   It is use as the request_id in MoQ related subscribes.  Request ID will adapt
+         *   to received reqeust IDs, so the value will reflect either the received reqeust ID
          *   or the next one that increments from last received ID.
          */
-        std::optional<uint64_t> subscribe_id_;
+        std::optional<uint64_t> request_id_;
+
+        std::weak_ptr<Transport> transport_;
     };
 
 } // namespace moq

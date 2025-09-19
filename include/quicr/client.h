@@ -6,7 +6,9 @@
 #include <optional>
 #include <quicr/common.h>
 #include <quicr/config.h>
+#include <quicr/detail/attributes.h>
 #include <quicr/detail/transport.h>
+#include <quicr/publish_fetch_handler.h>
 #include <quicr/track_name.h>
 
 namespace quicr {
@@ -19,18 +21,24 @@ namespace quicr {
      */
     class Client : public Transport
     {
-      public:
+      protected:
         /**
          * @brief MoQ Client Constructor to create the client mode instance
          *
          * @param cfg           MoQ Client Configuration
          */
         Client(const ClientConfig& cfg)
-          : Transport(cfg, std::make_shared<ThreadedTickService>())
+          : Transport(cfg, std::make_shared<ThreadedTickService>(cfg.tick_service_sleep_delay_us))
         {
         }
 
+      public:
         ~Client() = default;
+
+        static std::shared_ptr<Client> Create(const ClientConfig& cfg)
+        {
+            return std::shared_ptr<Client>(new Client(cfg));
+        }
 
         /**
          * @brief Starts a client connection via a transport thread
@@ -107,7 +115,7 @@ namespace quicr {
          * @param reason                Set if there is an error; reason phrase
          */
         virtual void SubscribeAnnouncesStatusChanged(const TrackNamespace& track_namespace,
-                                                     std::optional<messages::SubscribeAnnouncesErrorCode> error_code,
+                                                     std::optional<messages::SubscribeNamespaceErrorCode> error_code,
                                                      std::optional<messages::ReasonPhrase> reason);
 
         /**
@@ -128,7 +136,7 @@ namespace quicr {
          * @param subscribe_attributes      Subscribe attributes received
          */
         virtual void UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
-                                                  const SubscribeAttributes& subscribe_attributes);
+                                                  const messages::SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Accept or reject an subscribe that was received
@@ -137,12 +145,44 @@ namespace quicr {
          *      will send the protocol message based on the SubscribeResponse
          *
          * @param connection_handle        source connection ID
-         * @param subscribe_id             subscribe ID
+         * @param request_id               request ID
+         * @param track_alias              track alias for this track
          * @param subscribe_response       response to for the subscribe
          */
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
-                                      uint64_t subscribe_id,
+                                      uint64_t request_id,
+                                      uint64_t track_alias,
                                       const SubscribeResponse& subscribe_response);
+
+        /**
+         * @brief Callback on fetch message
+         *
+         * @details Client will handle possibly from cache. This callback is called
+         *  when a fetch request has been received.
+         *
+         * @param connection_handle        source connection ID
+         * @param request_id               request ID
+         * @param track_fullname           full track name
+         * @param attributes               fetch attributes
+         */
+        bool FetchReceived(quicr::ConnectionHandle connection_handle,
+                           uint64_t request_id,
+                           const quicr::FullTrackName& track_full_name,
+                           const quicr::messages::FetchAttributes& attributes) override;
+
+        /**
+         * @brief Bind a server fetch publisher track handler.
+         * @param conn_id Connection Id of the client/fetcher.
+         * @param track_handler The fetch publisher.
+         */
+        void BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler);
+
+        /**
+         * @brief Unbind a server fetch publisher track handler.
+         * @param conn_id Connection ID of the client/fetcher.
+         * @param track_handler The fetch publisher.
+         */
+        void UnbindFetchTrack(ConnectionHandle conn_id, const std::shared_ptr<PublishFetchHandler>& track_handler);
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -176,6 +216,23 @@ namespace quicr {
             if (connection_handle_) {
                 Transport::SubscribeTrack(*connection_handle_, std::move(track_handler));
             }
+        }
+
+        /**
+         * @brief Request track status
+         *
+         * @param track_full_name             Track full name
+         * @param subscribe_attributes        Subscribe attributes for track status
+         *
+         * @returns Request ID that is used for the track status request
+         */
+        virtual uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
+                                            const messages::SubscribeAttributes& subscribe_attributes = {})
+        {
+            if (connection_handle_) {
+                return Transport::RequestTrackStatus(*connection_handle_, track_full_name, subscribe_attributes);
+            }
+            return 0;
         }
 
         /**
@@ -313,6 +370,15 @@ namespace quicr {
 
       private:
         bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan stream_buffer) override;
+        PublishTrackHandler::PublishObjectStatus SendFetchObject(PublishFetchHandler& track_handler,
+                                                                 uint8_t priority,
+                                                                 uint32_t ttl,
+                                                                 bool stream_header_needed,
+                                                                 uint64_t group_id,
+                                                                 uint64_t subgroup_id,
+                                                                 uint64_t object_id,
+                                                                 std::optional<Extensions> extensions,
+                                                                 BytesSpan data) const;
 
         void SetConnectionHandle(ConnectionHandle connection_handle) override
         {

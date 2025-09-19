@@ -1,0 +1,19 @@
+name: Fuzz
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Fuzz
+      run: make fuzz

@@ -3,21 +3,11 @@
 
 #pragma once
 
-#include <atomic>
-#include <chrono>
-#include <cstdint>
-#include <functional>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <queue>
-#include <string>
-#include <thread>
-#include <vector>
-
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/types.h>
+#include "quicr/detail/priority_queue.h"
+#include "quicr/detail/quic_transport_metrics.h"
+#include "quicr/detail/safe_queue.h"
+#include "quicr/detail/stream_buffer.h"
+#include "quicr/detail/time_queue.h"
 
 #include <picoquic.h>
 #include <picoquic_config.h>
@@ -25,12 +15,21 @@
 #include <quicr/detail/quic_transport.h>
 #include <spdlog/spdlog.h>
 
-#include "quicr/detail/priority_queue.h"
-#include "quicr/detail/quic_transport_metrics.h"
-#include "quicr/detail/safe_queue.h"
-#include "quicr/detail/span.h"
-#include "quicr/detail/stream_buffer.h"
-#include "quicr/detail/time_queue.h"
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <netinet/in.h>
+#include <queue>
+#include <span>
+#include <string>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <thread>
+#include <vector>
 
 namespace quicr {
 
@@ -42,7 +41,7 @@ namespace quicr {
     /**
      * Minimum bytes needed to write before considering to send. This doesn't
      */
-    constexpr int kMinStreamBytesForSend = 4;
+    constexpr int kMinStreamBytesForSend = 2;
 
     class PicoQuicTransport : public ITransport
     {
@@ -61,6 +60,7 @@ namespace quicr {
         {
             bool is_bidir{ false };           /// Indicates if the stream is bidir (true) or unidir (false)
             bool mark_stream_active{ false }; /// Instructs the stream to be marked active
+            bool tx_start_stream{ false };    /// Indicates tx queue starts a new stream
 
             bool uses_reset_wait{ false };       /// Indicates if data context can/uses reset wait strategy
             bool tx_reset_wait_discard{ false }; /// Instructs TX objects to be discarded on POP instead
@@ -232,6 +232,7 @@ namespace quicr {
 
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,
+                               std::uint64_t group_id,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                uint8_t priority,
                                uint32_t ttl_ms,
@@ -281,7 +282,7 @@ namespace quicr {
         void OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                DataContext* data_ctx,
                                uint64_t stream_id,
-                               Span<const uint8_t> bytes);
+                               std::span<const uint8_t> bytes);
 
         void CheckConnsForCongestion();
         void EmitMetrics();

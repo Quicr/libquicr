@@ -40,7 +40,6 @@ struct std::less<CacheObject>
 };
 
 namespace qserver_vars {
-    bool force_track_alias{ true };
 
     std::mutex state_mutex;
 
@@ -66,14 +65,14 @@ namespace qserver_vars {
       subscribes;
 
     /**
-     * Subscribe ID to alias mapping
-     *      Used to lookup the track alias for a given subscribe ID
+     * Request ID to alias mapping
+     *      Used to lookup the track alias for a given request ID
      *
      * @example
-     *      track_alias = subscribe_alias_sub_id[conn_id][subscribe_id]
+     *      track_alias = subscribe_alias_req_id[conn_id][request_id]
      */
-    std::map<quicr::ConnectionHandle, std::map<quicr::messages::SubscribeId, quicr::messages::TrackAlias>>
-      subscribe_alias_sub_id;
+    std::map<quicr::ConnectionHandle, std::map<quicr::messages::RequestID, quicr::messages::TrackAlias>>
+      subscribe_alias_req_id;
 
     /**
      * Map of subscribes set by namespace and track name hash
@@ -112,13 +111,17 @@ namespace qserver_vars {
              std::map<quicr::ConnectionHandle, std::shared_ptr<quicr::SubscribeTrackHandler>>>
       pub_subscribes;
 
+    std::map<quicr::ConnectionHandle,
+             std::map<quicr::messages::RequestID, std::shared_ptr<quicr::SubscribeTrackHandler>>>
+      pub_subscribes_by_req_id;
+
     /// Subscriber connection handles by subscribe prefix namespace for subscribe announces
     std::map<quicr::TrackNamespace, std::set<quicr::ConnectionHandle>> subscribes_announces;
 
     /**
-     * Cache of MoQ objects by track namespace hash
+     * Cache of MoQ objects by track alias
      */
-    std::map<quicr::TrackNamespaceHash, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>> cache;
+    std::map<quicr::messages::TrackAlias, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>> cache;
 
     /**
      * Tick Service used by the cache
@@ -128,7 +131,12 @@ namespace qserver_vars {
     /**
      * @brief Map of atomic bools to mark if a fetch thread should be interrupted.
      */
-    std::unordered_map<uint64_t, std::atomic_bool> stop_fetch;
+    std::map<std::pair<quicr::ConnectionHandle, quicr::messages::RequestID>, std::atomic_bool> stop_fetch;
+
+    /**
+     * @brief List of track aliases that are pending new group request
+     */
+    std::set<quicr::messages::TrackAlias> track_aliases_new_group_request;
 }
 
 /**
@@ -138,11 +146,13 @@ namespace qserver_vars {
 class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
-    MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name)
+    MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name, bool is_publisher_initiated = false)
       : SubscribeTrackHandler(full_track_name,
                               3,
                               quicr::messages::GroupOrder::kAscending,
-                              quicr::messages::FilterType::kLatestObject)
+                              quicr::messages::FilterType::kLargestObject,
+                              std::nullopt,
+                              is_publisher_initiated)
     {
     }
 
@@ -168,15 +178,15 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         auto sub_it = qserver_vars::subscribes.find(track_alias.value());
 
         if (sub_it == qserver_vars::subscribes.end()) {
-            SPDLOG_INFO("No subscribes, not relaying data size: {0} ", data.size());
+            SPDLOG_TRACE("No subscribes, ignoring data size: {0} ", data.size());
             return;
         }
 
         // Cache Object
         if (qserver_vars::cache.count(*track_alias) == 0) {
-            qserver_vars::cache.insert(std::make_pair(
-              *track_alias,
-              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{ 50000, 1, qserver_vars::tick_service }));
+            qserver_vars::cache.insert(std::make_pair(*track_alias,
+                                                      quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{
+                                                        50000, 1000, qserver_vars::tick_service }));
         }
 
         auto& cache_entry = qserver_vars::cache.at(*track_alias);
@@ -190,8 +200,17 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         }
 
         // Fan out to all subscribers
-        for (const auto& [conn_id, pth] : sub_it->second) {
-            pth->PublishObject(object_headers, data);
+        try {
+            for (const auto& [conn_id, pth] : sub_it->second) {
+                pth->PublishObject(object_headers, data);
+            }
+        } catch (const std::exception& e) {
+            SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+        }
+
+        if (qserver_vars::track_aliases_new_group_request.count(*track_alias) > 0) {
+            RequestNewGroup();
+            qserver_vars::track_aliases_new_group_request.erase(*track_alias);
         }
     }
 
@@ -219,6 +238,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                     break;
                 case Status::kSendingUnsubscribe:
                     reason = "unsubscribing";
+                    break;
+                case Status::kPaused:
+                    reason = "paused";
+                    break;
+                case Status::kNewGroupRequested:
+                    reason = "new group requested";
                     break;
                 default:
                     break;
@@ -272,6 +297,13 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 case Status::kSendingUnannounce:
                     reason = "sending unannounce";
                     break;
+                case Status::kNewGroupRequested:
+                    reason = "new group requested";
+                    qserver_vars::track_aliases_new_group_request.emplace(GetTrackAlias().value());
+                    break;
+                case Status::kPaused:
+                    reason = "paused";
+                    break;
                 default:
                     break;
             }
@@ -296,6 +328,75 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                      metrics.quic.tx_queue_discards,
                      metrics.quic.tx_queue_size.avg);
     }
+};
+
+/**
+ * @brief  Fetch track handler
+ * @details Fetch track handler.
+ */
+class MyFetchTrackHandler : public quicr::FetchTrackHandler
+{
+    MyFetchTrackHandler(const std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler,
+                        const quicr::FullTrackName& full_track_name,
+                        quicr::messages::SubscriberPriority priority,
+                        quicr::messages::GroupOrder group_order,
+                        uint64_t start_group,
+                        uint64_t start_object,
+                        uint64_t end_group,
+                        uint64_t end_object)
+      : FetchTrackHandler(full_track_name, priority, group_order, start_group, end_group, start_object, end_object)
+    {
+        publish_fetch_handler_ = publish_fetch_handler;
+    }
+
+  public:
+    static auto Create(const std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler,
+                       const quicr::FullTrackName& full_track_name,
+                       std::uint8_t priority,
+                       quicr::messages::GroupOrder group_order,
+                       uint64_t start_group,
+                       uint64_t start_object,
+                       uint64_t end_group,
+                       uint64_t end_object)
+    {
+        return std::shared_ptr<MyFetchTrackHandler>(new MyFetchTrackHandler(publish_fetch_handler,
+                                                                            full_track_name,
+                                                                            priority,
+                                                                            group_order,
+                                                                            start_group,
+                                                                            end_group,
+                                                                            start_object,
+                                                                            end_object));
+    }
+
+    void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
+    {
+        // Simple - forward what we get to the fetch handler
+        if (publish_fetch_handler_) {
+            publish_fetch_handler_->PublishObject(headers, data);
+        }
+    }
+
+    void StatusChanged(Status status) override
+    {
+        switch (status) {
+            case Status::kOk: {
+                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
+                    SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
+                }
+            } break;
+
+            case Status::kError: {
+                SPDLOG_INFO("Fetch failed");
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+  private:
+    std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler_;
 };
 
 /**
@@ -334,7 +435,7 @@ class MyServer : public quicr::Server
     std::vector<quicr::ConnectionHandle> UnannounceReceived(quicr::ConnectionHandle connection_handle,
                                                             const quicr::TrackNamespace& track_namespace) override
     {
-        auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
+        auto th = quicr::TrackHash({ track_namespace, {} });
 
         SPDLOG_DEBUG("Received unannounce from connection handle: {0} for namespace hash: {1}, removing all tracks "
                      "associated with namespace",
@@ -392,20 +493,19 @@ class MyServer : public quicr::Server
             return;
         }
 
-        auto th = quicr::TrackHash({ prefix_namespace, {}, std::nullopt });
+        auto th = quicr::TrackHash({ prefix_namespace, {} });
         SPDLOG_INFO("Unsubscribe announces received connection handle: {} for namespace_hash: {}, removing",
                     connection_handle,
                     th.track_namespace_hash);
     }
 
-    std::pair<std::optional<quicr::messages::SubscribeAnnouncesErrorCode>, std::vector<quicr::TrackNamespace>>
+    std::pair<std::optional<quicr::messages::SubscribeNamespaceErrorCode>, std::vector<quicr::TrackNamespace>>
     SubscribeAnnouncesReceived(quicr::ConnectionHandle connection_handle,
                                const quicr::TrackNamespace& prefix_namespace,
                                const quicr::PublishAnnounceAttributes&) override
     {
-        auto th = quicr::TrackHash({ prefix_namespace, {}, std::nullopt });
+        auto th = quicr::TrackHash({ prefix_namespace, {} });
 
-        std::cout << "size of subscribe announces " << qserver_vars::subscribes_announces.size() << std::endl;
         auto [it, is_new] = qserver_vars::subscribes_announces.try_emplace(prefix_namespace);
         it->second.insert(connection_handle);
 
@@ -427,11 +527,54 @@ class MyServer : public quicr::Server
         return { std::nullopt, std::move(matched_ns) };
     }
 
+    void PublishReceived(quicr::ConnectionHandle connection_handle,
+                         uint64_t request_id,
+                         const quicr::FullTrackName& track_full_name,
+                         const quicr::messages::PublishAttributes& publish_attributes) override
+    {
+        auto th = quicr::TrackHash(track_full_name);
+
+        SPDLOG_INFO("Received publish from connection handle: {} using track alias: {} request_id: {}",
+                    connection_handle,
+                    th.track_fullname_hash,
+                    request_id);
+
+        quicr::PublishResponse publish_response;
+        publish_response.reason_code = quicr::PublishResponse::ReasonCode::kOk;
+
+        // passively create the subscribe handler towards the publisher
+        auto sub_track_handler = std::make_shared<MySubscribeTrackHandler>(track_full_name, true);
+
+        sub_track_handler->SetRequestId(request_id);
+        sub_track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);
+        sub_track_handler->SetPriority(publish_attributes.priority);
+
+        SubscribeTrack(connection_handle, sub_track_handler);
+        qserver_vars::pub_subscribes[th.track_fullname_hash][connection_handle] = sub_track_handler;
+        qserver_vars::pub_subscribes_by_req_id[connection_handle][request_id] = sub_track_handler;
+
+        ResolvePublish(connection_handle,
+                       request_id,
+                       true,
+                       publish_attributes.priority,
+                       publish_attributes.group_order,
+                       publish_response);
+
+        // Check if there are any subscribers
+        if (qserver_vars::subscribes[th.track_fullname_hash].empty()) {
+            SPDLOG_INFO("No subscribers, pause publish connection handle: {0} using track alias: {1}",
+                        connection_handle,
+                        th.track_fullname_hash);
+
+            sub_track_handler->Pause();
+        }
+    }
+
     void AnnounceReceived(quicr::ConnectionHandle connection_handle,
                           const quicr::TrackNamespace& track_namespace,
-                          const quicr::PublishAnnounceAttributes&) override
+                          const quicr::PublishAnnounceAttributes& attrs) override
     {
-        auto th = quicr::TrackHash({ track_namespace, {}, std::nullopt });
+        auto th = quicr::TrackHash({ track_namespace, {} });
 
         SPDLOG_INFO("Received announce from connection handle: {0} for namespace_hash: {1}",
                     connection_handle,
@@ -470,7 +613,7 @@ class MyServer : public quicr::Server
             }
         }
 
-        ResolveAnnounce(connection_handle, track_namespace, sub_annos_connections, announce_response);
+        ResolveAnnounce(connection_handle, attrs.request_id, track_namespace, sub_annos_connections, announce_response);
 
         // Check if there are any subscribes. If so, send subscribe to announce for all tracks matching namespace
         for (const auto& [ns, sub_tracks] : qserver_vars::subscribe_active) {
@@ -527,6 +670,19 @@ class MyServer : public quicr::Server
                 qserver_vars::subscribes_announces.erase(ns);
             }
         }
+
+        // Remove active subscribes
+        std::vector<quicr::messages::RequestID> subscribe_ids;
+        auto ta_conn_it = qserver_vars::subscribe_alias_req_id.find(connection_handle);
+        if (ta_conn_it != qserver_vars::subscribe_alias_req_id.end()) {
+            for (const auto& [sub_id, _] : ta_conn_it->second) {
+                subscribe_ids.push_back(sub_id);
+            }
+        }
+
+        for (const auto& sub_id : subscribe_ids) {
+            UnsubscribeReceived(connection_handle, sub_id);
+        }
     }
 
     ClientSetupResponse ClientSetupReceived(quicr::ConnectionHandle,
@@ -539,23 +695,56 @@ class MyServer : public quicr::Server
         return client_setup_response;
     }
 
-    void UnsubscribeReceived(quicr::ConnectionHandle connection_handle, uint64_t subscribe_id) override
+    void SubscribeDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override
     {
-        SPDLOG_INFO("Unsubscribe connection handle: {0} subscribe_id: {1}", connection_handle, subscribe_id);
+        SPDLOG_INFO("Subscribe Done connection handle: {0} request_id: {1}", connection_handle, request_id);
 
-        auto ta_conn_it = qserver_vars::subscribe_alias_sub_id.find(connection_handle);
-        if (ta_conn_it == qserver_vars::subscribe_alias_sub_id.end()) {
-            SPDLOG_WARN("Unable to find track alias connection for connection handle: {0} subscribe_id: {1}",
+        std::lock_guard<std::mutex> _(qserver_vars::state_mutex);
+        auto req_it = qserver_vars::pub_subscribes_by_req_id.find(connection_handle);
+
+        if (req_it == qserver_vars::pub_subscribes_by_req_id.end()) {
+            SPDLOG_WARN("Subscribe Done connection handle: {0} request_id: {1} does not have a connection entry in "
+                        "state, ignoring",
                         connection_handle,
-                        subscribe_id);
+                        request_id);
             return;
         }
 
-        auto ta_it = ta_conn_it->second.find(subscribe_id);
-        if (ta_it == ta_conn_it->second.end()) {
-            SPDLOG_WARN("Unable to find track alias for connection handle: {0} subscribe_id: {1}",
+        auto sub_it = req_it->second.find(request_id);
+        if (sub_it == req_it->second.end()) {
+            SPDLOG_WARN(
+              "Subscribe Done connection handle: {0} request_id: {1} does not matching existing state, ignoring",
+              connection_handle,
+              request_id);
+            return;
+        }
+
+        auto th = quicr::TrackHash(sub_it->second->GetFullTrackName());
+        qserver_vars::pub_subscribes[th.track_fullname_hash].erase(connection_handle);
+
+        req_it->second.erase(sub_it);
+
+        if (req_it->second.empty()) {
+            qserver_vars::pub_subscribes_by_req_id.erase(req_it);
+        }
+    }
+
+    void UnsubscribeReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override
+    {
+        SPDLOG_INFO("Unsubscribe received connection handle: {0} subscribe_id: {1}", connection_handle, request_id);
+
+        auto ta_conn_it = qserver_vars::subscribe_alias_req_id.find(connection_handle);
+        if (ta_conn_it == qserver_vars::subscribe_alias_req_id.end()) {
+            SPDLOG_WARN("Unable to find track alias connection for connection handle: {0} request_id: {1}",
                         connection_handle,
-                        subscribe_id);
+                        request_id);
+            return;
+        }
+
+        auto ta_it = ta_conn_it->second.find(request_id);
+        if (ta_it == ta_conn_it->second.end()) {
+            SPDLOG_WARN(
+              "Unable to find track alias for connection handle: {0} request_id: {1}", connection_handle, request_id);
             return;
         }
 
@@ -565,15 +754,15 @@ class MyServer : public quicr::Server
 
         ta_conn_it->second.erase(ta_it);
         if (!ta_conn_it->second.size()) {
-            qserver_vars::subscribe_alias_sub_id.erase(ta_conn_it);
+            qserver_vars::subscribe_alias_req_id.erase(ta_conn_it);
         }
 
         auto& track_h = qserver_vars::subscribes[track_alias][connection_handle];
 
         if (track_h == nullptr) {
-            SPDLOG_WARN("Unsubscribe unable to find track delegate for connection handle: {0} subscribe_id: {1}",
+            SPDLOG_WARN("Unsubscribe unable to find track delegate for connection handle: {0} request_id: {1}",
                         connection_handle,
-                        subscribe_id);
+                        request_id);
             return;
         }
 
@@ -588,7 +777,7 @@ class MyServer : public quicr::Server
         }
 
         qserver_vars::subscribe_active[tfn.name_space][th.track_name_hash].erase(
-          qserver_vars::SubscribeInfo{ connection_handle, subscribe_id, th.track_fullname_hash });
+          qserver_vars::SubscribeInfo{ connection_handle, request_id, th.track_fullname_hash });
 
         if (!qserver_vars::subscribe_active[tfn.name_space][th.track_name_hash].size()) {
             qserver_vars::subscribe_active[tfn.name_space].erase(th.track_name_hash);
@@ -600,6 +789,13 @@ class MyServer : public quicr::Server
 
         if (unsub_pub) {
             SPDLOG_INFO("No subscribers left, unsubscribe publisher track_alias: {0}", track_alias);
+
+            // Pause publisher for PUBLISH initiated subscribes
+            for (const auto& [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
+                if (handler->IsPublisherInitiated()) {
+                    handler->Pause();
+                }
+            }
 
             auto anno_ns_it = qserver_vars::announce_active.find(tfn.name_space);
             if (anno_ns_it == qserver_vars::announce_active.end()) {
@@ -618,76 +814,128 @@ class MyServer : public quicr::Server
                     if (sub_track_h != nullptr) {
                         UnsubscribeTrack(pub_connection_handle, sub_track_h);
                     }
+
+                    qserver_vars::pub_subscribes[th.track_fullname_hash].erase(pub_connection_handle);
                 }
+            }
+
+            if (qserver_vars::pub_subscribes[th.track_fullname_hash].empty()) {
+                qserver_vars::pub_subscribes.erase(th.track_fullname_hash);
             }
         }
     }
 
-    void SubscribeReceived(quicr::ConnectionHandle connection_handle,
-                           uint64_t subscribe_id,
-                           uint64_t proposed_track_alias,
-                           [[maybe_unused]] quicr::messages::FilterType filter_type,
-                           const quicr::FullTrackName& track_full_name,
-                           const quicr::SubscribeAttributes& attrs) override
+    void TrackStatusReceived(quicr::ConnectionHandle connection_handle,
+                             uint64_t request_id,
+                             const quicr::FullTrackName& track_full_name,
+                             [[maybe_unused]] const quicr::messages::SubscribeAttributes& subscribe_attributes) override
     {
         auto th = quicr::TrackHash(track_full_name);
 
-        SPDLOG_INFO("New subscribe connection handle: {} subscribe_id: {} computed track alias: {} proposed "
-                    "track_alias: {} priority: {}",
+        SPDLOG_INFO("Track status request connection handle: {} request_id: {} track alias: {}",
                     connection_handle,
-                    subscribe_id,
-                    th.track_fullname_hash,
-                    proposed_track_alias,
-                    attrs.priority);
+                    request_id,
+                    th.track_fullname_hash);
 
-        if (qserver_vars::force_track_alias && proposed_track_alias && proposed_track_alias != th.track_fullname_hash) {
-            std::ostringstream err;
-            err << "Use track alias: " << th.track_fullname_hash;
-            ResolveSubscribe(
-              connection_handle,
-              subscribe_id,
-              { quicr::SubscribeResponse::ReasonCode::kRetryTrackAlias, err.str(), th.track_fullname_hash });
-            return;
-        }
-
-        std::optional<uint64_t> latest_group_id = std::nullopt;
-        std::optional<uint64_t> latest_object_id = std::nullopt;
+        std::optional<quicr::messages::Location> largest_location = std::nullopt;
 
         auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
         if (cache_entry_it != qserver_vars::cache.end()) {
             auto& [_, cache] = *cache_entry_it;
             if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
                 const auto& latest_object = std::prev(latest_group->end());
-                latest_group_id = latest_object->headers.group_id;
-                latest_object_id = latest_object->headers.object_id;
+                largest_location = { latest_object->headers.group_id, latest_object->headers.object_id };
             }
         }
 
+        const auto pubs_it = qserver_vars::pub_subscribes.find(th.track_fullname_hash);
+        if (pubs_it != qserver_vars::pub_subscribes.end()) {
+
+            for (const auto& [conn_id, _] : pubs_it->second) {
+                if (conn_id != connection_handle) {
+                    ResolveTrackStatus(connection_handle,
+                                       request_id,
+                                       th.track_fullname_hash,
+                                       {
+                                         quicr::SubscribeResponse::ReasonCode::kOk,
+                                         std::nullopt,
+                                         largest_location,
+                                       });
+
+                    return;
+                }
+            }
+        }
+
+        ResolveTrackStatus(connection_handle,
+                           request_id,
+                           th.track_fullname_hash,
+                           {
+                             quicr::SubscribeResponse::ReasonCode::kTrackDoesNotExist,
+                             "Track does not exist",
+                             largest_location,
+                           });
+    }
+
+    void SubscribeReceived(quicr::ConnectionHandle connection_handle,
+                           uint64_t request_id,
+                           [[maybe_unused]] quicr::messages::FilterType filter_type,
+                           const quicr::FullTrackName& track_full_name,
+                           const quicr::messages::SubscribeAttributes& attrs) override
+    {
+        auto th = quicr::TrackHash(track_full_name);
+
+        SPDLOG_INFO("New subscribe connection handle: {} request_id: {} track alias: {} "
+                    "priority: {}",
+                    connection_handle,
+                    request_id,
+                    th.track_fullname_hash,
+                    attrs.priority);
+
+        std::optional<quicr::messages::Location> largest_location = std::nullopt;
+
+        auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
+        if (cache_entry_it != qserver_vars::cache.end()) {
+            auto& [_, cache] = *cache_entry_it;
+            if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
+                const auto& latest_object = std::prev(latest_group->end());
+                largest_location = { latest_object->headers.group_id, latest_object->headers.object_id };
+            }
+        }
+
+        const std::uint32_t ttl =
+          attrs.delivery_timeout != std::chrono::milliseconds::zero() ? attrs.delivery_timeout.count() : 50000;
+
+        const auto pub_track_h =
+          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, ttl);
+
+        const auto track_alias = th.track_fullname_hash;
+
         ResolveSubscribe(connection_handle,
-                         subscribe_id,
+                         request_id,
+                         track_alias,
                          {
                            quicr::SubscribeResponse::ReasonCode::kOk,
                            std::nullopt,
-                           std::nullopt,
-                           latest_group_id,
-                           latest_object_id,
+                           largest_location,
                          });
 
-        auto pub_track_h =
-          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
-
-        if (not qserver_vars::force_track_alias) {
-            pub_track_h->SetTrackAlias(proposed_track_alias);
-        }
-        qserver_vars::subscribes[th.track_fullname_hash][connection_handle] = pub_track_h;
-        qserver_vars::subscribe_alias_sub_id[connection_handle][subscribe_id] = th.track_fullname_hash;
+        qserver_vars::subscribes[track_alias][connection_handle] = pub_track_h;
+        qserver_vars::subscribe_alias_req_id[connection_handle][request_id] = track_alias;
 
         // record subscribe as active from this subscriber
         qserver_vars::subscribe_active[track_full_name.name_space][th.track_name_hash].emplace(
-          qserver_vars::SubscribeInfo{ connection_handle, subscribe_id, th.track_fullname_hash });
+          qserver_vars::SubscribeInfo{ connection_handle, request_id, track_alias });
 
         // Create a subscribe track that will be used by the relay to send to subscriber for matching objects
-        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h, false);
+        BindPublisherTrack(connection_handle, connection_handle, request_id, pub_track_h, false);
+
+        // Resume publishers
+        for (const auto& [pub_connection_handle, handler] : qserver_vars::pub_subscribes[track_alias]) {
+            if (handler->IsPublisherInitiated()) {
+                handler->Resume();
+            }
+        }
 
         // Subscribe to announcer if announcer is active
         bool success = false;
@@ -697,16 +945,16 @@ class MyServer : public quicr::Server
             }
             success = true;
 
-            // Loop through connectio handles
+            // Loop through connection handles
             for (auto& [conn_h, tracks] : conns) {
                 // aggregate subscriptions
-                if (tracks.find(th.track_fullname_hash) == tracks.end()) {
+                if (tracks.find(track_alias) == tracks.end()) {
                     last_subscription_time_ = std::chrono::steady_clock::now();
                     SPDLOG_INFO("Sending subscribe to announcer connection handler: {0} subscribe track_alias: {1}",
                                 conn_h,
-                                th.track_fullname_hash);
+                                track_alias);
 
-                    tracks.insert(th.track_fullname_hash); // Add track alias to state
+                    tracks.insert(track_alias); // Add track alias to state
 
                     auto sub_track_h = std::make_shared<MySubscribeTrackHandler>(track_full_name);
                     auto copy_sub_track_h = sub_track_h;
@@ -715,8 +963,8 @@ class MyServer : public quicr::Server
                     SPDLOG_INFO("Sending subscription to announcer connection: {0} hash: {1}, handler: {2}",
                                 conn_h,
                                 th.track_fullname_hash,
-                                sub_track_h->GetFullTrackName().track_alias.value());
-                    qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h] = copy_sub_track_h;
+                                track_alias);
+                    qserver_vars::pub_subscribes[track_alias][conn_h] = copy_sub_track_h;
                 } else {
                     if (!last_subscription_time_.has_value()) {
                         last_subscription_time_ = std::chrono::steady_clock::now();
@@ -727,15 +975,14 @@ class MyServer : public quicr::Server
                         .count();
                     if (elapsed > kSubscriptionDampenDurationMs_) {
                         // send subscription update
-                        auto& sub_track_h = qserver_vars::pub_subscribes[th.track_fullname_hash][conn_h];
+                        auto& sub_track_h = qserver_vars::pub_subscribes[track_alias][conn_h];
                         if (sub_track_h == nullptr) {
-
                             return;
                         }
-                        SPDLOG_INFO("Sending subscription update to announcer connection: {0} hash: {1}",
+                        SPDLOG_INFO("Sending subscription update to connection: hash: {0} request: {1}",
                                     th.track_namespace_hash,
-                                    subscribe_id);
-                        UpdateTrackSubscription(conn_h, sub_track_h);
+                                    request_id);
+                        UpdateTrackSubscription(conn_h, sub_track_h, false);
                         last_subscription_time_ = std::chrono::steady_clock::now();
                     }
                 }
@@ -748,117 +995,123 @@ class MyServer : public quicr::Server
         }
     }
 
-    /**
-     * @brief Checks the cache for the requested objects.
-     *
-     * @param connection_handle Source connection ID.
-     * @param subscribe_id      Subscribe ID received.
-     * @param track_full_name   Track full name
-     * @param attrs             Fetch attributes received.
-     *
-     * @returns true if the range of groups and objects exist in the cache, otherwise returns false.
-     */
-    bool FetchReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                       [[maybe_unused]] uint64_t subscribe_id,
-                       const quicr::FullTrackName& track_full_name,
-                       const quicr::FetchAttributes& attrs) override
+    std::optional<quicr::messages::Location> GetLargestAvailable(const quicr::FullTrackName& track_name) override
     {
-        SPDLOG_INFO("Received Fetch for conn_id: {} subscribe_id: {} start_group: {} end_group: {}",
-                    connection_handle,
-                    subscribe_id,
-                    attrs.start_group,
-                    attrs.end_group);
+        // Get the largest object from the cache.
+        std::optional<quicr::messages::Location> largest_location = std::nullopt;
 
-        const auto th = quicr::TrackHash(track_full_name);
-
-        auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
-        if (cache_entry_it == qserver_vars::cache.end()) {
-            SPDLOG_WARN("No cache entry for the hash {}", th.track_fullname_hash);
-            return false;
+        const auto& th = quicr::TrackHash(track_name);
+        const auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
+        if (cache_entry_it != qserver_vars::cache.end()) {
+            auto& [_, cache] = *cache_entry_it;
+            if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
+                const auto& latest_object = std::prev(latest_group->end());
+                largest_location = { latest_object->headers.group_id, latest_object->headers.object_id };
+            }
         }
 
-        auto& [_, cache_entry] = *cache_entry_it;
-
-        const auto groups = cache_entry.Get(attrs.start_group, attrs.end_group);
-
-        if (groups.empty()) {
-            SPDLOG_WARN("No groups found for requested range");
-            return false;
-        }
-
-        return std::any_of(groups.begin(), groups.end(), [&](const auto& group) {
-            return !group->empty() && group->begin()->headers.object_id <= attrs.start_object &&
-                   std::prev(group->end())->headers.object_id >= (attrs.end_object - 1);
-        });
+        return largest_location;
     }
 
-    /**
-     * @brief Event run on sending FetchOk.
-     *
-     * @details Event run upon sending a FetchOk to a fetching client. Retrieves the requested objects from the cache
-     *          and send them to the requesting client's fetch handler.
-     *
-     * @param connection_handle Source connection ID.
-     * @param subscribe_id      Subscribe ID received.
-     * @param track_full_name   Track full name
-     * @param attributes        Fetch attributes received.
-     */
-    void OnFetchOk(quicr::ConnectionHandle connection_handle,
+    bool FetchReceived(quicr::ConnectionHandle connection_handle,
+                       uint64_t request_id,
+                       const quicr::FullTrackName& track_full_name,
+                       const quicr::messages::FetchAttributes& attributes) override
+    {
+        // lookup Announcer/Publisher for this Fetch request
+        auto anno_ns_it = qserver_vars::announce_active.find(track_full_name.name_space);
+
+        if (anno_ns_it == qserver_vars::announce_active.end()) {
+            return false;
+        }
+
+        auto setup_fetch_handler = [&](quicr::ConnectionHandle pub_connection_handle) {
+            auto pub_fetch_h = quicr::PublishFetchHandler::Create(
+              track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
+            BindFetchTrack(connection_handle, pub_fetch_h);
+
+            auto fetch_track_handler =
+              MyFetchTrackHandler::Create(pub_fetch_h,
+                                          track_full_name,
+                                          attributes.priority,
+                                          attributes.group_order,
+                                          attributes.start_location.group,
+                                          attributes.start_location.object,
+                                          attributes.end_group,
+                                          attributes.end_object.has_value() ? attributes.end_object.value() : 0);
+
+            FetchTrack(pub_connection_handle, fetch_track_handler);
+            return true;
+        };
+
+        // Handle announcer case
+        for (auto& [pub_connection_handle, _] : anno_ns_it->second) {
+            return setup_fetch_handler(pub_connection_handle);
+        }
+
+        return false;
+    }
+
+    bool OnFetchOk(quicr::ConnectionHandle connection_handle,
                    uint64_t subscribe_id,
                    const quicr::FullTrackName& track_full_name,
-                   const quicr::FetchAttributes& attrs) override
+                   const quicr::messages::FetchAttributes& attrs) override
     {
-        auto pub_track_h =
-          std::make_shared<MyPublishTrackHandler>(track_full_name, quicr::TrackMode::kStream, attrs.priority, 50000);
-        BindPublisherTrack(connection_handle, subscribe_id, pub_track_h);
+        auto pub_fetch_h =
+          quicr::PublishFetchHandler::Create(track_full_name, attrs.priority, subscribe_id, attrs.group_order, 50000);
+        BindFetchTrack(connection_handle, pub_fetch_h);
 
         const auto th = quicr::TrackHash(track_full_name);
 
-        qserver_vars::stop_fetch.emplace(std::make_pair(subscribe_id, false));
+        qserver_vars::stop_fetch.try_emplace({ connection_handle, subscribe_id }, false);
 
-        std::thread retrieve_cache_thread(
-          [=, cache_entries = qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_group, attrs.end_group)] {
-              defer(UnbindPublisherTrack(connection_handle, pub_track_h));
+        const auto cache_entries = [&] {
+            std::lock_guard lock(moq_example::main_mutex);
+            return qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_location.group, attrs.end_group + 1);
+        }();
 
-              for (const auto& cache_entry : cache_entries) {
-                  for (const auto& object : *cache_entry) {
-                      if (qserver_vars::stop_fetch[subscribe_id]) {
-                          qserver_vars::stop_fetch.erase(subscribe_id);
-                          return;
-                      }
+        if (cache_entries.empty())
+            return false;
 
-                      if ((object.headers.group_id < attrs.start_group || object.headers.group_id >= attrs.end_group) ||
-                          (object.headers.object_id < attrs.start_object ||
-                           object.headers.object_id >= attrs.end_object))
-                          continue;
+        std::thread retrieve_cache_thread([=, this, cache_entries = cache_entries] {
+            defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
 
-                      SPDLOG_INFO("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
+            for (const auto& cache_entry : cache_entries) {
+                for (const auto& object : *cache_entry) {
+                    if (qserver_vars::stop_fetch[{ connection_handle, subscribe_id }]) {
+                        qserver_vars::stop_fetch.erase({ connection_handle, subscribe_id });
+                        return;
+                    }
 
-                      pub_track_h->PublishObject(object.headers, object.data);
-                      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                  }
-              }
-          });
+                    /*
+                     * Stop when reached end group and end object, unless end object is zero. End object of
+                     * zero indicates all objects within end group
+                     */
+                    if (attrs.end_object.has_value() && *attrs.end_object != 0 &&
+                        object.headers.group_id == attrs.end_group && object.headers.object_id > *attrs.end_object)
+                        break; // Done, reached end object within end group
+
+                    SPDLOG_DEBUG("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
+
+                    try {
+                        pub_fetch_h->PublishObject(object.headers, object.data);
+                    } catch (const std::exception& e) {
+                        SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+                    }
+                }
+            }
+        });
 
         retrieve_cache_thread.detach();
+        return true;
     }
 
-    void FetchCancelReceived(quicr::ConnectionHandle, uint64_t subscribe_id) override
+    void FetchCancelReceived(quicr::ConnectionHandle connection_handle, uint64_t subscribe_id) override
     {
-        SPDLOG_INFO("Canceling fetch for subscribe_id: {0}", subscribe_id);
-        qserver_vars::stop_fetch[subscribe_id] = true;
-    }
+        SPDLOG_INFO("Canceling fetch for connection handle: {} subscribe_id: {}", connection_handle, subscribe_id);
 
-    void NewGroupRequested(quicr::ConnectionHandle conn_id, uint64_t subscribe_id, uint64_t track_alias) override
-    {
-        for (auto [_, handler] : qserver_vars::pub_subscribes[track_alias]) {
-            if (!handler) {
-                continue;
-            }
-            SPDLOG_DEBUG(
-              "Received New Group Request for conn: {} sub_id: {} track_alias: {}", conn_id, subscribe_id, track_alias);
-            handler->RequestNewGroup();
-        }
+        if (qserver_vars::stop_fetch.count({ connection_handle, subscribe_id }) == 0)
+            qserver_vars::stop_fetch[{ connection_handle, subscribe_id }] = true;
     }
 
   private:
@@ -891,8 +1144,8 @@ InitConfig(cxxopts::ParseResult& cli_opts)
         exit(0);
     }
 
-    if (cli_opts.count("client_track_alias")) {
-        qserver_vars::force_track_alias = false;
+    if (cli_opts.count("ssl_keylog") && cli_opts["ssl_keylog"].as<bool>() == true) {
+        SPDLOG_INFO("SSL Keylog enabled");
     }
 
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
@@ -901,11 +1154,13 @@ InitConfig(cxxopts::ParseResult& cli_opts)
     config.server_port = cli_opts["port"].as<uint16_t>();
 
     config.transport_config.debug = cli_opts["debug"].as<bool>();
+    config.transport_config.ssl_keylog = cli_opts["ssl_keylog"].as<bool>();
     config.transport_config.tls_cert_filename = cli_opts["cert"].as<std::string>();
     config.transport_config.tls_key_filename = cli_opts["key"].as<std::string>();
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 50000;
     config.transport_config.quic_qlog_path = qlog_path;
+    config.transport_config.max_connections = 1000;
 
     return config;
 }
@@ -919,14 +1174,14 @@ main(int argc, char* argv[])
                              std::string("MOQ Example Server using QuicR Version: ") + std::string(QUICR_VERSION));
     options.set_width(75).set_tab_expansion().allow_unrecognised_options().add_options()("h,help", "Print help")(
       "d,debug", "Enable debugging") // a bool parameter
-      ("client_track_alias", "Set to allow client provided track alias")("v,version",
-                                                                         "QuicR Version") // a bool parameter
+      ("v,version", "QuicR Version") // a bool parameter
       ("b,bind_ip", "Bind IP", cxxopts::value<std::string>()->default_value("127.0.0.1"))(
         "p,port", "Listening port", cxxopts::value<uint16_t>()->default_value("1234"))(
         "e,endpoint_id", "This relay/server endpoint ID", cxxopts::value<std::string>()->default_value("moq-server"))(
         "c,cert", "Certificate file", cxxopts::value<std::string>()->default_value("./server-cert.pem"))(
         "k,key", "Certificate key file", cxxopts::value<std::string>()->default_value("./server-key.pem"))(
-        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>()); // end of options
+        "q,qlog", "Enable qlog using path", cxxopts::value<std::string>())(
+        "s,ssl_keylog", "Enable SSL Keylog for transport debugging"); // end of options
 
     auto result = options.parse(argc, argv);
 

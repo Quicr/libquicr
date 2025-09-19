@@ -1,16 +1,17 @@
 #include <doctest/doctest.h>
-#include <map>
 
 #include <quicr/common.h>
 #include <quicr/track_name.h>
 
+#include <map>
+#include <span>
 #include <vector>
 
 using namespace quicr;
 using namespace std::string_literals;
 
 std::vector<TrackNamespace>
-FindTracks(Span<const TrackNamespace> tracks, const TrackNamespace& track)
+FindTracks(std::span<const TrackNamespace> tracks, const TrackNamespace& track)
 {
     std::vector<TrackNamespace> matching_tracks;
 
@@ -34,9 +35,9 @@ TEST_CASE("Hash namespace")
     TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
 
     auto h = hash({ ns.begin(), ns.end() });
-    CHECK_EQ(15211761882639286592, h);
+    CHECK_EQ(16475043982530834963ull, h);
 
-    TrackHash th({ ns, {}, std::nullopt });
+    TrackHash th({ ns, {} });
     CHECK_EQ(h, th.track_namespace_hash);
 
     auto ns_hash = std::hash<TrackNamespace>{}(ns);

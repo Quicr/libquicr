@@ -21,15 +21,14 @@
 #pragma once
 
 #include <atomic>
-#include <chrono>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
 #include "tick_service.h"
 
 namespace quicr {
-
     template<typename T>
     struct TimeQueueElement
     {
@@ -43,43 +42,28 @@ namespace quicr {
      *
      * @details Time based queue that maintains the push/pop order, but expires older values given a specific ttl.
      *
-     * @tparam T            The element type to be stored.
-     * @tparam Duration_t   The duration type to check for. All the variables that are interval, duration, ttl, ...
-     *                      are of this unit. Ticks are of this unit. For example, setting to millisecond will define
-     *                      the unit for ticks and all associated variables to be millisecond.
+     * @tparam T The element type to be stored.
      */
-    template<typename T, typename Duration_t>
+    template<typename T>
     class TimeQueue
     {
-        static constexpr uint32_t kMaxBuckets = 1000; /// Maximum number of buckets allowed
+        /// Maximum number of buckets allowed
+        static constexpr uint32_t kMaxBuckets = 1000;
 
-        /*=======================================================================*/
-        // Time queue type assertions
-        /*=======================================================================*/
-
-        template<typename>
-        struct IsChronoDuration : std::false_type
-        {};
-
-        template<typename Rep, typename Period>
-        struct IsChronoDuration<std::chrono::duration<Rep, Period>> : std::true_type
-        {};
-
-        static_assert(IsChronoDuration<Duration_t>::value);
-
+      protected:
         /*=======================================================================*/
         // Internal type definitions
         /*=======================================================================*/
 
         using TickType = TickService::TickType;
+        using IndexType = std::uint64_t;
         using BucketType = std::vector<T>;
-        using IndexType = std::uint32_t;
 
         struct QueueValueType
         {
             QueueValueType(BucketType& bucket, IndexType value_index, TickType expiry_tick, TickType wait_for_tick)
-              : bucket{ bucket }
-              , value_index{ value_index }
+              : bucket(bucket)
+              , value_index(value_index)
               , expiry_tick(expiry_tick)
               , wait_for_tick(wait_for_tick)
             {
@@ -97,17 +81,23 @@ namespace quicr {
         /**
          * @brief Construct a time_queue with defaults or supplied parameters
          *
-         * @param duration      Duration of the queue in Duration_t. Value must be > 0, and != interval.
-         * @param interval      Interval of ticks in Duration_t. Must be > 0, < duration, duration % interval == 0.
-         * @param tick_service  Shared pointer to tick_service service.
+         * @param duration              Duration of the queue in milliseconds. Value must be > 0, and != interval.
+         * @param interval              Interval of ticks in milliseconds. Value must be > 0, < duration, duration %
+         *                              interval == 0.
+         * @param tick_service          Shared pointer to tick_service.
+         * @param initial_queue_size    Initial size of the queue to reserve.
          *
-         * @throws std::invalid_argument    If the duration or interval do not meet requirements or If the tick_service
-         * is null.
+         * @throws std::invalid_argument If the duration or interval do not meet requirements or the tick_service is
+         * null.
          */
-        TimeQueue(size_t duration, size_t interval, std::shared_ptr<TickService> tick_service)
+        TimeQueue(std::size_t duration,
+                  std::size_t interval,
+                  std::shared_ptr<TickService> tick_service,
+                  std::size_t initial_queue_size)
           : duration_{ duration }
           , interval_{ (duration / interval > kMaxBuckets ? duration / kMaxBuckets : interval) }
-          , total_buckets_{ duration_ / interval_ }
+          , total_buckets_{ static_cast<std::size_t>(duration_ / interval_) }
+          , buckets_(total_buckets_)
           , tick_service_(std::move(tick_service))
         {
             if (duration == 0 || duration % interval != 0 || duration == interval) {
@@ -118,29 +108,22 @@ namespace quicr {
                 throw std::invalid_argument("Tick service cannot be null");
             }
 
-            buckets_.resize(total_buckets_);
-            queue_.reserve(total_buckets_);
+            queue_.reserve(initial_queue_size);
         }
 
         /**
          * @brief Construct a time_queue with defaults or supplied parameters
          *
-         * @param duration              Duration of the queue in Duration_t. Value must be > 0, and != interval.
-         * @param interval              Interval of ticks in Duration_t. Value must be > 0, < duration, duration %
-         *                              interval == 0.
-         * @param tick_service          Shared pointer to tick_service.
-         * @param initial_queue_size    Initial size of the queue to reserve.
+         * @param duration      Duration of the queue in milliseconds. Value must be > 0, and != interval.
+         * @param interval      Interval of ticks in milliseconds. Must be > 0, < duration, duration % interval == 0.
+         * @param tick_service  Shared pointer to tick_service service.
          *
-         * @throws std::invalid_argument If the duration or interval do not meet requirements or the tick_service is
-         * null.
+         * @throws std::invalid_argument    If the duration or interval do not meet requirements or If the tick_service
+         * is null.
          */
-        TimeQueue(size_t duration,
-                  size_t interval,
-                  std::shared_ptr<TickService> tick_service,
-                  size_t initial_queue_size)
-          : TimeQueue(duration, interval, std::move(tick_service))
+        TimeQueue(std::size_t duration, std::size_t interval, std::shared_ptr<TickService> tick_service)
+          : TimeQueue(duration, interval, std::move(tick_service), total_buckets_)
         {
-            queue_.reserve(initial_queue_size);
         }
 
         TimeQueue() = delete;
@@ -154,25 +137,28 @@ namespace quicr {
          * @brief Pushes a new value onto the queue with a time-to-live.
          *
          * @param value         The value to push onto the queue.
-         * @param ttl           Time to live for an object using the unit of Duration_t
-         * @param delay_ttl     Pop wait Time to live for an object using the unit of Duration_t
+         * @param ttl           Time to live for an object in milliseconds
+         * @param delay_ttl     Pop wait Time to live for an object in milliseconds
          *                      This will cause pop to be delayed by this TTL value
          *
          * @throws std::invalid_argument If ttl is greater than duration.
          */
-        void Push(const T& value, size_t ttl, size_t delay_ttl = 0) { InternalPush(value, ttl, delay_ttl); }
+        void Push(const T& value, std::size_t ttl, std::size_t delay_ttl = 0) { InternalPush(value, ttl, delay_ttl); }
 
         /**
          * @brief Pushes a new value onto the queue with a time-to-live.
          *
          * @param value      The value to push onto the queue.
-         * @param ttl        Time to live for an object using the unit of Duration_t
-         * @param delay_ttl  Pop wait Time to live for an object using the unit of Duration_t
+         * @param ttl        Time to live for an object in milliseconds
+         * @param delay_ttl  Pop wait Time to live for an object in milliseconds
          *                   This will cause pop to be delayed by this TTL value
          *
          * @throws std::invalid_argument If ttl is greater than duration.
          */
-        void Push(T&& value, size_t ttl, size_t delay_ttl = 0) { InternalPush(std::move(value), ttl, delay_ttl); }
+        void Push(T&& value, std::size_t ttl, std::size_t delay_ttl = 0)
+        {
+            InternalPush(std::move(value), ttl, delay_ttl);
+        }
 
         /**
          * @brief Pop (increment) front
@@ -185,7 +171,7 @@ namespace quicr {
             if (queue_.empty() || ++queue_index_ < queue_.size())
                 return;
 
-            Clear();
+            // Clear();
         }
 
         /**
@@ -201,7 +187,7 @@ namespace quicr {
                 Pop();
             }
 
-            return std::move(obj);
+            return obj;
         }
 
         /**
@@ -252,10 +238,10 @@ namespace quicr {
                 return;
             }
 
-            Clear();
+            // Clear();
         }
 
-        size_t Size() const noexcept { return queue_.size() - queue_index_; }
+        std::size_t Size() const noexcept { return queue_.size() - queue_index_; }
         bool Empty() const noexcept { return queue_.empty() || queue_index_ >= queue_.size(); }
 
         /**
@@ -263,19 +249,38 @@ namespace quicr {
          */
         void Clear() noexcept
         {
-            if (queue_.empty() /*|| queue_.size() < 40 */) // TODO: Need to review delayed purge
+            if (queue_.empty())
                 return;
 
             queue_.clear();
 
-            for (auto& bucket : buckets_) {
-                bucket.clear();
+            for (const auto idx : bucket_inuse_indexes_) {
+                buckets_[idx].clear();
             }
+
+            bucket_inuse_indexes_.clear();
 
             queue_index_ = bucket_index_ = 0;
         }
 
       protected:
+        /**
+         * @brief Clear range of buckets
+         */
+        void ClearRange(std::size_t start, std::size_t end) noexcept
+        {
+            auto in_use = bucket_inuse_indexes_;
+            bucket_inuse_indexes_.clear();
+
+            for (const auto idx : in_use) {
+                if (idx >= start && idx <= end) {
+                    buckets_[idx].clear();
+                } else {
+                    bucket_inuse_indexes_.insert(idx);
+                }
+            }
+        }
+
         /**
          * @brief Based on current time, adjust and move the bucket index with time
          *        (sliding window)
@@ -298,9 +303,16 @@ namespace quicr {
                 return current_ticks_;
             }
 
-            bucket_index_ = (bucket_index_ + delta) % total_buckets_;
-            if (!buckets_[bucket_index_].empty())
-                buckets_[bucket_index_].clear();
+            if (bucket_index_ + delta > total_buckets_) {
+                ClearRange(bucket_index_, total_buckets_);
+
+                bucket_index_ = (bucket_index_ + delta) % total_buckets_;
+
+                ClearRange(0, bucket_index_);
+            } else {
+                ClearRange(bucket_index_, bucket_index_ + delta);
+                bucket_index_ = (bucket_index_ + delta) % total_buckets_;
+            }
 
             return current_ticks_;
         }
@@ -312,14 +324,14 @@ namespace quicr {
          *          bucket, and then emplaces the location info into the queue.
          *
          * @param value         The value to push onto the queue.
-         * @param ttl           Time to live for an object using the unit of Duration_t
-         * @param delay_ttl     Pop wait Time to live for an object using the unit of Duration_t
+         * @param ttl           Time to live for an object in milliseconds
+         * @param delay_ttl     Pop wait Time to live for an object in milliseconds
          *                      This will cause pop to be delayed by this TTL value
          *
          * @throws std::invalid_argument If ttl is greater than duration.
          */
         template<typename Value>
-        inline void InternalPush(Value value, size_t ttl, size_t delay_ttl)
+        inline void InternalPush(Value value, std::size_t ttl, std::size_t delay_ttl)
         {
             if (ttl > duration_) {
                 throw std::invalid_argument("TTL is greater than max duration");
@@ -337,21 +349,23 @@ namespace quicr {
 
             const IndexType future_index = (bucket_index_ + relative_ttl - 1) % total_buckets_;
 
+            bucket_inuse_indexes_.insert(future_index);
+
             BucketType& bucket = buckets_[future_index];
 
-            bucket.push_back(value);
+            bucket.emplace_back(value);
             queue_.emplace_back(bucket, bucket.size() - 1, expiry_tick, ticks + delay_ttl);
         }
 
       protected:
         /// The duration in ticks of the entire queue.
-        const size_t duration_;
+        const std::size_t duration_;
 
         /// The interval at which buckets are cleared in ticks.
-        const size_t interval_;
+        const std::size_t interval_;
 
         /// The total amount of buckets. Value is calculated by duration / interval.
-        const size_t total_buckets_;
+        const std::size_t total_buckets_;
 
         /// The index in time of the current bucket.
         IndexType bucket_index_{ 0 };
@@ -364,6 +378,9 @@ namespace quicr {
 
         /// The memory storage for all elements to be managed.
         std::vector<BucketType> buckets_;
+
+        /// Set of bucket indexes that are in uses.
+        std::set<uint32_t> bucket_inuse_indexes_;
 
         /// The FIFO ordered queue of values as they were inserted.
         QueueType queue_;
