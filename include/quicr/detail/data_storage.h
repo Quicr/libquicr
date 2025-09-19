@@ -111,7 +111,7 @@ namespace quicr {
             constexpr Iterator& operator--(int) noexcept
             {
                 Iterator temp(*this);
-                --temp;
+                --(*this);
                 return temp;
             }
 
