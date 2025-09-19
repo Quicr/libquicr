@@ -11,17 +11,17 @@ and [Publish Track Handler](#quicr::PublishTrackHandler). Both classes contain v
 
 ## Client
 
- Class                        | Description
-------------------------------|-----------------------------------------------------------
- quicr::Client       | Client handler, which is specific to a QUIC IP connection
- quicr::ClientConfig | Client configuration
+ Class                                       | Description                                               
+---------------------------------------------|-----------------------------------------------------------
+ [quicr::Client](#quicr::Client)             | Client handler, which is specific to a QUIC IP connection 
+ [quicr::ClientConfig](#quicr::ClientConfig) | Client configuration                                      
 
 ## Server
 
- Class                        | Description
-------------------------------|------------------------------------------------------------------------
- quicr::Server       | Server handler, which is specific to the QUIC IP listening IP and port
- quicr::ServerConfig | Server configuration
+ Class                                 | Description                                                            
+---------------------------------------|------------------------------------------------------------------------
+ [quicr::Server](#quicr::Server)       | Server handler, which is specific to the QUIC IP listening IP and port 
+ [quicr::ServerConfig](#quicr::Server) | Server configuration                                                   
 
 ## Track Handlers
 
@@ -29,12 +29,11 @@ Both client and server provide quicr::Transport::PublishTrack() and quicr::Trans
 methods to start a new subscription and/or publication. Use the below handler classes when calling
 the methods. Each track handler is constructed for a single full track name (e.g., namespace and name).
 
- Class                          | Description
---------------------------------|------------------------------------------------------------------------
- quicr::SubscribeTrackHandler     | Subscribe track handler for subscribe related operations and callbacks
- quicr::PublishTrackHandler       | Publish track handler for publish related operations and callbacks
- quicr::FetchTrackHandler         | Fetch track handler for fetch realted operations and callbacks
-
+ Class                                                        | Description                                                            
+--------------------------------------------------------------|------------------------------------------------------------------------
+ [quicr::SubscribeTrackHandler](#quicr::SubscribeTrackHandler) | Subscribe track handler for subscribe related operations and callbacks 
+ [quicr::PublishTrackHandler](#quicr::PublishTrackHandler)    | Publish track handler for publish related operations and callbacks     
+ [quicr::FetchTrackHandler](#quicr::PublishTrackHandler)      | Fetch track handler for fetch realted operations and callbacks         
 
 See [API Guide](api-guide.html) for more details on the API. See [Examples](examples.html) for detailed example of how to get started
 using the APIs. 
