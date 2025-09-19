@@ -151,3 +151,60 @@ TEST_CASE("Integration - Handlers with no transport")
         handler->RequestNewGroup();
     }
 }
+
+TEST_CASE("Group ID Gap")
+{
+    auto server = MakeTestServer();
+    auto client = MakeTestClient();
+    FullTrackName ftn;
+    ftn.name_space = TrackNamespace({ "namespace" });
+    ftn.name = { 1, 2, 3 };
+
+    // Pub.
+    const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500);
+    client->PublishTrack(pub);
+    std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
+
+    constexpr messages::GroupId expected_gap = 1758273157;
+
+    // TODO: Re-enable when data roundtrip support.
+    // Sub.
+    // int received = 0;
+    // TestSubscribeHandler::ObjectReceivedCallback callback;
+    // const auto sub = std::make_shared<TestSubscribeHandler>(ftn, [&received, expected_gap](ObjectHeaders headers,
+    // BytesSpan) {
+    //     received += 1;
+    //     constexpr auto gap_key = static_cast<std::uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap);
+    //     switch (received) {
+    //         case 1: {
+    //             // No Gap.
+    //             const bool no_gap = !headers.extensions.has_value() || !headers.extensions->contains(gap_key);
+    //             CHECK(no_gap);
+    //             break;
+    //         }
+    //         case 2: {
+    //             // Gap, group gap should be set.
+    //             REQUIRE(headers.extensions.has_value());
+    //             REQUIRE(headers.extensions->contains(gap_key));
+    //             const auto bytes = headers.extensions->at(gap_key);
+    //             std::uint64_t gap;
+    //             memcpy(&gap, bytes.data(), bytes.size());
+    //             CHECK_EQ(gap, expected_gap);
+    //             break;
+    //         }
+    //         default:
+    //             FAIL("Unexpected object received");
+    //             break;
+    //     }
+    // });
+    // client->SubscribeTrack(sub);
+    // std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
+
+    REQUIRE(pub->CanPublish());
+    const auto payload = std::vector<std::uint8_t>(1);
+    ObjectHeaders headers{ .group_id = 0, .object_id = 0, .payload_length = payload.size() };
+    REQUIRE_EQ(pub->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+    headers.group_id = expected_gap + 1;
+    REQUIRE_EQ(pub->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+    // CHECK_EQ(received, 2);
+}

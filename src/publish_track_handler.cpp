@@ -169,23 +169,27 @@ namespace quicr {
         auto object_extensions = object_headers.extensions;
 
         if (group_id_delta > 1) {
-            auto value = UintVar(group_id_delta - 1);
+            const std::uint64_t value = group_id_delta - 1;
+            std::vector<std::uint8_t> value_bytes(sizeof(value));
+            memcpy(value_bytes.data(), &value, sizeof(value));
             if (not object_extensions.has_value()) {
                 object_extensions = Extensions{};
             }
 
             object_extensions->try_emplace(static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap),
-                                           std::vector(value.begin(), value.end()));
+                                           value_bytes);
         }
 
         if (object_id_delta > 1) {
-            auto value = UintVar(object_id_delta - 1);
+            const std::uint64_t value = object_id_delta - 1;
+            std::vector<std::uint8_t> value_bytes(sizeof(value));
+            memcpy(value_bytes.data(), &value, sizeof(value));
             if (not object_extensions.has_value()) {
                 object_extensions = Extensions{};
             }
 
             object_extensions->try_emplace(static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorObjectIdGap),
-                                           std::vector(value.begin(), value.end()));
+                                           value_bytes);
         }
 
         latest_group_id_ = object_headers.group_id;
