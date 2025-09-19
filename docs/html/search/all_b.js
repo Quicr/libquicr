@@ -1,10 +1,9 @@
 var searchData=
 [
-  ['media_20over_20quic_20moq_20publisher_20subscriber_20api_0',['Media over QUIC (MoQ) Publisher/Subscriber API',['../index.html',1,'']]],
-  ['metrics_2eh_1',['metrics.h',['../metrics_8h.html',1,'']]],
-  ['metrics_5fsample_5fms_2',['metrics_sample_ms',['../structquicr_1_1_config.html#a11973dbf6804e281e2e7af5c0305713e',1,'quicr::Config']]],
-  ['metricssampled_3',['MetricsSampled',['../classquicr_1_1_client.html#ad4d45bf8cdae687842daa5204e6a7cf9',1,'quicr::Client::MetricsSampled()'],['../classquicr_1_1_publish_track_handler.html#aa0e5f4b4173834d38929f71dace54c8c',1,'quicr::PublishTrackHandler::MetricsSampled()'],['../classquicr_1_1_server.html#a180b88779341122e656eb6a98656f43a',1,'quicr::Server::MetricsSampled()'],['../classquicr_1_1_subscribe_track_handler.html#a3824e9ce82a8e52d43166931a24cc1fc',1,'quicr::SubscribeTrackHandler::MetricsSampled()']]],
-  ['metricstimestampus_4',['MetricsTimeStampUs',['../namespacequicr.html#a40bbec8f57f3e736978aa38e4d015b26',1,'quicr']]],
-  ['moq_20publisher_20subscriber_20api_5',['Media over QUIC (MoQ) Publisher/Subscriber API',['../index.html',1,'']]],
-  ['moqt_5fversion_6',['moqt_version',['../structquicr_1_1_server_setup_attributes.html#a3f9f8550d98417d72fdc5e38a6d046b2',1,'quicr::ServerSetupAttributes']]]
+  ['largest_5flocation_0',['largest_location',['../structquicr_1_1_transport_1_1_connection_context_1_1_subscribe_context.html#a1e0c71cf8c840ef65eee7aadefaa2ed0',1,'quicr::Transport::ConnectionContext::SubscribeContext']]],
+  ['last_1',['Last',['../classquicr_1_1_cache.html#abec7120ecc46913b9cf68bd3600b420f',1,'quicr::Cache']]],
+  ['last_5fsample_5ftime_2',['last_sample_time',['../structquicr_1_1_connection_metrics.html#a770729a132791d5da484d9b573b21cb4',1,'quicr::ConnectionMetrics::last_sample_time'],['../structquicr_1_1_subscribe_track_metrics.html#a402991be6e918e9029a87cbf45a32484',1,'quicr::SubscribeTrackMetrics::last_sample_time'],['../structquicr_1_1_publish_track_metrics.html#ad54254b2933d1283ed2c5d88b46f3e4b',1,'quicr::PublishTrackMetrics::last_sample_time']]],
+  ['latest_5fgroup_5fid_5f_3',['latest_group_id_',['../classquicr_1_1_publish_track_handler.html#a7395c7a87acc7236bce611e5b1311f27',1,'quicr::PublishTrackHandler']]],
+  ['latest_5fobject_5fid_5f_4',['latest_object_id_',['../classquicr_1_1_publish_track_handler.html#ae3666d9f24c74e332a54ea9559a1fa6a',1,'quicr::PublishTrackHandler']]],
+  ['latest_5fsub_5fgroup_5fid_5f_5',['latest_sub_group_id_',['../classquicr_1_1_publish_track_handler.html#ad65a36bbf42b8396ccacc9d65928edbb',1,'quicr::PublishTrackHandler']]]
 ];

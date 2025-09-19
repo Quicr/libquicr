@@ -1,7 +1,6 @@
 var searchData=
 [
-  ['payload_5flength_0',['payload_length',['../structquicr_1_1_object_headers.html#ad15c80dbc8580017173694db9db4d0d2',1,'quicr::ObjectHeaders']]],
-  ['port_1',['port',['../structquicr_1_1_transport_1_1_connection_remote_info.html#af866b3c85fe3586d2e728a8f7ad096c3',1,'quicr::Transport::ConnectionRemoteInfo']]],
-  ['priority_2',['priority',['../structquicr_1_1_subscribe_attributes.html#a68b01656e5373460714d09b33c2327c8',1,'quicr::SubscribeAttributes::priority'],['../structquicr_1_1_fetch_attributes.html#afb92946668b01be4b17c4f43f4398e2f',1,'quicr::FetchAttributes::priority'],['../structquicr_1_1_object_headers.html#a7f1dbb9d56ecaa769b7b43128215c4bc',1,'quicr::ObjectHeaders::priority']]],
-  ['publish_5ftrack_5fmetrics_5f_3',['publish_track_metrics_',['../classquicr_1_1_publish_track_handler.html#af79af534e92140d0b5a98fb84c60a199',1,'quicr::PublishTrackHandler']]]
+  ['name_0',['name',['../structquicr_1_1_full_track_name.html#aa1200d2c7858e58eb2370434bb6580ee',1,'quicr::FullTrackName']]],
+  ['name_5fspace_1',['name_space',['../structquicr_1_1_full_track_name.html#aca157ed8599522f1690820a720b6b722',1,'quicr::FullTrackName']]],
+  ['next_5fobject_5fid_5f_2',['next_object_id_',['../classquicr_1_1_subscribe_track_handler.html#a372f96ff0afa02fbe3e628c71bcbf55d',1,'quicr::SubscribeTrackHandler']]]
 ];

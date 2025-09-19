@@ -1,13 +1,15 @@
 var searchData=
 [
-  ['uintvar_0',['UintVar',['../classquicr_1_1_uint_var.html#adbf94c85215e30f995865ed441b3a4c1',1,'quicr::UintVar::UintVar(uint64_t value)'],['../classquicr_1_1_uint_var.html#a710ef5fde75361d07f3435153c2f4ab9',1,'quicr::UintVar::UintVar(Span&lt; const uint8_t &gt; bytes)']]],
-  ['unannouncereceived_1',['UnannounceReceived',['../classquicr_1_1_client.html#ab22e0b13413ac17fdc3da8abd2f912fc',1,'quicr::Client::UnannounceReceived()'],['../classquicr_1_1_server.html#a03f7e5e129e9084a116dae7a6b5b53a5',1,'quicr::Server::UnannounceReceived(ConnectionHandle connection_handle, const TrackNamespace &amp;track_namespace)=0']]],
-  ['unbindpublishertrack_2',['UnbindPublisherTrack',['../classquicr_1_1_server.html#a10f34cba3cc80f6c8592a17810aed2e6',1,'quicr::Server']]],
-  ['unpublishedsubscribereceived_3',['UnpublishedSubscribeReceived',['../classquicr_1_1_client.html#a566b5bbd180d3cff604d3e076618a4b2',1,'quicr::Client']]],
-  ['unpublishtrack_4',['UnpublishTrack',['../classquicr_1_1_transport.html#a13e2e0f786b4bace741af6379b6dfee6',1,'quicr::Transport::UnpublishTrack()'],['../classquicr_1_1_client.html#a7da1a6b8f09d451d4724b914b76e406b',1,'quicr::Client::UnpublishTrack(std::shared_ptr&lt; PublishTrackHandler &gt; track_handler)']]],
-  ['unsubscribeannounces_5',['UnsubscribeAnnounces',['../classquicr_1_1_client.html#a395b8990b3f0a4575a3482978dea7377',1,'quicr::Client']]],
-  ['unsubscribeannouncesreceived_6',['UnsubscribeAnnouncesReceived',['../classquicr_1_1_server.html#affbb73c855166ed8d1cd569156986fb0',1,'quicr::Server']]],
-  ['unsubscribereceived_7',['UnsubscribeReceived',['../classquicr_1_1_server.html#a66db5227f79115bd0874ec3b1d3c01e9',1,'quicr::Server']]],
-  ['unsubscribetrack_8',['UnsubscribeTrack',['../classquicr_1_1_transport.html#af595c628c640d1f674f1278fca9ee7cd',1,'quicr::Transport::UnsubscribeTrack()'],['../classquicr_1_1_client.html#aec97f326ef8b26ba7a07de00bd414e2d',1,'quicr::Client::UnsubscribeTrack()']]],
-  ['updatetracksubscription_9',['UpdateTrackSubscription',['../classquicr_1_1_transport.html#a307e575ac9f13c8ce7e2c37ab910ef91',1,'quicr::Transport']]]
+  ['uintvar_0',['UintVar',['../classquicr_1_1_uint_var.html#adbf94c85215e30f995865ed441b3a4c1',1,'quicr::UintVar::UintVar(uint64_t value)'],['../classquicr_1_1_uint_var.html#a31017c667d736eb9faea49e247b18b5b',1,'quicr::UintVar::UintVar(std::span&lt; const std::uint8_t &gt; bytes)'],['../classquicr_1_1_uint_var.html#a39f84c630bcf6494f862e11eb742f7db',1,'quicr::UintVar::UintVar(const UintVar &amp;) noexcept=default'],['../classquicr_1_1_uint_var.html#a4ce83dd19fe199b3beae44be01ab0aa1',1,'quicr::UintVar::UintVar(UintVar &amp;&amp;) noexcept=default']]],
+  ['unannouncereceived_1',['UnannounceReceived',['../classquicr_1_1_client.html#ab22e0b13413ac17fdc3da8abd2f912fc',1,'quicr::Client::UnannounceReceived()'],['../classquicr_1_1_server.html#a03f7e5e129e9084a116dae7a6b5b53a5',1,'quicr::Server::UnannounceReceived()']]],
+  ['unbindfetchtrack_2',['UnbindFetchTrack',['../classquicr_1_1_client.html#a40eaa84213cfd4e506d594e44ea413c0',1,'quicr::Client::UnbindFetchTrack()'],['../classquicr_1_1_server.html#a0fe78e6ced06609149ab0281ab198dfb',1,'quicr::Server::UnbindFetchTrack(ConnectionHandle conn_id, const std::shared_ptr&lt; PublishFetchHandler &gt; &amp;track_handler)']]],
+  ['unbindpublishertrack_3',['UnbindPublisherTrack',['../classquicr_1_1_server.html#a2be257fb8ce43b579149ac22ab5ffb68',1,'quicr::Server']]],
+  ['unpublishedsubscribereceived_4',['UnpublishedSubscribeReceived',['../classquicr_1_1_client.html#a0badb0c11ef3a4ddfa0809279036f464',1,'quicr::Client']]],
+  ['unpublishtrack_5',['UnpublishTrack',['../classquicr_1_1_transport.html#a13e2e0f786b4bace741af6379b6dfee6',1,'quicr::Transport::UnpublishTrack()'],['../classquicr_1_1_client.html#a7da1a6b8f09d451d4724b914b76e406b',1,'quicr::Client::UnpublishTrack(std::shared_ptr&lt; PublishTrackHandler &gt; track_handler)']]],
+  ['unsubscribeannounces_6',['UnsubscribeAnnounces',['../classquicr_1_1_client.html#a395b8990b3f0a4575a3482978dea7377',1,'quicr::Client']]],
+  ['unsubscribeannouncesreceived_7',['UnsubscribeAnnouncesReceived',['../classquicr_1_1_server.html#affbb73c855166ed8d1cd569156986fb0',1,'quicr::Server']]],
+  ['unsubscribereceived_8',['UnsubscribeReceived',['../classquicr_1_1_server.html#a0a3239a540b5c11cf7531675e703d96c',1,'quicr::Server']]],
+  ['unsubscribetrack_9',['UnsubscribeTrack',['../classquicr_1_1_transport.html#af595c628c640d1f674f1278fca9ee7cd',1,'quicr::Transport::UnsubscribeTrack()'],['../classquicr_1_1_client.html#aec97f326ef8b26ba7a07de00bd414e2d',1,'quicr::Client::UnsubscribeTrack()']]],
+  ['updatetracksubscription_10',['UpdateTrackSubscription',['../classquicr_1_1_transport.html#ac09ac50b42e094f510270f5d1845dbe0',1,'quicr::Transport']]],
+  ['usingannounce_11',['UsingAnnounce',['../classquicr_1_1_publish_track_handler.html#aa36b9981d5b14ce63db20da775f4246b',1,'quicr::PublishTrackHandler']]]
 ];

@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['end_5fgroup_0',['end_group',['../structquicr_1_1_fetch_attributes.html#ac54793e24fd6f4a99db739412553393a',1,'quicr::FetchAttributes']]],
-  ['end_5fobject_1',['end_object',['../structquicr_1_1_fetch_attributes.html#a48ba21ac2edbfda8751bd7d0bacf44a1',1,'quicr::FetchAttributes']]],
-  ['endpoint_5fid_2',['endpoint_id',['../structquicr_1_1_client_setup_attributes.html#aaaee100e1a8163c135fd0490d84c70cf',1,'quicr::ClientSetupAttributes::endpoint_id'],['../structquicr_1_1_config.html#ac61dcd9337d55b4694552338af12fe2e',1,'quicr::Config::endpoint_id']]],
-  ['extensions_3',['extensions',['../structquicr_1_1_object_headers.html#a5df4640f77a5d99d30563728691bc501',1,'quicr::ObjectHeaders']]]
+  ['default_5fpriority_5f_0',['default_priority_',['../classquicr_1_1_publish_track_handler.html#ae27e38aa6813e6096b897c904867285f',1,'quicr::PublishTrackHandler']]],
+  ['default_5ftrack_5fmode_5f_1',['default_track_mode_',['../classquicr_1_1_publish_track_handler.html#aba40df071ecc19a0812773e6c3467119',1,'quicr::PublishTrackHandler']]],
+  ['default_5fttl_5f_2',['default_ttl_',['../classquicr_1_1_publish_track_handler.html#a939b754029bc7b3ca168a6b9ff9e93d6',1,'quicr::PublishTrackHandler']]],
+  ['duration_5f_3',['duration_',['../classquicr_1_1_cache.html#a3e57d43f8e70502bad5e68f6375bad3b',1,'quicr::Cache']]]
 ];

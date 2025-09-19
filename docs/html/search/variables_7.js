@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['last_5fsample_5ftime_0',['last_sample_time',['../structquicr_1_1_connection_metrics.html#a770729a132791d5da484d9b573b21cb4',1,'quicr::ConnectionMetrics::last_sample_time'],['../structquicr_1_1_subscribe_track_metrics.html#a402991be6e918e9029a87cbf45a32484',1,'quicr::SubscribeTrackMetrics::last_sample_time'],['../structquicr_1_1_publish_track_metrics.html#ad54254b2933d1283ed2c5d88b46f3e4b',1,'quicr::PublishTrackMetrics::last_sample_time']]]
+  ['joining_5fstart_0',['joining_start',['../structquicr_1_1_subscribe_track_handler_1_1_joining_fetch.html#a90a9ff3396ff63f1a4a71b9d27b1c9bb',1,'quicr::SubscribeTrackHandler::JoiningFetch']]]
 ];

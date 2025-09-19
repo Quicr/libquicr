@@ -1,11 +1,10 @@
 var searchData=
 [
-  ['reason_5fcode_0',['reason_code',['../structquicr_1_1_server_1_1_announce_response.html#aebfddf29f5b1efc4a59aa7423cb64ff4',1,'quicr::Server::AnnounceResponse']]],
-  ['reason_5fphrase_1',['reason_phrase',['../structquicr_1_1_server_1_1_announce_response.html#a9ed47be776f4477b7886b80ca4b0bc5f',1,'quicr::Server::AnnounceResponse']]],
-  ['rx_5fdgram_5fdecode_5ffailed_2',['rx_dgram_decode_failed',['../structquicr_1_1_connection_metrics.html#aa41dd17da9c845e2031b88dad1328336',1,'quicr::ConnectionMetrics']]],
-  ['rx_5fdgram_5finvalid_5ftype_3',['rx_dgram_invalid_type',['../structquicr_1_1_connection_metrics.html#a74057c71e8d078e6bf6febfea7ff71e6',1,'quicr::ConnectionMetrics']]],
-  ['rx_5fdgram_5funknown_5ftrack_5falias_4',['rx_dgram_unknown_track_alias',['../structquicr_1_1_connection_metrics.html#a8819b0c68023a6293fb10d297b4f8328',1,'quicr::ConnectionMetrics']]],
-  ['rx_5fstream_5fbuffer_5ferror_5',['rx_stream_buffer_error',['../structquicr_1_1_connection_metrics.html#a0faee37fb3befa1cb9d639d886eb7047',1,'quicr::ConnectionMetrics']]],
-  ['rx_5fstream_5finvalid_5ftype_6',['rx_stream_invalid_type',['../structquicr_1_1_connection_metrics.html#ae7e15aedb1af98ddaef4ad8125c4de40',1,'quicr::ConnectionMetrics']]],
-  ['rx_5fstream_5funknown_5ftrack_5falias_7',['rx_stream_unknown_track_alias',['../structquicr_1_1_connection_metrics.html#a600176e4c133bfda8664353d78deb972',1,'quicr::ConnectionMetrics']]]
+  ['parameters_0',['parameters',['../structquicr_1_1_subscribe_track_handler_1_1_joining_fetch.html#a2215e0f3846283b090714c8bfec5f7c6',1,'quicr::SubscribeTrackHandler::JoiningFetch']]],
+  ['payload_5flength_1',['payload_length',['../structquicr_1_1_object_headers.html#ad15c80dbc8580017173694db9db4d0d2',1,'quicr::ObjectHeaders']]],
+  ['port_2',['port',['../structquicr_1_1_transport_1_1_connection_remote_info.html#af866b3c85fe3586d2e728a8f7ad096c3',1,'quicr::Transport::ConnectionRemoteInfo']]],
+  ['priority_3',['priority',['../structquicr_1_1_object_headers.html#a7f1dbb9d56ecaa769b7b43128215c4bc',1,'quicr::ObjectHeaders::priority'],['../structquicr_1_1_subscribe_track_handler_1_1_joining_fetch.html#ac0d034a3a4e01ac0e4ab29db57e73b4c',1,'quicr::SubscribeTrackHandler::JoiningFetch::priority']]],
+  ['publish_5fdata_5fctx_5fid_5f_4',['publish_data_ctx_id_',['../classquicr_1_1_publish_track_handler.html#a6922fef384115e4a6b102652fcff368b',1,'quicr::PublishTrackHandler']]],
+  ['publish_5fstatus_5f_5',['publish_status_',['../classquicr_1_1_publish_track_handler.html#a57b8830300350312ddd00dda74268d3e',1,'quicr::PublishTrackHandler']]],
+  ['publish_5ftrack_5fmetrics_5f_6',['publish_track_metrics_',['../classquicr_1_1_publish_track_handler.html#af79af534e92140d0b5a98fb84c60a199',1,'quicr::PublishTrackHandler']]]
 ];

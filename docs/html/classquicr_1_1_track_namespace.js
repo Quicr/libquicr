@@ -13,7 +13,7 @@ var classquicr_1_1_track_namespace =
     [ "empty", "classquicr_1_1_track_namespace.html#a7eb13451950e95386176d8bf79b64ac6", null ],
     [ "end", "classquicr_1_1_track_namespace.html#aaa88817be4478819ea3f94dd613e9aae", null ],
     [ "end", "classquicr_1_1_track_namespace.html#aff84c308ad8f65f729df2baf961b5064", null ],
-    [ "GetEntries", "classquicr_1_1_track_namespace.html#abea754877bffe229e6fee49dfafa5e5e", null ],
+    [ "GetEntries", "classquicr_1_1_track_namespace.html#a32dc15e4ff8867523d2435875a99f00e", null ],
     [ "GetHashes", "classquicr_1_1_track_namespace.html#a3ed9ff340b42769be01c3c3b83137d8e", null ],
     [ "HasSamePrefix", "classquicr_1_1_track_namespace.html#a8f7feab21465d130568f1eb32781490c", null ],
     [ "IsPrefixOf", "classquicr_1_1_track_namespace.html#a56da433c6f0013b6f088fb464bb4fe3a", null ],
@@ -25,6 +25,5 @@ var classquicr_1_1_track_namespace =
     [ "operator<=", "classquicr_1_1_track_namespace.html#a902dd7805c5681780cfc05ebaf551ee5", null ],
     [ "operator==", "classquicr_1_1_track_namespace.html#a6e56ddba1b7a67c8f0f66bc229885ccd", null ],
     [ "operator>", "classquicr_1_1_track_namespace.html#a80f8eee959dc83390f4b45e313b309dc", null ],
-    [ "operator>=", "classquicr_1_1_track_namespace.html#aaae963321870610de010e2b903b20a19", null ],
-    [ "std::hash< quicr::TrackNamespace >", "classquicr_1_1_track_namespace.html#a7e3673b45529e9851be93d6da86f1b0d", null ]
+    [ "operator>=", "classquicr_1_1_track_namespace.html#aaae963321870610de010e2b903b20a19", null ]
 ];

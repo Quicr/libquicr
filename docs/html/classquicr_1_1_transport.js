@@ -24,7 +24,7 @@ var classquicr_1_1_transport =
       [ "kDisconnecting", "classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a7c92b98495ae8a8b8dad3b3213bb7a7d", null ],
       [ "kNotConnected", "classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a32a54fa8629fe6e9cb3e265e959258d8", null ],
       [ "kFailedToConnect", "classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a69342870c437db62c59af80facdf4f3c", null ],
-      [ "kPendingSeverSetup", "classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173a6c5660d2ed7f39a660130e00fa80f208", null ]
+      [ "kPendingServerSetup", "classquicr_1_1_transport.html#a1fc1ea2c9665c591c4eac8a6ff1b6173ae9e84eaea9bad88dc17baaafd55f8f83", null ]
     ] ],
     [ "StreamDataMessageStatus", "classquicr_1_1_transport.html#af17faf762203edfb5ee459d7ebbda324", null ],
     [ "Transport", "classquicr_1_1_transport.html#abbc296d2b5f3250ae88e294990cf37ea", null ],
@@ -32,15 +32,26 @@ var classquicr_1_1_transport =
     [ "Transport", "classquicr_1_1_transport.html#a6bde553271f86037479bfb77e6c305f7", null ],
     [ "~Transport", "classquicr_1_1_transport.html#a39559970251ec1c9dff25017c69297a7", null ],
     [ "CancelFetchTrack", "classquicr_1_1_transport.html#a35778d49705111d93733245d707331a6", null ],
+    [ "FetchReceived", "classquicr_1_1_transport.html#a0728459646b498c15d3cb285182f6b2f", null ],
     [ "FetchTrack", "classquicr_1_1_transport.html#a87fba644270c33f3322491bcacbb8244", null ],
+    [ "GetConnectionContext", "classquicr_1_1_transport.html#a46202adcec3171328ddc4e471e7bc685", null ],
+    [ "GetSharedPtr", "classquicr_1_1_transport.html#a7977ae1c870ac85153ec20e2c3a95ce0", null ],
     [ "GetStatus", "classquicr_1_1_transport.html#a0f2587e91119578814a0f68beab5343b", null ],
     [ "GetTickService", "classquicr_1_1_transport.html#adc54129621cd83bfce5164e82ad89b4b", null ],
     [ "PublishTrack", "classquicr_1_1_transport.html#aa954eee8c9e305afea8e078631a610f0", null ],
+    [ "PublishTrackSub", "classquicr_1_1_transport.html#a0c114741d306c3b2366f22773fdf27ca", null ],
+    [ "RequestTrackStatus", "classquicr_1_1_transport.html#a5360b238fceb3a4599a68817053096ec", null ],
+    [ "ResolveTrackStatus", "classquicr_1_1_transport.html#a3d3bf4c9d5b249e6e32415945258826d", null ],
     [ "StatusChanged", "classquicr_1_1_transport.html#af6b023296dcd922a3e590753aaa97bb3", null ],
     [ "SubscribeTrack", "classquicr_1_1_transport.html#a40dd0c703c1d342b51670195bce425c3", null ],
+    [ "TrackStatusReceived", "classquicr_1_1_transport.html#a41711ce92efc06f60b6bcec2104d2aa4", null ],
+    [ "TrackStatusResponseReceived", "classquicr_1_1_transport.html#aa2d05f889c978960a851175054268e01", null ],
     [ "UnpublishTrack", "classquicr_1_1_transport.html#a13e2e0f786b4bace741af6379b6dfee6", null ],
     [ "UnsubscribeTrack", "classquicr_1_1_transport.html#af595c628c640d1f674f1278fca9ee7cd", null ],
-    [ "UpdateTrackSubscription", "classquicr_1_1_transport.html#a307e575ac9f13c8ce7e2c37ab910ef91", null ],
+    [ "UpdateTrackSubscription", "classquicr_1_1_transport.html#ac09ac50b42e094f510270f5d1845dbe0", null ],
     [ "Client", "classquicr_1_1_transport.html#a5db1c99e2c94b26278f3838c85cdb618", null ],
-    [ "Server", "classquicr_1_1_transport.html#ac2055578ac48afabe5af487878450f68", null ]
+    [ "PublishFetchHandler", "classquicr_1_1_transport.html#ac187b76218b16024dedf1aa28a03ffa1", null ],
+    [ "PublishTrackHandler", "classquicr_1_1_transport.html#a678483f839a35e16e25017a06e47958a", null ],
+    [ "Server", "classquicr_1_1_transport.html#ac2055578ac48afabe5af487878450f68", null ],
+    [ "SubscribeTrackHandler", "classquicr_1_1_transport.html#a6c0cffca708c77829cdc1d5cc5e96c6c", null ]
 ];

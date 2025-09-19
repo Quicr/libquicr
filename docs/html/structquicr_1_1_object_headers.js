@@ -2,6 +2,7 @@ var structquicr_1_1_object_headers =
 [
     [ "extensions", "structquicr_1_1_object_headers.html#a5df4640f77a5d99d30563728691bc501", null ],
     [ "group_id", "structquicr_1_1_object_headers.html#a5f95043ef8044f6497e9eedc8cd20ff9", null ],
+    [ "immutable_extensions", "structquicr_1_1_object_headers.html#a6ae96ec0cf4ad374d52d181f35ce7e11", null ],
     [ "object_id", "structquicr_1_1_object_headers.html#a544ac7b64c29d3adec1e76b4efefa5d5", null ],
     [ "payload_length", "structquicr_1_1_object_headers.html#ad15c80dbc8580017173694db9db4d0d2", null ],
     [ "priority", "structquicr_1_1_object_headers.html#a7f1dbb9d56ecaa769b7b43128215c4bc", null ],

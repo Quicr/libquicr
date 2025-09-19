@@ -9,6 +9,7 @@ var dir_63c2ae21967f3a5a594ee14d8245c5a5 =
     [ "hash.h", "hash_8h.html", "hash_8h" ],
     [ "metrics.h", "metrics_8h.html", "metrics_8h" ],
     [ "object.h", "object_8h.html", "object_8h" ],
+    [ "publish_fetch_handler.h", "publish__fetch__handler_8h.html", "publish__fetch__handler_8h" ],
     [ "publish_track_handler.h", "publish__track__handler_8h.html", "publish__track__handler_8h" ],
     [ "server.h", "server_8h.html", "server_8h" ],
     [ "subscribe_track_handler.h", "subscribe__track__handler_8h.html", "subscribe__track__handler_8h" ],
