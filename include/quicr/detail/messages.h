@@ -645,7 +645,7 @@ namespace quicr::messages {
 
     struct StreamSubGroupObject
     {
-        ObjectId object_id;
+        ObjectId object_delta;
         uint64_t payload_len{ 0 };
         ObjectStatus object_status;
         std::optional<Extensions> extensions;

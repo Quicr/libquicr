@@ -676,7 +676,7 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const StreamSubGroupObject& msg)
     {
-        buffer << UintVar(msg.object_id);
+        buffer << UintVar(msg.object_delta);
         assert(msg.stream_type.has_value()); // Stream type must have been set before serialization.
         const auto properties = StreamHeaderProperties(*msg.stream_type);
         if (!properties.may_contain_extensions &&
@@ -704,7 +704,7 @@ namespace quicr::messages {
     {
         switch (msg.current_pos) {
             case 0: {
-                if (!ParseUintVField(buffer, msg.object_id)) {
+                if (!ParseUintVField(buffer, msg.object_delta)) {
                     return false;
                 }
                 msg.current_pos += 1;

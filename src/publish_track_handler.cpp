@@ -160,9 +160,13 @@ namespace quicr {
         if (seen_first_object_) {
             group_id_delta =
               latest_group_id_ > object_headers.group_id ? 0 : object_headers.group_id - latest_group_id_;
-            object_id_delta =
-              latest_object_id_ > object_headers.object_id ? 0 : object_headers.object_id - latest_object_id_;
         }
+
+        object_id_delta =
+          latest_object_id_ > object_headers.object_id ? 0 : object_headers.object_id - latest_object_id_;
+
+        if (object_id_delta)
+            object_id_delta--; // Adjust for delta in missing objects
 
         seen_first_object_ = true;
 
@@ -180,8 +184,8 @@ namespace quicr {
                                            value_bytes);
         }
 
-        if (object_id_delta > 1) {
-            const std::uint64_t value = object_id_delta - 1;
+        if (object_id_delta > 0) {
+            const std::uint64_t value = object_id_delta;
             std::vector<std::uint8_t> value_bytes(sizeof(value));
             memcpy(value_bytes.data(), &value, sizeof(value));
             if (not object_extensions.has_value()) {
@@ -205,7 +209,6 @@ namespace quicr {
         ITransport::EnqueueFlags eflags;
 
         std::uint64_t group_id = object_headers.group_id;
-        std::uint64_t object_id = object_headers.object_id;
         std::uint16_t ttl = object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_;
         std::uint8_t priority =
           object_headers.priority.has_value() ? object_headers.priority.value() : default_priority_;
@@ -270,7 +273,7 @@ namespace quicr {
                 }
 
                 messages::StreamSubGroupObject object;
-                object.object_id = object_id;
+                object.object_delta = object_id_delta;
                 object.stream_type = GetStreamMode();
                 if (object_extensions) {
                     object.extensions = std::move(*object_extensions);
