@@ -1220,7 +1220,7 @@ namespace quicr {
               tfn,
               track_handler->GetTrackAlias().value(),
               GroupOrder::kAscending,
-              std::make_optional(Location{ track_handler->latest_group_id_, track_handler->latest_object_id_ }),
+              std::make_optional(Location{ track_handler->latest_group_id_, track_handler->latest_object_id_.has_value() ? *track_handler->latest_object_id_  : 0}),
               true);
         }
 

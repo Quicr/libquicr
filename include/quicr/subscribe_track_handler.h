@@ -309,9 +309,9 @@ namespace quicr {
 
         StreamBuffer<uint8_t> stream_buffer_;
 
-        uint64_t next_object_id_{ 0 };
+        std::optional<uint64_t> next_object_id_;
         uint64_t current_group_id_{ 0 };
-        bool sent_first_object_{ false };
+        uint64_t current_subgroup_id_{ 0 };
 
       private:
         Status status_{ Status::kNotSubscribed };
