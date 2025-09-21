@@ -104,7 +104,8 @@ namespace quicr {
 
         // change in subgroups and groups require a new stream
 
-        is_stream_header_needed = not latest_object_id_.has_value() || latest_sub_group_id_ != object_headers.subgroup_id ||
+        is_stream_header_needed = not latest_object_id_.has_value() ||
+                                  latest_sub_group_id_ != object_headers.subgroup_id ||
                                   latest_group_id_ != object_headers.group_id;
 
         switch (publish_status_) {
@@ -161,8 +162,9 @@ namespace quicr {
             group_id_delta =
               latest_group_id_ > object_headers.group_id ? 0 : object_headers.group_id - latest_group_id_;
 
-            object_id_delta =
-              *latest_object_id_ > object_headers.object_id ? object_headers.object_id : object_headers.object_id - *latest_object_id_;
+            object_id_delta = *latest_object_id_ > object_headers.object_id
+                                ? object_headers.object_id
+                                : object_headers.object_id - *latest_object_id_;
         } else {
             object_id_delta = object_headers.object_id + 1;
         }

@@ -232,16 +232,6 @@ namespace quicr {
         }
 
         /**
-         * @brief Check if the first object has been sent or not
-         *
-         * @return True if one objet has been sent, False if no objects yet
-         */
-        constexpr bool SentFirstObject() const noexcept
-        {
-            return latest_object_id_.has_value();
-        }
-
-        /**
          * @brief Set the track alias
          *
          * @param track_alias       MoQ track alias for track namespace+name
