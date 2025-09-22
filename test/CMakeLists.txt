@@ -16,19 +16,18 @@ add_executable(quicr_test
     priority_queue.cpp
 )
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
-
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
 
-target_compile_options(quicr_test
-    PRIVATE
-        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
-        $<$<CXX_COMPILER_ID:MSVC>: >)
+target_compile_options(quicr_test PRIVATE
+    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
+    $<$<CXX_COMPILER_ID:MSVC>: >
+)
 
-set_target_properties(quicr_test
-    PROPERTIES
-        CXX_STANDARD 20
-        CXX_STANDARD_REQUIRED YES
-        CXX_EXTENSIONS ON)
+set_target_properties(quicr_test PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS ON
+)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(quicr_test PRIVATE  -Wall -pedantic -Wextra)
@@ -42,10 +41,25 @@ endif()
 include(${CMAKE_SOURCE_DIR}/dependencies/doctest/scripts/cmake/doctest.cmake)
 doctest_discover_tests(quicr_test)
 
+#=============================================================================#
 # Add integration tests
+#=============================================================================#
+
 if (QUICR_BUILD_INTEGRATION_TESTS)
     add_subdirectory(integration_test)
 endif()
+
+#=============================================================================#
+# Fuzzing targets
+#=============================================================================#
+
+if(QUICR_BUILD_FUZZ)
+   add_subdirectory(fuzz)
+endif()
+
+#=============================================================================#
+# Linting
+#=============================================================================#
 
 if (LINT)
     include(Lint)
