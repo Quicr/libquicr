@@ -51,7 +51,7 @@ option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(PLATFORM_ESP_IDF "Enable support for esp-idf (Default OFF)" OFF)
 option(DRAFT_PARSER_SETUP_VENV "Set up Python virtual environment for draft parser" ON)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
-option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
+option(quicr_BUILD_EXAMPLES "Build examples" OFF)
 
 include(CMakeDependentOption)
 
@@ -126,7 +126,7 @@ endif()
 # Examples
 #=============================================================================#
 
-if(QUICR_BUILD_EXAMPLES)
+if(quicr_BUILD_EXAMPLES)
    add_subdirectory(examples)
 endif()
 
