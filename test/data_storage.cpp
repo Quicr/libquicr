@@ -30,9 +30,35 @@ TEST_CASE("DataStorage Read")
     CHECK_NOTHROW(buffer->Push(quicr::AsBytes(value)));
 
     std::vector<uint8_t> v(buffer->begin(), buffer->end());
-
     CHECK_EQ(v.size(), 8);
     CHECK_EQ(v, std::vector<uint8_t>{ 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01 });
+}
+
+TEST_CASE("DataStorage Iterators")
+{
+    auto buffer = quicr::DataStorage<>::Create();
+
+    uint64_t value = 0x0102030405060708;
+    CHECK_NOTHROW(buffer->Push(quicr::AsBytes(value)));
+
+    {
+        auto non_overflow_it = buffer->begin() + sizeof(uint32_t);
+        CHECK_EQ(*non_overflow_it, 0x04);
+
+        CHECK_NOTHROW(buffer->Push(quicr::AsBytes(value)));
+
+        auto overflow_it = buffer->begin() + sizeof(uint32_t) + sizeof(uint64_t);
+        CHECK_EQ(*overflow_it, 0x04);
+    }
+
+    // FIXME: - is broken for
+    // {
+    //     auto non_overflow_it = std::prev(buffer->end()) - sizeof(uint32_t);
+    //     CHECK_EQ(*non_overflow_it, 0x05);
+
+    //     auto overflow_it = std::prev(buffer->end()) - sizeof(uint32_t) - sizeof(uint64_t);
+    //     CHECK_EQ(*overflow_it, 0x05);
+    // }
 }
 
 TEST_CASE("DataStorage Multiples")
@@ -52,17 +78,31 @@ TEST_CASE("DataStorage Multiples")
     CHECK_EQ(v.at(5), 'w');
     CHECK_EQ(std::string{ buffer->begin(), buffer->end() }, "one two three");
 
-    auto buffer_view = quicr::DataStorageDynView(buffer, 1, 11);
+    auto buffer_view = quicr::DynamicDataView(buffer, 1, 11);
+    auto buffer_span = quicr::DataSpan(buffer, 1, 11);
+
     std::vector<uint8_t> view_v(buffer_view.begin(), buffer_view.end());
     CHECK_EQ(view_v.size(), 10);
     CHECK_EQ(view_v.at(4), 'w');
     CHECK_EQ(std::string{ buffer_view.begin(), buffer_view.end() }, "ne two thr");
 
-    auto buffer_subview = buffer_view.Subspan(3);
+    std::vector<uint8_t> span_v(buffer_span.begin(), buffer_span.end());
+    CHECK_EQ(span_v.size(), s1.size() + s2.size() + s3.size() - 2);
+    CHECK_EQ(span_v.at(4), 'w');
+    CHECK_EQ(std::string{ buffer_span.begin(), buffer_span.end() }, "ne two thre");
+
+    auto buffer_subview = buffer_view.Subview(3);
+    auto buffer_subspan = buffer_span.Subspan(3);
+
     std::vector<uint8_t> subview_v(buffer_subview.begin(), buffer_subview.end());
     CHECK_EQ(subview_v.size(), s1.size() + s2.size() + s3.size() - 3);
     CHECK_EQ(subview_v.at(1), 't');
     CHECK_EQ(std::string{ buffer_subview.begin(), buffer_subview.end() }, " two three");
+
+    std::vector<uint8_t> subspan_v(buffer_subspan.begin(), buffer_subspan.end());
+    CHECK_EQ(subspan_v.size(), s1.size() + s2.size() + s3.size() - 5);
+    CHECK_EQ(subspan_v.at(1), 'w');
+    CHECK_EQ(std::string{ buffer_subspan.begin(), buffer_subspan.end() }, "two thre");
 }
 
 TEST_CASE("DataStorage Add and Remove")
@@ -76,7 +116,7 @@ TEST_CASE("DataStorage Add and Remove")
     buffer->Push(quicr::AsBytes(s1));
     buffer->Push(quicr::AsBytes(s2));
 
-    const auto buf_view = quicr::DataStorageDynView(buffer);
+    const auto buf_view = quicr::DynamicDataView(buffer);
     CHECK_EQ(buf_view.size(), buffer->size());
 
     buffer->Push(quicr::AsBytes(s3));
