@@ -113,7 +113,7 @@ add_subdirectory(src)
 # Enable testing and add tests if QUICR_BUILD_TESTS is ON
 #=============================================================================#
 
-if(BUILD_TESTING AND QUICR_BUILD_TESTS)
+if(BUILD_TESTING)
     include(CTest)
     add_subdirectory(test)
 endif()
