@@ -20,7 +20,7 @@
 
 using json = nlohmann::json; // NOLINT
 
-namespace qclient_vars {
+namespace vars {
     bool publish_clock{ false };
     std::optional<uint64_t> track_alias; /// Track alias to use for subscribe
     bool record = false;
@@ -32,7 +32,7 @@ namespace qclient_vars {
 
 }
 
-namespace qclient_consts {
+namespace consts {
     const std::filesystem::path kMoqDataDir = std::filesystem::current_path() / "moq_data";
 }
 
@@ -123,10 +123,10 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                             quicr::messages::FilterType filter_type,
                             const std::optional<JoiningFetch>& joining_fetch,
-                            const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
+                            const std::filesystem::path& dir = consts::kMoqDataDir)
       : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type, joining_fetch)
     {
-        if (qclient_vars::record) {
+        if (vars::record) {
             std::filesystem::create_directory(dir);
 
             const std::string name_str = ToString(full_track_name);
@@ -148,7 +148,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
     void ObjectReceived(const quicr::ObjectHeaders& hdr, quicr::BytesSpan data) override
     {
-        if (qclient_vars::record) {
+        if (vars::record) {
             RecordObject(GetFullTrackName(), hdr, data);
         }
 
@@ -176,7 +176,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
         SPDLOG_INFO("Received message: {} Group:{}, Object:{} - {}", ext.str(), hdr.group_id, hdr.object_id, msg);
 
-        if (qclient_vars::new_group && not new_group_requested_) {
+        if (vars::new_group && not new_group_requested_) {
             SPDLOG_INFO("Track alias: {} requesting new group", GetTrackAlias().value());
             RequestNewGroup();
             new_group_requested_ = true;
@@ -491,8 +491,8 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
 
     track_handler->SetUseAnnounce(use_announce);
 
-    if (qclient_vars::track_alias.has_value()) {
-        track_handler->SetTrackAlias(*qclient_vars::track_alias);
+    if (vars::track_alias.has_value()) {
+        track_handler->SetTrackAlias(*vars::track_alias);
     }
 
     SPDLOG_INFO("Started publisher track");
@@ -507,10 +507,10 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
     std::ifstream data_fs;
 
     std::deque<std::pair<quicr::ObjectHeaders, quicr::Bytes>> messages;
-    if (qclient_vars::playback) {
+    if (vars::playback) {
         const std::string name_str = ToString(full_track_name);
-        moq_fs.open(qclient_consts::kMoqDataDir / (name_str + ".moq"), std::ios::in);
-        data_fs.open(qclient_consts::kMoqDataDir / (name_str + ".dat"), std::ios::in);
+        moq_fs.open(consts::kMoqDataDir / (name_str + ".moq"), std::ios::in);
+        data_fs.open(consts::kMoqDataDir / (name_str + ".dat"), std::ios::in);
 
         std::string data;
         std::getline(data_fs, data);
@@ -577,7 +577,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
         if (!sending) {
             SPDLOG_INFO("--------------------------------------------------------------------------");
 
-            if (qclient_vars::publish_clock) {
+            if (vars::publish_clock) {
                 SPDLOG_INFO(" Publishing clock timestamp every second");
             } else {
                 SPDLOG_INFO(" Type message and press enter to send");
@@ -587,7 +587,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
             sending = true;
         }
 
-        if (qclient_vars::playback) {
+        if (vars::playback) {
             const auto [hdr, msg] = messages.front();
             messages.pop_front();
 
@@ -603,7 +603,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
                 SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
             }
 
-            std::this_thread::sleep_for(qclient_vars::playback_speed_ms);
+            std::this_thread::sleep_for(vars::playback_speed_ms);
 
             if (messages.empty()) {
                 break;
@@ -618,16 +618,16 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
             group_id++;
         }
 
-        if (qclient_vars::add_gaps && group_id && group_id % 4 == 0) {
+        if (vars::add_gaps && group_id && group_id % 4 == 0) {
             group_id += 1;
         }
 
-        if (qclient_vars::add_gaps && object_id && object_id % 8 == 0) {
+        if (vars::add_gaps && object_id && object_id % 8 == 0) {
             object_id += 2;
         }
 
         std::string msg;
-        if (qclient_vars::publish_clock) {
+        if (vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = quicr::example::GetTimeStr();
             SPDLOG_INFO("Group:{0} Object:{1}, Msg:{2}", group_id, object_id, msg);
@@ -795,7 +795,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
 
     if (cli_opts.count("clock") && cli_opts["clock"].as<bool>() == true) {
         SPDLOG_INFO("Running in clock publish mode");
-        qclient_vars::publish_clock = true;
+        vars::publish_clock = true;
     }
 
     if (cli_opts.count("sub_namespace") && cli_opts.count("sub_name")) {
@@ -813,32 +813,32 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     }
 
     if (cli_opts.count("track_alias")) {
-        qclient_vars::track_alias = cli_opts["track_alias"].as<uint64_t>();
+        vars::track_alias = cli_opts["track_alias"].as<uint64_t>();
     }
 
     if (cli_opts.count("record")) {
-        qclient_vars::record = true;
+        vars::record = true;
     }
 
     if (cli_opts.count("playback")) {
-        qclient_vars::playback = true;
+        vars::playback = true;
     }
 
     if (cli_opts.count("gaps") && cli_opts["gaps"].as<bool>() == true) {
         SPDLOG_INFO("Adding gaps to group and objects");
-        qclient_vars::add_gaps = true;
+        vars::add_gaps = true;
     }
 
     if (cli_opts.count("new_group")) {
-        qclient_vars::new_group = true;
+        vars::new_group = true;
     }
 
     if (cli_opts.count("track_status")) {
-        qclient_vars::req_track_status = true;
+        vars::req_track_status = true;
     }
 
     if (cli_opts.count("playback_speed_ms")) {
-        qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
+        vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
 
     if (cli_opts.count("ssl_keylog") && cli_opts["ssl_keylog"].as<bool>() == true) {
@@ -986,7 +986,7 @@ main(int argc, char* argv[])
             const auto& sub_track_name = quicr::example::MakeFullTrackName(result["sub_namespace"].as<std::string>(),
                                                                            result["sub_name"].as<std::string>());
 
-            if (qclient_vars::req_track_status) {
+            if (vars::req_track_status) {
                 client->RequestTrackStatus(sub_track_name);
             }
 

@@ -33,12 +33,10 @@ ci: CMakeLists.txt cmd/CMakeLists.txt
 
 # Generate self-signed certificates.
 cert:
-	@echo "Creating certificate in ${BUILD_DIR}/cmd/examples"
+	@echo "Creating certificate in ${BUILD_DIR}test/integration_test"
 	@openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
         -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
-        -keyout ${BUILD_DIR}/cmd/examples/server-key.pem -out ${BUILD_DIR}/cmd/examples/server-cert.pem
-	@cp ${BUILD_DIR}/cmd/examples/server-key.pem ${BUILD_DIR}/test/integration_test/server-key.pem
-	@cp ${BUILD_DIR}/cmd/examples/server-cert.pem ${BUILD_DIR}/test/integration_test/server-cert.pem
+        -keyout ${BUILD_DIR}/test/integration_test/server-key.pem -out ${BUILD_DIR}/test/integration_test/server-cert.pem
 
 # Run the tests.
 test: ci
