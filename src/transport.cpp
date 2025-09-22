@@ -266,10 +266,15 @@ namespace quicr {
     void Transport::SendClientSetup()
     try {
         auto supported_versions = { kMoqtVersion };
+        auto max_requests_bytes = AsBytes(0x1000);
         messages::SetupParameters setup_parameters;
         setup_parameters.push_back(
           { .type = messages::SetupParameterType::kEndpointId,
             .value = { client_config_.endpoint_id.begin(), client_config_.endpoint_id.end() } });
+
+        setup_parameters.push_back(
+          { .type = messages::SetupParameterType::kMaxRequestId,
+            .value = { max_requests_bytes.begin(), max_requests_bytes.end() } });
 
         auto client_setup = messages::ClientSetup(supported_versions, setup_parameters);
 
