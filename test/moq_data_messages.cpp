@@ -97,7 +97,7 @@ CompareExtensions(const std::optional<Extensions>& sent, const std::optional<Ext
     constexpr auto key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
     REQUIRE(recv->contains(key));
     CHECK_GT(recv->at(key).size(), 0);
-    auto copy = std::move(recv);
+    auto copy = recv;
     copy->erase(key);
     if (copy->size() == 0) {
         copy = std::nullopt;
