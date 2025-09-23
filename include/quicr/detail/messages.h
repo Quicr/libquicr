@@ -194,8 +194,7 @@ namespace quicr::messages {
                                                   : StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions;
                 }
             }
-            assert(false);
-            return StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions;
+            throw ProtocolViolationException("Unknown subgroup header type");
         }
 
       private:
@@ -217,8 +216,7 @@ namespace quicr::messages {
                 case StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions:
                     return true;
             }
-            assert(false);
-            return false;
+            throw ProtocolViolationException("Unknown subgroup header type");
         }
 
         static constexpr bool EndOfGroup(const StreamHeaderType type)
@@ -239,8 +237,7 @@ namespace quicr::messages {
                 case StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions:
                     return false;
             }
-            assert(false);
-            return false;
+            throw ProtocolViolationException("Unknown subgroup header type");
         }
 
         static constexpr SubgroupIdType GetSubgroupIdType(const StreamHeaderType type)
@@ -262,8 +259,7 @@ namespace quicr::messages {
                 case StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions:
                     return SubgroupIdType::kExplicit;
             }
-            assert(false);
-            return SubgroupIdType::kIsZero;
+            throw ProtocolViolationException("Unknown subgroup header type");
         }
     };
 
@@ -314,8 +310,7 @@ namespace quicr::messages {
                 case DatagramHeaderType::kNotEndOfGroupWithExtensions:
                     return false;
             }
-            assert(false);
-            return false;
+            throw ProtocolViolationException("Unknown datagram header type");
         }
 
         static constexpr bool HasExtensions(const DatagramHeaderType type)
@@ -328,8 +323,7 @@ namespace quicr::messages {
                 case DatagramHeaderType::kEndOfGroupWithExtensions:
                     return true;
             }
-            assert(false);
-            return false;
+            throw ProtocolViolationException("Unknown datagram header type");
         }
     };
 
@@ -369,8 +363,7 @@ namespace quicr::messages {
                 case DatagramStatusType::kWithExtensions:
                     return true;
             }
-            assert(false);
-            return false;
+            throw ProtocolViolationException("Unknown datagram status type");
         }
     };
 
@@ -435,8 +428,7 @@ namespace quicr::messages {
             case DatagramMessageType::kDatagramStatusWithExtensions:
                 return true;
         }
-        assert(false);
-        return false;
+        throw ProtocolViolationException("Unknown datagram message type");
     }
 
     /**
@@ -457,8 +449,7 @@ namespace quicr::messages {
             case DatagramMessageType::kDatagramStatusWithExtensions:
                 return false;
         }
-        assert(false);
-        return false;
+        throw ProtocolViolationException("Unknown datagram message type");
     }
 
     /**
@@ -479,8 +470,7 @@ namespace quicr::messages {
             case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
                 return false;
         }
-        assert(false);
-        return false;
+        throw ProtocolViolationException("Unknown datagram message type");
     }
 
     /**
@@ -507,8 +497,7 @@ namespace quicr::messages {
             case StreamMessageType::kFetchHeader:
                 return false;
         }
-        assert(false);
-        return false;
+        throw ProtocolViolationException("Unknown stream header type");
     }
 
     struct FetchHeader
