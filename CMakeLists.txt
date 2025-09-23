@@ -5,15 +5,11 @@ cmake_minimum_required(VERSION 3.13)
 
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
+include(CMakeDependentOption)
+
 # Build tests by default only if not a sub-project
-if(DEFINED PROJECT_NAME)
-    option(QUICR_BUILD_TESTS "Build tests for quicr" OFF)
-    option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" OFF)
-else()
-    option(QUICR_BUILD_TESTS "Build tests for quicr" ON)
-    option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" ON)
-    option(QUICR_BUILD_INTEGRATION_TESTS "Also build integration tests for quicr" ON)
-endif()
+cmake_dependent_option(QUICR_BUILD_TESTS "Build tests for quicr" ON DEFINED PROJECT_NAME OFF)
+cmake_dependent_option(QUICR_BUILD_INTEGRATION_TESTS "Also build integration tests for quicr" ON DEFINED PROJECT_NAME OFF)
 
 project(quicr
     VERSION 1.12.4
@@ -46,6 +42,7 @@ message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
 # Options
 #=============================================================================#
 
+option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(PLATFORM_ESP_IDF "Enable support for esp-idf (Default OFF)" OFF)
@@ -110,30 +107,27 @@ parse_draft(
 add_subdirectory(src)
 
 #=============================================================================#
-# Enable testing and add tests if QUICR_BUILD_TESTS is ON
+# Enable testing
 #=============================================================================#
 
+include(CTest)
+
 if(BUILD_TESTING)
-    include(CTest)
     add_subdirectory(test)
 endif()
 
-if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
+#=============================================================================#
+# Enable Benchmarking
+#=============================================================================#
+
+if (quicr_BUILD_BENCHMARKS)
    add_subdirectory(benchmark)
 endif()
 
 #=============================================================================#
-# Examples
+# Build Examples
 #=============================================================================#
 
 if(quicr_BUILD_EXAMPLES)
    add_subdirectory(examples)
-endif()
-
-#=============================================================================#
-# Linting
-#=============================================================================#
-
-if(LINT)
-    lint(quicr)
 endif()

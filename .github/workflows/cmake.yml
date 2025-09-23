@@ -55,7 +55,7 @@ jobs:
         echo "CXX=/usr/bin/g++-12" >> $GITHUB_ENV
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON -Dquicr_BUILD_EXAMPLES=ON
+      run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -Dquicr_BUILD_BENCHMARKS=ON -Dquicr_BUILD_EXAMPLES=ON
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j $(getconf _NPROCESSORS_ONLN)

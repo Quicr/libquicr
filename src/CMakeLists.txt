@@ -66,3 +66,11 @@ if (PLATFORM_ESP_IDF)
 endif()
 
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src)
+
+#=============================================================================#
+# Linting
+#=============================================================================#
+
+if(LINT)
+    lint(quicr)
+endif()
