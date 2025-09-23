@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-if (QUICR_BUILD_TESTS)
+if (quicr_BUILD_TESTS)
     add_executable(quicr_test
         main.cpp
         moq_data_messages.cpp
@@ -47,7 +47,7 @@ endif()
 # Add integration tests
 #=============================================================================#
 
-if (QUICR_BUILD_INTEGRATION_TESTS)
+if (quicr_BUILD_INTEGRATION_TESTS)
     add_subdirectory(integration_test)
 endif()
 
@@ -55,7 +55,7 @@ endif()
 # Fuzzing targets
 #=============================================================================#
 
-if(QUICR_BUILD_FUZZ)
+if(quicr_BUILD_FUZZ)
    add_subdirectory(fuzz)
 endif()
 
@@ -63,7 +63,7 @@ endif()
 # Linting
 #=============================================================================#
 
-if (LINT)
+if (quicr_LINT)
     include(Lint)
     Lint(quicr_test)
 endif()

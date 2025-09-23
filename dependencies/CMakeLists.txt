@@ -36,7 +36,7 @@ set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
 # mbedtls
-if (${USE_MBEDTLS})
+if (${quicr_USE_MBEDTLS})
     message("Transport building with MBedTLS")
 
     if (NOT TARGET mbedcrypto) # If not already available on build server

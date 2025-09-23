@@ -777,7 +777,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     }
 
     if (cli_opts.count("version") && cli_opts["version"].as<bool>() == true) {
-        SPDLOG_INFO("QuicR library version: {}", QUICR_VERSION);
+        SPDLOG_INFO("QuicR library version: {}", quicr_VERSION);
         exit(0);
     }
 
@@ -865,7 +865,7 @@ main(int argc, char* argv[])
     int result_code = EXIT_SUCCESS;
 
     cxxopts::Options options("qclient",
-                             std::string("MOQ Example Client using QuicR Version: ") + std::string(QUICR_VERSION));
+                             std::string("MOQ Example Client using QuicR Version: ") + std::string(quicr_VERSION));
 
     // clang-format off
     options.set_width(75)

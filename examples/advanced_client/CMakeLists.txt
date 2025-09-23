@@ -23,7 +23,7 @@ set_target_properties(qclient PROPERTIES
 
 target_compile_definitions(qclient PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 
-if(LINT)
+if(quicr_LINT)
     include(Lint)
     Lint(qclient)
 endif()

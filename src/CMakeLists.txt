@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-if (${QUICR_BUILD_SHARED})
+if (${quicr_BUILD_SHARED})
     add_library(quicr SHARED)
 else()
     add_library(quicr)
@@ -48,7 +48,7 @@ endif()
 
 target_compile_definitions(quicr PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 
-if(LINT)
+if(quicr_LINT)
     include(Lint)
     lint(quicr)
 endif()
@@ -71,6 +71,6 @@ target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_
 # Linting
 #=============================================================================#
 
-if(LINT)
+if(quicr_LINT)
     lint(quicr)
 endif()
