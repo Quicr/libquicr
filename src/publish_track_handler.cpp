@@ -5,6 +5,8 @@
 
 #include "quicr/transport.h"
 
+#include <sys/socket.h>
+
 namespace quicr {
     void PublishTrackHandler::StatusChanged(Status) {}
     void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&) {}

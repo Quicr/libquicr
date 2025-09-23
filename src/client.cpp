@@ -3,9 +3,11 @@
 
 #include "quicr/transport.h"
 
-#include <optional>
-#include <quicr/client.h>
+#include "quicr/client.h"
 
+#include <spdlog/spdlog.h>
+
+#include <optional>
 namespace quicr {
 
     Client::Status Client::Connect()

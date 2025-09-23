@@ -7,6 +7,10 @@
 #include "quicr/messages.h"
 #include "quicr/transport.h"
 
+#include <spdlog/spdlog.h>
+
+#include <sys/socket.h>
+
 namespace quicr {
 
     void SubscribeTrackHandler::ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,

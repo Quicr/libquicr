@@ -4,6 +4,8 @@
 #include <quicr/messages.h>
 #include <quicr/server.h>
 
+#include <spdlog/spdlog.h>
+
 namespace quicr {
     Server::Status Server::Start()
     {

@@ -1442,7 +1442,7 @@ PicoQuicTransport::EmitMetrics()
         delegate_.OnConnectionMetricsSampled(sample_time, conn_id, conn_ctx.metrics);
 
         for (auto& [data_ctx_id, data_ctx] : conn_ctx.active_data_contexts) {
-            delegate_.OnDataMetricsStampled(sample_time, conn_id, data_ctx_id, data_ctx.metrics);
+            delegate_.OnDataMetricsSampled(sample_time, conn_id, data_ctx_id, data_ctx.metrics);
             data_ctx.metrics.ResetPeriod();
         }
 

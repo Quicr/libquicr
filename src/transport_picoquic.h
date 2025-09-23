@@ -8,11 +8,11 @@
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/containers/time_queue.h"
 #include "quicr/quic_transport_metrics.h"
+#include "quicr/transport.h"
 
 #include <picoquic.h>
 #include <picoquic_config.h>
 #include <picoquic_packet_loop.h>
-#include <quicr/quic_transport.h>
 #include <spdlog/spdlog.h>
 
 #include <atomic>
