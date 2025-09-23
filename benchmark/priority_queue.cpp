@@ -1,7 +1,7 @@
-#include <quicr/detail/priority_queue.h>
+#include <quicr/priority_queue.h>
 
 #include <benchmark/benchmark.h>
-#include <quicr/detail/quic_transport.h>
+#include <quicr/quic_transport.h>
 
 static auto tick_service = std::make_shared<quicr::ThreadedTickService>();
 

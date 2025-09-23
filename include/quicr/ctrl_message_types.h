@@ -1,22 +1,24 @@
 #pragma once
-#include "quicr/common.h"
-#include "quicr/detail/uintvar.h"
-#include "quicr/track_name.h"
+
+#include "common.h"
+#include "track_name.h"
+#include "uintvar.h"
+
 #include <stdexcept>
 
 namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const Bytes& bytes);
-    Bytes& operator<<(Bytes& buffer, const BytesSpan& bytes);
-    BytesSpan operator>>(BytesSpan buffer, Bytes& value);
+    Bytes& operator<<(Bytes& buffer, const UnownedBytes& bytes);
+    UnownedBytes operator>>(UnownedBytes buffer, Bytes& value);
 
     Bytes& operator<<(Bytes& buffer, std::uint64_t value);
-    BytesSpan operator>>(BytesSpan buffer, std::uint64_t& value);
+    UnownedBytes operator>>(UnownedBytes buffer, std::uint64_t& value);
 
     Bytes& operator<<(Bytes& buffer, std::uint8_t value);
-    BytesSpan operator>>(BytesSpan buffer, uint8_t& value);
+    UnownedBytes operator>>(UnownedBytes buffer, uint8_t& value);
 
     Bytes& operator<<(Bytes& buffer, std::uint16_t value);
-    BytesSpan operator>>(BytesSpan buffer, std::uint16_t& value);
+    UnownedBytes operator>>(UnownedBytes buffer, std::uint16_t& value);
 
     Bytes& operator<<(Bytes& buffer, const UintVar& value);
 
@@ -33,7 +35,7 @@ namespace quicr::messages {
         Bytes payload{};
     };
     Bytes& operator<<(Bytes& buffer, const ControlMessage& message);
-    BytesSpan operator>>(BytesSpan buffer, ControlMessage& message);
+    UnownedBytes operator>>(UnownedBytes buffer, ControlMessage& message);
 
     struct Location
     {
@@ -51,7 +53,7 @@ namespace quicr::messages {
         bool operator==(const Location& other) const = default;
     };
     Bytes& operator<<(Bytes& buffer, const Location& location);
-    BytesSpan operator>>(BytesSpan buffer, Location& location);
+    UnownedBytes operator>>(UnownedBytes buffer, Location& location);
 
     /// MoQ Key Value Pair.
     template<typename T>
@@ -137,7 +139,7 @@ namespace quicr::messages {
         return buffer << UintVar(static_cast<std::uint64_t>(value));
     }
     template<KeyType T>
-    BytesSpan operator>>(BytesSpan buffer, T& value)
+    UnownedBytes operator>>(UnownedBytes buffer, T& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
@@ -164,7 +166,7 @@ namespace quicr::messages {
     }
 
     template<KeyType T>
-    BytesSpan operator>>(BytesSpan buffer, KeyValuePair<T>& param)
+    UnownedBytes operator>>(UnownedBytes buffer, KeyValuePair<T>& param)
     {
         buffer = buffer >> param.type;
         if (static_cast<std::uint64_t>(param.type) % 2 != 0) {
@@ -210,7 +212,7 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, GroupOrder value);
-    BytesSpan operator>>(BytesSpan buffer, GroupOrder& value);
+    UnownedBytes operator>>(UnownedBytes buffer, GroupOrder& value);
 
     enum struct FilterType : uint64_t
     {
@@ -232,7 +234,7 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, PublishDoneStatusCode value);
-    BytesSpan operator>>(BytesSpan buffer, PublishDoneStatusCode& value);
+    UnownedBytes operator>>(UnownedBytes buffer, PublishDoneStatusCode& value);
 
     enum class FetchType : uint8_t
     {
@@ -242,7 +244,7 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, FetchType value);
-    BytesSpan operator>>(BytesSpan buffer, FetchType& value);
+    UnownedBytes operator>>(UnownedBytes buffer, FetchType& value);
 
     struct StandaloneFetch
     {
@@ -253,7 +255,7 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, StandaloneFetch value);
-    BytesSpan operator>>(BytesSpan buffer, StandaloneFetch& value);
+    UnownedBytes operator>>(UnownedBytes buffer, StandaloneFetch& value);
 
     struct JoiningFetch
     {
@@ -262,7 +264,7 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, JoiningFetch value);
-    BytesSpan operator>>(BytesSpan buffer, JoiningFetch& value);
+    UnownedBytes operator>>(UnownedBytes buffer, JoiningFetch& value);
 
     enum class TerminationReason : uint64_t
     {
@@ -292,7 +294,7 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, FetchErrorCode value);
-    BytesSpan operator>>(BytesSpan buffer, FetchErrorCode& value);
+    UnownedBytes operator>>(UnownedBytes buffer, FetchErrorCode& value);
 
     enum class PublishNamespaceErrorCode : uint64_t
     {
@@ -314,7 +316,7 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, ForwardingPreference value);
-    BytesSpan operator>>(BytesSpan buffer, ForwardingPreference& value);
+    UnownedBytes operator>>(UnownedBytes buffer, ForwardingPreference& value);
 
     enum class SubscribeErrorCode : uint64_t
     {
@@ -330,7 +332,7 @@ namespace quicr::messages {
     };
 
     Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value);
+    UnownedBytes operator>>(UnownedBytes buffer, SubscribeErrorCode& value);
 
     enum class SubscribeNamespaceErrorCode : uint64_t
     {
@@ -341,6 +343,6 @@ namespace quicr::messages {
         kNamespacePrefixUnknown,
     };
 
-    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
+    UnownedBytes operator>>(UnownedBytes buffer, TrackNamespace& msg);
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
 } // namespace

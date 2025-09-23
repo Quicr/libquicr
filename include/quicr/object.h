@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <quicr/detail/base_track_handler.h>
-#include <quicr/detail/messages.h>
+#include "base_track_handler.h"
+#include "messages.h"
 
 #include <cstdint>
 #include <map>

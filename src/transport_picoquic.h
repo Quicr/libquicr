@@ -3,16 +3,16 @@
 
 #pragma once
 
-#include "quicr/detail/priority_queue.h"
-#include "quicr/detail/quic_transport_metrics.h"
-#include "quicr/detail/safe_queue.h"
-#include "quicr/detail/stream_buffer.h"
-#include "quicr/detail/time_queue.h"
+#include "quicr/containers/priority_queue.h"
+#include "quicr/containers/safe_queue.h"
+#include "quicr/containers/stream_buffer.h"
+#include "quicr/containers/time_queue.h"
+#include "quicr/quic_transport_metrics.h"
 
 #include <picoquic.h>
 #include <picoquic_config.h>
 #include <picoquic_packet_loop.h>
-#include <quicr/detail/quic_transport.h>
+#include <quicr/quic_transport.h>
 #include <spdlog/spdlog.h>
 
 #include <atomic>

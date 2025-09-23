@@ -3,13 +3,12 @@
 
 #pragma once
 
+#include "containers/safe_queue.h"
+#include "containers/stream_buffer.h"
 #include "quic_transport_metrics.h"
-#include "quicr/detail/data_storage.h"
-#include "quicr/detail/tick_service.h"
-#include "safe_queue.h"
-#include "stream_buffer.h"
+#include "tick_service.h"
 #include "uintvar.h"
-#include <span>
+#include "utilities/byte.h"
 
 #include <spdlog/spdlog.h>
 
@@ -22,6 +21,7 @@
 #include <optional>
 #include <queue>
 #include <source_location>
+#include <span>
 #include <string>
 #include <sys/socket.h>
 #include <vector>

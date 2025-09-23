@@ -26,7 +26,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "tick_service.h"
+#include "quicr/tick_service.h"
 
 namespace quicr {
     template<typename T>

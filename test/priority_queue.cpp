@@ -1,8 +1,9 @@
 #include <doctest/doctest.h>
 
+#include <quicr/containers/priority_queue.h>
+
 #include <cstring>
 #include <memory>
-#include <quicr/detail/priority_queue.h>
 
 using namespace quicr;
 using namespace std::string_literals;

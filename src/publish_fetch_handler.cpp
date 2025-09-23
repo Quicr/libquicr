@@ -3,11 +3,11 @@
 
 #include "quicr/publish_fetch_handler.h"
 
-#include "quicr/detail/transport.h"
+#include "quicr/transport.h"
 
 namespace quicr {
     PublishTrackHandler::PublishObjectStatus PublishFetchHandler::PublishObject(const ObjectHeaders& object_headers,
-                                                                                const BytesSpan data)
+                                                                                const UnownedBytes data)
     {
         auto transport = GetTransport().lock();
 

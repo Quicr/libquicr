@@ -3,12 +3,12 @@
 
 #pragma once
 
+#include "quic_transport.h"
 #include "quicr/version.h"
-#include <quicr/detail/quic_transport.h>
+
 #include <string>
 
 namespace quicr {
-
     struct Config
     {
         std::string endpoint_id; ///< Endpoint ID for the client or server, should be unique

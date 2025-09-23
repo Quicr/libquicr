@@ -420,7 +420,7 @@ namespace quicr {
 
         void Init();
 
-        void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
+        void SendCtrlMsg(const ConnectionContext& conn_ctx, UnownedBytes data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
         void SendAnnounce(ConnectionContext& conn_ctx,
@@ -578,7 +578,7 @@ namespace quicr {
         // Private member functions that will be implemented by both Server and Client
         // ------------------------------------------------------------------------------------------------
 
-        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, UnownedBytes msg_bytes) = 0;
 
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,

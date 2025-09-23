@@ -3,7 +3,7 @@
 
 #include <quicr/publish_track_handler.h>
 
-#include "quicr/detail/transport.h"
+#include "quicr/transport.h"
 
 namespace quicr {
     void PublishTrackHandler::StatusChanged(Status) {}
@@ -92,7 +92,7 @@ namespace quicr {
     }
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
-                                                                                BytesSpan data)
+                                                                                UnownedBytes data)
     {
         auto transport = GetTransport().lock();
 

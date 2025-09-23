@@ -4,7 +4,7 @@
 #pragma once
 
 #include "quicr/common.h"
-#include "quicr/detail/ctrl_message_types.h"
+#include "quicr/ctrl_message_types.h"
 #include "quicr/track_name.h"
 
 #include <optional>

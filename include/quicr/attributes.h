@@ -5,7 +5,7 @@
 
 #include <chrono>
 #include <optional>
-#include <quicr/detail/ctrl_messages.h>
+#include <quicr/ctrl_messages.h>
 
 namespace quicr::messages {
     /**

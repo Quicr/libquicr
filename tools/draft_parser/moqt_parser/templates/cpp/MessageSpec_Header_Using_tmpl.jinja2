@@ -5,7 +5,7 @@
             {% set field = using_map[key] %}
                 {% if field.cpp_using_type  %}
     using {{field.cpp_using_name}} = {{field.cpp_using_type}};
-                {% else %}             
+                {% else %}
     using {{field.cpp_using_name}} = {{field.cpp_using_type}};
                 {% endif %}
         {% endif %}
@@ -15,6 +15,6 @@
     // stream vectors
     {% for cpp_using_type in repeat_map %}
     Bytes& operator<<(Bytes& buffer, const {{cpp_using_type}}& vec);
-    BytesSpan operator>>(BytesSpan buffer, {{cpp_using_type}}& vec);
+    UnownedBytes operator>>(UnownedBytes buffer, {{cpp_using_type}}& vec);
     {% endfor %}
     #}

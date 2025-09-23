@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/messages.h"
+#include "quicr/messages.h"
 #include <cstddef>
 
 using namespace quicr;
@@ -10,7 +10,7 @@ using namespace quicr;
 extern "C" int
 LLVMFuzzerTestOneInput(const std::uint8_t* data, const std::size_t size)
 {
-    BytesSpan input_span(data, size);
+    UnownedBytes input_span(data, size);
 
     // UIntVar decoding.
     try {

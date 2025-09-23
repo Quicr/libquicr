@@ -3,27 +3,22 @@
 
 #include "transport_picoquic.h"
 
-// PicoQuic.
+#include "quicr/containers/priority_queue.h"
+#include "quicr/containers/safe_queue.h"
+#include "quicr/containers/stream_buffer.h"
+#include "quicr/containers/time_queue.h"
+#include "quicr/quic_transport_metrics.h"
+
 #include <autoqlog.h>
 #include <picoquic.h>
+#include <picoquic_bbr.h>
 #include <picoquic_config.h>
 #include <picoquic_internal.h>
+#include <picoquic_newreno.h>
 #include <picoquic_packet_loop.h>
 #include <picoquic_utils.h>
 #include <picosocks.h>
-#include <spdlog/spdlog.h>
-
-// Transport.
-#include <quicr/detail/priority_queue.h>
-#include <quicr/detail/quic_transport_metrics.h>
-#include <quicr/detail/safe_queue.h>
-#include <quicr/detail/stream_buffer.h>
-#include <quicr/detail/time_queue.h>
 #include <spdlog/logger.h>
-
-// System.
-#include "picoquic_bbr.h"
-#include "picoquic_newreno.h"
 
 #include <arpa/inet.h>
 #include <cassert>

@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/joining_fetch_handler.h"
+#include "quicr/joining_fetch_handler.h"
+
+#include <spdlog/spdlog.h>
 
 namespace quicr {
     void JoiningFetchHandler::StreamDataRecv(bool is_start,

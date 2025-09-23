@@ -4,8 +4,8 @@
 #pragma once
 
 #include <functional>
-#include <quicr/detail/base_track_handler.h>
-#include <quicr/detail/messages.h>
+#include <quicr/base_track_handler.h>
+#include <quicr/messages.h>
 #include <quicr/metrics.h>
 #include <quicr/object.h>
 
@@ -274,7 +274,7 @@ namespace quicr {
          *
          * @returns Publish status of the publish
          */
-        virtual PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+        virtual PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, UnownedBytes data);
 
         /**
          * @brief Forward received object data to subscriber/relay/remote client
@@ -319,7 +319,7 @@ namespace quicr {
          *    * PublishStatus::kObjectDataComplete if the object data was sent and the data is complete,
          *    * other PublishStatus
          */
-        PublishObjectStatus PublishPartialObject(const ObjectHeaders& object_headers, BytesSpan data);
+        PublishObjectStatus PublishPartialObject(const ObjectHeaders& object_headers, UnownedBytes data);
 
         // --------------------------------------------------------------------------
         // Metrics

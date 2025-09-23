@@ -1,7 +1,9 @@
 #include <doctest/doctest.h>
-#include <iostream>
 
-#include <quicr/detail/time_queue.h>
+#include <quicr/tick_service.h>
+
+#include <chrono>
+#include <thread>
 #include <unistd.h>
 
 namespace var {

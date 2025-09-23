@@ -72,7 +72,7 @@ Source:
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, ClientSetup& msg)
+    UnownedBytes operator>>(UnownedBytes buffer, ClientSetup& msg)
     {
         buffer = buffer >> msg.supported_versions; // (i) ... >> SupportedVersions
         buffer = buffer >> msg.setup_parameters; // (..) ... >> SetupParameters

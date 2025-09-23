@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/transport.h"
+#include "quicr/transport.h"
 
-#include "quicr/detail/ctrl_messages.h"
-#include "quicr/detail/messages.h"
+#include "quicr/ctrl_messages.h"
+#include "quicr/messages.h"
 
-#include <quicr/detail/joining_fetch_handler.h>
+#include <quicr/joining_fetch_handler.h>
 #include <sstream>
 
 namespace quicr {
@@ -240,7 +240,7 @@ namespace quicr {
         }
     }
 
-    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
+    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, UnownedBytes data)
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
             CloseConnection(conn_ctx.connection_handle,

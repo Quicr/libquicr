@@ -5,7 +5,7 @@
 
 #include <chrono>
 
-#include "safe_queue.h"
+#include "containers/safe_queue.h"
 
 namespace quicr {
     /*

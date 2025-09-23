@@ -3,7 +3,7 @@
 
 #include <doctest/doctest.h>
 
-#include "quicr/detail/uintvar.h"
+#include "quicr/uintvar.h"
 
 #include <limits>
 

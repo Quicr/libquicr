@@ -2,7 +2,7 @@
      * @brief {{message.name}}
      */
     struct {{ message.name }}
-    {        
+    {
         {% if message.optional_groups | length > 0 %}
     public:
         // Optional Groups
@@ -23,7 +23,7 @@
         // Have optionals - delete default constructor
         {{message.name}} () = delete;
         {% endif %}
-        
+
         // All fields constructor
         {{message.name}} (
             {% for field in message.fields %}
@@ -42,9 +42,9 @@
             {% endfor %}
             {}
 
-        {% set ns = namespace(count=message.optional_groups|length ) %}            
+        {% set ns = namespace(count=message.optional_groups|length ) %}
         {% if ns.count > 0 %}
-        // Optional callback constructor 
+        // Optional callback constructor
 
         {{message.name}} (
         {%for field in message.fields %}
@@ -72,11 +72,11 @@
     };
 
     Bytes& operator<<(Bytes& buffer, const {{ message.name }}& msg);
-    BytesSpan operator>>(BytesSpan buffer, {{ message.name }}& msg);    
+    UnownedBytes operator>>(UnownedBytes buffer, {{ message.name }}& msg);
 
 {% for group_name in message.optional_groups %}
     Bytes& operator<<(Bytes& buffer, const std::optional<{{message.name}}::{{group_name}}>& grp);
-    BytesSpan operator>>(BytesSpan buffer, std::optional<{{message.name}}::{{group_name}}>& grp);
+    UnownedBytes operator>>(UnownedBytes buffer, std::optional<{{message.name}}::{{group_name}}>& grp);
 
 {% endfor %}
 

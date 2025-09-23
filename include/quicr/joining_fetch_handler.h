@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <quicr/detail/messages.h>
+#include <quicr/messages.h>
 #include <quicr/subscribe_track_handler.h>
 
 namespace quicr {

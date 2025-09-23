@@ -1,4 +1,4 @@
-#include <quicr/detail/time_queue.h>
+#include <quicr/time_queue.h>
 
 #include <benchmark/benchmark.h>
 

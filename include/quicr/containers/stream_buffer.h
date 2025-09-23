@@ -4,14 +4,14 @@
 #pragma once
 
 #include "data_storage.h"
-#include "uintvar.h"
-#include <span>
+#include "quicr/uintvar.h"
 
 #include <algorithm>
 #include <any>
 #include <deque>
 #include <mutex>
 #include <optional>
+#include <span>
 
 namespace quicr {
     struct NullMutex

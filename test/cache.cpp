@@ -3,7 +3,7 @@
 
 #include <doctest/doctest.h>
 
-#include <quicr/cache.h>
+#include <quicr/containers/cache.h>
 
 using namespace quicr;
 

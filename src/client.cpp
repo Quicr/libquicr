@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/transport.h"
+#include "quicr/transport.h"
 
 #include <optional>
 #include <quicr/client.h>
@@ -100,7 +100,7 @@ namespace quicr {
                                                                      uint64_t subgroup_id,
                                                                      uint64_t object_id,
                                                                      std::optional<Extensions> extensions,
-                                                                     BytesSpan data) const
+                                                                     UnownedBytes data) const
     {
         const auto request_id = *track_handler.GetRequestId();
 
@@ -168,7 +168,7 @@ namespace quicr {
 
     void Client::PublishUnannounce(const TrackNamespace&) {}
 
-    bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
+    bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, UnownedBytes msg_bytes)
     try {
         switch (*conn_ctx.ctrl_msg_type_received) {
             case messages::ControlMessageType::kSubscribe: {

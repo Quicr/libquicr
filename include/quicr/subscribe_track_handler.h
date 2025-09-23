@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include <quicr/detail/base_track_handler.h>
-#include <quicr/detail/messages.h>
-#include <quicr/detail/stream_buffer.h>
-#include <quicr/metrics.h>
+#include "base_track_handler.h"
+#include "containers/stream_buffer.h"
+#include "messages.h"
+#include "metrics.h"
 
 namespace quicr {
 
@@ -221,7 +221,7 @@ namespace quicr {
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
          */
         virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                    [[maybe_unused]] BytesSpan data);
+                                    [[maybe_unused]] UnownedBytes data);
 
         /**
          * @brief Notification of received stream data slice
@@ -256,7 +256,7 @@ namespace quicr {
          * @param data              Object payload data received, can be <= ObjectHeaders::payload_length
          */
         virtual void PartialObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                           [[maybe_unused]] BytesSpan data)
+                                           [[maybe_unused]] UnownedBytes data)
         {
         }
 

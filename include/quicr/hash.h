@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "detail/utilities.h"
+#include "utilities/byte.h"
 
 #include <array>
 #include <concepts>

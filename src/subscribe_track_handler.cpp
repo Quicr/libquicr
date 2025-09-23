@@ -3,14 +3,14 @@
 
 #include "quicr/subscribe_track_handler.h"
 
-#include "quicr/detail/messages.h"
-#include "quicr/detail/stream_buffer.h"
-#include "quicr/detail/transport.h"
+#include "quicr/containers/stream_buffer.h"
+#include "quicr/messages.h"
+#include "quicr/transport.h"
 
 namespace quicr {
 
     void SubscribeTrackHandler::ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                               [[maybe_unused]] BytesSpan data)
+                                               [[maybe_unused]] UnownedBytes data)
     {
     }
 

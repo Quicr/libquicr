@@ -3,13 +3,13 @@
 
 #pragma once
 
-#include "quicr/detail/messages.h"
-#include <quicr/config.h>
-#include <quicr/detail/attributes.h>
-#include <quicr/detail/transport.h>
-#include <quicr/object.h>
-#include <quicr/publish_fetch_handler.h>
-#include <quicr/track_name.h>
+#include "attributes.h"
+#include "config.h"
+#include "messages.h"
+#include "object.h"
+#include "publish_fetch_handler.h"
+#include "track_name.h"
+#include "transport.h"
 
 namespace quicr {
     using namespace quicr;
@@ -388,7 +388,7 @@ namespace quicr {
         // --END OF CALLBACKS ----------------------------------------------------------------------------------
 
       private:
-        bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) override;
+        bool ProcessCtrlMessage(ConnectionContext& conn_ctx, UnownedBytes msg_bytes) override;
         PublishTrackHandler::PublishObjectStatus SendFetchObject(PublishFetchHandler& track_handler,
                                                                  uint8_t priority,
                                                                  uint32_t ttl,
@@ -397,7 +397,7 @@ namespace quicr {
                                                                  uint64_t subgroup_id,
                                                                  uint64_t object_id,
                                                                  std::optional<Extensions> extensions,
-                                                                 BytesSpan data) const;
+                                                                 UnownedBytes data) const;
 
         bool stop_{ false };
     };
