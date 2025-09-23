@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <chrono>
-
 #include "containers/safe_queue.h"
+
+#include <chrono>
 
 namespace quicr {
     /*

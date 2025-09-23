@@ -56,5 +56,30 @@ namespace quicr {
         kAnnounceNotAuthorized,
         kSendingUnannounce, ///< In this state, callbacks will not be called
     };
+
+    namespace messages {
+        using GroupId = uint64_t;
+        using ObjectId = uint64_t;
+        // TODO(RichLogan): Remove when ErrorReason -> ReasonPhrase.
+        using ReasonPhrase = Bytes;
+        using RequestID = uint64_t;
+        using TrackName = Bytes;
+
+        struct Location
+        {
+            GroupId group{ 0 };
+            ObjectId object{ 0 };
+
+            auto operator<=>(const Location& other) const
+            {
+                if (const auto cmp = group <=> other.group; cmp != 0) {
+                    return cmp;
+                }
+                return object <=> other.object;
+            }
+
+            bool operator==(const Location& other) const = default;
+        };
+    }
 }
 // namespace quicr

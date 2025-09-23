@@ -4,24 +4,21 @@
 #pragma once
 
 #include "attributes.h"
-#include "messages.h"
+#include "common.h"
+#include "config.h"
+#include "fetch_track_handler.h"
+#include "metrics.h"
+#include "publish_track_handler.h"
+#include "quic_transport.h"
+#include "subscribe_track_handler.h"
 #include "tick_service.h"
 
-#include "quic_transport.h"
-
-#include <chrono>
-#include <quicr/common.h>
-#include <quicr/config.h>
-#include <quicr/fetch_track_handler.h>
-#include <quicr/metrics.h>
-#include <quicr/publish_track_handler.h>
-#include <quicr/subscribe_track_handler.h>
-#include <span>
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
 #include <atomic>
+#include <chrono>
 #include <map>
+#include <span>
 #include <string>
 #include <string_view>
 

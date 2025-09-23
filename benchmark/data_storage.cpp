@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <quicr/data_storage.h>
+#include <quicr/containers/data_storage.h>
 #include <quicr/uintvar.h>
 
 #include <benchmark/benchmark.h>

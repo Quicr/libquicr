@@ -4,9 +4,11 @@
 #include "quicr/transport.h"
 
 #include "quicr/ctrl_messages.h"
+#include "quicr/joining_fetch_handler.h"
 #include "quicr/messages.h"
 
-#include <quicr/joining_fetch_handler.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 #include <sstream>
 
 namespace quicr {

@@ -3,9 +3,10 @@
 
 #pragma once
 
+#include "quicr/ctrl_messages.h"
+
 #include <chrono>
 #include <optional>
-#include <quicr/ctrl_messages.h>
 
 namespace quicr::messages {
     /**

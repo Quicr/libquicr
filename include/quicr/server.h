@@ -5,7 +5,6 @@
 
 #include "attributes.h"
 #include "config.h"
-#include "messages.h"
 #include "object.h"
 #include "publish_fetch_handler.h"
 #include "track_name.h"

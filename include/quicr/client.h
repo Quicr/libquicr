@@ -3,13 +3,14 @@
 
 #pragma once
 
+#include "attributes.h"
+#include "common.h"
+#include "config.h"
+#include "publish_fetch_handler.h"
+#include "track_name.h"
+#include "transport.h"
+
 #include <optional>
-#include <quicr/attributes.h>
-#include <quicr/common.h>
-#include <quicr/config.h>
-#include <quicr/publish_fetch_handler.h>
-#include <quicr/track_name.h>
-#include <quicr/transport.h>
 
 namespace quicr {
     using namespace quicr;

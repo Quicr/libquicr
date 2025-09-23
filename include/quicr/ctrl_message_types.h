@@ -22,13 +22,6 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const UintVar& value);
 
-    using GroupId = uint64_t;
-    using ObjectId = uint64_t;
-    // TODO(RichLogan): Remove when ErrorReason -> ReasonPhrase.
-    using ReasonPhrase = Bytes;
-    using RequestID = uint64_t;
-    using TrackName = Bytes;
-
     struct ControlMessage
     {
         std::uint64_t type{ 0 };
@@ -37,21 +30,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const ControlMessage& message);
     UnownedBytes operator>>(UnownedBytes buffer, ControlMessage& message);
 
-    struct Location
-    {
-        GroupId group{ 0 };
-        ObjectId object{ 0 };
-
-        auto operator<=>(const Location& other) const
-        {
-            if (const auto cmp = group <=> other.group; cmp != 0) {
-                return cmp;
-            }
-            return object <=> other.object;
-        }
-
-        bool operator==(const Location& other) const = default;
-    };
     Bytes& operator<<(Bytes& buffer, const Location& location);
     UnownedBytes operator>>(UnownedBytes buffer, Location& location);
 

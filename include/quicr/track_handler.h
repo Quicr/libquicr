@@ -3,9 +3,8 @@
 
 #pragma once
 
-#include "quicr/common.h"
-#include "quicr/ctrl_message_types.h"
-#include "quicr/track_name.h"
+#include "common.h"
+#include "track_name.h"
 
 #include <optional>
 #include <span>
@@ -82,20 +81,20 @@ namespace quicr {
      *
      * @details Base MoQ track handler
      */
-    class BaseTrackHandler
+    class TrackHandler
     {
       public:
         friend class Transport;
         friend class Server;
         friend class Client;
 
-        virtual ~BaseTrackHandler() = default;
+        virtual ~TrackHandler() = default;
 
         // --------------------------------------------------------------------------
         // Public API methods that normally should not be overridden
         // --------------------------------------------------------------------------
 
-        BaseTrackHandler() = delete;
+        TrackHandler() = delete;
 
       protected:
         /**
@@ -103,7 +102,7 @@ namespace quicr {
          *
          * @param full_track_name       Full track name struct
          */
-        BaseTrackHandler(const FullTrackName& full_track_name)
+        TrackHandler(const FullTrackName& full_track_name)
           : full_track_name_(full_track_name)
         {
         }

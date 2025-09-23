@@ -3,8 +3,7 @@
 
 #pragma once
 
-#include <quicr/messages.h>
-#include <quicr/subscribe_track_handler.h>
+#include "subscribe_track_handler.h"
 
 namespace quicr {
     /**
@@ -14,20 +13,14 @@ namespace quicr {
     class JoiningFetchHandler : public SubscribeTrackHandler
     {
       public:
-        explicit JoiningFetchHandler(std::shared_ptr<SubscribeTrackHandler> joining_subscribe)
-          : SubscribeTrackHandler(joining_subscribe->GetFullTrackName(),
-                                  joining_subscribe->GetPriority(),
-                                  joining_subscribe->GetGroupOrder(),
-                                  joining_subscribe->GetFilterType())
-          , joining_subscribe_(std::move(joining_subscribe))
-        {
-        }
+        explicit JoiningFetchHandler(std::shared_ptr<SubscribeTrackHandler> joining_subscribe_handler);
+
         void StreamDataRecv(bool is_start,
                             uint64_t stream_id,
                             std::shared_ptr<const std::vector<uint8_t>> data) override;
 
       private:
-        std::shared_ptr<SubscribeTrackHandler> joining_subscribe_;
+        std::shared_ptr<SubscribeTrackHandler> joining_subscribe_handler_;
     };
 
 } // namespace moq

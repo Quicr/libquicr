@@ -3,8 +3,7 @@
 
 #pragma once
 
-#include "base_track_handler.h"
-#include "messages.h"
+#include "track_handler.h"
 
 #include <cstdint>
 #include <map>

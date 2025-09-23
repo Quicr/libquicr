@@ -4,9 +4,10 @@
 #include <quicr/common.h>
 #include <quicr/hash.h>
 #include <quicr/track_name.h>
-#include <string_view>
 
 #include <benchmark/benchmark.h>
+
+#include <string_view>
 
 using namespace quicr;
 using namespace std::string_literals;
