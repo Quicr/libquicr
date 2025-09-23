@@ -134,8 +134,7 @@ PQ_ConnDataForwarding(benchmark::State& state)
 {
     std::vector<std::shared_ptr<quicr::PriorityQueue<quicr::ConnData>>> queues;
     for (size_t i = 0; i < kNumSubscribers; i++) {
-        auto ptr = std::make_shared<quicr::PriorityQueue<quicr::ConnData>>(5000, 1, tick_service, 150);
-        queues.emplace_back(std::move(ptr));
+        queues.emplace_back(new quicr::PriorityQueue<quicr::ConnData>(5000, 1, tick_service, 150));
     }
 
     quicr::ConnData cd;

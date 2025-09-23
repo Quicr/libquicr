@@ -8,6 +8,10 @@
 #   CMAKE_GENERATOR=Ninja
 
 BUILD_DIR=build
+INTEGRATION_TEST_BUILD_DIR=${BUILD_DIR}/test/integration_test
+FUZZ_BUILD_DIR=${BUILD_DIR}/test/fuzz
+BENCHMARK_BUILD_DIR=${BUILD_DIR}/benchmark
+
 export MERMAID_FILTER_THEME=neutral
 CLANG_FORMAT=clang-format -i
 
@@ -19,31 +23,34 @@ all: ${BUILD_DIR}
 
 # Standard development CMake generation.
 ${BUILD_DIR}: CMakeLists.txt cmd/CMakeLists.txt
-	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_MBEDTLS=OFF -DLINT=OFF .
+	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -Dquicr_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_MBEDTLS=OFF -DLINT=OFF .
 
 # Run fuzzing tests.
 fuzz:
-	cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DQUICR_BUILD_FUZZ=ON .
+	cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -Dquicr_BUILD_TESTS=ON -Dquicr_BUILD_FUZZ=ON .
 	cmake --build ${BUILD_DIR} --parallel 8
-	./${BUILD_DIR}/fuzz/ctrl_messages_fuzzer -max_total_time=10
+	./${FUZZ_BUILD_DIR}/ctrl_messages_fuzzer -max_total_time=10
 
 # Mimic a CI build.
-ci: CMakeLists.txt cmd/CMakeLists.txt
-	cmake -B${BUILD_DIR} -DLINT=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
+ci: CMakeLists.txt examples/CMakeLists.txt
+	cmake -B${BUILD_DIR} -DLINT=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -Dquicr_BUILD_TESTS=ON -Dquicr_BUILD_BENCHMARKS=ON -Dquicr_BUILD_EXAMPLES=ON
 
 # Generate self-signed certificates.
 cert:
-	@echo "Creating certificate in ${BUILD_DIR}/cmd/examples"
+	@echo "Creating certificate in ${BUILD_DIR}test/integration_test"
 	@openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
         -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
-        -keyout ${BUILD_DIR}/cmd/examples/server-key.pem -out ${BUILD_DIR}/cmd/examples/server-cert.pem
-	@cp ${BUILD_DIR}/cmd/examples/server-key.pem ${BUILD_DIR}/test/integration_test/server-key.pem
-	@cp ${BUILD_DIR}/cmd/examples/server-cert.pem ${BUILD_DIR}/test/integration_test/server-cert.pem
+        -keyout ${INTEGRATION_TEST_BUILD_DIR}/test-key.pem -out ${INTEGRATION_TEST_BUILD_DIR}/test-cert.pem
 
 # Run the tests.
-test: ci
+test: ci cert
 	cmake --build ${BUILD_DIR}
 	ctest --test-dir ${BUILD_DIR} --output-on-failure
+
+# Run the benchmarks
+bench: ci cert
+	cmake --build ${BUILD_DIR}
+	./${BENCHMARK_BUILD_DIR}/quicr_benchmark
 
 # Clean all built targets.
 clean:
@@ -65,10 +72,8 @@ doc:
 format:
 	find include -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find src -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find src/moq -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find src/quic -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find test -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find cmd -iname "*.h" -or -iname "*.cpp" -or -iname "*.cc" -or -iname "*.hpp" | xargs ${CLANG_FORMAT}
+	find examples -iname "*.h" -or -iname "*.cpp" -or -iname "*.cc" -or -iname "*.hpp" | xargs ${CLANG_FORMAT}
 	find benchmark -name "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find tools -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 

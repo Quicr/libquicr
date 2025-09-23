@@ -132,23 +132,21 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const Extensions& extensions)
     {
-        // Calculate total length of extension headers
-        std::size_t total_length = 0;
-        std::vector<KeyValuePair<std::uint64_t>> kvps;
-        for (const auto& extension : extensions) {
-            const auto kvp = KeyValuePair<std::uint64_t>{ extension.first, extension.second };
-            const auto size = kvp.Size();
-            total_length += size;
-            kvps.push_back(kvp);
+        Bytes bytes;
+
+        for (const auto& [key, value] : extensions) {
+            bytes << UintVar(key);
+            if (key % 2 == 0) {
+                std::uint64_t val = 0;
+                std::memcpy(&val, value.data(), value.size());
+                bytes << UintVar(val);
+            } else {
+                bytes << value;
+            }
         }
 
-        // Total length of all extension headers (varint).
-        buffer << static_cast<std::uint64_t>(total_length);
+        buffer << bytes;
 
-        // Write the KVP extensions.
-        for (const auto& kvp : kvps) {
-            buffer << kvp;
-        }
         return buffer;
     }
 
@@ -202,7 +200,7 @@ namespace quicr::messages {
         if (extensions.has_value() && extensions->contains(immutable_key)) {
             // Deserialize the immutable extension map.
             auto stream_buffer = StreamBuffer<uint8_t>();
-            stream_buffer.Push(std::span<const uint8_t>((*extensions)[immutable_key]));
+            stream_buffer.Push((*extensions)[immutable_key]);
             std::optional<std::size_t> immutable_length;
             std::size_t immutable_bytes_remaining = 0;
             std::optional<std::uint64_t> immutable_current_header;

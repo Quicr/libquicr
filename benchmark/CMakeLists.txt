@@ -39,7 +39,7 @@ set_target_properties(quicr_benchmark
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS ON)
 
-if(LINT)
+if(quicr_LINT)
     include(Lint)
     Lint(quicr_benchmark)
 endif()

@@ -26,8 +26,8 @@ MakeTestServer()
     server_config.server_port = kPort;
     server_config.endpoint_id = kServerId;
     server_config.transport_config.debug = true;
-    server_config.transport_config.tls_cert_filename = "server-cert.pem";
-    server_config.transport_config.tls_key_filename = "server-key.pem";
+    server_config.transport_config.tls_cert_filename = "test-cert.pem";
+    server_config.transport_config.tls_key_filename = "test-key.pem";
     auto server = std::make_shared<TestServer>(server_config);
     const auto starting = server->Start();
     CHECK_EQ(starting, Transport::Status::kReady);

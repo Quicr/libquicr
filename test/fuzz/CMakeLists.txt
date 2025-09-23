@@ -4,7 +4,7 @@
 if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(STATUS "Fuzzing requires Clang -- skipping")
     return()
-endif()    
+endif()
 
 # Add fuzzing flags
 set(FUZZER_FLAGS "-fsanitize=fuzzer,address,undefined" "-fno-optimize-sibling-calls" "-fno-omit-frame-pointer" "-g" "-O1")
@@ -16,7 +16,3 @@ set_target_properties(ctrl_messages_fuzzer PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
 )
-if(LINT)
-    include(Lint)
-    lint(quicr)
-endif()

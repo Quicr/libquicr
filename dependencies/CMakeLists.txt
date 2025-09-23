@@ -28,7 +28,7 @@ if (NOT TARGET spdlog)
     add_subdirectory(spdlog)
 endif()
 
-if(BUILD_TESTING AND QUICR_BUILD_TESTS AND NOT TARGET doctest)
+if(BUILD_TESTING AND NOT TARGET doctest)
     add_subdirectory(doctest)
 endif()
 
@@ -36,7 +36,7 @@ set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
 # mbedtls
-if (${USE_MBEDTLS})
+if (${quicr_USE_MBEDTLS})
     message("Transport building with MBedTLS")
 
     if (NOT TARGET mbedcrypto) # If not already available on build server

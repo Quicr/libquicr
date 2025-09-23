@@ -11,12 +11,12 @@ add_executable(quicr_integration_test
 )
 
 # Include directories
-target_include_directories(quicr_integration_test PRIVATE 
+target_include_directories(quicr_integration_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # Link against the quicr library and test framework
-target_link_libraries(quicr_integration_test PRIVATE 
+target_link_libraries(quicr_integration_test PRIVATE
     quicr
     doctest::doctest)
 
@@ -42,7 +42,7 @@ doctest_discover_tests(quicr_integration_test
 )
 
 # Linting configuration
-if(LINT)
+if(quicr_LINT)
     include(Lint)
     Lint(quicr_integration_test)
 endif()

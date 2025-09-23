@@ -175,27 +175,21 @@ namespace quicr {
         auto object_extensions = object_headers.extensions;
 
         if (group_id_delta > 1) {
-            const std::uint64_t value = group_id_delta - 1;
-            std::vector<std::uint8_t> value_bytes(sizeof(value));
-            memcpy(value_bytes.data(), &value, sizeof(value));
             if (not object_extensions.has_value()) {
                 object_extensions = Extensions{};
             }
 
             object_extensions->try_emplace(static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap),
-                                           value_bytes);
+                                           group_id_delta - 1);
         }
 
         if (object_id_delta > 0) {
-            const std::uint64_t value = object_id_delta;
-            std::vector<std::uint8_t> value_bytes(sizeof(value));
-            memcpy(value_bytes.data(), &value, sizeof(value));
             if (not object_extensions.has_value()) {
                 object_extensions = Extensions{};
             }
 
             object_extensions->try_emplace(static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorObjectIdGap),
-                                           value_bytes);
+                                           object_id_delta - 1);
         }
 
         latest_group_id_ = object_headers.group_id;
