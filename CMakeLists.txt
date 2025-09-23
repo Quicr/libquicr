@@ -114,6 +114,7 @@ add_subdirectory(src)
 
 if(BUILD_TESTING)
     add_subdirectory(test)
+    enable_testing()
 endif()
 
 #=============================================================================#
