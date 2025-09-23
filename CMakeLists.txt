@@ -76,6 +76,8 @@ if (NOT PLATFORM_ESP_IDF)
   find_package(PkgConfig REQUIRED)
 endif()
 
+include(CTest)
+
 add_subdirectory(dependencies)
 
 #=============================================================================#
@@ -109,8 +111,6 @@ add_subdirectory(src)
 #=============================================================================#
 # Enable testing
 #=============================================================================#
-
-include(CTest)
 
 if(BUILD_TESTING)
     add_subdirectory(test)
