@@ -172,7 +172,7 @@ TEST_CASE("Group ID Gap")
     // int received = 0;
     // TestSubscribeHandler::ObjectReceivedCallback callback;
     // const auto sub = std::make_shared<TestSubscribeHandler>(ftn, [&received, expected_gap](ObjectHeaders headers,
-    // BytesSpan) {
+    // UnownedBytes) {
     //     received += 1;
     //     constexpr auto gap_key = static_cast<std::uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap);
     //     switch (received) {

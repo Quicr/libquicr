@@ -3,12 +3,13 @@
 
 #pragma once
 
-#include "quicr/common.h"
-#include "quicr/detail/ctrl_messages.h"
-#include "quicr/object.h"
-#include "quicr/track_name.h"
-#include "stream_buffer.h"
+#include "common.h"
+#include "containers/stream_buffer.h"
+#include "object.h"
+#include "quicr/ctrl_messages.h"
+#include "track_name.h"
 
+#include <cassert>
 #include <map>
 #include <source_location>
 #include <string>
@@ -523,7 +524,7 @@ namespace quicr::messages {
         bool parse_completed{ false };
     };
 
-    BytesSpan operator>>(BytesSpan buffer, FetchHeader& msg);
+    UnownedBytes operator>>(UnownedBytes buffer, FetchHeader& msg);
     Bytes& operator<<(Bytes& buffer, const FetchHeader& msg);
 
     struct FetchObject

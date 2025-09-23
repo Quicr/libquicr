@@ -6,7 +6,7 @@
 {% endfor %}
 {% for utype in unique_types %}
     Bytes& operator<<(Bytes& buffer, const {{utype}}& vec);
-    BytesSpan operator>>(BytesSpan buffer, {{utype}}& vec);
+    UnownedBytes operator>>(UnownedBytes buffer, {{utype}}& vec);
 
 {% endfor %}
 

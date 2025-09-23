@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "quicr/tick_service.h"
+
 #include <atomic>
 #include <chrono>
 #include <map>
@@ -10,16 +12,10 @@
 #include <stdexcept>
 #include <vector>
 
-#include "detail/tick_service.h"
-
 namespace quicr {
     template<typename K, typename T>
     class Cache
     {
-        /*=======================================================================*/
-        // Internal type definitions
-        /*=======================================================================*/
-
         using TickType = TickService::TickType;
         using IndexType = std::uint32_t;
 

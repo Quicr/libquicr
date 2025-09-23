@@ -3,13 +3,13 @@
 
 #pragma once
 
+#include "quicr/utilities/defer.h"
 #include "time_queue.h"
 
 #include <algorithm>
 #include <chrono>
 #include <map>
 #include <numeric>
-#include <quicr/detail/defer.h>
 
 namespace quicr {
 

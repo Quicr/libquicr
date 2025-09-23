@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/messages.h"
+#include "quicr/messages.h"
 
 #include <any>
 #include <doctest/doctest.h>
@@ -67,7 +67,7 @@ Verify(std::vector<uint8_t>& buffer, T& message, [[maybe_unused]] size_t slice_d
 
 template<typename T>
 bool
-VerifyCtrl(BytesSpan buffer, uint64_t message_type, T& message)
+VerifyCtrl(UnownedBytes buffer, uint64_t message_type, T& message)
 {
     uint64_t msg_type = 0;
     uint64_t length = 0;

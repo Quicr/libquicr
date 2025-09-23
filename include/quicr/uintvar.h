@@ -3,14 +3,13 @@
 
 #pragma once
 
-#include "utilities.h"
+#include "utilities/byte.h"
 
+#include <array>
 #include <bit>
 #include <cstdint>
-#include <cstring>
 #include <span>
 #include <stdexcept>
-#include <vector>
 
 namespace quicr {
     class UintVar

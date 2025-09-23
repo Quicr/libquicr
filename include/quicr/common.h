@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "detail/quic_transport.h"
+#include "utilities/byte.h"
 
 #include <span>
 #include <string>
@@ -16,9 +16,6 @@ namespace quicr {
 
     using namespace quicr;
 
-    using Byte = uint8_t;
-    using Bytes = std::vector<Byte>;
-    using BytesSpan = std::span<const Byte>;
     using ConnectionHandle = uint64_t;
     /**
      * @brief Publish announce attributes
@@ -59,5 +56,30 @@ namespace quicr {
         kAnnounceNotAuthorized,
         kSendingUnannounce, ///< In this state, callbacks will not be called
     };
+
+    namespace messages {
+        using GroupId = uint64_t;
+        using ObjectId = uint64_t;
+        // TODO(RichLogan): Remove when ErrorReason -> ReasonPhrase.
+        using ReasonPhrase = Bytes;
+        using RequestID = uint64_t;
+        using TrackName = Bytes;
+
+        struct Location
+        {
+            GroupId group{ 0 };
+            ObjectId object{ 0 };
+
+            auto operator<=>(const Location& other) const
+            {
+                if (const auto cmp = group <=> other.group; cmp != 0) {
+                    return cmp;
+                }
+                return object <=> other.object;
+            }
+
+            bool operator==(const Location& other) const = default;
+        };
+    }
 }
 // namespace quicr

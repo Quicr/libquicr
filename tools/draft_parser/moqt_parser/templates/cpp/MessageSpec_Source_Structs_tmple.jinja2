@@ -39,7 +39,7 @@
     /*
      * {{message.name}} stream in
      */
-    BytesSpan operator>>(BytesSpan buffer, {{message.name}}& msg)
+    UnownedBytes operator>>(UnownedBytes buffer, {{message.name}}& msg)
     {
         {% for field in message.fields %}
             {% if field.spec_name not in field_discards %}
@@ -84,7 +84,7 @@
     }
 
     {% for group_name in message.optional_groups %}
-    BytesSpan operator>>(BytesSpan buffer, std::optional<{{message.name}}::{{group_name}}>& grp)
+    UnownedBytes operator>>(UnownedBytes buffer, std::optional<{{message.name}}::{{group_name}}>& grp)
     {
         if (grp.has_value()) {
         {% for field in message.optional_groups[group_name] %}
@@ -92,7 +92,7 @@
         {% endfor %}
         }
         return buffer;
-    }  
+    }
 
     Bytes& operator<<(Bytes& buffer, const std::optional<{{message.name}}::{{group_name}}>& grp)
     {

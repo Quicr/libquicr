@@ -98,7 +98,7 @@ include(tools/draft_parser/cmake/ParseDraft.cmake)
 parse_draft(
     RFC_FILE ${DRAFT_INTERNAL}
     OUTPUT_NAME "ctrl_messages"
-    OUTPUT_DIR "${CMAKE_BINARY_DIR}/include/quicr/detail"
+    OUTPUT_DIR "${CMAKE_BINARY_DIR}/include/quicr"
     SETUP_VENV ${quicr_DRAFT_PARSER_SETUP_VENV}
 )
 

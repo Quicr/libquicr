@@ -146,7 +146,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         moq_fs_.close();
     }
 
-    void ObjectReceived(const quicr::ObjectHeaders& hdr, quicr::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders& hdr, quicr::UnownedBytes data) override
     {
         if (vars::record) {
             RecordObject(GetFullTrackName(), hdr, data);
@@ -198,7 +198,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     }
 
   private:
-    void RecordObject(const quicr::FullTrackName& ftn, const quicr::ObjectHeaders& hdr, quicr::BytesSpan data)
+    void RecordObject(const quicr::FullTrackName& ftn, const quicr::ObjectHeaders& hdr, quicr::UnownedBytes data)
     {
         const std::size_t data_offset = data_fs_.tellp();
         data_fs_ << std::string(data.begin(), data.end());
@@ -322,7 +322,7 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
           new MyFetchTrackHandler(full_track_name, start_group, end_group, start_object, end_object));
     }
 
-    void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::UnownedBytes data) override
     {
         std::string msg(data.begin(), data.end());
         SPDLOG_INFO(
@@ -445,7 +445,7 @@ class MyClient : public quicr::Client
 
             std::string hello = "Hello:" + std::to_string(pub_group_number);
             std::vector<uint8_t> data_vec(hello.begin(), hello.end());
-            quicr::BytesSpan data{ data_vec.data(), data_vec.size() };
+            quicr::UnownedBytes data{ data_vec.data(), data_vec.size() };
             pub_fetch_h->PublishObject(headers, data);
         }
 

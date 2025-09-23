@@ -4,7 +4,6 @@
 #pragma once
 
 #include <functional>
-#include <iostream>
 
 #define DEFER_CONCAT(a, b) DEFER_CONCAT_INNER(a, b)
 #define DEFER_CONCAT_INNER(a, b) a##b

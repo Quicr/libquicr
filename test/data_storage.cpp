@@ -3,7 +3,8 @@
 
 #include <doctest/doctest.h>
 
-#include "quicr/detail/data_storage.h"
+#include <quicr/containers/data_storage.h>
+#include <quicr/utilities/byte.h>
 
 TEST_CASE("DataStorage Construct")
 {

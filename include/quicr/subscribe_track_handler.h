@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include <quicr/detail/base_track_handler.h>
-#include <quicr/detail/messages.h>
-#include <quicr/detail/stream_buffer.h>
-#include <quicr/metrics.h>
+#include "containers/stream_buffer.h"
+#include "messages.h"
+#include "metrics.h"
+#include "track_handler.h"
 
 namespace quicr {
 
@@ -18,7 +18,7 @@ namespace quicr {
      *
      *  This extends the base track handler to add subscribe handling
      */
-    class SubscribeTrackHandler : public BaseTrackHandler
+    class SubscribeTrackHandler : public TrackHandler
     {
       public:
         /**
@@ -74,7 +74,7 @@ namespace quicr {
                               messages::FilterType filter_type,
                               const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
                               bool publisher_initiated = false)
-          : BaseTrackHandler(full_track_name)
+          : TrackHandler(full_track_name)
           , priority_(priority)
           , group_order_(group_order)
           , filter_type_(filter_type)
@@ -221,7 +221,7 @@ namespace quicr {
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
          */
         virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                    [[maybe_unused]] BytesSpan data);
+                                    [[maybe_unused]] UnownedBytes data);
 
         /**
          * @brief Notification of received stream data slice
@@ -256,7 +256,7 @@ namespace quicr {
          * @param data              Object payload data received, can be <= ObjectHeaders::payload_length
          */
         virtual void PartialObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                           [[maybe_unused]] BytesSpan data)
+                                           [[maybe_unused]] UnownedBytes data)
         {
         }
 

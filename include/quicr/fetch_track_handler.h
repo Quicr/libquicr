@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <quicr/detail/messages.h>
-#include <quicr/metrics.h>
-#include <quicr/subscribe_track_handler.h>
+#include "messages.h"
+#include "metrics.h"
+#include "subscribe_track_handler.h"
 
 namespace quicr {
     class FetchTrackHandler : public SubscribeTrackHandler

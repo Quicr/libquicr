@@ -3,6 +3,8 @@
 
 #include "quicr/fetch_track_handler.h"
 
+#include <spdlog/spdlog.h>
+
 namespace quicr {
     void FetchTrackHandler::StreamDataRecv(bool is_start,
                                            [[maybe_unused]] uint64_t stream_id,

@@ -1,16 +1,60 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/transport.h"
+#include "quicr/transport.h"
 
-#include "quicr/detail/ctrl_messages.h"
-#include "quicr/detail/messages.h"
+#include "quicr/ctrl_messages.h"
+#include "quicr/joining_fetch_handler.h"
+#include "quicr/messages.h"
+#include "transport_picoquic.h"
 
-#include <quicr/detail/joining_fetch_handler.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
+
+#include <memory>
 #include <sstream>
+#include <stdexcept>
+#include <utility>
 
 namespace quicr {
     using namespace quicr::messages;
+
+    std::shared_ptr<ITransport> MakeClientTransport(const TransportRemote& server,
+                                                    const TransportConfig& tcfg,
+                                                    ITransport::TransportDelegate& delegate,
+                                                    std::shared_ptr<TickService> tick_service,
+                                                    std::shared_ptr<spdlog::logger> logger)
+    {
+        switch (server.proto) {
+            case TransportProtocol::kQuic:
+                return std::make_shared<PicoQuicTransport>(
+                  server, tcfg, delegate, false, std::move(tick_service), std::move(logger));
+            default:
+                throw std::runtime_error("make_client_transport: Protocol not implemented");
+                break;
+        }
+
+        return nullptr;
+    }
+
+    std::shared_ptr<ITransport> MakeServerTransport(const TransportRemote& server,
+                                                    const TransportConfig& tcfg,
+                                                    ITransport::TransportDelegate& delegate,
+                                                    std::shared_ptr<TickService> tick_service,
+                                                    std::shared_ptr<spdlog::logger> logger)
+    {
+        switch (server.proto) {
+
+            case TransportProtocol::kQuic:
+                return std::make_shared<PicoQuicTransport>(
+                  server, tcfg, delegate, true, std::move(tick_service), std::move(logger));
+            default:
+                throw std::runtime_error("make_server_transport: Protocol not implemented");
+                break;
+        }
+
+        return nullptr;
+    }
 
     TransportException::TransportException(TransportError error, std::source_location location)
       : std::runtime_error("Error in transport (error=" + std::to_string(static_cast<int>(error)) + ", " +
@@ -139,7 +183,7 @@ namespace quicr {
             relay.proto = TransportProtocol::kQuic;
 
             quic_transport_ =
-              ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
+              MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
 
             auto conn_id = quic_transport_->Start();
 
@@ -160,8 +204,7 @@ namespace quicr {
         server.port = server_config_.server_port;
         server.proto = TransportProtocol::kQuic;
 
-        quic_transport_ =
-          ITransport::MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
+        quic_transport_ = MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
         quic_transport_->Start();
 
         status_ = Status::kReady;
@@ -240,7 +283,7 @@ namespace quicr {
         }
     }
 
-    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
+    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, UnownedBytes data)
     {
         if (not conn_ctx.ctrl_data_ctx_id) {
             CloseConnection(conn_ctx.connection_handle,
@@ -1781,10 +1824,10 @@ namespace quicr {
         }
     }
 
-    void Transport::OnDataMetricsStampled(const MetricsTimeStamp sample_time,
-                                          const TransportConnId conn_id,
-                                          const DataContextId data_ctx_id,
-                                          const QuicDataContextMetrics& quic_data_context_metrics)
+    void Transport::OnDataMetricsSampled(const MetricsTimeStamp sample_time,
+                                         const TransportConnId conn_id,
+                                         const DataContextId data_ctx_id,
+                                         const QuicDataContextMetrics& quic_data_context_metrics)
     {
         const auto& conn = connections_[conn_id];
         const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);

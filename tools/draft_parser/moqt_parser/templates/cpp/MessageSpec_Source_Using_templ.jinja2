@@ -11,22 +11,22 @@
         for (const auto& item : vec) {
             buffer << item;
         }
-        
+
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, {{field.cpp_using_type}}& vec)
+    UnownedBytes operator>>(UnownedBytes buffer, {{field.cpp_using_type}}& vec)
     {
         {{field.variable_length_size_cpp_using_type}} size = 0;
         buffer = buffer >> size;
 
         for (uint64_t i=0; i<size; i++) {
-            {{field.cpp_type}} item;    
+            {{field.cpp_type}} item;
             buffer = buffer >> item;
             vec.push_back(item);
         }
 
         return buffer;
-    }  
+    }
     {% endif %}
     {% endfor %}

@@ -3,11 +3,12 @@
 
 #pragma once
 
+#include "messages.h"
+#include "metrics.h"
+#include "object.h"
+#include "track_handler.h"
+
 #include <functional>
-#include <quicr/detail/base_track_handler.h>
-#include <quicr/detail/messages.h>
-#include <quicr/metrics.h>
-#include <quicr/object.h>
 
 namespace quicr {
 
@@ -19,7 +20,7 @@ namespace quicr {
      *
      *  This extends the base track handler to add publish (aka send) handling
      */
-    class PublishTrackHandler : public BaseTrackHandler
+    class PublishTrackHandler : public TrackHandler
     {
       public:
         /**
@@ -92,7 +93,7 @@ namespace quicr {
                             uint8_t default_priority,
                             uint32_t default_ttl,
                             std::optional<messages::StreamHeaderType> stream_mode = std::nullopt)
-          : BaseTrackHandler(full_track_name)
+          : TrackHandler(full_track_name)
           , default_track_mode_(track_mode)
           , default_priority_(default_priority)
           , default_ttl_(default_ttl)
@@ -274,7 +275,7 @@ namespace quicr {
          *
          * @returns Publish status of the publish
          */
-        virtual PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+        virtual PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, UnownedBytes data);
 
         /**
          * @brief Forward received object data to subscriber/relay/remote client
@@ -319,7 +320,7 @@ namespace quicr {
          *    * PublishStatus::kObjectDataComplete if the object data was sent and the data is complete,
          *    * other PublishStatus
          */
-        PublishObjectStatus PublishPartialObject(const ObjectHeaders& object_headers, BytesSpan data);
+        PublishObjectStatus PublishPartialObject(const ObjectHeaders& object_headers, UnownedBytes data);
 
         // --------------------------------------------------------------------------
         // Metrics

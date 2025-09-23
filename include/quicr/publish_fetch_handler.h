@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <quicr/detail/messages.h>
+#include <quicr/messages.h>
 #include <quicr/publish_track_handler.h>
 
 namespace quicr {
@@ -31,7 +31,7 @@ namespace quicr {
             return std::shared_ptr<PublishFetchHandler>(
               new PublishFetchHandler(full_track_name, priority, subscribe_id, group_order, ttl));
         }
-        PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data) override;
+        PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, UnownedBytes data) override;
         constexpr messages::GroupOrder GetGroupOrder() const noexcept { return group_order_; }
 
       private:

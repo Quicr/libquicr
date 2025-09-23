@@ -1,4 +1,4 @@
-#include "quicr/detail/ctrl_message_types.h"
+#include "quicr/ctrl_message_types.h"
 
 namespace quicr::messages {
 
@@ -9,7 +9,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, const BytesSpan& bytes)
+    Bytes& operator<<(Bytes& buffer, const UnownedBytes& bytes)
     {
         buffer << static_cast<std::uint64_t>(bytes.size()); // length of byte span
         buffer.insert(buffer.end(), bytes.begin(), bytes.end());
@@ -43,7 +43,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, Bytes& value)
+    UnownedBytes operator>>(UnownedBytes buffer, Bytes& value)
     {
         uint64_t size = 0;
         buffer = buffer >> size;
@@ -51,7 +51,7 @@ namespace quicr::messages {
         return buffer.subspan(value.size());
     }
 
-    BytesSpan operator>>(BytesSpan buffer, uint8_t& value)
+    UnownedBytes operator>>(UnownedBytes buffer, uint8_t& value)
     {
         // need 8 bits - not a varint
         if (buffer.size() < sizeof(value)) {
@@ -61,7 +61,7 @@ namespace quicr::messages {
         return buffer.subspan(sizeof(value));
     }
 
-    BytesSpan operator>>(BytesSpan buffer, uint16_t& value)
+    UnownedBytes operator>>(UnownedBytes buffer, uint16_t& value)
     {
         if (buffer.size() < sizeof(value)) {
             throw std::invalid_argument("Provided buffer too small");
@@ -71,7 +71,7 @@ namespace quicr::messages {
         return buffer.subspan(sizeof(std::uint16_t));
     }
 
-    BytesSpan operator>>(BytesSpan buffer, uint64_t& value)
+    UnownedBytes operator>>(UnownedBytes buffer, uint64_t& value)
     {
         UintVar value_uv(buffer);
         value = static_cast<uint64_t>(value_uv);
@@ -84,7 +84,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, GroupOrder& value)
+    UnownedBytes operator>>(UnownedBytes buffer, GroupOrder& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
@@ -98,7 +98,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, FetchType& value)
+    UnownedBytes operator>>(UnownedBytes buffer, FetchType& value)
     {
         std::uint8_t uvalue;
         buffer = buffer >> uvalue;
@@ -115,7 +115,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, StandaloneFetch& value)
+    UnownedBytes operator>>(UnownedBytes buffer, StandaloneFetch& value)
     {
         buffer = buffer >> value.track_namespace;
         buffer = buffer >> value.track_name;
@@ -131,7 +131,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, JoiningFetch& value)
+    UnownedBytes operator>>(UnownedBytes buffer, JoiningFetch& value)
     {
         buffer = buffer >> value.request_id;
         buffer = buffer >> value.joining_start;
@@ -144,7 +144,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, FetchErrorCode& value)
+    UnownedBytes operator>>(UnownedBytes buffer, FetchErrorCode& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
@@ -158,7 +158,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, PublishDoneStatusCode& value)
+    UnownedBytes operator>>(UnownedBytes buffer, PublishDoneStatusCode& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
@@ -172,7 +172,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value)
+    UnownedBytes operator>>(UnownedBytes buffer, SubscribeErrorCode& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
@@ -188,7 +188,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, ControlMessage& message)
+    UnownedBytes operator>>(UnownedBytes buffer, ControlMessage& message)
     {
         buffer = buffer >> message.type;
         if (buffer.size() < sizeof(std::uint16_t)) {
@@ -210,7 +210,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, Location& location)
+    UnownedBytes operator>>(UnownedBytes buffer, Location& location)
     {
         buffer = buffer >> location.group;
         buffer = buffer >> location.object;
@@ -229,7 +229,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg)
+    UnownedBytes operator>>(UnownedBytes buffer, TrackNamespace& msg)
     {
         uint64_t size = 0;
         buffer = buffer >> size;
