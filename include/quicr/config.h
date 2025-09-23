@@ -16,6 +16,7 @@ namespace quicr {
 
         quicr::TransportConfig transport_config;
         uint64_t metrics_sample_ms{ 5000 };
+        uint32_t unknown_stream_expiry_ms{ 3000 }; ///< Milliseconds age of how long a stream is kept when unknown
     };
 
     struct ClientConfig : Config

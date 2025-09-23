@@ -52,6 +52,14 @@ namespace quicr {
         using DataContextId = uint64_t;
 
         /**
+         */
+        enum class StreamErrorCodes : uint32_t
+        {
+            kInternalError = 20,
+            kUnknownExpiry = 50
+        };
+
+        /**
          * Data context information
          *      Data context is intended to be a container for metrics and other state that is related to a flow of
          *      data that may use datagram or one or more stream QUIC frames
