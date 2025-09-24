@@ -426,10 +426,8 @@ class MyClient : public quicr::Client
                        const quicr::FullTrackName& track_full_name,
                        const quicr::messages::FetchAttributes& attributes) override
     {
-        uint8_t priority = attributes.priority > 32 ? attributes.priority % 16 + 16 : attributes.priority;
-
-        auto pub_fetch_h =
-          quicr::PublishFetchHandler::Create(track_full_name, priority, request_id, attributes.group_order, 50000);
+        auto pub_fetch_h = quicr::PublishFetchHandler::Create(
+          track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
         BindFetchTrack(connection_handle, pub_fetch_h);
 
         for (uint64_t pub_group_number = attributes.start_location.group; pub_group_number < attributes.end_group;
@@ -439,7 +437,7 @@ class MyClient : public quicr::Client
                                           .subgroup_id = 0,
                                           .payload_length = 0,
                                           .status = quicr::ObjectStatus::kAvailable,
-                                          .priority = priority,
+                                          .priority = attributes.priority,
                                           .ttl = 3000, // in milliseconds
                                           .track_mode = std::nullopt,
                                           .extensions = std::nullopt,
