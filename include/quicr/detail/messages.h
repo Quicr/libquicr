@@ -479,7 +479,6 @@ namespace quicr::messages {
             case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
                 return false;
         }
-        assert(false);
         return false;
     }
 
@@ -507,7 +506,7 @@ namespace quicr::messages {
             case StreamMessageType::kFetchHeader:
                 return false;
         }
-        assert(false);
+
         return false;
     }
 
