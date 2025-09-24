@@ -316,10 +316,10 @@ namespace quicr {
                                         TransportConnId conn_id,
                                         const QuicConnectionMetrics& quic_connection_metrics) override;
 
-        void OnDataMetricsStampled(MetricsTimeStamp sample_time,
-                                   TransportConnId conn_id,
-                                   DataContextId data_ctx_id,
-                                   const QuicDataContextMetrics& quic_data_context_metrics) override;
+        void OnDataMetricsSampled(MetricsTimeStamp sample_time,
+                                  TransportConnId conn_id,
+                                  DataContextId data_ctx_id,
+                                  const QuicDataContextMetrics& quic_data_context_metrics) override;
 
         // -------------------------------------------------------------------------------------------------
         // End of transport handler/callback functions
