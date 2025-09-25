@@ -1701,7 +1701,7 @@ PicoQuicTransport::StartClient()
     std::unique_lock lock(mtx);
 
     picoquic_runner_queue_.Push([this, &conn_id, &cv, &mtx]() {
-        auto notifyCaller = [&cv, &conn_id, &mtx](uint64_t id) {
+        auto notify_caller = [&cv, &conn_id, &mtx](uint64_t id) {
             std::lock_guard _(mtx);
             conn_id = id;
 
@@ -1718,7 +1718,7 @@ PicoQuicTransport::StartClient()
         if (ret != 0 || server_address.ss_family == 0) {
             SPDLOG_LOGGER_ERROR(
               logger, "Failed to resolve server: {0} port: {1}", serverInfo_.host_or_ip, serverInfo_.port);
-            notifyCaller(1);
+            notify_caller(1);
             return 0;
         }
 
@@ -1738,7 +1738,7 @@ PicoQuicTransport::StartClient()
 
         if (cnx == nullptr) {
             SPDLOG_LOGGER_ERROR(logger, "Could not create picoquic connection client context");
-            notifyCaller(1);
+            notify_caller(1);
 
             return PICOQUIC_ERROR_DISCONNECTED;
         }
@@ -1750,7 +1750,7 @@ PicoQuicTransport::StartClient()
 
         if (auto ret = picoquic_start_client_cnx(cnx)) {
             SPDLOG_LOGGER_ERROR(logger, "Could not activate connection ret: {}", ret);
-            notifyCaller(1);
+            notify_caller(1);
             return PICOQUIC_ERROR_DISCONNECTED;
         }
 
@@ -1764,7 +1764,7 @@ PicoQuicTransport::StartClient()
             SPDLOG_LOGGER_INFO(logger, "No priority bypass");
         }
 
-        notifyCaller(reinterpret_cast<uint64_t>(cnx));
+        notify_caller(reinterpret_cast<uint64_t>(cnx));
 
         return 0;
     });
