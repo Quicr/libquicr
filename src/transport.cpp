@@ -1468,7 +1468,7 @@ namespace quicr {
                 break;
             }
 
-            auto data_opt = rx_ctx->data_queue.Pop();
+            auto data_opt = rx_ctx->data_queue.Front();
             if (not data_opt.has_value()) {
                 break;
             }
@@ -1478,6 +1478,7 @@ namespace quicr {
             // CONTROL STREAM
             if (is_bidir) {
                 conn_ctx.ctrl_msg_buffer.insert(conn_ctx.ctrl_msg_buffer.end(), data.begin(), data.end());
+                rx_ctx->data_queue.PopFront();
 
                 if (not conn_ctx.ctrl_data_ctx_id) {
                     if (not data_ctx_id) {
@@ -1567,13 +1568,14 @@ namespace quicr {
                 auto msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
                 auto cursor_it = std::next(data.begin(), type_sz);
 
-                bool break_loop = false;
+                bool parsed_header = false;
                 const auto type = static_cast<StreamMessageType>(msg_type);
                 if (TypeIsStreamHeaderType(type)) {
                     const auto stream_header_type = static_cast<StreamHeaderType>(msg_type);
-                    break_loop = OnRecvSubgroup(stream_header_type, cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
+                    parsed_header =
+                      OnRecvSubgroup(stream_header_type, cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
                 } else if (type == StreamMessageType::kFetchHeader) {
-                    break_loop = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
+                    parsed_header = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
                 } else {
                     SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
                     conn_ctx.metrics.rx_stream_invalid_type++;
@@ -1581,10 +1583,31 @@ namespace quicr {
                     // TODO(tievens): Need to reset this stream as this is invalid.
                     return;
                 }
-                if (break_loop) {
+
+                if (!parsed_header) {
+                    // TODO: We ignore invalid parses for now, but set an expiry for how long we'll keep the stream
+                    if (!rx_ctx->unknown_expiry_tick_ms) {
+                        uint64_t age_ms = client_mode_ ? client_config_.unknown_stream_expiry_ms
+                                                       : server_config_.unknown_stream_expiry_ms;
+                        rx_ctx->unknown_expiry_tick_ms = tick_service_->Milliseconds();
+                        rx_ctx->unknown_expiry_tick_ms += age_ms;
+
+                        SPDLOG_LOGGER_INFO(logger_,
+                                           "Setting stream_id: {} unknown expiry to {}ms (current time is {}ms)",
+                                           stream_id,
+                                           rx_ctx->unknown_expiry_tick_ms,
+                                           tick_service_->Milliseconds());
+                    }
+
+                    rx_ctx->unknown_expiry_tick_ms = 0;
                     break;
                 }
+
+                rx_ctx->data_queue.PopFront();
+
             } else if (rx_ctx->caller_any.has_value()) {
+                rx_ctx->data_queue.PopFront();
+
                 // fast processing for existing stream using weak pointer to subscribe handler
                 auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
                 if (auto sub_handler = sub_handler_weak.lock()) {
@@ -1639,8 +1662,6 @@ namespace quicr {
             return false;
         }
 
-        rx_ctx.is_new = false;
-
         auto sub_it = conn_ctx.sub_by_recv_track_alias.find(track_alias);
         if (sub_it == conn_ctx.sub_by_recv_track_alias.end()) {
             conn_ctx.metrics.rx_stream_unknown_track_alias++;
@@ -1650,9 +1671,10 @@ namespace quicr {
               track_alias,
               stream_id);
 
-            // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
             return false;
         }
+
+        rx_ctx.is_new = false;
 
         rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
         sub_it->second->SetPriority(priority);

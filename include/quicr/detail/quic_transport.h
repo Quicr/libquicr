@@ -137,6 +137,13 @@ namespace quicr {
         std::any caller_any; ///< Caller any object - Set and used by caller/app
         bool is_new{ true }; ///< Indicates if new stream, on read set to false
 
+        /**
+         * Future tick value in milliseconds that indicates this context has
+         * expired due to being unknown.  A value of zero indicates
+         * It's no longer unknown and will not expire.
+         */
+        uint64_t unknown_expiry_tick_ms{ 0 };
+
         /// Data queue for received data on the stream
         SafeQueue<std::shared_ptr<const std::vector<uint8_t>>> data_queue;
     };

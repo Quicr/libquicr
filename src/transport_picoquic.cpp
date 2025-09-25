@@ -22,6 +22,8 @@
 #include <spdlog/logger.h>
 
 // System.
+#include "transport_picoquic.h"
+
 #include "picoquic_bbr.h"
 #include "picoquic_newreno.h"
 
@@ -1412,6 +1414,20 @@ try {
     }
 
     auto& rx_buf = conn_ctx->rx_stream_buffer[stream_id];
+
+    if (rx_buf.rx_ctx->unknown_expiry_tick_ms &&
+        tick_service_->Milliseconds() > rx_buf.rx_ctx->unknown_expiry_tick_ms) {
+        SPDLOG_LOGGER_DEBUG(logger,
+                            "Stream is unknown and now has expired, resetting stream {} expiry {}ms > {}ms",
+                            stream_id,
+                            rx_buf.rx_ctx->unknown_expiry_tick_ms,
+                            tick_service_->Milliseconds());
+        picoquic_reset_stream_ctx(conn_ctx->pq_cnx, stream_id);
+        picoquic_reset_stream(conn_ctx->pq_cnx, stream_id, static_cast<uint64_t>(StreamErrorCodes::kUnknownExpiry));
+        rx_buf.closed = true;
+
+        return;
+    }
 
     rx_buf.rx_ctx->data_queue.Push(std::make_shared<const std::vector<uint8_t>>(bytes.begin(), bytes.end()));
 
