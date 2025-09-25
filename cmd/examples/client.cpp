@@ -934,8 +934,8 @@ main(int argc, char* argv[])
         bool stop_threads{ false };
         auto client = MyClient::Create(config, stop_threads);
 
-        if (auto status = client->Connect(); status != quicr::Transport::Status::kConnecting) {
-            SPDLOG_ERROR("Failed to connect to server due to invalid params, check URI {}", static_cast<int>(status));
+        if (client->Connect() != quicr::Transport::Status::kConnecting) {
+            SPDLOG_ERROR("Failed to connect to server due to invalid params, check URI");
             exit(-1);
         }
 
