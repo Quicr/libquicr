@@ -75,7 +75,7 @@ Decode(benchmark::State& state)
 static void
 PQ_Push(benchmark::State& state)
 {
-    quicr::PriorityQueue<std::vector<uint8_t>, 3> pq(30000, 300, tick_service, kIterations);
+    quicr::PriorityQueue<std::vector<uint8_t>> pq(30000, 300, tick_service, kIterations);
     int64_t items_count = 0;
 
     std::vector<uint8_t> data(1, 0);
@@ -91,7 +91,7 @@ PQ_Push(benchmark::State& state)
 static void
 PQ_Pop(benchmark::State& state)
 {
-    quicr::PriorityQueue<std::vector<uint8_t>, 3> pq(30000, 1, tick_service, kIterations);
+    quicr::PriorityQueue<std::vector<uint8_t>> pq(30000, 1, tick_service, kIterations);
     std::vector<uint8_t> data(1000, 0);
 
     for (size_t i = 0; i < kIterations; ++i) {
@@ -110,7 +110,7 @@ PQ_Pop(benchmark::State& state)
 static void
 PQ_PopFront(benchmark::State& state)
 {
-    quicr::PriorityQueue<std::vector<uint8_t>, 3> pq(30000, 1, tick_service, kIterations);
+    quicr::PriorityQueue<std::vector<uint8_t>> pq(30000, 1, tick_service, kIterations);
     std::vector<uint8_t> data(1000, 0);
 
     for (size_t i = 0; i < kIterations; ++i) {

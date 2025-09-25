@@ -11,7 +11,7 @@ static auto tick_service = std::make_shared<ThreadedTickService>();
 
 TEST_CASE("Priority Queue Push/Pop - one group")
 {
-    PriorityQueue<std::vector<uint8_t>, 3> pq(30000, 1, tick_service, 150);
+    PriorityQueue<std::vector<uint8_t>> pq(30000, 1, tick_service, 150);
     std::vector<uint8_t> data(1000, 0);
 
     for (size_t i = 0; i < 500; ++i) {
@@ -37,7 +37,7 @@ TEST_CASE("Priority Queue Push/Pop - one group")
 
 TEST_CASE("Priority Queue Push/Pop - multi-group")
 {
-    PriorityQueue<std::vector<uint8_t>, 3> pq(30000, 1, tick_service, 150);
+    PriorityQueue<std::vector<uint8_t>> pq(30000, 1, tick_service, 150);
     std::vector<uint8_t> data(1000, 0);
 
     for (size_t i = 0; i < 500; ++i) {

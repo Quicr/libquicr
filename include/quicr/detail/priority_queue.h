@@ -23,9 +23,8 @@ namespace quicr {
      *          added to the queue.
      *
      * @tparam DataType   The element type to be stored.
-     * @tparam PMAX       Max priorities to allow - Range becomes 0 - PMAX
      */
-    template<typename DataType, uint8_t PMAX = 32>
+    template<typename DataType>
     class PriorityQueue
     {
         using TimeQueueType = TimeQueue<DataType>;
@@ -87,7 +86,7 @@ namespace quicr {
          *
          * @param value     The value to push onto the queue.
          * @param ttl       The time to live of the value in milliseconds.
-         * @param priority  The priority of the value (range is 0 - PMAX)
+         * @param priority  The priority of the value.
          * @param delay_ttl Delay POP by this ttl value in milliseconds
          */
         void Push(std::uint64_t group_id, DataType& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
@@ -103,7 +102,7 @@ namespace quicr {
          *
          * @param value     The value to push onto the queue.
          * @param ttl       The time to live of the value in milliseconds.
-         * @param priority  The priority of the value (range is 0 - PMAX)
+         * @param priority  The priority of the value.
          * @param delay_ttl Delay POP by this ttl value in milliseconds
          */
         void Push(std::uint64_t group_id, DataType&& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
@@ -293,17 +292,13 @@ namespace quicr {
         /**
          * @brief Get queue by priority
          *
-         * @param priority  The priority queue value (range is 0 - PMAX)
+         * @param priority  The priority queue value.
          * @param group_id  The group id for the timequeue
          *
          * @return Unique pointer to queue for the given priority
          */
         TimeQueueType& GetQueueByPriorityGroupId(const uint8_t priority, uint64_t group_id)
         {
-            if (priority >= PMAX) {
-                throw InvalidPriorityException("Priority not within range");
-            }
-
             auto grp_it = queues_[priority].find(group_id);
             if (grp_it != queues_[priority].end()) {
                 return *grp_it->second;
