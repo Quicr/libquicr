@@ -325,7 +325,7 @@ namespace quicr {
         void Server();
         bool ClientLoop();
         void CbNotifier();
-
+        void RunPqFunction(std::function<int()>&& function);
         void CheckCallbackDelta(DataContext* data_ctx, bool tx = true);
 
         /**

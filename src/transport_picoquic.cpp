@@ -613,12 +613,10 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         if (!data_ctx_it->second.mark_stream_active) {
             data_ctx_it->second.mark_stream_active = true;
 
-            picoquic_runner_queue_.Push([this, conn_id, data_ctx_id]() {
+            RunPqFunction([this, conn_id, data_ctx_id]() {
                 MarkStreamActive(conn_id, data_ctx_id);
                 return 0;
             });
-
-            picoquic_wake_up_network_thread(quic_network_thread_ctx_);
         }
     } else { // datagram
         ConnData cd{ conn_id,          data_ctx_id,
@@ -629,11 +627,10 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         if (!conn_ctx_it->second.mark_dgram_ready) {
             conn_ctx_it->second.mark_dgram_ready = true;
 
-            picoquic_runner_queue_.Push([this, conn_id]() {
+            RunPqFunction([this, conn_id]() {
                 MarkDgramReady(conn_id);
                 return 0;
             });
-            picoquic_wake_up_network_thread(quic_network_thread_ctx_);
         }
     }
 
@@ -831,12 +828,11 @@ PicoQuicTransport::SetStreamIdDataCtxId(const TransportConnId conn_id, DataConte
 
     data_ctx_it->second.current_stream_id = stream_id;
 
-    picoquic_runner_queue_.Push([=]() {
+    RunPqFunction([=]() {
         if (conn_it->second.pq_cnx != nullptr)
             picoquic_set_app_stream_ctx(conn_it->second.pq_cnx, stream_id, &data_ctx_it->second);
         return 0;
     });
-    picoquic_wake_up_network_thread(quic_network_thread_ctx_);
 }
 
 /* ============================================================================
@@ -1056,11 +1052,10 @@ PicoQuicTransport::DeleteDataContext(const TransportConnId& conn_id, DataContext
      * Race conditions exist with picoquic thread callbacks that will cause a problem if the context (pointer context)
      *    is deleted outside of the picoquic thread. Below schedules the delete to be done within the picoquic thread.
      */
-    picoquic_runner_queue_.Push([this, conn_id, data_ctx_id]() {
+    RunPqFunction([this, conn_id, data_ctx_id]() {
         DeleteDataContextInternal(conn_id, data_ctx_id);
         return 0;
     });
-    picoquic_wake_up_network_thread(quic_network_thread_ctx_);
 }
 
 void
@@ -1116,11 +1111,10 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
                 std::memcpy(buf, out_data.value.data->data(), out_data.value.data->size());
             }
         } else {
-            picoquic_runner_queue_.Push([this, conn_id = conn_ctx->conn_id]() {
+            RunPqFunction([this, conn_id = conn_ctx->conn_id]() {
                 MarkDgramReady(conn_id);
                 return 0;
             });
-            picoquic_wake_up_network_thread(quic_network_thread_ctx_);
 
             /* TODO(tievens): picoquic_prepare_stream_and_datagrams() appears to ignore the
              *     below unless data was sent/provided
@@ -1240,9 +1234,8 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             data_ctx->metrics.tx_queue_discards++;
 
             if (!data_ctx->tx_data->Empty()) {
-                picoquic_runner_queue_.Push([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
+                RunPqFunction([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
                     MarkStreamActive(conn_id, data_ctx_id);
-                    picoquic_wake_up_network_thread(quic_network_thread_ctx_);
                     return 0;
                 });
             }
@@ -1679,7 +1672,7 @@ PicoQuicTransport::Server()
 
     // Wait for something to happen with the thread
     while (!quic_network_thread_ctx_->thread_is_ready && !quic_network_thread_ctx_->return_code) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
     if (quic_network_thread_ctx_->return_code) {
@@ -1700,7 +1693,7 @@ PicoQuicTransport::StartClient()
     std::mutex mtx;
     std::unique_lock lock(mtx);
 
-    picoquic_runner_queue_.Push([this, &conn_id, &cv, &mtx]() {
+    RunPqFunction([this, &conn_id, &cv, &mtx]() {
         auto notify_caller = [&cv, &conn_id, &mtx](uint64_t id) {
             std::lock_guard _(mtx);
             conn_id = id;
@@ -1769,8 +1762,6 @@ PicoQuicTransport::StartClient()
         return 0;
     });
 
-    picoquic_wake_up_network_thread(quic_network_thread_ctx_);
-
     SPDLOG_LOGGER_DEBUG(logger, "Waiting for client connection context");
 
     cv.wait_for(lock, std::chrono::milliseconds(3000), [&]() { return conn_id > 0; });
@@ -1781,8 +1772,6 @@ PicoQuicTransport::StartClient()
         SetStatus(TransportStatus::kDisconnected);
         return 0;
     }
-
-    picoquic_wake_up_network_thread(quic_network_thread_ctx_);
 
     return conn_id;
 }
@@ -1795,7 +1784,7 @@ PicoQuicTransport::ClientLoop()
     quic_network_thread_params_.local_port = 0;
     quic_network_thread_params_.local_af = PF_UNSPEC;
     quic_network_thread_params_.dest_if = 0;
-    quic_network_thread_params_.socket_buffer_size = 2'000'000;
+    quic_network_thread_params_.socket_buffer_size = tconfig_.socket_buffer_size;
     quic_network_thread_params_.do_not_use_gso = 0;
 
 #ifdef ESP_PLATFORM
@@ -1814,7 +1803,7 @@ PicoQuicTransport::ClientLoop()
 
     // Wait for something to happen with the thread
     while (!quic_network_thread_ctx_->thread_is_ready && !quic_network_thread_ctx_->return_code) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
     if (quic_network_thread_ctx_->return_code) {
@@ -1934,11 +1923,10 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
      */
     picoquic_set_app_stream_ctx(conn_ctx.pq_cnx, *data_ctx->current_stream_id, data_ctx);
 
-    picoquic_runner_queue_.Push([this, conn_id = conn_ctx.conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
+    RunPqFunction([this, conn_id = conn_ctx.conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
         MarkStreamActive(conn_id, data_ctx_id);
         return 0;
     });
-    picoquic_wake_up_network_thread(quic_network_thread_ctx_);
 }
 
 void
@@ -1980,6 +1968,13 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* data_ct
 
     data_ctx->ResetTxObject();
     data_ctx->current_stream_id = std::nullopt;
+}
+
+void
+PicoQuicTransport::RunPqFunction(std::function<int()>&& function)
+{
+    picoquic_runner_queue_.Push(std::move(function));
+    picoquic_wake_up_network_thread(quic_network_thread_ctx_);
 }
 
 void
