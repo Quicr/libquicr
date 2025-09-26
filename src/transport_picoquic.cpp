@@ -1665,6 +1665,7 @@ PicoQuicTransport::Server()
       picoquic_start_network_thread(quic_ctx_, &quic_network_thread_params_, PqLoopCb, this, &quic_loop_return_value_);
 
     if (quic_ctx_ == NULL || quic_network_thread_ctx_ == NULL) {
+        SPDLOG_LOGGER_ERROR(logger, "Failed to start picoquic network thread");
         picoquic_free(quic_ctx_);
         quic_ctx_ = NULL;
         SetStatus(TransportStatus::kShutdown);
@@ -1672,7 +1673,7 @@ PicoQuicTransport::Server()
 
     // Wait for something to happen with the thread
     while (!quic_network_thread_ctx_->thread_is_ready && !quic_network_thread_ctx_->return_code) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     if (quic_network_thread_ctx_->return_code) {
