@@ -1660,7 +1660,7 @@ PicoQuicTransport::Server()
     quic_network_thread_params_.socket_buffer_size = 2000000;
     quic_network_thread_params_.do_not_use_gso = 0;
 
-    // int ret = picoquic_packet_loop(quic_ctx_, serverInfo_.port, PF_UNSPEC, 0, 2000000, 0, PqLoopCb, this);
+    SPDLOG_LOGGER_DEBUG(logger, "Starting picoquic network thread");
     quic_network_thread_ctx_ =
       picoquic_start_network_thread(quic_ctx_, &quic_network_thread_params_, PqLoopCb, this, &quic_loop_return_value_);
 
