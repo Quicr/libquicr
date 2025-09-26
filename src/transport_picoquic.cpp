@@ -13,6 +13,8 @@
 #include <picosocks.h>
 #include <spdlog/spdlog.h>
 
+#include "custom_event_loop.h"
+
 // Transport.
 #include <quicr/detail/priority_queue.h>
 #include <quicr/detail/quic_transport_metrics.h>
@@ -1613,7 +1615,7 @@ PicoQuicTransport::CheckConnsForCongestion()
 void
 PicoQuicTransport::Server()
 {
-    int ret = picoquic_packet_loop(quic_ctx_, serverInfo_.port, PF_UNSPEC, 0, 2000000, 0, PqLoopCb, this);
+    int ret = custom_picoquic_packet_loop(quic_ctx_, serverInfo_.port, PF_UNSPEC, 0, 2000000, 0, PqLoopCb, this);
 
     if (quic_ctx_ != NULL) {
         picoquic_free(quic_ctx_);
@@ -1714,9 +1716,9 @@ PicoQuicTransport::Client(const TransportConnId conn_id)
             return;
         }
 #ifdef ESP_PLATFORM
-        ret = picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 0x2048, 0, PqLoopCb, this);
+        ret = custom_picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 0x2048, 0, PqLoopCb, this);
 #else
-        ret = picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 2000000, 0, PqLoopCb, this);
+        ret = custom_picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 2000000, 0, PqLoopCb, this);
 #endif
 
         SPDLOG_LOGGER_INFO(logger, "picoquic ended with {0}", ret);

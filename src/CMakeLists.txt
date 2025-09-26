@@ -11,6 +11,7 @@ target_sources (quicr PRIVATE
     client.cpp
     ctrl_message_types.cpp
     ${ctrl_messages_SOURCE}
+    custom_event_loop.cpp
     messages.cpp
     publish_fetch_handler.cpp
     publish_track_handler.cpp
@@ -63,6 +64,12 @@ target_link_libraries(quicr
 target_link_libraries(quicr
     PUBLIC
         picoquic-core picoquic-log)
+
+target_link_libraries(quicr PUBLIC ${LIBUV_LIBRARIES})
+target_include_directories(quicr PRIVATE ${LIBUV_INCLUDE_DIRS})
+if(LIBUV_LIBRARY_DIRS)
+    target_link_directories(quicr PUBLIC ${LIBUV_LIBRARY_DIRS})
+endif()
 
 add_dependencies(quicr ${ctrl_messages_TARGET})
 

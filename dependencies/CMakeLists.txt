@@ -28,6 +28,10 @@ if (NOT TARGET spdlog)
     add_subdirectory(spdlog)
 endif()
 
+# libuv
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBUV REQUIRED IMPORTED_TARGET libuv)
+
 if(BUILD_TESTING AND QUICR_BUILD_TESTS AND NOT TARGET doctest)
     add_subdirectory(doctest)
 endif()
