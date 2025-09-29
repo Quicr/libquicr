@@ -143,6 +143,12 @@ namespace quicr {
 
             auto conn_id = quic_transport_->Start();
 
+            if (!conn_id) { // Error, connection ID should always be greater than one
+                SPDLOG_LOGGER_ERROR(logger_, "Client connection failed");
+                status_ = Status::kFailedToConnect;
+                return status_;
+            }
+
             SetConnectionHandle(conn_id);
 
             status_ = Status::kConnecting;
