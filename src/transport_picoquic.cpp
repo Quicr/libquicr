@@ -1657,7 +1657,7 @@ PicoQuicTransport::Server()
     quic_network_thread_params_.local_port = serverInfo_.port;
     quic_network_thread_params_.local_af = PF_UNSPEC;
     quic_network_thread_params_.dest_if = 0;
-    quic_network_thread_params_.socket_buffer_size = 2000000;
+    quic_network_thread_params_.socket_buffer_size = tconfig_.socket_buffer_size;
     quic_network_thread_params_.do_not_use_gso = 0;
 
     SPDLOG_LOGGER_DEBUG(logger, "Starting picoquic network thread");
@@ -1673,7 +1673,7 @@ PicoQuicTransport::Server()
 
     // Wait for something to happen with the thread
     while (!quic_network_thread_ctx_->thread_is_ready && !quic_network_thread_ctx_->return_code) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
     if (quic_network_thread_ctx_->return_code) {
@@ -1682,8 +1682,6 @@ PicoQuicTransport::Server()
         SetStatus(TransportStatus::kShutdown);
         return;
     }
-
-    SetStatus(TransportStatus::kReady);
 }
 
 TransportConnId
