@@ -8,6 +8,7 @@
 #include <oss/cxxopts.hpp>
 #include <quicr/cache.h>
 #include <quicr/client.h>
+#include <quicr/detail/defer.h>
 #include <quicr/object.h>
 #include <quicr/publish_fetch_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -172,19 +173,6 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
     void ObjectReceived(const quicr::ObjectHeaders& hdr, quicr::BytesSpan data) override
     {
-        auto track_alias = GetTrackAlias();
-        if (!track_alias.has_value()) {
-            SPDLOG_DEBUG("Data without valid track alias");
-            return;
-        }
-
-        // Cache Object
-        if (qclient_vars::cache.count(*track_alias) == 0) {
-            qclient_vars::cache.emplace(
-              *track_alias,
-              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{ 50000, 1000, qclient_vars::tick_service });
-        }
-
         if (qclient_vars::record) {
             RecordObject(GetFullTrackName(), hdr, data);
         }
@@ -328,6 +316,23 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 SPDLOG_INFO("Publish track alias: {0} has status {1}", alias, static_cast<int>(status));
                 break;
         }
+    }
+
+    PublishObjectStatus PublishObject(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
+    {
+        auto track_alias = GetTrackAlias();
+
+        // Cache Object
+        if (qclient_vars::cache.count(*track_alias) == 0) {
+            qclient_vars::cache.emplace(
+              *track_alias,
+              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{ 50000, 1000, qclient_vars::tick_service });
+        }
+
+        CacheObject object{ object_headers, { data.begin(), data.end() } };
+        qclient_vars::cache.at(*track_alias).Insert(object_headers.group_id, { std::move(object) }, 50000);
+
+        return quicr::PublishTrackHandler::PublishObject(object_headers, data);
     }
 };
 
@@ -489,18 +494,27 @@ class MyClient : public quicr::Client
                        largest_location,
                      });
 
+        if (!largest_location.has_value()) {
+            return;
+        }
+
         auto pub_fetch_h =
           quicr::PublishFetchHandler::Create(track_full_name, priority, request_id, group_order, 50000);
         BindFetchTrack(connection_handle, pub_fetch_h);
 
-        auto& [_, cache] = *cache_entry_it;
-        const auto& cache_entries = cache.Get(start, end != 0 ? end : cache.Size() - 1);
+        std::thread retrieve_cache_thread([=, this] {
+            defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
+            auto& [_, cache] = *cache_entry_it;
+            const auto& cache_entries = cache.Get(start, end != 0 ? end : cache.Size() - 1);
 
-        for (const auto& entry : cache_entries) {
-            for (const auto& object : *entry) {
-                pub_fetch_h->PublishObject(object.headers, object.data);
+            for (const auto& entry : cache_entries) {
+                for (const auto& object : *entry) {
+                    pub_fetch_h->PublishObject(object.headers, object.data);
+                }
             }
-        }
+        });
+
+        retrieve_cache_thread.detach();
     }
 
     void StandaloneFetchReceived(quicr::ConnectionHandle connection_handle,

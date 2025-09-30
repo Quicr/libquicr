@@ -125,6 +125,22 @@ namespace quicr {
         conn_it->second.pub_fetch_tracks_by_sub_id[request_id] = std::move(track_handler);
     }
 
+    void Client::UnbindFetchTrack(ConnectionHandle connection_handle,
+                                  const std::shared_ptr<PublishFetchHandler>& track_handler)
+    {
+        std::lock_guard lock(state_mutex_);
+
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+        auto request_id = *track_handler->GetRequestId();
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "Client publish fetch track conn_id: {} subscribe id: {} unbind", connection_handle, request_id);
+
+        conn_it->second.pub_fetch_tracks_by_sub_id.erase(request_id);
+    }
+
     PublishTrackHandler::PublishObjectStatus Client::SendFetchObject(PublishFetchHandler& track_handler,
                                                                      uint8_t priority,
                                                                      uint32_t ttl,
