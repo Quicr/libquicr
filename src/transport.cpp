@@ -1246,12 +1246,19 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
-    bool Transport::FetchReceived([[maybe_unused]] ConnectionHandle connection_handle,
-                                  [[maybe_unused]] uint64_t request_id,
-                                  [[maybe_unused]] const FullTrackName& track_full_name,
-                                  [[maybe_unused]] const quicr::messages::FetchAttributes& attributes)
+    void Transport::StandaloneFetchReceived(
+      [[maybe_unused]] ConnectionHandle connection_handle,
+      [[maybe_unused]] uint64_t request_id,
+      [[maybe_unused]] const FullTrackName& track_full_name,
+      [[maybe_unused]] const quicr::messages::StandaloneFetchAttributes& attributes)
     {
-        return false;
+    }
+
+    void Transport::JoiningFetchReceived([[maybe_unused]] ConnectionHandle connection_handle,
+                                         [[maybe_unused]] uint64_t request_id,
+                                         [[maybe_unused]] const FullTrackName& track_full_name,
+                                         [[maybe_unused]] const quicr::messages::JoiningFetchAttributes& attributes)
+    {
     }
 
     void Transport::FetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler)

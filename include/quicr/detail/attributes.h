@@ -3,9 +3,10 @@
 
 #pragma once
 
+#include "quicr/detail/ctrl_messages.h"
+
 #include <chrono>
 #include <optional>
-#include <quicr/detail/ctrl_messages.h>
 
 namespace quicr::messages {
     /**
@@ -25,15 +26,20 @@ namespace quicr::messages {
         TrackAlias track_alias;
     };
 
-    /**
-     * @brief Fetch attributes
-     */
-    struct FetchAttributes
+    struct StandaloneFetchAttributes
     {
         std::uint8_t priority;              ///< Fetch priority
         GroupOrder group_order;             ///< Fetch group order
         Location start_location;            ///< Fetch starting location in range
         GroupId end_group;                  ///< Fetch final group in range
         std::optional<ObjectId> end_object; ///< Fetch final object in group
+    };
+
+    struct JoiningFetchAttributes
+    {
+        std::uint8_t priority;        ///< Fetch priority
+        GroupOrder group_order;       ///< Fetch group order
+        RequestID joining_request_id; ///< Fetch joining request_id
+        std::uint64_t joining_start;  ///< Fetch joining start
     };
 }
