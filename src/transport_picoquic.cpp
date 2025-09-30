@@ -1653,12 +1653,15 @@ PicoQuicTransport::CheckConnsForCongestion()
 void
 PicoQuicTransport::Server()
 {
-
     quic_network_thread_params_.local_port = serverInfo_.port;
     quic_network_thread_params_.local_af = PF_UNSPEC;
     quic_network_thread_params_.dest_if = 0;
     quic_network_thread_params_.socket_buffer_size = tconfig_.socket_buffer_size;
     quic_network_thread_params_.do_not_use_gso = 0;
+    quic_network_thread_params_.extra_socket_required = 0;
+    quic_network_thread_params_.prefer_extra_socket = 0;
+    quic_network_thread_params_.simulate_eio = 0;
+    quic_network_thread_params_.send_length_max = 0;
 
     SPDLOG_LOGGER_DEBUG(logger, "Starting picoquic network thread");
     quic_network_thread_ctx_ =
@@ -1784,11 +1787,14 @@ PicoQuicTransport::ClientLoop()
     quic_network_thread_params_.local_af = PF_UNSPEC;
     quic_network_thread_params_.dest_if = 0;
     quic_network_thread_params_.socket_buffer_size = tconfig_.socket_buffer_size;
-    quic_network_thread_params_.do_not_use_gso = 0;
-
 #ifdef ESP_PLATFORM
     quic_network_thread_params_.socket_buffer_size = 0x2048;
 #endif
+    quic_network_thread_params_.do_not_use_gso = 0;
+    quic_network_thread_params_.extra_socket_required = 0;
+    quic_network_thread_params_.prefer_extra_socket = 0;
+    quic_network_thread_params_.simulate_eio = 0;
+    quic_network_thread_params_.send_length_max = 0;
 
     quic_network_thread_ctx_ =
       picoquic_start_network_thread(quic_ctx_, &quic_network_thread_params_, PqLoopCb, this, &quic_loop_return_value_);
