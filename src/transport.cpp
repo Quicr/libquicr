@@ -170,7 +170,12 @@ namespace quicr {
           ITransport::MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
         quic_transport_->Start();
 
-        status_ = Status::kReady;
+        if (quic_transport_->Status() == TransportStatus::kShutdown) {
+            status_ = Status::kInternalError;
+        } else {
+            status_ = Status::kReady;
+        }
+
         return status_;
     }
 
