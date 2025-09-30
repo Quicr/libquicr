@@ -12,13 +12,6 @@
 namespace quicr {
     using namespace quicr::messages;
 
-    TransportException::TransportException(TransportError error, std::source_location location)
-      : std::runtime_error("Error in transport (error=" + std::to_string(static_cast<int>(error)) + ", " +
-                           std::to_string(location.line()) + ", " + location.file_name() + ")")
-      , Error(error)
-    {
-    }
-
     static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
     {
         // moq://domain:port/<dont-care>
@@ -292,7 +285,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending ClientSetup (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendServerSetup(ConnectionContext& conn_ctx)
@@ -314,7 +307,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending ServerSetup (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendAnnounce(ConnectionContext& conn_ctx,
@@ -336,7 +329,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PublishNamespace (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, RequestID request_id)
@@ -354,7 +347,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_NAMESPACE_OK (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
@@ -369,7 +362,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_NAMESPACE_DONE (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendTrackStatus(ConnectionContext& conn_ctx,
@@ -396,7 +389,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Trac (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendSubscribe(ConnectionContext& conn_ctx,
@@ -452,7 +445,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Subscribe (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendPublish(ConnectionContext& conn_ctx,
@@ -487,7 +480,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendPublishOk(ConnectionContext& conn_ctx,
@@ -520,7 +513,7 @@ namespace quicr {
 
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish Ok (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendPublishError(ConnectionContext& conn_ctx,
@@ -543,7 +536,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish Error (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendSubscribeUpdate(const ConnectionContext& conn_ctx,
@@ -578,7 +571,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeUpdate (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendTrackStatusOk(ConnectionContext& conn_ctx,
@@ -605,7 +598,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending TrackStatusOk (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendSubscribeOk(ConnectionContext& conn_ctx,
@@ -632,7 +625,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeOk (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t request_id, const std::string& reason)
@@ -651,7 +644,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_DONE (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendUnsubscribe(ConnectionContext& conn_ctx, uint64_t request_id)
@@ -667,7 +660,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Unsubscribe (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
@@ -698,7 +691,7 @@ namespace quicr {
         SendCtrlMsg(conn_it->second, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, RequestID request_id)
@@ -716,7 +709,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE_OK (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
@@ -738,7 +731,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE_ERROR (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
@@ -774,7 +767,7 @@ namespace quicr {
         SendCtrlMsg(conn_it->second, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending UNSUBSCRIBE_NAMESPACE (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendTrackStatusError(ConnectionContext& conn_ctx,
@@ -797,7 +790,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending TRACK_STATUS_ERROR (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendSubscribeError(ConnectionContext& conn_ctx,
@@ -820,7 +813,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_ERROR (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendFetch(ConnectionContext& conn_ctx,
@@ -846,7 +839,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Fetch (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendJoiningFetch(ConnectionContext& conn_ctx,
@@ -874,7 +867,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending JoiningFetch (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendFetchCancel(ConnectionContext& conn_ctx, uint64_t request_id)
@@ -887,7 +880,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchCancel (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendFetchOk(ConnectionContext& conn_ctx,
@@ -904,7 +897,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchOk (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SendFetchError(ConnectionContext& conn_ctx,
@@ -927,7 +920,7 @@ namespace quicr {
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchError (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
+        throw;
     }
 
     void Transport::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
@@ -1206,12 +1199,24 @@ namespace quicr {
 
                 lock.lock();
 
-                SendAnnounce(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
+                try {
+                    SendAnnounce(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
+                } catch (const std::exception& e) {
+                    lock.unlock();
+                    track_handler->SetStatus(PublishTrackHandler::Status::kError);
+                    return;
+                }
             } else {
                 auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
                 if (pub_n_it == pub_ns_it->second.end()) {
                     track_handler->SetStatus(pub_ns_it->second.begin()->second->GetStatus());
-                    SendAnnounce(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
+                    try {
+                        SendAnnounce(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
+                    } catch (const std::exception& e) {
+                        lock.unlock();
+                        track_handler->SetStatus(PublishTrackHandler::Status::kError);
+                        return;
+                    }
 
                     SPDLOG_LOGGER_INFO(logger_,
                                        "Publish track has new track namespace hash: {0} name hash: {1}",
@@ -1368,22 +1373,24 @@ namespace quicr {
 
         switch (status) {
             case TransportStatus::kReady: {
-                if (client_mode_) {
-                    SPDLOG_LOGGER_INFO(logger_,
-                                       "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
+                if (!client_mode_) {
+                    break;
+                }
 
-                    conn_ctx.ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, true);
+                SPDLOG_LOGGER_INFO(logger_, "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
 
+                conn_ctx.ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, true);
+
+                try {
                     SendClientSetup();
 
-                    if (client_mode_) {
-                        status_ = Status::kPendingServerSetup;
-                    } else {
-                        status_ = Status::kReady;
-                    }
-
+                    status_ = Status::kPendingServerSetup;
                     conn_status = ConnectionStatus::kConnected;
+                } catch (const std::exception&) {
+                    status_ = Status::kNotConnected;
+                    conn_status = ConnectionStatus::kNotConnected;
                 }
+
                 break;
             }
 
@@ -1813,10 +1820,10 @@ namespace quicr {
         }
     }
 
-    void Transport::OnDataMetricsStampled(const MetricsTimeStamp sample_time,
-                                          const TransportConnId conn_id,
-                                          const DataContextId data_ctx_id,
-                                          const QuicDataContextMetrics& quic_data_context_metrics)
+    void Transport::OnDataMetricsSampled(const MetricsTimeStamp sample_time,
+                                         const TransportConnId conn_id,
+                                         const DataContextId data_ctx_id,
+                                         const QuicDataContextMetrics& quic_data_context_metrics)
     {
         const auto& conn = connections_[conn_id];
         const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);
