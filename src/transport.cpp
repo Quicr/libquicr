@@ -12,6 +12,17 @@
 namespace quicr {
     using namespace quicr::messages;
 
+    namespace {
+        std::shared_ptr<spdlog::logger> safe_logger_get(const std::string& name)
+        {
+            if (auto logger = spdlog::get(name)) {
+                return logger;
+            }
+
+            return spdlog::stderr_color_mt(name);
+        }
+    }
+
     TransportException::TransportException(TransportError error, std::source_location location)
       : std::runtime_error("Error in transport (error=" + std::to_string(static_cast<int>(error)) + ", " +
                            std::to_string(location.line()) + ", " + location.file_name() + ")")
@@ -75,7 +86,7 @@ namespace quicr {
     Transport::Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service)
       : std::enable_shared_from_this<Transport>()
       , client_mode_(true)
-      , logger_(spdlog::get("MTC") ? spdlog::get("MTC") : spdlog::stderr_color_mt("MTC"))
+      , logger_(safe_logger_get("MTC"))
       , server_config_({})
       , client_config_(cfg)
       , tick_service_(std::move(tick_service))
@@ -88,7 +99,7 @@ namespace quicr {
     Transport::Transport(const ServerConfig& cfg, std::shared_ptr<TickService> tick_service)
       : std::enable_shared_from_this<Transport>()
       , client_mode_(false)
-      , logger_(spdlog::get("MTS") ? spdlog::get("MTS") : spdlog::stderr_color_mt("MTS"))
+      , logger_(safe_logger_get("MTS"))
       , server_config_(cfg)
       , client_config_({})
       , tick_service_(std::move(tick_service))
