@@ -9,7 +9,7 @@
 #include <spdlog/spdlog.h>
 
 #include <quicr/cache.h>
-#include <quicr/detail/defer.h>
+#include <quicr/defer.h>
 #include <quicr/server.h>
 
 #include "signal_handler.h"

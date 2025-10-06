@@ -8,7 +8,7 @@
 #include <oss/cxxopts.hpp>
 #include <quicr/cache.h>
 #include <quicr/client.h>
-#include <quicr/detail/defer.h>
+#include <quicr/defer.h>
 #include <quicr/object.h>
 #include <quicr/publish_fetch_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>

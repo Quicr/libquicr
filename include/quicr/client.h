@@ -191,7 +191,7 @@ namespace quicr {
         /**
          * @brief Accept or reject a Fetch that was received
          *
-         * @details Accept or reject an fetch received via FetchReceived().
+         * @details Accept or reject a fetch received via FetchReceived().
          *
          * @param connection_handle        Source connection ID
          * @param request_id               Request ID
