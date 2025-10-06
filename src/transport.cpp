@@ -13,7 +13,7 @@ namespace quicr {
     using namespace quicr::messages;
 
     namespace {
-        std::shared_ptr<spdlog::logger> safe_logger_get(const std::string& name)
+        std::shared_ptr<spdlog::logger> SafeLoggerGet(const std::string& name)
         {
             if (auto logger = spdlog::get(name)) {
                 return logger;
@@ -86,7 +86,7 @@ namespace quicr {
     Transport::Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service)
       : std::enable_shared_from_this<Transport>()
       , client_mode_(true)
-      , logger_(safe_logger_get("MTC"))
+      , logger_(SafeLoggerGet("MTC"))
       , server_config_({})
       , client_config_(cfg)
       , tick_service_(std::move(tick_service))
@@ -99,7 +99,7 @@ namespace quicr {
     Transport::Transport(const ServerConfig& cfg, std::shared_ptr<TickService> tick_service)
       : std::enable_shared_from_this<Transport>()
       , client_mode_(false)
-      , logger_(safe_logger_get("MTS"))
+      , logger_(SafeLoggerGet("MTS"))
       , server_config_(cfg)
       , client_config_({})
       , tick_service_(std::move(tick_service))
