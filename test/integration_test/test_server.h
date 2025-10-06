@@ -33,13 +33,22 @@ namespace quicr_test {
           [[maybe_unused]] const quicr::TrackNamespace& track_namespace) override
         {
             return {};
-        };
+        }
+
         void UnsubscribeAnnouncesReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                                          [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override{};
+                                          [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override
+        {
+        }
+
         void UnsubscribeReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                                 [[maybe_unused]] uint64_t request_id) override{};
+                                 [[maybe_unused]] uint64_t request_id) override
+        {
+        }
+
         void FetchCancelReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                                 [[maybe_unused]] uint64_t request_id) override{};
+                                 [[maybe_unused]] uint64_t request_id) override
+        {
+        }
 
         void SubscribeReceived(quicr::ConnectionHandle connection_handle,
                                uint64_t request_id,
