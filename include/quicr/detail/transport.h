@@ -340,6 +340,11 @@ namespace quicr {
                                    DataContextId data_ctx_id,
                                    const QuicDataContextMetrics& quic_data_context_metrics) override;
 
+        void OnStreamClosed(const ConnectionHandle& connection_handle,
+                            std::uint64_t stream_id,
+                            bool is_fin,
+                            bool is_reset) override;
+
         // -------------------------------------------------------------------------------------------------
         // End of transport handler/callback functions
         // -------------------------------------------------------------------------------------------------

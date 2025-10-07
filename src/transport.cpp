@@ -1637,6 +1637,26 @@ namespace quicr {
         // TODO(tievens): Add metrics to track if this happens
     }
 
+    void Transport::OnStreamClosed(const ConnectionHandle& connection_handle,
+                                   std::uint64_t stream_id,
+                                   bool is_fin,
+                                   bool is_reset)
+    {
+        auto rx_ctx = quic_transport_->GetStreamRxContext(connection_handle, stream_id);
+        auto& conn_ctx = connections_[connection_handle];
+
+        if (!(is_fin ^ is_reset)) {
+            SPDLOG_ERROR("OnStreamClosed must be called with either is_fin XOR is_reset");
+            return;
+        }
+
+        for (const auto& [_, handler] : conn_ctx.sub_tracks_by_request_id) {
+            handler->SetStatus(is_fin     ? SubscribeTrackHandler::Status::kDoneByFin
+                               : is_reset ? SubscribeTrackHandler::Status::kDoneByReset
+                                          : SubscribeTrackHandler::Status::kError /* Should never hit error */);
+        }
+    }
+
     bool Transport::OnRecvSubgroup(StreamHeaderType type,
                                    std::vector<uint8_t>::const_iterator cursor_it,
                                    StreamRxContext& rx_ctx,

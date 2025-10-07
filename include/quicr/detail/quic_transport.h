@@ -239,6 +239,19 @@ namespace quicr {
                                       bool is_bidir = false) = 0;
 
             /**
+             * @brief Callback notification that a stream has been closed by either FIN or RST.
+             *
+             * @param connection_handle Transport context identifier mapped to the connection
+             * @param stream_id         Transport stream id.
+             * @param is_fin            Close was triggered by FIN.
+             * @param is_reset          Close was triggered by RST.
+             */
+            virtual void OnStreamClosed(const TransportConnId& connection_handle,
+                                        std::uint64_t stream_id,
+                                        bool is_fin,
+                                        bool is_reset) = 0;
+
+            /**
              * @brief callback notification on connection metrics sampled
              *
              * @details This callback will be called when the connection metrics are sampled per connection

@@ -175,6 +175,9 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
 
                 if (is_fin) {
                     SPDLOG_LOGGER_DEBUG(transport->logger, "Received FIN for stream {0}", stream_id);
+
+                    transport->OnStreamClosed(conn_id, stream_id, true, false);
+
                     picoquic_reset_stream_ctx(pq_cnx, stream_id);
 
                     if (auto conn_ctx = transport->GetConnContext(conn_id)) {
@@ -198,6 +201,8 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
         case picoquic_callback_stream_reset: {
             SPDLOG_LOGGER_TRACE(
               transport->logger, "Received RESET stream conn_id: {0} stream_id: {1}", conn_id, stream_id);
+
+            transport->OnStreamClosed(conn_id, stream_id, true, false);
 
             picoquic_reset_stream_ctx(pq_cnx, stream_id);
 
@@ -1452,6 +1457,13 @@ try {
 } catch (const std::exception& e) {
     SPDLOG_LOGGER_ERROR(logger, "Caught exception in OnRecvStreamBytes. (error={})", e.what());
     // TODO(tievens): Add metrics to track if this happens
+}
+
+void
+PicoQuicTransport::OnStreamClosed(TransportConnId conn_id, uint64_t stream_id, bool is_fin, bool is_reset)
+{
+    SPDLOG_INFO("Stream {} closed for connection {}", stream_id, conn_id);
+    cbNotifyQueue_.Push([=, this]() { delegate_.OnStreamClosed(conn_id, stream_id, is_fin, is_reset); });
 }
 
 void
