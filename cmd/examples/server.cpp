@@ -129,11 +129,6 @@ namespace qserver_vars {
     std::shared_ptr<quicr::ThreadedTickService> tick_service = std::make_shared<quicr::ThreadedTickService>();
 
     /**
-     * @brief Map of atomic bools to mark if a fetch thread should be interrupted.
-     */
-    std::map<std::pair<quicr::ConnectionHandle, quicr::messages::RequestID>, std::atomic_bool> stop_fetch;
-
-    /**
      * @brief List of track aliases that are pending new group request
      */
     std::set<quicr::messages::TrackAlias> track_aliases_new_group_request;
@@ -328,75 +323,6 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                      metrics.quic.tx_queue_discards,
                      metrics.quic.tx_queue_size.avg);
     }
-};
-
-/**
- * @brief  Fetch track handler
- * @details Fetch track handler.
- */
-class MyFetchTrackHandler : public quicr::FetchTrackHandler
-{
-    MyFetchTrackHandler(const std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler,
-                        const quicr::FullTrackName& full_track_name,
-                        quicr::messages::SubscriberPriority priority,
-                        quicr::messages::GroupOrder group_order,
-                        uint64_t start_group,
-                        uint64_t start_object,
-                        uint64_t end_group,
-                        uint64_t end_object)
-      : FetchTrackHandler(full_track_name, priority, group_order, start_group, end_group, start_object, end_object)
-    {
-        publish_fetch_handler_ = publish_fetch_handler;
-    }
-
-  public:
-    static auto Create(const std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler,
-                       const quicr::FullTrackName& full_track_name,
-                       std::uint8_t priority,
-                       quicr::messages::GroupOrder group_order,
-                       uint64_t start_group,
-                       uint64_t start_object,
-                       uint64_t end_group,
-                       uint64_t end_object)
-    {
-        return std::shared_ptr<MyFetchTrackHandler>(new MyFetchTrackHandler(publish_fetch_handler,
-                                                                            full_track_name,
-                                                                            priority,
-                                                                            group_order,
-                                                                            start_group,
-                                                                            end_group,
-                                                                            start_object,
-                                                                            end_object));
-    }
-
-    void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
-    {
-        // Simple - forward what we get to the fetch handler
-        if (publish_fetch_handler_) {
-            publish_fetch_handler_->PublishObject(headers, data);
-        }
-    }
-
-    void StatusChanged(Status status) override
-    {
-        switch (status) {
-            case Status::kOk: {
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
-                }
-            } break;
-
-            case Status::kError: {
-                SPDLOG_INFO("Fetch failed");
-                break;
-            }
-            default:
-                break;
-        }
-    }
-
-  private:
-    std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler_;
 };
 
 /**
@@ -995,16 +921,7 @@ class MyServer : public quicr::Server
         }
     }
 
-    void FetchCancelReceived(quicr::ConnectionHandle connection_handle, uint64_t subscribe_id) override
-    {
-        SPDLOG_INFO("Canceling fetch for connection handle: {} subscribe_id: {}", connection_handle, subscribe_id);
-
-        if (qserver_vars::stop_fetch.count({ connection_handle, subscribe_id }) == 0)
-            qserver_vars::stop_fetch[{ connection_handle, subscribe_id }] = true;
-    }
-
   private:
-    /// The server cache for fetching from.
     const int kSubscriptionDampenDurationMs_ = 1000;
     std::optional<std::chrono::time_point<std::chrono::steady_clock>> last_subscription_time_;
 };

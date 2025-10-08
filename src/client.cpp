@@ -823,7 +823,17 @@ namespace quicr {
                     SPDLOG_LOGGER_WARN(logger_, "Received Fetch Cancel for unknown subscribe ID: {0}", msg.request_id);
                 }
 
+                const auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
+                if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                    FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
+                    return true;
+                }
+
+                fetch_it->second->SetStatus(FetchTrackHandler::Status::kCancelled);
+
                 FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
+
+                conn_ctx.sub_tracks_by_request_id.erase(fetch_it);
                 conn_ctx.recv_req_id.erase(msg.request_id);
 
                 return true;

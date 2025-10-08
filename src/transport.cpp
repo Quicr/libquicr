@@ -1651,9 +1651,9 @@ namespace quicr {
         }
 
         for (const auto& [_, handler] : conn_ctx.sub_tracks_by_request_id) {
-            handler->SetStatus(is_fin     ? SubscribeTrackHandler::Status::kDoneByFin
-                               : is_reset ? SubscribeTrackHandler::Status::kDoneByReset
-                                          : SubscribeTrackHandler::Status::kError /* Should never hit error */);
+            handler->SetStatus(is_fin     ? FetchTrackHandler::Status::kDoneByFin
+                               : is_reset ? FetchTrackHandler::Status::kDoneByReset
+                                          : FetchTrackHandler::Status::kError /* Should never hit error */);
         }
     }
 
