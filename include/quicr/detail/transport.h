@@ -176,19 +176,38 @@ namespace quicr {
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
-         * @brief Event to run on receiving Fetch request.
+         * @brief Event to run on receiving a Standalone Fetch request.
          *
          * @param connection_handle Source connection ID.
          * @param request_id        Request ID received.
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
-         *
-         * @returns True to indicate fetch will send data, False if no data is within the requested range
          */
-        virtual bool FetchReceived(ConnectionHandle connection_handle,
-                                   uint64_t request_id,
-                                   const FullTrackName& track_full_name,
-                                   const quicr::messages::FetchAttributes& attributes);
+        virtual void StandaloneFetchReceived(ConnectionHandle connection_handle,
+                                             uint64_t request_id,
+                                             const FullTrackName& track_full_name,
+                                             const quicr::messages::StandaloneFetchAttributes& attributes);
+
+        /**
+         * @brief Event to run on receiving a Joining Fetch request.
+         *
+         * @param connection_handle Source connection ID.
+         * @param request_id        Request ID received.
+         * @param track_full_name   Track full name
+         * @param attributes        Fetch attributes received.
+         */
+        virtual void JoiningFetchReceived(ConnectionHandle connection_handle,
+                                          uint64_t request_id,
+                                          const FullTrackName& track_full_name,
+                                          const quicr::messages::JoiningFetchAttributes& attributes);
+
+        /**
+         * @brief Callback notification on receiving a FetchCancel message.
+         *
+         * @param connection_handle Source connection ID.
+         * @param request_id        Request ID received.
+         */
+        virtual void FetchCancelReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
 
         /**
          * @brief Fetch track
@@ -320,6 +339,11 @@ namespace quicr {
                                    TransportConnId conn_id,
                                    DataContextId data_ctx_id,
                                    const QuicDataContextMetrics& quic_data_context_metrics) override;
+
+        void OnStreamClosed(const ConnectionHandle& connection_handle,
+                            std::uint64_t stream_id,
+                            bool is_fin,
+                            bool is_reset) override;
 
         // -------------------------------------------------------------------------------------------------
         // End of transport handler/callback functions

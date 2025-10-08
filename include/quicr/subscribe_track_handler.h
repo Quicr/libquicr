@@ -46,6 +46,9 @@ namespace quicr {
             kSendingUnsubscribe, ///< In this state, callbacks will not be called,
             kPaused,
             kNewGroupRequested,
+            kCancelled,
+            kDoneByFin,
+            kDoneByReset,
         };
 
         /**

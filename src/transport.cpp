@@ -1268,12 +1268,19 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
-    bool Transport::FetchReceived([[maybe_unused]] ConnectionHandle connection_handle,
-                                  [[maybe_unused]] uint64_t request_id,
-                                  [[maybe_unused]] const FullTrackName& track_full_name,
-                                  [[maybe_unused]] const quicr::messages::FetchAttributes& attributes)
+    void Transport::StandaloneFetchReceived(
+      [[maybe_unused]] ConnectionHandle connection_handle,
+      [[maybe_unused]] uint64_t request_id,
+      [[maybe_unused]] const FullTrackName& track_full_name,
+      [[maybe_unused]] const quicr::messages::StandaloneFetchAttributes& attributes)
     {
-        return false;
+    }
+
+    void Transport::JoiningFetchReceived([[maybe_unused]] ConnectionHandle connection_handle,
+                                         [[maybe_unused]] uint64_t request_id,
+                                         [[maybe_unused]] const FullTrackName& track_full_name,
+                                         [[maybe_unused]] const quicr::messages::JoiningFetchAttributes& attributes)
+    {
     }
 
     void Transport::FetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler)
@@ -1650,6 +1657,26 @@ namespace quicr {
         throw;
 
         // TODO(tievens): Add metrics to track if this happens
+    }
+
+    void Transport::OnStreamClosed(const ConnectionHandle& connection_handle,
+                                   std::uint64_t stream_id,
+                                   bool is_fin,
+                                   bool is_reset)
+    {
+        auto rx_ctx = quic_transport_->GetStreamRxContext(connection_handle, stream_id);
+        auto& conn_ctx = connections_[connection_handle];
+
+        if (!(is_fin ^ is_reset)) {
+            SPDLOG_ERROR("OnStreamClosed must be called with either is_fin XOR is_reset");
+            return;
+        }
+
+        for (const auto& [_, handler] : conn_ctx.sub_tracks_by_request_id) {
+            handler->SetStatus(is_fin     ? FetchTrackHandler::Status::kDoneByFin
+                               : is_reset ? FetchTrackHandler::Status::kDoneByReset
+                                          : FetchTrackHandler::Status::kError /* Should never hit error */);
+        }
     }
 
     bool Transport::OnRecvSubgroup(StreamHeaderType type,
