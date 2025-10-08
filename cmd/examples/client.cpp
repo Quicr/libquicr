@@ -51,6 +51,7 @@ namespace qclient_vars {
     bool add_gaps = false;
     bool req_track_status = false;
     std::chrono::milliseconds playback_speed_ms(20);
+    std::chrono::milliseconds cache_duration_ms(20);
     std::unordered_map<quicr::messages::TrackAlias, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>>
       cache;
     std::shared_ptr<quicr::ThreadedTickService> tick_service = std::make_shared<quicr::ThreadedTickService>();
@@ -326,11 +327,13 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
         if (qclient_vars::cache.count(*track_alias) == 0) {
             qclient_vars::cache.emplace(
               *track_alias,
-              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{ 50000, 1000, qclient_vars::tick_service });
+              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{
+                static_cast<std::size_t>(qclient_vars::cache_duration_ms.count()), 1000, qclient_vars::tick_service });
         }
 
         CacheObject object{ object_headers, { data.begin(), data.end() } };
-        qclient_vars::cache.at(*track_alias).Insert(object_headers.group_id, { std::move(object) }, 50000);
+        qclient_vars::cache.at(*track_alias)
+          .Insert(object_headers.group_id, { std::move(object) }, qclient_vars::cache_duration_ms.count());
 
         return quicr::PublishTrackHandler::PublishObject(object_headers, data);
     }
@@ -934,6 +937,10 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
 
+    if (cli_opts.count("cache_duration_ms")) {
+        qclient_vars::cache_duration_ms = std::chrono::milliseconds(cli_opts["cache_duration_ms"].as<uint64_t>());
+    }
+
     if (cli_opts.count("ssl_keylog") && cli_opts["ssl_keylog"].as<bool>() == true) {
         SPDLOG_INFO("SSL Keylog enabled");
     }
@@ -963,7 +970,6 @@ main(int argc, char* argv[])
     // clang-format off
     options.set_width(75)
       .set_tab_expansion()
-      //.allow_unrecognised_options()
       .add_options()
         ("h,help", "Print help")
         ("d,debug", "Enable debugging") // a bool parameter
@@ -981,6 +987,7 @@ main(int argc, char* argv[])
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")
         ("playback", "Playback recorded data from moq and dat files", cxxopts::value<bool>())
         ("playback_speed_ms", "Playback speed in ms", cxxopts::value<std::uint64_t>())
+        ("cache_duration_ms", "TTL of objects in the cache", cxxopts::value<std::uint64_t>()->default_value("50000"))
         ("gaps", "Add gaps to groups and objects");
 
     options.add_options("Subscriber")
