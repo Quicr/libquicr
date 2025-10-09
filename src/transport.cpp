@@ -477,7 +477,8 @@ namespace quicr {
                                 uint64_t track_alias,
                                 messages::GroupOrder group_order,
                                 std::optional<Location> largest_location,
-                                bool forward)
+                                bool forward,
+                                bool support_new_groups)
     try {
 
         auto publish = Publish(request_id,
@@ -490,6 +491,10 @@ namespace quicr {
                                                             : std::nullopt,
                                forward,
                                {});
+
+        if (support_new_groups) {
+            publish.parameters.push_back({ .type = ParameterType::kDynamicGroups, .value = { 1 } });
+        }
 
         Bytes buffer;
         buffer << publish;
@@ -518,10 +523,8 @@ namespace quicr {
         if (filter_type == FilterType::kAbsoluteStart || filter_type == FilterType::kAbsoluteRange) {
             throw std::runtime_error("Absolute filtering not yet supported for Subscribe");
         }
+
         std::optional<PublishOk::Group_1> end_group;
-        if (filter_type == FilterType::kAbsoluteRange) {
-            throw std::runtime_error("Absolute filtering not yet supported for Subscribe");
-        }
 
         auto publish_ok =
           PublishOk(request_id, forward, priority, group_order, filter_type, start_location, end_group, {});
@@ -576,7 +579,14 @@ namespace quicr {
           request_id, subscribe_request_id, start_location, end_group_id, priority, static_cast<int>(forward), {});
 
         if (new_group_request) {
-            subscribe_update.parameters.push_back({ .type = ParameterType::kNewGroupRequest, .value = { 1 } });
+            if (end_group_id != 0) {
+                end_group_id++;
+            }
+
+            subscribe_update.parameters.push_back(
+              { .type = ParameterType::kNewGroupRequest,
+                .value = Bytes{ reinterpret_cast<uint8_t*>(&end_group_id),
+                                reinterpret_cast<uint8_t*>(&end_group_id) + sizeof(end_group_id) } });
         }
 
         Bytes buffer;
@@ -637,7 +647,12 @@ namespace quicr {
           GroupOrder::kAscending,
           largest_location.has_value(),
           largest_location.has_value() ? std::make_optional(SubscribeOk::Group_0{ *largest_location }) : std::nullopt,
-          {});
+          { { .type = ParameterType::kDynamicGroups, .value = { 1 } } });
+
+        /*
+         * TODO: Update dynamic group param to be set based on publisher info if known.
+         *      It is not always known because libquicr supports subscriber before publisher
+         */
 
         Bytes buffer;
         buffer << subscribe_ok;
@@ -1248,7 +1263,8 @@ namespace quicr {
                         std::make_optional(Location{
                           track_handler->latest_group_id_,
                           track_handler->latest_object_id_.has_value() ? *track_handler->latest_object_id_ : 0 }),
-                        true);
+                        true,
+                        track_handler->support_new_group_request);
         }
 
         track_handler->connection_handle_ = conn_id;

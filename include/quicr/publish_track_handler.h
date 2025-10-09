@@ -202,13 +202,13 @@ namespace quicr {
          * @brief  Get use announce setting.
          * @return true to indicate announce flow will be used. false to indicate publish flow will be used
          */
-        constexpr bool UsingAnnounce() const noexcept { return use_announce; }
+        constexpr bool UsingAnnounce() const noexcept { return use_announce_; }
 
         /**
          * @brief Set use announce
          * @param use           True to request announce flow to be used. False to use publish flow.
          */
-        constexpr void SetUseAnnounce(bool use) noexcept { use_announce = use; }
+        constexpr void SetUseAnnounce(bool use) noexcept { use_announce_ = use; }
 
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
@@ -359,6 +359,27 @@ namespace quicr {
             StatusChanged(status);
         }
 
+        /**
+         * @brief Process the new group request per MOQT rules of when to send new group or not
+         *
+         * @param new_group_request_id  Value of new group request, group id being requested
+         *
+         * @return True to accept the new group request, False to indicate that new group is not accepted
+         */
+        bool ProcessNewGroupRequest(uint64_t new_group_request_id)
+        {
+            if (pending_new_group_request_id_.has_value()) {
+                // Only allow new group request if group requested is greater than pending, which could be zero
+                if (new_group_request_id > pending_new_group_request_id_.value()) {
+                    return true;
+                }
+            } else if (!new_group_request_id || new_group_request_id > latest_group_id_) {
+                return true;
+            }
+
+            return false;
+        }
+
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
@@ -378,7 +399,9 @@ namespace quicr {
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
-        bool use_announce{ false }; // Indicates to use announce publish flow if true, otherwise use publish flow
+        bool use_announce_{ false }; // Indicates to use announce publish flow if true, otherwise use publish flow
+        bool support_new_group_request_{ true };
+        std::optional<uint64_t> pending_new_group_request_id_;
 
         friend class Transport;
         friend class Client;

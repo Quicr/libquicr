@@ -925,6 +925,18 @@ namespace quicr {
                   msg.subscription_request_id,
                   msg.forward);
 
+                bool new_group_request = false;
+                uint64_t new_group_request_id{ 0 };
+                for (const auto& param : msg.parameters) {
+                    if (param.type == messages::ParameterType::kNewGroupRequest) {
+                        new_group_request = true;
+                        std::memcpy(&new_group_request_id,
+                                    param.value.data(),
+                                    param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+                        break;
+                    }
+                }
+
                 /*
                  * Unlike client, server supports multi-publisher to the client.
                  *   There is a publish handler per publisher connection
@@ -933,15 +945,9 @@ namespace quicr {
                      conn_ctx.pub_tracks_by_track_alias[sub_ctx_it->second.track_hash.track_fullname_hash]) {
                     if (not msg.forward) {
                         pub.second->SetStatus(PublishTrackHandler::Status::kPaused);
-                    } else {
-                        bool new_group_request = false;
-                        for (const auto& param : msg.parameters) {
-                            if (param.type == messages::ParameterType::kNewGroupRequest) {
-                                new_group_request = true;
-                                break;
-                            }
-                        }
 
+                    } else {
+                        pub.second->new_group_request_id_ = new_group_request_id;
                         pub.second->SetStatus(new_group_request ? PublishTrackHandler::Status::kNewGroupRequested
                                                                 : PublishTrackHandler::Status::kSubscriptionUpdated);
                     }

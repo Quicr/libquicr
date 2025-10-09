@@ -475,7 +475,8 @@ namespace quicr {
                          uint64_t track_alias,
                          messages::GroupOrder group_order,
                          std::optional<messages::Location> largest_location,
-                         bool forward);
+                         bool forward,
+                         bool support_new_groups);
 
         void SendPublishOk(ConnectionContext& conn_ctx,
                            messages::RequestID request_id,
