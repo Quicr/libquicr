@@ -182,8 +182,8 @@ namespace quicr {
                 object_extensions = Extensions{};
             }
 
-            object_extensions->try_emplace(static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap),
-                                           value_bytes);
+            object_extensions->insert(
+              { static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap), value_bytes });
         }
 
         if (object_id_delta > 0) {
@@ -194,8 +194,8 @@ namespace quicr {
                 object_extensions = Extensions{};
             }
 
-            object_extensions->try_emplace(static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorObjectIdGap),
-                                           value_bytes);
+            object_extensions->insert(
+              { static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorObjectIdGap), value_bytes });
         }
 
         latest_group_id_ = object_headers.group_id;
