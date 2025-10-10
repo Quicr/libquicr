@@ -213,4 +213,12 @@ namespace quicr {
                                        true,
                                        true);
     }
+
+    void SubscribeTrackHandler::ReportLatency(const messages::GroupId group_id,
+                                              const messages::ObjectId object_id,
+                                              const std::chrono::milliseconds latency)
+    {
+        SPDLOG_DEBUG("E2E Latency for {}:{} {}ms", group_id, object_id, latency.count());
+    }
+
 } // namespace quicr

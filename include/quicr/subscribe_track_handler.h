@@ -203,6 +203,14 @@ namespace quicr {
 
         void SetDeliveryTimeout(std::chrono::milliseconds timeout) noexcept { delivery_timeout_ = timeout; }
 
+        /**
+         * @brief Report an end-to-end latency calculation for an object received from this track.
+         * @param group_id The group ID of the object.
+         * @param object_id The object ID of the object.
+         * @param latency The end-to-end latency of the object in milliseconds.
+         */
+        void ReportLatency(messages::GroupId group_id, messages::ObjectId object_id, std::chrono::milliseconds latency);
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
