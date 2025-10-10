@@ -96,7 +96,9 @@ CompareExtensions(const std::optional<Extensions>& sent, const std::optional<Ext
     REQUIRE(recv.has_value());
     constexpr auto key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
     REQUIRE(recv->contains(key));
-    CHECK_GT(recv->at(key).size(), 0);
+    auto it = recv->find(key);
+    REQUIRE(it != recv->end());
+    CHECK_GT(it->second.size(), 0);
     auto copy = std::move(recv);
     copy->erase(key);
     if (copy->size() == 0) {
@@ -560,6 +562,60 @@ TEST_CASE("Immutable Extensions Nesting")
     // Serialization should throw ProtocolViolationException
     Bytes buffer;
     CHECK_THROWS_AS(buffer << msg, ProtocolViolationException);
+}
+
+TEST_CASE("Extensions with duplicate keys")
+{
+    // Create extensions with multiple values for the same key
+    Extensions extensions_with_duplicates;
+    extensions_with_duplicates.insert({ 0x1, { 0xAA } });
+    extensions_with_duplicates.insert({ 0x1, { 0xBB } });
+    extensions_with_duplicates.insert({ 0x1, { 0xCC } });
+    extensions_with_duplicates.insert({ 0x3, { 0x11, 0x22 } });
+
+    // Serialize the extensions
+    Bytes buffer;
+    buffer << extensions_with_duplicates;
+
+    // Deserialize back
+    StreamBuffer<uint8_t> in_buffer;
+    in_buffer.Push(buffer);
+    std::optional<std::size_t> extension_headers_length;
+    std::optional<Extensions> parsed_extensions;
+    std::optional<Extensions> parsed_immutable_extensions;
+    std::size_t extension_bytes_remaining = 0;
+    std::optional<std::uint64_t> current_header;
+
+    bool success = ParseExtensions(in_buffer,
+                                   extension_headers_length,
+                                   parsed_extensions,
+                                   parsed_immutable_extensions,
+                                   extension_bytes_remaining,
+                                   current_header);
+
+    REQUIRE(success);
+    REQUIRE(parsed_extensions.has_value());
+    CHECK_EQ(parsed_extensions->size(), 4); // Should have 4 total entries
+
+    // Verify all three values for key 0x1 are present
+    auto range = parsed_extensions->equal_range(0x1);
+    std::vector<Bytes> values_for_key_1;
+    for (auto it = range.first; it != range.second; ++it) {
+        values_for_key_1.push_back(it->second);
+    }
+    REQUIRE_EQ(values_for_key_1.size(), 3);
+    CHECK_EQ(values_for_key_1[0], Bytes{ 0xAA });
+    CHECK_EQ(values_for_key_1[1], Bytes{ 0xBB });
+    CHECK_EQ(values_for_key_1[2], Bytes{ 0xCC });
+
+    // Verify single value for key 0x3
+    auto range_3 = parsed_extensions->equal_range(0x3);
+    std::vector<Bytes> values_for_key_3;
+    for (auto it = range_3.first; it != range_3.second; ++it) {
+        values_for_key_3.push_back(it->second);
+    }
+    REQUIRE_EQ(values_for_key_3.size(), 1);
+    CHECK_EQ(values_for_key_3[0], Bytes{ 0x11, 0x22 });
 }
 
 TEST_CASE("Null extensions serialize to 0 length")

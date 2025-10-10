@@ -9,7 +9,7 @@
 #include <quicr/detail/base_track_handler.h>
 
 namespace quicr {
-    using Extensions = std::map<uint64_t, std::vector<uint8_t>>;
+    using Extensions = std::multimap<uint64_t, std::vector<uint8_t>>;
 
     /**
      * @brief Status of object as reported by the publisher
