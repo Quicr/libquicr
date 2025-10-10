@@ -359,27 +359,6 @@ namespace quicr {
             StatusChanged(status);
         }
 
-        /**
-         * @brief Process the new group request per MOQT rules of when to send new group or not
-         *
-         * @param new_group_request_id  Value of new group request, group id being requested
-         *
-         * @return True to accept the new group request, False to indicate that new group is not accepted
-         */
-        bool ProcessNewGroupRequest(uint64_t new_group_request_id)
-        {
-            if (pending_new_group_request_id_.has_value()) {
-                // Only allow new group request if group requested is greater than pending, which could be zero
-                if (new_group_request_id > pending_new_group_request_id_.value()) {
-                    return true;
-                }
-            } else if (!new_group_request_id || new_group_request_id > latest_group_id_) {
-                return true;
-            }
-
-            return false;
-        }
-
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------

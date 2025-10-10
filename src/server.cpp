@@ -91,6 +91,8 @@ namespace quicr {
         return false;
     }
 
+    void Server::NewGroupRequested(const FullTrackName&, messages::GroupId) {}
+
     void Server::ResolveSubscribe(ConnectionHandle connection_handle,
                                   uint64_t request_id,
                                   uint64_t track_alias,
@@ -368,14 +370,28 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                const auto dt_param = std::find_if(msg.parameters.begin(), msg.parameters.end(), [](const auto& p) {
-                    return p.type == messages::ParameterType::kDeliveryTimeout;
-                });
-
                 std::uint64_t delivery_timeout = 0;
+                std::optional<uint64_t> new_group_request_id;
+                for (const auto& param : msg.parameters) {
+                    switch (param.type) {
+                        case messages::ParameterType::kDeliveryTimeout: {
+                            std::memcpy(&delivery_timeout,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
 
-                if (dt_param != msg.parameters.end()) {
-                    std::memcpy(&delivery_timeout, dt_param->value.data(), dt_param->value.size());
+                            break;
+                        }
+                        case messages::ParameterType::kNewGroupRequest: {
+                            uint64_t ngr_id{ 0 };
+                            std::memcpy(&ngr_id,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+                            new_group_request_id = ngr_id;
+                            break;
+                        }
+                        default:
+                            break;
+                    }
                 }
 
                 // TODO(tievens): add filter type when caching supports it
@@ -386,7 +402,13 @@ namespace quicr {
                                   { msg.subscriber_priority,
                                     static_cast<messages::GroupOrder>(msg.group_order),
                                     std::chrono::milliseconds{ delivery_timeout },
-                                    msg.forward });
+                                    msg.forward,
+                                    new_group_request_id });
+
+                // Handle new group request after subscribe callback
+                if (new_group_request_id.has_value()) {
+                    NewGroupRequested({ msg.track_namespace, msg.track_name }, *new_group_request_id);
+                }
 
                 return true;
             }
@@ -925,14 +947,16 @@ namespace quicr {
                   msg.subscription_request_id,
                   msg.forward);
 
-                bool new_group_request = false;
+                bool new_group_request{ false };
                 uint64_t new_group_request_id{ 0 };
                 for (const auto& param : msg.parameters) {
                     if (param.type == messages::ParameterType::kNewGroupRequest) {
-                        new_group_request = true;
                         std::memcpy(&new_group_request_id,
                                     param.value.data(),
                                     param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+
+                        new_group_request = true;
+                        NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id);
                         break;
                     }
                 }
@@ -943,11 +967,12 @@ namespace quicr {
                  */
                 for (const auto& pub :
                      conn_ctx.pub_tracks_by_track_alias[sub_ctx_it->second.track_hash.track_fullname_hash]) {
+
+                    // TODO: Follow up on https://github.com/moq-wg/moq-transport/issues/1304
                     if (not msg.forward) {
                         pub.second->SetStatus(PublishTrackHandler::Status::kPaused);
 
                     } else {
-                        pub.second->new_group_request_id_ = new_group_request_id;
                         pub.second->SetStatus(new_group_request ? PublishTrackHandler::Status::kNewGroupRequested
                                                                 : PublishTrackHandler::Status::kSubscriptionUpdated);
                     }

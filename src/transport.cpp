@@ -1082,15 +1082,16 @@ namespace quicr {
           logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetRequestId().value());
 
         auto priority = track_handler->GetPriority();
-        SendSubscribeUpdate(conn_it->second,
-                            conn_it->second.GetNextRequestId(),
-                            track_handler->GetRequestId().value(),
-                            th,
-                            { 0x0, 0x0 },
-                            0x0,
-                            priority,
-                            true,
-                            new_group_request);
+        SendSubscribeUpdate(
+          conn_it->second,
+          conn_it->second.GetNextRequestId(),
+          track_handler->GetRequestId().value(),
+          th,
+          { 0x0, 0x0 },
+          track_handler->pending_new_group_request_id_.has_value() ? *track_handler->pending_new_group_request_id_ : 0,
+          priority,
+          true,
+          new_group_request);
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
@@ -1264,7 +1265,7 @@ namespace quicr {
                           track_handler->latest_group_id_,
                           track_handler->latest_object_id_.has_value() ? *track_handler->latest_object_id_ : 0 }),
                         true,
-                        track_handler->support_new_group_request);
+                        track_handler->support_new_group_request_);
         }
 
         track_handler->connection_handle_ = conn_id;

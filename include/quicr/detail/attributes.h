@@ -13,11 +13,11 @@ namespace quicr::messages {
      */
     struct SubscribeAttributes
     {
-        std::uint8_t priority;                      ///< Subscriber priority
-        GroupOrder group_order;                     ///< Subscriber group order
-        std::chrono::milliseconds delivery_timeout; ///< Subscriber delivery timeout
-        std::uint8_t forward;                       ///< True to Resume/forward data, False to pause/stop data
-        bool new_group_request{ false };            ///< Indicates new group is requested
+        std::uint8_t priority;                        ///< Subscriber priority
+        GroupOrder group_order;                       ///< Subscriber group order
+        std::chrono::milliseconds delivery_timeout;   ///< Subscriber delivery timeout
+        std::uint8_t forward;                         ///< True to Resume/forward data, False to pause/stop data
+        std::optional<uint64_t> new_group_request_id; ///< Indicates new group id is requested
     };
 
     struct PublishAttributes : SubscribeAttributes

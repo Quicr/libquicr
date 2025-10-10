@@ -195,7 +195,7 @@ namespace quicr {
                                        false);
     }
 
-    void SubscribeTrackHandler::RequestNewGroup() noexcept
+    void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
     {
         auto transport = GetTransport().lock();
         if (!transport || status_ != Status::kOk) {
@@ -208,7 +208,7 @@ namespace quicr {
                                        GetRequestId().value(),
                                        GetFullTrackName(),
                                        {},
-                                       0,
+                                       group_id,
                                        GetPriority(),
                                        true,
                                        true);
