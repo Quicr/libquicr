@@ -337,6 +337,13 @@ namespace quicr {
                     sub_it->second.get()->SetLatestLocation(msg.group_0->largest_location);
                 }
 
+                for (const auto& param : msg.parameters) {
+                    if (param.type == messages::ParameterType::kDynamicGroups) {
+                        sub_it->second->support_new_group_request_ = true;
+                        break;
+                    }
+                }
+
                 sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
                 conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second;
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);

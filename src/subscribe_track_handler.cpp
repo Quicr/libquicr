@@ -9,6 +9,11 @@
 
 namespace quicr {
 
+    void SubscribeTrackHandler::SupportNewGroupRequest(bool is_supported) noexcept
+    {
+        support_new_group_request_ = is_supported;
+    }
+
     void SubscribeTrackHandler::ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
                                                [[maybe_unused]] BytesSpan data)
     {
@@ -198,7 +203,7 @@ namespace quicr {
     void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
     {
         auto transport = GetTransport().lock();
-        if (!transport || status_ != Status::kOk) {
+        if (!transport || status_ != Status::kOk || !support_new_group_request_) {
             return;
         }
 

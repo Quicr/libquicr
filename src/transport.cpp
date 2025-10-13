@@ -1054,14 +1054,12 @@ namespace quicr {
     }
 
     void Transport::UpdateTrackSubscription(TransportConnId conn_id,
-                                            std::shared_ptr<SubscribeTrackHandler> track_handler,
-                                            bool new_group_request)
+                                            std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
-        SPDLOG_LOGGER_INFO(
-          logger_, "Subscribe track conn_id: {} hash: {} ≈: {}", conn_id, th.track_fullname_hash, new_group_request);
+        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {} hash: {}", conn_id, th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
@@ -1084,7 +1082,7 @@ namespace quicr {
           track_handler->pending_new_group_request_id_.has_value() ? *track_handler->pending_new_group_request_id_ : 0,
           priority,
           true,
-          new_group_request);
+          false);
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,

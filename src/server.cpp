@@ -434,6 +434,13 @@ namespace quicr {
                     return true;
                 }
 
+                for (const auto& param : msg.parameters) {
+                    if (param.type == messages::ParameterType::kDynamicGroups) {
+                        sub_it->second->support_new_group_request_ = true;
+                        break;
+                    }
+                }
+
                 sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
                 conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second;
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
@@ -913,10 +920,19 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                PublishReceived(conn_ctx.connection_handle,
-                                msg.request_id,
-                                tfn,
-                                { { 0, msg.group_order, std::chrono::milliseconds(0), 0 }, msg.track_alias });
+                std::optional<uint64_t> new_group_request_id;
+                for (const auto& param : msg.parameters) {
+                    if (param.type == messages::ParameterType::kDynamicGroups) {
+                        new_group_request_id = 0;
+                        break;
+                    }
+                }
+
+                PublishReceived(
+                  conn_ctx.connection_handle,
+                  msg.request_id,
+                  tfn,
+                  { { 0, msg.group_order, std::chrono::milliseconds(0), 0, new_group_request_id }, msg.track_alias });
 
                 return true;
             }

@@ -215,6 +215,13 @@ namespace quicr {
          */
         void RequestNewGroup(uint64_t group_id = 0) noexcept;
 
+        /**
+         * @brief Indicate if subscribe handler should send new group requests or not
+         *
+         * @param is_supported      True to send new group requests, False to disable sending
+         */
+        void SupportNewGroupRequest(bool is_supported) noexcept;
+
         std::chrono::milliseconds GetDeliveryTimeout() const noexcept { return delivery_timeout_; }
 
         void SetDeliveryTimeout(std::chrono::milliseconds timeout) noexcept { delivery_timeout_ = timeout; }
@@ -343,6 +350,7 @@ namespace quicr {
         std::chrono::milliseconds delivery_timeout_{ 0 };
 
         bool publisher_initiated_{ false };
+        bool support_new_group_request_{ false };
 
         friend class Transport;
         friend class Client;
