@@ -287,9 +287,9 @@ namespace quicr {
                                         param.value.data(),
                                         param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
 
-                            if (!ptd->pending_new_group_request_id_.has_value() ||
-                                *ptd->pending_new_group_request_id_ ||
-                                *ptd->pending_new_group_request_id_ > ptd->latest_group_id_) {
+                            if (!(ptd->pending_new_group_request_id_.has_value() &&
+                                  *ptd->pending_new_group_request_id_ == 0 && new_group_request_id == 0) &&
+                                (new_group_request_id == 0 || ptd->latest_group_id_ < new_group_request_id)) {
 
                                 ptd->pending_new_group_request_id_ = new_group_request_id;
                                 ptd->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);

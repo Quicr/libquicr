@@ -579,10 +579,6 @@ namespace quicr {
           request_id, subscribe_request_id, start_location, end_group_id, priority, static_cast<int>(forward), {});
 
         if (new_group_request) {
-            if (end_group_id != 0) {
-                end_group_id++;
-            }
-
             subscribe_update.parameters.push_back(
               { .type = ParameterType::kNewGroupRequest,
                 .value = Bytes{ reinterpret_cast<uint8_t*>(&end_group_id),
