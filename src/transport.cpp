@@ -1078,9 +1078,6 @@ namespace quicr {
             return;
         }
 
-        SPDLOG_LOGGER_DEBUG(
-          logger_, "subscribe id (from subscribe) to add to memory: {0}", track_handler->GetRequestId().value());
-
         auto priority = track_handler->GetPriority();
         SendSubscribeUpdate(
           conn_it->second,
