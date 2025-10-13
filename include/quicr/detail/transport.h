@@ -476,7 +476,7 @@ namespace quicr {
                          messages::GroupOrder group_order,
                          std::optional<messages::Location> largest_location,
                          bool forward,
-                         bool support_new_groups);
+                         bool support_new_group);
 
         void SendPublishOk(ConnectionContext& conn_ctx,
                            messages::RequestID request_id,

@@ -478,7 +478,7 @@ namespace quicr {
                                 messages::GroupOrder group_order,
                                 std::optional<Location> largest_location,
                                 bool forward,
-                                bool support_new_groups)
+                                bool support_new_group)
     try {
 
         auto publish = Publish(request_id,
@@ -492,7 +492,7 @@ namespace quicr {
                                forward,
                                {});
 
-        if (support_new_groups) {
+        if (support_new_group) {
             publish.parameters.push_back({ .type = ParameterType::kDynamicGroups, .value = { 1 } });
         }
 
