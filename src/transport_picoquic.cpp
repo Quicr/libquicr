@@ -515,6 +515,11 @@ PicoQuicTransport::Start()
     cbNotifyQueue_.SetLimit(2000);
     cbNotifyThread_ = std::thread(&PicoQuicTransport::CbNotifier, this);
 
+    if (!tconfig_.quic_qlog_path.empty()) {
+        SPDLOG_LOGGER_INFO(logger, "Enabling qlog using '{0}' path", tconfig_.quic_qlog_path);
+        picoquic_set_qlog(quic_ctx_, tconfig_.quic_qlog_path.c_str());
+    }
+
     TransportConnId cid = 0;
     std::ostringstream log_msg;
 
@@ -529,11 +534,6 @@ PicoQuicTransport::Start()
         if (ClientLoop()) {
             cid = StartClient();
         }
-    }
-
-    if (!tconfig_.quic_qlog_path.empty()) {
-        SPDLOG_LOGGER_INFO(logger, "Enabling qlog using '{0}' path", tconfig_.quic_qlog_path);
-        picoquic_set_qlog(quic_ctx_, tconfig_.quic_qlog_path.c_str());
     }
 
     return cid;
