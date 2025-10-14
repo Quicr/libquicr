@@ -220,7 +220,6 @@ TEST_CASE("Group ID Gap")
 TEST_CASE("Qlog Generation")
 {
     // Create temporary destination for QLOG files.
-    constexpr std::string qlog_extension = ".log";
     const auto temp_dir = std::filesystem::temp_directory_path() / "libquicr_qlog_test";
     std::filesystem::create_directories(temp_dir);
     defer(std::filesystem::remove_all(temp_dir));
@@ -232,7 +231,7 @@ TEST_CASE("Qlog Generation")
     // Check that above directory now has the two (server + client) qlog files.
     int qlogs = 0;
     for (const auto& entry : std::filesystem::directory_iterator(temp_dir)) {
-        if (entry.path().extension() == qlog_extension) {
+        if (entry.path().extension() == ".log") {
             ++qlogs;
         } else {
             FAIL("Unexpected file in qlog directory: {}", entry.path().string());
