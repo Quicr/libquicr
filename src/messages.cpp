@@ -98,7 +98,7 @@ namespace quicr::messages {
                 extension_bytes_remaining -= value.size();
                 std::vector<uint8_t> bytes(sizeof(std::uint64_t));
                 memcpy(bytes.data(), &decoded_value, sizeof(std::uint64_t));
-                extensions->insert({ tag, std::move(bytes) });
+                (*extensions)[tag].push_back(std::move(bytes));
             } else {
                 // Odd types: UIntVar length prefixed bytes.
                 Bytes bytes;
@@ -106,7 +106,7 @@ namespace quicr::messages {
                     return false;
                 }
                 extension_bytes_remaining -= bytes.size() + UintVar(bytes.size()).size();
-                extensions->insert({ tag, std::move(bytes) });
+                (*extensions)[tag].push_back(std::move(bytes));
             }
             current_header = std::nullopt;
         }
@@ -136,11 +136,13 @@ namespace quicr::messages {
         // Calculate total length of extension headers
         std::size_t total_length = 0;
         std::vector<KeyValuePair<std::uint64_t>> kvps;
-        for (const auto& extension : extensions) {
-            const auto kvp = KeyValuePair<std::uint64_t>{ extension.first, extension.second };
-            const auto size = kvp.Size();
-            total_length += size;
-            kvps.push_back(kvp);
+        for (const auto& [key, values] : extensions) {
+            for (const auto& value : values) {
+                const auto kvp = KeyValuePair<std::uint64_t>{ key, value };
+                const auto size = kvp.Size();
+                total_length += size;
+                kvps.push_back(kvp);
+            }
         }
 
         // Total length of all extension headers (varint).
@@ -161,8 +163,8 @@ namespace quicr::messages {
 
         // Add mutable extensions.
         if (extensions.has_value()) {
-            for (const auto& [key, value] : *extensions) {
-                combined_extensions.insert({ key, value });
+            for (const auto& [key, values] : *extensions) {
+                combined_extensions[key] = values;
             }
         }
 
@@ -179,7 +181,7 @@ namespace quicr::messages {
             // Serialize immutable extensions.
             Bytes immutable_bytes;
             immutable_bytes << *immutable_extensions;
-            combined_extensions.insert({ immutable_key, std::move(immutable_bytes) });
+            combined_extensions[immutable_key].push_back(std::move(immutable_bytes));
         }
 
         // Serialize combined extensions.
@@ -204,10 +206,10 @@ namespace quicr::messages {
         // Extract immutable extensions if present and deserialize.
         if (extensions.has_value()) {
             const auto it = extensions->find(immutable_key);
-            if (it != extensions->end()) {
+            if (it != extensions->end() && !it->second.empty()) {
                 // Deserialize the immutable extension map.
                 auto stream_buffer = StreamBuffer<uint8_t>();
-                stream_buffer.Push(std::span<const uint8_t>(it->second));
+                stream_buffer.Push(std::span<const uint8_t>(it->second[0]));
                 std::optional<std::size_t> immutable_length;
                 std::size_t immutable_bytes_remaining = 0;
                 std::optional<std::uint64_t> immutable_current_header;

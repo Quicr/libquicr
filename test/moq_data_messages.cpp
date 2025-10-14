@@ -36,11 +36,11 @@ enum class ExtensionTest
     kImmutable = 2,
     kBoth = 3,
 };
-const Extensions kExampleExtensions = { { 0x1, { 0x1, 0x2 } }, // Raw bytes.
-                                        { 0x2, kUint1ByteValue },
-                                        { 0x4, kUint2ByteValue },
-                                        { 0x6, kUint4ByteValue },
-                                        { 0x8, kUint8ByteValue } };
+const Extensions kExampleExtensions = { { 0x1, { { 0x1, 0x2 } } }, // Raw bytes.
+                                        { 0x2, { kUint1ByteValue } },
+                                        { 0x4, { kUint2ByteValue } },
+                                        { 0x6, { kUint4ByteValue } },
+                                        { 0x8, { kUint8ByteValue } } };
 const std::optional<Extensions> kOptionalExtensions = kExampleExtensions;
 
 template<typename T>
@@ -98,7 +98,8 @@ CompareExtensions(const std::optional<Extensions>& sent, const std::optional<Ext
     REQUIRE(recv->contains(key));
     auto it = recv->find(key);
     REQUIRE(it != recv->end());
-    CHECK_GT(it->second.size(), 0);
+    REQUIRE_GT(it->second.size(), 0);
+    CHECK_GT(it->second[0].size(), 0);
     auto copy = std::move(recv);
     copy->erase(key);
     if (copy->size() == 0) {
@@ -547,7 +548,7 @@ TEST_CASE("Immutable Extensions Nesting")
 {
     Extensions nested_immutable = {
         { static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable),
-          { 0xAA, 0xBB } } // This should cause validation to fail
+          { { 0xAA, 0xBB } } } // This should cause validation to fail
     };
 
     FetchObject msg;
@@ -568,10 +569,10 @@ TEST_CASE("Extensions with duplicate keys")
 {
     // Create extensions with multiple values for the same key
     Extensions extensions_with_duplicates;
-    extensions_with_duplicates.insert({ 0x1, { 0xAA } });
-    extensions_with_duplicates.insert({ 0x1, { 0xBB } });
-    extensions_with_duplicates.insert({ 0x1, { 0xCC } });
-    extensions_with_duplicates.insert({ 0x3, { 0x11, 0x22 } });
+    extensions_with_duplicates[0x1].push_back({ 0xAA });
+    extensions_with_duplicates[0x1].push_back({ 0xBB });
+    extensions_with_duplicates[0x1].push_back({ 0xCC });
+    extensions_with_duplicates[0x3].push_back({ 0x11, 0x22 });
 
     // Serialize the extensions
     Bytes buffer;
@@ -595,25 +596,19 @@ TEST_CASE("Extensions with duplicate keys")
 
     REQUIRE(success);
     REQUIRE(parsed_extensions.has_value());
-    CHECK_EQ(parsed_extensions->size(), 4); // Should have 4 total entries
+    CHECK_EQ(parsed_extensions->size(), 2); // Should have 2 keys
 
     // Verify all three values for key 0x1 are present
-    auto range = parsed_extensions->equal_range(0x1);
-    std::vector<Bytes> values_for_key_1;
-    for (auto it = range.first; it != range.second; ++it) {
-        values_for_key_1.push_back(it->second);
-    }
+    REQUIRE(parsed_extensions->contains(0x1));
+    const auto& values_for_key_1 = parsed_extensions->at(0x1);
     REQUIRE_EQ(values_for_key_1.size(), 3);
     CHECK_EQ(values_for_key_1[0], Bytes{ 0xAA });
     CHECK_EQ(values_for_key_1[1], Bytes{ 0xBB });
     CHECK_EQ(values_for_key_1[2], Bytes{ 0xCC });
 
     // Verify single value for key 0x3
-    auto range_3 = parsed_extensions->equal_range(0x3);
-    std::vector<Bytes> values_for_key_3;
-    for (auto it = range_3.first; it != range_3.second; ++it) {
-        values_for_key_3.push_back(it->second);
-    }
+    REQUIRE(parsed_extensions->contains(0x3));
+    const auto& values_for_key_3 = parsed_extensions->at(0x3);
     REQUIRE_EQ(values_for_key_3.size(), 1);
     CHECK_EQ(values_for_key_3[0], Bytes{ 0x11, 0x22 });
 }
