@@ -1,10 +1,12 @@
 #include "quicr/config.h"
+#include "quicr/detail/defer.h"
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
 #include "test_client.h"
 #include "test_server.h"
+#include <filesystem>
 #include <future>
 #include <iostream>
 #include <string>
@@ -18,7 +20,7 @@ const std::string kServerId = "test-server";
 constexpr std::chrono::milliseconds kDefaultTimeout(50);
 
 static std::shared_ptr<TestServer>
-MakeTestServer()
+MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt)
 {
     // Run the server.
     ServerConfig server_config;
@@ -28,6 +30,9 @@ MakeTestServer()
     server_config.transport_config.debug = true;
     server_config.transport_config.tls_cert_filename = "server-cert.pem";
     server_config.transport_config.tls_key_filename = "server-key.pem";
+    if (qlog_path.has_value()) {
+        server_config.transport_config.quic_qlog_path = *qlog_path;
+    }
     auto server = std::make_shared<TestServer>(server_config);
     const auto starting = server->Start();
     CHECK_EQ(starting, Transport::Status::kReady);
@@ -36,12 +41,15 @@ MakeTestServer()
 }
 
 std::shared_ptr<TestClient>
-MakeTestClient(const bool connect = true)
+MakeTestClient(const bool connect = true, const std::optional<std::string>& qlog_path = std::nullopt)
 {
     // Connect a client.
     ClientConfig client_config;
     client_config.transport_config.debug = true;
     client_config.connect_uri = "moq://" + kIp + ":" + std::to_string(kPort);
+    if (qlog_path.has_value()) {
+        client_config.transport_config.quic_qlog_path = *qlog_path;
+    }
     auto client = std::make_shared<TestClient>(client_config);
     if (connect) {
         client->Connect();
@@ -207,4 +215,28 @@ TEST_CASE("Group ID Gap")
     headers.group_id = expected_gap + 1;
     REQUIRE_EQ(pub->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
     // CHECK_EQ(received, 2);
+}
+
+TEST_CASE("Qlog Generation")
+{
+    // Create temporary destination for QLOG files.
+    constexpr std::string kQlogExtension = ".log";
+    const auto temp_dir = std::filesystem::temp_directory_path() / "libquicr_qlog_test";
+    std::filesystem::create_directories(temp_dir);
+    defer(std::filesystem::remove_all(temp_dir));
+
+    // Enable qlog.
+    auto server = MakeTestServer(temp_dir.string());
+    auto client = MakeTestClient(true, temp_dir.string());
+
+    // Check that above directory now has the two (server + client) qlog files.
+    int qlogs = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(temp_dir)) {
+        if (entry.path().extension() == kQlogExtension) {
+            ++qlogs;
+        } else {
+            FAIL("Unexpected file in qlog directory: {}", entry.path().string());
+        }
+    }
+    CHECK_EQ(qlogs, 2);
 }
