@@ -239,3 +239,26 @@ TEST_CASE("Qlog Generation")
     }
     CHECK_EQ(qlogs, 2);
 }
+
+TEST_CASE("Integration - Raw Subscribe Namespace")
+{
+    auto server = MakeTestServer();
+    auto client = MakeTestClient();
+
+    // Set up the prefix namespace we want to subscribe to
+    TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+
+    // Set up promise to capture server-side callback
+    std::promise<TestServer::SubscribeNamespaceDetails> promise;
+    std::future<TestServer::SubscribeNamespaceDetails> future = promise.get_future();
+    server->SetSubscribeNamespacePromise(std::move(promise));
+
+    // Client sends SUBSCRIBE_NAMESPACE
+    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+
+    // Server should receive the SUBSCRIBE_NAMESPACE message
+    auto status = future.wait_for(kDefaultTimeout);
+    REQUIRE(status == std::future_status::ready);
+    const auto& details = future.get();
+    CHECK_EQ(details.prefix_namespace, prefix_namespace);
+}
