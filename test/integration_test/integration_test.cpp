@@ -1,10 +1,10 @@
 #include "quicr/config.h"
+#include "test_client.h"
+#include "test_server.h"
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include "test_client.h"
-#include "test_server.h"
 #include <future>
 #include <iostream>
 #include <string>
