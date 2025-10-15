@@ -237,10 +237,12 @@ namespace quicr {
 
                 if (conn_ctx.recv_req_id.count(msg.subscription_request_id) == 0) {
                     // update for invalid subscription
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe_update request_id: {} for unknown subscription conn_id: {}",
-                                       msg.request_id,
-                                       conn_ctx.connection_handle);
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received subscribe_update request_id: {} for unknown subscription request_id: {} conn_id: {}",
+                      msg.request_id,
+                      msg.subscription_request_id,
+                      conn_ctx.connection_handle);
 
                     SendSubscribeError(
                       conn_ctx, msg.request_id, messages::SubscribeErrorCode::kTrackNotExist, "Subscription not found");
@@ -277,16 +279,26 @@ namespace quicr {
                 if (not msg.forward) {
                     ptd->SetStatus(PublishTrackHandler::Status::kPaused);
                 } else {
-                    bool new_group_request = false;
+                    uint64_t new_group_request_id{ 0 };
+
                     for (const auto& param : msg.parameters) {
                         if (param.type == messages::ParameterType::kNewGroupRequest) {
-                            new_group_request = true;
-                            break;
+                            std::memcpy(&new_group_request_id,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+
+                            if (!(ptd->pending_new_group_request_id_.has_value() &&
+                                  *ptd->pending_new_group_request_id_ == 0 && new_group_request_id == 0) &&
+                                (new_group_request_id == 0 || ptd->latest_group_id_ < new_group_request_id)) {
+
+                                ptd->pending_new_group_request_id_ = new_group_request_id;
+                                ptd->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
+                            }
+                            return true;
                         }
                     }
 
-                    ptd->SetStatus(new_group_request ? PublishTrackHandler::Status::kNewGroupRequested
-                                                     : PublishTrackHandler::Status::kSubscriptionUpdated);
+                    ptd->SetStatus(PublishTrackHandler::Status::kSubscriptionUpdated);
                 }
 
                 return true;
@@ -323,6 +335,13 @@ namespace quicr {
                       msg.group_0->largest_location.object);
 
                     sub_it->second.get()->SetLatestLocation(msg.group_0->largest_location);
+                }
+
+                for (const auto& param : msg.parameters) {
+                    if (param.type == messages::ParameterType::kDynamicGroups) {
+                        sub_it->second->support_new_group_request_ = true;
+                        break;
+                    }
                 }
 
                 sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
