@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "multi_track_subscribe_handler.h"
+
 #include <optional>
 #include <quicr/common.h>
 #include <quicr/config.h>
@@ -286,15 +288,15 @@ namespace quicr {
          *
          * @note SubscribeNamespaceStatusChanged will be called after receiving either an OK or ERROR
          *
-         * @param prefix_namespace      Prefix namespace to subscribe namespace
+         * @param track_handler      Multi-track handler for namespace subscription
          */
-        void SubscribeNamespace(const TrackNamespace& prefix_namespace)
+        void SubscribeNamespace(std::shared_ptr<MultiTrackSubscribeHandler> track_handler)
         {
             if (!connection_handle_) {
                 return;
             }
 
-            SendSubscribeNamespace(*connection_handle_, prefix_namespace);
+            SendSubscribeNamespace(*connection_handle_, track_handler->GetPrefixNamespace());
         }
 
         /**

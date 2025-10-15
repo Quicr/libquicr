@@ -1,5 +1,6 @@
 #include "quicr/config.h"
 #include "quicr/detail/defer.h"
+#include "quicr/multi_track_subscribe_handler.h"
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
@@ -240,13 +241,14 @@ TEST_CASE("Qlog Generation")
     CHECK_EQ(qlogs, 2);
 }
 
-TEST_CASE("Integration - Raw Subscribe Namespace")
+TEST_CASE("Integration - Subscribe Namespace")
 {
     auto server = MakeTestServer();
     auto client = MakeTestClient();
 
-    // Set up the prefix namespace we want to subscribe to
+    // Set up the multi-track handler with our prefix.
     TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+    auto track_handler = MultiTrackSubscribeHandler::Create(prefix_namespace);
 
     // Set up promise to capture server-side callback
     std::promise<TestServer::SubscribeNamespaceDetails> promise;
@@ -254,7 +256,7 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     server->SetSubscribeNamespacePromise(std::move(promise));
 
     // Client sends SUBSCRIBE_NAMESPACE
-    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+    CHECK_NOTHROW(client->SubscribeNamespace(track_handler));
 
     // Server should receive the SUBSCRIBE_NAMESPACE message
     auto status = future.wait_for(kDefaultTimeout);

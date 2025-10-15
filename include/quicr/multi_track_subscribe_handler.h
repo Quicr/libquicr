@@ -130,7 +130,7 @@ namespace quicr {
          *
          * @return Vector of full track names for all active tracks
          */
-        std::vector<FullTrackName> GetActiveTracks() const;
+        std::vector<FullTrackName> GetActiveTracks();
 
         /**
          * @brief Get the status of a specific track
@@ -141,7 +141,7 @@ namespace quicr {
          *
          */
         // TODO: Throw or nullopt?
-        std::optional<Status> GetTrackStatus(const FullTrackName& track) const;
+        std::optional<Status> GetTrackStatus(const FullTrackName& track);
 
         /**
          * @brief Get the track alias for a specific track
@@ -151,7 +151,7 @@ namespace quicr {
          * @return Track alias if found, otherwise std::nullopt
          */
         // TODO: Throw or nullopt?
-        std::optional<uint64_t> GetTrackAlias(const FullTrackName& track) const;
+        std::optional<uint64_t> GetTrackAlias(const FullTrackName& track);
 
         /**
          * @brief Get metrics for a specific track
@@ -161,7 +161,7 @@ namespace quicr {
          * @return Track metrics if found, otherwise std::nullopt
          */
         // TODO: Throw or nullopt?
-        std::optional<SubscribeTrackMetrics> GetTrackMetrics(const FullTrackName& track) const;
+        std::optional<SubscribeTrackMetrics> GetTrackMetrics(const FullTrackName& track);
 
         /**
          * @brief Get subscription priority for a specific track
@@ -171,7 +171,7 @@ namespace quicr {
          * @return Priority if track found, otherwise std::nullopt
          */
         // TODO: Throw or nullopt?
-        std::optional<messages::SubscriberPriority> GetTrackPriority(const FullTrackName& track) const;
+        std::optional<messages::SubscriberPriority> GetTrackPriority(const FullTrackName& track);
 
         /**
          * @brief Get group order for a specific track
@@ -181,7 +181,7 @@ namespace quicr {
          * @return Group order if track found, otherwise std::nullopt
          */
         // TODO: Throw or nullopt?
-        std::optional<messages::GroupOrder> GetTrackGroupOrder(const FullTrackName& track) const;
+        std::optional<messages::GroupOrder> GetTrackGroupOrder(const FullTrackName& track);
 
         /**
          * @brief Get filter type for a specific track
@@ -191,7 +191,7 @@ namespace quicr {
          * @return Filter type if track found, otherwise std::nullopt
          */
         // TODO: Throw or nullopt?
-        std::optional<messages::FilterType> GetTrackFilterType(const FullTrackName& track) const;
+        std::optional<messages::FilterType> GetTrackFilterType(const FullTrackName& track);
 
         // --------------------------------------------------------------------------
         // Per-track control methods
@@ -406,6 +406,9 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
+
+        /// State mutex.
+        std::mutex state_mutex_;
 
         /// Map from track alias to track context
         std::map<uint64_t, TrackContext> tracks_;

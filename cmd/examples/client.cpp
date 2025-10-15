@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 
 #include <quicr/client.h>
+#include <quicr/multi_track_subscribe_handler.h>
 #include <quicr/object.h>
 
 #include "helper_functions.h"
@@ -960,7 +961,8 @@ main(int argc, char* argv[])
                         result["sub_announces"].as<std::string>(),
                         th.track_namespace_hash);
 
-            client->SubscribeNamespace(prefix_ns.name_space);
+            auto handler = quicr::MultiTrackSubscribeHandler::Create(prefix_ns.name_space);
+            client->SubscribeNamespace(handler);
         }
 
         if (enable_pub) {
