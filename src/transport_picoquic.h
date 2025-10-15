@@ -33,7 +33,7 @@
 
 namespace quicr {
 
-    constexpr int kPqLoopMaxDelayUs = 500;            /// The max microseconds that pq_loop will be ran again
+    constexpr int kPqLoopMaxDelayUs = 5000;           /// The max microseconds that pq_loop will be ran again
     constexpr int kPqRestWaitMinPriority = 4;         /// Minimum priority value to consider for RESET and WAIT
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
     constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
@@ -301,13 +301,16 @@ namespace quicr {
         bool StreamActionCheck(DataContext* data_ctx, StreamAction stream_action);
 
         /**
-         * @brief Function run the queue functions within the picoquic thread via the pq_loop_cb
+         * @brief Function to run the queue functions within the picoquic thread via the pq_loop_cb
          *
          * @details Function runs the picoquic specific functions in the same thread that runs the
          *      the event loop. This allows picoquic to be thread safe.  All picoquic functions that
-         *      other threads want to call should queue those in `picoquic_runner_queue`.
+         *      other threads want to call should queue those so they can be ran via
+         *      the loop callback picoquic_packet_loop_wake_up
+         *
+         * @returns PIOCOQUIC error code, or ZERO if no error
          */
-        void PqRunner();
+        int PqRunner();
 
         /*
          * Internal Public Variables
@@ -318,13 +321,13 @@ namespace quicr {
         bool debug{ false };
 
       private:
-        TransportConnId CreateClient();
+        TransportConnId StartClient();
         void Shutdown();
 
         void Server();
-        void Client(TransportConnId conn_id);
+        bool ClientLoop();
         void CbNotifier();
-
+        void RunPqFunction(std::function<int()>&& function);
         void CheckCallbackDelta(DataContext* data_ctx, bool tx = true);
 
         /**
@@ -365,16 +368,18 @@ namespace quicr {
          */
         picoquic_quic_config_t config_;
         picoquic_quic_t* quic_ctx_;
+        picoquic_network_thread_ctx_t* quic_network_thread_ctx_;
+        picoquic_packet_loop_param_t quic_network_thread_params_{};
+        int quic_loop_return_value_{ 0 };
         picoquic_tp_t local_tp_options_;
         SafeQueue<std::function<void()>> cbNotifyQueue_;
 
-        SafeQueue<std::function<void()>>
-          picoquic_runner_queue_; /// Threads queue functions that picoquic will call via the pq_loop_cb call
+        /// Threads queue functions that picoquic will call via the pq_loop callback
+        SafeQueue<std::function<int()>> picoquic_runner_queue_;
 
         std::atomic<bool> stop_;
         std::mutex state_mutex_; /// Used for stream/context/state updates
         std::atomic<TransportStatus> transportStatus_;
-        std::thread picoQuicThread_;
         std::thread cbNotifyThread_;
 
         TransportRemote serverInfo_;

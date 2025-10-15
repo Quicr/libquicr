@@ -12,6 +12,17 @@
 namespace quicr {
     using namespace quicr::messages;
 
+    namespace {
+        std::shared_ptr<spdlog::logger> SafeLoggerGet(const std::string& name)
+        {
+            if (auto logger = spdlog::get(name)) {
+                return logger;
+            }
+
+            return spdlog::stderr_color_mt(name);
+        }
+    }
+
     TransportException::TransportException(TransportError error, std::source_location location)
       : std::runtime_error("Error in transport (error=" + std::to_string(static_cast<int>(error)) + ", " +
                            std::to_string(location.line()) + ", " + location.file_name() + ")")
@@ -75,7 +86,7 @@ namespace quicr {
     Transport::Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service)
       : std::enable_shared_from_this<Transport>()
       , client_mode_(true)
-      , logger_(spdlog::stderr_color_mt("MTC"))
+      , logger_(SafeLoggerGet("MTC"))
       , server_config_({})
       , client_config_(cfg)
       , tick_service_(std::move(tick_service))
@@ -88,7 +99,7 @@ namespace quicr {
     Transport::Transport(const ServerConfig& cfg, std::shared_ptr<TickService> tick_service)
       : std::enable_shared_from_this<Transport>()
       , client_mode_(false)
-      , logger_(spdlog::stderr_color_mt("MTS"))
+      , logger_(SafeLoggerGet("MTS"))
       , server_config_(cfg)
       , client_config_({})
       , tick_service_(std::move(tick_service))
@@ -143,6 +154,12 @@ namespace quicr {
 
             auto conn_id = quic_transport_->Start();
 
+            if (!conn_id) { // Error, connection ID should always be greater than one
+                SPDLOG_LOGGER_ERROR(logger_, "Client connection failed");
+                status_ = Status::kFailedToConnect;
+                return status_;
+            }
+
             SetConnectionHandle(conn_id);
 
             status_ = Status::kConnecting;
@@ -164,7 +181,12 @@ namespace quicr {
           ITransport::MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
         quic_transport_->Start();
 
-        status_ = Status::kReady;
+        if (quic_transport_->Status() == TransportStatus::kShutdown) {
+            status_ = Status::kInternalError;
+        } else {
+            status_ = Status::kReady;
+        }
+
         return status_;
     }
 

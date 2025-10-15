@@ -30,6 +30,7 @@
 #include <arpa/inet.h>
 #include <cassert>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <cstring>
 #include <ctime>
@@ -343,8 +344,6 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
         return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
     }
 
-    transport->PqRunner();
-
     switch (cb_mode) {
         case picoquic_packet_loop_ready: {
             SPDLOG_LOGGER_INFO(transport->logger, "packet_loop_ready, waiting for packets");
@@ -429,6 +428,10 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
 
             break;
         }
+
+        case picoquic_packet_loop_wake_up:
+            transport->PqRunner();
+            break;
 
         default:
             // ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
@@ -517,26 +520,25 @@ PicoQuicTransport::Start()
     cbNotifyQueue_.SetLimit(2000);
     cbNotifyThread_ = std::thread(&PicoQuicTransport::CbNotifier, this);
 
+    if (!tconfig_.quic_qlog_path.empty()) {
+        SPDLOG_LOGGER_INFO(logger, "Enabling qlog using '{0}' path", tconfig_.quic_qlog_path);
+        picoquic_set_qlog(quic_ctx_, tconfig_.quic_qlog_path.c_str());
+    }
+
     TransportConnId cid = 0;
     std::ostringstream log_msg;
 
     if (is_server_mode) {
 
         SPDLOG_LOGGER_INFO(logger, "Starting server, listening on {0}:{1}", serverInfo_.host_or_ip, serverInfo_.port);
-
-        picoQuicThread_ = std::thread(&PicoQuicTransport::Server, this);
+        Server();
 
     } else {
         SPDLOG_LOGGER_INFO(logger, "Connecting to server {0}:{1}", serverInfo_.host_or_ip, serverInfo_.port);
 
-        if ((cid = CreateClient())) {
-            picoQuicThread_ = std::thread(&PicoQuicTransport::Client, this, cid);
+        if (ClientLoop()) {
+            cid = StartClient();
         }
-    }
-
-    if (!tconfig_.quic_qlog_path.empty()) {
-        SPDLOG_LOGGER_INFO(logger, "Enabling qlog using '{0}' path", tconfig_.quic_qlog_path);
-        picoquic_set_qlog(quic_ctx_, tconfig_.quic_qlog_path.c_str());
     }
 
     return cid;
@@ -616,7 +618,10 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         if (!data_ctx_it->second.mark_stream_active) {
             data_ctx_it->second.mark_stream_active = true;
 
-            picoquic_runner_queue_.Push([this, conn_id, data_ctx_id]() { MarkStreamActive(conn_id, data_ctx_id); });
+            RunPqFunction([this, conn_id, data_ctx_id]() {
+                MarkStreamActive(conn_id, data_ctx_id);
+                return 0;
+            });
         }
     } else { // datagram
         ConnData cd{ conn_id,          data_ctx_id,
@@ -627,7 +632,10 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         if (!conn_ctx_it->second.mark_dgram_ready) {
             conn_ctx_it->second.mark_dgram_ready = true;
 
-            picoquic_runner_queue_.Push([this, conn_id]() { MarkDgramReady(conn_id); });
+            RunPqFunction([this, conn_id]() {
+                MarkDgramReady(conn_id);
+                return 0;
+            });
         }
     }
 
@@ -825,9 +833,10 @@ PicoQuicTransport::SetStreamIdDataCtxId(const TransportConnId conn_id, DataConte
 
     data_ctx_it->second.current_stream_id = stream_id;
 
-    picoquic_runner_queue_.Push([=]() {
+    RunPqFunction([=]() {
         if (conn_it->second.pq_cnx != nullptr)
             picoquic_set_app_stream_ctx(conn_it->second.pq_cnx, stream_id, &data_ctx_it->second);
+        return 0;
     });
 }
 
@@ -852,6 +861,9 @@ PicoQuicTransport::GetConnContext(const TransportConnId& conn_id)
 PicoQuicTransport::ConnectionContext&
 PicoQuicTransport::CreateConnContext(picoquic_cnx_t* pq_cnx)
 {
+    /*
+     * @note: This is thread safe because picoquic network thread is the only one that calls this
+     */
 
     auto [conn_it, is_new] = conn_context_.emplace(reinterpret_cast<TransportConnId>(pq_cnx), pq_cnx);
 
@@ -990,24 +1002,29 @@ PicoQuicTransport::CreateDataContextBiDirRecv(TransportConnId conn_id, uint64_t 
     return nullptr;
 }
 
-void
+int
 PicoQuicTransport::PqRunner()
 {
 
     if (picoquic_runner_queue_.Empty()) {
-        return;
+        return 0;
     }
 
     // note: check before running move of optional, which is more CPU taxing when empty
     while (auto cb = picoquic_runner_queue_.Pop()) {
         try {
-            (*cb)();
+            if (auto ret = (*cb)()) {
+                SPDLOG_LOGGER_ERROR(logger, "PQ function resulted in error: {}", ret);
+                return ret;
+            }
         } catch (const std::exception& e) {
             SPDLOG_LOGGER_ERROR(
               logger, "Caught exception running callback via notify thread (error={}), ignoring", e.what());
             // TODO(tievens): Add metrics to track if this happens
         }
     }
+
+    return 0;
 }
 
 void
@@ -1040,7 +1057,10 @@ PicoQuicTransport::DeleteDataContext(const TransportConnId& conn_id, DataContext
      * Race conditions exist with picoquic thread callbacks that will cause a problem if the context (pointer context)
      *    is deleted outside of the picoquic thread. Below schedules the delete to be done within the picoquic thread.
      */
-    picoquic_runner_queue_.Push([this, conn_id, data_ctx_id]() { DeleteDataContextInternal(conn_id, data_ctx_id); });
+    RunPqFunction([this, conn_id, data_ctx_id]() {
+        DeleteDataContextInternal(conn_id, data_ctx_id);
+        return 0;
+    });
 }
 
 void
@@ -1096,7 +1116,10 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
                 std::memcpy(buf, out_data.value.data->data(), out_data.value.data->size());
             }
         } else {
-            picoquic_runner_queue_.Push([this, conn_id = conn_ctx->conn_id]() { MarkDgramReady(conn_id); });
+            RunPqFunction([this, conn_id = conn_ctx->conn_id]() {
+                MarkDgramReady(conn_id);
+                return 0;
+            });
 
             /* TODO(tievens): picoquic_prepare_stream_and_datagrams() appears to ignore the
              *     below unless data was sent/provided
@@ -1215,9 +1238,12 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
         if (obj.has_value) {
             data_ctx->metrics.tx_queue_discards++;
 
-            picoquic_runner_queue_.Push([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
-                MarkStreamActive(conn_id, data_ctx_id);
-            });
+            if (!data_ctx->tx_data->Empty()) {
+                RunPqFunction([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
+                    MarkStreamActive(conn_id, data_ctx_id);
+                    return 0;
+                });
+            }
         }
 
         data_ctx->mark_stream_active = false;
@@ -1345,15 +1371,13 @@ PicoQuicTransport::OnNewConnection(const TransportConnId conn_id)
     SPDLOG_LOGGER_INFO(
       logger, "New Connection {0} port: {1} conn_id: {2}", conn_ctx->peer_addr_text, conn_ctx->peer_port, conn_id);
 
-    //    picoquic_subscribe_pacing_rate_updates(conn_ctx->pq_cnx, tconfig.pacing_decrease_threshold_Bps,
-    //                                           tconfig.pacing_increase_threshold_Bps);
-
     TransportRemote remote{ .host_or_ip = conn_ctx->peer_addr_text,
                             .port = conn_ctx->peer_port,
                             .proto = TransportProtocol::kQuic };
 
     picoquic_enable_keep_alive(conn_ctx->pq_cnx, tconfig_.idle_timeout_ms * 500);
     picoquic_set_feedback_loss_notification(conn_ctx->pq_cnx, 1);
+    picoquic_set_callback(conn_ctx->pq_cnx, PqEventCb, this);
 
     if (tconfig_.quic_priority_limit > 0) {
         SPDLOG_LOGGER_INFO(
@@ -1641,121 +1665,173 @@ PicoQuicTransport::CheckConnsForCongestion()
 void
 PicoQuicTransport::Server()
 {
-    int ret = picoquic_packet_loop(quic_ctx_, serverInfo_.port, PF_UNSPEC, 0, 2000000, 0, PqLoopCb, this);
+    quic_network_thread_params_.local_port = serverInfo_.port;
+    quic_network_thread_params_.local_af = PF_UNSPEC;
+    quic_network_thread_params_.dest_if = 0;
+    quic_network_thread_params_.socket_buffer_size = tconfig_.socket_buffer_size;
+    quic_network_thread_params_.do_not_use_gso = 0;
+    quic_network_thread_params_.extra_socket_required = 0;
+    quic_network_thread_params_.prefer_extra_socket = 0;
+    quic_network_thread_params_.simulate_eio = 0;
+    quic_network_thread_params_.send_length_max = 0;
 
-    if (quic_ctx_ != NULL) {
+    SPDLOG_LOGGER_DEBUG(logger, "Starting picoquic network thread");
+    quic_network_thread_ctx_ =
+      picoquic_start_network_thread(quic_ctx_, &quic_network_thread_params_, PqLoopCb, this, &quic_loop_return_value_);
+
+    if (quic_ctx_ == NULL || quic_network_thread_ctx_ == NULL) {
+        SPDLOG_LOGGER_ERROR(logger, "Failed to start picoquic network thread");
         picoquic_free(quic_ctx_);
         quic_ctx_ = NULL;
+        SetStatus(TransportStatus::kShutdown);
     }
 
-    SPDLOG_LOGGER_INFO(logger, "picoquic packet loop ended with {0}", ret);
+    // Wait for something to happen with the thread
+    while (!quic_network_thread_ctx_->thread_is_ready && !quic_network_thread_ctx_->return_code) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
 
-    SetStatus(TransportStatus::kShutdown);
+    if (quic_network_thread_ctx_->return_code) {
+        SPDLOG_LOGGER_ERROR(
+          logger, "Could not start client quic network thread error: {}", quic_network_thread_ctx_->return_code);
+        SetStatus(TransportStatus::kShutdown);
+        return;
+    }
 }
 
 TransportConnId
-PicoQuicTransport::CreateClient()
+PicoQuicTransport::StartClient()
 {
-    struct sockaddr_storage server_address;
-    char const* sni = "cisco.webex.com";
-    int ret;
+    std::condition_variable cv;
+    TransportConnId conn_id{ 0 };
+    std::mutex mtx;
+    std::unique_lock lock(mtx);
 
-    int is_name = 0;
+    RunPqFunction([this, &conn_id, &cv, &mtx]() {
+        auto notify_caller = [&cv, &conn_id, &mtx](uint64_t id) {
+            std::lock_guard _(mtx);
+            conn_id = id;
 
-    ret = picoquic_get_server_address(serverInfo_.host_or_ip.c_str(), serverInfo_.port, &server_address, &is_name);
-    if (ret != 0 || server_address.ss_family == 0) {
-        SPDLOG_LOGGER_ERROR(logger, "Failed to get server: {0} port: {1}", serverInfo_.host_or_ip, serverInfo_.port);
+            // Notify calling thread of connection Id
+            cv.notify_all();
+        };
+
+        sockaddr_storage server_address;
+        char const* sni = "cisco.webex.com";
+        int ret;
+        int is_name = 0;
+
+        ret = picoquic_get_server_address(serverInfo_.host_or_ip.c_str(), serverInfo_.port, &server_address, &is_name);
+        if (ret != 0 || server_address.ss_family == 0) {
+            SPDLOG_LOGGER_ERROR(
+              logger, "Failed to resolve server: {0} port: {1}", serverInfo_.host_or_ip, serverInfo_.port);
+            notify_caller(1);
+            return 0;
+        }
+
+        if (is_name) {
+            sni = serverInfo_.host_or_ip.c_str();
+        }
+
+        picoquic_cnx_t* cnx = picoquic_create_cnx(quic_ctx_,
+                                                  picoquic_null_connection_id,
+                                                  picoquic_null_connection_id,
+                                                  reinterpret_cast<struct sockaddr*>(&server_address),
+                                                  picoquic_current_time(),
+                                                  0,
+                                                  sni,
+                                                  config_.alpn,
+                                                  1);
+
+        if (cnx == nullptr) {
+            SPDLOG_LOGGER_ERROR(logger, "Could not create picoquic connection client context");
+            notify_caller(1);
+
+            return PICOQUIC_ERROR_DISCONNECTED;
+        }
+
+        picoquic_set_transport_parameters(cnx, &local_tp_options_);
+        picoquic_set_feedback_loss_notification(cnx, 1);
+        picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
+        picoquic_set_callback(cnx, PqEventCb, this);
+
+        if (auto ret = picoquic_start_client_cnx(cnx)) {
+            SPDLOG_LOGGER_ERROR(logger, "Could not activate connection ret: {}", ret);
+            notify_caller(1);
+            return PICOQUIC_ERROR_DISCONNECTED;
+        }
+
+        CreateConnContext(cnx);
+
+        if (tconfig_.quic_priority_limit > 0) {
+            SPDLOG_LOGGER_INFO(
+              logger, "Setting priority bypass limit to {0}", static_cast<int>(tconfig_.quic_priority_limit));
+            picoquic_set_priority_limit_for_bypass(cnx, tconfig_.quic_priority_limit);
+        } else {
+            SPDLOG_LOGGER_INFO(logger, "No priority bypass");
+        }
+
+        notify_caller(reinterpret_cast<uint64_t>(cnx));
+
+        return 0;
+    });
+
+    SPDLOG_LOGGER_DEBUG(logger, "Waiting for client connection context");
+
+    cv.wait_for(lock, std::chrono::milliseconds(3000), [&]() { return conn_id > 0; });
+
+    SPDLOG_LOGGER_DEBUG(logger, "Got client connection context conn_id: {}", conn_id);
+    if (conn_id <= 1) {
+        SPDLOG_LOGGER_DEBUG(logger, "Client connection to {}:{} failed", serverInfo_.host_or_ip, serverInfo_.port);
         SetStatus(TransportStatus::kDisconnected);
-        OnConnectionStatus(0, TransportStatus::kShutdown);
-        return 0;
-    } else if (is_name) {
-        sni = serverInfo_.host_or_ip.c_str();
-    }
-
-    if (tconfig_.use_bbr) {
-        picoquic_set_default_congestion_algorithm(quic_ctx_, picoquic_bbr_algorithm);
-    } else {
-        picoquic_set_default_congestion_algorithm(quic_ctx_, picoquic_newreno_algorithm);
-    }
-
-    uint64_t current_time = picoquic_current_time();
-
-    picoquic_cnx_t* cnx = picoquic_create_cnx(quic_ctx_,
-                                              picoquic_null_connection_id,
-                                              picoquic_null_connection_id,
-                                              reinterpret_cast<struct sockaddr*>(&server_address),
-                                              current_time,
-                                              0,
-                                              sni,
-                                              config_.alpn,
-                                              1);
-
-    if (cnx == NULL) {
-        SPDLOG_LOGGER_ERROR(logger, "Could not create picoquic connection client context");
         return 0;
     }
 
-    // Using default TP
-    picoquic_set_transport_parameters(cnx, &local_tp_options_);
-    picoquic_set_feedback_loss_notification(cnx, 1);
-
-    if (tconfig_.quic_priority_limit > 0) {
-        SPDLOG_LOGGER_INFO(
-          logger, "Setting priority bypass limit to {0}", static_cast<int>(tconfig_.quic_priority_limit));
-        picoquic_set_priority_limit_for_bypass(cnx, tconfig_.quic_priority_limit);
-    } else {
-        SPDLOG_LOGGER_INFO(logger, "No priority bypass");
-    }
-
-    //    picoquic_subscribe_pacing_rate_updates(cnx, tconfig.pacing_decrease_threshold_Bps,
-    //                                           tconfig.pacing_increase_threshold_Bps);
-
-    CreateConnContext(cnx);
-
-    return reinterpret_cast<uint64_t>(cnx);
+    return conn_id;
 }
 
-void
-PicoQuicTransport::Client(const TransportConnId conn_id)
+bool
+PicoQuicTransport::ClientLoop()
 {
-    int ret;
+    SPDLOG_LOGGER_INFO(logger, "Thread client packet loop starting");
 
-    auto conn_ctx = GetConnContext(conn_id);
-
-    if (conn_ctx == nullptr) {
-        SPDLOG_LOGGER_ERROR(logger, "Client connection does not exist, check connection settings.");
-        SetStatus(TransportStatus::kDisconnected);
-        return;
-    }
-
-    SPDLOG_LOGGER_INFO(logger, "Thread client packet loop for client conn_id: {0}", conn_id);
-
-    if (conn_ctx->pq_cnx == NULL) {
-        SPDLOG_LOGGER_ERROR(logger, "Could not create picoquic connection client context");
-    } else {
-        picoquic_set_callback(conn_ctx->pq_cnx, PqEventCb, this);
-
-        picoquic_enable_keep_alive(conn_ctx->pq_cnx, tconfig_.idle_timeout_ms * 500);
-        ret = picoquic_start_client_cnx(conn_ctx->pq_cnx);
-        if (ret < 0) {
-            SPDLOG_LOGGER_ERROR(logger, "Could not activate connection");
-            return;
-        }
+    quic_network_thread_params_.local_port = 0;
+    quic_network_thread_params_.local_af = PF_UNSPEC;
+    quic_network_thread_params_.dest_if = 0;
+    quic_network_thread_params_.socket_buffer_size = tconfig_.socket_buffer_size;
 #ifdef ESP_PLATFORM
-        ret = picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 0x2048, 0, PqLoopCb, this);
-#else
-        ret = picoquic_packet_loop(quic_ctx_, 0, PF_UNSPEC, 0, 2000000, 0, PqLoopCb, this);
+    quic_network_thread_params_.socket_buffer_size = 0x2048;
 #endif
+    quic_network_thread_params_.do_not_use_gso = 0;
+    quic_network_thread_params_.extra_socket_required = 0;
+    quic_network_thread_params_.prefer_extra_socket = 0;
+    quic_network_thread_params_.simulate_eio = 0;
+    quic_network_thread_params_.send_length_max = 0;
 
-        SPDLOG_LOGGER_INFO(logger, "picoquic ended with {0}", ret);
-    }
+    quic_network_thread_ctx_ =
+      picoquic_start_network_thread(quic_ctx_, &quic_network_thread_params_, PqLoopCb, this, &quic_loop_return_value_);
 
-    if (quic_ctx_ != NULL) {
+    if (quic_ctx_ == nullptr || quic_network_thread_ctx_ == nullptr) {
+        SPDLOG_LOGGER_ERROR(logger, "Failed to create picoquic network thread");
         picoquic_free(quic_ctx_);
-        quic_ctx_ = NULL;
+        quic_ctx_ = nullptr;
+        return false;
     }
 
-    SetStatus(TransportStatus::kDisconnected);
+    // Wait for something to happen with the thread
+    while (!quic_network_thread_ctx_->thread_is_ready && !quic_network_thread_ctx_->return_code) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    if (quic_network_thread_ctx_->return_code) {
+        SPDLOG_LOGGER_ERROR(
+          logger, "Could not start client quic network thread error: {}", quic_network_thread_ctx_->return_code);
+        return false;
+    }
+
+    SPDLOG_LOGGER_DEBUG(logger, "Thread client packet loop started");
+
+    return true;
 }
 
 void
@@ -1766,9 +1842,9 @@ PicoQuicTransport::Shutdown()
 
     stop_ = true;
 
-    if (picoQuicThread_.joinable()) {
+    if (quic_network_thread_ctx_ != NULL) {
         SPDLOG_LOGGER_INFO(logger, "Closing transport pico thread");
-        picoQuicThread_.join();
+        picoquic_delete_network_thread(quic_network_thread_ctx_);
     }
 
     picoquic_runner_queue_.StopWaiting();
@@ -1864,8 +1940,9 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
      */
     picoquic_set_app_stream_ctx(conn_ctx.pq_cnx, *data_ctx->current_stream_id, data_ctx);
 
-    picoquic_runner_queue_.Push([this, conn_id = conn_ctx.conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
+    RunPqFunction([this, conn_id = conn_ctx.conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
         MarkStreamActive(conn_id, data_ctx_id);
+        return 0;
     });
 }
 
@@ -1908,6 +1985,13 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* data_ct
 
     data_ctx->ResetTxObject();
     data_ctx->current_stream_id = std::nullopt;
+}
+
+void
+PicoQuicTransport::RunPqFunction(std::function<int()>&& function)
+{
+    picoquic_runner_queue_.Push(std::move(function));
+    picoquic_wake_up_network_thread(quic_network_thread_ctx_);
 }
 
 void
