@@ -26,21 +26,21 @@ namespace quicr {
 
     void Server::MetricsSampled(ConnectionHandle, const ConnectionMetrics&) {}
 
-    void Server::AnnounceReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&) {}
+    void Server::PublishNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&) {}
 
     std::pair<std::optional<messages::SubscribeNamespaceErrorCode>, std::vector<TrackNamespace>>
-    Server::SubscribeAnnouncesReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&)
+    Server::SubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&)
     {
         return { std::nullopt, {} };
     }
 
-    void Server::UnsubscribeAnnouncesReceived(ConnectionHandle, const TrackNamespace&) {}
+    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&) {}
 
-    void Server::ResolveAnnounce(ConnectionHandle connection_handle,
-                                 uint64_t request_id,
-                                 const TrackNamespace& track_namespace,
-                                 const std::vector<ConnectionHandle>& subscribers,
-                                 const AnnounceResponse& response)
+    void Server::ResolvePublishNamespace(ConnectionHandle connection_handle,
+                                         uint64_t request_id,
+                                         const TrackNamespace& track_namespace,
+                                         const std::vector<ConnectionHandle>& subscribers,
+                                         const PublishNamespaceResponse& response)
     {
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
@@ -48,8 +48,8 @@ namespace quicr {
         }
 
         switch (response.reason_code) {
-            case AnnounceResponse::ReasonCode::kOk: {
-                SendAnnounceOk(conn_it->second, request_id);
+            case PublishNamespaceResponse::ReasonCode::kOk: {
+                SendPublishNamespaceOk(conn_it->second, request_id);
 
                 for (const auto& sub_conn_handle : subscribers) {
                     auto it = connections_.find(sub_conn_handle);
@@ -58,7 +58,7 @@ namespace quicr {
                     }
 
                     // TODO: what request Id do we send for subscribe announces???
-                    SendAnnounce(it->second, request_id, track_namespace);
+                    SendPublishNamespace(it->second, request_id, track_namespace);
                 }
                 break;
             }
@@ -537,7 +537,7 @@ namespace quicr {
 
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
 
-                AnnounceReceived(conn_ctx.connection_handle, tfn.name_space, { msg.request_id });
+                PublishNamespaceReceived(conn_ctx.connection_handle, tfn.name_space, { msg.request_id });
                 return true;
             }
 
@@ -546,12 +546,12 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 const auto& [err, matched_ns] =
-                  SubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.track_namespace_prefix, {});
+                  SubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_prefix, {});
                 if (err.has_value()) {
-                    SendSubscribeAnnouncesError(conn_ctx, msg.request_id, *err, {});
+                    SendSubscribeNamespaceError(conn_ctx, msg.request_id, *err, {});
                 } else {
                     for (const auto& ns : matched_ns) {
-                        SendAnnounce(conn_ctx, msg.request_id, ns);
+                        SendPublishNamespace(conn_ctx, msg.request_id, ns);
                     }
                 }
 
@@ -562,7 +562,7 @@ namespace quicr {
                 auto msg = messages::UnsubscribeNamespace{};
                 msg_bytes >> msg;
 
-                UnsubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
+                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
                 return true;
             }
 
@@ -574,7 +574,7 @@ namespace quicr {
                 reason.assign(msg.error_reason.begin(), msg.error_reason.end());
 
                 SPDLOG_LOGGER_INFO(logger_,
-                                   "Received announce error for request_id: {} error code: {} reason: {}",
+                                   "Received publish namespace error for request_id: {} error code: {} reason: {}",
                                    msg.request_id,
                                    static_cast<std::uint64_t>(msg.error_code),
                                    reason);
@@ -600,7 +600,7 @@ namespace quicr {
                         continue;
                     }
 
-                    SendUnannounce(conn_it->second, msg.track_namespace);
+                    SendPublishNamespaceDone(conn_it->second, msg.track_namespace);
                 }
 
                 return true;

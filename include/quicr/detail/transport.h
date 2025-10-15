@@ -395,8 +395,8 @@ namespace quicr {
             /// Fetch Publishers by subscribe ID.
             std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
 
-            /// Subscribe Announces namespace prefix by request Id
-            std::map<messages::RequestID, TrackNamespace> sub_announces_by_request_id;
+            /// Subscribe Namespace prefix by request Id
+            std::map<messages::RequestID, TrackNamespace> sub_namespace_prefix_by_request_id;
 
             ConnectionMetrics metrics{}; ///< Connection metrics
 
@@ -423,11 +423,11 @@ namespace quicr {
         void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
-        void SendAnnounce(ConnectionContext& conn_ctx,
-                          messages::RequestID request_id,
-                          const TrackNamespace& track_namespace);
-        void SendAnnounceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
-        void SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendPublishNamespace(ConnectionContext& conn_ctx,
+                                  messages::RequestID request_id,
+                                  const TrackNamespace& track_namespace);
+        void SendPublishNamespaceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
+        void SendPublishNamespaceDone(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
         void SendSubscribe(ConnectionContext& conn_ctx,
                            messages::RequestID request_id,
                            const FullTrackName& tfn,
@@ -489,10 +489,10 @@ namespace quicr {
                               messages::SubscribeErrorCode error,
                               const std::string& reason);
 
-        void SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
-        void SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
-        void SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
-        void SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
+        void SendSubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
+        void SendUnsubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
+        void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
+        void SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
                                          messages::RequestID request_id,
                                          messages::SubscribeNamespaceErrorCode err_code,
                                          const messages::ReasonPhrase& reason);

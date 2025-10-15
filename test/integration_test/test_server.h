@@ -34,7 +34,7 @@ namespace quicr_test {
         {
             return {};
         };
-        void UnsubscribeAnnouncesReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+        void UnsubscribeNamespaceReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
                                           [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override {};
         void UnsubscribeReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
                                  [[maybe_unused]] uint64_t request_id) override {};

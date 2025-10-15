@@ -333,9 +333,9 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendAnnounce(ConnectionContext& conn_ctx,
-                                 RequestID request_id,
-                                 const TrackNamespace& track_namespace)
+    void Transport::SendPublishNamespace(ConnectionContext& conn_ctx,
+                                         RequestID request_id,
+                                         const TrackNamespace& track_namespace)
     try {
         auto publish_namespace = messages::PublishNamespace(request_id, track_namespace, {});
 
@@ -355,7 +355,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendAnnounceOk(ConnectionContext& conn_ctx, RequestID request_id)
+    void Transport::SendPublishNamespaceOk(ConnectionContext& conn_ctx, RequestID request_id)
     try {
         auto publish_namespace_ok = messages::PublishNamespaceOk(request_id);
 
@@ -373,7 +373,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
+    void Transport::SendPublishNamespaceDone(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace)
     try {
         auto publish_namespace_done = messages::PublishNamespaceDone(track_namespace);
 
@@ -686,7 +686,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
+    void Transport::SendSubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
     try {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_handle);
@@ -697,7 +697,7 @@ namespace quicr {
 
         auto rid = conn_it->second.GetNextRequestId();
 
-        conn_it->second.sub_announces_by_request_id[rid] = prefix_namespace;
+        conn_it->second.sub_namespace_prefix_by_request_id[rid] = prefix_namespace;
         auto msg = messages::SubscribeNamespace(rid, prefix_namespace, {});
 
         Bytes buffer;
@@ -717,7 +717,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, RequestID request_id)
+    void Transport::SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, RequestID request_id)
     try {
         auto msg = messages::SubscribeNamespaceOk(request_id);
 
@@ -735,7 +735,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
+    void Transport::SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
                                                 RequestID request_id,
                                                 messages::SubscribeNamespaceErrorCode err_code,
                                                 const messages::ReasonPhrase& reason)
@@ -757,7 +757,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
+    void Transport::SendUnsubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
     try {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_handle);
@@ -766,11 +766,11 @@ namespace quicr {
             return;
         }
 
-        for (auto it = conn_it->second.sub_announces_by_request_id.begin();
-             it != conn_it->second.sub_announces_by_request_id.end();
+        for (auto it = conn_it->second.sub_namespace_prefix_by_request_id.begin();
+             it != conn_it->second.sub_namespace_prefix_by_request_id.end();
              ++it) {
             if (it->second == prefix_namespace) {
-                conn_it->second.sub_announces_by_request_id.erase(it);
+                conn_it->second.sub_namespace_prefix_by_request_id.erase(it);
                 break;
             }
         }
@@ -1182,7 +1182,7 @@ namespace quicr {
                 SPDLOG_LOGGER_INFO(
                   logger_, "Unpublish namespace hash: {0}, has no tracks, sending unannounce", th.track_namespace_hash);
 
-                SendUnannounce(conn_it->second, tfn.name_space);
+                SendPublishNamespaceDone(conn_it->second, tfn.name_space);
                 conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
             }
         }
@@ -1222,12 +1222,12 @@ namespace quicr {
 
                 lock.lock();
 
-                SendAnnounce(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
+                SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
             } else {
                 auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
                 if (pub_n_it == pub_ns_it->second.end()) {
                     track_handler->SetStatus(pub_ns_it->second.begin()->second->GetStatus());
-                    SendAnnounce(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
+                    SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
 
                     SPDLOG_LOGGER_INFO(logger_,
                                        "Publish track has new track namespace hash: {0} name hash: {1}",
