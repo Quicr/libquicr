@@ -202,13 +202,13 @@ namespace quicr {
          * @brief  Get use announce setting.
          * @return true to indicate announce flow will be used. false to indicate publish flow will be used
          */
-        constexpr bool UsingAnnounce() const noexcept { return use_announce; }
+        constexpr bool UsingAnnounce() const noexcept { return use_announce_; }
 
         /**
          * @brief Set use announce
          * @param use           True to request announce flow to be used. False to use publish flow.
          */
-        constexpr void SetUseAnnounce(bool use) noexcept { use_announce = use; }
+        constexpr void SetUseAnnounce(bool use) noexcept { use_announce_ = use; }
 
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
@@ -378,7 +378,9 @@ namespace quicr {
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
-        bool use_announce{ false }; // Indicates to use announce publish flow if true, otherwise use publish flow
+        bool use_announce_{ false }; // Indicates to use announce publish flow if true, otherwise use publish flow
+        bool support_new_group_request_{ true };
+        std::optional<uint64_t> pending_new_group_request_id_;
 
         friend class Transport;
         friend class Client;

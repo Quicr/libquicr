@@ -384,6 +384,14 @@ namespace quicr {
          */
         virtual void SubscribeDoneReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
 
+        /**
+         * @brief New Group Requested received by a subscription
+         *
+         * @param track_full_name       Track full name
+         * @param group_id              Group ID requested - Should be plus one of current group or zero
+         */
+        virtual void NewGroupRequested(const FullTrackName& track_full_name, messages::GroupId group_id);
+
         ///@}
         // --END OF CALLBACKS ----------------------------------------------------------------------------------
 

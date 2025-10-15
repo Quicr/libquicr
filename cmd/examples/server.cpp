@@ -984,7 +984,7 @@ class MyServer : public quicr::Server
                         SPDLOG_INFO("Sending subscription update to connection: hash: {0} request: {1}",
                                     th.track_namespace_hash,
                                     request_id);
-                        UpdateTrackSubscription(conn_h, sub_track_h, false);
+                        UpdateTrackSubscription(conn_h, sub_track_h);
                         last_subscription_time_ = std::chrono::steady_clock::now();
                     }
                 }
