@@ -14,7 +14,17 @@ namespace quicr_test {
         }
         void ServerSetupReceived(const quicr::ServerSetupAttributes& server_setup_attributes) override;
 
+        // Subscribe Namespace.
+        void SetSubscribeNamespaceOkPromise(std::promise<quicr::TrackNamespace> promise)
+        {
+            subscribe_namespace_ok_ = std::move(promise);
+        }
+        void SubscribeNamespaceStatusChanged(const quicr::TrackNamespace& prefix_namespace,
+                                             std::optional<quicr::messages::SubscribeNamespaceErrorCode> error_code,
+                                             std::optional<quicr::messages::ReasonPhrase> error_reason) override;
+
       private:
         std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;
+        std::optional<std::promise<quicr::TrackNamespace>> subscribe_namespace_ok_;
     };
 }

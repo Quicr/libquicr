@@ -1,5 +1,7 @@
 #include "test_server.h"
 
+#include "quicr/detail/base_track_handler.h"
+
 using namespace quicr;
 using namespace quicr_test;
 
@@ -54,13 +56,19 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
       connection_handle, request_id, th.track_fullname_hash, { .reason_code = SubscribeResponse::ReasonCode::kOk });
 }
 
-TestServer::SubscribeAnnouncesResponse
-TestServer::SubscribeNamespaceReceived(ConnectionHandle connection_handle,
+void
+TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
                                        const TrackNamespace& prefix_namespace,
-                                       const PublishNamespaceAttributes& announce_attributes)
+                                       const SubscribeNamespaceAttributes& attributes)
 {
     if (subscribe_namespace_promise_.has_value()) {
-        subscribe_namespace_promise_->set_value({ connection_handle, prefix_namespace, announce_attributes });
+        subscribe_namespace_promise_->set_value({ connection_handle, prefix_namespace, attributes });
     }
-    return { std::nullopt, {} };
+
+    // TODO: Add a match here to test flow with matches.
+    const SubscribeNamespaceResponse response = { .reason_code = SubscribeNamespaceResponse::ReasonCode::kOk,
+                                                  .track_namespaces = {} };
+
+    // Blindly accept it.
+    ResolveSubscribeNamespace(connection_handle, attributes.request_id, response);
 }

@@ -28,12 +28,6 @@ namespace quicr {
 
     void Server::PublishNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&) {}
 
-    std::pair<std::optional<messages::SubscribeNamespaceErrorCode>, std::vector<TrackNamespace>>
-    Server::SubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&)
-    {
-        return { std::nullopt, {} };
-    }
-
     void Server::UnsubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&) {}
 
     void Server::ResolvePublishNamespace(ConnectionHandle connection_handle,
@@ -153,6 +147,26 @@ namespace quicr {
                   conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
                 break;
         }
+    }
+
+    void Server::ResolveSubscribeNamespace(const ConnectionHandle connection_handle,
+                                           const uint64_t request_id,
+                                           const SubscribeNamespaceResponse& response)
+    {
+        const auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
+            SendSubscribeNamespaceError(
+              conn_it->second, request_id, messages::SubscribeNamespaceErrorCode::kInternalError, "Internal error");
+            return;
+        }
+
+        SendSubscribeNamespaceOk(conn_it->second, request_id);
+
+        // TODO: Fan out publish / publish_namespace depending on matches in response.
     }
 
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
@@ -545,16 +559,8 @@ namespace quicr {
                 auto msg = messages::SubscribeNamespace{};
                 msg_bytes >> msg;
 
-                const auto& [err, matched_ns] =
-                  SubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_prefix, {});
-                if (err.has_value()) {
-                    SendSubscribeNamespaceError(conn_ctx, msg.request_id, *err, {});
-                } else {
-                    for (const auto& ns : matched_ns) {
-                        SendPublishNamespace(conn_ctx, msg.request_id, ns);
-                    }
-                }
-
+                SubscribeNamespaceReceived(
+                  conn_ctx.connection_handle, msg.track_namespace_prefix, { .request_id = msg.request_id });
                 return true;
             }
 

@@ -738,7 +738,7 @@ namespace quicr {
     void Transport::SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
                                                 RequestID request_id,
                                                 messages::SubscribeNamespaceErrorCode err_code,
-                                                const messages::ReasonPhrase& reason)
+                                                const std::string& reason)
     try {
 
         auto msg = messages::SubscribeNamespaceError(request_id, err_code, quicr::Bytes(reason.begin(), reason.end()));

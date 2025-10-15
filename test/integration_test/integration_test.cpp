@@ -249,16 +249,27 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
 
     // Set up promise to capture server-side callback
-    std::promise<TestServer::SubscribeNamespaceDetails> promise;
-    std::future<TestServer::SubscribeNamespaceDetails> future = promise.get_future();
-    server->SetSubscribeNamespacePromise(std::move(promise));
+    std::promise<TestServer::SubscribeNamespaceDetails> server_promise;
+    std::future<TestServer::SubscribeNamespaceDetails> server_future = server_promise.get_future();
+    server->SetSubscribeNamespacePromise(std::move(server_promise));
+
+    // Set up promise to capture client-side SUBSCRIBE_NAMESPACE_OK
+    std::promise<TrackNamespace> client_promise;
+    std::future<TrackNamespace> client_future = client_promise.get_future();
+    client->SetSubscribeNamespaceOkPromise(std::move(client_promise));
 
     // Client sends SUBSCRIBE_NAMESPACE
     CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
 
     // Server should receive the SUBSCRIBE_NAMESPACE message
-    auto status = future.wait_for(kDefaultTimeout);
-    REQUIRE(status == std::future_status::ready);
-    const auto& details = future.get();
+    auto server_status = server_future.wait_for(kDefaultTimeout);
+    REQUIRE(server_status == std::future_status::ready);
+    const auto& details = server_future.get();
     CHECK_EQ(details.prefix_namespace, prefix_namespace);
+
+    // Client should receive SUBSCRIBE_NAMESPACE_OK from relay
+    auto client_status = client_future.wait_for(kDefaultTimeout);
+    REQUIRE(client_status == std::future_status::ready);
+    const auto& received_namespace = client_future.get();
+    CHECK_EQ(received_namespace, prefix_namespace);
 }

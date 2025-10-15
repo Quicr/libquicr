@@ -77,6 +77,27 @@ namespace quicr {
         std::optional<messages::Location> largest_location = std::nullopt;
     };
 
+    struct SubscribeNamespaceResponse
+    {
+        /**
+         * @details **kOK** indicates that the subscribe namespace is accepted and OK should be sent. Any other
+         *       value indicates that the subscribe namespace is not accepted and the reason code and other
+         *       fields will be set.
+         */
+        enum class ReasonCode : uint8_t
+        {
+            kOk = 0,
+            kInternalError,
+            kNotSupported,
+        };
+        ReasonCode reason_code;
+
+        // Matched namespaces that will be advertised in response.
+        std::vector<TrackNamespace> track_namespaces;
+
+        std::optional<std::string> error_reason = std::nullopt;
+    };
+
     /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
      *

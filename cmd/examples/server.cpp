@@ -499,10 +499,9 @@ class MyServer : public quicr::Server
                     th.track_namespace_hash);
     }
 
-    std::pair<std::optional<quicr::messages::SubscribeNamespaceErrorCode>, std::vector<quicr::TrackNamespace>>
-    SubscribeNamespaceReceived(quicr::ConnectionHandle connection_handle,
-                               const quicr::TrackNamespace& prefix_namespace,
-                               const quicr::PublishNamespaceAttributes&) override
+    void SubscribeNamespaceReceived(quicr::ConnectionHandle connection_handle,
+                                    const quicr::TrackNamespace& prefix_namespace,
+                                    const quicr::SubscribeNamespaceAttributes& attributes) override
     {
         auto th = quicr::TrackHash({ prefix_namespace, {} });
 
@@ -524,7 +523,10 @@ class MyServer : public quicr::Server
             }
         }
 
-        return { std::nullopt, std::move(matched_ns) };
+        const quicr::SubscribeNamespaceResponse response = { .reason_code =
+                                                               quicr::SubscribeNamespaceResponse::ReasonCode::kOk,
+                                                             .track_namespaces = std::move(matched_ns) };
+        ResolveSubscribeNamespace(connection_handle, attributes.request_id, response);
     }
 
     void PublishReceived(quicr::ConnectionHandle connection_handle,
