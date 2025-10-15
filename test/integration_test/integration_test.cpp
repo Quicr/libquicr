@@ -1,4 +1,5 @@
 #include "quicr/config.h"
+#include "quicr/defer.h"
 #include "test_client.h"
 #include "test_server.h"
 
