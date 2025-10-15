@@ -282,13 +282,13 @@ namespace quicr {
         void PublishNamespaceDone(const TrackNamespace& track_namespace);
 
         /**
-         * @brief Subscribe Announces to prefix namespace
+         * @brief Subscribe to prefix namespace
          *
-         * @note SubscribeAnnouncesStatusChanged will be called after receiving either an OK or ERROR
+         * @note SubscribeNamespaceStatusChanged will be called after receiving either an OK or ERROR
          *
-         * @param prefix_namespace      Prefix namespace to subscribe announces
+         * @param prefix_namespace      Prefix namespace to subscribe namespace
          */
-        void SubscribeAnnounces(const TrackNamespace& prefix_namespace)
+        void SubscribeNamespace(const TrackNamespace& prefix_namespace)
         {
             if (!connection_handle_) {
                 return;
@@ -298,11 +298,11 @@ namespace quicr {
         }
 
         /**
-         * @brief Unsubscribe announces to prefix namespace
+         * @brief Unsubscribe namespace to prefix namespace
          *
-         * @param prefix_namespace      Prefix namespace to unsubscribe announces
+         * @param prefix_namespace      Prefix namespace to unsubscribe namespace
          */
-        void UnsubscribeAnnounces(const TrackNamespace& prefix_namespace)
+        void UnsubscribeNamespace(const TrackNamespace& prefix_namespace)
         {
             if (!connection_handle_) {
                 return;
