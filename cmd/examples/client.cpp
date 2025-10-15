@@ -389,20 +389,20 @@ class MyClient : public quicr::Client
         }
     }
 
-    void AnnounceReceived(const quicr::TrackNamespace& track_namespace,
-                          const quicr::PublishAnnounceAttributes&) override
+    void PublishNamespaceReceived(const quicr::TrackNamespace& track_namespace,
+                                  const quicr::PublishNamespaceAttributes&) override
     {
         auto th = quicr::TrackHash({ track_namespace, {} });
         SPDLOG_INFO("Received announce for namespace_hash: {}", th.track_namespace_hash);
     }
 
-    void UnannounceReceived(const quicr::TrackNamespace& track_namespace) override
+    void PublishNamespaceDoneReceived(const quicr::TrackNamespace& track_namespace) override
     {
         auto th = quicr::TrackHash({ track_namespace, {} });
         SPDLOG_INFO("Received unannounce for namespace_hash: {}", th.track_namespace_hash);
     }
 
-    void SubscribeAnnouncesStatusChanged(const quicr::TrackNamespace& track_namespace,
+    void SubscribeNamespaceStatusChanged(const quicr::TrackNamespace& track_namespace,
                                          std::optional<quicr::messages::SubscribeNamespaceErrorCode> error_code,
                                          std::optional<quicr::messages::ReasonPhrase> reason) override
     {

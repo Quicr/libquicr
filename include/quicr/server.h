@@ -31,7 +31,7 @@ namespace quicr {
         /**
          * @brief Response to received MOQT Announce message
          */
-        struct AnnounceResponse
+        struct PublishNamespaceResponse
         {
             /**
              * @details **kOK** indicates that the announce is accepted and OK should be sent. Any other
@@ -219,9 +219,9 @@ namespace quicr {
          * @param track_namespace               Track namespace
          * @param publish_announce_attributes   Publish announce attributes received
          */
-        virtual void AnnounceReceived(ConnectionHandle connection_handle,
-                                      const TrackNamespace& track_namespace,
-                                      const PublishAnnounceAttributes& publish_announce_attributes);
+        virtual void PublishNamespaceReceived(ConnectionHandle connection_handle,
+                                              const TrackNamespace& track_namespace,
+                                              const PublishNamespaceAttributes& publish_announce_attributes);
 
         /**
          * @brief Accept or reject an announce that was received
@@ -236,11 +236,11 @@ namespace quicr {
          * @param subscribers              Vector/list of subscriber connection handles that should be sent the announce
          * @param announce_response        response to for the announcement
          */
-        void ResolveAnnounce(ConnectionHandle connection_handle,
-                             uint64_t request_id,
-                             const TrackNamespace& track_namespace,
-                             const std::vector<ConnectionHandle>& subscribers,
-                             const AnnounceResponse& announce_response);
+        void ResolvePublishNamespace(ConnectionHandle connection_handle,
+                                     uint64_t request_id,
+                                     const TrackNamespace& track_namespace,
+                                     const std::vector<ConnectionHandle>& subscribers,
+                                     const PublishNamespaceResponse& announce_response);
 
         /**
          * @brief Callback notification for unannounce received
@@ -266,7 +266,7 @@ namespace quicr {
          * @param prefix_namespace           Prefix namespace
          *
          */
-        virtual void UnsubscribeAnnouncesReceived(ConnectionHandle connection_handle,
+        virtual void UnsubscribeNamespaceReceived(ConnectionHandle connection_handle,
                                                   const TrackNamespace& prefix_namespace) = 0;
 
         /**
@@ -284,10 +284,10 @@ namespace quicr {
         using SubscribeAnnouncesResponse =
           std::pair<std::optional<messages::SubscribeNamespaceErrorCode>, std::vector<TrackNamespace>>;
 
-        virtual SubscribeAnnouncesResponse SubscribeAnnouncesReceived(
+        virtual SubscribeAnnouncesResponse SubscribeNamespaceReceived(
           ConnectionHandle connection_handle,
           const TrackNamespace& prefix_namespace,
-          const PublishAnnounceAttributes& announce_attributes);
+          const PublishNamespaceAttributes& announce_attributes);
 
         /**
          * @brief Callback notification for new subscribe received

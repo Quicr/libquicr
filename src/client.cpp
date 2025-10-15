@@ -21,11 +21,11 @@ namespace quicr {
 
     void Client::ServerSetupReceived(const ServerSetupAttributes&) {}
 
-    void Client::AnnounceStatusChanged(const TrackNamespace&, const PublishAnnounceStatus) {}
-    void Client::AnnounceReceived(const TrackNamespace&, const PublishAnnounceAttributes&) {}
-    void Client::UnannounceReceived(const TrackNamespace&) {}
+    void Client::PublishNamespaceStatusChanged(const TrackNamespace&, const PublishNamespaceStatus) {}
+    void Client::PublishNamespaceReceived(const TrackNamespace&, const PublishNamespaceAttributes&) {}
+    void Client::PublishNamespaceDoneReceived(const TrackNamespace&) {}
 
-    void Client::SubscribeAnnouncesStatusChanged(const TrackNamespace&,
+    void Client::SubscribeNamespaceStatusChanged(const TrackNamespace&,
                                                  std::optional<messages::SubscribeNamespaceErrorCode>,
                                                  std::optional<messages::ReasonPhrase>)
     {
@@ -159,14 +159,14 @@ namespace quicr {
 
     void Client::MetricsSampled(const ConnectionMetrics&) {}
 
-    PublishAnnounceStatus Client::GetAnnounceStatus(const TrackNamespace&)
+    PublishNamespaceStatus Client::GetPublishNamespaceStatus(const TrackNamespace&)
     {
-        return PublishAnnounceStatus();
+        return PublishNamespaceStatus();
     }
 
-    void Client::PublishAnnounce(const TrackNamespace&) {}
+    void Client::PublishNamespace(const TrackNamespace&) {}
 
-    void Client::PublishUnannounce(const TrackNamespace&) {}
+    void Client::PublishNamespaceDone(const TrackNamespace&) {}
 
     bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
     try {
@@ -386,7 +386,7 @@ namespace quicr {
 
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
 
-                AnnounceReceived(tfn.name_space, {});
+                PublishNamespaceReceived(tfn.name_space, {});
                 return true;
             }
 
@@ -395,7 +395,7 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
-                UnannounceReceived(tfn.name_space);
+                PublishNamespaceDoneReceived(tfn.name_space);
 
                 return true;
             }
@@ -405,7 +405,7 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received announce ok, conn_id: {} request_id: {}",
+                                    "Received publish namespace ok, conn_id: {} request_id: {}",
                                     conn_ctx.connection_handle,
                                     msg.request_id);
 
@@ -430,7 +430,7 @@ namespace quicr {
                 reason.assign(msg.error_reason.begin(), msg.error_reason.end());
 
                 SPDLOG_LOGGER_INFO(logger_,
-                                   "Received announce error for request_id: {} error code: {} reason: {}",
+                                   "Received publish namespace error for request_id: {} error code: {} reason: {}",
                                    msg.request_id,
                                    static_cast<std::uint64_t>(msg.error_code),
                                    reason);
@@ -441,9 +441,9 @@ namespace quicr {
                 messages::SubscribeNamespaceOk msg;
                 msg_bytes >> msg;
 
-                const auto it = conn_ctx.sub_announces_by_request_id.find(msg.request_id);
-                if (it != conn_ctx.sub_announces_by_request_id.end()) {
-                    SubscribeAnnouncesStatusChanged(it->second, std::nullopt, std::nullopt);
+                const auto it = conn_ctx.sub_namespace_prefix_by_request_id.find(msg.request_id);
+                if (it != conn_ctx.sub_namespace_prefix_by_request_id.end()) {
+                    SubscribeNamespaceStatusChanged(it->second, std::nullopt, std::nullopt);
                 }
 
                 return true;
@@ -452,12 +452,12 @@ namespace quicr {
                 messages::SubscribeNamespaceError msg;
                 msg_bytes >> msg;
 
-                const auto it = conn_ctx.sub_announces_by_request_id.find(msg.request_id);
-                if (it != conn_ctx.sub_announces_by_request_id.end()) {
-                    SubscribeAnnouncesStatusChanged(it->second, std::nullopt, std::nullopt);
+                const auto it = conn_ctx.sub_namespace_prefix_by_request_id.find(msg.request_id);
+                if (it != conn_ctx.sub_namespace_prefix_by_request_id.end()) {
+                    SubscribeNamespaceStatusChanged(it->second, std::nullopt, std::nullopt);
 
                     auto error_code = static_cast<messages::SubscribeNamespaceErrorCode>(msg.error_code);
-                    SubscribeAnnouncesStatusChanged(
+                    SubscribeNamespaceStatusChanged(
                       it->second, error_code, std::make_optional<messages::ReasonPhrase>(msg.error_reason));
                 }
 
@@ -519,7 +519,7 @@ namespace quicr {
                 auto tfn = sub_it->second->GetFullTrackName();
 
                 SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe done conn_id: {0} request_id: {1} track namespace hash: {2} "
+                                    "Received publish done conn_id: {0} request_id: {1} track namespace hash: {2} "
                                     "name hash: {3} track alias: {4}",
                                     conn_ctx.connection_handle,
                                     msg.request_id,
@@ -552,8 +552,8 @@ namespace quicr {
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(
-                  logger_, "Received announce cancel for namespace_hash: {0}", th.track_namespace_hash);
-                AnnounceStatusChanged(tfn.name_space, PublishAnnounceStatus::kNotAnnounced);
+                  logger_, "Received publish namespace cancel for namespace_hash: {0}", th.track_namespace_hash);
+                PublishNamespaceStatusChanged(tfn.name_space, PublishNamespaceStatus::kNotPublished);
                 return true;
             }
 
