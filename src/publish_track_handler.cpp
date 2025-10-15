@@ -174,6 +174,11 @@ namespace quicr {
 
         auto object_extensions = object_headers.extensions;
 
+        if (group_id_delta) {
+            // Group change, reset pending new group request
+            pending_new_group_request_id_ = std::nullopt;
+        }
+
         if (group_id_delta > 1) {
             const std::uint64_t value = group_id_delta - 1;
             std::vector<std::uint8_t> value_bytes(sizeof(value));

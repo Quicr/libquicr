@@ -141,12 +141,10 @@ namespace quicr {
          *
          * @param connection_handle         Connection ID to send subscribe
          * @param track_handler             Track handler to use for track related functions and callbacks
-         * @param new_group_request         True to add new group request parameter
          *
          */
         void UpdateTrackSubscription(ConnectionHandle connection_handle,
-                                     std::shared_ptr<SubscribeTrackHandler> track_handler,
-                                     bool new_group_request = false);
+                                     std::shared_ptr<SubscribeTrackHandler> track_handler);
 
         /**
          * @brief Publish to a track
@@ -475,7 +473,8 @@ namespace quicr {
                          uint64_t track_alias,
                          messages::GroupOrder group_order,
                          std::optional<messages::Location> largest_location,
-                         bool forward);
+                         bool forward,
+                         bool support_new_group);
 
         void SendPublishOk(ConnectionContext& conn_ctx,
                            messages::RequestID request_id,

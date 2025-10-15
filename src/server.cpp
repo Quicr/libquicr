@@ -85,6 +85,8 @@ namespace quicr {
         return false;
     }
 
+    void Server::NewGroupRequested(const FullTrackName&, messages::GroupId) {}
+
     void Server::ResolveSubscribe(ConnectionHandle connection_handle,
                                   uint64_t request_id,
                                   uint64_t track_alias,
@@ -382,14 +384,28 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                const auto dt_param = std::find_if(msg.parameters.begin(), msg.parameters.end(), [](const auto& p) {
-                    return p.type == messages::ParameterType::kDeliveryTimeout;
-                });
-
                 std::uint64_t delivery_timeout = 0;
+                std::optional<uint64_t> new_group_request_id;
+                for (const auto& param : msg.parameters) {
+                    switch (param.type) {
+                        case messages::ParameterType::kDeliveryTimeout: {
+                            std::memcpy(&delivery_timeout,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
 
-                if (dt_param != msg.parameters.end()) {
-                    std::memcpy(&delivery_timeout, dt_param->value.data(), dt_param->value.size());
+                            break;
+                        }
+                        case messages::ParameterType::kNewGroupRequest: {
+                            uint64_t ngr_id{ 0 };
+                            std::memcpy(&ngr_id,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+                            new_group_request_id = ngr_id;
+                            break;
+                        }
+                        default:
+                            break;
+                    }
                 }
 
                 // TODO(tievens): add filter type when caching supports it
@@ -400,7 +416,13 @@ namespace quicr {
                                   { msg.subscriber_priority,
                                     static_cast<messages::GroupOrder>(msg.group_order),
                                     std::chrono::milliseconds{ delivery_timeout },
-                                    msg.forward });
+                                    msg.forward,
+                                    new_group_request_id });
+
+                // Handle new group request after subscribe callback
+                if (new_group_request_id.has_value()) {
+                    NewGroupRequested({ msg.track_namespace, msg.track_name }, *new_group_request_id);
+                }
 
                 return true;
             }
@@ -424,6 +446,13 @@ namespace quicr {
                     // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
                     // condition
                     return true;
+                }
+
+                for (const auto& param : msg.parameters) {
+                    if (param.type == messages::ParameterType::kDynamicGroups) {
+                        sub_it->second->support_new_group_request_ = true;
+                        break;
+                    }
                 }
 
                 sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
@@ -897,10 +926,19 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                PublishReceived(conn_ctx.connection_handle,
-                                msg.request_id,
-                                tfn,
-                                { { 0, msg.group_order, std::chrono::milliseconds(0), 0 }, msg.track_alias });
+                std::optional<uint64_t> new_group_request_id;
+                for (const auto& param : msg.parameters) {
+                    if (param.type == messages::ParameterType::kDynamicGroups) {
+                        new_group_request_id = 0;
+                        break;
+                    }
+                }
+
+                PublishReceived(
+                  conn_ctx.connection_handle,
+                  msg.request_id,
+                  tfn,
+                  { { 0, msg.group_order, std::chrono::milliseconds(0), 0, new_group_request_id }, msg.track_alias });
 
                 return true;
             }
@@ -931,23 +969,32 @@ namespace quicr {
                   msg.subscription_request_id,
                   msg.forward);
 
+                bool new_group_request{ false };
+                uint64_t new_group_request_id{ 0 };
+                for (const auto& param : msg.parameters) {
+                    if (param.type == messages::ParameterType::kNewGroupRequest) {
+                        std::memcpy(&new_group_request_id,
+                                    param.value.data(),
+                                    param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+
+                        new_group_request = true;
+                        NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id);
+                        break;
+                    }
+                }
+
                 /*
                  * Unlike client, server supports multi-publisher to the client.
                  *   There is a publish handler per publisher connection
                  */
                 for (const auto& pub :
                      conn_ctx.pub_tracks_by_track_alias[sub_ctx_it->second.track_hash.track_fullname_hash]) {
+
+                    // TODO: Follow up on https://github.com/moq-wg/moq-transport/issues/1304
                     if (not msg.forward) {
                         pub.second->SetStatus(PublishTrackHandler::Status::kPaused);
-                    } else {
-                        bool new_group_request = false;
-                        for (const auto& param : msg.parameters) {
-                            if (param.type == messages::ParameterType::kNewGroupRequest) {
-                                new_group_request = true;
-                                break;
-                            }
-                        }
 
+                    } else {
                         pub.second->SetStatus(new_group_request ? PublishTrackHandler::Status::kNewGroupRequested
                                                                 : PublishTrackHandler::Status::kSubscriptionUpdated);
                     }
