@@ -53,3 +53,14 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
     ResolveSubscribe(
       connection_handle, request_id, th.track_fullname_hash, { .reason_code = SubscribeResponse::ReasonCode::kOk });
 }
+
+TestServer::SubscribeAnnouncesResponse
+TestServer::SubscribeNamespaceReceived(ConnectionHandle connection_handle,
+                                       const TrackNamespace& prefix_namespace,
+                                       const PublishNamespaceAttributes& announce_attributes)
+{
+    if (subscribe_namespace_promise_.has_value()) {
+        subscribe_namespace_promise_->set_value({ connection_handle, prefix_namespace, announce_attributes });
+    }
+    return { std::nullopt, {} };
+}

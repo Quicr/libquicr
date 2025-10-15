@@ -18,8 +18,21 @@ namespace quicr_test {
             quicr::messages::SubscribeAttributes subscribe_attributes;
         };
 
+        struct SubscribeNamespaceDetails
+        {
+            quicr::ConnectionHandle connection_handle;
+            quicr::TrackNamespace prefix_namespace;
+            quicr::PublishNamespaceAttributes announce_attributes;
+        };
+
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
+
+        // Set up promise for subscribe namespace event
+        void SetSubscribeNamespacePromise(std::promise<SubscribeNamespaceDetails> promise)
+        {
+            subscribe_namespace_promise_ = std::move(promise);
+        }
 
       protected:
         ClientSetupResponse ClientSetupReceived(
@@ -53,7 +66,13 @@ namespace quicr_test {
                              const quicr::messages::PublishAttributes& publish_attributes) override;
         void SubscribeDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override;
 
+        SubscribeAnnouncesResponse SubscribeNamespaceReceived(
+          quicr::ConnectionHandle connection_handle,
+          const quicr::TrackNamespace& prefix_namespace,
+          const quicr::PublishNamespaceAttributes& announce_attributes) override;
+
       private:
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
+        std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
     };
 }
