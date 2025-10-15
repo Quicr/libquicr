@@ -394,6 +394,7 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
 
             case Status::kDoneByReset: {
                 SPDLOG_INFO("Fetch failed");
+                break;
             }
             default:
                 break;
