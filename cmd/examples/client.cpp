@@ -962,7 +962,7 @@ main(int argc, char* argv[])
                         result["sub_announces"].as<std::string>(),
                         th.track_namespace_hash);
 
-            client->SubscribeAnnounces(prefix_ns.name_space);
+            client->SubscribeNamespace(prefix_ns.name_space);
         }
 
         if (enable_pub) {
