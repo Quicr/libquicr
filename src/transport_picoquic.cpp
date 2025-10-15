@@ -1462,7 +1462,7 @@ try {
 void
 PicoQuicTransport::OnStreamClosed(TransportConnId conn_id, uint64_t stream_id, bool is_fin, bool is_reset)
 {
-    SPDLOG_INFO("Stream {} closed for connection {}", stream_id, conn_id);
+    SPDLOG_DEBUG("Stream {} closed for connection {}", stream_id, conn_id);
     cbNotifyQueue_.Push([=, this]() { delegate_.OnStreamClosed(conn_id, stream_id, is_fin, is_reset); });
 }
 

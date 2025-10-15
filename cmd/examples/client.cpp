@@ -51,7 +51,7 @@ namespace qclient_vars {
     bool add_gaps = false;
     bool req_track_status = false;
     std::chrono::milliseconds playback_speed_ms(20);
-    std::chrono::milliseconds cache_duration_ms(20);
+    std::chrono::milliseconds cache_duration_ms(5000);
     std::unordered_map<quicr::messages::TrackAlias, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>>
       cache;
     std::shared_ptr<quicr::ThreadedTickService> tick_service = std::make_shared<quicr::ThreadedTickService>();
@@ -364,7 +364,7 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
                        uint64_t end_object)
     {
         return std::shared_ptr<MyFetchTrackHandler>(
-          new MyFetchTrackHandler(full_track_name, start_group, end_group, start_object, end_object));
+          new MyFetchTrackHandler(full_track_name, start_group, start_object, end_group, end_object));
     }
 
     void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
@@ -384,6 +384,15 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
             } break;
 
             case Status::kError: {
+                SPDLOG_INFO("Fetch failed");
+                break;
+            }
+            case Status::kDoneByFin: {
+                SPDLOG_INFO("Fetch completed");
+                break;
+            }
+
+            case Status::kDoneByReset: {
                 SPDLOG_INFO("Fetch failed");
                 break;
             }
@@ -823,7 +832,11 @@ DoFetch(const quicr::FullTrackName& full_track_name,
     auto track_handler = MyFetchTrackHandler::Create(
       full_track_name, group_range.start, object_range.start, group_range.end, object_range.end);
 
-    SPDLOG_INFO("Started fetch");
+    SPDLOG_INFO("Started fetch start: {}.{} end: {}.{}",
+                group_range.start,
+                object_range.start,
+                group_range.end,
+                object_range.end);
 
     bool fetch_track{ false };
 
@@ -837,7 +850,7 @@ DoFetch(const quicr::FullTrackName& full_track_name,
         if (track_handler->GetStatus() == quicr::FetchTrackHandler::Status::kPendingResponse) {
             // do nothing...
         } else if (!fetch_track || (track_handler->GetStatus() != quicr::FetchTrackHandler::Status::kOk)) {
-            SPDLOG_INFO("GetStatus() != quicr::FetchTrackHandler::Status::kOk {}", (int)track_handler->GetStatus());
+            SPDLOG_DEBUG("GetStatus() != quicr::FetchTrackHandler::Status::kOk {}", (int)track_handler->GetStatus());
             moq_example::terminate = true;
             moq_example::cv.notify_all();
             break;

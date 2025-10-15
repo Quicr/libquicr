@@ -1163,6 +1163,8 @@ namespace quicr {
                 SendUnannounce(conn_it->second, tfn.name_space);
                 conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
             }
+
+            quic_transport_->DeleteDataContext(conn_id, track_handler->publish_data_ctx_id_);
         }
     }
 
@@ -1312,9 +1314,17 @@ namespace quicr {
             return;
         }
 
-        SendFetchCancel(conn_it->second, sub_id.value());
+        conn_it->second.sub_tracks_by_request_id.erase(track_handler->GetRequestId().value());
 
         track_handler->SetRequestId(std::nullopt);
+
+        if (track_handler->GetStatus() == FetchTrackHandler::Status::kDoneByFin ||
+            track_handler->GetStatus() == FetchTrackHandler::Status::kDoneByReset) {
+            return;
+        }
+
+        SendFetchCancel(conn_it->second, sub_id.value());
+
         track_handler->SetStatus(FetchTrackHandler::Status::kNotConnected);
     }
 
@@ -1650,10 +1660,18 @@ namespace quicr {
             return;
         }
 
-        for (const auto& [_, handler] : conn_ctx.sub_tracks_by_request_id) {
-            handler->SetStatus(is_fin     ? FetchTrackHandler::Status::kDoneByFin
-                               : is_reset ? FetchTrackHandler::Status::kDoneByReset
-                                          : FetchTrackHandler::Status::kError /* Should never hit error */);
+        auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
+        if (auto sub_handler = sub_handler_weak.lock()) {
+            try {
+                sub_handler->SetStatus(is_fin     ? SubscribeTrackHandler::Status::kDoneByFin
+                                       : is_reset ? SubscribeTrackHandler::Status::kDoneByReset
+                                                  : SubscribeTrackHandler::Status::kError /* Should never hit error */);
+
+            } catch (const ProtocolViolationException&) {
+                // ignore
+            } catch (std::exception&) {
+                // ignore
+            }
         }
     }
 
