@@ -662,18 +662,21 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendSubscribeDone(ConnectionContext& conn_ctx, uint64_t request_id, const std::string& reason)
+    void Transport::SendPublishDone(ConnectionContext& conn_ctx,
+                                    uint64_t request_id,
+                                    messages::PublishDoneStatusCode status,
+                                    const std::string& reason)
     try {
-        auto publish_done = messages::PublishDone(request_id,
-                                                  messages::PublishDoneStatusCode::kSubscribtionEnded,
-                                                  0,
-                                                  quicr::Bytes(reason.begin(), reason.end()));
+        auto publish_done = messages::PublishDone(request_id, status, 0, quicr::Bytes(reason.begin(), reason.end()));
 
         Bytes buffer;
         buffer << publish_done;
 
-        SPDLOG_LOGGER_DEBUG(
-          logger_, "Sending PUBLISH_DONE to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending PUBLISH_DONE to conn_id: {} request_id: {} status: {}",
+                            conn_ctx.connection_handle,
+                            request_id,
+                            static_cast<uint64_t>(status));
 
         SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
@@ -1160,11 +1163,14 @@ namespace quicr {
                     SPDLOG_LOGGER_INFO(
                       logger_,
                       "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}, sending "
-                      "subscribe_done",
+                      "publish_done",
                       th.track_namespace_hash,
                       th.track_name_hash,
                       th.track_fullname_hash);
-                    SendSubscribeDone(conn_it->second, *pub_n_it->second->GetRequestId(), "Unpublish track");
+                    SendPublishDone(conn_it->second,
+                                    *pub_n_it->second->GetRequestId(),
+                                    PublishDoneStatusCode::kSubscribtionEnded,
+                                    "Unpublish track");
                 } else {
                     SPDLOG_LOGGER_INFO(logger_,
                                        "Unpublish track namespace hash: {0} track_name_hash: {1} track_alias: {2}",

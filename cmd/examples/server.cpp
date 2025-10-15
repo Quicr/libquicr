@@ -697,7 +697,7 @@ class MyServer : public quicr::Server
         return client_setup_response;
     }
 
-    void SubscribeDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override
+    void PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override
     {
         SPDLOG_INFO("Subscribe Done connection handle: {0} request_id: {1}", connection_handle, request_id);
 
