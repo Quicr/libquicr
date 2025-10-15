@@ -121,8 +121,7 @@ namespace quicr {
 
         track_handler->SetTransport(GetSharedPtr());
 
-        // Hold ref to track handler
-        conn_it->second.pub_fetch_tracks_by_sub_id[request_id] = std::move(track_handler);
+        conn_it->second.pub_fetch_tracks_by_request_id[request_id] = std::move(track_handler);
     }
 
     void Client::UnbindFetchTrack(ConnectionHandle connection_handle,
@@ -138,7 +137,7 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Client publish fetch track conn_id: {} subscribe id: {} unbind", connection_handle, request_id);
 
-        conn_it->second.pub_fetch_tracks_by_sub_id.erase(request_id);
+        conn_it->second.pub_fetch_tracks_by_request_id.erase(request_id);
         quic_transport_->DeleteDataContext(connection_handle, track_handler->publish_data_ctx_id_);
     }
 

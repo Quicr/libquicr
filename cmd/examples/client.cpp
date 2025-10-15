@@ -324,7 +324,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
         auto track_alias = GetTrackAlias();
 
         // Cache Object
-        if (qclient_vars::cache.count(*track_alias) == 0) {
+        if (qclient_vars::cache.contains(*track_alias)) {
             qclient_vars::cache.emplace(
               *track_alias,
               quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{

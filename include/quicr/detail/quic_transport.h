@@ -155,6 +155,12 @@ namespace quicr {
         TransportError Error;
     };
 
+    enum class StreamClosedFlag
+    {
+        Fin,
+        Reset,
+    };
+
     /**
      * @brief ITransport interface
      *
@@ -243,13 +249,11 @@ namespace quicr {
              *
              * @param connection_handle Transport context identifier mapped to the connection
              * @param stream_id         Transport stream id.
-             * @param is_fin            Close was triggered by FIN.
-             * @param is_reset          Close was triggered by RST.
+             * @param flag              Flag value for how the stream was closed. Values are FIN or RST
              */
             virtual void OnStreamClosed(const TransportConnId& connection_handle,
                                         std::uint64_t stream_id,
-                                        bool is_fin,
-                                        bool is_reset) = 0;
+                                        StreamClosedFlag flag) = 0;
 
             /**
              * @brief callback notification on connection metrics sampled

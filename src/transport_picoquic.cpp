@@ -176,7 +176,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                 if (is_fin) {
                     SPDLOG_LOGGER_DEBUG(transport->logger, "Received FIN for stream {0}", stream_id);
 
-                    transport->OnStreamClosed(conn_id, stream_id, true, false);
+                    transport->OnStreamClosed(conn_id, stream_id, StreamClosedFlag::Fin);
 
                     picoquic_reset_stream_ctx(pq_cnx, stream_id);
 
@@ -202,7 +202,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             SPDLOG_LOGGER_TRACE(
               transport->logger, "Received RESET stream conn_id: {0} stream_id: {1}", conn_id, stream_id);
 
-            transport->OnStreamClosed(conn_id, stream_id, true, false);
+            transport->OnStreamClosed(conn_id, stream_id, StreamClosedFlag::Reset);
 
             picoquic_reset_stream_ctx(pq_cnx, stream_id);
 
@@ -1460,10 +1460,10 @@ try {
 }
 
 void
-PicoQuicTransport::OnStreamClosed(TransportConnId conn_id, uint64_t stream_id, bool is_fin, bool is_reset)
+PicoQuicTransport::OnStreamClosed(TransportConnId conn_id, uint64_t stream_id, StreamClosedFlag flag)
 {
     SPDLOG_DEBUG("Stream {} closed for connection {}", stream_id, conn_id);
-    cbNotifyQueue_.Push([=, this]() { delegate_.OnStreamClosed(conn_id, stream_id, is_fin, is_reset); });
+    cbNotifyQueue_.Push([=, this]() { delegate_.OnStreamClosed(conn_id, stream_id, flag); });
 }
 
 void

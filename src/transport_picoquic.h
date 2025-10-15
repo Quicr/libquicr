@@ -292,7 +292,7 @@ namespace quicr {
                                uint64_t stream_id,
                                std::span<const uint8_t> bytes);
 
-        void OnStreamClosed(TransportConnId conn_id, uint64_t stream_id, bool is_fin, bool is_reset);
+        void OnStreamClosed(TransportConnId conn_id, uint64_t stream_id, StreamClosedFlag flag);
 
         void CheckConnsForCongestion();
         void EmitMetrics();

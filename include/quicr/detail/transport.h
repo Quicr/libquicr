@@ -342,8 +342,7 @@ namespace quicr {
 
         void OnStreamClosed(const ConnectionHandle& connection_handle,
                             std::uint64_t stream_id,
-                            bool is_fin,
-                            bool is_reset) override;
+                            StreamClosedFlag flag) override;
 
         // -------------------------------------------------------------------------------------------------
         // End of transport handler/callback functions
@@ -417,7 +416,7 @@ namespace quicr {
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
             /// Fetch Publishers by subscribe ID.
-            std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_sub_id;
+            std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
 
             /// Subscribe Announces namespace prefix by request Id
             std::map<messages::RequestID, TrackNamespace> sub_announces_by_request_id;
