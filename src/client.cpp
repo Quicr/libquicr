@@ -386,7 +386,7 @@ namespace quicr {
 
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
 
-                PublishNamespaceReceived(tfn.name_space, {});
+                PublishNamespaceReceived(tfn.name_space, { .request_id = msg.request_id });
                 return true;
             }
 
