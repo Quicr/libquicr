@@ -656,19 +656,17 @@ namespace quicr {
                 auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
                 if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe done to unknown subscribe conn_id: {0} request_id: {1}",
+                                       "Received publish done to unknown subscribe conn_id: {0} request_id: {1}",
                                        conn_ctx.connection_handle,
                                        msg.request_id);
 
-                    // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
-                    // condition
                     return true;
                 }
                 auto tfn = sub_it->second->GetFullTrackName();
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(logger_,
-                                   "Received subscribe done conn_id: {0} request_id: {1} track namespace hash: {2} "
+                                   "Received publish done conn_id: {0} request_id: {1} track namespace hash: {2} "
                                    "name hash: {3} track alias: {4}",
                                    conn_ctx.connection_handle,
                                    msg.request_id,
@@ -678,7 +676,7 @@ namespace quicr {
 
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 
-                SubscribeDoneReceived(conn_ctx.connection_handle, msg.request_id);
+                PublishDoneReceived(conn_ctx.connection_handle, msg.request_id);
                 conn_ctx.recv_req_id.erase(msg.request_id);
 
                 return true;

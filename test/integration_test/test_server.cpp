@@ -9,7 +9,7 @@ TestServer::TestServer(const ServerConfig& config)
 }
 
 void
-SubscribeDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle, [[maybe_unused]] uint64_t request_id)
+PublishDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle, [[maybe_unused]] uint64_t request_id)
 {
 }
 
@@ -33,8 +33,8 @@ TestServer::PublishReceived([[maybe_unused]] quicr::ConnectionHandle connection_
 }
 
 void
-TestServer::SubscribeDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                                  [[maybe_unused]] uint64_t request_id)
+TestServer::PublishDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                                [[maybe_unused]] uint64_t request_id)
 {
 }
 
