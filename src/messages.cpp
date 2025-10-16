@@ -98,14 +98,15 @@ namespace quicr::messages {
                 extension_bytes_remaining -= value.size();
                 std::vector<uint8_t> bytes(sizeof(std::uint64_t));
                 memcpy(bytes.data(), &decoded_value, sizeof(std::uint64_t));
-                (*extensions)[tag] = std::move(bytes);
+                (*extensions)[tag].push_back(std::move(bytes));
             } else {
                 // Odd types: UIntVar length prefixed bytes.
-                if (!ParseBytesField(buffer, (*extensions)[tag])) {
+                Bytes bytes;
+                if (!ParseBytesField(buffer, bytes)) {
                     return false;
                 }
-                const auto& ref = (*extensions)[tag];
-                extension_bytes_remaining -= ref.size() + UintVar(ref.size()).size();
+                extension_bytes_remaining -= bytes.size() + UintVar(bytes.size()).size();
+                (*extensions)[tag].push_back(std::move(bytes));
             }
             current_header = std::nullopt;
         }
@@ -135,11 +136,13 @@ namespace quicr::messages {
         // Calculate total length of extension headers
         std::size_t total_length = 0;
         std::vector<KeyValuePair<std::uint64_t>> kvps;
-        for (const auto& extension : extensions) {
-            const auto kvp = KeyValuePair<std::uint64_t>{ extension.first, extension.second };
-            const auto size = kvp.Size();
-            total_length += size;
-            kvps.push_back(kvp);
+        for (const auto& [key, values] : extensions) {
+            for (const auto& value : values) {
+                const auto kvp = KeyValuePair<std::uint64_t>{ key, value };
+                const auto size = kvp.Size();
+                total_length += size;
+                kvps.push_back(kvp);
+            }
         }
 
         // Total length of all extension headers (varint).
@@ -160,8 +163,8 @@ namespace quicr::messages {
 
         // Add mutable extensions.
         if (extensions.has_value()) {
-            for (const auto& [key, value] : *extensions) {
-                combined_extensions[key] = value;
+            for (const auto& [key, values] : *extensions) {
+                combined_extensions[key] = values;
             }
         }
 
@@ -176,7 +179,9 @@ namespace quicr::messages {
             }
 
             // Serialize immutable extensions.
-            combined_extensions[immutable_key] << *immutable_extensions;
+            Bytes immutable_bytes;
+            immutable_bytes << *immutable_extensions;
+            combined_extensions[immutable_key].push_back(std::move(immutable_bytes));
         }
 
         // Serialize combined extensions.
@@ -199,25 +204,28 @@ namespace quicr::messages {
         constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
 
         // Extract immutable extensions if present and deserialize.
-        if (extensions.has_value() && extensions->contains(immutable_key)) {
-            // Deserialize the immutable extension map.
-            auto stream_buffer = StreamBuffer<uint8_t>();
-            stream_buffer.Push(std::span<const uint8_t>((*extensions)[immutable_key]));
-            std::optional<std::size_t> immutable_length;
-            std::size_t immutable_bytes_remaining = 0;
-            std::optional<std::uint64_t> immutable_current_header;
-            if (!ParseExtensions(stream_buffer,
-                                 immutable_length,
-                                 immutable_extensions,
-                                 immutable_bytes_remaining,
-                                 immutable_current_header)) {
-                return false;
-            }
+        if (extensions.has_value()) {
+            const auto it = extensions->find(immutable_key);
+            if (it != extensions->end() && !it->second.empty()) {
+                // Deserialize the immutable extension map.
+                auto stream_buffer = StreamBuffer<uint8_t>();
+                stream_buffer.Push(std::span<const uint8_t>(it->second[0]));
+                std::optional<std::size_t> immutable_length;
+                std::size_t immutable_bytes_remaining = 0;
+                std::optional<std::uint64_t> immutable_current_header;
+                if (!ParseExtensions(stream_buffer,
+                                     immutable_length,
+                                     immutable_extensions,
+                                     immutable_bytes_remaining,
+                                     immutable_current_header)) {
+                    return false;
+                }
 
-            // Validate that immutable extensions don't nest.
-            if (immutable_extensions.has_value() && immutable_extensions->contains(immutable_key)) {
-                throw ProtocolViolationException(
-                  "Immutable Extensions header contains another Immutable Extensions key");
+                // Validate that immutable extensions don't nest.
+                if (immutable_extensions.has_value() && immutable_extensions->contains(immutable_key)) {
+                    throw ProtocolViolationException(
+                      "Immutable Extensions header contains another Immutable Extensions key");
+                }
             }
         }
 
