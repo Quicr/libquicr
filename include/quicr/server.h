@@ -381,12 +381,12 @@ namespace quicr {
                                      const messages::PublishAttributes& publish_attributes) = 0;
 
         /**
-         * @brief Callback notification on Subscribe Done received
+         * @brief Callback notification on Publish Done received
          *
          * @param connection_handle   Source connection ID
          * @param request_id          Request ID received
          */
-        virtual void SubscribeDoneReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
+        virtual void PublishDoneReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
 
         /**
          * @brief New Group Requested received by a subscription

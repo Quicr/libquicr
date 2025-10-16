@@ -156,15 +156,6 @@ namespace quicr {
         void PublishTrack(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
 
         /**
-         * @brief Publish to a track and force subscribe
-         *
-         * @param connection_handle           Connection ID from transport for the QUIC connection context
-         * @param track_handler               Track handler to use for track related functions
-         *                                    and callbacks
-         */
-        void PublishTrackSub(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
-
-        /**
          * @brief Unpublish track
          *
          * @param connection_handle           Connection ID from transport for the QUIC connection context
@@ -450,7 +441,12 @@ namespace quicr {
                              uint64_t expires,
                              const std::optional<messages::Location>& largest_location);
         void SendUnsubscribe(ConnectionContext& conn_ctx, messages::RequestID request_id);
-        void SendSubscribeDone(ConnectionContext& conn_ctx, messages::RequestID request_id, const std::string& reason);
+
+        void SendPublishDone(ConnectionContext& conn_ctx,
+                             messages::RequestID request_id,
+                             messages::PublishDoneStatusCode status,
+                             const std::string& reason);
+
         void SendSubscribeError(ConnectionContext& conn_ctx,
                                 messages::RequestID request_id,
                                 messages::SubscribeErrorCode error,
