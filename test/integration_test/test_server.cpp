@@ -65,10 +65,16 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
         subscribe_namespace_promise_->set_value({ connection_handle, prefix_namespace, attributes });
     }
 
-    // TODO: Add a match here to test flow with matches.
+    // TODO: Add a tracks match here to test flow with matches.
     const SubscribeNamespaceResponse response = { .reason_code = SubscribeNamespaceResponse::ReasonCode::kOk,
-                                                  .tracks = {} };
+                                                  .namespaces = known_published_namespaces_ };
 
     // Blindly accept it.
     ResolveSubscribeNamespace(connection_handle, attributes.request_id, response);
+}
+
+void
+TestServer::AddKnownPublishedNamespace(const TrackNamespace& track_namespace)
+{
+    known_published_namespaces_.push_back(track_namespace);
 }

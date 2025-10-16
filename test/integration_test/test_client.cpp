@@ -26,3 +26,12 @@ TestClient::SubscribeNamespaceStatusChanged(
         subscribe_namespace_ok_->set_value(prefix_namespace);
     }
 }
+
+void
+TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& track_namespace,
+                                     [[maybe_unused]] const PublishNamespaceAttributes& publish_namespace_attributes)
+{
+    if (publish_namespace_received_) {
+        publish_namespace_received_->set_value(track_namespace);
+    }
+}

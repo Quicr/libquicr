@@ -34,6 +34,8 @@ namespace quicr_test {
             subscribe_namespace_promise_ = std::move(promise);
         }
 
+        void AddKnownPublishedNamespace(const quicr::TrackNamespace& track_namespace);
+
       protected:
         ClientSetupResponse ClientSetupReceived(
           [[maybe_unused]] quicr::ConnectionHandle connection_handle,
@@ -73,5 +75,6 @@ namespace quicr_test {
       private:
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
+        std::vector<quicr::TrackNamespace> known_published_namespaces_;
     };
 }
