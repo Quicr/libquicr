@@ -503,7 +503,7 @@ class MyClient : public quicr::Client
                      group_order,
                      {
                        largest_location.has_value() ? quicr::FetchResponse::ReasonCode::kOk
-                                                    : quicr::FetchResponse::ReasonCode::kNoLocation,
+                                                    : quicr::FetchResponse::ReasonCode::kInvalidRange,
                        largest_location.has_value() ? std::nullopt : std::make_optional("No locations available"),
                        largest_location,
                      });

@@ -90,7 +90,8 @@ namespace quicr {
         enum class ReasonCode : uint8_t
         {
             kOk = 0,
-            kNoLocation,
+            kInvalidRange,
+            kNoObjects,
             kInternalError,
             // TODO: Expand reasons.
         };

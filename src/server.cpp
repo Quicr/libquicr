@@ -164,23 +164,33 @@ namespace quicr {
                               messages::GroupOrder group_order,
                               const FetchResponse& response)
     {
+        auto error_code = messages::FetchErrorCode::kInternalError;
+
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
         }
 
         switch (response.reason_code) {
-            case FetchResponse::ReasonCode::kOk: {
+            case FetchResponse::ReasonCode::kOk:
                 SendFetchOk(conn_it->second, request_id, group_order, priority, response.largest_location.value());
+                return;
+
+            case FetchResponse::ReasonCode::kInvalidRange:
+                error_code = messages::FetchErrorCode::kInvalidRange;
                 break;
-            }
+            case FetchResponse::ReasonCode::kNoObjects:
+                error_code = messages::FetchErrorCode::kNoObjects;
+                break;
+
             default:
-                SendFetchError(conn_it->second,
-                               request_id,
-                               messages::FetchErrorCode::kInternalError,
-                               response.error_reason.has_value() ? response.error_reason.value() : "Internal error");
                 break;
         }
+
+        SendFetchError(conn_it->second,
+                       request_id,
+                       error_code,
+                       response.error_reason.has_value() ? response.error_reason.value() : "Internal error");
     }
 
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
