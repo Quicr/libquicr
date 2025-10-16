@@ -54,7 +54,7 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
       connection_handle, request_id, th.track_fullname_hash, { .reason_code = SubscribeResponse::ReasonCode::kOk });
 }
 
-TestServer::SubscribeAnnouncesResponse
+TestServer::SubscribeNamespaceResponse
 TestServer::SubscribeNamespaceReceived(ConnectionHandle connection_handle,
                                        const TrackNamespace& prefix_namespace,
                                        const PublishNamespaceAttributes& announce_attributes)
