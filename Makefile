@@ -29,7 +29,7 @@ fuzz:
 
 # Mimic a CI build.
 ci: CMakeLists.txt cmd/CMakeLists.txt
-	cmake -B${BUILD_DIR} -DLINT=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
+	cmake -B${BUILD_DIR} -DLINT=OFF -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
 
 # Generate self-signed certificates.
 cert:

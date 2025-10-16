@@ -66,7 +66,7 @@ namespace quicr_test {
                              const quicr::messages::PublishAttributes& publish_attributes) override;
         void PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override;
 
-        SubscribeAnnouncesResponse SubscribeNamespaceReceived(
+        SubscribeNamespaceResponse SubscribeNamespaceReceived(
           quicr::ConnectionHandle connection_handle,
           const quicr::TrackNamespace& prefix_namespace,
           const quicr::PublishNamespaceAttributes& announce_attributes) override;
