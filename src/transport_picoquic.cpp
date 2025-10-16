@@ -1308,7 +1308,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
         } else {
             picoquic_provide_stream_data_buffer(bytes_ctx, 0, 0, not data_ctx->tx_data->Empty());
 
-            if (!data_ctx->tx_data->Empty() && data_ctx->delete_on_empty) {
+            if (data_ctx->tx_data->Empty() && data_ctx->delete_on_empty) {
                 DeleteDataContext(data_ctx->conn_id, data_ctx->data_ctx_id);
             }
 
