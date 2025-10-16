@@ -169,6 +169,9 @@ namespace quicr {
         SendSubscribeNamespaceOk(conn_it->second, request_id);
 
         // TODO: Fan out publish / publish_namespace depending on matches in response.
+        for (const auto& name_space : response.namespaces) {
+            SendPublishNamespace(connection_handle, )
+        }
     }
 
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,

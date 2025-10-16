@@ -525,7 +525,8 @@ class MyServer : public quicr::Server
 
         const quicr::SubscribeNamespaceResponse response = { .reason_code =
                                                                quicr::SubscribeNamespaceResponse::ReasonCode::kOk,
-                                                             .track_namespaces = std::move(matched_ns) };
+                                                             .tracks = {},
+                                                             .namespaces = std::move(matched_ns) };
         ResolveSubscribeNamespace(connection_handle, attributes.request_id, response);
     }
 

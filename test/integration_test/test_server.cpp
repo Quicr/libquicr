@@ -67,7 +67,7 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
 
     // TODO: Add a match here to test flow with matches.
     const SubscribeNamespaceResponse response = { .reason_code = SubscribeNamespaceResponse::ReasonCode::kOk,
-                                                  .track_namespaces = {} };
+                                                  .tracks = {} };
 
     // Blindly accept it.
     ResolveSubscribeNamespace(connection_handle, attributes.request_id, response);

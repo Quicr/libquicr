@@ -92,8 +92,11 @@ namespace quicr {
         };
         ReasonCode reason_code;
 
-        // Matched namespaces that will be advertised in response.
-        std::vector<TrackNamespace> track_namespaces;
+        // Matched tracks that will be advertised in response via PUBLISH.
+        std::vector<FullTrackName> tracks;
+
+        // Matched tracks that will be advertised in response via PUBLISH_NAMESPACE.
+        std::vector<TrackNamespace> namespaces;
 
         std::optional<std::string> error_reason = std::nullopt;
     };
