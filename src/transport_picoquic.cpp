@@ -177,8 +177,6 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                 if (is_fin) {
                     SPDLOG_LOGGER_DEBUG(transport->logger, "Received FIN for stream {0}", stream_id);
 
-                    transport->OnStreamClosed(conn_id, stream_id, StreamClosedFlag::Fin);
-
                     picoquic_reset_stream_ctx(pq_cnx, stream_id);
 
                     if (auto conn_ctx = transport->GetConnContext(conn_id)) {
@@ -186,6 +184,8 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                         if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                             rx_buf_it->second.closed = true;
                         }
+
+                        transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::Fin);
                     }
 
                     if (data_ctx == NULL) {
@@ -203,8 +203,6 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             SPDLOG_LOGGER_TRACE(
               transport->logger, "Received RESET stream conn_id: {0} stream_id: {1}", conn_id, stream_id);
 
-            transport->OnStreamClosed(conn_id, stream_id, StreamClosedFlag::Reset);
-
             picoquic_reset_stream_ctx(pq_cnx, stream_id);
 
             if (auto conn_ctx = transport->GetConnContext(conn_id)) {
@@ -212,6 +210,8 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                 if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                     rx_buf_it->second.closed = true;
                 }
+
+                transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::Reset);
             }
 
             if (data_ctx == NULL) {
@@ -1495,10 +1495,15 @@ try {
 }
 
 void
-PicoQuicTransport::OnStreamClosed(TransportConnId conn_id, uint64_t stream_id, StreamClosedFlag flag)
+PicoQuicTransport::OnStreamClosed(TransportConnId conn_id,
+                                  uint64_t stream_id,
+                                  std::shared_ptr<StreamRxContext> rx_ctx,
+                                  StreamClosedFlag flag)
 {
     SPDLOG_DEBUG("Stream {} closed for connection {}", stream_id, conn_id);
-    cbNotifyQueue_.Push([=, this]() { delegate_.OnStreamClosed(conn_id, stream_id, flag); });
+    cbNotifyQueue_.Push([=, rx_ctx = std::move(rx_ctx), this]() {
+        delegate_.OnStreamClosed(conn_id, stream_id, std::move(rx_ctx), flag);
+    });
 }
 
 void

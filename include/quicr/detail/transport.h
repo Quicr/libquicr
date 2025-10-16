@@ -331,6 +331,7 @@ namespace quicr {
 
         void OnStreamClosed(const ConnectionHandle& connection_handle,
                             std::uint64_t stream_id,
+                            std::shared_ptr<StreamRxContext> rx_ctx,
                             StreamClosedFlag flag) override;
 
         // -------------------------------------------------------------------------------------------------

@@ -1684,11 +1684,10 @@ namespace quicr {
     }
 
     void Transport::OnStreamClosed(const ConnectionHandle& connection_handle,
-                                   std::uint64_t stream_id,
+                                   [[maybe_unused]] std::uint64_t stream_id,
+                                   std::shared_ptr<StreamRxContext> rx_ctx,
                                    StreamClosedFlag flag)
     {
-        auto rx_ctx = quic_transport_->GetStreamRxContext(connection_handle, stream_id);
-
         auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
         if (auto handler = handler_weak.lock()) {
             try {

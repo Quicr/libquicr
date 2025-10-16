@@ -246,10 +246,12 @@ namespace quicr {
              *
              * @param connection_handle Transport context identifier mapped to the connection
              * @param stream_id         Transport stream id.
+             * @param rx_ctx            Stream Rx context with the handler info.
              * @param flag              Flag value for how the stream was closed. Values are FIN or RST
              */
             virtual void OnStreamClosed(const TransportConnId& connection_handle,
                                         std::uint64_t stream_id,
+                                        std::shared_ptr<StreamRxContext> rx_ctx,
                                         StreamClosedFlag flag) = 0;
 
             /**
