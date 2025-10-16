@@ -9,7 +9,7 @@ TestServer::TestServer(const ServerConfig& config)
 }
 
 void
-SubscribeDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle, [[maybe_unused]] uint64_t request_id)
+PublishDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle, [[maybe_unused]] uint64_t request_id)
 {
 }
 
@@ -33,8 +33,8 @@ TestServer::PublishReceived([[maybe_unused]] quicr::ConnectionHandle connection_
 }
 
 void
-TestServer::SubscribeDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                                  [[maybe_unused]] uint64_t request_id)
+TestServer::PublishDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                                [[maybe_unused]] uint64_t request_id)
 {
 }
 
@@ -52,4 +52,15 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
     const auto th = TrackHash(track_full_name);
     ResolveSubscribe(
       connection_handle, request_id, th.track_fullname_hash, { .reason_code = SubscribeResponse::ReasonCode::kOk });
+}
+
+TestServer::SubscribeNamespaceResponse
+TestServer::SubscribeNamespaceReceived(ConnectionHandle connection_handle,
+                                       const TrackNamespace& prefix_namespace,
+                                       const PublishNamespaceAttributes& announce_attributes)
+{
+    if (subscribe_namespace_promise_.has_value()) {
+        subscribe_namespace_promise_->set_value({ connection_handle, prefix_namespace, announce_attributes });
+    }
+    return { std::nullopt, {} };
 }

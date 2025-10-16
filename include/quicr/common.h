@@ -21,11 +21,11 @@ namespace quicr {
     using BytesSpan = std::span<const Byte>;
     using ConnectionHandle = uint64_t;
     /**
-     * @brief Publish announce attributes
+     * @brief Publish namespace attributes
      *
-     * @details Various attributes relative to the publish announce
+     * @details Various attributes relative to the publish namespace
      */
-    struct PublishAnnounceAttributes
+    struct PublishNamespaceAttributes
     {
         uint64_t request_id{ 0 };
     };
@@ -50,14 +50,14 @@ namespace quicr {
     /**
      * @brief  Publish Announce Status
      */
-    enum class PublishAnnounceStatus : uint8_t
+    enum class PublishNamespaceStatus : uint8_t
     {
         kOK = 0,
         kNotConnected,
-        kNotAnnounced,
-        kPendingAnnounceResponse,
-        kAnnounceNotAuthorized,
-        kSendingUnannounce, ///< In this state, callbacks will not be called
+        kNotPublished,
+        kPendingResponse,
+        kPublishNotAuthorized,
+        kSendingDone, ///< In this state, callbacks will not be called
     };
 }
 // namespace quicr

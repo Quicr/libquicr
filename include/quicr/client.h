@@ -79,42 +79,43 @@ namespace quicr {
         virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes);
 
         /**
-         * @brief Notification on publish announcement status change
+         * @brief Notification on publish namespace status change
          *
-         * @details Callback notification for a change in publish announcement status
+         * @details Callback notification for a change in publish namespace status
          *
-         * @param track_namespace             Track namespace to announce
-         * @param status                      Publish announce status
+         * @param track_namespace             Track namespace to publish
+         * @param status                      Publish namespace status
          */
-        virtual void AnnounceStatusChanged(const TrackNamespace& track_namespace, const PublishAnnounceStatus status);
+        virtual void PublishNamespaceStatusChanged(const TrackNamespace& track_namespace,
+                                                   const PublishNamespaceStatus status);
 
         /**
          * @brief Callback notification for announce received by subscribe announces
          *
          * @param track_namespace       Track namespace
-         * @param announce_attributes   Publish announce attributes received
+         * @param publish_namespace_attributes   Publish announce attributes received
          */
-        virtual void AnnounceReceived(const TrackNamespace& track_namespace,
-                                      const PublishAnnounceAttributes& announce_attributes);
+        virtual void PublishNamespaceReceived(const TrackNamespace& track_namespace,
+                                              const PublishNamespaceAttributes& publish_namespace_attributes);
 
         /**
-         * @brief Callback notification for unannounce received by subscribe announces
+         * @brief Callback notification for publish namespace done received
          *
          * @param track_namespace       Track namespace
          */
-        virtual void UnannounceReceived(const TrackNamespace& track_namespace);
+        virtual void PublishNamespaceDoneReceived(const TrackNamespace& track_namespace);
 
         /**
-         * @brief Callback notification for subscribe announces OK or Error
+         * @brief Callback notification for subscribe namespace OK or Error
          *
-         * @details error_code and reason will be nullopt is the announces status is OK and accepted.
+         * @details error_code and reason will be nullopt if the status is OK and accepted.
          *      If error, the error_code and reason will be set to indicate the error.
          *
          * @param track_namespace       Track namespace
          * @param error_code            Set if there is an error; error code
          * @param reason                Set if there is an error; reason phrase
          */
-        virtual void SubscribeAnnouncesStatusChanged(const TrackNamespace& track_namespace,
+        virtual void SubscribeNamespaceStatusChanged(const TrackNamespace& track_namespace,
                                                      std::optional<messages::SubscribeNamespaceErrorCode> error_code,
                                                      std::optional<messages::ReasonPhrase> reason);
 
@@ -240,7 +241,7 @@ namespace quicr {
          *
          * @return PublishAnnounceStatus of the namespace
          */
-        PublishAnnounceStatus GetAnnounceStatus(const TrackNamespace& track_namespace);
+        PublishNamespaceStatus GetPublishNamespaceStatus(const TrackNamespace& track_namespace);
 
         /**
          * @brief Subscribe to a track
@@ -304,7 +305,7 @@ namespace quicr {
          * @param track_namespace    Track handler to use for track related functions
          *                           and callbacks
          */
-        void PublishAnnounce(const TrackNamespace& track_namespace);
+        void PublishNamespace(const TrackNamespace& track_namespace);
 
         /**
          * @brief Unannounce a publish namespace
@@ -314,36 +315,36 @@ namespace quicr {
          *
          * @param track_namespace         Track namespace to unannounce
          */
-        void PublishUnannounce(const TrackNamespace& track_namespace);
+        void PublishNamespaceDone(const TrackNamespace& track_namespace);
 
         /**
-         * @brief Subscribe Announces to prefix namespace
+         * @brief Subscribe to prefix namespace
          *
-         * @note SubscribeAnnouncesStatusChanged will be called after receiving either an OK or ERROR
+         * @note SubscribeNamespaceStatusChanged will be called after receiving either an OK or ERROR
          *
-         * @param prefix_namespace      Prefix namespace to subscribe announces
+         * @param prefix_namespace      Prefix namespace to subscribe namespace
          */
-        void SubscribeAnnounces(const TrackNamespace& prefix_namespace)
+        void SubscribeNamespace(const TrackNamespace& prefix_namespace)
         {
             if (!connection_handle_) {
                 return;
             }
 
-            SendSubscribeAnnounces(*connection_handle_, prefix_namespace);
+            SendSubscribeNamespace(*connection_handle_, prefix_namespace);
         }
 
         /**
-         * @brief Unsubscribe announces to prefix namespace
+         * @brief Unsubscribe namespace to prefix namespace
          *
-         * @param prefix_namespace      Prefix namespace to unsubscribe announces
+         * @param prefix_namespace      Prefix namespace to unsubscribe namespace
          */
-        void UnsubscribeAnnounces(const TrackNamespace& prefix_namespace)
+        void UnsubscribeNamespace(const TrackNamespace& prefix_namespace)
         {
             if (!connection_handle_) {
                 return;
             }
 
-            SendUnsubscribeAnnounces(*connection_handle_, prefix_namespace);
+            SendUnsubscribeNamespace(*connection_handle_, prefix_namespace);
         }
 
         /**

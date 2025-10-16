@@ -177,6 +177,20 @@ namespace quicr {
         void SetReceivedTrackAlias(uint64_t track_alias) { received_track_alias_ = track_alias; }
 
         /**
+         * @brief Set the new group request Id
+         *
+         * @param group_id              Group ID to request via new group request
+         */
+        void SetNewGroupRequestId(uint64_t group_id)
+        {
+            if (!pending_new_group_request_id_.has_value() || *pending_new_group_request_id_ < group_id) {
+                pending_new_group_request_id_ = group_id;
+            } else {
+                pending_new_group_request_id_ = 0;
+            }
+        }
+
+        /**
          * @brief Get the received track alias
          *
          * @details If the track alias is set, it will be returned, otherwise std::nullopt.
@@ -199,8 +213,17 @@ namespace quicr {
 
         /**
          * @brief Generate a new group request for this subscription
+         *
+         * @param group_id      Value of group requested or zero if unknown
          */
-        void RequestNewGroup() noexcept;
+        void RequestNewGroup(uint64_t group_id = 0) noexcept;
+
+        /**
+         * @brief Indicate if subscribe handler should send new group requests or not
+         *
+         * @param is_supported      True to send new group requests, False to disable sending
+         */
+        void SupportNewGroupRequest(bool is_supported) noexcept;
 
         std::chrono::milliseconds GetDeliveryTimeout() const noexcept { return delivery_timeout_; }
 
@@ -315,6 +338,7 @@ namespace quicr {
         std::optional<uint64_t> next_object_id_;
         uint64_t current_group_id_{ 0 };
         uint64_t current_subgroup_id_{ 0 };
+        std::optional<uint64_t> pending_new_group_request_id_;
 
       private:
         Status status_{ Status::kNotSubscribed };
@@ -329,6 +353,7 @@ namespace quicr {
         std::chrono::milliseconds delivery_timeout_{ 0 };
 
         bool publisher_initiated_{ false };
+        bool support_new_group_request_{ false };
 
         friend class Transport;
         friend class Client;

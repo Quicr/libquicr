@@ -18,8 +18,21 @@ namespace quicr_test {
             quicr::messages::SubscribeAttributes subscribe_attributes;
         };
 
+        struct SubscribeNamespaceDetails
+        {
+            quicr::ConnectionHandle connection_handle;
+            quicr::TrackNamespace prefix_namespace;
+            quicr::PublishNamespaceAttributes announce_attributes;
+        };
+
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
+
+        // Set up promise for subscribe namespace event
+        void SetSubscribeNamespacePromise(std::promise<SubscribeNamespaceDetails> promise)
+        {
+            subscribe_namespace_promise_ = std::move(promise);
+        }
 
       protected:
         ClientSetupResponse ClientSetupReceived(
@@ -33,13 +46,9 @@ namespace quicr_test {
           [[maybe_unused]] const quicr::TrackNamespace& track_namespace) override
         {
             return {};
-        }
-
-        void UnsubscribeAnnouncesReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                                          [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override
-        {
-        }
-
+        };
+        void UnsubscribeNamespaceReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                                          [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override {};
         void UnsubscribeReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
                                  [[maybe_unused]] uint64_t request_id) override
         {
@@ -60,9 +69,15 @@ namespace quicr_test {
                              uint64_t request_id,
                              const quicr::FullTrackName& track_full_name,
                              const quicr::messages::PublishAttributes& publish_attributes) override;
-        void SubscribeDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override;
+        void PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override;
+
+        SubscribeNamespaceResponse SubscribeNamespaceReceived(
+          quicr::ConnectionHandle connection_handle,
+          const quicr::TrackNamespace& prefix_namespace,
+          const quicr::PublishNamespaceAttributes& announce_attributes) override;
 
       private:
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
+        std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
     };
 }

@@ -141,12 +141,10 @@ namespace quicr {
          *
          * @param connection_handle         Connection ID to send subscribe
          * @param track_handler             Track handler to use for track related functions and callbacks
-         * @param new_group_request         True to add new group request parameter
          *
          */
         void UpdateTrackSubscription(ConnectionHandle connection_handle,
-                                     std::shared_ptr<SubscribeTrackHandler> track_handler,
-                                     bool new_group_request = false);
+                                     std::shared_ptr<SubscribeTrackHandler> track_handler);
 
         /**
          * @brief Publish to a track
@@ -156,15 +154,6 @@ namespace quicr {
          *                                    and callbacks
          */
         void PublishTrack(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
-
-        /**
-         * @brief Publish to a track and force subscribe
-         *
-         * @param connection_handle           Connection ID from transport for the QUIC connection context
-         * @param track_handler               Track handler to use for track related functions
-         *                                    and callbacks
-         */
-        void PublishTrackSub(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
 
         /**
          * @brief Unpublish track
@@ -418,8 +407,8 @@ namespace quicr {
             /// Fetch Publishers by subscribe ID.
             std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
 
-            /// Subscribe Announces namespace prefix by request Id
-            std::map<messages::RequestID, TrackNamespace> sub_announces_by_request_id;
+            /// Subscribe Namespace prefix by request Id
+            std::map<messages::RequestID, TrackNamespace> sub_namespace_prefix_by_request_id;
 
             ConnectionMetrics metrics{}; ///< Connection metrics
 
@@ -446,11 +435,11 @@ namespace quicr {
         void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
-        void SendAnnounce(ConnectionContext& conn_ctx,
-                          messages::RequestID request_id,
-                          const TrackNamespace& track_namespace);
-        void SendAnnounceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
-        void SendUnannounce(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendPublishNamespace(ConnectionContext& conn_ctx,
+                                  messages::RequestID request_id,
+                                  const TrackNamespace& track_namespace);
+        void SendPublishNamespaceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
+        void SendPublishNamespaceDone(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
         void SendSubscribe(ConnectionContext& conn_ctx,
                            messages::RequestID request_id,
                            const FullTrackName& tfn,
@@ -475,7 +464,12 @@ namespace quicr {
                              uint64_t expires,
                              const std::optional<messages::Location>& largest_location);
         void SendUnsubscribe(ConnectionContext& conn_ctx, messages::RequestID request_id);
-        void SendSubscribeDone(ConnectionContext& conn_ctx, messages::RequestID request_id, const std::string& reason);
+
+        void SendPublishDone(ConnectionContext& conn_ctx,
+                             messages::RequestID request_id,
+                             messages::PublishDoneStatusCode status,
+                             const std::string& reason);
+
         void SendSubscribeError(ConnectionContext& conn_ctx,
                                 messages::RequestID request_id,
                                 messages::SubscribeErrorCode error,
@@ -498,7 +492,8 @@ namespace quicr {
                          uint64_t track_alias,
                          messages::GroupOrder group_order,
                          std::optional<messages::Location> largest_location,
-                         bool forward);
+                         bool forward,
+                         bool support_new_group);
 
         void SendPublishOk(ConnectionContext& conn_ctx,
                            messages::RequestID request_id,
@@ -512,10 +507,10 @@ namespace quicr {
                               messages::SubscribeErrorCode error,
                               const std::string& reason);
 
-        void SendSubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
-        void SendUnsubscribeAnnounces(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
-        void SendSubscribeAnnouncesOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
-        void SendSubscribeAnnouncesError(ConnectionContext& conn_ctx,
+        void SendSubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
+        void SendUnsubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
+        void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
+        void SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
                                          messages::RequestID request_id,
                                          messages::SubscribeNamespaceErrorCode err_code,
                                          const messages::ReasonPhrase& reason);

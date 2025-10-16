@@ -47,7 +47,7 @@ namespace qclient_vars {
     std::optional<uint64_t> track_alias; /// Track alias to use for subscribe
     bool record = false;
     bool playback = false;
-    bool new_group = false;
+    std::optional<uint64_t> new_group_request_id;
     bool add_gaps = false;
     bool req_track_status = false;
     std::chrono::milliseconds playback_speed_ms(20);
@@ -202,9 +202,11 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
         SPDLOG_INFO("Received message: {} Group:{}, Object:{} - {}", ext.str(), hdr.group_id, hdr.object_id, msg);
 
-        if (qclient_vars::new_group && not new_group_requested_) {
-            SPDLOG_INFO("Track alias: {} requesting new group", GetTrackAlias().value());
-            RequestNewGroup();
+        if (qclient_vars::new_group_request_id.has_value() && not new_group_requested_) {
+            SPDLOG_INFO("Track alias: {} requesting new group {}",
+                        GetTrackAlias().value(),
+                        qclient_vars::new_group_request_id.value());
+            RequestNewGroup(qclient_vars::new_group_request_id.value());
             new_group_requested_ = true;
         }
     }
@@ -441,20 +443,20 @@ class MyClient : public quicr::Client
         }
     }
 
-    void AnnounceReceived(const quicr::TrackNamespace& track_namespace,
-                          const quicr::PublishAnnounceAttributes&) override
+    void PublishNamespaceReceived(const quicr::TrackNamespace& track_namespace,
+                                  const quicr::PublishNamespaceAttributes&) override
     {
         auto th = quicr::TrackHash({ track_namespace, {} });
         SPDLOG_INFO("Received announce for namespace_hash: {}", th.track_namespace_hash);
     }
 
-    void UnannounceReceived(const quicr::TrackNamespace& track_namespace) override
+    void PublishNamespaceDoneReceived(const quicr::TrackNamespace& track_namespace) override
     {
         auto th = quicr::TrackHash({ track_namespace, {} });
         SPDLOG_INFO("Received unannounce for namespace_hash: {}", th.track_namespace_hash);
     }
 
-    void SubscribeAnnouncesStatusChanged(const quicr::TrackNamespace& track_namespace,
+    void SubscribeNamespaceStatusChanged(const quicr::TrackNamespace& track_namespace,
                                          std::optional<quicr::messages::SubscribeNamespaceErrorCode> error_code,
                                          std::optional<quicr::messages::ReasonPhrase> reason) override
     {
@@ -939,7 +941,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     }
 
     if (cli_opts.count("new_group")) {
-        qclient_vars::new_group = true;
+        qclient_vars::new_group_request_id = cli_opts["new_group"].as<uint64_t>();
     }
 
     if (cli_opts.count("track_status")) {
@@ -1009,7 +1011,7 @@ main(int argc, char* argv[])
         ("start_point", "Start point for Subscription - 0 for from the beginning, 1 from the latest object", cxxopts::value<uint64_t>())
         ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
         ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())
-        ("new_group", "Request new group on subscribe", cxxopts::value<bool>())
+        ("new_group", "Request new group on subscribe", cxxopts::value<uint64_t>()->default_value("0"))
         ("joining_fetch", "Subscribe with a joining fetch using this joining start", cxxopts::value<std::uint64_t>())
         ("absolute", "Joining fetch will be absolute not relative", cxxopts::value<bool>())
         ("track_status", "Request track status using sub_namespace and sub_name options", cxxopts::value<bool>());
@@ -1073,7 +1075,7 @@ main(int argc, char* argv[])
                         result["sub_announces"].as<std::string>(),
                         th.track_namespace_hash);
 
-            client->SubscribeAnnounces(prefix_ns.name_space);
+            client->SubscribeNamespace(prefix_ns.name_space);
         }
 
         if (enable_pub) {

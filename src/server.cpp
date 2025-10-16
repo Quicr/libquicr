@@ -26,21 +26,21 @@ namespace quicr {
 
     void Server::MetricsSampled(ConnectionHandle, const ConnectionMetrics&) {}
 
-    void Server::AnnounceReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&) {}
+    void Server::PublishNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&) {}
 
     std::pair<std::optional<messages::SubscribeNamespaceErrorCode>, std::vector<TrackNamespace>>
-    Server::SubscribeAnnouncesReceived(ConnectionHandle, const TrackNamespace&, const PublishAnnounceAttributes&)
+    Server::SubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&)
     {
         return { std::nullopt, {} };
     }
 
-    void Server::UnsubscribeAnnouncesReceived(ConnectionHandle, const TrackNamespace&) {}
+    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&) {}
 
-    void Server::ResolveAnnounce(ConnectionHandle connection_handle,
-                                 uint64_t request_id,
-                                 const TrackNamespace& track_namespace,
-                                 const std::vector<ConnectionHandle>& subscribers,
-                                 const AnnounceResponse& response)
+    void Server::ResolvePublishNamespace(ConnectionHandle connection_handle,
+                                         uint64_t request_id,
+                                         const TrackNamespace& track_namespace,
+                                         const std::vector<ConnectionHandle>& subscribers,
+                                         const PublishNamespaceResponse& response)
     {
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
@@ -48,8 +48,8 @@ namespace quicr {
         }
 
         switch (response.reason_code) {
-            case AnnounceResponse::ReasonCode::kOk: {
-                SendAnnounceOk(conn_it->second, request_id);
+            case PublishNamespaceResponse::ReasonCode::kOk: {
+                SendPublishNamespaceOk(conn_it->second, request_id);
 
                 for (const auto& sub_conn_handle : subscribers) {
                     auto it = connections_.find(sub_conn_handle);
@@ -58,7 +58,7 @@ namespace quicr {
                     }
 
                     // TODO: what request Id do we send for subscribe announces???
-                    SendAnnounce(it->second, request_id, track_namespace);
+                    SendPublishNamespace(it->second, request_id, track_namespace);
                 }
                 break;
             }
@@ -91,6 +91,8 @@ namespace quicr {
     }
 
     void Server::FetchCancelReceived(ConnectionHandle, uint64_t) {}
+
+    void Server::NewGroupRequested(const FullTrackName&, messages::GroupId) {}
 
     void Server::ResolveSubscribe(ConnectionHandle connection_handle,
                                   uint64_t request_id,
@@ -397,14 +399,28 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                const auto dt_param = std::find_if(msg.parameters.begin(), msg.parameters.end(), [](const auto& p) {
-                    return p.type == messages::ParameterType::kDeliveryTimeout;
-                });
-
                 std::uint64_t delivery_timeout = 0;
+                std::optional<uint64_t> new_group_request_id;
+                for (const auto& param : msg.parameters) {
+                    switch (param.type) {
+                        case messages::ParameterType::kDeliveryTimeout: {
+                            std::memcpy(&delivery_timeout,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
 
-                if (dt_param != msg.parameters.end()) {
-                    std::memcpy(&delivery_timeout, dt_param->value.data(), dt_param->value.size());
+                            break;
+                        }
+                        case messages::ParameterType::kNewGroupRequest: {
+                            uint64_t ngr_id{ 0 };
+                            std::memcpy(&ngr_id,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+                            new_group_request_id = ngr_id;
+                            break;
+                        }
+                        default:
+                            break;
+                    }
                 }
 
                 // TODO(tievens): add filter type when caching supports it
@@ -415,7 +431,13 @@ namespace quicr {
                                   { msg.subscriber_priority,
                                     static_cast<messages::GroupOrder>(msg.group_order),
                                     std::chrono::milliseconds{ delivery_timeout },
-                                    msg.forward });
+                                    msg.forward,
+                                    new_group_request_id });
+
+                // Handle new group request after subscribe callback
+                if (new_group_request_id.has_value()) {
+                    NewGroupRequested({ msg.track_namespace, msg.track_name }, *new_group_request_id);
+                }
 
                 return true;
             }
@@ -439,6 +461,13 @@ namespace quicr {
                     // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
                     // condition
                     return true;
+                }
+
+                for (const auto& param : msg.parameters) {
+                    if (param.type == messages::ParameterType::kDynamicGroups) {
+                        sub_it->second->support_new_group_request_ = true;
+                        break;
+                    }
                 }
 
                 sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
@@ -565,7 +594,7 @@ namespace quicr {
 
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
 
-                AnnounceReceived(conn_ctx.connection_handle, tfn.name_space, { msg.request_id });
+                PublishNamespaceReceived(conn_ctx.connection_handle, tfn.name_space, { msg.request_id });
                 return true;
             }
             case messages::ControlMessageType::kSubscribeNamespace: {
@@ -573,12 +602,12 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 const auto& [err, matched_ns] =
-                  SubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.track_namespace_prefix, {});
+                  SubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_prefix, {});
                 if (err.has_value()) {
-                    SendSubscribeAnnouncesError(conn_ctx, msg.request_id, *err, {});
+                    SendSubscribeNamespaceError(conn_ctx, msg.request_id, *err, {});
                 } else {
                     for (const auto& ns : matched_ns) {
-                        SendAnnounce(conn_ctx, msg.request_id, ns);
+                        SendPublishNamespace(conn_ctx, msg.request_id, ns);
                     }
                 }
 
@@ -588,7 +617,7 @@ namespace quicr {
                 auto msg = messages::UnsubscribeNamespace{};
                 msg_bytes >> msg;
 
-                UnsubscribeAnnouncesReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
+                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceError: {
@@ -599,7 +628,7 @@ namespace quicr {
                 reason.assign(msg.error_reason.begin(), msg.error_reason.end());
 
                 SPDLOG_LOGGER_INFO(logger_,
-                                   "Received announce error for request_id: {} error code: {} reason: {}",
+                                   "Received publish namespace error for request_id: {} error code: {} reason: {}",
                                    msg.request_id,
                                    static_cast<std::uint64_t>(msg.error_code),
                                    reason);
@@ -624,7 +653,7 @@ namespace quicr {
                         continue;
                     }
 
-                    SendUnannounce(conn_it->second, msg.track_namespace);
+                    SendPublishNamespaceDone(conn_it->second, msg.track_namespace);
                 }
 
                 return true;
@@ -650,19 +679,17 @@ namespace quicr {
                 auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
                 if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe done to unknown subscribe conn_id: {0} request_id: {1}",
+                                       "Received publish done to unknown subscribe conn_id: {0} request_id: {1}",
                                        conn_ctx.connection_handle,
                                        msg.request_id);
 
-                    // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
-                    // condition
                     return true;
                 }
                 auto tfn = sub_it->second->GetFullTrackName();
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(logger_,
-                                   "Received subscribe done conn_id: {0} request_id: {1} track namespace hash: {2} "
+                                   "Received publish done conn_id: {0} request_id: {1} track namespace hash: {2} "
                                    "name hash: {3} track alias: {4}",
                                    conn_ctx.connection_handle,
                                    msg.request_id,
@@ -672,7 +699,7 @@ namespace quicr {
 
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 
-                SubscribeDoneReceived(conn_ctx.connection_handle, msg.request_id);
+                PublishDoneReceived(conn_ctx.connection_handle, msg.request_id);
                 conn_ctx.recv_req_id.erase(msg.request_id);
 
                 return true;
@@ -899,10 +926,19 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                PublishReceived(conn_ctx.connection_handle,
-                                msg.request_id,
-                                tfn,
-                                { { 0, msg.group_order, std::chrono::milliseconds(0), 0 }, msg.track_alias });
+                std::optional<uint64_t> new_group_request_id;
+                for (const auto& param : msg.parameters) {
+                    if (param.type == messages::ParameterType::kDynamicGroups) {
+                        new_group_request_id = 0;
+                        break;
+                    }
+                }
+
+                PublishReceived(
+                  conn_ctx.connection_handle,
+                  msg.request_id,
+                  tfn,
+                  { { 0, msg.group_order, std::chrono::milliseconds(0), 0, new_group_request_id }, msg.track_alias });
 
                 return true;
             }
@@ -932,23 +968,32 @@ namespace quicr {
                   msg.subscription_request_id,
                   msg.forward);
 
+                bool new_group_request{ false };
+                uint64_t new_group_request_id{ 0 };
+                for (const auto& param : msg.parameters) {
+                    if (param.type == messages::ParameterType::kNewGroupRequest) {
+                        std::memcpy(&new_group_request_id,
+                                    param.value.data(),
+                                    param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+
+                        new_group_request = true;
+                        NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id);
+                        break;
+                    }
+                }
+
                 /*
                  * Unlike client, server supports multi-publisher to the client.
                  *   There is a publish handler per publisher connection
                  */
                 for (const auto& pub :
                      conn_ctx.pub_tracks_by_track_alias[sub_ctx_it->second.track_hash.track_fullname_hash]) {
+
+                    // TODO: Follow up on https://github.com/moq-wg/moq-transport/issues/1304
                     if (not msg.forward) {
                         pub.second->SetStatus(PublishTrackHandler::Status::kPaused);
-                    } else {
-                        bool new_group_request = false;
-                        for (const auto& param : msg.parameters) {
-                            if (param.type == messages::ParameterType::kNewGroupRequest) {
-                                new_group_request = true;
-                                break;
-                            }
-                        }
 
+                    } else {
                         pub.second->SetStatus(new_group_request ? PublishTrackHandler::Status::kNewGroupRequested
                                                                 : PublishTrackHandler::Status::kSubscriptionUpdated);
                     }

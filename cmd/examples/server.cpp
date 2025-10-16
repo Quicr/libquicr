@@ -115,8 +115,8 @@ namespace qserver_vars {
              std::map<quicr::messages::RequestID, std::shared_ptr<quicr::SubscribeTrackHandler>>>
       pub_subscribes_by_req_id;
 
-    /// Subscriber connection handles by subscribe prefix namespace for subscribe announces
-    std::map<quicr::TrackNamespace, std::set<quicr::ConnectionHandle>> subscribes_announces;
+    /// Subscriber connection handles by subscribe prefix namespace for subscribe namespaces
+    std::map<quicr::TrackNamespace, std::set<quicr::ConnectionHandle>> subscribe_namespaces;
 
     /**
      * Cache of MoQ objects by track alias
@@ -371,7 +371,7 @@ class MyServer : public quicr::Server
         std::vector<quicr::ConnectionHandle> sub_annos_connections;
 
         // TODO: Fix O(prefix namespaces) matching
-        for (const auto& [ns, conns] : qserver_vars::subscribes_announces) {
+        for (const auto& [ns, conns] : qserver_vars::subscribe_namespaces) {
             if (!ns.HasSamePrefix(track_namespace)) {
                 continue;
             }
@@ -411,11 +411,11 @@ class MyServer : public quicr::Server
         return sub_annos_connections;
     }
 
-    void UnsubscribeAnnouncesReceived(quicr::ConnectionHandle connection_handle,
+    void UnsubscribeNamespaceReceived(quicr::ConnectionHandle connection_handle,
                                       const quicr::TrackNamespace& prefix_namespace) override
     {
-        auto it = qserver_vars::subscribes_announces.find(prefix_namespace);
-        if (it == qserver_vars::subscribes_announces.end()) {
+        auto it = qserver_vars::subscribe_namespaces.find(prefix_namespace);
+        if (it == qserver_vars::subscribe_namespaces.end()) {
             return;
         }
 
@@ -426,13 +426,13 @@ class MyServer : public quicr::Server
     }
 
     std::pair<std::optional<quicr::messages::SubscribeNamespaceErrorCode>, std::vector<quicr::TrackNamespace>>
-    SubscribeAnnouncesReceived(quicr::ConnectionHandle connection_handle,
+    SubscribeNamespaceReceived(quicr::ConnectionHandle connection_handle,
                                const quicr::TrackNamespace& prefix_namespace,
-                               const quicr::PublishAnnounceAttributes&) override
+                               const quicr::PublishNamespaceAttributes&) override
     {
         auto th = quicr::TrackHash({ prefix_namespace, {} });
 
-        auto [it, is_new] = qserver_vars::subscribes_announces.try_emplace(prefix_namespace);
+        auto [it, is_new] = qserver_vars::subscribe_namespaces.try_emplace(prefix_namespace);
         it->second.insert(connection_handle);
 
         if (is_new) {
@@ -496,13 +496,13 @@ class MyServer : public quicr::Server
         }
     }
 
-    void AnnounceReceived(quicr::ConnectionHandle connection_handle,
-                          const quicr::TrackNamespace& track_namespace,
-                          const quicr::PublishAnnounceAttributes& attrs) override
+    void PublishNamespaceReceived(quicr::ConnectionHandle connection_handle,
+                                  const quicr::TrackNamespace& track_namespace,
+                                  const quicr::PublishNamespaceAttributes& attrs) override
     {
         auto th = quicr::TrackHash({ track_namespace, {} });
 
-        SPDLOG_INFO("Received announce from connection handle: {0} for namespace_hash: {1}",
+        SPDLOG_INFO("Received publish namespace from connection handle: {0} for namespace_hash: {1}",
                     connection_handle,
                     th.track_namespace_hash);
 
@@ -510,21 +510,22 @@ class MyServer : public quicr::Server
         auto [anno_conn_it, is_new] = qserver_vars::announce_active[track_namespace].try_emplace(connection_handle);
 
         if (!is_new) {
-            SPDLOG_INFO("Received announce from connection handle: {} for namespace hash: {} is duplicate, ignoring",
-                        connection_handle,
-                        th.track_namespace_hash);
+            SPDLOG_INFO(
+              "Received publish namespace from connection handle: {} for namespace hash: {} is duplicate, ignoring",
+              connection_handle,
+              th.track_namespace_hash);
             return;
         }
 
-        AnnounceResponse announce_response;
-        announce_response.reason_code = quicr::Server::AnnounceResponse::ReasonCode::kOk;
+        PublishNamespaceResponse publish_namespace_response;
+        publish_namespace_response.reason_code = quicr::Server::PublishNamespaceResponse::ReasonCode::kOk;
 
         auto& anno_tracks = qserver_vars::announce_active[track_namespace][connection_handle];
 
         std::vector<quicr::ConnectionHandle> sub_annos_connections;
 
         // TODO: Fix O(prefix namespaces) matching
-        for (const auto& [ns, conns] : qserver_vars::subscribes_announces) {
+        for (const auto& [ns, conns] : qserver_vars::subscribe_namespaces) {
             if (!ns.HasSamePrefix(track_namespace)) {
                 continue;
             }
@@ -539,7 +540,8 @@ class MyServer : public quicr::Server
             }
         }
 
-        ResolveAnnounce(connection_handle, attrs.request_id, track_namespace, sub_annos_connections, announce_response);
+        ResolvePublishNamespace(
+          connection_handle, attrs.request_id, track_namespace, sub_annos_connections, publish_namespace_response);
 
         // Check if there are any subscribes. If so, send subscribe to announce for all tracks matching namespace
         for (const auto& [ns, sub_tracks] : qserver_vars::subscribe_active) {
@@ -582,7 +584,7 @@ class MyServer : public quicr::Server
 
             // Remove all subscribe announces for this connection handle
             std::vector<quicr::TrackNamespace> remove_ns;
-            for (auto& [ns, conns] : qserver_vars::subscribes_announces) {
+            for (auto& [ns, conns] : qserver_vars::subscribe_namespaces) {
                 auto it = conns.find(connection_handle);
                 if (it != conns.end()) {
                     conns.erase(it);
@@ -593,7 +595,7 @@ class MyServer : public quicr::Server
             }
 
             for (auto ns : remove_ns) {
-                qserver_vars::subscribes_announces.erase(ns);
+                qserver_vars::subscribe_namespaces.erase(ns);
             }
         }
 
@@ -621,7 +623,7 @@ class MyServer : public quicr::Server
         return client_setup_response;
     }
 
-    void SubscribeDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override
+    void PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override
     {
         SPDLOG_INFO("Subscribe Done connection handle: {0} request_id: {1}", connection_handle, request_id);
 
@@ -908,7 +910,7 @@ class MyServer : public quicr::Server
                         SPDLOG_INFO("Sending subscription update to connection: hash: {0} request: {1}",
                                     th.track_namespace_hash,
                                     request_id);
-                        UpdateTrackSubscription(conn_h, sub_track_h, false);
+                        UpdateTrackSubscription(conn_h, sub_track_h);
                         last_subscription_time_ = std::chrono::steady_clock::now();
                     }
                 }
