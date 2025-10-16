@@ -263,6 +263,11 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
     client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
+    // Set up promise to verify client does NOT receive PUBLISH
+    std::promise<FullTrackName> publish_promise;
+    auto publish_future = publish_promise.get_future();
+    client->SetPublishReceivedPromise(std::move(publish_promise));
+
     // Client sends SUBSCRIBE_NAMESPACE
     CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
 
@@ -282,7 +287,9 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
     CHECK(publish_namespace_status == std::future_status::timeout);
 
-    // TODO: Client should NOT receive PUBLISH because there are no matching tracks.
+    // Client should NOT receive PUBLISH because there are no matching tracks.
+    auto publish_status = publish_future.wait_for(kDefaultTimeout);
+    CHECK(publish_status == std::future_status::timeout);
 }
 
 TEST_CASE("Integration - Subscribe Namespace with matching namespace")
