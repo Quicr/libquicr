@@ -35,3 +35,11 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
         publish_namespace_received_->set_value(track_namespace);
     }
 }
+
+void
+TestClient::PublishReceived(const quicr::FullTrackName& track)
+{
+    if (publish_received_) {
+        publish_received_->set_value(track);
+    }
+}

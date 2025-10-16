@@ -308,3 +308,31 @@ TEST_CASE("Integration - Subscribe Namespace with matching namespace")
     const auto& received_namespace = publish_namespace_future.get();
     CHECK_EQ(received_namespace, prefix_namespace);
 }
+
+TEST_CASE("Integration - Subscribe Namespace with matching track")
+{
+    auto server = MakeTestServer();
+    auto client = MakeTestClient();
+
+    // Track.
+    TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+
+    // Existing track.
+    const FullTrackName existing_track(prefix_namespace, { 0x01 });
+
+    // Set up promise to verify client received matching PUBLISH_NAMESPACE.
+    std::promise<FullTrackName> publish_promise;
+    auto publish_future = publish_promise.get_future();
+    server->AddKnownPublishedTrack(existing_track);
+    client->SetPublishReceivedPromise(std::move(publish_promise));
+
+    // SUBSCRIBE_NAMESPACE to prefix.
+    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+
+    // Client should receive matched PUBLISH for existing track.
+    auto publish_status = publish_future.wait_for(kDefaultTimeout);
+    REQUIRE(publish_status == std::future_status::ready);
+    const auto& received_name = publish_future.get();
+    CHECK_EQ(received_name.name_space, existing_track.name_space);
+    CHECK_EQ(received_name.name, existing_track.name);
+}

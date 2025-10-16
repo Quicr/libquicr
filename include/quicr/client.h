@@ -120,6 +120,12 @@ namespace quicr {
                                                      std::optional<messages::ReasonPhrase> reason);
 
         /**
+         * Publish message received in response to SUBSCRIBE_NAMESPACE.
+         * @param track A matched track that is available.
+         */
+        virtual void PublishReceived(const FullTrackName& track);
+
+        /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
          *
          * @details When a new subscribe is received that doesn't match any existing publish track, this

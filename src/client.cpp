@@ -31,6 +31,8 @@ namespace quicr {
     {
     }
 
+    void Client::PublishReceived(const FullTrackName&) {}
+
     void Client::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&)
     {
         // TODO: add the default response
@@ -497,6 +499,29 @@ namespace quicr {
                         handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                     }
                 }
+                return true;
+            }
+            case messages::ControlMessageType::kPublish: {
+                messages::Publish msg([](messages::Publish& msg) {
+                    if (msg.content_exists) {
+                        msg.group_0 =
+                          std::make_optional<messages::Publish::Group_0>(messages::Publish::Group_0{ 0, 0 });
+                    }
+                });
+                msg_bytes >> msg;
+
+                const FullTrackName tfn{ .name_space = msg.track_namespace, .name = msg.track_name };
+                const TrackHash th(tfn);
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Received publish conn_id: {0} request_id: {1} track namespace hash: {2} "
+                                    "name hash: {3} track alias: {4}",
+                                    conn_ctx.connection_handle,
+                                    msg.request_id,
+                                    th.track_namespace_hash,
+                                    th.track_name_hash,
+                                    msg.track_alias);
+
+                PublishReceived(tfn);
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {

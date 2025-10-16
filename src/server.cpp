@@ -173,7 +173,17 @@ namespace quicr {
             SendPublishNamespace(conn_it->second, conn_it->second.GetNextRequestId(), name_space);
         }
 
-        // TODO: Fan out publish for matching full tracks.
+        // Fan out PUBLISH for matching tracks.
+        for (const auto& track : response.tracks) {
+            SendPublish(conn_it->second,
+                        conn_it->second.GetNextRequestId(), // TODO: State track for response.
+                        track.track_full_name,
+                        TrackHash(track.track_full_name).track_fullname_hash, // TODO: Maybe should come from response?
+                        messages::GroupOrder::kOriginalPublisherOrder,        // TODO: Value?
+                        track.largest_location,
+                        true,   // TODO: Value?
+                        false); // TODO: Value?
+        }
     }
 
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
