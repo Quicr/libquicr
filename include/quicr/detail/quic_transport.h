@@ -379,7 +379,9 @@ namespace quicr {
          * @param[in] conn_id                 Connection ID to create data context
          * @param[in] data_ctx_id             Data context ID to delete
          */
-        virtual void DeleteDataContext(const TransportConnId& conn_id, DataContextId data_ctx_id) = 0;
+        virtual void DeleteDataContext(const TransportConnId& conn_id,
+                                       DataContextId data_ctx_id,
+                                       bool delete_on_empty = false) = 0;
 
         /**
          * @brief Get the peer IP address and port associated with the stream

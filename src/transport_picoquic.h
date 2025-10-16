@@ -66,33 +66,7 @@ namespace quicr {
          */
         struct DataContext
         {
-            bool is_bidir{ false };           /// Indicates if the stream is bidir (true) or unidir (false)
-            bool mark_stream_active{ false }; /// Instructs the stream to be marked active
-            bool tx_start_stream{ false };    /// Indicates tx queue starts a new stream
-
-            bool uses_reset_wait{ false };       /// Indicates if data context can/uses reset wait strategy
-            bool tx_reset_wait_discard{ false }; /// Instructs TX objects to be discarded on POP instead
-
-            DataContextId data_ctx_id{ 0 }; /// The ID of this context
-            TransportConnId conn_id{ 0 };   /// The connection ID this context is under
-
-            std::optional<uint64_t> current_stream_id; /// Current active stream if the value is >= 4
-
-            uint8_t priority{ 0 };
-
-            uint64_t in_data_cb_skip_count{ 0 }; /// Number of times callback was skipped due to size
-
-            std::unique_ptr<PriorityQueue<ConnData>> tx_data; /// Pending objects to be written to the network
-
-            /// Current object that is being sent as a byte stream
-            std::shared_ptr<const std::vector<uint8_t>> stream_tx_object;
-            size_t stream_tx_object_offset{ 0 }; /// Pointer offset to next byte to send
-
-            // The last ticks when TX callback was run
-            uint64_t last_tx_tick{ 0 };
-
-            QuicDataContextMetrics metrics;
-
+          public:
             DataContext() = default;
             DataContext(DataContext&&) = default;
 
@@ -114,6 +88,36 @@ namespace quicr {
                 stream_tx_object = nullptr;
                 stream_tx_object_offset = 0;
             }
+
+          public:
+            bool is_bidir : 1 { false };           /// Indicates if the stream is bidir (true) or unidir (false)
+            bool mark_stream_active : 1 { false }; /// Instructs the stream to be marked active
+            bool tx_start_stream : 1 { false };    /// Indicates tx queue starts a new stream
+
+            bool uses_reset_wait : 1 { false };  /// Indicates if data context can/uses reset wait strategy
+            bool tx_reset_wait_discard{ false }; /// Instructs TX objects to be discarded on POP instead
+
+            bool delete_on_empty{ false }; /// Instructs TX objects to be discarded on POP instead
+
+            DataContextId data_ctx_id{ 0 }; /// The ID of this context
+            TransportConnId conn_id{ 0 };   /// The connection ID this context is under
+
+            std::optional<uint64_t> current_stream_id; /// Current active stream if the value is >= 4
+
+            uint8_t priority{ 0 };
+
+            uint64_t in_data_cb_skip_count{ 0 }; /// Number of times callback was skipped due to size
+
+            std::unique_ptr<PriorityQueue<ConnData>> tx_data; /// Pending objects to be written to the network
+
+            /// Current object that is being sent as a byte stream
+            std::shared_ptr<const std::vector<uint8_t>> stream_tx_object;
+            size_t stream_tx_object_offset{ 0 }; /// Pointer offset to next byte to send
+
+            // The last ticks when TX callback was run
+            uint64_t last_tx_tick{ 0 };
+
+            QuicDataContextMetrics metrics;
         };
 
         /**
@@ -235,8 +239,9 @@ namespace quicr {
                                         uint8_t priority,
                                         bool bidir) override;
 
-        void DeleteDataContext(const TransportConnId& conn_id, DataContextId data_ctx_id) override;
-        void DeleteDataContextInternal(TransportConnId conn_id, DataContextId data_ctx_id);
+        void DeleteDataContext(const TransportConnId& conn_id,
+                               DataContextId data_ctx_id,
+                               bool delete_on_empty = false) override;
 
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,
@@ -321,6 +326,8 @@ namespace quicr {
         bool debug{ false };
 
       private:
+        void DeleteDataContextInternal(TransportConnId conn_id, DataContextId data_ctx_id, bool delete_on_empty);
+
         TransportConnId StartClient();
         void Shutdown();
 

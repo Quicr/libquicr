@@ -1028,7 +1028,7 @@ PicoQuicTransport::PqRunner()
 }
 
 void
-PicoQuicTransport::DeleteDataContextInternal(TransportConnId conn_id, DataContextId data_ctx_id)
+PicoQuicTransport::DeleteDataContextInternal(TransportConnId conn_id, DataContextId data_ctx_id, bool delete_on_empty)
 {
     const auto conn_it = conn_context_.find(conn_id);
 
@@ -1041,13 +1041,17 @@ PicoQuicTransport::DeleteDataContextInternal(TransportConnId conn_id, DataContex
     if (data_ctx_it == conn_it->second.active_data_contexts.end())
         return;
 
-    CloseStream(conn_it->second, &data_ctx_it->second, false);
+    if (delete_on_empty) {
+        data_ctx_it->second.delete_on_empty = true;
+    } else {
+        CloseStream(conn_it->second, &data_ctx_it->second, false);
 
-    conn_it->second.active_data_contexts.erase(data_ctx_it);
+        conn_it->second.active_data_contexts.erase(data_ctx_it);
+    }
 }
 
 void
-PicoQuicTransport::DeleteDataContext(const TransportConnId& conn_id, DataContextId data_ctx_id)
+PicoQuicTransport::DeleteDataContext(const TransportConnId& conn_id, DataContextId data_ctx_id, bool delete_on_empty)
 {
     if (data_ctx_id == 0) {
         return; // use close() instead of deleting default/datagram context
@@ -1057,8 +1061,8 @@ PicoQuicTransport::DeleteDataContext(const TransportConnId& conn_id, DataContext
      * Race conditions exist with picoquic thread callbacks that will cause a problem if the context (pointer context)
      *    is deleted outside of the picoquic thread. Below schedules the delete to be done within the picoquic thread.
      */
-    RunPqFunction([this, conn_id, data_ctx_id]() {
-        DeleteDataContextInternal(conn_id, data_ctx_id);
+    RunPqFunction([=, this]() {
+        DeleteDataContextInternal(conn_id, data_ctx_id, delete_on_empty);
         return 0;
     });
 }
@@ -1302,8 +1306,11 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             data_ctx->tx_start_stream = false;
 
         } else {
-            // Queue is empty
             picoquic_provide_stream_data_buffer(bytes_ctx, 0, 0, not data_ctx->tx_data->Empty());
+
+            if (!data_ctx->tx_data->Empty() && data_ctx->delete_on_empty) {
+                DeleteDataContext(data_ctx->conn_id, data_ctx->data_ctx_id);
+            }
 
             return;
         }
@@ -1329,6 +1336,10 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     uint8_t* buf = nullptr;
 
     buf = picoquic_provide_stream_data_buffer(bytes_ctx, data_len, 0, is_still_active);
+
+    if (!is_still_active && data_ctx->delete_on_empty) {
+        DeleteDataContext(data_ctx->conn_id, data_ctx->data_ctx_id);
+    }
 
     if (buf == NULL) {
         // Error allocating memory to write
