@@ -14,6 +14,7 @@
 #include <spdlog/spdlog.h>
 
 // Transport.
+#include <quicr/defer.h>
 #include <quicr/detail/priority_queue.h>
 #include <quicr/detail/quic_transport_metrics.h>
 #include <quicr/detail/safe_queue.h>
@@ -183,9 +184,9 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                         const auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
                         if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                             rx_buf_it->second.closed = true;
+                            transport->OnStreamClosed(
+                              conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::Fin);
                         }
-
-                        transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::Fin);
                     }
 
                     if (data_ctx == NULL) {
@@ -209,9 +210,8 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                 const auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
                 if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                     rx_buf_it->second.closed = true;
+                    transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::Reset);
                 }
-
-                transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::Reset);
             }
 
             if (data_ctx == NULL) {
@@ -1035,17 +1035,23 @@ PicoQuicTransport::DeleteDataContextInternal(TransportConnId conn_id, DataContex
     if (conn_it == conn_context_.end())
         return;
 
-    SPDLOG_LOGGER_INFO(logger, "Delete data context {0} in conn_id: {1}", data_ctx_id, conn_id);
-
     const auto data_ctx_it = conn_it->second.active_data_contexts.find(data_ctx_id);
     if (data_ctx_it == conn_it->second.active_data_contexts.end())
         return;
 
-    if (delete_on_empty) {
+    SPDLOG_LOGGER_DEBUG(logger,
+                        "Delete data context {} in conn_id: {} doe: {} / {}",
+                        data_ctx_id,
+                        conn_id,
+                        delete_on_empty,
+                        data_ctx_it->second.delete_on_empty);
+
+    if (delete_on_empty && !data_ctx_it->second.tx_data->Empty()) {
         data_ctx_it->second.delete_on_empty = true;
     } else {
-        CloseStream(conn_it->second, &data_ctx_it->second, false);
+        SPDLOG_LOGGER_DEBUG(logger, "Delete data context {0} in conn_id: {1}", data_ctx_id, conn_id);
 
+        CloseStream(conn_it->second, &data_ctx_it->second, false);
         conn_it->second.active_data_contexts.erase(data_ctx_it);
     }
 }
@@ -1254,6 +1260,10 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
         return;
     }
 
+    defer(if (data_ctx->tx_data->Empty() && data_ctx->delete_on_empty) {
+        DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
+    });
+
     if (data_ctx->stream_tx_object == nullptr) {
         data_ctx->tx_data->PopFront(obj);
         data_ctx->metrics.tx_queue_expired += obj.expired_count;
@@ -1307,11 +1317,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
         } else {
             picoquic_provide_stream_data_buffer(bytes_ctx, 0, 0, not data_ctx->tx_data->Empty());
-
-            if (data_ctx->tx_data->Empty() && data_ctx->delete_on_empty) {
-                DeleteDataContext(data_ctx->conn_id, data_ctx->data_ctx_id);
-            }
-
             return;
         }
     }
@@ -1336,10 +1341,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     uint8_t* buf = nullptr;
 
     buf = picoquic_provide_stream_data_buffer(bytes_ctx, data_len, 0, is_still_active);
-
-    if (!is_still_active && data_ctx->delete_on_empty) {
-        DeleteDataContext(data_ctx->conn_id, data_ctx->data_ctx_id);
-    }
 
     if (buf == NULL) {
         // Error allocating memory to write
