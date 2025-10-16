@@ -384,9 +384,7 @@ namespace quicr {
                 messages::PublishNamespace msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {} };
-
-                PublishNamespaceReceived(tfn.name_space, { .request_id = msg.request_id });
+                PublishNamespaceReceived(msg.track_namespace, { .request_id = msg.request_id });
                 return true;
             }
 
