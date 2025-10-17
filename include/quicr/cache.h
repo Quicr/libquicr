@@ -73,13 +73,10 @@ namespace quicr {
 
             Advance();
 
-            for (auto key = start_key; key < end_key; ++key) {
-                if (cache_.find(key) == cache_.end()) {
-                    return false;
-                }
-            }
+            auto it_lower = cache_.lower_bound(start_key);
+            auto it_upper = cache_.upper_bound(end_key - 1);
 
-            return true;
+            return it_lower != it_upper;
         }
 
         ValueType Get(const K& key) noexcept
