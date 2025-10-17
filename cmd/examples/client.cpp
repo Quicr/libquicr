@@ -499,7 +499,9 @@ class MyClient : public quicr::Client
                          const quicr::FullTrackName& track_full_name,
                          quicr::messages::SubscriberPriority priority,
                          quicr::messages::GroupOrder group_order,
-                         std::vector<std::shared_ptr<std::set<CacheObject>>>&& cache_entries)
+                         std::vector<std::shared_ptr<std::set<CacheObject>>>&& cache_entries,
+                         quicr::messages::ObjectId start,
+                         quicr::messages::ObjectId end)
     {
 
         auto pub_fetch_h =
@@ -511,6 +513,10 @@ class MyClient : public quicr::Client
 
             for (const auto& entry : cache_entries) {
                 for (const auto& object : *entry) {
+                    if (object.headers.object_id < start || (end != 0 && object.headers.object_id > end - 1)) {
+                        continue;
+                    }
+
                     pub_fetch_h->PublishObject(object.headers, object.data);
                 }
             }
@@ -563,7 +569,9 @@ class MyClient : public quicr::Client
                         track_full_name,
                         attributes.priority,
                         attributes.group_order,
-                        std::move(cache_entries));
+                        std::move(cache_entries),
+                        attributes.start_location.object,
+                        attributes.end_object.has_value() ? attributes.end_object.value() : 0);
     }
 
     void JoiningFetchReceived(quicr::ConnectionHandle connection_handle,
@@ -626,7 +634,9 @@ class MyClient : public quicr::Client
                         track_full_name,
                         attributes.priority,
                         attributes.group_order,
-                        std::move(cache_entries));
+                        std::move(cache_entries),
+                        start.object,
+                        end.object);
     }
 
     void TrackStatusResponseReceived(quicr::ConnectionHandle,
