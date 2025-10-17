@@ -477,18 +477,10 @@ class MyClient : public quicr::Client
                     reason_str);
     }
 
-    void FetchReceived(quicr::ConnectionHandle connection_handle,
-                       uint64_t request_id,
-                       const quicr::FullTrackName& track_full_name,
-                       quicr::messages::SubscriberPriority priority,
-                       quicr::messages::GroupOrder group_order,
-                       quicr::messages::GroupId start,
-                       quicr::messages::GroupId end)
+    auto GetLargestCache(const quicr::FullTrackName& track_full_name)
     {
         std::optional<quicr::messages::Location> largest_location = std::nullopt;
         auto th = quicr::TrackHash(track_full_name);
-        auto reason_code = quicr::FetchResponse::ReasonCode::kOk;
-        std::optional<std::string> error_reason = std::nullopt;
 
         auto cache_entry_it = qclient_vars::cache.find(th.track_fullname_hash);
         if (cache_entry_it != qclient_vars::cache.end()) {
@@ -499,31 +491,16 @@ class MyClient : public quicr::Client
             }
         }
 
-        if (!largest_location.has_value()) {
-            reason_code = quicr::FetchResponse::ReasonCode::kNoObjects;
-            error_reason = "No objects in cache";
-        }
+        return std::make_tuple(cache_entry_it, largest_location);
+    }
 
-        const auto& cache_entries = cache_entry_it->second.Get(start, end != 0 ? end : cache_entry_it->second.Size());
-
-        if (cache_entries.empty()) {
-            reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
-            error_reason = "Given range is invalid";
-        }
-
-        ResolveFetch(connection_handle,
-                     request_id,
-                     priority,
-                     group_order,
-                     {
-                       reason_code,
-                       error_reason,
-                       largest_location,
-                     });
-
-        if (reason_code != quicr::FetchResponse::ReasonCode::kOk) {
-            return;
-        }
+    void SendFetchedData(quicr::ConnectionHandle connection_handle,
+                         uint64_t request_id,
+                         const quicr::FullTrackName& track_full_name,
+                         quicr::messages::SubscriberPriority priority,
+                         quicr::messages::GroupOrder group_order,
+                         std::vector<std::shared_ptr<std::set<CacheObject>>>&& cache_entries)
+    {
 
         auto pub_fetch_h =
           quicr::PublishFetchHandler::Create(track_full_name, priority, request_id, group_order, 50000);
@@ -547,13 +524,46 @@ class MyClient : public quicr::Client
                                  const quicr::FullTrackName& track_full_name,
                                  const quicr::messages::StandaloneFetchAttributes& attributes) override
     {
-        FetchReceived(connection_handle,
-                      request_id,
-                      track_full_name,
-                      attributes.priority,
-                      attributes.group_order,
-                      attributes.start_location.group,
-                      attributes.end_group);
+        auto [cache_entry_it, largest_location] = GetLargestCache(track_full_name);
+
+        auto reason_code = quicr::FetchResponse::ReasonCode::kOk;
+        std::optional<std::string> error_reason = std::nullopt;
+        std::vector<std::shared_ptr<std::set<CacheObject>>> cache_entries;
+
+        if (cache_entry_it == qclient_vars::cache.end() || !largest_location.has_value()) {
+            reason_code = quicr::FetchResponse::ReasonCode::kNoObjects;
+            error_reason = "No objects in cache";
+        } else if (cache_entry_it != qclient_vars::cache.end()) {
+            cache_entries = cache_entry_it->second.Get(attributes.start_location.group,
+                                                       attributes.end_group != 0 ? attributes.end_group
+                                                                                 : cache_entry_it->second.Size());
+
+            if (cache_entries.empty()) {
+                reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
+                error_reason = "Given range is invalid";
+            }
+        }
+
+        ResolveFetch(connection_handle,
+                     request_id,
+                     attributes.priority,
+                     attributes.group_order,
+                     {
+                       reason_code,
+                       error_reason,
+                       largest_location,
+                     });
+
+        if (reason_code != quicr::FetchResponse::ReasonCode::kOk) {
+            return;
+        }
+
+        SendFetchedData(connection_handle,
+                        request_id,
+                        track_full_name,
+                        attributes.priority,
+                        attributes.group_order,
+                        std::move(cache_entries));
     }
 
     void JoiningFetchReceived(quicr::ConnectionHandle connection_handle,
@@ -561,13 +571,62 @@ class MyClient : public quicr::Client
                               const quicr::FullTrackName& track_full_name,
                               const quicr::messages::JoiningFetchAttributes& attributes) override
     {
-        FetchReceived(connection_handle,
-                      request_id,
-                      track_full_name,
-                      attributes.priority,
-                      attributes.group_order,
-                      attributes.joining_start,
-                      0);
+
+        auto [cache_entry_it, largest_location] = GetLargestCache(track_full_name);
+
+        auto reason_code = quicr::FetchResponse::ReasonCode::kOk;
+        std::optional<std::string> error_reason = std::nullopt;
+        std::vector<std::shared_ptr<std::set<CacheObject>>> cache_entries;
+
+        quicr::messages::Location start;
+        quicr::messages::Location end;
+
+        if (cache_entry_it == qclient_vars::cache.end() || !largest_location.has_value()) {
+            reason_code = quicr::FetchResponse::ReasonCode::kNoObjects;
+            error_reason = "No objects in cache";
+        } else if (cache_entry_it != qclient_vars::cache.end()) {
+            switch (attributes.type) {
+                case quicr::messages::FetchType::kAbsoluteJoiningFetch:
+                    start = { .group = attributes.joining_start, .object = 0 };
+                    end = largest_location.value();
+                    break;
+                case quicr::messages::FetchType::kRelativeJoiningFetch:
+                    start = { .group = largest_location.value().group - attributes.joining_start, .object = 0 };
+                    end = largest_location.value();
+                    break;
+                default:
+                    throw std::runtime_error("Fetch type of Joining Fetch is invalid");
+            }
+
+            cache_entries =
+              cache_entry_it->second.Get(start.group, end.group != 0 ? end.group : cache_entry_it->second.Size());
+
+            if (cache_entries.empty()) {
+                reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
+                error_reason = "Given range is invalid";
+            }
+        }
+
+        ResolveFetch(connection_handle,
+                     request_id,
+                     attributes.priority,
+                     attributes.group_order,
+                     {
+                       reason_code,
+                       error_reason,
+                       largest_location,
+                     });
+
+        if (reason_code != quicr::FetchResponse::ReasonCode::kOk) {
+            return;
+        }
+
+        SendFetchedData(connection_handle,
+                        request_id,
+                        track_full_name,
+                        attributes.priority,
+                        attributes.group_order,
+                        std::move(cache_entries));
     }
 
     void TrackStatusResponseReceived(quicr::ConnectionHandle,

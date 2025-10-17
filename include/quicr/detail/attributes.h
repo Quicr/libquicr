@@ -37,6 +37,7 @@ namespace quicr::messages {
 
     struct JoiningFetchAttributes
     {
+        messages::FetchType type;
         std::uint8_t priority;        ///< Fetch priority
         GroupOrder group_order;       ///< Fetch group order
         RequestID joining_request_id; ///< Fetch joining request_id

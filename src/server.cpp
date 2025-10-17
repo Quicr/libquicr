@@ -882,6 +882,7 @@ namespace quicr {
                         FullTrackName tfn = subscribe_state->second.track_full_name;
 
                         messages::JoiningFetchAttributes attrs = {
+                            .type = msg.fetch_type,
                             .priority = msg.subscriber_priority,
                             .group_order = msg.group_order,
                             .joining_request_id = msg.group_1->joining.request_id,

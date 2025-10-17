@@ -74,7 +74,7 @@ namespace quicr {
             Advance();
 
             auto it_lower = cache_.lower_bound(start_key);
-            auto it_upper = cache_.upper_bound(end_key - 1);
+            auto it_upper = cache_.upper_bound(end_key);
 
             return it_lower != it_upper;
         }
@@ -101,8 +101,11 @@ namespace quicr {
 
             std::vector<ValueType> entries;
 
-            for (; it != cache_.end() && it->first != end_key; ++it) {
+            for (; it != cache_.end(); ++it) {
                 entries.emplace_back(it->second);
+                if (it->first == end_key) {
+                    break;
+                }
             }
 
             return entries;
