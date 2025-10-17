@@ -97,9 +97,15 @@ namespace quicr {
                 return {};
             }
 
-            std::vector<ValueType> entries(end_key - start_key, nullptr);
-            for (auto key = start_key; key < end_key; ++key) {
-                entries[key - start_key] = cache_.at(key);
+            auto it = cache_.find(start_key);
+            if (it == cache_.end()) {
+                return {};
+            }
+
+            std::vector<ValueType> entries;
+
+            for (; it != cache_.end() && it->first != end_key; ++it) {
+                entries.emplace_back(it->second);
             }
 
             return entries;
