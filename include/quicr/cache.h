@@ -93,7 +93,6 @@ namespace quicr {
 
         std::vector<ValueType> Get(const K& start_key, const K& end_key)
         {
-
             if (!Contains(start_key, end_key)) {
                 return {};
             }

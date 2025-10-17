@@ -486,8 +486,10 @@ class MyClient : public quicr::Client
                        quicr::messages::GroupId end)
     {
         std::optional<quicr::messages::Location> largest_location = std::nullopt;
-
         auto th = quicr::TrackHash(track_full_name);
+        auto reason_code = quicr::FetchResponse::ReasonCode::kOk;
+        std::optional<std::string> error_reason = std::nullopt;
+
         auto cache_entry_it = qclient_vars::cache.find(th.track_fullname_hash);
         if (cache_entry_it != qclient_vars::cache.end()) {
             auto& [_, cache] = *cache_entry_it;
@@ -497,18 +499,29 @@ class MyClient : public quicr::Client
             }
         }
 
+        if (!largest_location.has_value()) {
+            reason_code = quicr::FetchResponse::ReasonCode::kNoObjects;
+            error_reason = "No objects in cache";
+        }
+
+        const auto& cache_entries = cache_entry_it->second.Get(start, end != 0 ? end : cache_entry_it->second.Size());
+
+        if (cache_entries.empty()) {
+            reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
+            error_reason = "Given range is invalid";
+        }
+
         ResolveFetch(connection_handle,
                      request_id,
                      priority,
                      group_order,
                      {
-                       largest_location.has_value() ? quicr::FetchResponse::ReasonCode::kOk
-                                                    : quicr::FetchResponse::ReasonCode::kInvalidRange,
-                       largest_location.has_value() ? std::nullopt : std::make_optional("No locations available"),
+                       reason_code,
+                       error_reason,
                        largest_location,
                      });
 
-        if (!largest_location.has_value()) {
+        if (reason_code != quicr::FetchResponse::ReasonCode::kOk) {
             return;
         }
 
@@ -516,10 +529,8 @@ class MyClient : public quicr::Client
           quicr::PublishFetchHandler::Create(track_full_name, priority, request_id, group_order, 50000);
         BindFetchTrack(connection_handle, pub_fetch_h);
 
-        std::thread retrieve_cache_thread([=, this] {
+        std::thread retrieve_cache_thread([=, cache_entries = std::move(cache_entries), this] {
             defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
-            auto& [_, cache] = *cache_entry_it;
-            const auto& cache_entries = cache.Get(start, end != 0 ? end : cache.Size() - 1);
 
             for (const auto& entry : cache_entries) {
                 for (const auto& object : *entry) {
