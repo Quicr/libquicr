@@ -9,7 +9,7 @@
 #include <chrono>
 #include <map>
 #include <numeric>
-#include <quicr/detail/defer.h>
+#include <quicr/defer.h>
 
 namespace quicr {
 
@@ -43,18 +43,6 @@ namespace quicr {
         };
 
       public:
-        ~PriorityQueue() {}
-
-        /**
-         * Construct a priority queue
-         * @param tick_service Shared pointer to tick_service service
-         */
-        PriorityQueue(const std::shared_ptr<TickService>& tick_service)
-          : PriorityQueue(1000, 1, tick_service, 1000)
-        {
-            InitFreeTimeQueues();
-        }
-
         /**
          * Construct a priority queue
          *
@@ -80,6 +68,17 @@ namespace quicr {
 
             InitFreeTimeQueues();
         }
+
+        /**
+         * Construct a priority queue
+         * @param tick_service Shared pointer to tick_service service
+         */
+        PriorityQueue(const std::shared_ptr<TickService>& tick_service)
+          : PriorityQueue(1000, 1, tick_service, 1000)
+        {
+        }
+
+        ~PriorityQueue() = default;
 
         /**
          * @brief Pushes a new value onto the queue with a time to live and priority
