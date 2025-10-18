@@ -28,11 +28,10 @@ namespace quicr::messages {
 
     struct StandaloneFetchAttributes
     {
-        std::uint8_t priority;              ///< Fetch priority
-        GroupOrder group_order;             ///< Fetch group order
-        Location start_location;            ///< Fetch starting location in range
-        GroupId end_group;                  ///< Fetch final group in range
-        std::optional<ObjectId> end_object; ///< Fetch final object in group
+        std::uint8_t priority;   ///< Fetch priority
+        GroupOrder group_order;  ///< Fetch group order
+        Location start_location; ///< Fetch starting location in range
+        Location end_location;   ///< Fetch final group and object id
     };
 
     struct JoiningFetchAttributes

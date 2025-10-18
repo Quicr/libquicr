@@ -793,10 +793,10 @@ namespace quicr {
                             .priority = msg.subscriber_priority,
                             .group_order = msg.group_order,
                             .start_location = msg.group_0->standalone.start,
-                            .end_group = msg.group_0->standalone.end.group,
-                            .end_object = msg.group_0->standalone.end.object > 0
-                                            ? std::optional(msg.group_0->standalone.end.object - 1)
-                                            : std::nullopt,
+                            .end_location = { .group = msg.group_0->standalone.end.group,
+                                              .object = msg.group_0->standalone.end.object > 0
+                                                          ? msg.group_0->standalone.end.object - 1
+                                                          : 0 },
                         };
 
                         StandaloneFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
