@@ -540,9 +540,9 @@ class MyClient : public quicr::Client
             reason_code = quicr::FetchResponse::ReasonCode::kNoObjects;
             error_reason = "No objects in cache";
         } else if (cache_entry_it != qclient_vars::cache.end()) {
-            cache_entries = cache_entry_it->second.Get(attributes.start_location.group,
-                                                       attributes.end_group != 0 ? attributes.end_group
-                                                                                 : cache_entry_it->second.Size());
+            cache_entries = cache_entry_it->second.Get(
+              attributes.start_location.group,
+              attributes.end_location.group != 0 ? attributes.end_location.group : cache_entry_it->second.Size());
 
             if (cache_entries.empty()) {
                 reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
@@ -571,7 +571,7 @@ class MyClient : public quicr::Client
                         attributes.group_order,
                         std::move(cache_entries),
                         attributes.start_location.object,
-                        attributes.end_object.has_value() ? attributes.end_object.value() : 0);
+                        attributes.end_location.object);
     }
 
     void JoiningFetchReceived(quicr::ConnectionHandle connection_handle,
