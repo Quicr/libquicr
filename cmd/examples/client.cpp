@@ -511,13 +511,15 @@ class MyClient : public quicr::Client
         std::thread retrieve_cache_thread([=, cache_entries = std::move(cache_entries), this] {
             defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
 
+            const auto last_group_id = std::prev(cache_entries.back()->end())->headers.group_id;
             for (const auto& entry : cache_entries) {
-                for (const auto& object : *entry) {
-                    if (object.headers.object_id < start || (end != 0 && object.headers.object_id > end - 1)) {
+                for (const auto& [headers, data] : *entry) {
+                    if (headers.object_id < start ||
+                        (end != 0 && headers.group_id == last_group_id && headers.object_id > end - 1)) {
                         continue;
                     }
 
-                    pub_fetch_h->PublishObject(object.headers, object.data);
+                    pub_fetch_h->PublishObject(headers, data);
                 }
             }
         });
