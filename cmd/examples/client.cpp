@@ -588,28 +588,20 @@ class MyClient : public quicr::Client
         std::optional<std::string> error_reason = std::nullopt;
         std::vector<std::shared_ptr<std::set<CacheObject>>> cache_entries;
 
-        quicr::messages::Location start;
-        quicr::messages::Location end;
+        uint64_t joining_start = 0;
 
         if (cache_entry_it == qclient_vars::cache.end() || !largest_location.has_value()) {
             reason_code = quicr::FetchResponse::ReasonCode::kNoObjects;
             error_reason = "No objects in cache";
         } else if (cache_entry_it != qclient_vars::cache.end()) {
-            switch (attributes.type) {
-                case quicr::messages::FetchType::kAbsoluteJoiningFetch:
-                    start = { .group = attributes.joining_start, .object = 0 };
-                    end = largest_location.value();
-                    break;
-                case quicr::messages::FetchType::kRelativeJoiningFetch:
-                    start = { .group = largest_location.value().group - attributes.joining_start, .object = 0 };
-                    end = largest_location.value();
-                    break;
-                default:
-                    throw std::runtime_error("Fetch type of Joining Fetch is invalid");
+            if (attributes.relative) {
+                if (largest_location.value().group > attributes.joining_start)
+                    joining_start = largest_location.value().group - joining_start;
+            } else {
+                joining_start = attributes.joining_start;
             }
 
-            cache_entries =
-              cache_entry_it->second.Get(start.group, end.group != 0 ? end.group : cache_entry_it->second.Size());
+            cache_entries = cache_entry_it->second.Get(joining_start, largest_location.value().group);
 
             if (cache_entries.empty()) {
                 reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
@@ -637,8 +629,8 @@ class MyClient : public quicr::Client
                         attributes.priority,
                         attributes.group_order,
                         std::move(cache_entries),
-                        start.object,
-                        end.object);
+                        0,
+                        largest_location.value().object);
     }
 
     void TrackStatusResponseReceived(quicr::ConnectionHandle,

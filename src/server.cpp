@@ -846,6 +846,7 @@ namespace quicr {
 
                 msg_bytes >> msg;
 
+                bool relative_joining{ false };
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
                         FullTrackName tfn{ msg.group_0->standalone.track_namespace,
@@ -864,10 +865,11 @@ namespace quicr {
                         StandaloneFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
                         return true;
                     }
-                    case messages::FetchType::kAbsoluteJoiningFetch: {
+                    case messages::FetchType::kRelativeJoiningFetch: {
+                        relative_joining = true;
                         [[fallthrough]];
                     }
-                    case messages::FetchType::kRelativeJoiningFetch: {
+                    case messages::FetchType::kAbsoluteJoiningFetch: {
 
                         // Joining fetch needs to look up its joining subscribe.
                         const auto subscribe_state = conn_ctx.recv_req_id.find(msg.group_1->joining.request_id);
@@ -882,10 +884,10 @@ namespace quicr {
                         FullTrackName tfn = subscribe_state->second.track_full_name;
 
                         messages::JoiningFetchAttributes attrs = {
-                            .type = msg.fetch_type,
                             .priority = msg.subscriber_priority,
                             .group_order = msg.group_order,
                             .joining_request_id = msg.group_1->joining.request_id,
+                            .relative = relative_joining,
                             .joining_start = msg.group_1->joining.joining_start,
                         };
 

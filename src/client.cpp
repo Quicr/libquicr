@@ -783,6 +783,7 @@ namespace quicr {
                   });
 
                 msg_bytes >> msg;
+                bool relative_joining{ false };
 
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
@@ -802,10 +803,10 @@ namespace quicr {
                         StandaloneFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
                         return true;
                     }
-                    case messages::FetchType::kAbsoluteJoiningFetch: {
+                    case messages::FetchType::kRelativeJoiningFetch: {
                         [[fallthrough]];
                     }
-                    case messages::FetchType::kRelativeJoiningFetch: {
+                    case messages::FetchType::kAbsoluteJoiningFetch: {
                         const auto subscribe_state = conn_ctx.recv_req_id.find(msg.group_1->joining.request_id);
                         if (subscribe_state == conn_ctx.recv_req_id.end()) {
                             SendFetchError(conn_ctx,
