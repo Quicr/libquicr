@@ -334,8 +334,13 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
         }
 
         CacheObject object{ object_headers, { data.begin(), data.end() } };
-        qclient_vars::cache.at(*track_alias)
-          .Insert(object_headers.group_id, { std::move(object) }, qclient_vars::cache_duration_ms.count());
+
+        if (auto group = qclient_vars::cache.at(*track_alias).Get(object_headers.group_id)) {
+            group->insert(std::move(object));
+        } else {
+            qclient_vars::cache.at(*track_alias)
+              .Insert(object_headers.group_id, { std::move(object) }, qclient_vars ::cache_duration_ms.count());
+        }
 
         return quicr::PublishTrackHandler::PublishObject(object_headers, data);
     }
