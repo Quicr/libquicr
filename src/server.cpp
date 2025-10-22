@@ -990,7 +990,7 @@ namespace quicr {
                 const FullTrackName tfn = originating_publish->second;
                 conn_ctx.pub_by_request_id.erase(originating_publish);
 
-                // Continue as SUBSCRIBE.
+                // Continue with subscribe flow.
                 auto th = TrackHash(tfn);
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
@@ -1018,8 +1018,6 @@ namespace quicr {
                             break;
                     }
                 }
-
-                // From here, transition to subscribe flow.
                 messages::SubscribeAttributes attributes = { .priority = msg.subscriber_priority,
                                                              .group_order = msg.group_order,
                                                              .delivery_timeout =
