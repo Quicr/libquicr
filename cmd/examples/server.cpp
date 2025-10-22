@@ -515,6 +515,7 @@ class MyServer : public quicr::Server
         }
 
         std::vector<quicr::TrackNamespace> matched_ns;
+        std::vector<quicr::SubscribeNamespaceResponse::AvailableTrack> matched_tracks;
 
         // TODO: Fix O(prefix namespaces) matching
         for (const auto& [ns, _] : qserver_vars::announce_active) {
@@ -523,9 +524,39 @@ class MyServer : public quicr::Server
             }
         }
 
+        // Find matching tracks from active PUBLISHes.
+        for (const auto& [track_alias, conn_map] : qserver_vars::pub_subscribes) {
+            for (const auto& [pub_conn_handle, handler] : conn_map) {
+                if (!handler) {
+                    continue;
+                }
+                const auto& track_full_name = handler->GetFullTrackName();
+                const bool has_prefix = prefix_namespace.HasSamePrefix(track_full_name.name_space);
+                if (handler->IsPublisherInitiated() && has_prefix) {
+                    // Get largest location from cache if available
+                    std::optional<quicr::messages::Location> largest_location;
+                    auto cache_it = qserver_vars::cache.find(track_alias);
+                    if (cache_it != qserver_vars::cache.end()) {
+                        auto& cache = cache_it->second;
+                        if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
+                            const auto& latest_object = std::prev(latest_group->end());
+                            largest_location = { latest_object->headers.group_id, latest_object->headers.object_id };
+                        }
+                    }
+
+                    matched_tracks.push_back({ track_full_name, largest_location });
+                    SPDLOG_INFO(
+                      "Matched PUBLISH track for SUBSCRIBE_NAMESPACE: conn: {} track_alias: {} track_hash: {}",
+                      connection_handle,
+                      track_alias,
+                      quicr::TrackHash(track_full_name).track_fullname_hash);
+                }
+            }
+        }
+
         const quicr::SubscribeNamespaceResponse response = { .reason_code =
                                                                quicr::SubscribeNamespaceResponse::ReasonCode::kOk,
-                                                             .tracks = {},
+                                                             .tracks = std::move(matched_tracks),
                                                              .namespaces = std::move(matched_ns) };
         ResolveSubscribeNamespace(connection_handle, attributes.request_id, response);
     }
