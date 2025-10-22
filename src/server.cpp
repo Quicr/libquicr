@@ -318,7 +318,7 @@ namespace quicr {
         track_handler->SetTransport(GetSharedPtr());
 
         // Hold ref to track handler
-        conn_it->second.pub_fetch_tracks_by_request_id[request_id] = std::move(track_handler);
+        conn_it->second.pub_fetch_tracks_by_request_id[request_id] = track_handler;
     }
 
     PublishTrackHandler::PublishObjectStatus Server::SendFetchObject(PublishFetchHandler& track_handler,
@@ -482,6 +482,8 @@ namespace quicr {
 
                 sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
                 conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second;
+                if (msg.group_0.has_value())
+                    sub_it->second.get()->SetLatestLocation(msg.group_0.value().largest_location);
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
 
                 return true;
@@ -798,6 +800,7 @@ namespace quicr {
                     return true;
                 }
 
+                fetch_it->second.get()->SetLatestLocation(msg.end_location);
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kOk);
 
                 return true;

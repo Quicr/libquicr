@@ -405,7 +405,7 @@ namespace quicr {
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
-            /// Fetch Publishers by subscribe ID.
+            /// Fetch Publishers by request ID.
             std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
 
             /// Subscribe Namespace prefix by request Id

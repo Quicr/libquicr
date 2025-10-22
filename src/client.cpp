@@ -383,7 +383,8 @@ namespace quicr {
                       msg.group_0->largest_location.group,
                       msg.group_0->largest_location.object);
 
-                    sub_it->second.get()->SetLatestLocation(msg.group_0->largest_location);
+                    if (msg.group_0.has_value())
+                        sub_it->second.get()->SetLatestLocation(msg.group_0->largest_location);
                 }
 
                 for (const auto& param : msg.parameters) {
@@ -395,6 +396,10 @@ namespace quicr {
 
                 sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
                 conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second;
+
+                if (msg.group_0.has_value())
+                    sub_it->second.get()->SetLatestLocation(msg.group_0.value().largest_location);
+
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
 
                 return true;
@@ -736,6 +741,7 @@ namespace quicr {
                     return true;
                 }
 
+                fetch_it->second.get()->SetLatestLocation(msg.end_location);
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kOk);
 
                 return true;
@@ -822,6 +828,7 @@ namespace quicr {
                             .priority = msg.subscriber_priority,
                             .group_order = msg.group_order,
                             .joining_request_id = msg.group_1->joining.request_id,
+                            .relative = relative_joining,
                             .joining_start = msg.group_1->joining.joining_start,
                         };
 

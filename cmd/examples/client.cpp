@@ -51,7 +51,7 @@ namespace qclient_vars {
     bool add_gaps = false;
     bool req_track_status = false;
     std::chrono::milliseconds playback_speed_ms(20);
-    std::chrono::milliseconds cache_duration_ms(5000);
+    std::chrono::milliseconds cache_duration_ms(180000);
     std::unordered_map<quicr::messages::TrackAlias, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>>
       cache;
     std::shared_ptr<quicr::ThreadedTickService> tick_service = std::make_shared<quicr::ThreadedTickService>();
@@ -556,13 +556,14 @@ class MyClient : public quicr::Client
             defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
 
             for (const auto& entry : cache_entries) {
+                SPDLOG_DEBUG("Fetch cache group size: {}", entry->size());
                 for (const auto& object : *entry) {
                     if (end->object && object.headers.group_id == end->group &&
                         object.headers.object_id >= end->object) {
                         return;
                     }
 
-                    SPDLOG_TRACE("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
+                    SPDLOG_DEBUG("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
                     pub_fetch_h->PublishObject(object.headers, object.data);
                 }
             }
