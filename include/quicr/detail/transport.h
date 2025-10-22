@@ -375,6 +375,11 @@ namespace quicr {
              */
             std::map<messages::RequestID, TrackNamespaceHash> pub_tracks_ns_by_request_id;
 
+            /**
+             * Pending outbound publish tracks by request ID, for publish_ok.
+             */
+            std::map<messages::RequestID, FullTrackName> pub_by_request_id;
+
             /// Publish tracks by request Id. Used in client mode
             std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_request_id;
 

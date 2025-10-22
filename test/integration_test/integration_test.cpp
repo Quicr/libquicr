@@ -333,6 +333,11 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
     server->AddKnownPublishedTrack(existing_track);
     client->SetPublishReceivedPromise(std::move(publish_promise));
 
+    // Set up promise to verify server gets accepted publish.
+    std::promise<TestServer::SubscribeDetails> publish_ok_promise;
+    auto publish_ok_future = publish_ok_promise.get_future();
+    server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
+
     // SUBSCRIBE_NAMESPACE to prefix.
     CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
 
@@ -342,4 +347,13 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
     const auto& received_name = publish_future.get();
     CHECK_EQ(received_name.name_space, existing_track.name_space);
     CHECK_EQ(received_name.name, existing_track.name);
+
+    // Client accepts, server should receive PUBLISH_OK (wired to SubscribeReceived).
+    auto publish_ok_status = publish_ok_future.wait_for(kDefaultTimeout);
+    REQUIRE(publish_ok_status == std::future_status::ready);
+    const auto& received_publish_ok = publish_ok_future.get();
+    CHECK_EQ(received_publish_ok.track_full_name.name_space, existing_track.name_space);
+    CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
+
+    // TODO: Test the Error / reject path.
 }

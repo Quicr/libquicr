@@ -113,8 +113,10 @@ namespace quicr {
                 req_it->second.largest_location = subscribe_response.largest_location;
 
                 // Send the ok.
-                SendSubscribeOk(
-                  conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
+                if (!subscribe_response.is_publisher_initiated) {
+                    SendSubscribeOk(
+                      conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
+                }
                 break;
             }
             default:
@@ -175,8 +177,10 @@ namespace quicr {
 
         // Fan out PUBLISH for matching tracks.
         for (const auto& track : response.tracks) {
+            const auto pub_request_id = conn_it->second.GetNextRequestId();
+            conn_it->second.pub_by_request_id[pub_request_id] = track.track_full_name;
             SendPublish(conn_it->second,
-                        conn_it->second.GetNextRequestId(), // TODO: State track for response.
+                        pub_request_id,
                         track.track_full_name,
                         TrackHash(track.track_full_name).track_fullname_hash, // TODO: Maybe should come from response?
                         messages::GroupOrder::kOriginalPublisherOrder,        // TODO: Value?
@@ -432,7 +436,8 @@ namespace quicr {
                                     static_cast<messages::GroupOrder>(msg.group_order),
                                     std::chrono::milliseconds{ delivery_timeout },
                                     msg.forward,
-                                    new_group_request_id });
+                                    new_group_request_id,
+                                    false });
 
                 // Handle new group request after subscribe callback
                 if (new_group_request_id.has_value()) {
@@ -556,7 +561,10 @@ namespace quicr {
 
                 TrackStatusResponseReceived(conn_ctx.connection_handle,
                                             msg.request_id,
-                                            { SubscribeResponse::ReasonCode::kOk, std::nullopt, largest_location });
+                                            { .reason_code = SubscribeResponse::ReasonCode::kOk,
+                                              .is_publisher_initiated = false,
+                                              .error_reason = std::nullopt,
+                                              .largest_location = largest_location });
 
                 return true;
             }
@@ -947,12 +955,79 @@ namespace quicr {
                     }
                 }
 
-                PublishReceived(
-                  conn_ctx.connection_handle,
-                  msg.request_id,
-                  tfn,
-                  { { 0, msg.group_order, std::chrono::milliseconds(0), 0, new_group_request_id }, msg.track_alias });
+                PublishReceived(conn_ctx.connection_handle,
+                                msg.request_id,
+                                tfn,
+                                { { 0, msg.group_order, std::chrono::milliseconds(0), 0, new_group_request_id, true },
+                                  msg.track_alias });
 
+                return true;
+            }
+
+            case messages::ControlMessageType::kPublishOk: {
+                messages::PublishOk msg(
+                  [](messages::PublishOk& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
+                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_0 =
+                            std::make_optional<messages::PublishOk::Group_0>(messages::PublishOk::Group_0{ 0, 0 });
+                      }
+                  },
+                  [](messages::PublishOk& msg) {
+                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
+                          msg.group_1 =
+                            std::make_optional<messages::PublishOk::Group_1>(messages::PublishOk::Group_1{ 0 });
+                      }
+                  });
+                msg_bytes >> msg;
+
+                // Consume originating request.
+                const auto& originating_publish = conn_ctx.pub_by_request_id.find(msg.request_id);
+                if (originating_publish == conn_ctx.pub_by_request_id.end()) {
+                    SPDLOG_LOGGER_WARN(logger_, "Received publish ok for unknown publish: {}", msg.request_id);
+                    return true;
+                }
+                const FullTrackName tfn = originating_publish->second;
+                conn_ctx.pub_by_request_id.erase(originating_publish);
+
+                // Continue as SUBSCRIBE.
+                auto th = TrackHash(tfn);
+                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
+
+                // Delivery timeout.
+                std::uint64_t delivery_timeout = 0;
+                std::optional<uint64_t> new_group_request_id;
+                for (const auto& param : msg.parameters) {
+                    switch (param.type) {
+                        case messages::ParameterType::kDeliveryTimeout: {
+                            std::memcpy(&delivery_timeout,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+
+                            break;
+                        }
+                        case messages::ParameterType::kNewGroupRequest: {
+                            uint64_t ngr_id{ 0 };
+                            std::memcpy(&ngr_id,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+                            new_group_request_id = ngr_id;
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+                }
+
+                // From here, transition to subscribe flow.
+                messages::SubscribeAttributes attributes = { .priority = msg.subscriber_priority,
+                                                             .group_order = msg.group_order,
+                                                             .delivery_timeout =
+                                                               std::chrono::milliseconds(delivery_timeout),
+                                                             .forward = msg.forward,
+                                                             .new_group_request_id = new_group_request_id,
+                                                             .is_publisher_initiated = true };
+                SubscribeReceived(conn_ctx.connection_handle, msg.request_id, msg.filter_type, tfn, attributes);
                 return true;
             }
 

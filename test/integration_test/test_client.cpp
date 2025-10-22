@@ -37,9 +37,20 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
 }
 
 void
-TestClient::PublishReceived(const quicr::FullTrackName& track)
+TestClient::PublishReceived(const ConnectionHandle connection_handle,
+                            const FullTrackName& track,
+                            const messages::RequestID request_id)
 {
     if (publish_received_) {
         publish_received_->set_value(track);
     }
+
+    // Accept the publish with default subscribe attributes
+    messages::SubscribeAttributes attributes = { .priority = 128,
+                                                 .group_order = messages::GroupOrder::kOriginalPublisherOrder,
+                                                 .delivery_timeout = std::chrono::milliseconds(0),
+                                                 .forward = 1,
+                                                 .new_group_request_id = std::nullopt,
+                                                 .is_publisher_initiated = false };
+    ResolvePublish(connection_handle, request_id, true, attributes);
 }

@@ -31,7 +31,28 @@ namespace quicr {
     {
     }
 
-    void Client::PublishReceived(const FullTrackName&) {}
+    void Client::PublishReceived(const ConnectionHandle, const FullTrackName&, const messages::RequestID) {}
+
+    void Client::ResolvePublish(ConnectionHandle connection_handle,
+                                const messages::RequestID request_id,
+                                const bool accept,
+                                const messages::SubscribeAttributes& attributes)
+    {
+        const auto ctx_it = connections_.find(connection_handle);
+        if (ctx_it == connections_.end()) {
+            return;
+        }
+
+        if (!accept) {
+            // TODO: codes/reasons.
+            SendPublishError(ctx_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Rejected");
+        }
+
+        // TODO: Were does filter type come from.
+        messages::FilterType filter_type = messages::FilterType::kLargestObject;
+        SendPublishOk(
+          ctx_it->second, request_id, attributes.forward, attributes.priority, attributes.group_order, filter_type);
+    }
 
     void Client::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&)
     {
@@ -521,7 +542,7 @@ namespace quicr {
                                     th.track_name_hash,
                                     msg.track_alias);
 
-                PublishReceived(tfn);
+                PublishReceived(conn_ctx.connection_handle, tfn, msg.request_id);
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {
@@ -637,7 +658,10 @@ namespace quicr {
 
                 TrackStatusResponseReceived(conn_ctx.connection_handle,
                                             msg.request_id,
-                                            { SubscribeResponse::ReasonCode::kOk, std::nullopt, largest_location });
+                                            { .reason_code = SubscribeResponse::ReasonCode::kOk,
+                                              .is_publisher_initiated = false,
+                                              .error_reason = std::nullopt,
+                                              .largest_location = largest_location });
 
                 return true;
             }
@@ -867,6 +891,11 @@ namespace quicr {
                       msg.group_0->start_location.group,
                       msg.group_0->start_location.object,
                       msg.group_1->end_group);
+                } else {
+                    SPDLOG_LOGGER_DEBUG(logger_,
+                                        "Received publish ok conn_id: {} request_id: {}",
+                                        conn_ctx.connection_handle,
+                                        msg.request_id);
                 }
                 pub_it->second.get()->SetStatus(PublishTrackHandler::Status::kOk);
                 return true;

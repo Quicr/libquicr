@@ -34,6 +34,11 @@ namespace quicr_test {
             subscribe_namespace_promise_ = std::move(promise);
         }
 
+        void SetPublishAcceptedPromise(std::promise<SubscribeDetails> promise)
+        {
+            publish_accepted_promise_ = std::move(promise);
+        }
+
         void AddKnownPublishedNamespace(const quicr::TrackNamespace& track_namespace);
         void AddKnownPublishedTrack(const quicr::FullTrackName& track);
 
@@ -78,5 +83,6 @@ namespace quicr_test {
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::vector<quicr::TrackNamespace> known_published_namespaces_;
         std::vector<quicr::SubscribeNamespaceResponse::AvailableTrack> known_published_tracks_;
+        std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
     };
 }

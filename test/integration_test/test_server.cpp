@@ -47,13 +47,22 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
                               const FullTrackName& track_full_name,
                               const messages::SubscribeAttributes& subscribe_attributes)
 {
+    const SubscribeDetails details = {
+        connection_handle, request_id, filter_type, track_full_name, subscribe_attributes
+    };
     if (subscribe_promise_.has_value()) {
-        subscribe_promise_->set_value(
-          { connection_handle, request_id, filter_type, track_full_name, subscribe_attributes });
+        subscribe_promise_->set_value(details);
+    }
+
+    if (publish_accepted_promise_.has_value()) {
+        publish_accepted_promise_->set_value(details);
     }
     const auto th = TrackHash(track_full_name);
-    ResolveSubscribe(
-      connection_handle, request_id, th.track_fullname_hash, { .reason_code = SubscribeResponse::ReasonCode::kOk });
+    ResolveSubscribe(connection_handle,
+                     request_id,
+                     th.track_fullname_hash,
+                     { .reason_code = SubscribeResponse::ReasonCode::kOk,
+                       .is_publisher_initiated = subscribe_attributes.is_publisher_initiated });
 }
 
 void

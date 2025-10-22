@@ -863,6 +863,7 @@ class MyServer : public quicr::Server
                                        th.track_fullname_hash,
                                        {
                                          quicr::SubscribeResponse::ReasonCode::kOk,
+                                         false,
                                          std::nullopt,
                                          largest_location,
                                        });
@@ -877,6 +878,7 @@ class MyServer : public quicr::Server
                            th.track_fullname_hash,
                            {
                              quicr::SubscribeResponse::ReasonCode::kTrackDoesNotExist,
+                             false,
                              "Track does not exist",
                              largest_location,
                            });
@@ -921,6 +923,7 @@ class MyServer : public quicr::Server
                          track_alias,
                          {
                            quicr::SubscribeResponse::ReasonCode::kOk,
+                           attrs.is_publisher_initiated,
                            std::nullopt,
                            largest_location,
                          });

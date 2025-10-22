@@ -48,6 +48,7 @@ namespace quicr {
             kExpiredAuthToken,
         };
         ReasonCode reason_code;
+        bool is_publisher_initiated = false;
 
         std::optional<std::string> error_reason = std::nullopt;
 
