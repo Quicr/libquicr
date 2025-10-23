@@ -1578,12 +1578,12 @@ PicoQuicTransport::CheckConnsForCongestion()
             // Don't include control stream in delayed callbacks check. Control stream should be priority 0 or 1
             if (data_ctx.priority >= 2 &&
                 data_ctx.metrics.tx_delayed_callback - data_ctx.metrics.prev_tx_delayed_callback > 1) {
-                SPDLOG_LOGGER_INFO(logger,
-                                   "CC: remote: {0} port: {1} conn_id: {2} queue_size: {3}",
-                                   conn_ctx.peer_addr_text,
-                                   conn_ctx.peer_port,
-                                   conn_id,
-                                   data_ctx.metrics.tx_delayed_callback - data_ctx.metrics.prev_tx_delayed_callback);
+                SPDLOG_LOGGER_DEBUG(logger,
+                                    "CC: remote: {0} port: {1} conn_id: {2} queue_size: {3}",
+                                    conn_ctx.peer_addr_text,
+                                    conn_ctx.peer_port,
+                                    conn_id,
+                                    data_ctx.metrics.tx_delayed_callback - data_ctx.metrics.prev_tx_delayed_callback);
 
                 congested_count++;
             }
@@ -1594,12 +1594,12 @@ PicoQuicTransport::CheckConnsForCongestion()
             // TODO(tievens): size of TX is based on rate; adjust based on burst rates
             if (data_ctx.tx_data->Size() >= 50) {
                 congested_count++;
-                SPDLOG_LOGGER_INFO(logger,
-                                   "CC: remote: {0} port: {1} conn_id: {2} queue_size: {3}",
-                                   conn_ctx.peer_addr_text,
-                                   conn_ctx.peer_port,
-                                   conn_id,
-                                   data_ctx.tx_data->Size());
+                SPDLOG_LOGGER_DEBUG(logger,
+                                    "CC: remote: {0} port: {1} conn_id: {2} queue_size: {3}",
+                                    conn_ctx.peer_addr_text,
+                                    conn_ctx.peer_port,
+                                    conn_id,
+                                    data_ctx.tx_data->Size());
             }
 
             if (data_ctx.priority >= kPqRestWaitMinPriority && data_ctx.uses_reset_wait &&
@@ -1610,13 +1610,13 @@ PicoQuicTransport::CheckConnsForCongestion()
         }
 
         if (cwin_congested_count && conn_ctx.pq_cnx->nb_retransmission_total - conn_ctx.metrics.tx_retransmits > 2) {
-            SPDLOG_LOGGER_INFO(logger,
-                               "CC: remote: {0} port: {1} conn_id: {2} retransmits increased, delta: {3} total: {4}",
-                               conn_ctx.peer_addr_text,
-                               conn_ctx.peer_port,
-                               conn_id,
-                               (conn_ctx.pq_cnx->nb_retransmission_total - conn_ctx.metrics.tx_retransmits),
-                               conn_ctx.pq_cnx->nb_retransmission_total);
+            SPDLOG_LOGGER_DEBUG(logger,
+                                "CC: remote: {0} port: {1} conn_id: {2} retransmits increased, delta: {3} total: {4}",
+                                conn_ctx.peer_addr_text,
+                                conn_ctx.peer_port,
+                                conn_id,
+                                (conn_ctx.pq_cnx->nb_retransmission_total - conn_ctx.metrics.tx_retransmits),
+                                conn_ctx.pq_cnx->nb_retransmission_total);
 
             conn_ctx.metrics.tx_retransmits = conn_ctx.pq_cnx->nb_retransmission_total;
             congested_count++;
