@@ -561,14 +561,14 @@ class MyClient : public quicr::Client
             defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
 
             for (const auto& entry : cache_entries) {
-                SPDLOG_DEBUG("Fetch cache group size: {}", entry->size());
                 for (const auto& object : *entry) {
                     if (end->object && object.headers.group_id == end->group &&
                         object.headers.object_id >= end->object) {
                         return;
                     }
 
-                    SPDLOG_DEBUG("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
+                    SPDLOG_DEBUG(
+                      "Fetch sending group: {} object: {}", object.headers.group_id, object.headers.object_id);
                     pub_fetch_h->PublishObject(object.headers, object.data);
                 }
             }

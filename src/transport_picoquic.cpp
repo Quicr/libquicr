@@ -1216,6 +1216,10 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
             CloseStream(*conn_ctx, data_ctx, false);
             CreateStream(*conn_ctx, data_ctx);
 
+            if (!conn_ctx->is_congested) {               // Only clear reset wait if not congested
+                data_ctx->tx_reset_wait_discard = false; // Allow new object to be sent
+            }
+
             data_ctx->mark_stream_active = false;
             return true; // New stream requires PQ to callback again using that stream
         }

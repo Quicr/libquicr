@@ -8,6 +8,7 @@ namespace quicr {
                                            [[maybe_unused]] uint64_t stream_id,
                                            std::shared_ptr<const std::vector<uint8_t>> data)
     {
+        SPDLOG_DEBUG("Got fetch data size: {}", data->size());
         if (is_start) {
             stream_buffer_.Clear();
 
