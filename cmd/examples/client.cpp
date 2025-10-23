@@ -183,18 +183,22 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         if (hdr.extensions) {
             ext << "mutable hdrs: ";
 
-            for (const auto& [type, value] : hdr.extensions.value()) {
-                ext << std::hex << std::setfill('0') << std::setw(2) << type;
-                ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+            for (const auto& [type, values] : hdr.extensions.value()) {
+                for (const auto& value : values) {
+                    ext << std::hex << std::setfill('0') << std::setw(2) << type;
+                    ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+                }
             }
         }
 
         if (hdr.immutable_extensions) {
             ext << "immutable hdrs: ";
 
-            for (const auto& [type, value] : hdr.immutable_extensions.value()) {
-                ext << std::hex << std::setfill('0') << std::setw(2) << type;
-                ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+            for (const auto& [type, values] : hdr.immutable_extensions.value()) {
+                for (const auto& value : values) {
+                    ext << std::hex << std::setfill('0') << std::setw(2) << type;
+                    ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+                }
             }
         }
 

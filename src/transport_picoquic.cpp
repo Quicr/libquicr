@@ -1248,20 +1248,25 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     TimeQueueElement<ConnData> obj;
 
     if (data_ctx != nullptr && data_ctx->tx_reset_wait_discard) { // Drop TX objects till next reset/new stream
-        data_ctx->tx_data->PopFront(obj);
-        if (obj.has_value) {
-            data_ctx->metrics.tx_queue_discards++;
+        const auto conn_ctx = GetConnContext(data_ctx->conn_id);
+        if (conn_ctx && !conn_ctx->is_congested) {   // Only clear reset wait if not congested
+            data_ctx->tx_reset_wait_discard = false; // Allow new object to be sent
+        } else {
+            data_ctx->tx_data->PopFront(obj);
+            if (obj.has_value) {
+                data_ctx->metrics.tx_queue_discards++;
 
-            if (!data_ctx->tx_data->Empty()) {
-                RunPqFunction([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
-                    MarkStreamActive(conn_id, data_ctx_id);
-                    return 0;
-                });
+                if (!data_ctx->tx_data->Empty()) {
+                    RunPqFunction([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
+                        MarkStreamActive(conn_id, data_ctx_id);
+                        return 0;
+                    });
+                }
             }
-        }
 
-        data_ctx->mark_stream_active = false;
-        return;
+            data_ctx->mark_stream_active = false;
+            return;
+        }
     }
 
     defer(if (data_ctx->tx_data->Empty() && data_ctx->delete_on_empty) {
@@ -1602,6 +1607,13 @@ PicoQuicTransport::CheckConnsForCongestion()
             // Don't include control stream in delayed callbacks check. Control stream should be priority 0 or 1
             if (data_ctx.priority >= 2 &&
                 data_ctx.metrics.tx_delayed_callback - data_ctx.metrics.prev_tx_delayed_callback > 1) {
+                SPDLOG_LOGGER_DEBUG(logger,
+                                    "CC: remote: {0} port: {1} conn_id: {2} queue_size: {3}",
+                                    conn_ctx.peer_addr_text,
+                                    conn_ctx.peer_port,
+                                    conn_id,
+                                    data_ctx.metrics.tx_delayed_callback - data_ctx.metrics.prev_tx_delayed_callback);
+
                 congested_count++;
             }
             data_ctx.metrics.prev_tx_delayed_callback = data_ctx.metrics.tx_delayed_callback;
@@ -1611,6 +1623,12 @@ PicoQuicTransport::CheckConnsForCongestion()
             // TODO(tievens): size of TX is based on rate; adjust based on burst rates
             if (data_ctx.tx_data->Size() >= 50) {
                 congested_count++;
+                SPDLOG_LOGGER_DEBUG(logger,
+                                    "CC: remote: {0} port: {1} conn_id: {2} queue_size: {3}",
+                                    conn_ctx.peer_addr_text,
+                                    conn_ctx.peer_port,
+                                    conn_id,
+                                    data_ctx.tx_data->Size());
             }
 
             if (data_ctx.priority >= kPqRestWaitMinPriority && data_ctx.uses_reset_wait &&
@@ -1621,13 +1639,13 @@ PicoQuicTransport::CheckConnsForCongestion()
         }
 
         if (cwin_congested_count && conn_ctx.pq_cnx->nb_retransmission_total - conn_ctx.metrics.tx_retransmits > 2) {
-            SPDLOG_LOGGER_INFO(logger,
-                               "CC: remote: {0} port: {1} conn_id: {2} retransmits increased, delta: {3} total: {4}",
-                               conn_ctx.peer_addr_text,
-                               conn_ctx.peer_port,
-                               conn_id,
-                               (conn_ctx.pq_cnx->nb_retransmission_total - conn_ctx.metrics.tx_retransmits),
-                               conn_ctx.pq_cnx->nb_retransmission_total);
+            SPDLOG_LOGGER_DEBUG(logger,
+                                "CC: remote: {0} port: {1} conn_id: {2} retransmits increased, delta: {3} total: {4}",
+                                conn_ctx.peer_addr_text,
+                                conn_ctx.peer_port,
+                                conn_id,
+                                (conn_ctx.pq_cnx->nb_retransmission_total - conn_ctx.metrics.tx_retransmits),
+                                conn_ctx.pq_cnx->nb_retransmission_total);
 
             conn_ctx.metrics.tx_retransmits = conn_ctx.pq_cnx->nb_retransmission_total;
             congested_count++;
