@@ -31,7 +31,12 @@ namespace quicr {
     {
     }
 
-    void Client::PublishReceived(const ConnectionHandle, const FullTrackName&, const messages::RequestID) {}
+    void Client::PublishReceived(const ConnectionHandle,
+                                 const messages::TrackAlias,
+                                 const FullTrackName&,
+                                 const messages::RequestID)
+    {
+    }
 
     void Client::ResolvePublish(ConnectionHandle connection_handle,
                                 const messages::RequestID request_id,
@@ -542,7 +547,7 @@ namespace quicr {
                                     th.track_name_hash,
                                     msg.track_alias);
 
-                PublishReceived(conn_ctx.connection_handle, tfn, msg.request_id);
+                PublishReceived(conn_ctx.connection_handle, msg.track_alias, tfn, msg.request_id);
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {

@@ -123,8 +123,14 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                             quicr::messages::FilterType filter_type,
                             const std::optional<JoiningFetch>& joining_fetch,
+                            bool publisher_initiated = false,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
-      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type, joining_fetch)
+      : SubscribeTrackHandler(full_track_name,
+                              3,
+                              quicr::messages::GroupOrder::kAscending,
+                              filter_type,
+                              joining_fetch,
+                              publisher_initiated)
     {
         if (qclient_vars::record) {
             std::filesystem::create_directory(dir);
@@ -475,6 +481,7 @@ class MyClient : public quicr::Client
     }
 
     void PublishReceived(quicr::ConnectionHandle connection_handle,
+                         quicr::messages::TrackAlias track_alias,
                          const quicr::FullTrackName& track,
                          quicr::messages::RequestID request_id) override
     {
@@ -486,24 +493,22 @@ class MyClient : public quicr::Client
           th.track_fullname_hash,
           request_id);
 
-        // Create a subscribe track handler to receive data for this track
-        auto track_handler =
-          std::make_shared<MySubscribeTrackHandler>(track, quicr::messages::FilterType::kLargestObject, std::nullopt);
-        publish_initiated_tracks_[request_id] = track_handler;
-
-        // Accept the publish with subscribe attributes
-        quicr::messages::SubscribeAttributes attrs;
-        attrs.priority = 3;
-        attrs.group_order = quicr::messages::GroupOrder::kOriginalPublisherOrder;
-        attrs.delivery_timeout = std::chrono::milliseconds(5000);
-        attrs.forward = true;
-        attrs.new_group_request_id = std::nullopt;
-        attrs.is_publisher_initiated = true;
-
-        ResolvePublish(connection_handle, request_id, true, attrs);
-
-        // Bind the track to start receiving data
+        // Bind publish initiated handler.
+        const auto track_handler = std::make_shared<MySubscribeTrackHandler>(
+          track, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
+        track_handler->SetRequestId(request_id);
+        track_handler->SetReceivedTrackAlias(track_alias);
         SubscribeTrack(track_handler);
+
+        // Accept the PUBLISH.
+        const quicr::messages::SubscribeAttributes attrs = { .priority = track_handler->GetPriority(),
+                                                             .group_order = track_handler->GetGroupOrder(),
+                                                             .delivery_timeout = track_handler->GetDeliveryTimeout(),
+                                                             .forward = true,
+                                                             .new_group_request_id = std::nullopt,
+                                                             .is_publisher_initiated =
+                                                               track_handler->IsPublisherInitiated() };
+        ResolvePublish(connection_handle, request_id, true, attrs);
 
         SPDLOG_INFO(
           "Accepted PUBLISH and subscribed to track_hash: {} request_id: {}", th.track_fullname_hash, request_id);
@@ -511,7 +516,6 @@ class MyClient : public quicr::Client
 
   private:
     bool& stop_threads_;
-    std::map<quicr::messages::RequestID, std::shared_ptr<MySubscribeTrackHandler>> publish_initiated_tracks_;
 };
 
 /*===========================================================================*/

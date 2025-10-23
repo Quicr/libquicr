@@ -123,10 +123,12 @@ namespace quicr {
          * Publish message received in response to SUBSCRIBE_NAMESPACE.
          * An implementor MUST call ResolvePublish();
          * @param connection_handle Connection handle.
+         * @param track_alias The incoming alias for this track.
          * @param track A matched track that is available.
          * @param request_id Request ID of the incoming publish message.
          */
         virtual void PublishReceived(ConnectionHandle connection_handle,
+                                     messages::TrackAlias track_alias,
                                      const FullTrackName& track,
                                      messages::RequestID request_id);
 

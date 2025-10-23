@@ -38,6 +38,7 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
 
 void
 TestClient::PublishReceived(const ConnectionHandle connection_handle,
+                            [[maybe_unused]] const messages::TrackAlias track_alias,
                             const FullTrackName& track,
                             const messages::RequestID request_id)
 {
