@@ -48,6 +48,7 @@ namespace quicr {
             kExpiredAuthToken,
         };
         ReasonCode reason_code;
+        bool is_publisher_initiated = false;
 
         std::optional<std::string> error_reason = std::nullopt;
 
@@ -75,6 +76,35 @@ namespace quicr {
         std::optional<std::string> error_reason = std::nullopt;
 
         std::optional<messages::Location> largest_location = std::nullopt;
+    };
+
+    struct SubscribeNamespaceResponse
+    {
+        /**
+         * @details **kOK** indicates that the subscribe namespace is accepted and OK should be sent. Any other
+         *       value indicates that the subscribe namespace is not accepted and the reason code and other
+         *       fields will be set.
+         */
+        enum class ReasonCode : uint8_t
+        {
+            kOk = 0,
+            kInternalError,
+            kNotSupported,
+        };
+        ReasonCode reason_code;
+
+        // Matched tracks that will be advertised in response via PUBLISH.
+        struct AvailableTrack
+        {
+            const FullTrackName track_full_name;
+            const std::optional<quicr::messages::Location> largest_location;
+        };
+        std::vector<AvailableTrack> tracks;
+
+        // Matched tracks that will be advertised in response via PUBLISH_NAMESPACE.
+        std::vector<TrackNamespace> namespaces;
+
+        std::optional<std::string> error_reason = std::nullopt;
     };
 
     /**

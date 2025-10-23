@@ -31,6 +31,34 @@ namespace quicr {
     {
     }
 
+    void Client::PublishReceived(const ConnectionHandle,
+                                 const messages::TrackAlias,
+                                 const FullTrackName&,
+                                 const messages::RequestID)
+    {
+    }
+
+    void Client::ResolvePublish(ConnectionHandle connection_handle,
+                                const messages::RequestID request_id,
+                                const bool accept,
+                                const messages::SubscribeAttributes& attributes)
+    {
+        const auto ctx_it = connections_.find(connection_handle);
+        if (ctx_it == connections_.end()) {
+            return;
+        }
+
+        if (!accept) {
+            // TODO: codes/reasons.
+            SendPublishError(ctx_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Rejected");
+        }
+
+        // TODO: Were does filter type come from.
+        messages::FilterType filter_type = messages::FilterType::kLargestObject;
+        SendPublishOk(
+          ctx_it->second, request_id, attributes.forward, attributes.priority, attributes.group_order, filter_type);
+    }
+
     void Client::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&)
     {
         // TODO: add the default response
@@ -384,9 +412,7 @@ namespace quicr {
                 messages::PublishNamespace msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {} };
-
-                PublishNamespaceReceived(tfn.name_space, {});
+                PublishNamespaceReceived(msg.track_namespace, { .request_id = msg.request_id });
                 return true;
             }
 
@@ -499,6 +525,29 @@ namespace quicr {
                         handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                     }
                 }
+                return true;
+            }
+            case messages::ControlMessageType::kPublish: {
+                messages::Publish msg([](messages::Publish& msg) {
+                    if (msg.content_exists) {
+                        msg.group_0 =
+                          std::make_optional<messages::Publish::Group_0>(messages::Publish::Group_0{ 0, 0 });
+                    }
+                });
+                msg_bytes >> msg;
+
+                const FullTrackName tfn{ .name_space = msg.track_namespace, .name = msg.track_name };
+                const TrackHash th(tfn);
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Received publish conn_id: {0} request_id: {1} track namespace hash: {2} "
+                                    "name hash: {3} track alias: {4}",
+                                    conn_ctx.connection_handle,
+                                    msg.request_id,
+                                    th.track_namespace_hash,
+                                    th.track_name_hash,
+                                    msg.track_alias);
+
+                PublishReceived(conn_ctx.connection_handle, msg.track_alias, tfn, msg.request_id);
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {
@@ -614,7 +663,10 @@ namespace quicr {
 
                 TrackStatusResponseReceived(conn_ctx.connection_handle,
                                             msg.request_id,
-                                            { SubscribeResponse::ReasonCode::kOk, std::nullopt, largest_location });
+                                            { .reason_code = SubscribeResponse::ReasonCode::kOk,
+                                              .is_publisher_initiated = false,
+                                              .error_reason = std::nullopt,
+                                              .largest_location = largest_location });
 
                 return true;
             }
@@ -844,6 +896,11 @@ namespace quicr {
                       msg.group_0->start_location.group,
                       msg.group_0->start_location.object,
                       msg.group_1->end_group);
+                } else {
+                    SPDLOG_LOGGER_DEBUG(logger_,
+                                        "Received publish ok conn_id: {} request_id: {}",
+                                        conn_ctx.connection_handle,
+                                        msg.request_id);
                 }
                 pub_it->second.get()->SetStatus(PublishTrackHandler::Status::kOk);
                 return true;

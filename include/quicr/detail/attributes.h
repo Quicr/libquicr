@@ -18,6 +18,7 @@ namespace quicr::messages {
         std::chrono::milliseconds delivery_timeout;   ///< Subscriber delivery timeout
         std::uint8_t forward;                         ///< True to Resume/forward data, False to pause/stop data
         std::optional<uint64_t> new_group_request_id; ///< Indicates new group id is requested
+        bool is_publisher_initiated;                  ///< True will not send SUBSCRIBE_OK.
     };
 
     struct PublishAttributes : SubscribeAttributes

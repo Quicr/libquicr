@@ -30,6 +30,11 @@ namespace quicr {
         uint64_t request_id{ 0 };
     };
 
+    struct SubscribeNamespaceAttributes
+    {
+        uint64_t request_id{ 0 };
+    };
+
     /**
      * @brief Client Setup Attributes
      */

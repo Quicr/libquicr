@@ -180,6 +180,20 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, SubscribeNamespaceErrorCode value)
+    {
+        buffer << static_cast<std::uint64_t>(value);
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, SubscribeNamespaceErrorCode& value)
+    {
+        std::uint64_t uvalue;
+        buffer = buffer >> uvalue;
+        value = static_cast<SubscribeNamespaceErrorCode>(uvalue);
+        return buffer;
+    }
+
     Bytes& operator<<(Bytes& buffer, const ControlMessage& message)
     {
         buffer << message.type;
