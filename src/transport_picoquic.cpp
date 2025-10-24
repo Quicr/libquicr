@@ -1256,6 +1256,8 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             if (obj.has_value) {
                 data_ctx->metrics.tx_queue_discards++;
 
+                StreamActionCheck(data_ctx, obj.value.stream_action);
+
                 if (!data_ctx->tx_data->Empty()) {
                     RunPqFunction([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
                         MarkStreamActive(conn_id, data_ctx_id);
