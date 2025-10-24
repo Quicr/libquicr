@@ -311,6 +311,7 @@ namespace quicr {
             return;
         }
 
+        track_handler->SetStatus(PublishFetchHandler::Status::kOk);
         track_handler->connection_handle_ = conn_id;
         track_handler->publish_data_ctx_id_ =
           quic_transport_->CreateDataContext(conn_id, true, track_handler->GetDefaultPriority(), false);
