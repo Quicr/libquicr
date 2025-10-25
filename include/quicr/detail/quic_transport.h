@@ -152,6 +152,12 @@ namespace quicr {
         TransportError Error;
     };
 
+    enum class StreamClosedFlag
+    {
+        Fin,
+        Reset,
+    };
+
     /**
      * @brief ITransport interface
      *
@@ -234,6 +240,19 @@ namespace quicr {
                                       uint64_t stream_id,
                                       std::optional<DataContextId> data_ctx_id,
                                       bool is_bidir = false) = 0;
+
+            /**
+             * @brief Callback notification that a stream has been closed by either FIN or RST.
+             *
+             * @param connection_handle Transport context identifier mapped to the connection
+             * @param stream_id         Transport stream id.
+             * @param rx_ctx            Stream Rx context with the handler info.
+             * @param flag              Flag value for how the stream was closed. Values are FIN or RST
+             */
+            virtual void OnStreamClosed(const TransportConnId& connection_handle,
+                                        std::uint64_t stream_id,
+                                        std::shared_ptr<StreamRxContext> rx_ctx,
+                                        StreamClosedFlag flag) = 0;
 
             /**
              * @brief callback notification on connection metrics sampled
@@ -362,7 +381,9 @@ namespace quicr {
          * @param[in] conn_id                 Connection ID to create data context
          * @param[in] data_ctx_id             Data context ID to delete
          */
-        virtual void DeleteDataContext(const TransportConnId& conn_id, DataContextId data_ctx_id) = 0;
+        virtual void DeleteDataContext(const TransportConnId& conn_id,
+                                       DataContextId data_ctx_id,
+                                       bool delete_on_empty = false) = 0;
 
         /**
          * @brief Get the peer IP address and port associated with the stream

@@ -76,20 +76,21 @@ namespace quicr {
     {
     }
 
-    std::optional<messages::Location> Server::GetLargestAvailable([[maybe_unused]] const FullTrackName& track_name)
+    void Server::StandaloneFetchReceived(ConnectionHandle,
+                                         uint64_t,
+                                         const FullTrackName&,
+                                         const quicr::messages::StandaloneFetchAttributes&)
     {
-        return std::nullopt;
     }
 
-    bool Server::FetchReceived(ConnectionHandle, uint64_t, const FullTrackName&, const messages::FetchAttributes&)
+    void Server::JoiningFetchReceived(ConnectionHandle,
+                                      uint64_t,
+                                      const FullTrackName&,
+                                      const quicr::messages::JoiningFetchAttributes&)
     {
-        return false;
     }
 
-    bool Server::OnFetchOk(ConnectionHandle, uint64_t, const FullTrackName&, const messages::FetchAttributes&)
-    {
-        return false;
-    }
+    void Server::FetchCancelReceived(ConnectionHandle, uint64_t) {}
 
     void Server::NewGroupRequested(const FullTrackName&, messages::GroupId) {}
 
@@ -157,6 +158,41 @@ namespace quicr {
         }
     }
 
+    void Server::ResolveFetch(ConnectionHandle connection_handle,
+                              uint64_t request_id,
+                              messages::SubscriberPriority priority,
+                              messages::GroupOrder group_order,
+                              const FetchResponse& response)
+    {
+        auto error_code = messages::FetchErrorCode::kInternalError;
+
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        switch (response.reason_code) {
+            case FetchResponse::ReasonCode::kOk:
+                SendFetchOk(conn_it->second, request_id, group_order, priority, response.largest_location.value());
+                return;
+
+            case FetchResponse::ReasonCode::kInvalidRange:
+                error_code = messages::FetchErrorCode::kInvalidRange;
+                break;
+            case FetchResponse::ReasonCode::kNoObjects:
+                error_code = messages::FetchErrorCode::kNoObjects;
+                break;
+
+            default:
+                break;
+        }
+
+        SendFetchError(conn_it->second,
+                       request_id,
+                       error_code,
+                       response.error_reason.has_value() ? response.error_reason.value() : "Internal error");
+    }
+
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
                                       ConnectionHandle src_id,
                                       const std::shared_ptr<PublishTrackHandler>& track_handler)
@@ -195,6 +231,8 @@ namespace quicr {
         }
 
         conn_it->second.pub_tracks_by_data_ctx_id.erase(track_handler->publish_data_ctx_id_);
+
+        quic_transport_->DeleteDataContext(connection_handle, track_handler->publish_data_ctx_id_);
     }
 
     void Server::BindPublisherTrack(ConnectionHandle conn_id,
@@ -256,7 +294,8 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Server publish fetch track conn_id: {} subscribe id: {} unbind", connection_handle, request_id);
 
-        conn_it->second.pub_fetch_tracks_by_sub_id.erase(request_id);
+        conn_it->second.pub_fetch_tracks_by_request_id.erase(request_id);
+        quic_transport_->DeleteDataContext(connection_handle, track_handler->publish_data_ctx_id_, true);
     }
 
     void Server::BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler)
@@ -272,6 +311,7 @@ namespace quicr {
             return;
         }
 
+        track_handler->SetStatus(PublishFetchHandler::Status::kOk);
         track_handler->connection_handle_ = conn_id;
         track_handler->publish_data_ctx_id_ =
           quic_transport_->CreateDataContext(conn_id, true, track_handler->GetDefaultPriority(), false);
@@ -279,7 +319,7 @@ namespace quicr {
         track_handler->SetTransport(GetSharedPtr());
 
         // Hold ref to track handler
-        conn_it->second.pub_fetch_tracks_by_sub_id[request_id] = std::move(track_handler);
+        conn_it->second.pub_fetch_tracks_by_request_id[request_id] = track_handler;
     }
 
     PublishTrackHandler::PublishObjectStatus Server::SendFetchObject(PublishFetchHandler& track_handler,
@@ -443,6 +483,8 @@ namespace quicr {
 
                 sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
                 conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second;
+                if (msg.group_0.has_value())
+                    sub_it->second.get()->SetLatestLocation(msg.group_0.value().largest_location);
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
 
                 return true;
@@ -559,7 +601,6 @@ namespace quicr {
                 TrackStatusResponseReceived(conn_ctx.connection_handle, msg.request_id, response);
                 return true;
             }
-
             case messages::ControlMessageType::kPublishNamespace: {
                 auto msg = messages::PublishNamespace{};
                 msg_bytes >> msg;
@@ -569,7 +610,6 @@ namespace quicr {
                 PublishNamespaceReceived(conn_ctx.connection_handle, tfn.name_space, { msg.request_id });
                 return true;
             }
-
             case messages::ControlMessageType::kSubscribeNamespace: {
                 auto msg = messages::SubscribeNamespace{};
                 msg_bytes >> msg;
@@ -586,7 +626,6 @@ namespace quicr {
 
                 return true;
             }
-
             case messages::ControlMessageType::kUnsubscribeNamespace: {
                 auto msg = messages::UnsubscribeNamespace{};
                 msg_bytes >> msg;
@@ -594,7 +633,6 @@ namespace quicr {
                 UnsubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
                 return true;
             }
-
             case messages::ControlMessageType::kPublishNamespaceError: {
                 auto msg = messages::PublishNamespaceError{};
                 msg_bytes >> msg;
@@ -610,7 +648,6 @@ namespace quicr {
 
                 return true;
             }
-
             case messages::ControlMessageType::kPublishNamespaceDone: {
                 messages::PublishNamespaceDone msg;
                 msg_bytes >> msg;
@@ -634,7 +671,6 @@ namespace quicr {
 
                 return true;
             }
-
             case messages::ControlMessageType::kUnsubscribe: {
                 messages::Unsubscribe msg;
                 msg_bytes >> msg;
@@ -750,6 +786,54 @@ namespace quicr {
 
                 return true;
             }
+
+            case messages::ControlMessageType::kFetchOk: {
+                messages::FetchOk msg;
+                msg_bytes >> msg;
+
+                auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
+                if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received fetch ok for unknown fetch track conn_id: {0} request_id: {1}, ignored",
+                      conn_ctx.connection_handle,
+                      msg.request_id);
+                    return true;
+                }
+
+                fetch_it->second.get()->SetLatestLocation(msg.end_location);
+                fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kOk);
+
+                return true;
+            }
+            case messages::ControlMessageType::kFetchError: {
+                messages::FetchError msg;
+                msg_bytes >> msg;
+
+                auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
+                if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received fetch error for unknown fetch track conn_id: {} request_id: {} "
+                                       "error code: {}, ignored",
+                                       conn_ctx.connection_handle,
+                                       msg.request_id,
+                                       static_cast<std::uint64_t>(msg.error_code));
+                    return true;
+                }
+
+                SPDLOG_LOGGER_WARN(logger_,
+                                   "Received fetch error conn_id: {} request_id: {} "
+                                   "error code: {} reason: {}",
+                                   conn_ctx.connection_handle,
+                                   msg.request_id,
+                                   static_cast<std::uint64_t>(msg.error_code),
+                                   std::string(msg.error_reason.begin(), msg.error_reason.end()));
+
+                fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kError);
+                conn_ctx.sub_tracks_by_request_id.erase(fetch_it);
+
+                return true;
+            }
             case messages::ControlMessageType::kFetch: {
                 auto msg = messages::Fetch(
                   [](messages::Fetch& msg) {
@@ -758,56 +842,40 @@ namespace quicr {
                       }
                   },
                   [](messages::Fetch& msg) {
-                      // TODO: Add support for absolute joining fetch
-                      if (msg.fetch_type == messages::FetchType::kRelativeJoiningFetch) {
+                      if (msg.fetch_type == messages::FetchType::kRelativeJoiningFetch ||
+                          msg.fetch_type == messages::FetchType::kAbsoluteJoiningFetch) {
                           msg.group_1 = std::make_optional<messages::Fetch::Group_1>();
                       }
                   });
 
                 msg_bytes >> msg;
 
-                // Prepare for fetch lookups, which differ by type.
-                FullTrackName tfn;
-                messages::FetchAttributes attrs = {
-                    msg.subscriber_priority, msg.group_order, { 0, 0 }, 0, std::nullopt
-                };
-                bool end_of_track = false; // TODO: Need to query this as part of the GetLargestAvailable call.
-                messages::Location largest_location;
-
+                bool relative_joining{ false };
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
-                        // Standalone fetch is self-containing.
-                        tfn =
-                          FullTrackName{ msg.group_0->standalone.track_namespace, msg.group_0->standalone.track_name };
-                        attrs.start_location = msg.group_0->standalone.start;
-                        attrs.end_group = msg.group_0->standalone.end.group;
-                        attrs.end_object = msg.group_0->standalone.end.object > 0
-                                             ? std::optional(msg.group_0->standalone.end.object - 1)
-                                             : std::nullopt;
-                        const auto largest_available = GetLargestAvailable(tfn);
-                        if (!largest_available.has_value()) {
-                            // Forward FETCH to a Publisher and bind to this request
-                            if (FetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs)) {
-                                SendFetchOk(conn_ctx, msg.request_id, msg.group_order, end_of_track, largest_location);
-                            } else {
-                                SendFetchError(conn_ctx,
-                                               msg.request_id,
-                                               quicr::messages::FetchErrorCode::kInternalError,
-                                               "Unable to process Fetch");
-                            }
-                            return true;
-                        }
+                        FullTrackName tfn{ msg.group_0->standalone.track_namespace,
+                                           msg.group_0->standalone.track_name };
 
-                        largest_location = largest_available.value();
+                        messages::StandaloneFetchAttributes attrs = {
+                            .priority = msg.subscriber_priority,
+                            .group_order = msg.group_order,
+                            .start_location = msg.group_0->standalone.start,
+                            .end_location = { .group = msg.group_0->standalone.end.group,
+                                              .object = msg.group_0->standalone.end.object > 0
+                                                          ? msg.group_0->standalone.end.object - 1
+                                                          : 0 },
+                        };
 
-                        break;
-                    }
-                    case messages::FetchType::kAbsoluteJoiningFetch: {
-                        [[fallthrough]];
+                        StandaloneFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
+                        return true;
                     }
                     case messages::FetchType::kRelativeJoiningFetch: {
+                        relative_joining = true;
+                        [[fallthrough]];
+                    }
+                    case messages::FetchType::kAbsoluteJoiningFetch: {
+
                         // Joining fetch needs to look up its joining subscribe.
-                        // TODO: Need a new error code for subscribe doesn't exist.
                         const auto subscribe_state = conn_ctx.recv_req_id.find(msg.group_1->joining.request_id);
                         if (subscribe_state == conn_ctx.recv_req_id.end()) {
                             SendFetchError(conn_ctx,
@@ -817,77 +885,24 @@ namespace quicr {
                             return true;
                         }
 
-                        tfn = subscribe_state->second.track_full_name;
-                        const auto opt_largest_location = subscribe_state->second.largest_location;
-                        if (!opt_largest_location.has_value()) {
-                            // We have no data to complete the fetch with.
-                            SendFetchError(
-                              conn_ctx, msg.request_id, messages::FetchErrorCode::kInvalidRange, "Nothing to give");
+                        FullTrackName tfn = subscribe_state->second.track_full_name;
 
-                            return true;
-                        }
-                        largest_location = *opt_largest_location;
+                        messages::JoiningFetchAttributes attrs = {
+                            .priority = msg.subscriber_priority,
+                            .group_order = msg.group_order,
+                            .joining_request_id = msg.group_1->joining.request_id,
+                            .relative = relative_joining,
+                            .joining_start = msg.group_1->joining.joining_start,
+                        };
 
-                        messages::GroupId start_group;
-                        switch (msg.fetch_type) {
-                            case messages::FetchType::kRelativeJoiningFetch: {
-                                // Relative backwards offset.
-                                start_group = msg.group_1->joining.joining_start <= largest_location.group
-                                                ? largest_location.group - msg.group_1->joining.joining_start
-                                                : largest_location.group;
-                                break;
-                            }
-                            case messages::FetchType::kAbsoluteJoiningFetch: {
-                                // From absolute group.
-                                start_group = msg.group_1->joining.joining_start;
-                                break;
-                            }
-                            default: {
-                                // Logic error.
-                                assert(false); // Fetch switch logic has been broken.
-                                SendFetchError(
-                                  conn_ctx, msg.request_id, messages::FetchErrorCode::kInternalError, "Internal error");
-                                return true;
-                            }
-                        }
-
-                        attrs.start_location = messages::Location{ start_group, 0 };
-                        attrs.end_group = largest_location.group;
-                        attrs.end_object = largest_location.object;
-                        break;
+                        JoiningFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
+                        return true;
                     }
                     default: {
                         SendFetchError(
                           conn_ctx, msg.request_id, messages::FetchErrorCode::kNotSupported, "Unknown fetch type");
                         return true;
                     }
-                }
-
-                // TODO: This only covers it being below largest, not what's in cache.
-                // Availability check.
-                bool valid_range = true;
-                valid_range &= attrs.start_location.group <= largest_location.group;
-                if (largest_location.group == attrs.start_location.group) {
-                    valid_range &= attrs.start_location.object <= largest_location.object;
-                }
-                valid_range &= attrs.end_group <= largest_location.group;
-                if (largest_location.group == attrs.end_group && attrs.end_object.has_value()) {
-                    valid_range &= attrs.end_object <= largest_location.object;
-                }
-                if (!valid_range) {
-                    SendFetchError(
-                      conn_ctx, msg.request_id, messages::FetchErrorCode::kInvalidRange, "Cannot serve this range");
-                    return true;
-                }
-
-                SendFetchOk(conn_ctx, msg.request_id, msg.group_order, end_of_track, largest_location);
-
-                if (!OnFetchOk(conn_ctx.connection_handle, msg.request_id, tfn, attrs)) {
-                    // TODO: Need more info from OnFetchOk to give a better error code.
-                    SendFetchError(conn_ctx,
-                                   msg.request_id,
-                                   messages::FetchErrorCode::kInvalidRange,
-                                   "Cache does not have any data for given range");
                 }
 
                 return true;
@@ -900,7 +915,17 @@ namespace quicr {
                     SPDLOG_LOGGER_WARN(logger_, "Received Fetch Cancel for unknown subscribe ID: {0}", msg.request_id);
                 }
 
+                const auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
+                if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                    FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
+                    return true;
+                }
+
+                fetch_it->second->SetStatus(FetchTrackHandler::Status::kCancelled);
+
                 FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
+
+                conn_ctx.sub_tracks_by_request_id.erase(fetch_it);
                 conn_ctx.recv_req_id.erase(msg.request_id);
 
                 return true;
@@ -934,7 +959,6 @@ namespace quicr {
 
                 return true;
             }
-
             case messages::ControlMessageType::kSubscribeUpdate: {
                 messages::SubscribeUpdate msg;
                 msg_bytes >> msg;
@@ -993,12 +1017,12 @@ namespace quicr {
                 }
                 return true;
             }
-
-            default:
+            default: {
                 SPDLOG_LOGGER_ERROR(logger_,
                                     "Unsupported MOQT message type: {0}, bad stream",
                                     static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received));
                 return false;
+            }
 
         } // End of switch(msg type)
 

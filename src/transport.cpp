@@ -1198,6 +1198,8 @@ namespace quicr {
                 SendPublishNamespaceDone(conn_it->second, tfn.name_space);
                 conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
             }
+
+            quic_transport_->DeleteDataContext(conn_id, track_handler->publish_data_ctx_id_);
         }
     }
 
@@ -1282,12 +1284,19 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
-    bool Transport::FetchReceived([[maybe_unused]] ConnectionHandle connection_handle,
-                                  [[maybe_unused]] uint64_t request_id,
-                                  [[maybe_unused]] const FullTrackName& track_full_name,
-                                  [[maybe_unused]] const quicr::messages::FetchAttributes& attributes)
+    void Transport::StandaloneFetchReceived(
+      [[maybe_unused]] ConnectionHandle connection_handle,
+      [[maybe_unused]] uint64_t request_id,
+      [[maybe_unused]] const FullTrackName& track_full_name,
+      [[maybe_unused]] const quicr::messages::StandaloneFetchAttributes& attributes)
     {
-        return false;
+    }
+
+    void Transport::JoiningFetchReceived([[maybe_unused]] ConnectionHandle connection_handle,
+                                         [[maybe_unused]] uint64_t request_id,
+                                         [[maybe_unused]] const FullTrackName& track_full_name,
+                                         [[maybe_unused]] const quicr::messages::JoiningFetchAttributes& attributes)
+    {
     }
 
     void Transport::FetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler)
@@ -1341,9 +1350,17 @@ namespace quicr {
             return;
         }
 
-        SendFetchCancel(conn_it->second, sub_id.value());
+        conn_it->second.sub_tracks_by_request_id.erase(track_handler->GetRequestId().value());
 
         track_handler->SetRequestId(std::nullopt);
+
+        if (track_handler->GetStatus() == FetchTrackHandler::Status::kDoneByFin ||
+            track_handler->GetStatus() == FetchTrackHandler::Status::kDoneByReset) {
+            return;
+        }
+
+        SendFetchCancel(conn_it->second, sub_id.value());
+
         track_handler->SetStatus(FetchTrackHandler::Status::kNotConnected);
     }
 
@@ -1664,6 +1681,32 @@ namespace quicr {
         throw;
 
         // TODO(tievens): Add metrics to track if this happens
+    }
+
+    void Transport::OnStreamClosed(const ConnectionHandle& connection_handle,
+                                   [[maybe_unused]] std::uint64_t stream_id,
+                                   std::shared_ptr<StreamRxContext> rx_ctx,
+                                   StreamClosedFlag flag)
+    {
+        auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
+        if (auto handler = handler_weak.lock()) {
+            try {
+                switch (flag) {
+                    case StreamClosedFlag::Fin:
+                        handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                        break;
+                    case StreamClosedFlag::Reset:
+                        handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                        break;
+                }
+            } catch (const ProtocolViolationException& e) {
+                SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
+                CloseConnection(connection_handle, TerminationReason::kProtocolViolation, e.reason);
+            } catch (const std::exception& e) {
+                SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
+                CloseConnection(connection_handle, TerminationReason::kInternalError, "Internal error");
+            }
+        }
     }
 
     bool Transport::OnRecvSubgroup(StreamHeaderType type,

@@ -156,20 +156,56 @@ namespace quicr {
                                       const SubscribeResponse& subscribe_response);
 
         /**
-         * @brief Callback on fetch message
+         * @brief Event to run on receiving a Standalone Fetch request.
          *
-         * @details Client will handle possibly from cache. This callback is called
-         *  when a fetch request has been received.
-         *
-         * @param connection_handle        source connection ID
-         * @param request_id               request ID
-         * @param track_fullname           full track name
-         * @param attributes               fetch attributes
+         * @param connection_handle Source connection ID.
+         * @param request_id        Request ID received.
+         * @param track_full_name   Track full name
+         * @param attributes        Fetch attributes received.
          */
-        bool FetchReceived(quicr::ConnectionHandle connection_handle,
-                           uint64_t request_id,
-                           const quicr::FullTrackName& track_full_name,
-                           const quicr::messages::FetchAttributes& attributes) override;
+        virtual void StandaloneFetchReceived(ConnectionHandle connection_handle,
+                                             uint64_t request_id,
+                                             const FullTrackName& track_full_name,
+                                             const quicr::messages::StandaloneFetchAttributes& attributes) override;
+
+        /**
+         * @brief Event to run on receiving a Joining Fetch request.
+         *
+         * @param connection_handle Source connection ID.
+         * @param request_id        Request ID received.
+         * @param track_full_name   Track full name
+         * @param attributes        Fetch attributes received.
+         */
+        virtual void JoiningFetchReceived(ConnectionHandle connection_handle,
+                                          uint64_t request_id,
+                                          const FullTrackName& track_full_name,
+                                          const quicr::messages::JoiningFetchAttributes& attributes) override;
+
+        /**
+         * @brief Callback notification on receiving a FetchCancel message.
+         *
+         * @param connection_handle Source connection ID.
+         * @param request_id        Request ID received.
+         */
+        virtual void FetchCancelReceived(ConnectionHandle connection_handle, uint64_t request_id) override;
+
+        /**
+         * @brief Accept or reject a Fetch that was received
+         *
+         * @details Accept or reject a fetch received via FetchReceived().
+         *
+         * @param connection_handle        Source connection ID
+         * @param request_id               Request ID
+         * @param type                     The type of Fetch being resolved.
+         * @param priority
+         * @param group_order
+         * @param response                 Response to the Fetch.
+         */
+        virtual void ResolveFetch(ConnectionHandle connection_handle,
+                                  uint64_t request_id,
+                                  messages::SubscriberPriority priority,
+                                  messages::GroupOrder group_order,
+                                  const FetchResponse& response);
 
         /**
          * @brief Bind a server fetch publisher track handler.
