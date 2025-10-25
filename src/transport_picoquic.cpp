@@ -1153,15 +1153,14 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
             std::lock_guard<std::mutex> _(state_mutex_);
             const auto conn_ctx = GetConnContext(data_ctx->conn_id);
 
-            /*
+            auto existing_stream_id = data_ctx->current_stream_id.has_value() ? *data_ctx->current_stream_id : 0;
+            CloseStream(*conn_ctx, data_ctx, true);
+
             // Keep stream in discard mode if still congested
             if (conn_ctx->is_congested && data_ctx->tx_reset_wait_discard) {
                 break;
             }
-            */
 
-            auto existing_stream_id = *data_ctx->current_stream_id;
-            CloseStream(*conn_ctx, data_ctx, true);
             CreateStream(*conn_ctx, data_ctx);
 
             SPDLOG_LOGGER_DEBUG(
@@ -1193,12 +1192,18 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
             SPDLOG_LOGGER_DEBUG(logger,
                                 "Replacing stream using FIN; conn_id: {0} existing_stream: {1}",
                                 data_ctx->conn_id,
-                                *data_ctx->current_stream_id);
+                                data_ctx->current_stream_id.has_value() ? *data_ctx->current_stream_id : 0);
 
             std::lock_guard<std::mutex> _(state_mutex_);
 
             const auto conn_ctx = GetConnContext(data_ctx->conn_id);
             CloseStream(*conn_ctx, data_ctx, false);
+
+            // Keep stream in discard mode if still congested
+            if (conn_ctx->is_congested && data_ctx->tx_reset_wait_discard) {
+                break;
+            }
+
             CreateStream(*conn_ctx, data_ctx);
 
             if (!conn_ctx->is_congested) {               // Only clear reset wait if not congested
@@ -1233,26 +1238,33 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     TimeQueueElement<ConnData> obj;
 
     if (data_ctx != nullptr && data_ctx->tx_reset_wait_discard) { // Drop TX objects till next reset/new stream
+        bool new_stream{ false };
         const auto conn_ctx = GetConnContext(data_ctx->conn_id);
         if (conn_ctx && !conn_ctx->is_congested) {   // Only clear reset wait if not congested
             data_ctx->tx_reset_wait_discard = false; // Allow new object to be sent
         } else {
-            data_ctx->tx_data->PopFront(obj);
+            data_ctx->tx_data->Front(obj);
             if (obj.has_value) {
                 data_ctx->metrics.tx_queue_discards++;
 
-                StreamActionCheck(data_ctx, obj.value.stream_action);
+                new_stream = StreamActionCheck(data_ctx, obj.value.stream_action);
 
-                if (!data_ctx->tx_data->Empty()) {
-                    RunPqFunction([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
-                        MarkStreamActive(conn_id, data_ctx_id);
-                        return 0;
-                    });
+                if (!new_stream) {
+                    data_ctx->tx_data->Pop(); // discard when in current stream
                 }
             }
 
+            if (!data_ctx->tx_data->Empty()) {
+                RunPqFunction([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
+                    MarkStreamActive(conn_id, data_ctx_id);
+                    return 0;
+                });
+            }
+
             data_ctx->mark_stream_active = false;
-            return;
+
+            if (!new_stream)
+                return;
         }
     }
 
