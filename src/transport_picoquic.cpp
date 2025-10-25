@@ -1233,31 +1233,26 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
     if (data_ctx != nullptr && data_ctx->tx_reset_wait_discard) { // Drop TX objects till next reset/new stream
         bool new_stream{ false };
-        const auto conn_ctx = GetConnContext(data_ctx->conn_id);
-        if (conn_ctx && !conn_ctx->is_congested) {   // Only clear reset wait if not congested
-            data_ctx->tx_reset_wait_discard = false; // Allow new object to be sent
-        } else {
-            data_ctx->tx_data->Front(obj);
-            if (obj.has_value) {
-                data_ctx->metrics.tx_queue_discards++;
+        data_ctx->tx_data->Front(obj);
+        if (obj.has_value) {
+            data_ctx->metrics.tx_queue_discards++;
 
-                new_stream = StreamActionCheck(data_ctx, obj.value.stream_action);
+            new_stream = StreamActionCheck(data_ctx, obj.value.stream_action);
 
-                if (!new_stream) {
-                    data_ctx->tx_data->Pop(); // discard when in current stream
+            if (!new_stream) {
+                data_ctx->tx_data->Pop(); // discard when in current stream
 
-                    if (!data_ctx->tx_data->Empty()) {
-                        RunPqFunction([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
-                            MarkStreamActive(conn_id, data_ctx_id);
-                            return 0;
-                        });
-                    }
-                    return;
+                if (!data_ctx->tx_data->Empty()) {
+                    RunPqFunction([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
+                        MarkStreamActive(conn_id, data_ctx_id);
+                        return 0;
+                    });
                 }
+                return;
             }
-
-            data_ctx->mark_stream_active = false;
         }
+
+        data_ctx->mark_stream_active = false;
     }
 
     if (data_ctx->stream_tx_object == nullptr) {
