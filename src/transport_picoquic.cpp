@@ -1174,10 +1174,7 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
               data_ctx->metrics.tx_buffer_drops,
               data_ctx->metrics.tx_queue_discards);
 
-            if (!conn_ctx->is_congested) {               // Only clear reset wait if not congested
-                data_ctx->tx_reset_wait_discard = false; // Allow new object to be sent
-            }
-
+            data_ctx->tx_reset_wait_discard = false; // Allow new object to be sent
             data_ctx->mark_stream_active = false;
             return true; // New stream requires PQ to callback again using that stream
         }
@@ -1206,10 +1203,7 @@ PicoQuicTransport::StreamActionCheck(DataContext* data_ctx, StreamAction stream_
 
             CreateStream(*conn_ctx, data_ctx);
 
-            if (!conn_ctx->is_congested) {               // Only clear reset wait if not congested
-                data_ctx->tx_reset_wait_discard = false; // Allow new object to be sent
-            }
-
+            data_ctx->tx_reset_wait_discard = false; // Allow new object to be sent
             data_ctx->mark_stream_active = false;
             return true; // New stream requires PQ to callback again using that stream
         }
@@ -1251,20 +1245,18 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
                 if (!new_stream) {
                     data_ctx->tx_data->Pop(); // discard when in current stream
+
+                    if (!data_ctx->tx_data->Empty()) {
+                        RunPqFunction([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
+                            MarkStreamActive(conn_id, data_ctx_id);
+                            return 0;
+                        });
+                    }
+                    return;
                 }
             }
 
-            if (!data_ctx->tx_data->Empty()) {
-                RunPqFunction([this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
-                    MarkStreamActive(conn_id, data_ctx_id);
-                    return 0;
-                });
-            }
-
             data_ctx->mark_stream_active = false;
-
-            if (!new_stream)
-                return;
         }
     }
 
