@@ -1648,7 +1648,7 @@ PicoQuicTransport::CheckConnsForCongestion()
 
         } else if (conn_ctx.is_congested) {
 
-            if (conn_ctx.not_congested_gauge > 4) {
+            if (conn_ctx.not_congested_gauge > 8) {
                 // No longer congested
                 conn_ctx.is_congested = false;
                 conn_ctx.not_congested_gauge = 0;
