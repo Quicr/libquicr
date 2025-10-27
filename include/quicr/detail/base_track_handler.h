@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/common.h"
+#include "quicr/detail/attributes.h"
 #include "quicr/detail/ctrl_message_types.h"
 #include "quicr/detail/ctrl_messages.h"
 #include "quicr/track_name.h"
@@ -99,10 +100,15 @@ namespace quicr {
         {
             const FullTrackName track_full_name;
             const std::optional<messages::Location> largest_location;
-            const bool forward;
-            const messages::GroupOrder group_order;
-            const bool dynamic_groups;
-            const messages::TrackAlias track_alias;
+            const messages::PublishAttributes attributes;
+            AvailableTrack(const FullTrackName& track_full_name,
+                           const std::optional<messages::Location>& largest_location,
+                           const messages::PublishAttributes& attributes)
+              : track_full_name(track_full_name)
+              , largest_location(largest_location)
+              , attributes(attributes)
+            {
+            }
         };
         std::vector<AvailableTrack> tracks;
 

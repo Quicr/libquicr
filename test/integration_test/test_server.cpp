@@ -88,7 +88,9 @@ TestServer::AddKnownPublishedNamespace(const TrackNamespace& track_namespace)
 }
 
 void
-TestServer::AddKnownPublishedTrack(const FullTrackName& track)
+TestServer::AddKnownPublishedTrack(const FullTrackName& track,
+                                   const std::optional<messages::Location>& largest_location,
+                                   const messages::PublishAttributes& attributes)
 {
-    known_published_tracks_.push_back({ .track_full_name = track, .largest_location = std::nullopt });
+    known_published_tracks_.emplace_back(track, largest_location, attributes);
 }

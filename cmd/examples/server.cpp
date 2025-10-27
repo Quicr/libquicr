@@ -470,12 +470,16 @@ class MyServer : public quicr::Server
                         }
                     }
 
-                    matched_tracks.emplace_back(track_full_name,
-                                                largest_location,
-                                                true,
-                                                handler->GetGroupOrder(),
-                                                handler->NewGroupRequestSupported(),
-                                                *handler->GetTrackAlias());
+                    quicr::messages::PublishAttributes publish_attributes;
+                    publish_attributes.track_alias = track_alias;
+                    publish_attributes.priority = handler->GetPriority(); // Original priority?
+                    publish_attributes.group_order = handler->GetGroupOrder();
+                    publish_attributes.delivery_timeout = handler->GetDeliveryTimeout();
+                    publish_attributes.filter_type = handler->GetFilterType();
+                    publish_attributes.forward = true;
+                    publish_attributes.new_group_request_id = handler->NewGroupRequestSupported();
+                    publish_attributes.is_publisher_initiated = true;
+                    matched_tracks.emplace_back(track_full_name, largest_location, publish_attributes);
                     SPDLOG_INFO(
                       "Matched PUBLISH track for SUBSCRIBE_NAMESPACE: conn: {} track_alias: {} track_hash: {}",
                       connection_handle,

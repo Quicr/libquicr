@@ -188,11 +188,11 @@ namespace quicr {
             SendPublish(conn_it->second,
                         pub_request_id,
                         track.track_full_name,
-                        track.track_alias,
-                        track.group_order,
+                        track.attributes.track_alias,
+                        track.attributes.group_order,
                         track.largest_location,
-                        track.forward,
-                        track.dynamic_groups);
+                        track.attributes.forward,
+                        track.attributes.new_group_request_id.has_value());
         }
     }
 
