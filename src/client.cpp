@@ -53,10 +53,12 @@ namespace quicr {
             SendPublishError(ctx_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Rejected");
         }
 
-        // TODO: Were does filter type come from.
-        messages::FilterType filter_type = messages::FilterType::kLargestObject;
-        SendPublishOk(
-          ctx_it->second, request_id, attributes.forward, attributes.priority, attributes.group_order, filter_type);
+        SendPublishOk(ctx_it->second,
+                      request_id,
+                      attributes.forward,
+                      attributes.priority,
+                      attributes.group_order,
+                      attributes.filter_type);
     }
 
     void Client::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&)
