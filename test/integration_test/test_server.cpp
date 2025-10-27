@@ -26,12 +26,21 @@ TestServer::PublishReceived([[maybe_unused]] quicr::ConnectionHandle connection_
                             [[maybe_unused]] const quicr::FullTrackName& track_full_name,
                             [[maybe_unused]] const quicr::messages::PublishAttributes& publish_attributes)
 {
+    // Is anyone interested in this prefix?
+    std::vector<ConnectionHandle> namespace_subscribers;
+    for (const auto& interested : namespace_subscribers_) {
+        if (interested.first.IsPrefixOf(track_full_name.name_space)) {
+            for (const auto& handle : interested.second) {
+                namespace_subscribers.push_back(handle);
+            }
+        }
+    }
+
     ResolvePublish(connection_handle,
                    request_id,
-                   publish_attributes.forward,
-                   publish_attributes.priority,
-                   publish_attributes.group_order,
-                   {});
+                   track_full_name,
+                   publish_attributes,
+                   { .namespace_subscribers = namespace_subscribers, .reason_code = PublishResponse::ReasonCode::kOk });
 }
 
 void
@@ -77,6 +86,14 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
     const SubscribeNamespaceResponse response = { .reason_code = SubscribeNamespaceResponse::ReasonCode::kOk,
                                                   .namespaces = known_published_namespaces_,
                                                   .tracks = known_published_tracks_ };
+
+    // Store this subscriber's interest in the prefix.
+    const auto it = namespace_subscribers_.find(prefix_namespace);
+    if (it == namespace_subscribers_.end()) {
+        namespace_subscribers_[prefix_namespace].push_back(connection_handle);
+    } else {
+        it->second.push_back(connection_handle);
+    }
 
     // Blindly accept it.
     ResolveSubscribeNamespace(connection_handle, attributes.request_id, response);

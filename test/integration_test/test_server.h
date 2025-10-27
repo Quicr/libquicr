@@ -84,5 +84,7 @@ namespace quicr_test {
         std::vector<quicr::TrackNamespace> known_published_namespaces_;
         std::vector<quicr::SubscribeNamespaceResponse::AvailableTrack> known_published_tracks_;
         std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
+        std::unordered_map<quicr::messages::TrackNamespacePrefix, std::vector<quicr::ConnectionHandle>>
+          namespace_subscribers_;
     };
 }

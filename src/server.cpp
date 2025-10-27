@@ -128,9 +128,8 @@ namespace quicr {
 
     void Server::ResolvePublish(ConnectionHandle connection_handle,
                                 uint64_t request_id,
-                                bool forward,
-                                messages::SubscriberPriority priority,
-                                messages::GroupOrder group_order,
+                                const FullTrackName& track_name,
+                                const messages::PublishAttributes& attributes,
                                 const PublishResponse& publish_response)
     {
         auto conn_it = connections_.find(connection_handle);
@@ -142,8 +141,31 @@ namespace quicr {
             case PublishResponse::ReasonCode::kOk: {
 
                 // Send the ok.
-                SendPublishOk(
-                  conn_it->second, request_id, forward, priority, group_order, messages::FilterType::kLargestObject);
+                SendPublishOk(conn_it->second,
+                              request_id,
+                              attributes.forward,
+                              attributes.priority,
+                              attributes.group_order,
+                              messages::FilterType::kLargestObject);
+
+                // Fan out PUBLISH to interested subscribers.
+                for (const auto& handle : publish_response.namespace_subscribers) {
+                    const auto& conn_it = connections_.find(handle);
+                    if (conn_it == connections_.end()) {
+                        SPDLOG_LOGGER_WARN(logger_, "Bad connection handle on SUBSCRIBE_NAMESPACE fan out");
+                        continue;
+                    }
+                    const auto outgoing_request = conn_it->second.GetNextRequestId();
+                    conn_it->second.pub_by_request_id[outgoing_request] = track_name;
+                    SendPublish(conn_it->second,
+                                outgoing_request,
+                                track_name,
+                                attributes.track_alias,
+                                attributes.group_order,
+                                publish_response.largest_location,
+                                attributes.forward,
+                                attributes.dynamic_groups);
+                }
                 break;
             }
             default:
@@ -947,19 +969,48 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                std::optional<uint64_t> new_group_request_id;
+                // Params.
+                std::uint64_t delivery_timeout = 0;
+                bool dynamic_groups = false;
                 for (const auto& param : msg.parameters) {
-                    if (param.type == messages::ParameterType::kDynamicGroups) {
-                        new_group_request_id = 0;
-                        break;
+                    switch (param.type) {
+                        case messages::ParameterType::kDeliveryTimeout: {
+                            std::memcpy(&delivery_timeout,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+
+                            break;
+                        }
+                        case messages::ParameterType::kNewGroupRequest: {
+                            uint64_t ngr_id{ 0 };
+                            std::memcpy(&ngr_id,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+                            switch (ngr_id) {
+                                case 0:
+                                    break;
+                                case 1:
+                                    dynamic_groups = true;
+                                    break;
+                                default:
+                                    throw messages::ProtocolViolationException("DYNAMIC_GROUPS value MUST be <= 1");
+                            }
+                            break;
+                        }
+                        default:
+                            break;
                     }
                 }
 
-                PublishReceived(conn_ctx.connection_handle,
-                                msg.request_id,
-                                tfn,
-                                { { 0, msg.group_order, std::chrono::milliseconds(0), 0, new_group_request_id, true },
-                                  msg.track_alias });
+                messages::PublishAttributes attributes;
+                attributes.track_alias = msg.track_alias;
+                attributes.priority = 0;
+                attributes.group_order = msg.group_order;
+                attributes.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
+                attributes.forward = msg.forward;
+                attributes.is_publisher_initiated = true;
+                attributes.dynamic_groups = dynamic_groups;
+                PublishReceived(conn_ctx.connection_handle, msg.request_id, tfn, attributes);
 
                 return true;
             }

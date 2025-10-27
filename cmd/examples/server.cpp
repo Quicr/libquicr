@@ -587,12 +587,7 @@ class MyServer : public quicr::Server
         qserver_vars::pub_subscribes[th.track_fullname_hash][connection_handle] = sub_track_handler;
         qserver_vars::pub_subscribes_by_req_id[connection_handle][request_id] = sub_track_handler;
 
-        ResolvePublish(connection_handle,
-                       request_id,
-                       true,
-                       publish_attributes.priority,
-                       publish_attributes.group_order,
-                       publish_response);
+        ResolvePublish(connection_handle, request_id, track_full_name, publish_attributes, publish_response);
 
         // Check if there are any subscribers
         if (qserver_vars::subscribes[th.track_fullname_hash].empty()) {
