@@ -321,13 +321,11 @@ namespace quicr {
          *
          * @param connection_handle     Source connection ID
          * @param request_id            Request ID received
-         * @param filter_type           Filter type received
          * @param track_full_name       Track full name
          * @param subscribe_attributes  Subscribe attributes received
          */
         virtual void SubscribeReceived(ConnectionHandle connection_handle,
                                        uint64_t request_id,
-                                       messages::FilterType filter_type,
                                        const FullTrackName& track_full_name,
                                        const messages::SubscribeAttributes& subscribe_attributes);
 

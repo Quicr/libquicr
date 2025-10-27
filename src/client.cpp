@@ -685,6 +685,7 @@ namespace quicr {
                                     { msg.subscriber_priority,
                                       static_cast<messages::GroupOrder>(msg.group_order),
                                       std::chrono::milliseconds{ 0 },
+                                      msg.filter_type,
                                       msg.forward });
                 return true;
             }

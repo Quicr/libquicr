@@ -13,7 +13,6 @@ namespace quicr_test {
         {
             quicr::ConnectionHandle connection_handle;
             uint64_t request_id;
-            quicr::messages::FilterType filter_type;
             quicr::FullTrackName track_full_name;
             quicr::messages::SubscribeAttributes subscribe_attributes;
         };
@@ -69,7 +68,6 @@ namespace quicr_test {
 
         void SubscribeReceived(quicr::ConnectionHandle connection_handle,
                                uint64_t request_id,
-                               quicr::messages::FilterType filter_type,
                                const quicr::FullTrackName& track_full_name,
                                const quicr::messages::SubscribeAttributes& subscribe_attributes) override;
 

@@ -470,7 +470,12 @@ class MyServer : public quicr::Server
                         }
                     }
 
-                    matched_tracks.push_back({ track_full_name, largest_location });
+                    matched_tracks.emplace_back(track_full_name,
+                                                largest_location,
+                                                true,
+                                                handler->GetGroupOrder(),
+                                                handler->NewGroupRequestSupported(),
+                                                *handler->GetTrackAlias());
                     SPDLOG_INFO(
                       "Matched PUBLISH track for SUBSCRIBE_NAMESPACE: conn: {} track_alias: {} track_hash: {}",
                       connection_handle,
@@ -843,7 +848,6 @@ class MyServer : public quicr::Server
 
     void SubscribeReceived(quicr::ConnectionHandle connection_handle,
                            uint64_t request_id,
-                           [[maybe_unused]] quicr::messages::FilterType filter_type,
                            const quicr::FullTrackName& track_full_name,
                            const quicr::messages::SubscribeAttributes& attrs) override
     {

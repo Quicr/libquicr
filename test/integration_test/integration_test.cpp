@@ -99,7 +99,7 @@ TEST_CASE("Integration - Subscribe")
     const auto& details = future.get();
     CHECK_EQ(details.track_full_name.name, ftn.name);
     CHECK_EQ(details.track_full_name.name_space, ftn.name_space);
-    CHECK_EQ(details.filter_type, filter_type);
+    CHECK_EQ(details.subscribe_attributes.filter_type, filter_type);
 
     // Server should respond, track should go live.
     std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));

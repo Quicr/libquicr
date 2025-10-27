@@ -64,7 +64,6 @@ namespace quicr {
 
     void Server::SubscribeReceived(ConnectionHandle,
                                    uint64_t,
-                                   messages::FilterType,
                                    const FullTrackName&,
                                    const messages::SubscribeAttributes&)
     {
@@ -142,6 +141,7 @@ namespace quicr {
         switch (publish_response.reason_code) {
             case PublishResponse::ReasonCode::kOk: {
 
+                // TODO: Filter type.
                 // Send the ok.
                 SendPublishOk(
                   conn_it->second, request_id, forward, priority, group_order, messages::FilterType::kLargestObject);
@@ -188,11 +188,11 @@ namespace quicr {
             SendPublish(conn_it->second,
                         pub_request_id,
                         track.track_full_name,
-                        TrackHash(track.track_full_name).track_fullname_hash, // TODO: Maybe should come from response?
-                        messages::GroupOrder::kOriginalPublisherOrder,        // TODO: Value?
+                        track.track_alias,
+                        track.group_order,
                         track.largest_location,
-                        true,   // TODO: Value?
-                        false); // TODO: Value?
+                        track.forward,
+                        track.dynamic_groups);
         }
     }
 
@@ -475,11 +475,11 @@ namespace quicr {
                 // TODO(tievens): add filter type when caching supports it
                 SubscribeReceived(conn_ctx.connection_handle,
                                   msg.request_id,
-                                  msg.filter_type,
                                   tfn,
                                   { msg.subscriber_priority,
                                     static_cast<messages::GroupOrder>(msg.group_order),
                                     std::chrono::milliseconds{ delivery_timeout },
+                                    msg.filter_type,
                                     msg.forward,
                                     new_group_request_id,
                                     false });
@@ -581,6 +581,7 @@ namespace quicr {
                                     { msg.subscriber_priority,
                                       static_cast<messages::GroupOrder>(msg.group_order),
                                       std::chrono::milliseconds{ 0 },
+                                      msg.filter_type,
                                       msg.forward });
                 return true;
             }
@@ -988,7 +989,13 @@ namespace quicr {
                 PublishReceived(conn_ctx.connection_handle,
                                 msg.request_id,
                                 tfn,
-                                { { 0, msg.group_order, std::chrono::milliseconds(0), 0, new_group_request_id, true },
+                                { { 0,
+                                    msg.group_order,
+                                    std::chrono::milliseconds(0),
+                                    messages::FilterType::kLargestObject,
+                                    0,
+                                    new_group_request_id,
+                                    true },
                                   msg.track_alias });
 
                 return true;
@@ -1050,12 +1057,13 @@ namespace quicr {
                 }
                 messages::SubscribeAttributes attributes = { .priority = msg.subscriber_priority,
                                                              .group_order = msg.group_order,
+                                                             .filter_type = msg.filter_type,
                                                              .delivery_timeout =
                                                                std::chrono::milliseconds(delivery_timeout),
                                                              .forward = msg.forward,
                                                              .new_group_request_id = new_group_request_id,
                                                              .is_publisher_initiated = true };
-                SubscribeReceived(conn_ctx.connection_handle, msg.request_id, msg.filter_type, tfn, attributes);
+                SubscribeReceived(conn_ctx.connection_handle, msg.request_id, tfn, attributes);
                 return true;
             }
 

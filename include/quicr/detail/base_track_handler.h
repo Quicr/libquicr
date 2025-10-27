@@ -5,6 +5,7 @@
 
 #include "quicr/common.h"
 #include "quicr/detail/ctrl_message_types.h"
+#include "quicr/detail/ctrl_messages.h"
 #include "quicr/track_name.h"
 
 #include <optional>
@@ -97,7 +98,11 @@ namespace quicr {
         struct AvailableTrack
         {
             const FullTrackName track_full_name;
-            const std::optional<quicr::messages::Location> largest_location;
+            const std::optional<messages::Location> largest_location;
+            const bool forward;
+            const messages::GroupOrder group_order;
+            const bool dynamic_groups;
+            const messages::TrackAlias track_alias;
         };
         std::vector<AvailableTrack> tracks;
 
