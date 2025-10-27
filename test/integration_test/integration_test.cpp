@@ -249,16 +249,85 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
 
     // Set up promise to capture server-side callback
-    std::promise<TestServer::SubscribeNamespaceDetails> promise;
-    std::future<TestServer::SubscribeNamespaceDetails> future = promise.get_future();
-    server->SetSubscribeNamespacePromise(std::move(promise));
+    std::promise<TestServer::SubscribeNamespaceDetails> server_promise;
+    std::future<TestServer::SubscribeNamespaceDetails> server_future = server_promise.get_future();
+    server->SetSubscribeNamespacePromise(std::move(server_promise));
+
+    // Set up promise to capture client-side SUBSCRIBE_NAMESPACE_OK
+    std::promise<TrackNamespace> client_promise;
+    std::future<TrackNamespace> client_future = client_promise.get_future();
+    client->SetSubscribeNamespaceOkPromise(std::move(client_promise));
+
+    // Set up promise to verify client does NOT receive PUBLISH_NAMESPACE
+    std::promise<TrackNamespace> publish_namespace_promise;
+    std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
+    client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
     // Client sends SUBSCRIBE_NAMESPACE
     CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
 
     // Server should receive the SUBSCRIBE_NAMESPACE message
-    auto status = future.wait_for(kDefaultTimeout);
-    REQUIRE(status == std::future_status::ready);
-    const auto& details = future.get();
+    auto server_status = server_future.wait_for(kDefaultTimeout);
+    REQUIRE(server_status == std::future_status::ready);
+    const auto& details = server_future.get();
     CHECK_EQ(details.prefix_namespace, prefix_namespace);
+
+    // Client should receive SUBSCRIBE_NAMESPACE_OK from relay
+    auto client_status = client_future.wait_for(kDefaultTimeout);
+    REQUIRE(client_status == std::future_status::ready);
+    const auto& received_namespace = client_future.get();
+    CHECK_EQ(received_namespace, prefix_namespace);
+
+    // Client should NOT receive PUBLISH_NAMESPACE because there are no matching namespaces.
+    auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+    CHECK(publish_namespace_status == std::future_status::timeout);
+
+    // TODO: Client should NOT receive PUBLISH because there are no matching tracks.
+}
+
+TEST_CASE("Integration - Subscribe Namespace with matching namespace")
+{
+    auto server = MakeTestServer();
+    auto client = MakeTestClient();
+
+    // Target namespace.
+    TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+
+    // Set up promise to verify client received matching PUBLISH_NAMESPACE.
+    std::promise<TrackNamespace> publish_namespace_promise;
+    std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
+    server->AddKnownPublishedNamespace(prefix_namespace);
+    client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
+
+    // SUBSCRIBE_NAMESPACE to prefix.
+    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+
+    // Client should receive matched PUBLISH_NAMESPACE.
+    auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+    REQUIRE(publish_namespace_status == std::future_status::ready);
+    const auto& received_namespace = publish_namespace_future.get();
+    CHECK_EQ(received_namespace, prefix_namespace);
+}
+
+TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
+{
+    auto server = MakeTestServer();
+    auto client = MakeTestClient();
+
+    // Target namespace.
+    TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+    TrackNamespace non_match({ "baz" });
+
+    // Set up promise to verify client received matching PUBLISH_NAMESPACE.
+    std::promise<TrackNamespace> publish_namespace_promise;
+    std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
+    server->AddKnownPublishedNamespace(non_match);
+    client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
+
+    // SUBSCRIBE_NAMESPACE to prefix.
+    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+
+    // Client should NOT receive PUBLISH_NAMESPACE.
+    auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+    REQUIRE(publish_namespace_status == std::future_status::timeout);
 }

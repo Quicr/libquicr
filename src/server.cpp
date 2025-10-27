@@ -28,12 +28,6 @@ namespace quicr {
 
     void Server::PublishNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&) {}
 
-    std::pair<std::optional<messages::SubscribeNamespaceErrorCode>, std::vector<TrackNamespace>>
-    Server::SubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&)
-    {
-        return { std::nullopt, {} };
-    }
-
     void Server::UnsubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&) {}
 
     void Server::ResolvePublishNamespace(ConnectionHandle connection_handle,
@@ -156,6 +150,36 @@ namespace quicr {
                   conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
                 break;
         }
+    }
+
+    void Server::ResolveSubscribeNamespace(const ConnectionHandle connection_handle,
+                                           const uint64_t request_id,
+                                           const messages::TrackNamespacePrefix& prefix,
+                                           const SubscribeNamespaceResponse& response)
+    {
+        const auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
+            SendSubscribeNamespaceError(
+              conn_it->second, request_id, messages::SubscribeNamespaceErrorCode::kInternalError, "Internal error");
+            return;
+        }
+
+        SendSubscribeNamespaceOk(conn_it->second, request_id);
+
+        // Fan out PUBLISH_NAMESPACE for matching namespaces.
+        for (const auto& name_space : response.namespaces) {
+            if (!prefix.IsPrefixOf(name_space)) {
+                SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
+                continue;
+            }
+            SendPublishNamespace(conn_it->second, conn_it->second.GetNextRequestId(), name_space);
+        }
+
+        // TODO: Fan out publish for matching full tracks.
     }
 
     void Server::ResolveFetch(ConnectionHandle connection_handle,
@@ -614,16 +638,8 @@ namespace quicr {
                 auto msg = messages::SubscribeNamespace{};
                 msg_bytes >> msg;
 
-                const auto& [err, matched_ns] =
-                  SubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_prefix, {});
-                if (err.has_value()) {
-                    SendSubscribeNamespaceError(conn_ctx, msg.request_id, *err, {});
-                } else {
-                    for (const auto& ns : matched_ns) {
-                        SendPublishNamespace(conn_ctx, msg.request_id, ns);
-                    }
-                }
-
+                SubscribeNamespaceReceived(
+                  conn_ctx.connection_handle, msg.track_namespace_prefix, { .request_id = msg.request_id });
                 return true;
             }
             case messages::ControlMessageType::kUnsubscribeNamespace: {

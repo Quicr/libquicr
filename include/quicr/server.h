@@ -161,6 +161,19 @@ namespace quicr {
                                     const PublishResponse& publish_response);
 
         /**
+         * @brief Accept or reject subscribe namespace that was received
+         *
+         * @param connection_handle source connection ID
+         * @param request_id        Request ID
+         * @param prefix            Track namespace prefix
+         * @param response          Response for remainder of subscribe namespace flow
+         */
+        virtual void ResolveSubscribeNamespace(ConnectionHandle connection_handle,
+                                               uint64_t request_id,
+                                               const messages::TrackNamespacePrefix& prefix,
+                                               const SubscribeNamespaceResponse& response);
+
+        /**
          * @brief Accept or reject a Fetch that was received
          *
          * @details Accept or reject a fetch received via FetchReceived().
@@ -288,24 +301,17 @@ namespace quicr {
                                                   const TrackNamespace& prefix_namespace) = 0;
 
         /**
-         * @brief Callback notification for new subscribe announces received
+         * @brief Callback notification for new subscribe namespace received
          *
-         * @note The caller must return the appropriate SubscribeAnnouncesErrorCode on error.
-         *    If no error, nullopt is returned for error code and the vector should contain
-         *    all the matching track namespaces to the prefix.  Each of the returned namespaces
-         *    will be announced to the subscriber.
+         * @note The implementor **MUST** call ResolveSubscribeNamespace().
          *
          * @param connection_handle             Source connection ID
-         * @param prefix_namespace               Track namespace
-         * @param announce_attributes   Announces attributes received
+         * @param prefix_namespace              Track namespace
+         * @param attributes                    Attributes received
          */
-        using SubscribeNamespaceResponse =
-          std::pair<std::optional<messages::SubscribeNamespaceErrorCode>, std::vector<TrackNamespace>>;
-
-        virtual SubscribeNamespaceResponse SubscribeNamespaceReceived(
-          ConnectionHandle connection_handle,
-          const TrackNamespace& prefix_namespace,
-          const PublishNamespaceAttributes& announce_attributes);
+        virtual void SubscribeNamespaceReceived(ConnectionHandle connection_handle,
+                                                const TrackNamespace& prefix_namespace,
+                                                const SubscribeNamespaceAttributes& attributes) = 0;
 
         /**
          * @brief Callback notification for new subscribe received

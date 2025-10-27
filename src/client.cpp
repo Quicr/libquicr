@@ -437,9 +437,7 @@ namespace quicr {
                 messages::PublishNamespace msg;
                 msg_bytes >> msg;
 
-                auto tfn = FullTrackName{ msg.track_namespace, {} };
-
-                PublishNamespaceReceived(tfn.name_space, {});
+                PublishNamespaceReceived(msg.track_namespace, { .request_id = msg.request_id });
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceDone: {

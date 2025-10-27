@@ -514,7 +514,7 @@ namespace quicr {
         void SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
                                          messages::RequestID request_id,
                                          messages::SubscribeNamespaceErrorCode err_code,
-                                         const messages::ReasonPhrase& reason);
+                                         const std::string& reason);
 
         void SendFetch(ConnectionContext& conn_ctx,
                        messages::RequestID request_id,
