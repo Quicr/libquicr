@@ -1,11 +1,11 @@
 #include "quicr/config.h"
-#include "quicr/detail/defer.h"
+#include "quicr/defer.h"
+#include "test_client.h"
+#include "test_server.h"
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include "test_client.h"
-#include "test_server.h"
 #include <filesystem>
 #include <future>
 #include <iostream>

@@ -78,6 +78,31 @@ namespace quicr {
     };
 
     /**
+     * @brief Response to received MOQT Fetch message
+     */
+    struct FetchResponse
+    {
+        /**
+         * @details **kOK** indicates that the fetch is accepted and OK should be sent. Any other
+         *       value indicates that the subscribe is not accepted and the reason code and other
+         *       fields will be set.
+         */
+        enum class ReasonCode : uint8_t
+        {
+            kOk = 0,
+            kInvalidRange,
+            kNoObjects,
+            kInternalError,
+            // TODO: Expand reasons.
+        };
+        ReasonCode reason_code;
+
+        std::optional<std::string> error_reason = std::nullopt;
+
+        std::optional<messages::Location> largest_location = std::nullopt;
+    };
+
+    /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
      *
      * @details Base MoQ track handler
