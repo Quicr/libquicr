@@ -325,7 +325,7 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
     TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
 
     // Existing track.
-    const FullTrackName existing_track(prefix_namespace, std::vector<std::uint8_t>{ 0x01 });
+    const FullTrackName existing_track{ prefix_namespace, { 0x01 } };
 
     // Set up promise to verify client received matching PUBLISH_NAMESPACE.
     std::promise<FullTrackName> publish_promise;
