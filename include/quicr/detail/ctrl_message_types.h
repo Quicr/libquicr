@@ -336,11 +336,17 @@ namespace quicr::messages {
     enum class SubscribeNamespaceErrorCode : uint64_t
     {
         kInternalError = 0x0,
-        kUnauthorized,
-        kTimeout,
-        kNotSupported,
-        kNamespacePrefixUnknown,
+        kUnauthorized = 0x1,
+        kTimeout = 0x2,
+        kNotSupported = 0x3,
+        kNamespacePrefixUnknown = 0x4,
+        kNamespacePrefixOverlap = 0x5,
+        kMalformedAuthToken = 0x10,
+        kExpiredAuthToken = 0x12
     };
+
+    Bytes& operator<<(Bytes& buffer, SubscribeNamespaceErrorCode value);
+    BytesSpan operator>>(BytesSpan buffer, SubscribeNamespaceErrorCode& value);
 
     BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);

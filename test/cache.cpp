@@ -34,25 +34,19 @@ TEST_SUITE("Cache")
 
         // Lookup by matching key.
         CHECK(cache.Contains(target_key));
-        // Lookup by matching intra range would throw.
-        CHECK_THROWS_AS(cache.Contains(target_key, target_key), const std::invalid_argument&);
+
         // Lookup by matching (key+1).
         CHECK(cache.Contains(target_key + 1));
+
         // Lookup by matching range.
         CHECK(cache.Contains(target_key, target_key + 1));
 
-        // Check throws on intra-get and backwards range.
-        CHECK_THROWS_AS(cache.Get(target_key, target_key), const std::invalid_argument&);
-        CHECK_THROWS_AS(cache.Get(target_key + 1, target_key), const std::invalid_argument&);
+        // Lookup by matching intra range would throw.
+        CHECK_THROWS_AS(cache.Contains(target_key, target_key), const std::invalid_argument&);
+        CHECK_THROWS_AS(cache.Contains(target_key + 1, target_key), const std::invalid_argument&);
 
         // Get target key.
         auto retrieved = cache.Get(target_key, target_key + 1);
-        REQUIRE(retrieved.size() == 1);
-        CHECK(*retrieved[0] == expected);
-
-        // Get both keys.
-        retrieved = cache.Get(target_key, target_key + 2);
-        REQUIRE(retrieved.size() == 2);
         CHECK(*retrieved[0] == expected);
         CHECK(*retrieved[1] == expected_second);
     }

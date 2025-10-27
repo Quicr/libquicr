@@ -160,6 +160,37 @@ namespace quicr {
                                     messages::GroupOrder group_order,
                                     const PublishResponse& publish_response);
 
+        /**
+         * @brief Accept or reject subscribe namespace that was received
+         *
+         * @param connection_handle source connection ID
+         * @param request_id        Request ID
+         * @param prefix            Track namespace prefix
+         * @param response          Response for remainder of subscribe namespace flow
+         */
+        virtual void ResolveSubscribeNamespace(ConnectionHandle connection_handle,
+                                               uint64_t request_id,
+                                               const messages::TrackNamespacePrefix& prefix,
+                                               const SubscribeNamespaceResponse& response);
+
+        /**
+         * @brief Accept or reject a Fetch that was received
+         *
+         * @details Accept or reject a fetch received via FetchReceived().
+         *
+         * @param connection_handle        Source connection ID
+         * @param request_id               Request ID
+         * @param type                     The type of Fetch being resolved.
+         * @param priority
+         * @param group_order
+         * @param response                 Response to the Fetch.
+         */
+        virtual void ResolveFetch(ConnectionHandle connection_handle,
+                                  uint64_t request_id,
+                                  messages::SubscriberPriority priority,
+                                  messages::GroupOrder group_order,
+                                  const FetchResponse& response);
+
         // --BEGIN CALLBACKS ----------------------------------------------------------------------------------
         /** @name Server Calbacks
          *      slient transport specific callbacks
@@ -270,24 +301,17 @@ namespace quicr {
                                                   const TrackNamespace& prefix_namespace) = 0;
 
         /**
-         * @brief Callback notification for new subscribe announces received
+         * @brief Callback notification for new subscribe namespace received
          *
-         * @note The caller must return the appropriate SubscribeAnnouncesErrorCode on error.
-         *    If no error, nullopt is returned for error code and the vector should contain
-         *    all the matching track namespaces to the prefix.  Each of the returned namespaces
-         *    will be announced to the subscriber.
+         * @note The implementor **MUST** call ResolveSubscribeNamespace().
          *
          * @param connection_handle             Source connection ID
-         * @param prefix_namespace               Track namespace
-         * @param announce_attributes   Announces attributes received
+         * @param prefix_namespace              Track namespace
+         * @param attributes                    Attributes received
          */
-        using SubscribeNamespaceResponse =
-          std::pair<std::optional<messages::SubscribeNamespaceErrorCode>, std::vector<TrackNamespace>>;
-
-        virtual SubscribeNamespaceResponse SubscribeNamespaceReceived(
-          ConnectionHandle connection_handle,
-          const TrackNamespace& prefix_namespace,
-          const PublishNamespaceAttributes& announce_attributes);
+        virtual void SubscribeNamespaceReceived(ConnectionHandle connection_handle,
+                                                const TrackNamespace& prefix_namespace,
+                                                const SubscribeNamespaceAttributes& attributes) = 0;
 
         /**
          * @brief Callback notification for new subscribe received
@@ -316,41 +340,30 @@ namespace quicr {
         virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
 
         /**
-         * @brief Get the largest available location for the given track, if any.
-         * @param track_name The track to lookup on.
-         * @return The largest available location, if any.
-         */
-        virtual std::optional<messages::Location> GetLargestAvailable(const FullTrackName& track_name);
-
-        /**
-         * @brief Event to run on receiving Fetch request.
+         * @brief Event to run on receiving a Standalone Fetch request.
          *
          * @param connection_handle Source connection ID.
          * @param request_id        Request ID received.
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
-         *
-         * @returns True to indicate fetch will send data, False if no data is within the requested range
          */
-        virtual bool FetchReceived(ConnectionHandle connection_handle,
-                                   uint64_t request_id,
-                                   const FullTrackName& track_full_name,
-                                   const quicr::messages::FetchAttributes& attributes) override;
+        virtual void StandaloneFetchReceived(ConnectionHandle connection_handle,
+                                             uint64_t request_id,
+                                             const FullTrackName& track_full_name,
+                                             const quicr::messages::StandaloneFetchAttributes& attributes) override;
 
         /**
-         * @brief Event to run on sending FetchOk.
+         * @brief Event to run on receiving a Joining Fetch request.
          *
          * @param connection_handle Source connection ID.
          * @param request_id        Request ID received.
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
-         *
-         * @returns True to indicate fetch will send data, False if no data is within the requested range
          */
-        virtual bool OnFetchOk(ConnectionHandle connection_handle,
-                               uint64_t request_id,
-                               const FullTrackName& track_full_name,
-                               const messages::FetchAttributes& attributes);
+        virtual void JoiningFetchReceived(ConnectionHandle connection_handle,
+                                          uint64_t request_id,
+                                          const FullTrackName& track_full_name,
+                                          const quicr::messages::JoiningFetchAttributes& attributes) override;
 
         /**
          * @brief Callback notification on receiving a FetchCancel message.
@@ -358,7 +371,7 @@ namespace quicr {
          * @param connection_handle Source connection ID.
          * @param request_id        Request ID received.
          */
-        virtual void FetchCancelReceived(ConnectionHandle connection_handle, uint64_t request_id) = 0;
+        virtual void FetchCancelReceived(ConnectionHandle connection_handle, uint64_t request_id) override;
 
         /**
          * @brief Callback notification for new publish received

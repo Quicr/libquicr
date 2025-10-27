@@ -8,18 +8,20 @@ namespace quicr {
                                            [[maybe_unused]] uint64_t stream_id,
                                            std::shared_ptr<const std::vector<uint8_t>> data)
     {
+        SPDLOG_DEBUG("Got fetch data size: {}", data->size());
         if (is_start) {
             stream_buffer_.Clear();
 
             stream_buffer_.InitAny<messages::FetchHeader>();
             stream_buffer_.Push(*data);
-            stream_buffer_.Pop(); // Remove type header
 
             // Expect that on initial start of stream, there is enough data to process the stream headers
 
             auto& f_hdr = stream_buffer_.GetAny<messages::FetchHeader>();
             if (not(stream_buffer_ >> f_hdr)) {
-                SPDLOG_ERROR("Not enough data to process new stream headers, stream is invalid");
+                SPDLOG_ERROR("Not enough data to process new stream headers, stream is invalid len: {} / {}",
+                             stream_buffer_.Size(),
+                             data->size());
                 // TODO: Add metrics to track this
                 return;
             }

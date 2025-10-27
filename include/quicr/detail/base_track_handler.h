@@ -77,6 +77,55 @@ namespace quicr {
         std::optional<messages::Location> largest_location = std::nullopt;
     };
 
+    struct SubscribeNamespaceResponse
+    {
+        /**
+         * @details **kOK** indicates that the subscribe namespace is accepted and OK should be sent. Any other
+         *       value indicates that the subscribe namespace is not accepted and the reason code and other
+         *       fields will be set.
+         */
+        enum class ReasonCode : uint8_t
+        {
+            kOk = 0,
+            kInternalError,
+            kNotSupported,
+        };
+        ReasonCode reason_code;
+
+        // Matched tracks that will be advertised in response via PUBLISH.
+        std::vector<FullTrackName> tracks;
+
+        // Matched tracks that will be advertised in response via PUBLISH_NAMESPACE.
+        std::vector<TrackNamespace> namespaces;
+
+        std::optional<std::string> error_reason = std::nullopt;
+    };
+
+    /**
+     * @brief Response to received MOQT Fetch message
+     */
+    struct FetchResponse
+    {
+        /**
+         * @details **kOK** indicates that the fetch is accepted and OK should be sent. Any other
+         *       value indicates that the subscribe is not accepted and the reason code and other
+         *       fields will be set.
+         */
+        enum class ReasonCode : uint8_t
+        {
+            kOk = 0,
+            kInvalidRange,
+            kNoObjects,
+            kInternalError,
+            // TODO: Expand reasons.
+        };
+        ReasonCode reason_code;
+
+        std::optional<std::string> error_reason = std::nullopt;
+
+        std::optional<messages::Location> largest_location = std::nullopt;
+    };
+
     /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
      *
