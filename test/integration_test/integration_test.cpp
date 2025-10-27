@@ -1,11 +1,11 @@
 #include "quicr/config.h"
-#include "quicr/detail/defer.h"
+#include "quicr/defer.h"
+#include "test_client.h"
+#include "test_server.h"
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include "test_client.h"
-#include "test_server.h"
 #include <filesystem>
 #include <future>
 #include <iostream>
@@ -356,4 +356,27 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
     CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
 
     // TODO: Test the Error / reject path.
+}
+
+TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
+{
+    auto server = MakeTestServer();
+    auto client = MakeTestClient();
+
+    // Target namespace.
+    TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+    TrackNamespace non_match({ "baz" });
+
+    // Set up promise to verify client received matching PUBLISH_NAMESPACE.
+    std::promise<TrackNamespace> publish_namespace_promise;
+    std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
+    server->AddKnownPublishedNamespace(non_match);
+    client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
+
+    // SUBSCRIBE_NAMESPACE to prefix.
+    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+
+    // Client should NOT receive PUBLISH_NAMESPACE.
+    auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+    REQUIRE(publish_namespace_status == std::future_status::timeout);
 }

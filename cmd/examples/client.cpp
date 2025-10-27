@@ -1,24 +1,46 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <nlohmann/json.hpp>
-#include <oss/cxxopts.hpp>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
-
-#include <quicr/client.h>
-#include <quicr/object.h>
-
 #include "helper_functions.h"
 #include "signal_handler.h"
+
+#include <nlohmann/json.hpp>
+#include <oss/cxxopts.hpp>
+#include <quicr/cache.h>
+#include <quicr/client.h>
+#include <quicr/defer.h>
+#include <quicr/object.h>
+#include <quicr/publish_fetch_handler.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
-
-#include <quicr/publish_fetch_handler.h>
+#include <set>
 
 using json = nlohmann::json; // NOLINT
+
+/**
+ * @brief Defines an object received from an announcer that lives in the cache.
+ */
+struct CacheObject
+{
+    quicr::ObjectHeaders headers;
+    quicr::Bytes data;
+};
+
+/**
+ * @brief Specialization of std::less for sorting CacheObjects by object ID.
+ */
+template<>
+struct std::less<CacheObject>
+{
+    constexpr bool operator()(const CacheObject& lhs, const CacheObject& rhs) const noexcept
+    {
+        return lhs.headers.object_id < rhs.headers.object_id;
+    }
+};
 
 namespace qclient_vars {
     bool publish_clock{ false };
@@ -29,6 +51,10 @@ namespace qclient_vars {
     bool add_gaps = false;
     bool req_track_status = false;
     std::chrono::milliseconds playback_speed_ms(20);
+    std::chrono::milliseconds cache_duration_ms(180000);
+    std::unordered_map<quicr::messages::TrackAlias, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>>
+      cache;
+    std::shared_ptr<quicr::ThreadedTickService> tick_service = std::make_shared<quicr::ThreadedTickService>();
 
 }
 
@@ -163,18 +189,22 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         if (hdr.extensions) {
             ext << "mutable hdrs: ";
 
-            for (const auto& [type, value] : hdr.extensions.value()) {
-                ext << std::hex << std::setfill('0') << std::setw(2) << type;
-                ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+            for (const auto& [type, values] : hdr.extensions.value()) {
+                for (const auto& value : values) {
+                    ext << std::hex << std::setfill('0') << std::setw(2) << type;
+                    ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+                }
             }
         }
 
         if (hdr.immutable_extensions) {
             ext << "immutable hdrs: ";
 
-            for (const auto& [type, value] : hdr.immutable_extensions.value()) {
-                ext << std::hex << std::setfill('0') << std::setw(2) << type;
-                ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+            for (const auto& [type, values] : hdr.immutable_extensions.value()) {
+                for (const auto& value : values) {
+                    ext << std::hex << std::setfill('0') << std::setw(2) << type;
+                    ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+                }
             }
         }
 
@@ -300,6 +330,30 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 break;
         }
     }
+
+    PublishObjectStatus PublishObject(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
+    {
+        auto track_alias = GetTrackAlias();
+
+        // Cache Object
+        if (!qclient_vars::cache.contains(*track_alias)) {
+            qclient_vars::cache.emplace(
+              *track_alias,
+              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{
+                static_cast<std::size_t>(qclient_vars::cache_duration_ms.count()), 1000, qclient_vars::tick_service });
+        }
+
+        CacheObject object{ object_headers, { data.begin(), data.end() } };
+
+        if (auto group = qclient_vars::cache.at(*track_alias).Get(object_headers.group_id)) {
+            group->insert(std::move(object));
+        } else {
+            qclient_vars::cache.at(*track_alias)
+              .Insert(object_headers.group_id, { std::move(object) }, qclient_vars ::cache_duration_ms.count());
+        }
+
+        return quicr::PublishTrackHandler::PublishObject(object_headers, data);
+    }
 };
 
 class MyFetchTrackHandler : public quicr::FetchTrackHandler
@@ -327,7 +381,7 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
                        uint64_t end_object)
     {
         return std::shared_ptr<MyFetchTrackHandler>(
-          new MyFetchTrackHandler(full_track_name, start_group, end_group, start_object, end_object));
+          new MyFetchTrackHandler(full_track_name, start_group, start_object, end_group, end_object));
     }
 
     void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
@@ -347,6 +401,15 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
             } break;
 
             case Status::kError: {
+                SPDLOG_INFO("Fetch failed");
+                break;
+            }
+            case Status::kDoneByFin: {
+                SPDLOG_INFO("Fetch completed");
+                break;
+            }
+
+            case Status::kDoneByReset: {
                 SPDLOG_INFO("Fetch failed");
                 break;
             }
@@ -429,35 +492,138 @@ class MyClient : public quicr::Client
                     reason_str);
     }
 
-    bool FetchReceived(quicr::ConnectionHandle connection_handle,
-                       uint64_t request_id,
-                       const quicr::FullTrackName& track_full_name,
-                       const quicr::messages::FetchAttributes& attributes) override
+    std::optional<quicr::messages::Location> GetLargestAvailable(const quicr::FullTrackName& track_full_name)
     {
-        auto pub_fetch_h = quicr::PublishFetchHandler::Create(
-          track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
-        BindFetchTrack(connection_handle, pub_fetch_h);
+        std::optional<quicr::messages::Location> largest_location = std::nullopt;
+        auto th = quicr::TrackHash(track_full_name);
 
-        for (uint64_t pub_group_number = attributes.start_location.group; pub_group_number < attributes.end_group;
-             ++pub_group_number) {
-            quicr::ObjectHeaders headers{ .group_id = pub_group_number,
-                                          .object_id = 0,
-                                          .subgroup_id = 0,
-                                          .payload_length = 0,
-                                          .status = quicr::ObjectStatus::kAvailable,
-                                          .priority = attributes.priority,
-                                          .ttl = 3000, // in milliseconds
-                                          .track_mode = std::nullopt,
-                                          .extensions = std::nullopt,
-                                          .immutable_extensions = std::nullopt };
-
-            std::string hello = "Hello:" + std::to_string(pub_group_number);
-            std::vector<uint8_t> data_vec(hello.begin(), hello.end());
-            quicr::BytesSpan data{ data_vec.data(), data_vec.size() };
-            pub_fetch_h->PublishObject(headers, data);
+        auto cache_entry_it = qclient_vars::cache.find(th.track_fullname_hash);
+        if (cache_entry_it != qclient_vars::cache.end()) {
+            auto& [_, cache] = *cache_entry_it;
+            if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
+                const auto& latest_object = std::prev(latest_group->end());
+                largest_location = { latest_object->headers.group_id, latest_object->headers.object_id };
+            }
         }
 
-        return true;
+        return largest_location;
+    }
+
+    void FetchReceived(quicr::ConnectionHandle connection_handle,
+                       uint64_t request_id,
+                       const quicr::FullTrackName& track_full_name,
+                       quicr::messages::SubscriberPriority priority,
+                       quicr::messages::GroupOrder group_order,
+                       quicr::messages::Location start,
+                       std::optional<quicr::messages::Location> end)
+    {
+        auto reason_code = quicr::FetchResponse::ReasonCode::kOk;
+        std::optional<quicr::messages::Location> largest_location = std::nullopt;
+        auto th = quicr::TrackHash(track_full_name);
+
+        auto cache_entry_it = qclient_vars::cache.find(th.track_fullname_hash);
+        if (cache_entry_it != qclient_vars::cache.end()) {
+            auto& [_, cache] = *cache_entry_it;
+            if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
+                const auto& latest_object = *std::prev(latest_group->end());
+                largest_location = { latest_object.headers.group_id, latest_object.headers.object_id };
+            }
+        }
+
+        if (!largest_location.has_value()) {
+            // TODO: This changes to send an empty object instead of REQUEST_ERROR
+            reason_code = quicr::FetchResponse::ReasonCode::kNoObjects;
+        }
+
+        if (start.group > end->group || largest_location.value().group < start.group) {
+            reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
+        }
+
+        ResolveFetch(connection_handle,
+                     request_id,
+                     priority,
+                     group_order,
+                     {
+                       reason_code,
+                       reason_code == quicr::FetchResponse::ReasonCode::kOk
+                         ? std::nullopt
+                         : std::make_optional("Cannot process fetch"),
+                       largest_location,
+                     });
+
+        if (reason_code != quicr::FetchResponse::ReasonCode::kOk) {
+            return;
+        }
+
+        const auto& cache_entries =
+          cache_entry_it->second.Get(start.group, end->group != 0 ? end->group : cache_entry_it->second.Size());
+
+        if (cache_entries.empty()) {
+            reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
+        }
+
+        // TODO: Adjust the TTL
+        auto pub_fetch_h =
+          quicr::PublishFetchHandler::Create(track_full_name, priority, request_id, group_order, 50000);
+        BindFetchTrack(connection_handle, pub_fetch_h);
+
+        std::thread retrieve_cache_thread([=, cache_entries = std::move(cache_entries), this] {
+            defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
+
+            for (const auto& entry : cache_entries) {
+                for (const auto& object : *entry) {
+                    if (end->object && object.headers.group_id == end->group &&
+                        object.headers.object_id >= end->object) {
+                        return;
+                    }
+
+                    SPDLOG_DEBUG(
+                      "Fetch sending group: {} object: {}", object.headers.group_id, object.headers.object_id);
+                    pub_fetch_h->PublishObject(object.headers, object.data);
+                }
+            }
+        });
+
+        retrieve_cache_thread.detach();
+    }
+
+    void StandaloneFetchReceived(quicr::ConnectionHandle connection_handle,
+                                 uint64_t request_id,
+                                 const quicr::FullTrackName& track_full_name,
+                                 const quicr::messages::StandaloneFetchAttributes& attributes)
+    {
+        FetchReceived(connection_handle,
+                      request_id,
+                      track_full_name,
+                      attributes.priority,
+                      attributes.group_order,
+                      attributes.start_location,
+                      attributes.end_location);
+    }
+
+    void JoiningFetchReceived(quicr::ConnectionHandle connection_handle,
+                              uint64_t request_id,
+                              const quicr::FullTrackName& track_full_name,
+                              const quicr::messages::JoiningFetchAttributes& attributes)
+    {
+        uint64_t joining_start = 0;
+
+        if (attributes.relative) {
+            if (const auto largest = GetLargestAvailable(track_full_name)) {
+                if (largest->group > attributes.joining_start)
+                    joining_start = largest->group - attributes.joining_start;
+            }
+        } else {
+            joining_start = attributes.joining_start;
+        }
+
+        FetchReceived(connection_handle,
+                      request_id,
+                      track_full_name,
+                      attributes.priority,
+                      attributes.group_order,
+                      { joining_start, 0 },
+                      std::nullopt);
     }
 
     void TrackStatusResponseReceived(quicr::ConnectionHandle,
@@ -769,7 +935,11 @@ DoFetch(const quicr::FullTrackName& full_track_name,
     auto track_handler = MyFetchTrackHandler::Create(
       full_track_name, group_range.start, object_range.start, group_range.end, object_range.end);
 
-    SPDLOG_INFO("Started fetch");
+    SPDLOG_INFO("Started fetch start: {}.{} end: {}.{}",
+                group_range.start,
+                object_range.start,
+                group_range.end,
+                object_range.end);
 
     bool fetch_track{ false };
 
@@ -783,7 +953,7 @@ DoFetch(const quicr::FullTrackName& full_track_name,
         if (track_handler->GetStatus() == quicr::FetchTrackHandler::Status::kPendingResponse) {
             // do nothing...
         } else if (!fetch_track || (track_handler->GetStatus() != quicr::FetchTrackHandler::Status::kOk)) {
-            SPDLOG_INFO("GetStatus() != quicr::FetchTrackHandler::Status::kOk {}", (int)track_handler->GetStatus());
+            SPDLOG_DEBUG("GetStatus() != quicr::FetchTrackHandler::Status::kOk {}", (int)track_handler->GetStatus());
             moq_example::terminate = true;
             moq_example::cv.notify_all();
             break;
@@ -883,6 +1053,10 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
 
+    if (cli_opts.count("cache_duration_ms")) {
+        qclient_vars::cache_duration_ms = std::chrono::milliseconds(cli_opts["cache_duration_ms"].as<uint64_t>());
+    }
+
     if (cli_opts.count("ssl_keylog") && cli_opts["ssl_keylog"].as<bool>() == true) {
         SPDLOG_INFO("SSL Keylog enabled");
     }
@@ -912,7 +1086,6 @@ main(int argc, char* argv[])
     // clang-format off
     options.set_width(75)
       .set_tab_expansion()
-      //.allow_unrecognised_options()
       .add_options()
         ("h,help", "Print help")
         ("d,debug", "Enable debugging") // a bool parameter
@@ -930,6 +1103,7 @@ main(int argc, char* argv[])
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")
         ("playback", "Playback recorded data from moq and dat files", cxxopts::value<bool>())
         ("playback_speed_ms", "Playback speed in ms", cxxopts::value<std::uint64_t>())
+        ("cache_duration_ms", "TTL of objects in the cache", cxxopts::value<std::uint64_t>()->default_value("50000"))
         ("gaps", "Add gaps to groups and objects");
 
     options.add_options("Subscriber")

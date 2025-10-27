@@ -9,7 +9,7 @@
 #include <spdlog/spdlog.h>
 
 #include <quicr/cache.h>
-#include <quicr/detail/defer.h>
+#include <quicr/defer.h>
 #include <quicr/server.h>
 
 #include "signal_handler.h"
@@ -127,11 +127,6 @@ namespace qserver_vars {
      * Tick Service used by the cache
      */
     std::shared_ptr<quicr::ThreadedTickService> tick_service = std::make_shared<quicr::ThreadedTickService>();
-
-    /**
-     * @brief Map of atomic bools to mark if a fetch thread should be interrupted.
-     */
-    std::map<std::pair<quicr::ConnectionHandle, quicr::messages::RequestID>, std::atomic_bool> stop_fetch;
 
     /**
      * @brief List of track aliases that are pending new group request
@@ -331,75 +326,6 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
 };
 
 /**
- * @brief  Fetch track handler
- * @details Fetch track handler.
- */
-class MyFetchTrackHandler : public quicr::FetchTrackHandler
-{
-    MyFetchTrackHandler(const std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler,
-                        const quicr::FullTrackName& full_track_name,
-                        quicr::messages::SubscriberPriority priority,
-                        quicr::messages::GroupOrder group_order,
-                        uint64_t start_group,
-                        uint64_t start_object,
-                        uint64_t end_group,
-                        uint64_t end_object)
-      : FetchTrackHandler(full_track_name, priority, group_order, start_group, end_group, start_object, end_object)
-    {
-        publish_fetch_handler_ = publish_fetch_handler;
-    }
-
-  public:
-    static auto Create(const std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler,
-                       const quicr::FullTrackName& full_track_name,
-                       std::uint8_t priority,
-                       quicr::messages::GroupOrder group_order,
-                       uint64_t start_group,
-                       uint64_t start_object,
-                       uint64_t end_group,
-                       uint64_t end_object)
-    {
-        return std::shared_ptr<MyFetchTrackHandler>(new MyFetchTrackHandler(publish_fetch_handler,
-                                                                            full_track_name,
-                                                                            priority,
-                                                                            group_order,
-                                                                            start_group,
-                                                                            end_group,
-                                                                            start_object,
-                                                                            end_object));
-    }
-
-    void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
-    {
-        // Simple - forward what we get to the fetch handler
-        if (publish_fetch_handler_) {
-            publish_fetch_handler_->PublishObject(headers, data);
-        }
-    }
-
-    void StatusChanged(Status status) override
-    {
-        switch (status) {
-            case Status::kOk: {
-                if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
-                }
-            } break;
-
-            case Status::kError: {
-                SPDLOG_INFO("Fetch failed");
-                break;
-            }
-            default:
-                break;
-        }
-    }
-
-  private:
-    std::shared_ptr<quicr::PublishFetchHandler> publish_fetch_handler_;
-};
-
-/**
  * @brief MoQ Server
  * @details Implementation of the MoQ Server
  */
@@ -558,7 +484,7 @@ class MyServer : public quicr::Server
                                                                quicr::SubscribeNamespaceResponse::ReasonCode::kOk,
                                                              .tracks = std::move(matched_tracks),
                                                              .namespaces = std::move(matched_ns) };
-        ResolveSubscribeNamespace(connection_handle, attributes.request_id, response);
+        ResolveSubscribeNamespace(connection_handle, attributes.request_id, prefix_namespace, response);
     }
 
     void PublishReceived(quicr::ConnectionHandle connection_handle,
@@ -1034,127 +960,7 @@ class MyServer : public quicr::Server
         }
     }
 
-    std::optional<quicr::messages::Location> GetLargestAvailable(const quicr::FullTrackName& track_name) override
-    {
-        // Get the largest object from the cache.
-        std::optional<quicr::messages::Location> largest_location = std::nullopt;
-
-        const auto& th = quicr::TrackHash(track_name);
-        const auto cache_entry_it = qserver_vars::cache.find(th.track_fullname_hash);
-        if (cache_entry_it != qserver_vars::cache.end()) {
-            auto& [_, cache] = *cache_entry_it;
-            if (const auto& latest_group = cache.Last(); latest_group && !latest_group->empty()) {
-                const auto& latest_object = std::prev(latest_group->end());
-                largest_location = { latest_object->headers.group_id, latest_object->headers.object_id };
-            }
-        }
-
-        return largest_location;
-    }
-
-    bool FetchReceived(quicr::ConnectionHandle connection_handle,
-                       uint64_t request_id,
-                       const quicr::FullTrackName& track_full_name,
-                       const quicr::messages::FetchAttributes& attributes) override
-    {
-        // lookup Announcer/Publisher for this Fetch request
-        auto anno_ns_it = qserver_vars::announce_active.find(track_full_name.name_space);
-
-        if (anno_ns_it == qserver_vars::announce_active.end()) {
-            return false;
-        }
-
-        auto setup_fetch_handler = [&](quicr::ConnectionHandle pub_connection_handle) {
-            auto pub_fetch_h = quicr::PublishFetchHandler::Create(
-              track_full_name, attributes.priority, request_id, attributes.group_order, 50000);
-            BindFetchTrack(connection_handle, pub_fetch_h);
-
-            auto fetch_track_handler =
-              MyFetchTrackHandler::Create(pub_fetch_h,
-                                          track_full_name,
-                                          attributes.priority,
-                                          attributes.group_order,
-                                          attributes.start_location.group,
-                                          attributes.start_location.object,
-                                          attributes.end_group,
-                                          attributes.end_object.has_value() ? attributes.end_object.value() : 0);
-
-            FetchTrack(pub_connection_handle, fetch_track_handler);
-            return true;
-        };
-
-        // Handle announcer case
-        for (auto& [pub_connection_handle, _] : anno_ns_it->second) {
-            return setup_fetch_handler(pub_connection_handle);
-        }
-
-        return false;
-    }
-
-    bool OnFetchOk(quicr::ConnectionHandle connection_handle,
-                   uint64_t subscribe_id,
-                   const quicr::FullTrackName& track_full_name,
-                   const quicr::messages::FetchAttributes& attrs) override
-    {
-        auto pub_fetch_h =
-          quicr::PublishFetchHandler::Create(track_full_name, attrs.priority, subscribe_id, attrs.group_order, 50000);
-        BindFetchTrack(connection_handle, pub_fetch_h);
-
-        const auto th = quicr::TrackHash(track_full_name);
-
-        qserver_vars::stop_fetch.try_emplace({ connection_handle, subscribe_id }, false);
-
-        const auto cache_entries = [&] {
-            std::lock_guard lock(moq_example::main_mutex);
-            return qserver_vars::cache.at(th.track_fullname_hash).Get(attrs.start_location.group, attrs.end_group + 1);
-        }();
-
-        if (cache_entries.empty())
-            return false;
-
-        std::thread retrieve_cache_thread([=, this, cache_entries = cache_entries] {
-            defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
-
-            for (const auto& cache_entry : cache_entries) {
-                for (const auto& object : *cache_entry) {
-                    if (qserver_vars::stop_fetch[{ connection_handle, subscribe_id }]) {
-                        qserver_vars::stop_fetch.erase({ connection_handle, subscribe_id });
-                        return;
-                    }
-
-                    /*
-                     * Stop when reached end group and end object, unless end object is zero. End object of
-                     * zero indicates all objects within end group
-                     */
-                    if (attrs.end_object.has_value() && *attrs.end_object != 0 &&
-                        object.headers.group_id == attrs.end_group && object.headers.object_id > *attrs.end_object)
-                        break; // Done, reached end object within end group
-
-                    SPDLOG_DEBUG("Fetching group: {} object: {}", object.headers.group_id, object.headers.object_id);
-
-                    try {
-                        pub_fetch_h->PublishObject(object.headers, object.data);
-                    } catch (const std::exception& e) {
-                        SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
-                    }
-                }
-            }
-        });
-
-        retrieve_cache_thread.detach();
-        return true;
-    }
-
-    void FetchCancelReceived(quicr::ConnectionHandle connection_handle, uint64_t subscribe_id) override
-    {
-        SPDLOG_INFO("Canceling fetch for connection handle: {} subscribe_id: {}", connection_handle, subscribe_id);
-
-        if (qserver_vars::stop_fetch.count({ connection_handle, subscribe_id }) == 0)
-            qserver_vars::stop_fetch[{ connection_handle, subscribe_id }] = true;
-    }
-
   private:
-    /// The server cache for fetching from.
     const int kSubscriptionDampenDurationMs_ = 1000;
     std::optional<std::chrono::time_point<std::chrono::steady_clock>> last_subscription_time_;
 };

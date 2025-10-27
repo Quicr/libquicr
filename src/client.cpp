@@ -88,12 +88,45 @@ namespace quicr {
         }
     }
 
-    bool Client::FetchReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                               [[maybe_unused]] uint64_t request_id,
-                               [[maybe_unused]] const quicr::FullTrackName& track_full_name,
-                               [[maybe_unused]] const quicr::messages::FetchAttributes& attributes)
+    void Client::StandaloneFetchReceived(ConnectionHandle,
+                                         uint64_t,
+                                         const FullTrackName&,
+                                         const quicr::messages::StandaloneFetchAttributes&)
     {
-        return false;
+    }
+
+    void Client::JoiningFetchReceived(ConnectionHandle,
+                                      uint64_t,
+                                      const FullTrackName&,
+                                      const quicr::messages::JoiningFetchAttributes&)
+    {
+    }
+
+    void Client::FetchCancelReceived(ConnectionHandle, uint64_t) {}
+
+    void Client::ResolveFetch(ConnectionHandle connection_handle,
+                              uint64_t request_id,
+                              messages::SubscriberPriority priority,
+                              messages::GroupOrder group_order,
+                              const FetchResponse& response)
+    {
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        switch (response.reason_code) {
+            case FetchResponse::ReasonCode::kOk: {
+                SendFetchOk(conn_it->second, request_id, group_order, priority, response.largest_location.value());
+                break;
+            }
+            default:
+                SendFetchError(conn_it->second,
+                               request_id,
+                               messages::FetchErrorCode::kInternalError,
+                               response.error_reason.has_value() ? response.error_reason.value() : "Internal error");
+                break;
+        }
     }
 
     void Client::BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler)
@@ -116,8 +149,24 @@ namespace quicr {
 
         track_handler->SetTransport(GetSharedPtr());
 
-        // Hold ref to track handler
-        conn_it->second.pub_fetch_tracks_by_sub_id[request_id] = std::move(track_handler);
+        conn_it->second.pub_fetch_tracks_by_request_id[request_id] = std::move(track_handler);
+    }
+
+    void Client::UnbindFetchTrack(ConnectionHandle connection_handle,
+                                  const std::shared_ptr<PublishFetchHandler>& track_handler)
+    {
+        std::lock_guard lock(state_mutex_);
+
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+        auto request_id = *track_handler->GetRequestId();
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "Client publish fetch track conn_id: {} subscribe id: {} unbind", connection_handle, request_id);
+
+        conn_it->second.pub_fetch_tracks_by_request_id.erase(request_id);
+        quic_transport_->DeleteDataContext(connection_handle, track_handler->publish_data_ctx_id_, true);
     }
 
     PublishTrackHandler::PublishObjectStatus Client::SendFetchObject(PublishFetchHandler& track_handler,
@@ -362,7 +411,8 @@ namespace quicr {
                       msg.group_0->largest_location.group,
                       msg.group_0->largest_location.object);
 
-                    sub_it->second.get()->SetLatestLocation(msg.group_0->largest_location);
+                    if (msg.group_0.has_value())
+                        sub_it->second.get()->SetLatestLocation(msg.group_0->largest_location);
                 }
 
                 for (const auto& param : msg.parameters) {
@@ -374,6 +424,10 @@ namespace quicr {
 
                 sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
                 conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second;
+
+                if (msg.group_0.has_value())
+                    sub_it->second.get()->SetLatestLocation(msg.group_0.value().largest_location);
+
                 sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
 
                 return true;
@@ -407,7 +461,6 @@ namespace quicr {
                 RemoveSubscribeTrack(conn_ctx, *sub_it->second);
                 return true;
             }
-
             case messages::ControlMessageType::kPublishNamespace: {
                 messages::PublishNamespace msg;
                 msg_bytes >> msg;
@@ -415,7 +468,6 @@ namespace quicr {
                 PublishNamespaceReceived(msg.track_namespace, { .request_id = msg.request_id });
                 return true;
             }
-
             case messages::ControlMessageType::kPublishNamespaceDone: {
                 messages::PublishNamespaceDone msg;
                 msg_bytes >> msg;
@@ -425,7 +477,6 @@ namespace quicr {
 
                 return true;
             }
-
             case messages::ControlMessageType::kPublishNamespaceOk: {
                 messages::PublishNamespaceOk msg;
                 msg_bytes >> msg;
@@ -489,7 +540,6 @@ namespace quicr {
 
                 return true;
             }
-
             case messages::ControlMessageType::kUnsubscribe: {
                 messages::Unsubscribe msg;
                 msg_bytes >> msg;
@@ -605,7 +655,6 @@ namespace quicr {
                 PublishNamespaceStatusChanged(tfn.name_space, PublishNamespaceStatus::kNotPublished);
                 return true;
             }
-
             case messages::ControlMessageType::kTrackStatus: {
                 auto msg = messages::TrackStatus(
                   [](messages::TrackStatus& msg) {
@@ -698,7 +747,6 @@ namespace quicr {
                 TrackStatusResponseReceived(conn_ctx.connection_handle, msg.request_id, response);
                 return true;
             }
-
             case messages::ControlMessageType::kGoaway: {
                 messages::Goaway msg;
                 msg_bytes >> msg;
@@ -745,6 +793,7 @@ namespace quicr {
                     return true;
                 }
 
+                fetch_it->second.get()->SetLatestLocation(msg.end_location);
                 fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kOk);
 
                 return true;
@@ -790,73 +839,83 @@ namespace quicr {
                           msg.group_1 = std::make_optional<messages::Fetch::Group_1>();
                       }
                   });
-                msg_bytes >> msg;
 
-                FullTrackName tfn;
-                messages::FetchAttributes attrs = {
-                    msg.subscriber_priority, msg.group_order, { 0, 0 }, 0, std::nullopt
-                };
+                msg_bytes >> msg;
+                bool relative_joining{ false };
 
                 switch (msg.fetch_type) {
                     case messages::FetchType::kStandalone: {
-                        // Forward FETCH to a Publisher and bind to this request
-                        attrs.start_location.group = msg.group_0->standalone.start.group;
-                        attrs.start_location.object = msg.group_0->standalone.start.object;
-                        attrs.end_group = msg.group_0->standalone.end.group;
-                        attrs.end_object = msg.group_0->standalone.end.object;
-                        if (!FetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs)) {
-                            // TODO: We don't really know enough from this return value to give a specific error.
-                            SendFetchError(conn_ctx, msg.request_id, messages::FetchErrorCode::kInternalError, "");
-                        }
+                        FullTrackName tfn{ msg.group_0->standalone.track_namespace,
+                                           msg.group_0->standalone.track_name };
+
+                        messages::StandaloneFetchAttributes attrs = {
+                            .priority = msg.subscriber_priority,
+                            .group_order = msg.group_order,
+                            .start_location = msg.group_0->standalone.start,
+                            .end_location = { .group = msg.group_0->standalone.end.group,
+                                              .object = msg.group_0->standalone.end.object > 0
+                                                          ? msg.group_0->standalone.end.object - 1
+                                                          : 0 },
+                        };
+
+                        StandaloneFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
                         return true;
-                    }
-                    case messages::FetchType::kAbsoluteJoiningFetch: {
-                        [[fallthrough]];
                     }
                     case messages::FetchType::kRelativeJoiningFetch: {
-                        const auto& joining = msg.group_1->joining;
-                        const auto sub = conn_ctx.sub_tracks_by_request_id.find(joining.request_id);
-                        if (sub == conn_ctx.sub_tracks_by_request_id.end()) {
+                        [[fallthrough]];
+                    }
+                    case messages::FetchType::kAbsoluteJoiningFetch: {
+                        const auto subscribe_state = conn_ctx.recv_req_id.find(msg.group_1->joining.request_id);
+                        if (subscribe_state == conn_ctx.recv_req_id.end()) {
                             SendFetchError(conn_ctx,
                                            msg.request_id,
-                                           messages::FetchErrorCode::kInvalidJoiningRequestId,
-                                           "Joining track not found");
+                                           messages::FetchErrorCode::kTrackDoesNotExist,
+                                           "Corresponding subscribe does not exist");
                             return true;
                         }
-                        const auto location = sub->second->GetLatestLocation();
-                        if (!location.has_value()) {
-                            SendFetchError(conn_ctx,
-                                           msg.request_id,
-                                           messages::FetchErrorCode::kInvalidRange,
-                                           "No objects published");
-                            return true;
-                        }
-                        messages::GroupId start_group;
-                        if (msg.fetch_type == messages::FetchType::kAbsoluteJoiningFetch) {
-                            start_group = joining.joining_start;
-                        } else {
-                            start_group = joining.joining_start <= location->group
-                                            ? location->group - joining.joining_start
-                                            : location->group;
-                        }
-                        attrs.start_location.group = start_group;
-                        attrs.start_location.object = 0;
-                        attrs.end_group = location->group;
-                        attrs.end_object = location->object;
-                        if (!FetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs)) {
-                            // TODO: We don't really know enough from this return value to give a specific error.
-                            SendFetchError(conn_ctx, msg.request_id, messages::FetchErrorCode::kInternalError, "");
-                            return true;
-                        }
+
+                        FullTrackName tfn = subscribe_state->second.track_full_name;
+
+                        messages::JoiningFetchAttributes attrs = {
+                            .priority = msg.subscriber_priority,
+                            .group_order = msg.group_order,
+                            .joining_request_id = msg.group_1->joining.request_id,
+                            .relative = relative_joining,
+                            .joining_start = msg.group_1->joining.joining_start,
+                        };
+
+                        JoiningFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
                         return true;
                     }
-
-                    default:
-                        SPDLOG_LOGGER_ERROR(logger_,
-                                            "Unsupported MOQT message type: {0}, bad stream",
-                                            static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received));
-                        return false;
+                    default: {
+                        SendFetchError(
+                          conn_ctx, msg.request_id, messages::FetchErrorCode::kNotSupported, "Unknown fetch type");
+                        return true;
+                    }
                 }
+            }
+            case messages::ControlMessageType::kFetchCancel: {
+                messages::FetchCancel msg;
+                msg_bytes >> msg;
+
+                if (conn_ctx.recv_req_id.find(msg.request_id) == conn_ctx.recv_req_id.end()) {
+                    SPDLOG_LOGGER_WARN(logger_, "Received Fetch Cancel for unknown subscribe ID: {0}", msg.request_id);
+                }
+
+                const auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
+                if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                    FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
+                    return true;
+                }
+
+                fetch_it->second->SetStatus(FetchTrackHandler::Status::kCancelled);
+
+                FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
+
+                conn_ctx.sub_tracks_by_request_id.erase(fetch_it);
+                conn_ctx.recv_req_id.erase(msg.request_id);
+
+                return true;
             }
             case messages::ControlMessageType::kPublishOk: {
                 messages::PublishOk msg(
@@ -905,19 +964,21 @@ namespace quicr {
                 pub_it->second.get()->SetStatus(PublishTrackHandler::Status::kOk);
                 return true;
             }
-
-            default:
+            default: {
                 SPDLOG_LOGGER_ERROR(logger_,
                                     "Unsupported MOQT message type: {0}, bad stream",
                                     static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received));
                 return false;
-
-        } // End of switch(msg type)
+            }
+        }
 
         return false;
 
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception trying to process control message. (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_,
+                            "Caught exception trying to process control message. (type={}, error={})",
+                            static_cast<int>(*conn_ctx.ctrl_msg_type_received),
+                            e.what());
         return false;
     }
 } // namespace quicr
