@@ -51,6 +51,7 @@ namespace quicr {
         if (!accept) {
             // TODO: codes/reasons.
             SendPublishError(ctx_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Rejected");
+            return;
         }
 
         SendPublishOk(ctx_it->second,
