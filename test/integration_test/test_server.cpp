@@ -74,8 +74,8 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
     // Deliberately not prefix matching to allow testing bad case. Tests should only add tracks
     // with this in mind.
     const SubscribeNamespaceResponse response = { .reason_code = SubscribeNamespaceResponse::ReasonCode::kOk,
-                                                  .namespaces = known_published_namespaces_,
-                                                  .tracks = known_published_tracks_ };
+                                                  .tracks = known_published_tracks_,
+                                                  .namespaces = known_published_namespaces_ };
 
     // Blindly accept it.
     ResolveSubscribeNamespace(connection_handle, attributes.request_id, prefix_namespace, response);
