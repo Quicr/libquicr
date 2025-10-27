@@ -73,13 +73,10 @@ namespace quicr {
 
             Advance();
 
-            for (auto key = start_key; key < end_key; ++key) {
-                if (cache_.find(key) == cache_.end()) {
-                    return false;
-                }
-            }
+            auto it_lower = cache_.lower_bound(start_key);
+            auto it_upper = cache_.upper_bound(end_key);
 
-            return true;
+            return it_lower != it_upper;
         }
 
         ValueType Get(const K& key) noexcept
@@ -93,14 +90,22 @@ namespace quicr {
 
         std::vector<ValueType> Get(const K& start_key, const K& end_key)
         {
-
             if (!Contains(start_key, end_key)) {
                 return {};
             }
 
-            std::vector<ValueType> entries(end_key - start_key, nullptr);
-            for (auto key = start_key; key < end_key; ++key) {
-                entries[key - start_key] = cache_.at(key);
+            auto it = cache_.find(start_key);
+            if (it == cache_.end()) {
+                return {};
+            }
+
+            std::vector<ValueType> entries;
+
+            for (; it != cache_.end(); ++it) {
+                entries.emplace_back(it->second);
+                if (it->first == end_key) {
+                    break;
+                }
             }
 
             return entries;
