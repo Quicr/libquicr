@@ -527,7 +527,7 @@ class MyServer : public quicr::Server
                                                                quicr::SubscribeNamespaceResponse::ReasonCode::kOk,
                                                              .tracks = {},
                                                              .namespaces = std::move(matched_ns) };
-        ResolveSubscribeNamespace(connection_handle, attributes.request_id, response);
+        ResolveSubscribeNamespace(connection_handle, attributes.request_id, prefix_namespace, response);
     }
 
     void PublishReceived(quicr::ConnectionHandle connection_handle,

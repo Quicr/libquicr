@@ -153,6 +153,7 @@ namespace quicr {
 
     void Server::ResolveSubscribeNamespace(const ConnectionHandle connection_handle,
                                            const uint64_t request_id,
+                                           const messages::TrackNamespacePrefix& prefix,
                                            const SubscribeNamespaceResponse& response)
     {
         const auto conn_it = connections_.find(connection_handle);
@@ -170,6 +171,10 @@ namespace quicr {
 
         // Fan out PUBLISH_NAMESPACE for matching namespaces.
         for (const auto& name_space : response.namespaces) {
+            if (!prefix.IsPrefixOf(name_space)) {
+                SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
+                continue;
+            }
             SendPublishNamespace(conn_it->second, conn_it->second.GetNextRequestId(), name_space);
         }
 

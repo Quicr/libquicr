@@ -165,10 +165,12 @@ namespace quicr {
          *
          * @param connection_handle source connection ID
          * @param request_id        Request ID
+         * @param prefix            Track namespace prefix
          * @param response          Response for remainder of subscribe namespace flow
          */
         virtual void ResolveSubscribeNamespace(ConnectionHandle connection_handle,
                                                uint64_t request_id,
+                                               const messages::TrackNamespacePrefix& prefix,
                                                const SubscribeNamespaceResponse& response);
 
         // --BEGIN CALLBACKS ----------------------------------------------------------------------------------

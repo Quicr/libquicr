@@ -65,12 +65,14 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
         subscribe_namespace_promise_->set_value({ connection_handle, prefix_namespace, attributes });
     }
 
+    // Deliberately not prefix matching to allow testing bad case. Tests should only add tracks
+    // with this in mind.
     // TODO: Add a tracks match here to test flow with matches.
     const SubscribeNamespaceResponse response = { .reason_code = SubscribeNamespaceResponse::ReasonCode::kOk,
                                                   .namespaces = known_published_namespaces_ };
 
     // Blindly accept it.
-    ResolveSubscribeNamespace(connection_handle, attributes.request_id, response);
+    ResolveSubscribeNamespace(connection_handle, attributes.request_id, prefix_namespace, response);
 }
 
 void
