@@ -1057,9 +1057,9 @@ namespace quicr {
                 }
                 messages::SubscribeAttributes attributes = { .priority = msg.subscriber_priority,
                                                              .group_order = msg.group_order,
-                                                             .filter_type = msg.filter_type,
                                                              .delivery_timeout =
                                                                std::chrono::milliseconds(delivery_timeout),
+                                                             .filter_type = msg.filter_type,
                                                              .forward = msg.forward,
                                                              .new_group_request_id = new_group_request_id,
                                                              .is_publisher_initiated = true };
