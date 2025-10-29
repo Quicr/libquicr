@@ -244,7 +244,19 @@ namespace quicr {
         return PublishNamespaceStatus();
     }
 
-    void Client::PublishNamespace(const TrackNamespace&) {}
+    void Client::PublishNamespace(const TrackNamespace& track_namespace)
+    {
+        if (!connection_handle_) {
+            return;
+        }
+
+        std::lock_guard _(state_mutex_);
+        const auto ctx = connections_.find(*connection_handle_);
+        if (ctx == connections_.end()) {
+            return;
+        }
+        SendPublishNamespace(ctx->second, ctx->second.GetNextRequestId(), track_namespace);
+    }
 
     void Client::PublishNamespaceDone(const TrackNamespace&) {}
 

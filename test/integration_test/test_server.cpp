@@ -111,3 +111,24 @@ TestServer::AddKnownPublishedTrack(const FullTrackName& track,
 {
     known_published_tracks_.emplace_back(track, largest_location, attributes);
 }
+
+void
+TestServer::PublishNamespaceReceived(const ConnectionHandle connection_handle,
+                                     const TrackNamespace& track_namespace,
+                                     const PublishNamespaceAttributes& publish_announce_attributes)
+{
+    std::vector<ConnectionHandle> subscribers;
+    for (const auto& subscribe : namespace_subscribers_) {
+        if (subscribe.first.IsPrefixOf(track_namespace)) {
+            for (const auto& connection : subscribe.second) {
+                subscribers.push_back(connection);
+            }
+        }
+    }
+
+    ResolvePublishNamespace(connection_handle,
+                            publish_announce_attributes.request_id,
+                            track_namespace,
+                            subscribers,
+                            { .reason_code = PublishNamespaceResponse::ReasonCode::kOk });
+}

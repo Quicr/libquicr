@@ -83,6 +83,10 @@ namespace quicr_test {
                                         const quicr::TrackNamespace& prefix_namespace,
                                         const quicr::SubscribeNamespaceAttributes& attributes) override;
 
+        void PublishNamespaceReceived(quicr::ConnectionHandle connection_handle,
+                                      const quicr::TrackNamespace& track_namespace,
+                                      const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
+
       private:
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;

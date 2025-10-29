@@ -409,6 +409,34 @@ TEST_CASE("Integration - Subscribe Namespace with ongoing match")
     CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
 }
 
+TEST_CASE("Integration - Subscribe Namespace with ongoing namespace match")
+{
+    auto server = MakeTestServer(std::nullopt, 2);
+    auto client = MakeTestClient();
+    auto publisher = MakeTestClient();
+
+    // Track.
+    TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+
+    // Set up promise to verify client received matching PUBLISH_NAMESPACE.
+    std::promise<TrackNamespace> publish_namespace_promise;
+    auto publish_namespace_future = publish_namespace_promise.get_future();
+    client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
+
+    // SUBSCRIBE_NAMESPACE to prefix.
+    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+
+    // In the future, a PUBLISH_NAMESPACE arrives.
+    std::this_thread::sleep_for(kDefaultTimeout);
+    publisher->PublishNamespace(prefix_namespace);
+
+    // Client should receive matched PUBLISH_NAMESPACE.
+    auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+    REQUIRE(publish_namespace_status == std::future_status::ready);
+    const auto& received_namespace = publish_namespace_future.get();
+    CHECK_EQ(received_namespace, prefix_namespace);
+}
+
 TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
 {
     auto server = MakeTestServer();
