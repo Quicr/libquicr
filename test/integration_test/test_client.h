@@ -36,10 +36,11 @@ namespace quicr_test {
         {
             publish_received_ = std::move(promise);
         }
+
         void PublishReceived(quicr::ConnectionHandle connection_handle,
-                             quicr::messages::TrackAlias track_alias,
-                             const quicr::FullTrackName& track,
-                             quicr::messages::RequestID request_id) override;
+                             uint64_t request_id,
+                             const quicr::FullTrackName& track_full_name,
+                             const quicr::messages::PublishAttributes& publish_attributes) override;
 
       private:
         std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;

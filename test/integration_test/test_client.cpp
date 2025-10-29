@@ -38,12 +38,12 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
 
 void
 TestClient::PublishReceived(const ConnectionHandle connection_handle,
-                            [[maybe_unused]] const messages::TrackAlias track_alias,
-                            const FullTrackName& track,
-                            const messages::RequestID request_id)
+                            const uint64_t request_id,
+                            const FullTrackName& track_full_name,
+                            const messages::PublishAttributes& publish_attributes)
 {
     if (publish_received_) {
-        publish_received_->set_value(track);
+        publish_received_->set_value(track_full_name);
     }
 
     // Accept the publish with default subscribe attributes
@@ -55,5 +55,5 @@ TestClient::PublishReceived(const ConnectionHandle connection_handle,
                                                  .new_group_request_id = std::nullopt,
                                                  .is_publisher_initiated = false };
 
-    ResolvePublish(connection_handle, request_id, true, attributes);
+    ResolvePublish(connection_handle, request_id, attributes, { .reason_code = PublishResponse::ReasonCode::kOk });
 }

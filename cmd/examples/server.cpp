@@ -524,10 +524,8 @@ class MyServer : public quicr::Server
 
         ResolvePublish(connection_handle,
                        request_id,
-                       true,
-                       publish_attributes.priority,
-                       publish_attributes.group_order,
-                       publish_response);
+                       publish_attributes,
+                       { .reason_code = quicr::PublishResponse::ReasonCode::kOk });
 
         // Check if there are any subscribers
         if (qserver_vars::subscribes[th.track_fullname_hash].empty()) {

@@ -1284,6 +1284,32 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
+    void Transport::ResolvePublish(const ConnectionHandle connection_handle,
+                                   const uint64_t request_id,
+                                   const SubscribeAttributes& attributes,
+                                   const PublishResponse& publish_response)
+    {
+        const auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        switch (publish_response.reason_code) {
+            case PublishResponse::ReasonCode::kOk: {
+                SendPublishOk(conn_it->second,
+                              request_id,
+                              attributes.forward,
+                              attributes.priority,
+                              attributes.group_order,
+                              attributes.filter_type);
+                break;
+            }
+            default:
+                SendPublishError(conn_it->second, request_id, SubscribeErrorCode::kInternalError, "Internal error");
+                break;
+        }
+    }
+
     void Transport::StandaloneFetchReceived(
       [[maybe_unused]] ConnectionHandle connection_handle,
       [[maybe_unused]] uint64_t request_id,

@@ -126,34 +126,6 @@ namespace quicr {
         }
     }
 
-    void Server::ResolvePublish(ConnectionHandle connection_handle,
-                                uint64_t request_id,
-                                bool forward,
-                                messages::SubscriberPriority priority,
-                                messages::GroupOrder group_order,
-                                const PublishResponse& publish_response)
-    {
-        auto conn_it = connections_.find(connection_handle);
-        if (conn_it == connections_.end()) {
-            return;
-        }
-
-        switch (publish_response.reason_code) {
-            case PublishResponse::ReasonCode::kOk: {
-
-                // TODO: Filter type.
-                // Send the ok.
-                SendPublishOk(
-                  conn_it->second, request_id, forward, priority, group_order, messages::FilterType::kLargestObject);
-                break;
-            }
-            default:
-                SendPublishError(
-                  conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
-                break;
-        }
-    }
-
     void Server::ResolveSubscribeNamespace(const ConnectionHandle connection_handle,
                                            const uint64_t request_id,
                                            const messages::TrackNamespacePrefix& prefix,

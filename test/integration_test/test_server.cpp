@@ -26,12 +26,8 @@ TestServer::PublishReceived([[maybe_unused]] quicr::ConnectionHandle connection_
                             [[maybe_unused]] const quicr::FullTrackName& track_full_name,
                             [[maybe_unused]] const quicr::messages::PublishAttributes& publish_attributes)
 {
-    ResolvePublish(connection_handle,
-                   request_id,
-                   publish_attributes.forward,
-                   publish_attributes.priority,
-                   publish_attributes.group_order,
-                   {});
+    ResolvePublish(
+      connection_handle, request_id, publish_attributes, { .reason_code = PublishResponse::ReasonCode::kOk });
 }
 
 void
