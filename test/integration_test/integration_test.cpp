@@ -1,11 +1,11 @@
 #include "quicr/config.h"
-#include "quicr/detail/defer.h"
+#include "quicr/defer.h"
+#include "test_client.h"
+#include "test_server.h"
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include "test_client.h"
-#include "test_server.h"
 #include <filesystem>
 #include <future>
 #include <iostream>
@@ -103,7 +103,7 @@ TEST_CASE("Integration - Subscribe")
     const auto& details = future.get();
     CHECK_EQ(details.track_full_name.name, ftn.name);
     CHECK_EQ(details.track_full_name.name_space, ftn.name_space);
-    CHECK_EQ(details.filter_type, filter_type);
+    CHECK_EQ(details.subscribe_attributes.filter_type, filter_type);
 
     // Server should respond, track should go live.
     std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
@@ -329,12 +329,14 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
     TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
 
     // Existing track.
-    const FullTrackName existing_track(prefix_namespace, { 0x01 });
+    const FullTrackName existing_track{ prefix_namespace, { 0x01 } };
 
     // Set up promise to verify client received matching PUBLISH_NAMESPACE.
     std::promise<FullTrackName> publish_promise;
     auto publish_future = publish_promise.get_future();
-    server->AddKnownPublishedTrack(existing_track);
+    messages::PublishAttributes publish_attributes;
+    // TODO: Validate full attribute round-trip.
+    server->AddKnownPublishedTrack(existing_track, std::nullopt, publish_attributes);
     client->SetPublishReceivedPromise(std::move(publish_promise));
 
     // Set up promise to verify server gets accepted publish.
@@ -405,6 +407,27 @@ TEST_CASE("Integration - Subscribe Namespace with ongoing match")
     const auto& received_publish_ok = publish_ok_future.get();
     CHECK_EQ(received_publish_ok.track_full_name.name_space, existing_track.name_space);
     CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
+}
 
-    // TODO: Test the Error / reject path.
+TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
+{
+    auto server = MakeTestServer();
+    auto client = MakeTestClient();
+
+    // Target namespace.
+    TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+    TrackNamespace non_match({ "baz" });
+
+    // Set up promise to verify client received matching PUBLISH_NAMESPACE.
+    std::promise<TrackNamespace> publish_namespace_promise;
+    std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
+    server->AddKnownPublishedNamespace(non_match);
+    client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
+
+    // SUBSCRIBE_NAMESPACE to prefix.
+    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+
+    // Client should NOT receive PUBLISH_NAMESPACE.
+    auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+    REQUIRE(publish_namespace_status == std::future_status::timeout);
 }

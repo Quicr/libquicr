@@ -4,7 +4,9 @@
 #pragma once
 
 #include "quicr/common.h"
+#include "quicr/detail/attributes.h"
 #include "quicr/detail/ctrl_message_types.h"
+#include "quicr/detail/ctrl_messages.h"
 #include "quicr/track_name.h"
 
 #include <optional>
@@ -99,7 +101,16 @@ namespace quicr {
         struct AvailableTrack
         {
             const FullTrackName track_full_name;
-            const std::optional<quicr::messages::Location> largest_location;
+            const std::optional<messages::Location> largest_location;
+            const messages::PublishAttributes attributes;
+            AvailableTrack(const FullTrackName& track_full_name,
+                           const std::optional<messages::Location>& largest_location,
+                           const messages::PublishAttributes& attributes)
+              : track_full_name(track_full_name)
+              , largest_location(largest_location)
+              , attributes(attributes)
+            {
+            }
         };
         std::vector<AvailableTrack> tracks;
 
@@ -107,6 +118,31 @@ namespace quicr {
         std::vector<TrackNamespace> namespaces;
 
         std::optional<std::string> error_reason = std::nullopt;
+    };
+
+    /**
+     * @brief Response to received MOQT Fetch message
+     */
+    struct FetchResponse
+    {
+        /**
+         * @details **kOK** indicates that the fetch is accepted and OK should be sent. Any other
+         *       value indicates that the subscribe is not accepted and the reason code and other
+         *       fields will be set.
+         */
+        enum class ReasonCode : uint8_t
+        {
+            kOk = 0,
+            kInvalidRange,
+            kNoObjects,
+            kInternalError,
+            // TODO: Expand reasons.
+        };
+        ReasonCode reason_code;
+
+        std::optional<std::string> error_reason = std::nullopt;
+
+        std::optional<messages::Location> largest_location = std::nullopt;
     };
 
     /**

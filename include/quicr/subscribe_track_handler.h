@@ -46,6 +46,9 @@ namespace quicr {
             kSendingUnsubscribe, ///< In this state, callbacks will not be called,
             kPaused,
             kNewGroupRequested,
+            kCancelled,
+            kDoneByFin,
+            kDoneByReset,
         };
 
         /**
@@ -221,6 +224,12 @@ namespace quicr {
          * @param is_supported      True to send new group requests, False to disable sending
          */
         void SupportNewGroupRequest(bool is_supported) noexcept;
+
+        /**
+         * @brief Indicate if subscribe handler can send new group requests or not
+         * @return True if new group requests are supported.
+         */
+        bool NewGroupRequestSupported() const noexcept { return support_new_group_request_; }
 
         std::chrono::milliseconds GetDeliveryTimeout() const noexcept { return delivery_timeout_; }
 

@@ -52,13 +52,10 @@ TestServer::PublishDoneReceived([[maybe_unused]] quicr::ConnectionHandle connect
 void
 TestServer::SubscribeReceived(ConnectionHandle connection_handle,
                               uint64_t request_id,
-                              messages::FilterType filter_type,
                               const FullTrackName& track_full_name,
                               const messages::SubscribeAttributes& subscribe_attributes)
 {
-    const SubscribeDetails details = {
-        connection_handle, request_id, filter_type, track_full_name, subscribe_attributes
-    };
+    const SubscribeDetails details = { connection_handle, request_id, track_full_name, subscribe_attributes };
     if (subscribe_promise_.has_value()) {
         subscribe_promise_->set_value(details);
     }
@@ -83,9 +80,11 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
         subscribe_namespace_promise_->set_value({ connection_handle, prefix_namespace, attributes });
     }
 
+    // Deliberately not prefix matching to allow testing bad case. Tests should only add tracks
+    // with this in mind.
     const SubscribeNamespaceResponse response = { .reason_code = SubscribeNamespaceResponse::ReasonCode::kOk,
-                                                  .namespaces = known_published_namespaces_,
-                                                  .tracks = known_published_tracks_ };
+                                                  .tracks = known_published_tracks_,
+                                                  .namespaces = known_published_namespaces_ };
 
     // Store this subscriber's interest in the prefix.
     const auto it = namespace_subscribers_.find(prefix_namespace);
@@ -96,7 +95,7 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
     }
 
     // Blindly accept it.
-    ResolveSubscribeNamespace(connection_handle, attributes.request_id, response);
+    ResolveSubscribeNamespace(connection_handle, attributes.request_id, prefix_namespace, response);
 }
 
 void
@@ -106,7 +105,9 @@ TestServer::AddKnownPublishedNamespace(const TrackNamespace& track_namespace)
 }
 
 void
-TestServer::AddKnownPublishedTrack(const FullTrackName& track)
+TestServer::AddKnownPublishedTrack(const FullTrackName& track,
+                                   const std::optional<messages::Location>& largest_location,
+                                   const messages::PublishAttributes& attributes)
 {
-    known_published_tracks_.push_back({ .track_full_name = track, .largest_location = std::nullopt });
+    known_published_tracks_.emplace_back(track, largest_location, attributes);
 }

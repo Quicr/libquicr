@@ -3,9 +3,10 @@
 
 #pragma once
 
+#include "quicr/detail/ctrl_messages.h"
+
 #include <chrono>
 #include <optional>
-#include <quicr/detail/ctrl_messages.h>
 
 namespace quicr::messages {
 
@@ -20,6 +21,7 @@ namespace quicr::messages {
         std::uint8_t priority;                        ///< Subscriber priority
         GroupOrder group_order;                       ///< Subscriber group order
         std::chrono::milliseconds delivery_timeout;   ///< Subscriber delivery timeout
+        FilterType filter_type;                       /// Subscriber filter type
         std::uint8_t forward;                         ///< True to Resume/forward data, False to pause/stop data
         std::optional<uint64_t> new_group_request_id; ///< Indicates new group id is requested
         bool is_publisher_initiated;                  ///< True will not send SUBSCRIBE_OK.
@@ -31,15 +33,20 @@ namespace quicr::messages {
         bool dynamic_groups = false;
     };
 
-    /**
-     * @brief Fetch attributes
-     */
-    struct FetchAttributes
+    struct StandaloneFetchAttributes
     {
-        std::uint8_t priority;              ///< Fetch priority
-        GroupOrder group_order;             ///< Fetch group order
-        Location start_location;            ///< Fetch starting location in range
-        GroupId end_group;                  ///< Fetch final group in range
-        std::optional<ObjectId> end_object; ///< Fetch final object in group
+        std::uint8_t priority;   ///< Fetch priority
+        GroupOrder group_order;  ///< Fetch group order
+        Location start_location; ///< Fetch starting location in range
+        Location end_location;   ///< Fetch final group and object id
+    };
+
+    struct JoiningFetchAttributes
+    {
+        std::uint8_t priority;        ///< Fetch priority
+        GroupOrder group_order;       ///< Fetch group order
+        RequestID joining_request_id; ///< Fetch joining request_id
+        bool relative{ false };       ///< True indicates relative to largest, False indicates absolute
+        std::uint64_t joining_start;  ///< Fetch joining start
     };
 }

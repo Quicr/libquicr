@@ -13,7 +13,6 @@ namespace quicr_test {
         {
             quicr::ConnectionHandle connection_handle;
             uint64_t request_id;
-            quicr::messages::FilterType filter_type;
             quicr::FullTrackName track_full_name;
             quicr::messages::SubscribeAttributes subscribe_attributes;
         };
@@ -40,7 +39,9 @@ namespace quicr_test {
         }
 
         void AddKnownPublishedNamespace(const quicr::TrackNamespace& track_namespace);
-        void AddKnownPublishedTrack(const quicr::FullTrackName& track);
+        void AddKnownPublishedTrack(const quicr::FullTrackName& track,
+                                    const std::optional<quicr::messages::Location>& largest_location,
+                                    const quicr::messages::PublishAttributes& attributes);
 
       protected:
         ClientSetupResponse ClientSetupReceived(
@@ -58,13 +59,17 @@ namespace quicr_test {
         void UnsubscribeNamespaceReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
                                           [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override {};
         void UnsubscribeReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                                 [[maybe_unused]] uint64_t request_id) override {};
+                                 [[maybe_unused]] uint64_t request_id) override
+        {
+        }
+
         void FetchCancelReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                                 [[maybe_unused]] uint64_t request_id) override {};
+                                 [[maybe_unused]] uint64_t request_id) override
+        {
+        }
 
         void SubscribeReceived(quicr::ConnectionHandle connection_handle,
                                uint64_t request_id,
-                               quicr::messages::FilterType filter_type,
                                const quicr::FullTrackName& track_full_name,
                                const quicr::messages::SubscribeAttributes& subscribe_attributes) override;
 

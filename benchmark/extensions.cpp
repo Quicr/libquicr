@@ -14,7 +14,7 @@ CreateTestExtensions(const std::uint64_t count)
         std::uint64_t index = 1000 + i;
         Bytes bytes(sizeof(index));
         std::memcpy(bytes.data(), &index, sizeof(index));
-        extensions.insert({ index, std::move(bytes) });
+        extensions.insert({ index, { std::move(bytes) } });
     }
     return extensions;
 }
