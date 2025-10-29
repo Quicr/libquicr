@@ -150,14 +150,14 @@ namespace quicr {
          *
          * @param connection_handle        source connection ID
          * @param request_id               Request ID
-         * @param forward                  True indicates to forward data, False to pause forwarding
+         * @param track_name               Full track name this PUBLISH is for.
+         * @param attributes               Attributes of the incoming PUBLISH.
          * @param publish_response         response to for the publish
          */
         virtual void ResolvePublish(ConnectionHandle connection_handle,
                                     uint64_t request_id,
-                                    bool forward,
-                                    messages::SubscriberPriority priority,
-                                    messages::GroupOrder group_order,
+                                    const FullTrackName& track_name,
+                                    const messages::PublishAttributes& attributes,
                                     const PublishResponse& publish_response);
 
         /**

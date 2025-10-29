@@ -9,6 +9,10 @@
 #include <optional>
 
 namespace quicr::messages {
+
+    // TODO: Maybe split base attributes out from SUBSCRIBE / PUBLISH?
+    // TODO: E.g priority, new_group_request_id.
+
     /**
      * @brief Subscribe attributes
      */
@@ -26,6 +30,7 @@ namespace quicr::messages {
     struct PublishAttributes : SubscribeAttributes
     {
         TrackAlias track_alias;
+        bool dynamic_groups = false;
     };
 
     struct StandaloneFetchAttributes
