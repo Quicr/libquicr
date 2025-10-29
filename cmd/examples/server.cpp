@@ -477,7 +477,7 @@ class MyServer : public quicr::Server
                     publish_attributes.delivery_timeout = handler->GetDeliveryTimeout();
                     publish_attributes.filter_type = handler->GetFilterType();
                     publish_attributes.forward = true;
-                    publish_attributes.new_group_request_id = handler->NewGroupRequestSupported();
+                    publish_attributes.new_group_request_id = handler->IsNewGroupRequestSupported();
                     publish_attributes.is_publisher_initiated = true;
                     matched_tracks.emplace_back(track_full_name, largest_location, publish_attributes);
                     SPDLOG_INFO(

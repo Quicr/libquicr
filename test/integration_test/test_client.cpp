@@ -46,14 +46,6 @@ TestClient::PublishReceived(const ConnectionHandle connection_handle,
         publish_received_->set_value(track_full_name);
     }
 
-    // Accept the publish with default subscribe attributes
-    messages::SubscribeAttributes attributes = { .priority = 128,
-                                                 .group_order = messages::GroupOrder::kOriginalPublisherOrder,
-                                                 .delivery_timeout = std::chrono::milliseconds(0),
-                                                 .filter_type = messages::FilterType::kLargestObject,
-                                                 .forward = 1,
-                                                 .new_group_request_id = std::nullopt,
-                                                 .is_publisher_initiated = false };
-
-    ResolvePublish(connection_handle, request_id, attributes, { .reason_code = PublishResponse::ReasonCode::kOk });
+    ResolvePublish(
+      connection_handle, request_id, publish_attributes, { .reason_code = PublishResponse::ReasonCode::kOk });
 }

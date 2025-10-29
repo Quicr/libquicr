@@ -33,7 +33,7 @@ namespace quicr {
 
     void Client::PublishReceived(const ConnectionHandle connection_handle,
                                  const uint64_t request_id,
-                                 const FullTrackName& track_full_name,
+                                 [[maybe_unused]] const FullTrackName& track_full_name,
                                  const messages::PublishAttributes& publish_attributes)
     {
         ResolvePublish(connection_handle,
