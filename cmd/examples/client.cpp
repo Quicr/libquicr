@@ -527,9 +527,21 @@ class MyClient : public quicr::Client
         if (!largest_location.has_value()) {
             // TODO: This changes to send an empty object instead of REQUEST_ERROR
             reason_code = quicr::FetchResponse::ReasonCode::kNoObjects;
+        } else {
+            SPDLOG_INFO("Fetch received request id: {} largest group: {} object: {}",
+                        request_id,
+                        largest_location.value().group,
+                        largest_location.value().object);
         }
 
         if (start.group > end->group || largest_location.value().group < start.group) {
+            reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
+        }
+
+        const auto& cache_entries =
+          cache_entry_it->second.Get(start.group, end->group != 0 ? end->group : cache_entry_it->second.Size());
+
+        if (cache_entries.empty()) {
             reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
         }
 
@@ -547,13 +559,6 @@ class MyClient : public quicr::Client
 
         if (reason_code != quicr::FetchResponse::ReasonCode::kOk) {
             return;
-        }
-
-        const auto& cache_entries =
-          cache_entry_it->second.Get(start.group, end->group != 0 ? end->group : cache_entry_it->second.Size());
-
-        if (cache_entries.empty()) {
-            reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
         }
 
         // TODO: Adjust the TTL

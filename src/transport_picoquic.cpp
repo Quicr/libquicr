@@ -1879,7 +1879,13 @@ PicoQuicTransport::Shutdown()
     stop_ = true;
 
     if (quic_network_thread_ctx_ != NULL) {
-        SPDLOG_LOGGER_INFO(logger, "Closing transport pico thread");
+        SPDLOG_LOGGER_INFO(logger, "Closing transport picoquic thread");
+        picoquic_wake_up_network_thread(quic_network_thread_ctx_);
+
+        while (quic_network_thread_ctx_->thread_is_ready) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
         picoquic_delete_network_thread(quic_network_thread_ctx_);
     }
 
