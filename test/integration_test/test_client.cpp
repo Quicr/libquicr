@@ -35,3 +35,17 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
         publish_namespace_received_->set_value(track_namespace);
     }
 }
+
+void
+TestClient::PublishReceived(const ConnectionHandle connection_handle,
+                            const uint64_t request_id,
+                            const FullTrackName& track_full_name,
+                            const messages::PublishAttributes& publish_attributes)
+{
+    if (publish_received_) {
+        publish_received_->set_value(track_full_name);
+    }
+
+    ResolvePublish(
+      connection_handle, request_id, publish_attributes, { .reason_code = PublishResponse::ReasonCode::kOk });
+}

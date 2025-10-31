@@ -13,7 +13,6 @@ namespace quicr_test {
         {
             quicr::ConnectionHandle connection_handle;
             uint64_t request_id;
-            quicr::messages::FilterType filter_type;
             quicr::FullTrackName track_full_name;
             quicr::messages::SubscribeAttributes subscribe_attributes;
         };
@@ -34,7 +33,15 @@ namespace quicr_test {
             subscribe_namespace_promise_ = std::move(promise);
         }
 
+        void SetPublishAcceptedPromise(std::promise<SubscribeDetails> promise)
+        {
+            publish_accepted_promise_ = std::move(promise);
+        }
+
         void AddKnownPublishedNamespace(const quicr::TrackNamespace& track_namespace);
+        void AddKnownPublishedTrack(const quicr::FullTrackName& track,
+                                    const std::optional<quicr::messages::Location>& largest_location,
+                                    const quicr::messages::PublishAttributes& attributes);
 
       protected:
         ClientSetupResponse ClientSetupReceived(
@@ -63,7 +70,6 @@ namespace quicr_test {
 
         void SubscribeReceived(quicr::ConnectionHandle connection_handle,
                                uint64_t request_id,
-                               quicr::messages::FilterType filter_type,
                                const quicr::FullTrackName& track_full_name,
                                const quicr::messages::SubscribeAttributes& subscribe_attributes) override;
 
@@ -81,5 +87,7 @@ namespace quicr_test {
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::vector<quicr::TrackNamespace> known_published_namespaces_;
+        std::vector<quicr::SubscribeNamespaceResponse::AvailableTrack> known_published_tracks_;
+        std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
     };
 }
