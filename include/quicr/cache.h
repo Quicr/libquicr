@@ -67,7 +67,7 @@ namespace quicr {
 
         bool Contains(const K& start_key, const K& end_key)
         {
-            if (start_key >= end_key) {
+            if (start_key > end_key) {
                 throw std::invalid_argument("Exclusive end key must be greater than start key");
             }
 
