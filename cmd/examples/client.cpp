@@ -19,6 +19,10 @@
 #include <iomanip>
 #include <set>
 
+#include <catapult/cwt.hpp>
+#include <catapult/crypto.hpp>
+#include <catapult/logging.hpp>
+
 using json = nlohmann::json; // NOLINT
 
 /**
@@ -1112,6 +1116,7 @@ main(int argc, char* argv[])
     quicr::ClientConfig config = InitConfig(result, enable_pub, enable_sub, enable_fetch, use_announce);
 
     try {
+        catapult::CatToken token;
         bool stop_threads{ false };
         auto client = MyClient::Create(config, stop_threads);
 

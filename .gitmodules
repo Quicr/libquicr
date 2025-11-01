@@ -13,3 +13,6 @@
 [submodule "dependencies/spdlog"]
 	path = dependencies/spdlog
 	url = https://github.com/gabime/spdlog.git
+[submodule "dependencies/catapult"]
+	path = dependencies/catapult
+	url = git@github.com:Quicr/catapult.git
