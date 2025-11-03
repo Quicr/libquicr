@@ -50,6 +50,8 @@ namespace quicr {
                 }
                 publish_status_ = Status::kOk;
                 break;
+            case Status::kPendingPublishOk:
+                return PublishObjectStatus::kPendingPublishOk;
             default:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kInternalError;
