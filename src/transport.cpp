@@ -1238,6 +1238,7 @@ namespace quicr {
                 lock.lock();
 
                 SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
+                conn_it->second.pub_tracks_ns_by_request_id[*track_handler->GetRequestId()] = th.track_namespace_hash;
             } else {
                 auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
                 if (pub_n_it == pub_ns_it->second.end()) {
