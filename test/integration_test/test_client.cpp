@@ -35,3 +35,11 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
         publish_namespace_received_->set_value(track_namespace);
     }
 }
+
+void
+TestClient::PublishNamespaceStatusChanged(const TrackNamespace& track_namespace, const PublishNamespaceStatus status)
+{
+    if (publish_namespace_status_changed_ && status == PublishNamespaceStatus::kOK) {
+        publish_namespace_status_changed_->set_value(track_namespace);
+    }
+}
