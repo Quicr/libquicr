@@ -474,6 +474,7 @@ namespace quicr {
                     if (td.second.get()->GetStatus() != PublishTrackHandler::Status::kOk)
                         td.second.get()->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                 }
+                conn_ctx.pub_tracks_ns_by_request_id.erase(pub_ns_it);
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceError: {
