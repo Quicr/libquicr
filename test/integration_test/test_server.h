@@ -24,6 +24,13 @@ namespace quicr_test {
             quicr::SubscribeNamespaceAttributes attributes;
         };
 
+        struct PublishNamespaceDetails
+        {
+            quicr::ConnectionHandle connection_handle;
+            quicr::TrackNamespace track_namespace;
+            quicr::PublishNamespaceAttributes attributes;
+        };
+
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
@@ -36,6 +43,12 @@ namespace quicr_test {
         void SetPublishAcceptedPromise(std::promise<SubscribeDetails> promise)
         {
             publish_accepted_promise_ = std::move(promise);
+        }
+
+        // Set up promise for publish namespace event
+        void SetPublishNamespacePromise(std::promise<PublishNamespaceDetails> promise)
+        {
+            publish_namespace_promise_ = std::move(promise);
         }
 
         void AddKnownPublishedNamespace(const quicr::TrackNamespace& track_namespace);
@@ -83,9 +96,14 @@ namespace quicr_test {
                                         const quicr::TrackNamespace& prefix_namespace,
                                         const quicr::SubscribeNamespaceAttributes& attributes) override;
 
+        void PublishNamespaceReceived(quicr::ConnectionHandle connection_handle,
+                                      const quicr::TrackNamespace& track_namespace,
+                                      const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
+
       private:
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
+        std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
         std::vector<quicr::TrackNamespace> known_published_namespaces_;
         std::vector<quicr::SubscribeNamespaceResponse::AvailableTrack> known_published_tracks_;
         std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;

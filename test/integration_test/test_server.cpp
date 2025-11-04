@@ -90,3 +90,17 @@ TestServer::AddKnownPublishedTrack(const FullTrackName& track,
 {
     known_published_tracks_.emplace_back(track, largest_location, attributes);
 }
+
+void
+TestServer::PublishNamespaceReceived(const ConnectionHandle connection_handle,
+                                     const TrackNamespace& track_namespace,
+                                     const PublishNamespaceAttributes& publish_announce_attributes)
+{
+    if (publish_namespace_promise_.has_value()) {
+        publish_namespace_promise_->set_value({ connection_handle, track_namespace, publish_announce_attributes });
+    }
+
+    // Accept the publish namespace by responding with OK
+    const PublishNamespaceResponse response = { .reason_code = PublishNamespaceResponse::ReasonCode::kOk };
+    ResolvePublishNamespace(connection_handle, publish_announce_attributes.request_id, track_namespace, {}, response);
+}

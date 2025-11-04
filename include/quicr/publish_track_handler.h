@@ -52,7 +52,8 @@ namespace quicr {
             /// without creating a new track. This requires to unpublish and to publish track again.
             kPreviousObjectNotCompleteMustStartNewTrack,
 
-            kPaused
+            kPaused,
+            kPendingPublishOk
         };
 
         /**

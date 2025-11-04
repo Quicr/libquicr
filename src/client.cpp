@@ -472,7 +472,12 @@ namespace quicr {
                 // Update each track to indicate status is okay to publish
                 auto pub_ns_it = conn_ctx.pub_tracks_ns_by_request_id.find(msg.request_id);
                 if (pub_ns_it == conn_ctx.pub_tracks_ns_by_request_id.end()) {
-                    break;
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received publish namespace ok to unknown request_id conn_id: {0} request_id: {1}, ignored",
+                      conn_ctx.connection_handle,
+                      msg.request_id);
+                    return true;
                 }
 
                 auto pub_it = conn_ctx.pub_tracks_by_name.find(pub_ns_it->second);
@@ -480,6 +485,7 @@ namespace quicr {
                     if (td.second.get()->GetStatus() != PublishTrackHandler::Status::kOk)
                         td.second.get()->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                 }
+                conn_ctx.pub_tracks_ns_by_request_id.erase(pub_ns_it);
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceError: {

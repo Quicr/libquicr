@@ -49,3 +49,11 @@ TestClient::PublishReceived(const ConnectionHandle connection_handle,
     ResolvePublish(
       connection_handle, request_id, publish_attributes, { .reason_code = PublishResponse::ReasonCode::kOk });
 }
+
+void
+TestClient::PublishNamespaceStatusChanged(const TrackNamespace& track_namespace, const PublishNamespaceStatus status)
+{
+    if (publish_namespace_status_changed_ && status == PublishNamespaceStatus::kOK) {
+        publish_namespace_status_changed_->set_value(track_namespace);
+    }
+}
