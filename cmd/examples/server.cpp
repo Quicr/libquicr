@@ -881,15 +881,17 @@ class MyServer : public quicr::Server
 
         const auto track_alias = th.track_fullname_hash;
 
-        ResolveSubscribe(connection_handle,
-                         request_id,
-                         track_alias,
-                         {
-                           quicr::SubscribeResponse::ReasonCode::kOk,
-                           attrs.is_publisher_initiated,
-                           std::nullopt,
-                           largest_location,
-                         });
+        if (!attrs.is_publisher_initiated) {
+            ResolveSubscribe(connection_handle,
+                             request_id,
+                             track_alias,
+                             {
+                               quicr::SubscribeResponse::ReasonCode::kOk,
+                               attrs.is_publisher_initiated,
+                               std::nullopt,
+                               largest_location,
+                             });
+        }
 
         qserver_vars::subscribes[track_alias][connection_handle] = pub_track_h;
         qserver_vars::subscribe_alias_req_id[connection_handle][request_id] = track_alias;

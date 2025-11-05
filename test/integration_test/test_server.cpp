@@ -51,11 +51,13 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
         publish_accepted_promise_->set_value(details);
     }
     const auto th = TrackHash(track_full_name);
-    ResolveSubscribe(connection_handle,
-                     request_id,
-                     th.track_fullname_hash,
-                     { .reason_code = SubscribeResponse::ReasonCode::kOk,
-                       .is_publisher_initiated = subscribe_attributes.is_publisher_initiated });
+    if (!subscribe_attributes.is_publisher_initiated) {
+        ResolveSubscribe(connection_handle,
+                         request_id,
+                         th.track_fullname_hash,
+                         { .reason_code = SubscribeResponse::ReasonCode::kOk,
+                           .is_publisher_initiated = subscribe_attributes.is_publisher_initiated });
+    }
 }
 
 void
