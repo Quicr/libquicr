@@ -165,6 +165,38 @@ namespace quicr {
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
+         * @brief Callback notification for new publish received
+         *
+         * @note The caller **MUST** respond to this via ResolvePublish(). If the caller does not
+         * override this method, the default will call ResolvePublish() with the status of OK
+         *
+         * @param connection_handle     Source connection ID
+         * @param request_id            Request ID received
+         * @param track_full_name       Track full name
+         * @param publish_attributes    Publish attributes received
+         */
+        virtual void PublishReceived(ConnectionHandle connection_handle,
+                                     uint64_t request_id,
+                                     const FullTrackName& track_full_name,
+                                     const messages::PublishAttributes& publish_attributes) = 0;
+
+        /**
+         * @brief Accept or reject publish that was received
+         *
+         * @details Accept or reject publish received via PublishReceived(). The MoQ Transport
+         *      will send the protocol message based on the PublishResponse
+         *
+         * @param connection_handle        source connection ID
+         * @param request_id               Request ID
+         * @param attributes               Attributes for the accepted publish
+         * @param publish_response         response for the publish
+         */
+        void ResolvePublish(ConnectionHandle connection_handle,
+                            uint64_t request_id,
+                            const messages::SubscribeAttributes& attributes,
+                            const PublishResponse& publish_response);
+
+        /**
          * @brief Event to run on receiving a Standalone Fetch request.
          *
          * @param connection_handle Source connection ID.
@@ -398,6 +430,11 @@ namespace quicr {
              *  with request-id. The namespace is needed. This map is used to map request ID to namespace
              */
             std::map<messages::RequestID, TrackNamespaceHash> pub_tracks_ns_by_request_id;
+
+            /**
+             * Pending outbound publish tracks by request ID, for publish_ok.
+             */
+            std::map<messages::RequestID, FullTrackName> pub_by_request_id;
 
             /// Publish tracks by request Id. Used in client mode
             std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_request_id;

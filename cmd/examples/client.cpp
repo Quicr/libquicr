@@ -149,8 +149,14 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                             quicr::messages::FilterType filter_type,
                             const std::optional<JoiningFetch>& joining_fetch,
+                            bool publisher_initiated = false,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
-      : SubscribeTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, filter_type, joining_fetch)
+      : SubscribeTrackHandler(full_track_name,
+                              3,
+                              quicr::messages::GroupOrder::kAscending,
+                              filter_type,
+                              joining_fetch,
+                              publisher_initiated)
     {
         if (qclient_vars::record) {
             std::filesystem::create_directory(dir);
@@ -643,6 +649,39 @@ class MyClient : public quicr::Client
                             response.error_reason.has_value() ? response.error_reason.value() : "");
                 break;
         }
+    }
+
+    void PublishReceived(quicr::ConnectionHandle connection_handle,
+                         uint64_t request_id,
+                         const quicr::FullTrackName& track_full_name,
+                         const quicr::messages::PublishAttributes& publish_attributes) override
+    {
+        auto th = quicr::TrackHash(track_full_name);
+        SPDLOG_INFO(
+          "Received PUBLISH from relay for track namespace_hash: {} name_hash: {} track_hash: {} request_id: {}",
+          th.track_namespace_hash,
+          th.track_name_hash,
+          th.track_fullname_hash,
+          request_id);
+
+        // Bind publish initiated handler.
+        const auto track_handler = std::make_shared<MySubscribeTrackHandler>(
+          track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
+        track_handler->SetRequestId(request_id);
+        track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);
+        track_handler->SetPriority(publish_attributes.priority);
+        track_handler->SetDeliveryTimeout(publish_attributes.delivery_timeout);
+        track_handler->SupportNewGroupRequest(publish_attributes.new_group_request_id.has_value());
+        SubscribeTrack(track_handler);
+
+        // Accept the PUBLISH.
+        ResolvePublish(connection_handle,
+                       request_id,
+                       publish_attributes,
+                       { .reason_code = quicr::PublishResponse::ReasonCode::kOk });
+
+        SPDLOG_INFO(
+          "Accepted PUBLISH and subscribed to track_hash: {} request_id: {}", th.track_fullname_hash, request_id);
     }
 
   private:

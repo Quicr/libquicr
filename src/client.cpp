@@ -31,6 +31,17 @@ namespace quicr {
     {
     }
 
+    void Client::PublishReceived(const ConnectionHandle connection_handle,
+                                 const uint64_t request_id,
+                                 [[maybe_unused]] const FullTrackName& track_full_name,
+                                 const messages::PublishAttributes& publish_attributes)
+    {
+        ResolvePublish(connection_handle,
+                       request_id,
+                       publish_attributes,
+                       { .reason_code = PublishResponse::ReasonCode::kNotSupported });
+    }
+
     void Client::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&)
     {
         // TODO: add the default response
@@ -555,6 +566,61 @@ namespace quicr {
                 }
                 return true;
             }
+            case messages::ControlMessageType::kPublish: {
+                messages::Publish msg([](messages::Publish& msg) {
+                    if (msg.content_exists) {
+                        msg.group_0 =
+                          std::make_optional<messages::Publish::Group_0>(messages::Publish::Group_0{ 0, 0 });
+                    }
+                });
+                msg_bytes >> msg;
+
+                const FullTrackName tfn{ .name_space = msg.track_namespace, .name = msg.track_name };
+                const TrackHash th(tfn);
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Received publish conn_id: {0} request_id: {1} track namespace hash: {2} "
+                                    "name hash: {3} track alias: {4}",
+                                    conn_ctx.connection_handle,
+                                    msg.request_id,
+                                    th.track_namespace_hash,
+                                    th.track_name_hash,
+                                    msg.track_alias);
+
+                // Extract parameters.
+                std::uint64_t delivery_timeout = 0;
+                std::optional<uint64_t> new_group_request_id;
+                for (const auto& param : msg.parameters) {
+                    switch (param.type) {
+                        case messages::ParameterType::kDeliveryTimeout: {
+                            std::memcpy(&delivery_timeout,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+
+                            break;
+                        }
+                        case messages::ParameterType::kNewGroupRequest: {
+                            uint64_t ngr_id{ 0 };
+                            std::memcpy(&ngr_id,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+                            new_group_request_id = ngr_id;
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+                }
+
+                messages::PublishAttributes attrs;
+                attrs.track_alias = msg.track_alias;
+                attrs.forward = msg.forward;
+                attrs.group_order = msg.group_order;
+                attrs.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
+                attrs.is_publisher_initiated = true;
+                attrs.new_group_request_id = new_group_request_id;
+                PublishReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
+                return true;
+            }
             case messages::ControlMessageType::kPublishDone: {
                 messages::PublishDone msg;
                 msg_bytes >> msg;
@@ -640,6 +706,7 @@ namespace quicr {
                                     { msg.subscriber_priority,
                                       static_cast<messages::GroupOrder>(msg.group_order),
                                       std::chrono::milliseconds{ 0 },
+                                      msg.filter_type,
                                       msg.forward });
                 return true;
             }
@@ -667,7 +734,10 @@ namespace quicr {
 
                 TrackStatusResponseReceived(conn_ctx.connection_handle,
                                             msg.request_id,
-                                            { SubscribeResponse::ReasonCode::kOk, std::nullopt, largest_location });
+                                            { .reason_code = SubscribeResponse::ReasonCode::kOk,
+                                              .is_publisher_initiated = false,
+                                              .error_reason = std::nullopt,
+                                              .largest_location = largest_location });
 
                 return true;
             }
@@ -907,6 +977,11 @@ namespace quicr {
                       msg.group_0->start_location.group,
                       msg.group_0->start_location.object,
                       msg.group_1->end_group);
+                } else {
+                    SPDLOG_LOGGER_DEBUG(logger_,
+                                        "Received publish ok conn_id: {} request_id: {}",
+                                        conn_ctx.connection_handle,
+                                        msg.request_id);
                 }
                 pub_it->second.get()->SetStatus(PublishTrackHandler::Status::kOk);
                 return true;
