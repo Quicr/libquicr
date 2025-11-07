@@ -26,12 +26,8 @@ TestServer::PublishReceived([[maybe_unused]] quicr::ConnectionHandle connection_
                             [[maybe_unused]] const quicr::FullTrackName& track_full_name,
                             [[maybe_unused]] const quicr::messages::PublishAttributes& publish_attributes)
 {
-    ResolvePublish(connection_handle,
-                   request_id,
-                   publish_attributes.forward,
-                   publish_attributes.priority,
-                   publish_attributes.group_order,
-                   {});
+    ResolvePublish(
+      connection_handle, request_id, publish_attributes, { .reason_code = PublishResponse::ReasonCode::kOk });
 }
 
 void
@@ -43,17 +39,25 @@ TestServer::PublishDoneReceived([[maybe_unused]] quicr::ConnectionHandle connect
 void
 TestServer::SubscribeReceived(ConnectionHandle connection_handle,
                               uint64_t request_id,
-                              messages::FilterType filter_type,
                               const FullTrackName& track_full_name,
                               const messages::SubscribeAttributes& subscribe_attributes)
 {
+    const SubscribeDetails details = { connection_handle, request_id, track_full_name, subscribe_attributes };
     if (subscribe_promise_.has_value()) {
-        subscribe_promise_->set_value(
-          { connection_handle, request_id, filter_type, track_full_name, subscribe_attributes });
+        subscribe_promise_->set_value(details);
+    }
+
+    if (publish_accepted_promise_.has_value()) {
+        publish_accepted_promise_->set_value(details);
     }
     const auto th = TrackHash(track_full_name);
-    ResolveSubscribe(
-      connection_handle, request_id, th.track_fullname_hash, { .reason_code = SubscribeResponse::ReasonCode::kOk });
+    if (!subscribe_attributes.is_publisher_initiated) {
+        ResolveSubscribe(connection_handle,
+                         request_id,
+                         th.track_fullname_hash,
+                         { .reason_code = SubscribeResponse::ReasonCode::kOk,
+                           .is_publisher_initiated = subscribe_attributes.is_publisher_initiated });
+    }
 }
 
 void
@@ -67,8 +71,8 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
 
     // Deliberately not prefix matching to allow testing bad case. Tests should only add tracks
     // with this in mind.
-    // TODO: Add a tracks match here to test flow with matches.
     const SubscribeNamespaceResponse response = { .reason_code = SubscribeNamespaceResponse::ReasonCode::kOk,
+                                                  .tracks = known_published_tracks_,
                                                   .namespaces = known_published_namespaces_ };
 
     // Blindly accept it.
@@ -79,6 +83,14 @@ void
 TestServer::AddKnownPublishedNamespace(const TrackNamespace& track_namespace)
 {
     known_published_namespaces_.push_back(track_namespace);
+}
+
+void
+TestServer::AddKnownPublishedTrack(const FullTrackName& track,
+                                   const std::optional<messages::Location>& largest_location,
+                                   const messages::PublishAttributes& attributes)
+{
+    known_published_tracks_.emplace_back(track, largest_location, attributes);
 }
 
 void
