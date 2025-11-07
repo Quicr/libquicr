@@ -53,6 +53,7 @@ namespace quicr_test {
 
         void AddKnownPublishedNamespace(const quicr::TrackNamespace& track_namespace);
         void AddKnownPublishedTrack(const quicr::FullTrackName& track,
+
                                     const std::optional<quicr::messages::Location>& largest_location,
                                     const quicr::messages::PublishAttributes& attributes);
 

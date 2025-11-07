@@ -71,6 +71,27 @@ namespace quicr {
             (add_entry(entries), ...);
         }
 
+        TrackNamespace(const std::vector<std::span<const uint8_t>>& entries)
+          : entries_(entries.size())
+        {
+            if (entries.size() > 32 || entries.size() == 0) {
+                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [1, 32]");
+            }
+
+            for (auto& entry : entries) {
+                bytes_.insert(bytes_.end(), entry.begin(), entry.end());
+            }
+
+            std::size_t offset = 0;
+            std::size_t i = 0;
+            for (auto& entry : entries) {
+                entries_[i] = std::span{ bytes_ }.subspan(offset, entry.size());
+                hashes_.emplace_back(quicr::hash(entry));
+                offset += entry.size();
+                ++i;
+            }
+        }
+
         TrackNamespace(const std::vector<std::vector<uint8_t>>& entries)
           : entries_(entries.size())
         {
