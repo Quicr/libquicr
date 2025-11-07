@@ -29,6 +29,7 @@ namespace quicr::messages {
 
     struct PublishAttributes : SubscribeAttributes
     {
+        FullTrackName track_full_name;
         TrackAlias track_alias;
         bool dynamic_groups = false;
     };

@@ -16,20 +16,14 @@ PublishDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle, 
 }
 
 void
-PublishReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle, [[maybe_unused]] uint64_t request_id)
-{
-}
-
-void
-TestServer::PublishReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                            [[maybe_unused]] uint64_t request_id,
-                            [[maybe_unused]] const quicr::FullTrackName& track_full_name,
-                            [[maybe_unused]] const quicr::messages::PublishAttributes& publish_attributes)
+TestServer::PublishReceived(const ConnectionHandle connection_handle,
+                            const uint64_t request_id,
+                            const messages::PublishAttributes& publish_attributes)
 {
     // Is anyone interested in this prefix?
     std::vector<ConnectionHandle> namespace_subscribers;
     for (const auto& interested : namespace_subscribers_) {
-        if (interested.first.IsPrefixOf(track_full_name.name_space)) {
+        if (interested.first.IsPrefixOf(publish_attributes.track_full_name.name_space)) {
             for (const auto& handle : interested.second) {
                 namespace_subscribers.push_back(handle);
             }
@@ -38,7 +32,6 @@ TestServer::PublishReceived([[maybe_unused]] quicr::ConnectionHandle connection_
 
     ResolvePublish(connection_handle,
                    request_id,
-                   track_full_name,
                    publish_attributes,
                    { .namespace_subscribers = namespace_subscribers, .reason_code = PublishResponse::ReasonCode::kOk });
 }
@@ -64,11 +57,13 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
         publish_accepted_promise_->set_value(details);
     }
     const auto th = TrackHash(track_full_name);
-    ResolveSubscribe(connection_handle,
-                     request_id,
-                     th.track_fullname_hash,
-                     { .reason_code = SubscribeResponse::ReasonCode::kOk,
-                       .is_publisher_initiated = subscribe_attributes.is_publisher_initiated });
+    if (!subscribe_attributes.is_publisher_initiated) {
+        ResolveSubscribe(connection_handle,
+                         request_id,
+                         th.track_fullname_hash,
+                         { .reason_code = SubscribeResponse::ReasonCode::kOk,
+                           .is_publisher_initiated = subscribe_attributes.is_publisher_initiated });
+    }
 }
 
 void
@@ -110,4 +105,18 @@ TestServer::AddKnownPublishedTrack(const FullTrackName& track,
                                    const messages::PublishAttributes& attributes)
 {
     known_published_tracks_.emplace_back(track, largest_location, attributes);
+}
+
+void
+TestServer::PublishNamespaceReceived(const ConnectionHandle connection_handle,
+                                     const TrackNamespace& track_namespace,
+                                     const PublishNamespaceAttributes& publish_announce_attributes)
+{
+    if (publish_namespace_promise_.has_value()) {
+        publish_namespace_promise_->set_value({ connection_handle, track_namespace, publish_announce_attributes });
+    }
+
+    // Accept the publish namespace by responding with OK
+    const PublishNamespaceResponse response = { .reason_code = PublishNamespaceResponse::ReasonCode::kOk };
+    ResolvePublishNamespace(connection_handle, publish_announce_attributes.request_id, track_namespace, {}, response);
 }

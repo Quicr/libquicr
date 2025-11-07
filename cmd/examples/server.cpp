@@ -477,7 +477,7 @@ class MyServer : public quicr::Server
                     publish_attributes.delivery_timeout = handler->GetDeliveryTimeout();
                     publish_attributes.filter_type = handler->GetFilterType();
                     publish_attributes.forward = true;
-                    publish_attributes.new_group_request_id = handler->NewGroupRequestSupported();
+                    publish_attributes.new_group_request_id = handler->IsNewGroupRequestSupported();
                     publish_attributes.is_publisher_initiated = true;
                     matched_tracks.emplace_back(track_full_name, largest_location, publish_attributes);
                     SPDLOG_INFO(
@@ -498,21 +498,17 @@ class MyServer : public quicr::Server
 
     void PublishReceived(quicr::ConnectionHandle connection_handle,
                          uint64_t request_id,
-                         const quicr::FullTrackName& track_full_name,
                          const quicr::messages::PublishAttributes& publish_attributes) override
     {
-        auto th = quicr::TrackHash(track_full_name);
+        auto th = quicr::TrackHash(publish_attributes.track_full_name);
 
         SPDLOG_INFO("Received publish from connection handle: {} using track alias: {} request_id: {}",
                     connection_handle,
                     th.track_fullname_hash,
                     request_id);
 
-        quicr::PublishResponse publish_response;
-        publish_response.reason_code = quicr::PublishResponse::ReasonCode::kOk;
-
         // passively create the subscribe handler towards the publisher
-        auto sub_track_handler = std::make_shared<MySubscribeTrackHandler>(track_full_name, true);
+        auto sub_track_handler = std::make_shared<MySubscribeTrackHandler>(publish_attributes.track_full_name, true);
 
         sub_track_handler->SetRequestId(request_id);
         sub_track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);
@@ -522,7 +518,10 @@ class MyServer : public quicr::Server
         qserver_vars::pub_subscribes[th.track_fullname_hash][connection_handle] = sub_track_handler;
         qserver_vars::pub_subscribes_by_req_id[connection_handle][request_id] = sub_track_handler;
 
-        ResolvePublish(connection_handle, request_id, track_full_name, publish_attributes, publish_response);
+        ResolvePublish(connection_handle,
+                       request_id,
+                       publish_attributes,
+                       { .reason_code = quicr::PublishResponse::ReasonCode::kOk });
 
         // Check if there are any subscribers
         if (qserver_vars::subscribes[th.track_fullname_hash].empty()) {
@@ -878,15 +877,17 @@ class MyServer : public quicr::Server
 
         const auto track_alias = th.track_fullname_hash;
 
-        ResolveSubscribe(connection_handle,
-                         request_id,
-                         track_alias,
-                         {
-                           quicr::SubscribeResponse::ReasonCode::kOk,
-                           attrs.is_publisher_initiated,
-                           std::nullopt,
-                           largest_location,
-                         });
+        if (!attrs.is_publisher_initiated) {
+            ResolveSubscribe(connection_handle,
+                             request_id,
+                             track_alias,
+                             {
+                               quicr::SubscribeResponse::ReasonCode::kOk,
+                               attrs.is_publisher_initiated,
+                               std::nullopt,
+                               largest_location,
+                             });
+        }
 
         qserver_vars::subscribes[track_alias][connection_handle] = pub_track_h;
         qserver_vars::subscribe_alias_req_id[connection_handle][request_id] = track_alias;

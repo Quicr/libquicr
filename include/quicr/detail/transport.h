@@ -165,6 +165,36 @@ namespace quicr {
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
+         * @brief Callback notification for new publish received
+         *
+         * @note The caller **MUST** respond to this via ResolvePublish(). If the caller does not
+         * override this method, the default will call ResolvePublish() with the status of OK
+         *
+         * @param connection_handle     Source connection ID
+         * @param request_id            Request ID received
+         * @param publish_attributes    Publish attributes received
+         */
+        virtual void PublishReceived(ConnectionHandle connection_handle,
+                                     uint64_t request_id,
+                                     const messages::PublishAttributes& publish_attributes) = 0;
+
+        /**
+         * @brief Accept or reject publish that was received
+         *
+         * @details Accept or reject publish received via PublishReceived(). The MoQ Transport
+         *      will send the protocol message based on the PublishResponse
+         *
+         * @param connection_handle        source connection ID
+         * @param request_id               Request ID
+         * @param attributes               Attributes for the accepted publish
+         * @param publish_response         response for the publish
+         */
+        void ResolvePublish(ConnectionHandle connection_handle,
+                            uint64_t request_id,
+                            const messages::PublishAttributes& attributes,
+                            const PublishResponse& publish_response);
+
+        /**
          * @brief Event to run on receiving a Standalone Fetch request.
          *
          * @param connection_handle Source connection ID.

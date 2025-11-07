@@ -31,35 +31,14 @@ namespace quicr {
     {
     }
 
-    void Client::PublishReceived(const ConnectionHandle,
-                                 const messages::TrackAlias,
-                                 const FullTrackName&,
-                                 const messages::RequestID)
+    void Client::PublishReceived(const ConnectionHandle connection_handle,
+                                 const uint64_t request_id,
+                                 const messages::PublishAttributes& publish_attributes)
     {
-    }
-
-    void Client::ResolvePublish(ConnectionHandle connection_handle,
-                                const messages::RequestID request_id,
-                                const bool accept,
-                                const messages::SubscribeAttributes& attributes)
-    {
-        const auto ctx_it = connections_.find(connection_handle);
-        if (ctx_it == connections_.end()) {
-            return;
-        }
-
-        if (!accept) {
-            // TODO: codes/reasons.
-            SendPublishError(ctx_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Rejected");
-            return;
-        }
-
-        SendPublishOk(ctx_it->second,
-                      request_id,
-                      attributes.forward,
-                      attributes.priority,
-                      attributes.group_order,
-                      attributes.filter_type);
+        ResolvePublish(connection_handle,
+                       request_id,
+                       publish_attributes,
+                       { .reason_code = PublishResponse::ReasonCode::kNotSupported });
     }
 
     void Client::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&)
@@ -492,7 +471,12 @@ namespace quicr {
                 // Update each track to indicate status is okay to publish
                 auto pub_ns_it = conn_ctx.pub_tracks_ns_by_request_id.find(msg.request_id);
                 if (pub_ns_it == conn_ctx.pub_tracks_ns_by_request_id.end()) {
-                    break;
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received publish namespace ok to unknown request_id conn_id: {0} request_id: {1}, ignored",
+                      conn_ctx.connection_handle,
+                      msg.request_id);
+                    return true;
                 }
 
                 auto pub_it = conn_ctx.pub_tracks_by_name.find(pub_ns_it->second);
@@ -500,6 +484,7 @@ namespace quicr {
                     if (td.second.get()->GetStatus() != PublishTrackHandler::Status::kOk)
                         td.second.get()->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                 }
+                conn_ctx.pub_tracks_ns_by_request_id.erase(pub_ns_it);
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceError: {
@@ -600,7 +585,40 @@ namespace quicr {
                                     th.track_name_hash,
                                     msg.track_alias);
 
-                PublishReceived(conn_ctx.connection_handle, msg.track_alias, tfn, msg.request_id);
+                // Extract parameters.
+                std::uint64_t delivery_timeout = 0;
+                std::optional<uint64_t> new_group_request_id;
+                for (const auto& param : msg.parameters) {
+                    switch (param.type) {
+                        case messages::ParameterType::kDeliveryTimeout: {
+                            std::memcpy(&delivery_timeout,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+
+                            break;
+                        }
+                        case messages::ParameterType::kNewGroupRequest: {
+                            uint64_t ngr_id{ 0 };
+                            std::memcpy(&ngr_id,
+                                        param.value.data(),
+                                        param.value.size() > sizeof(uint64_t) ? sizeof(uint64_t) : param.value.size());
+                            new_group_request_id = ngr_id;
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+                }
+
+                messages::PublishAttributes attrs;
+                attrs.track_full_name = tfn;
+                attrs.track_alias = msg.track_alias;
+                attrs.forward = msg.forward;
+                attrs.group_order = msg.group_order;
+                attrs.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
+                attrs.is_publisher_initiated = true;
+                attrs.new_group_request_id = new_group_request_id;
+                PublishReceived(conn_ctx.connection_handle, msg.request_id, attrs);
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {

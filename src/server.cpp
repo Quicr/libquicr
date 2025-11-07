@@ -92,6 +92,10 @@ namespace quicr {
                                   uint64_t track_alias,
                                   const SubscribeResponse& subscribe_response)
     {
+        if (subscribe_response.is_publisher_initiated) {
+            throw std::invalid_argument("ResolveSubscribe should not be called when publisher initiated");
+        }
+
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
@@ -121,56 +125,6 @@ namespace quicr {
             }
             default:
                 SendSubscribeError(
-                  conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
-                break;
-        }
-    }
-
-    void Server::ResolvePublish(ConnectionHandle connection_handle,
-                                uint64_t request_id,
-                                const FullTrackName& track_name,
-                                const messages::PublishAttributes& attributes,
-                                const PublishResponse& publish_response)
-    {
-        auto conn_it = connections_.find(connection_handle);
-        if (conn_it == connections_.end()) {
-            return;
-        }
-
-        switch (publish_response.reason_code) {
-            case PublishResponse::ReasonCode::kOk: {
-
-                // TODO: Filter type.
-                // Send the ok.
-                SendPublishOk(conn_it->second,
-                              request_id,
-                              attributes.forward,
-                              attributes.priority,
-                              attributes.group_order,
-                              messages::FilterType::kLargestObject);
-
-                // Fan out PUBLISH to interested subscribers.
-                for (const auto& handle : publish_response.namespace_subscribers) {
-                    const auto& conn_it = connections_.find(handle);
-                    if (conn_it == connections_.end()) {
-                        SPDLOG_LOGGER_WARN(logger_, "Bad connection handle on SUBSCRIBE_NAMESPACE fan out");
-                        continue;
-                    }
-                    const auto outgoing_request = conn_it->second.GetNextRequestId();
-                    conn_it->second.pub_by_request_id[outgoing_request] = track_name;
-                    SendPublish(conn_it->second,
-                                outgoing_request,
-                                track_name,
-                                attributes.track_alias,
-                                attributes.group_order,
-                                publish_response.largest_location,
-                                attributes.forward,
-                                attributes.dynamic_groups);
-                }
-                break;
-            }
-            default:
-                SendPublishError(
                   conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
                 break;
         }
@@ -1034,6 +988,7 @@ namespace quicr {
                 }
 
                 messages::PublishAttributes attributes;
+                attributes.track_full_name = tfn;
                 attributes.track_alias = msg.track_alias;
                 attributes.priority = 0;
                 attributes.group_order = msg.group_order;
@@ -1043,7 +998,7 @@ namespace quicr {
                 attributes.new_group_request_id = 1;
                 attributes.is_publisher_initiated = true;
                 attributes.dynamic_groups = dynamic_groups;
-                PublishReceived(conn_ctx.connection_handle, msg.request_id, tfn, attributes);
+                PublishReceived(conn_ctx.connection_handle, msg.request_id, attributes);
 
                 return true;
             }

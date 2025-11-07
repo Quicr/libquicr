@@ -622,3 +622,88 @@ TEST_CASE("Null extensions serialize to 0 length")
     REQUIRE_EQ(bytes.size(), 1);
     CHECK_EQ(bytes[0], 0);
 }
+
+TEST_CASE("Immutable Extensions not length prefixed")
+{
+    // Test keys and values.
+    constexpr uint64_t even_type_key = 0x02;
+    constexpr uint64_t odd_type_key = 0x03;
+    constexpr uint64_t varint_value = 0xC0;
+    const Bytes bytes_value = { 0x42, 0x43 };
+
+    // Create immutable extensions with known values.
+    Extensions immutable_ext;
+    immutable_ext[even_type_key].push_back({ varint_value, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 });
+    immutable_ext[odd_type_key].push_back(bytes_value);
+
+    // Serialize
+    Bytes buffer;
+    std::optional<Extensions> mutable_ext;
+    SerializeExtensions(buffer, mutable_ext, immutable_ext);
+
+    // On the wire it should be:
+    // - Total length of all extensions (varint)
+    // - Type 0xB (immutable)
+    // - Total length of immutable extension bytes (varint)
+    // - Raw KVPs of immutable extensions:
+    //   - First KVP: even type (varint value)
+    //   - Second KVP: odd type (TLV byte array)
+    // Total inner KVPs: 1 + 2 + 1 + 1 + 2 = 7 bytes
+
+    // Overall: 1 byte for total block length + 9 bytes of immutable header blob = 10.
+    REQUIRE_EQ(buffer.size(), 10);
+
+    // Verify structure byte by byte.
+    size_t idx = 0;
+
+    // First byte is total following bytes of extensions = 9 bytes.
+    CHECK_EQ(buffer[idx++], 0x09);
+
+    // Next is the key for Immutable Extensions header.
+    CHECK_EQ(buffer[idx++], static_cast<uint8_t>(ExtensionHeaderType::kImmutable));
+
+    // Then the total length of all bytes of KVPs (7 bytes).
+    CHECK_EQ(buffer[idx++], 0x07);
+
+    // First KVP: even type key, varint value.
+    CHECK_EQ(buffer[idx++], even_type_key);
+    CHECK_EQ(buffer[idx++], 0x40); // Varint byte 1.
+    CHECK_EQ(buffer[idx++], varint_value);
+
+    // Second KVP: odd type key, byte array value.
+    CHECK_EQ(buffer[idx++], odd_type_key);
+    CHECK_EQ(buffer[idx++], bytes_value.size());
+    CHECK_EQ(buffer[idx++], bytes_value[0]);
+    CHECK_EQ(buffer[idx++], bytes_value[1]);
+
+    // Round trip.
+    StreamBuffer<uint8_t> in_buffer;
+    in_buffer.Push(buffer);
+    std::optional<std::size_t> extension_headers_length;
+    std::optional<Extensions> parsed_extensions;
+    std::optional<Extensions> parsed_immutable_extensions;
+    std::size_t extension_bytes_remaining = 0;
+    std::optional<std::uint64_t> current_header;
+
+    bool success = ParseExtensions(in_buffer,
+                                   extension_headers_length,
+                                   parsed_extensions,
+                                   parsed_immutable_extensions,
+                                   extension_bytes_remaining,
+                                   current_header);
+
+    REQUIRE(success);
+    REQUIRE(parsed_immutable_extensions.has_value());
+    CHECK_EQ(parsed_immutable_extensions->size(), 2);
+
+    // Verify even type key value.
+    REQUIRE(parsed_immutable_extensions->contains(even_type_key));
+    CHECK_EQ(parsed_immutable_extensions->at(even_type_key).size(), 1);
+    CHECK_EQ(parsed_immutable_extensions->at(even_type_key)[0],
+             Bytes{ varint_value, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 });
+
+    // Verify odd type key value.
+    REQUIRE(parsed_immutable_extensions->contains(odd_type_key));
+    CHECK_EQ(parsed_immutable_extensions->at(odd_type_key).size(), 1);
+    CHECK_EQ(parsed_immutable_extensions->at(odd_type_key)[0], bytes_value);
+}

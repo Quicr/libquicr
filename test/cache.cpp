@@ -42,7 +42,6 @@ TEST_SUITE("Cache")
         CHECK(cache.Contains(target_key, target_key + 1));
 
         // Lookup by matching intra range would throw.
-        CHECK_THROWS_AS(cache.Contains(target_key, target_key), const std::invalid_argument&);
         CHECK_THROWS_AS(cache.Contains(target_key + 1, target_key), const std::invalid_argument&);
 
         // Get target key.

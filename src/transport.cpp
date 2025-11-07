@@ -1238,6 +1238,7 @@ namespace quicr {
                 lock.lock();
 
                 SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
+                conn_it->second.pub_tracks_ns_by_request_id[*track_handler->GetRequestId()] = th.track_namespace_hash;
             } else {
                 auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
                 if (pub_n_it == pub_ns_it->second.end()) {
@@ -1282,6 +1283,51 @@ namespace quicr {
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash][conn_id] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+    }
+
+    void Transport::ResolvePublish(const ConnectionHandle connection_handle,
+                                   const uint64_t request_id,
+                                   const PublishAttributes& attributes,
+                                   const PublishResponse& publish_response)
+    {
+        const auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        switch (publish_response.reason_code) {
+            case PublishResponse::ReasonCode::kOk: {
+                SendPublishOk(conn_it->second,
+                              request_id,
+                              attributes.forward,
+                              attributes.priority,
+                              attributes.group_order,
+                              attributes.filter_type);
+
+                // Fan out PUBLISH, if requested.
+                for (const auto& handle : publish_response.namespace_subscribers) {
+                    const auto& conn_it = connections_.find(handle);
+                    if (conn_it == connections_.end()) {
+                        SPDLOG_LOGGER_WARN(logger_, "Bad connection handle on SUBSCRIBE_NAMESPACE fan out");
+                        continue;
+                    }
+                    const auto outgoing_request = conn_it->second.GetNextRequestId();
+                    conn_it->second.pub_by_request_id[outgoing_request] = attributes.track_full_name;
+                    SendPublish(conn_it->second,
+                                outgoing_request,
+                                attributes.track_full_name,
+                                attributes.track_alias,
+                                attributes.group_order,
+                                publish_response.largest_location,
+                                attributes.forward,
+                                attributes.dynamic_groups);
+                }
+                break;
+            }
+            default:
+                SendPublishError(conn_it->second, request_id, SubscribeErrorCode::kInternalError, "Internal error");
+                break;
+        }
     }
 
     void Transport::StandaloneFetchReceived(

@@ -229,7 +229,7 @@ namespace quicr {
          * @brief Indicate if subscribe handler can send new group requests or not
          * @return True if new group requests are supported.
          */
-        bool NewGroupRequestSupported() const noexcept { return support_new_group_request_; }
+        bool IsNewGroupRequestSupported() const noexcept { return support_new_group_request_; }
 
         std::chrono::milliseconds GetDeliveryTimeout() const noexcept { return delivery_timeout_; }
 

@@ -1245,6 +1245,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
                 const auto conn_ctx = GetConnContext(data_ctx->conn_id);
                 if (!conn_ctx->is_congested) {
                     data_ctx->tx_reset_wait_discard = false;
+                    data_ctx->ResetTxObject();
                 } else {
                     data_ctx->tx_data->Pop(); // discard when in current stream
 
@@ -1268,15 +1269,18 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 
     if (data_ctx->stream_tx_object == nullptr) {
         data_ctx->tx_data->PopFront(obj);
-        data_ctx->metrics.tx_queue_expired += obj.expired_count;
 
-        if (obj.expired_count != 0) {
+        if (obj.expired_count) {
+            data_ctx->tx_reset_wait_discard = true;
+            data_ctx->metrics.tx_queue_expired += obj.expired_count;
             SPDLOG_LOGGER_DEBUG(logger,
                                 "Send stream objects expired; conn_id: {} data_ctx_id: {} expired: {} queue_size: {}",
                                 data_ctx->conn_id,
                                 data_ctx->data_ctx_id,
                                 obj.expired_count,
                                 data_ctx->tx_data->Size());
+            data_ctx->ResetTxObject();
+            return;
         }
 
         if (obj.has_value) {
@@ -1875,7 +1879,13 @@ PicoQuicTransport::Shutdown()
     stop_ = true;
 
     if (quic_network_thread_ctx_ != NULL) {
-        SPDLOG_LOGGER_INFO(logger, "Closing transport pico thread");
+        SPDLOG_LOGGER_INFO(logger, "Closing transport picoquic thread");
+        picoquic_wake_up_network_thread(quic_network_thread_ctx_);
+
+        while (quic_network_thread_ctx_->thread_is_ready) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
         picoquic_delete_network_thread(quic_network_thread_ctx_);
     }
 

@@ -533,9 +533,21 @@ class MyClient : public quicr::Client
         if (!largest_location.has_value()) {
             // TODO: This changes to send an empty object instead of REQUEST_ERROR
             reason_code = quicr::FetchResponse::ReasonCode::kNoObjects;
+        } else {
+            SPDLOG_INFO("Fetch received request id: {} largest group: {} object: {}",
+                        request_id,
+                        largest_location.value().group,
+                        largest_location.value().object);
         }
 
         if (start.group > end->group || largest_location.value().group < start.group) {
+            reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
+        }
+
+        const auto& cache_entries =
+          cache_entry_it->second.Get(start.group, end->group != 0 ? end->group : cache_entry_it->second.Size());
+
+        if (cache_entries.empty()) {
             reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
         }
 
@@ -553,13 +565,6 @@ class MyClient : public quicr::Client
 
         if (reason_code != quicr::FetchResponse::ReasonCode::kOk) {
             return;
-        }
-
-        const auto& cache_entries =
-          cache_entry_it->second.Get(start.group, end->group != 0 ? end->group : cache_entry_it->second.Size());
-
-        if (cache_entries.empty()) {
-            reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
         }
 
         // TODO: Adjust the TTL
@@ -647,11 +652,10 @@ class MyClient : public quicr::Client
     }
 
     void PublishReceived(quicr::ConnectionHandle connection_handle,
-                         quicr::messages::TrackAlias track_alias,
-                         const quicr::FullTrackName& track,
-                         quicr::messages::RequestID request_id) override
+                         uint64_t request_id,
+                         const quicr::messages::PublishAttributes& publish_attributes) override
     {
-        auto th = quicr::TrackHash(track);
+        auto th = quicr::TrackHash(publish_attributes.track_full_name);
         SPDLOG_INFO(
           "Received PUBLISH from relay for track namespace_hash: {} name_hash: {} track_hash: {} request_id: {}",
           th.track_namespace_hash,
@@ -661,20 +665,19 @@ class MyClient : public quicr::Client
 
         // Bind publish initiated handler.
         const auto track_handler = std::make_shared<MySubscribeTrackHandler>(
-          track, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
+          publish_attributes.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
         track_handler->SetRequestId(request_id);
-        track_handler->SetReceivedTrackAlias(track_alias);
+        track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);
+        track_handler->SetPriority(publish_attributes.priority);
+        track_handler->SetDeliveryTimeout(publish_attributes.delivery_timeout);
+        track_handler->SupportNewGroupRequest(publish_attributes.new_group_request_id.has_value());
         SubscribeTrack(track_handler);
 
         // Accept the PUBLISH.
-        const quicr::messages::SubscribeAttributes attrs = { .priority = track_handler->GetPriority(),
-                                                             .group_order = track_handler->GetGroupOrder(),
-                                                             .delivery_timeout = track_handler->GetDeliveryTimeout(),
-                                                             .forward = true,
-                                                             .new_group_request_id = std::nullopt,
-                                                             .is_publisher_initiated =
-                                                               track_handler->IsPublisherInitiated() };
-        ResolvePublish(connection_handle, request_id, true, attrs);
+        ResolvePublish(connection_handle,
+                       request_id,
+                       publish_attributes,
+                       { .reason_code = quicr::PublishResponse::ReasonCode::kOk });
 
         SPDLOG_INFO(
           "Accepted PUBLISH and subscribed to track_hash: {} request_id: {}", th.track_fullname_hash, request_id);
