@@ -515,9 +515,9 @@ PicoQuicTransport::Start()
     // picoquic_set_default_wifi_shadow_rtt(quic_ctx, tconfig.quic_wifi_shadow_rtt_us);
     // logger->info << "Setting wifi shadow RTT to " << tconfig.quic_wifi_shadow_rtt_us << "us" << std::flush;
 
-    picoquic_runner_queue_.SetLimit(2000);
+    picoquic_runner_queue_.SetLimit(10000);
 
-    cbNotifyQueue_.SetLimit(2000);
+    cbNotifyQueue_.SetLimit(10000);
     cbNotifyThread_ = std::thread(&PicoQuicTransport::CbNotifier, this);
 
     if (!tconfig_.quic_qlog_path.empty()) {
@@ -1422,7 +1422,7 @@ try {
     conn_ctx->metrics.rx_dgrams++;
     conn_ctx->metrics.rx_dgrams_bytes += length;
 
-    if (cbNotifyQueue_.Size() > 100) {
+    if (cbNotifyQueue_.Size() > 1000) {
         SPDLOG_LOGGER_INFO(logger, "on_recv_datagram cbNotifyQueue size {0}", cbNotifyQueue_.Size());
     }
 
@@ -1482,7 +1482,7 @@ try {
         data_ctx->metrics.rx_stream_cb++;
         data_ctx->metrics.rx_stream_bytes += bytes.size();
 
-        if (!cbNotifyQueue_.Push([=, this]() {
+        if (rx_buf.rx_ctx->data_queue.Size() < 10 && !cbNotifyQueue_.Push([=, this]() {
                 delegate_.OnRecvStream(conn_ctx->conn_id, stream_id, data_ctx->data_ctx_id, data_ctx->is_bidir);
             })) {
 

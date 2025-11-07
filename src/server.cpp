@@ -671,12 +671,13 @@ namespace quicr {
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
                 auto th = TrackHash(tfn);
 
-                SPDLOG_LOGGER_INFO(logger_, "Received unannounce for namespace_hash: {0}", th.track_namespace_hash);
+                SPDLOG_LOGGER_INFO(
+                  logger_, "Received publish namespace done for namespace_hash: {0}", th.track_namespace_hash);
 
-                auto sub_anno_conns = UnannounceReceived(conn_ctx.connection_handle, tfn.name_space);
+                auto sub_namespace_conns = PublishNamespaceDoneReceived(conn_ctx.connection_handle, tfn.name_space);
 
                 std::lock_guard<std::mutex> _(state_mutex_);
-                for (auto conn_id : sub_anno_conns) {
+                for (auto conn_id : sub_namespace_conns) {
                     auto conn_it = connections_.find(conn_id);
                     if (conn_it == connections_.end()) {
                         continue;

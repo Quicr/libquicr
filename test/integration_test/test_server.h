@@ -56,12 +56,14 @@ namespace quicr_test {
         {
             return {};
         };
-        std::vector<quicr::ConnectionHandle> UnannounceReceived(
-          [[maybe_unused]] quicr::ConnectionHandle connection_handle,
-          [[maybe_unused]] const quicr::TrackNamespace& track_namespace) override
+
+        std::vector<quicr::ConnectionHandle> PublishNamespaceDoneReceived(
+          quicr::ConnectionHandle connection_handle,
+          const quicr::TrackNamespace& track_namespace) override
         {
             return {};
-        };
+        }
+
         void UnsubscribeNamespaceReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
                                           [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override {};
         void UnsubscribeReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
