@@ -117,10 +117,8 @@ namespace quicr {
                 req_it->second.largest_location = subscribe_response.largest_location;
 
                 // Send the ok.
-                if (!subscribe_response.is_publisher_initiated) {
-                    SendSubscribeOk(
-                      conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
-                }
+                SendSubscribeOk(
+                  conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
                 break;
             }
             default:
