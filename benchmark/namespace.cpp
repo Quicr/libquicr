@@ -6,8 +6,8 @@
 #include <numeric>
 #include <quicr/common.h>
 #include <quicr/track_name.h>
-#include <vector>
 #include <unordered_set>
+#include <vector>
 
 #include <benchmark/benchmark.h>
 
@@ -21,7 +21,7 @@ const FullTrackName kFullTrackName{ kNamespace, std::vector<uint8_t>{ kNameStr.b
 template<typename Key, typename Value, unsigned int N>
 struct VarMapHelper
 {
-    typedef std::map<Key, typename VarMapHelper<Key, Value, N-1>::type> type;
+    typedef std::map<Key, typename VarMapHelper<Key, Value, N - 1>::type> type;
 };
 
 template<typename Key, typename Value>
@@ -33,7 +33,6 @@ struct VarMapHelper<Key, Value, 1>
 template<typename Key, typename Value, unsigned int N>
 using VarMap = typename VarMapHelper<Key, Value, N>::type;
 
-
 struct ValueObject
 {
     std::string some_string;
@@ -41,19 +40,20 @@ struct ValueObject
 };
 
 template<typename T, std::enable_if_t<std::is_integral<T>::value || std::is_floating_point<T>::value, bool> = true>
-std::span<const uint8_t> BytesOf(const T& value)
+std::span<const uint8_t>
+BytesOf(const T& value)
 {
     return std::span(reinterpret_cast<const uint8_t*>(&value), sizeof(value));
 }
 
-std::vector<std::size_t> PrefixHashNamespaceTuples(TrackNamespace name_space)
+std::vector<std::size_t>
+PrefixHashNamespaceTuples(TrackNamespace name_space)
 {
     const auto& entries = name_space.GetHashes();
     std::vector<std::size_t> hashes(entries.size());
 
     uint64_t hash = 0;
-    for (std::size_t i = 0; i < hashes.size(); ++i)
-    {
+    for (std::size_t i = 0; i < hashes.size(); ++i) {
         hash_combine(hash, hashes[i]);
         hashes[i] = hash;
     }
@@ -65,18 +65,18 @@ static void
 TrackNamespace_ToStateMap(benchmark::State& state)
 {
     std::map<uint64_t, ValueObject> value_map;
-    ValueObject value_object { "hello", 0x123456 };
-    value_map.emplace( 1, value_object);
+    ValueObject value_object{ "hello", 0x123456 };
+    value_map.emplace(1, value_object);
 
     std::map<uint64_t, std::map<uint64_t, ValueObject>> data_map;
     std::map<uint64_t, std::unordered_set<uint64_t>> prefix_lookup_map;
 
-    TrackNamespace name_space { "one"s, "two"s, "3"s, "this is value 4"s, "last value is five"s};
+    TrackNamespace name_space{ "one"s, "two"s, "3"s, "this is value 4"s, "last value is five"s };
 
     uint64_t i = 0;
     for ([[maybe_unused]] const auto& _ : state) {
         auto index = BytesOf(i);
-        auto tfn = FullTrackName {name_space, { index.begin(), index.end() }};
+        auto tfn = FullTrackName{ name_space, { index.begin(), index.end() } };
         auto th = TrackHash(tfn);
 
         const auto data_map_it = data_map.find(th.track_fullname_hash);
@@ -113,6 +113,5 @@ TrackNamespace_ToStateMap(benchmark::State& state)
 
     state.SetItemsProcessed(i);
 }
-
 
 BENCHMARK(TrackNamespace_ToStateMap);

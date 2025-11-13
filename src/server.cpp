@@ -92,10 +92,6 @@ namespace quicr {
                                   uint64_t track_alias,
                                   const SubscribeResponse& subscribe_response)
     {
-        if (subscribe_response.is_publisher_initiated) {
-            throw std::invalid_argument("ResolveSubscribe should not be called when publisher initiated");
-        }
-
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
@@ -116,14 +112,18 @@ namespace quicr {
 
                 req_it->second.largest_location = subscribe_response.largest_location;
 
-                // Send the ok.
-                SendSubscribeOk(
-                  conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
+                if (!subscribe_response.is_publisher_initiated) {
+                    // Send the ok.
+                    SendSubscribeOk(
+                      conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
+                }
                 break;
             }
             default:
-                SendSubscribeError(
-                  conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
+                if (!subscribe_response.is_publisher_initiated) {
+                    SendSubscribeError(
+                      conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
+                }
                 break;
         }
     }
