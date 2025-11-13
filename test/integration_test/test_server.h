@@ -88,7 +88,6 @@ namespace quicr_test {
 
         void PublishReceived(quicr::ConnectionHandle connection_handle,
                              uint64_t request_id,
-                             const quicr::FullTrackName& track_full_name,
                              const quicr::messages::PublishAttributes& publish_attributes) override;
         void PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override;
 
@@ -107,5 +106,7 @@ namespace quicr_test {
         std::vector<quicr::TrackNamespace> known_published_namespaces_;
         std::vector<quicr::SubscribeNamespaceResponse::AvailableTrack> known_published_tracks_;
         std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
+        std::unordered_map<quicr::messages::TrackNamespacePrefix, std::vector<quicr::ConnectionHandle>>
+          namespace_subscribers_;
     };
 }

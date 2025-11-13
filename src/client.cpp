@@ -33,7 +33,6 @@ namespace quicr {
 
     void Client::PublishReceived(const ConnectionHandle connection_handle,
                                  const uint64_t request_id,
-                                 [[maybe_unused]] const FullTrackName& track_full_name,
                                  const messages::PublishAttributes& publish_attributes)
     {
         ResolvePublish(connection_handle,
@@ -612,13 +611,14 @@ namespace quicr {
                 }
 
                 messages::PublishAttributes attrs;
+                attrs.track_full_name = tfn;
                 attrs.track_alias = msg.track_alias;
                 attrs.forward = msg.forward;
                 attrs.group_order = msg.group_order;
                 attrs.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
                 attrs.is_publisher_initiated = true;
                 attrs.new_group_request_id = new_group_request_id;
-                PublishReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
+                PublishReceived(conn_ctx.connection_handle, msg.request_id, attrs);
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {

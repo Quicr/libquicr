@@ -37,13 +37,12 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
 }
 
 void
-TestClient::PublishReceived(const ConnectionHandle connection_handle,
-                            const uint64_t request_id,
-                            const FullTrackName& track_full_name,
-                            const messages::PublishAttributes& publish_attributes)
+TestClient::PublishReceived(quicr::ConnectionHandle connection_handle,
+                            uint64_t request_id,
+                            const quicr::messages::PublishAttributes& publish_attributes)
 {
     if (publish_received_) {
-        publish_received_->set_value(track_full_name);
+        publish_received_->set_value(publish_attributes.track_full_name);
     }
 
     ResolvePublish(

@@ -172,12 +172,10 @@ namespace quicr {
          *
          * @param connection_handle     Source connection ID
          * @param request_id            Request ID received
-         * @param track_full_name       Track full name
          * @param publish_attributes    Publish attributes received
          */
         virtual void PublishReceived(ConnectionHandle connection_handle,
                                      uint64_t request_id,
-                                     const FullTrackName& track_full_name,
                                      const messages::PublishAttributes& publish_attributes) = 0;
 
         /**
@@ -193,7 +191,7 @@ namespace quicr {
          */
         void ResolvePublish(ConnectionHandle connection_handle,
                             uint64_t request_id,
-                            const messages::SubscribeAttributes& attributes,
+                            const messages::PublishAttributes& attributes,
                             const PublishResponse& publish_response);
 
         /**

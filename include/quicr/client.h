@@ -125,12 +125,10 @@ namespace quicr {
          *
          * @param connection_handle Our own connection that received this Publish.
          * @param request_id Incoming publish request ID.
-         * @param track_full_name Track available.
          * @param publish_attributes Attributes of the publish.
          */
         void PublishReceived(ConnectionHandle connection_handle,
                              uint64_t request_id,
-                             const FullTrackName& track_full_name,
                              const messages::PublishAttributes& publish_attributes) override;
 
         /**

@@ -1287,7 +1287,7 @@ namespace quicr {
 
     void Transport::ResolvePublish(const ConnectionHandle connection_handle,
                                    const uint64_t request_id,
-                                   const SubscribeAttributes& attributes,
+                                   const PublishAttributes& attributes,
                                    const PublishResponse& publish_response)
     {
         const auto conn_it = connections_.find(connection_handle);
@@ -1303,6 +1303,25 @@ namespace quicr {
                               attributes.priority,
                               attributes.group_order,
                               attributes.filter_type);
+
+                // Fan out PUBLISH, if requested.
+                for (const auto& handle : publish_response.namespace_subscribers) {
+                    const auto& conn_it = connections_.find(handle);
+                    if (conn_it == connections_.end()) {
+                        SPDLOG_LOGGER_WARN(logger_, "Bad connection handle on SUBSCRIBE_NAMESPACE fan out");
+                        continue;
+                    }
+                    const auto outgoing_request = conn_it->second.GetNextRequestId();
+                    conn_it->second.pub_by_request_id[outgoing_request] = attributes.track_full_name;
+                    SendPublish(conn_it->second,
+                                outgoing_request,
+                                attributes.track_full_name,
+                                attributes.track_alias,
+                                attributes.group_order,
+                                publish_response.largest_location,
+                                attributes.forward,
+                                attributes.dynamic_groups);
+                }
                 break;
             }
             default:
