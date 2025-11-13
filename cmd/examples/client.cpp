@@ -653,10 +653,9 @@ class MyClient : public quicr::Client
 
     void PublishReceived(quicr::ConnectionHandle connection_handle,
                          uint64_t request_id,
-                         const quicr::FullTrackName& track_full_name,
                          const quicr::messages::PublishAttributes& publish_attributes) override
     {
-        auto th = quicr::TrackHash(track_full_name);
+        auto th = quicr::TrackHash(publish_attributes.track_full_name);
         SPDLOG_INFO(
           "Received PUBLISH from relay for track namespace_hash: {} name_hash: {} track_hash: {} request_id: {}",
           th.track_namespace_hash,
@@ -666,7 +665,7 @@ class MyClient : public quicr::Client
 
         // Bind publish initiated handler.
         const auto track_handler = std::make_shared<MySubscribeTrackHandler>(
-          track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
+          publish_attributes.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
         track_handler->SetRequestId(request_id);
         track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);
         track_handler->SetPriority(publish_attributes.priority);

@@ -499,21 +499,17 @@ class MyServer : public quicr::Server
 
     void PublishReceived(quicr::ConnectionHandle connection_handle,
                          uint64_t request_id,
-                         const quicr::FullTrackName& track_full_name,
                          const quicr::messages::PublishAttributes& publish_attributes) override
     {
-        auto th = quicr::TrackHash(track_full_name);
+        auto th = quicr::TrackHash(publish_attributes.track_full_name);
 
         SPDLOG_INFO("Received publish from connection handle: {} using track alias: {} request_id: {}",
                     connection_handle,
                     th.track_fullname_hash,
                     request_id);
 
-        quicr::PublishResponse publish_response;
-        publish_response.reason_code = quicr::PublishResponse::ReasonCode::kOk;
-
         // passively create the subscribe handler towards the publisher
-        auto sub_track_handler = std::make_shared<MySubscribeTrackHandler>(track_full_name, true);
+        auto sub_track_handler = std::make_shared<MySubscribeTrackHandler>(publish_attributes.track_full_name, true);
 
         sub_track_handler->SetRequestId(request_id);
         sub_track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);

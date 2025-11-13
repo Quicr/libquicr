@@ -78,6 +78,8 @@ namespace quicr {
         std::optional<std::string> error_reason = std::nullopt;
 
         std::optional<messages::Location> largest_location = std::nullopt;
+
+        std::vector<ConnectionHandle> namespace_subscribers{};
     };
 
     struct SubscribeNamespaceResponse
