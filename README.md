@@ -151,6 +151,16 @@ Use `make cclean` to clean build files.
 
 Use `make fuzz` to run the fuzzer tests.
 
+### C Bridge Target
+
+libquicr includes C Bridge interfaces for C applications:
+
+#### Building C Bridge  
+The C Bridge provides a C wrapper around the C++ libquicr library.
+
+See [c-bridge/README.md](c-bridge/README.md) for details.
+
+
 ## Self-signed Certificate
 
 Server requires a TLS certificate and key file. For development and testing, use a self-signed certificate. Below

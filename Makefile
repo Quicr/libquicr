@@ -11,7 +11,7 @@ BUILD_DIR=build
 export MERMAID_FILTER_THEME=neutral
 CLANG_FORMAT=clang-format -i
 
-.PHONY: all clean cclean format fuzz
+.PHONY: all clean cclean format fuzz c-bridge c-bridge-only
 
 # Build.
 all: ${BUILD_DIR}
@@ -19,7 +19,7 @@ all: ${BUILD_DIR}
 
 # Standard development CMake generation.
 ${BUILD_DIR}: CMakeLists.txt cmd/CMakeLists.txt
-	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_MBEDTLS=OFF -DLINT=OFF .
+	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_C_BRIDGE=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_MBEDTLS=OFF -DLINT=OFF .
 
 # Run fuzzing tests.
 fuzz:
@@ -61,6 +61,15 @@ doc:
 	@pandoc docs/api-guide.md -f markdown --to=html5 -o docs/html/api-guide.html --filter=mermaid-filter \
  			--template=docs/pandoc-theme/elegant_bootstrap_menu.html --toc
 
+# Build C Bridge only.
+c-bridge-only: CMakeLists.txt c-bridge/CMakeLists.txt
+	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=FALSE -DQUICR_BUILD_TESTS=OFF -DQUICR_BUILD_C_API=OFF -DQUICR_BUILD_C_BRIDGE=ON -DCMAKE_BUILD_TYPE=Release -DUSE_MBEDTLS=OFF -DLINT=OFF .
+	cmake --build ${BUILD_DIR} --target quicr-bridge bridge_examples --parallel 8
+
+# Build with C Bridge enabled.
+c-bridge: ${BUILD_DIR}
+	cmake --build ${BUILD_DIR} --target quicr-bridge bridge_examples --parallel 8
+
 # Format code.
 format:
 	find include -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
@@ -71,6 +80,7 @@ format:
 	find cmd -iname "*.h" -or -iname "*.cpp" -or -iname "*.cc" -or -iname "*.hpp" | xargs ${CLANG_FORMAT}
 	find benchmark -name "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find tools -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
+	find c-bridge -iname "*.h" -or -iname "*.c" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 
 lint:
 	reuse lint
