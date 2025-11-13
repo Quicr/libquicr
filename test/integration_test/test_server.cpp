@@ -33,7 +33,7 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
     ResolvePublish(connection_handle,
                    request_id,
                    publish_attributes,
-                   { .namespace_subscribers = namespace_subscribers, .reason_code = PublishResponse::ReasonCode::kOk });
+                   { .reason_code = PublishResponse::ReasonCode::kOk, .namespace_subscribers = namespace_subscribers });
 }
 
 void
