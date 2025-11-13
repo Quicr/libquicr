@@ -37,7 +37,7 @@ file(GLOB_RECURSE BRIDGE_HEADERS
 )
 
 # Create the bridge library
-add_library(quicr-bridge SHARED ${BRIDGE_SOURCES} ${BRIDGE_HEADERS})
+add_library(quicr-bridge STATIC ${BRIDGE_SOURCES} ${BRIDGE_HEADERS})
 
 # Link against the main QuicR library
 target_link_libraries(quicr-bridge 
@@ -124,16 +124,10 @@ endif()
 
 # Installation
 install(TARGETS quicr-bridge
-    EXPORT quicr-bridge-targets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin
     PUBLIC_HEADER DESTINATION include/quicr
-)
-
-install(EXPORT quicr-bridge-targets
-    FILE quicr-bridge-config.cmake
-    DESTINATION lib/cmake/quicr-bridge
 )
 
 # Install examples if built

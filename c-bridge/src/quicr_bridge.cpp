@@ -106,7 +106,7 @@ namespace {
     /**
      * @brief Convert C++ FullTrackName to C full track name structure
      */
-    void c_track_name_from_cpp(qbridge_full_track_name_t* c_track_name, const quicr::FullTrackName& cpp_track_name)
+    [[maybe_unused]] void c_track_name_from_cpp(qbridge_full_track_name_t* c_track_name, const quicr::FullTrackName& cpp_track_name)
     {
         if (!c_track_name)
             return;
