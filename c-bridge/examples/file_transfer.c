@@ -268,8 +268,8 @@ send_file(qbridge_client_t* client,
     pub_config.default_ttl_ms = 10000;
     pub_config.default_cacheable = true;
 
-    qbridge_publish_track_handler_t* publish_handler = qbridge_create_publish_track_handler_with_status(
-      &pub_config, object_published_callback, publish_status_callback, NULL);
+    qbridge_publish_track_handler_t* publish_handler =
+      qbridge_create_publish_track_handler(&pub_config, object_published_callback, publish_status_callback, NULL);
 
     if (!publish_handler) {
         fclose(fp);

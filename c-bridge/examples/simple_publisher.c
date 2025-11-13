@@ -258,8 +258,8 @@ main(int argc, char* argv[])
         printf("Using publish flow\n");
     }
 
-    qbridge_publish_track_handler_t* track_handler = qbridge_create_publish_track_handler_with_status(
-      &track_config, object_published_callback, publish_status_callback, NULL);
+    qbridge_publish_track_handler_t* track_handler =
+      qbridge_create_publish_track_handler(&track_config, object_published_callback, publish_status_callback, NULL);
 
     if (!track_handler) {
         printf("Failed to create publish track handler\n");

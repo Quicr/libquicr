@@ -39,7 +39,7 @@ object_received_callback(const qbridge_object_t* object, void* user_data)
     // Print first 64 bytes of data as string (if printable)
     if (object->payload.data && object->payload.length > 0) {
         size_t print_len = object->payload.length > 64 ? 64 : object->payload.length;
-        printf("Data preview: ");
+        printf("Data: ");
         for (size_t i = 0; i < print_len; i++) {
             char c = object->payload.data[i];
             if (c >= 32 && c <= 126) {

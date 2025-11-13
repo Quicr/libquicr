@@ -342,8 +342,8 @@ main(int argc, char* argv[])
     pub_config.default_priority = QBRIDGE_PRIORITY_NORMAL;
     pub_config.default_ttl_ms = 5000;
 
-    qbridge_publish_track_handler_t* publish_handler = qbridge_create_publish_track_handler_with_status(
-      &pub_config, object_published_callback, publish_status_callback, NULL);
+    qbridge_publish_track_handler_t* publish_handler =
+      qbridge_create_publish_track_handler(&pub_config, object_published_callback, publish_status_callback, NULL);
 
     if (!publish_handler) {
         printf("Failed to create publish track handler\n");

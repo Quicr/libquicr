@@ -463,28 +463,18 @@ extern "C"
      */
 
     /**
-     * @brief Create a publish track handler with status callback
+     * @brief Create a publish track handler
      * @param config Track configuration
      * @param published_callback Callback for published objects
      * @param status_callback Callback for status changes
      * @param user_data User data to pass to callbacks
      * @return Track handler or NULL on failure
      */
-    qbridge_publish_track_handler_t* qbridge_create_publish_track_handler_with_status(
+    qbridge_publish_track_handler_t* qbridge_create_publish_track_handler(
       const qbridge_publish_track_config_t* config,
       qbridge_object_published_callback_t published_callback,
       qbridge_publish_status_callback_t status_callback,
       void* user_data);
-
-    /**
-     * @brief Set status callback for publish track handler
-     * @param handler Track handler
-     * @param callback Status callback
-     * @param user_data User data to pass to callback
-     */
-    void qbridge_publish_track_set_status_callback(qbridge_publish_track_handler_t* handler,
-                                                   qbridge_publish_status_callback_t callback,
-                                                   void* user_data);
 
     /**
      * @brief Destroy a publish track handler

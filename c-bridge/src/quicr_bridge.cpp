@@ -244,13 +244,6 @@ class BridgePublishTrackHandler : public quicr::PublishTrackHandler
     void* user_data = nullptr;
     std::mutex callback_mutex;
 
-    void SetStatusCallback(const qbridge_publish_status_callback_t callback, void* const data)
-    {
-        std::lock_guard<std::mutex> lock(callback_mutex);
-        status_callback = callback;
-        user_data = data;
-    }
-
   protected:
     BridgePublishTrackHandler(const quicr::FullTrackName& full_track_name,
                               const quicr::TrackMode track_mode,
@@ -704,7 +697,7 @@ extern "C"
     }
 
     // Track handler creation
-    qbridge_publish_track_handler_t* qbridge_create_publish_track_handler_with_status(
+    qbridge_publish_track_handler_t* qbridge_create_publish_track_handler(
       const qbridge_publish_track_config_t* config,
       qbridge_object_published_callback_t published_callback,
       qbridge_publish_status_callback_t status_callback,
@@ -720,17 +713,6 @@ extern "C"
         } catch (...) {
             return nullptr;
         }
-    }
-
-    void qbridge_publish_track_set_status_callback(qbridge_publish_track_handler_t* handler,
-                                                   qbridge_publish_status_callback_t callback,
-                                                   void* user_data)
-    {
-        if (!handler || !handler->cpp_handler) {
-            return;
-        }
-
-        handler->cpp_handler->SetStatusCallback(callback, user_data);
     }
 
     void qbridge_destroy_publish_track_handler(qbridge_publish_track_handler_t* handler)
