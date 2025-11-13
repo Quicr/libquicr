@@ -141,17 +141,6 @@ Demonstrates fetching historical/cached objects from a specific range.
 
 **Purpose**: Demonstrates reliable file transfer by splitting files into chunks and transmitting them as objects.
 
-**Key Features**:
-- Send mode: Reads file and publishes in 1KB chunks
-- Receive mode: Subscribes and reconstructs file
-- **Automatic metadata exchange**: Sender transmits file size and chunk count
-- **End-of-transfer marker**: Explicit completion signal with verification
-- **Timeout detection**: Receiver auto-exits if transfer stalls (10 second timeout)
-- **No manual chunk counting needed**: Receiver automatically gets correct count
-- Progress tracking with accurate percentages
-- Handles large files efficiently
-- Supports both publish and announce flows
-
 **Sending a File**:
 ```bash
 # Send a file (recommended: use announce flow)
@@ -169,9 +158,6 @@ Demonstrates fetching historical/cached objects from a specific range.
 ```bash
 # Receive a file (chunks parameter is now optional)
 ./build/c-bridge/file_transfer --receive output.txt
-
-# Legacy mode: specify expected chunks for early progress display
-./build/c-bridge/file_transfer --receive output.txt --chunks 150
 
 # Receive from specific namespace
 ./build/c-bridge/file_transfer --receive output.pdf \
@@ -222,8 +208,7 @@ Demonstrates fetching historical/cached objects from a specific range.
 ./build/c-bridge/file_transfer --send document.pdf --announce
 ```
 
-
-### Scenario 5: Publish, Fetch, and Subscribe
+### Scenario 4: Publish, Fetch, and Subscribe
 
 Note: The example for subscribing to a later group is not fully 
 implemented in libquicr , especiallly Filters Absolute Start and 
