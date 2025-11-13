@@ -56,13 +56,13 @@ void publish_status_callback(qbridge_publish_status_t status,
 
     switch (status) {
         case QBRIDGE_PUBLISH_STATUS_OK:
-            printf("[System] Ready to send messages\n");
+            printf("Ready to send messages\n");
             break;
         case QBRIDGE_PUBLISH_STATUS_NO_SUBSCRIBERS:
-            printf("[System] Waiting for participants...\n");
+            printf("Waiting for participants...\n");
             break;
         case QBRIDGE_PUBLISH_STATUS_PAUSED:
-            printf("[System] Chat paused\n");
+            printf("Chat paused\n");
             break;
         default:
             break;
