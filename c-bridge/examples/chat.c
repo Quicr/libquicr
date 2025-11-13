@@ -11,13 +11,13 @@
  * Based on the qclient.cpp example from libquicr.
  */
 
+#include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <signal.h>
 #include <time.h>
-#include <pthread.h>
+#include <unistd.h>
 
 #include "quicr/quicr_bridge.h"
 
@@ -26,7 +26,9 @@ static volatile int can_send_data = 0;
 static char username[256] = "user";
 static pthread_t input_thread_handle = 0;
 
-void signal_handler(int signum) {
+void
+signal_handler(int signum)
+{
     printf("\nReceived signal %d, shutting down...\n", signum);
     keep_running = 0;
 
@@ -36,22 +38,26 @@ void signal_handler(int signum) {
     }
 }
 
-void status_callback(qbridge_connection_status_t status, void* user_data) {
+void
+status_callback(qbridge_connection_status_t status, void* user_data)
+{
     printf("Client status changed: %s\n", qbridge_status_to_string(status));
 }
 
-void object_published_callback(qbridge_group_id_t group_id,
-                               qbridge_object_id_t object_id,
-                               qbridge_result_t result,
-                               void* user_data) {
+void
+object_published_callback(qbridge_group_id_t group_id,
+                          qbridge_object_id_t object_id,
+                          qbridge_result_t result,
+                          void* user_data)
+{
     if (result != QBRIDGE_OK) {
         printf("Failed to publish message: %s\n", qbridge_result_to_string(result));
     }
 }
 
-void publish_status_callback(qbridge_publish_status_t status,
-                              bool can_publish,
-                              void* user_data) {
+void
+publish_status_callback(qbridge_publish_status_t status, bool can_publish, void* user_data)
+{
     can_send_data = can_publish;
 
     switch (status) {
@@ -69,16 +75,17 @@ void publish_status_callback(qbridge_publish_status_t status,
     }
 }
 
-void object_received_callback(const qbridge_object_t* object, void* user_data) {
+void
+object_received_callback(const qbridge_object_t* object, void* user_data)
+{
     if (!object || !object->payload.data || object->payload.length == 0) {
         return;
     }
 
     // Extract the message
     char received_msg[1280];
-    size_t msg_len = object->payload.length < sizeof(received_msg) - 1
-                     ? object->payload.length
-                     : sizeof(received_msg) - 1;
+    size_t msg_len =
+      object->payload.length < sizeof(received_msg) - 1 ? object->payload.length : sizeof(received_msg) - 1;
     memcpy(received_msg, object->payload.data, msg_len);
     received_msg[msg_len] = '\0';
 
@@ -99,7 +106,9 @@ void object_received_callback(const qbridge_object_t* object, void* user_data) {
     fflush(stdout);
 }
 
-void print_usage(const char* program_name) {
+void
+print_usage(const char* program_name)
+{
     printf("Usage: %s [OPTIONS]\n", program_name);
     printf("QuicR Bridge Chat Application\n\n");
     printf("Options:\n");
@@ -113,14 +122,17 @@ void print_usage(const char* program_name) {
     printf("  %s --server 127.0.0.1 --port 33435 --room general --username Alice\n", program_name);
 }
 
-typedef struct {
+typedef struct
+{
     qbridge_publish_track_handler_t* publish_handler;
     uint64_t group_id;
     uint64_t object_id;
     pthread_mutex_t* mutex;
 } input_thread_args_t;
 
-void* input_thread_func(void* arg) {
+void*
+input_thread_func(void* arg)
+{
     input_thread_args_t* args = (input_thread_args_t*)arg;
     char message[1024];
 
@@ -131,8 +143,8 @@ void* input_thread_func(void* arg) {
 
         // Remove newline
         size_t len = strlen(message);
-        if (len > 0 && message[len-1] == '\n') {
-            message[len-1] = '\0';
+        if (len > 0 && message[len - 1] == '\n') {
+            message[len - 1] = '\0';
             len--;
         }
 
@@ -147,8 +159,7 @@ void* input_thread_func(void* arg) {
         char time_str[32];
         strftime(time_str, sizeof(time_str), "%H:%M:%S", tm_info);
 
-        snprintf(formatted_message, sizeof(formatted_message),
-                "[%s] %s: %s", time_str, username, message);
+        snprintf(formatted_message, sizeof(formatted_message), "[%s] %s: %s", time_str, username, message);
 
         // Echo the formatted message locally so user sees their own username
         printf("[Local] %s\n", formatted_message);
@@ -158,20 +169,15 @@ void* input_thread_func(void* arg) {
         if (can_send_data && qbridge_publish_track_can_publish(args->publish_handler)) {
             pthread_mutex_lock(args->mutex);
 
-            qbridge_object_headers_t headers = {
-                .group_id = args->group_id,
-                .subgroup_id = 0,
-                .object_id = args->object_id,
-                .priority = QBRIDGE_PRIORITY_NORMAL,
-                .ttl_ms = 5000,
-                .cacheable = true
-            };
+            qbridge_object_headers_t headers = { .group_id = args->group_id,
+                                                 .subgroup_id = 0,
+                                                 .object_id = args->object_id,
+                                                 .priority = QBRIDGE_PRIORITY_NORMAL,
+                                                 .ttl_ms = 5000,
+                                                 .cacheable = true };
 
             qbridge_result_t result = qbridge_publish_object_with_headers(
-                args->publish_handler,
-                &headers,
-                (const uint8_t*)formatted_message,
-                strlen(formatted_message));
+              args->publish_handler, &headers, (const uint8_t*)formatted_message, strlen(formatted_message));
 
             if (result == QBRIDGE_OK) {
                 args->object_id++;
@@ -188,7 +194,9 @@ void* input_thread_func(void* arg) {
     return NULL;
 }
 
-int main(int argc, char* argv[]) {
+int
+main(int argc, char* argv[])
+{
     printf("QuicR Bridge Chat Application\n");
     printf("Type your messages and press Enter to send\n");
     printf("Press Ctrl+C to exit\n\n");
@@ -290,8 +298,7 @@ int main(int argc, char* argv[]) {
     qbridge_subscribe_track_config_t sub_config;
     qbridge_subscribe_track_config_init(&sub_config);
 
-    result = qbridge_full_track_name_from_strings(&sub_config.full_track_name,
-                                                       namespace_str, "messages");
+    result = qbridge_full_track_name_from_strings(&sub_config.full_track_name, namespace_str, "messages");
     if (result != QBRIDGE_OK) {
         printf("Failed to create subscribe track name: %s\n", qbridge_result_to_string(result));
         qbridge_client_destroy(client);
@@ -301,7 +308,7 @@ int main(int argc, char* argv[]) {
     sub_config.priority = QBRIDGE_PRIORITY_NORMAL;
 
     qbridge_subscribe_track_handler_t* subscribe_handler =
-        qbridge_create_subscribe_track_handler(&sub_config, object_received_callback, NULL);
+      qbridge_create_subscribe_track_handler(&sub_config, object_received_callback, NULL);
 
     if (!subscribe_handler) {
         printf("Failed to create subscribe track handler\n");
@@ -321,8 +328,7 @@ int main(int argc, char* argv[]) {
     qbridge_publish_track_config_t pub_config;
     qbridge_publish_track_config_init(&pub_config);
 
-    result = qbridge_full_track_name_from_strings(&pub_config.full_track_name,
-                                                       namespace_str, "messages");
+    result = qbridge_full_track_name_from_strings(&pub_config.full_track_name, namespace_str, "messages");
     if (result != QBRIDGE_OK) {
         printf("Failed to create publish track name: %s\n", qbridge_result_to_string(result));
         qbridge_client_unsubscribe_track(client, subscribe_handler);
@@ -336,11 +342,8 @@ int main(int argc, char* argv[]) {
     pub_config.default_priority = QBRIDGE_PRIORITY_NORMAL;
     pub_config.default_ttl_ms = 5000;
 
-    qbridge_publish_track_handler_t* publish_handler =
-        qbridge_create_publish_track_handler_with_status(&pub_config,
-                                                               object_published_callback,
-                                                               publish_status_callback,
-                                                               NULL);
+    qbridge_publish_track_handler_t* publish_handler = qbridge_create_publish_track_handler_with_status(
+      &pub_config, object_published_callback, publish_status_callback, NULL);
 
     if (!publish_handler) {
         printf("Failed to create publish track handler\n");
@@ -366,10 +369,7 @@ int main(int argc, char* argv[]) {
     pthread_mutex_t pub_mutex = PTHREAD_MUTEX_INITIALIZER;
 
     input_thread_args_t thread_args = {
-        .publish_handler = publish_handler,
-        .group_id = 0,
-        .object_id = 0,
-        .mutex = &pub_mutex
+        .publish_handler = publish_handler, .group_id = 0, .object_id = 0, .mutex = &pub_mutex
     };
 
     pthread_create(&input_thread_handle, NULL, input_thread_func, &thread_args);

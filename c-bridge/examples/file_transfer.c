@@ -11,18 +11,18 @@
  * Receiver mode: Subscribes to receive file chunks and reconstructs the file
  */
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "quicr/quicr_bridge.h"
 
-#define CHUNK_SIZE 1024  // 1KB chunks
-#define TRANSFER_TIMEOUT_SECONDS 10  // Timeout if no chunks received for this long
+#define CHUNK_SIZE 1024             // 1KB chunks
+#define TRANSFER_TIMEOUT_SECONDS 10 // Timeout if no chunks received for this long
 
 // Metadata packet types
 #define METADATA_TYPE_FILE_INFO 0x01
@@ -33,20 +33,23 @@ static volatile int can_send_data = 0;
 static volatile int transfer_complete = 0;
 
 // Metadata structure for file information (sent in first chunk)
-typedef struct {
-    uint8_t type;           // METADATA_TYPE_FILE_INFO
-    uint64_t file_size;     // Total file size in bytes
-    uint64_t total_chunks;  // Total number of chunks
+typedef struct
+{
+    uint8_t type;          // METADATA_TYPE_FILE_INFO
+    uint64_t file_size;    // Total file size in bytes
+    uint64_t total_chunks; // Total number of chunks
 } __attribute__((packed)) file_metadata_t;
 
 // End of transfer marker structure
-typedef struct {
-    uint8_t type;           // METADATA_TYPE_END_OF_TRANSFER
-    uint64_t total_chunks;  // Total chunks sent (for verification)
-    uint64_t total_bytes;   // Total bytes sent (for verification)
+typedef struct
+{
+    uint8_t type;          // METADATA_TYPE_END_OF_TRANSFER
+    uint64_t total_chunks; // Total chunks sent (for verification)
+    uint64_t total_bytes;  // Total bytes sent (for verification)
 } __attribute__((packed)) end_metadata_t;
 
-typedef struct {
+typedef struct
+{
     FILE* fp;
     uint64_t total_bytes;
     uint64_t total_chunks;
@@ -56,19 +59,25 @@ typedef struct {
     int metadata_received;
 } receiver_state_t;
 
-void signal_handler(int signum) {
+void
+signal_handler(int signum)
+{
     printf("\nReceived signal %d, shutting down...\n", signum);
     keep_running = 0;
 }
 
-void status_callback(qbridge_connection_status_t status, void* user_data) {
+void
+status_callback(qbridge_connection_status_t status, void* user_data)
+{
     printf("Client status changed: %s\n", qbridge_status_to_string(status));
 }
 
-void object_published_callback(qbridge_group_id_t group_id,
-                               qbridge_object_id_t object_id,
-                               qbridge_result_t result,
-                               void* user_data) {
+void
+object_published_callback(qbridge_group_id_t group_id,
+                          qbridge_object_id_t object_id,
+                          qbridge_result_t result,
+                          void* user_data)
+{
     if (result == QBRIDGE_OK) {
         printf("Sent chunk %llu of group %llu\n", object_id, group_id);
     } else {
@@ -76,9 +85,9 @@ void object_published_callback(qbridge_group_id_t group_id,
     }
 }
 
-void publish_status_callback(qbridge_publish_status_t status,
-                              bool can_publish,
-                              void* user_data) {
+void
+publish_status_callback(qbridge_publish_status_t status, bool can_publish, void* user_data)
+{
     can_send_data = can_publish;
 
     switch (status) {
@@ -96,7 +105,9 @@ void publish_status_callback(qbridge_publish_status_t status,
     }
 }
 
-void object_received_callback(const qbridge_object_t* object, void* user_data) {
+void
+object_received_callback(const qbridge_object_t* object, void* user_data)
+{
     receiver_state_t* state = (receiver_state_t*)user_data;
 
     if (!object || !object->payload.data || !state) {
@@ -132,8 +143,7 @@ void object_received_callback(const qbridge_object_t* object, void* user_data) {
             printf("  Total bytes: %llu (received: %llu)\n", end_marker->total_bytes, state->total_bytes);
 
             // Verify the counts match
-            if (end_marker->total_chunks == state->chunks_received &&
-                end_marker->total_bytes == state->total_bytes) {
+            if (end_marker->total_chunks == state->chunks_received && end_marker->total_bytes == state->total_bytes) {
                 printf("Transfer verification: OK\n");
             } else {
                 printf("Transfer verification: MISMATCH\n");
@@ -173,13 +183,14 @@ void object_received_callback(const qbridge_object_t* object, void* user_data) {
     }
 
     // Check if transfer is complete based on metadata
-    if (state->metadata_received && state->total_chunks > 0 &&
-        state->chunks_received >= state->total_chunks) {
+    if (state->metadata_received && state->total_chunks > 0 && state->chunks_received >= state->total_chunks) {
         printf("\nAll chunks received (waiting for end marker)...\n");
     }
 }
 
-void print_usage(const char* program_name) {
+void
+print_usage(const char* program_name)
+{
     printf("Usage: %s [OPTIONS]\n", program_name);
     printf("QuicR Bridge File Transfer Example\n\n");
     printf("Options:\n");
@@ -201,11 +212,13 @@ void print_usage(const char* program_name) {
     printf("  Receiver: %s --receive received.txt\n", program_name);
 }
 
-int send_file(qbridge_client_t* client,
-              const char* namespace_str,
-              const char* track_name_str,
-              const char* filename,
-              int use_announce) {
+int
+send_file(qbridge_client_t* client,
+          const char* namespace_str,
+          const char* track_name_str,
+          const char* filename,
+          int use_announce)
+{
 
     // Get file size
     struct stat st;
@@ -243,8 +256,7 @@ int send_file(qbridge_client_t* client,
     qbridge_publish_track_config_t pub_config;
     qbridge_publish_track_config_init(&pub_config);
 
-    result = qbridge_full_track_name_from_strings(&pub_config.full_track_name,
-                                                       namespace_str, track_name_str);
+    result = qbridge_full_track_name_from_strings(&pub_config.full_track_name, namespace_str, track_name_str);
     if (result != QBRIDGE_OK) {
         fclose(fp);
         return 1;
@@ -256,11 +268,8 @@ int send_file(qbridge_client_t* client,
     pub_config.default_ttl_ms = 10000;
     pub_config.default_cacheable = true;
 
-    qbridge_publish_track_handler_t* publish_handler =
-        qbridge_create_publish_track_handler_with_status(&pub_config,
-                                                               object_published_callback,
-                                                               publish_status_callback,
-                                                               NULL);
+    qbridge_publish_track_handler_t* publish_handler = qbridge_create_publish_track_handler_with_status(
+      &pub_config, object_published_callback, publish_status_callback, NULL);
 
     if (!publish_handler) {
         fclose(fp);
@@ -290,25 +299,18 @@ int send_file(qbridge_client_t* client,
     printf("Starting file transfer...\n\n");
 
     // Send metadata first
-    file_metadata_t metadata = {
-        .type = METADATA_TYPE_FILE_INFO,
-        .file_size = file_size,
-        .total_chunks = total_chunks
-    };
+    file_metadata_t metadata = { .type = METADATA_TYPE_FILE_INFO,
+                                 .file_size = file_size,
+                                 .total_chunks = total_chunks };
 
-    qbridge_object_headers_t meta_headers = {
-        .group_id = 0,
-        .subgroup_id = 0,
-        .object_id = 0,
-        .priority = QBRIDGE_PRIORITY_HIGH,
-        .ttl_ms = 10000,
-        .cacheable = true
-    };
+    qbridge_object_headers_t meta_headers = { .group_id = 0,
+                                              .subgroup_id = 0,
+                                              .object_id = 0,
+                                              .priority = QBRIDGE_PRIORITY_HIGH,
+                                              .ttl_ms = 10000,
+                                              .cacheable = true };
 
-    result = qbridge_publish_object_with_headers(publish_handler,
-                                                      &meta_headers,
-                                                      (uint8_t*)&metadata,
-                                                      sizeof(metadata));
+    result = qbridge_publish_object_with_headers(publish_handler, &meta_headers, (uint8_t*)&metadata, sizeof(metadata));
 
     if (result != QBRIDGE_OK) {
         printf("Failed to send metadata: %s\n", qbridge_result_to_string(result));
@@ -323,7 +325,7 @@ int send_file(qbridge_client_t* client,
     // Send file in chunks
     uint8_t buffer[CHUNK_SIZE];
     uint64_t group_id = 0;
-    uint64_t object_id = 1;  // Start from 1 since 0 was metadata
+    uint64_t object_id = 1; // Start from 1 since 0 was metadata
     uint64_t bytes_sent = 0;
     uint64_t chunks_sent = 0;
 
@@ -338,19 +340,14 @@ int send_file(qbridge_client_t* client,
             break;
         }
 
-        qbridge_object_headers_t headers = {
-            .group_id = group_id,
-            .subgroup_id = 0,
-            .object_id = object_id,
-            .priority = QBRIDGE_PRIORITY_HIGH,
-            .ttl_ms = 10000,
-            .cacheable = true
-        };
+        qbridge_object_headers_t headers = { .group_id = group_id,
+                                             .subgroup_id = 0,
+                                             .object_id = object_id,
+                                             .priority = QBRIDGE_PRIORITY_HIGH,
+                                             .ttl_ms = 10000,
+                                             .cacheable = true };
 
-        result = qbridge_publish_object_with_headers(publish_handler,
-                                                          &headers,
-                                                          buffer,
-                                                          bytes_read);
+        result = qbridge_publish_object_with_headers(publish_handler, &headers, buffer, bytes_read);
 
         if (result == QBRIDGE_OK) {
             bytes_sent += bytes_read;
@@ -360,8 +357,10 @@ int send_file(qbridge_client_t* client,
             // Progress update every 10 chunks
             if (chunks_sent % 10 == 0) {
                 printf("Progress: %llu/%llu chunks (%llu/%llu bytes, %.1f%%)\n",
-                       chunks_sent, total_chunks,
-                       bytes_sent, file_size,
+                       chunks_sent,
+                       total_chunks,
+                       bytes_sent,
+                       file_size,
                        (bytes_sent * 100.0) / file_size);
             }
 
@@ -378,33 +377,26 @@ int send_file(qbridge_client_t* client,
 
     printf("\n");
     if (bytes_sent == file_size) {
-        printf("File transfer complete! Sent %llu bytes in %llu chunks\n",
-               bytes_sent, chunks_sent);
+        printf("File transfer complete! Sent %llu bytes in %llu chunks\n", bytes_sent, chunks_sent);
     } else {
         printf("File transfer incomplete: sent %llu/%llu bytes\n", bytes_sent, file_size);
     }
 
     // Send end of transfer marker
     printf("Sending end of transfer marker...\n");
-    end_metadata_t end_marker = {
-        .type = METADATA_TYPE_END_OF_TRANSFER,
-        .total_chunks = chunks_sent,
-        .total_bytes = bytes_sent
-    };
+    end_metadata_t end_marker = { .type = METADATA_TYPE_END_OF_TRANSFER,
+                                  .total_chunks = chunks_sent,
+                                  .total_bytes = bytes_sent };
 
-    qbridge_object_headers_t end_headers = {
-        .group_id = group_id,
-        .subgroup_id = 0,
-        .object_id = object_id,
-        .priority = QBRIDGE_PRIORITY_HIGH,
-        .ttl_ms = 10000,
-        .cacheable = true
-    };
+    qbridge_object_headers_t end_headers = { .group_id = group_id,
+                                             .subgroup_id = 0,
+                                             .object_id = object_id,
+                                             .priority = QBRIDGE_PRIORITY_HIGH,
+                                             .ttl_ms = 10000,
+                                             .cacheable = true };
 
-    result = qbridge_publish_object_with_headers(publish_handler,
-                                                      &end_headers,
-                                                      (uint8_t*)&end_marker,
-                                                      sizeof(end_marker));
+    result =
+      qbridge_publish_object_with_headers(publish_handler, &end_headers, (uint8_t*)&end_marker, sizeof(end_marker));
 
     if (result == QBRIDGE_OK) {
         printf("End of transfer marker sent\n");
@@ -427,11 +419,13 @@ int send_file(qbridge_client_t* client,
     return 0;
 }
 
-int receive_file(qbridge_client_t* client,
-                 const char* namespace_str,
-                 const char* track_name_str,
-                 const char* filename,
-                 uint64_t expected_chunks) {
+int
+receive_file(qbridge_client_t* client,
+             const char* namespace_str,
+             const char* track_name_str,
+             const char* filename,
+             uint64_t expected_chunks)
+{
 
     FILE* fp = fopen(filename, "wb");
     if (!fp) {
@@ -446,22 +440,20 @@ int receive_file(qbridge_client_t* client,
     printf("\n");
 
     // Initialize receiver state
-    receiver_state_t state = {
-        .fp = fp,
-        .total_bytes = 0,
-        .total_chunks = expected_chunks,
-        .chunks_received = 0,
-        .expected_file_size = 0,
-        .last_chunk_time = time(NULL),
-        .metadata_received = 0
-    };
+    receiver_state_t state = { .fp = fp,
+                               .total_bytes = 0,
+                               .total_chunks = expected_chunks,
+                               .chunks_received = 0,
+                               .expected_file_size = 0,
+                               .last_chunk_time = time(NULL),
+                               .metadata_received = 0 };
 
     // Create subscribe track
     qbridge_subscribe_track_config_t sub_config;
     qbridge_subscribe_track_config_init(&sub_config);
 
-    qbridge_result_t result = qbridge_full_track_name_from_strings(
-        &sub_config.full_track_name, namespace_str, track_name_str);
+    qbridge_result_t result =
+      qbridge_full_track_name_from_strings(&sub_config.full_track_name, namespace_str, track_name_str);
 
     if (result != QBRIDGE_OK) {
         fclose(fp);
@@ -471,9 +463,7 @@ int receive_file(qbridge_client_t* client,
     sub_config.priority = QBRIDGE_PRIORITY_HIGH;
 
     qbridge_subscribe_track_handler_t* subscribe_handler =
-        qbridge_create_subscribe_track_handler(&sub_config,
-                                                     object_received_callback,
-                                                     &state);
+      qbridge_create_subscribe_track_handler(&sub_config, object_received_callback, &state);
 
     if (!subscribe_handler) {
         fclose(fp);
@@ -514,14 +504,15 @@ int receive_file(qbridge_client_t* client,
     qbridge_destroy_subscribe_track_handler(subscribe_handler);
     fclose(fp);
 
-    printf("Received %llu chunks, %llu total bytes\n",
-           state.chunks_received, state.total_bytes);
+    printf("Received %llu chunks, %llu total bytes\n", state.chunks_received, state.total_bytes);
     printf("File saved to: %s\n", filename);
 
     return 0;
 }
 
-int main(int argc, char* argv[]) {
+int
+main(int argc, char* argv[])
+{
     printf("QuicR Bridge File Transfer Example\n\n");
 
     // Check for help option
@@ -546,7 +537,7 @@ int main(int argc, char* argv[]) {
     const char* namespace_str = "example/file";
     const char* track_name_str = "transfer";
     const char* filename = NULL;
-    int mode = 0;  // 0 = none, 1 = send, 2 = receive
+    int mode = 0; // 0 = none, 1 = send, 2 = receive
     int use_announce = 0;
     uint64_t expected_chunks = 0;
 

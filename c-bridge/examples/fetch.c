@@ -9,11 +9,11 @@
  * historical data or cached content.
  */
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <signal.h>
 
 #include "quicr/quicr_bridge.h"
 
@@ -21,16 +21,22 @@ static volatile int keep_running = 1;
 static volatile int fetch_complete = 0;
 static int objects_received = 0;
 
-void signal_handler(int signum) {
+void
+signal_handler(int signum)
+{
     printf("\nReceived signal %d, shutting down...\n", signum);
     keep_running = 0;
 }
 
-void status_callback(qbridge_connection_status_t status, void* user_data) {
+void
+status_callback(qbridge_connection_status_t status, void* user_data)
+{
     printf("Client status changed: %s\n", qbridge_status_to_string(status));
 }
 
-void object_received_callback(const qbridge_object_t* object, void* user_data) {
+void
+object_received_callback(const qbridge_object_t* object, void* user_data)
+{
     if (!object || !object->payload.data) {
         return;
     }
@@ -45,7 +51,9 @@ void object_received_callback(const qbridge_object_t* object, void* user_data) {
            (char*)object->payload.data);
 }
 
-void print_usage(const char* program_name) {
+void
+print_usage(const char* program_name)
+{
     printf("Usage: %s [OPTIONS]\n", program_name);
     printf("QuicR Bridge Fetch Example\n\n");
     printf("Options:\n");
@@ -62,7 +70,9 @@ void print_usage(const char* program_name) {
     printf("  %s --server 127.0.0.1 --start-group 0 --end-group 5 --start-object 0 --end-object 50\n", program_name);
 }
 
-int main(int argc, char* argv[]) {
+int
+main(int argc, char* argv[])
+{
     printf("Starting QuicR Bridge Fetch Example\n");
 
     // Check for help option
@@ -115,8 +125,7 @@ int main(int argc, char* argv[]) {
     config.debug_logs = true;
     printf("Connecting to %s:%d\n", config.server_hostname, config.server_port);
     printf("Fetching from namespace: %s, track: %s\n", namespace_str, track_name_str);
-    printf("Range: group [%llu - %llu], object [%llu - %llu]\n\n",
-           start_group, end_group, start_object, end_object);
+    printf("Range: group [%llu - %llu], object [%llu - %llu]\n\n", start_group, end_group, start_object, end_object);
 
     // Create client
     qbridge_client_t* client = qbridge_client_create(&config);
@@ -158,9 +167,7 @@ int main(int argc, char* argv[]) {
     qbridge_fetch_track_config_t fetch_config;
     qbridge_fetch_track_config_init(&fetch_config);
 
-    result = qbridge_full_track_name_from_strings(&fetch_config.full_track_name,
-                                                       namespace_str,
-                                                       track_name_str);
+    result = qbridge_full_track_name_from_strings(&fetch_config.full_track_name, namespace_str, track_name_str);
     if (result != QBRIDGE_OK) {
         printf("Failed to create track name: %s\n", qbridge_result_to_string(result));
         qbridge_client_destroy(client);
@@ -174,7 +181,7 @@ int main(int argc, char* argv[]) {
     fetch_config.end_object_id = end_object;
 
     qbridge_fetch_track_handler_t* fetch_handler =
-        qbridge_create_fetch_track_handler(&fetch_config, object_received_callback, NULL);
+      qbridge_create_fetch_track_handler(&fetch_config, object_received_callback, NULL);
 
     if (!fetch_handler) {
         printf("Failed to create fetch track handler\n");

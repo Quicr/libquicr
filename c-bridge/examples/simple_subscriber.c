@@ -1,27 +1,32 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <signal.h>
 
 #include "quicr/quicr_bridge.h"
 
 static volatile int keep_running = 1;
 
-void signal_handler(int signum) {
+void
+signal_handler(int signum)
+{
     printf("\nReceived signal %d, shutting down...\n", signum);
     keep_running = 0;
 }
 
-void status_callback(qbridge_connection_status_t status, void* user_data) {
+void
+status_callback(qbridge_connection_status_t status, void* user_data)
+{
     printf("Client status changed: %s\n", qbridge_status_to_string(status));
 }
 
-
-void object_received_callback(const qbridge_object_t* object, void* user_data) {
+void
+object_received_callback(const qbridge_object_t* object, void* user_data)
+{
     printf("Received object: group=%llu, subgroup=%llu, object=%llu, priority=%d, ttl=%u, cacheable=%s, size=%zu\n",
            object->headers.group_id,
            object->headers.subgroup_id,
@@ -30,7 +35,7 @@ void object_received_callback(const qbridge_object_t* object, void* user_data) {
            object->headers.ttl_ms,
            object->headers.cacheable ? "true" : "false",
            object->payload.length);
-    
+
     // Print first 64 bytes of data as string (if printable)
     if (object->payload.data && object->payload.length > 0) {
         size_t print_len = object->payload.length > 64 ? 64 : object->payload.length;
@@ -50,7 +55,9 @@ void object_received_callback(const qbridge_object_t* object, void* user_data) {
     }
 }
 
-void print_usage(const char* program_name) {
+void
+print_usage(const char* program_name)
+{
     printf("Usage: %s [OPTIONS]\n", program_name);
     printf("QuicR Bridge Simple Subscriber\n\n");
     printf("Options:\n");
@@ -70,7 +77,9 @@ void print_usage(const char* program_name) {
     printf("  %s --namespace example/publisher --track video_stream --start-group 5 --end-group 10\n", program_name);
 }
 
-int main(int argc, char* argv[]) {
+int
+main(int argc, char* argv[])
+{
     printf("Starting QuicR Bridge Simple Subscriber\n");
 
     // Check for help option
@@ -88,7 +97,7 @@ int main(int argc, char* argv[]) {
     // Initialize client configuration
     qbridge_client_config_t config;
     qbridge_client_config_init(&config);
-    
+
     // Set default server configuration
     strncpy(config.server_hostname, "127.0.0.1", sizeof(config.server_hostname) - 1);
     config.server_port = 33435;
@@ -112,7 +121,7 @@ int main(int argc, char* argv[]) {
             config.server_port = (uint16_t)atoi(argv[++i]);
         } else if ((strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--namespace") == 0) && i + 1 < argc) {
             namespace_str = argv[++i];
-            track_namespace_str = namespace_str;  // Use same namespace for track
+            track_namespace_str = namespace_str; // Use same namespace for track
         } else if ((strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--track") == 0) && i + 1 < argc) {
             track_name_str = argv[++i];
         } else if (strcmp(argv[i], "--start-group") == 0 && i + 1 < argc) {
@@ -139,7 +148,7 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    
+
     config.debug_logs = true;
     printf("Connecting to %s:%d\n", config.server_hostname, config.server_port);
     printf("Namespace: %s, Track: %s/%s\n", namespace_str, track_namespace_str, track_name_str);
@@ -197,9 +206,7 @@ int main(int argc, char* argv[]) {
     qbridge_subscribe_track_config_t track_config;
     qbridge_subscribe_track_config_init(&track_config);
 
-    result = qbridge_full_track_name_from_strings(&track_config.full_track_name,
-                                                       track_namespace_str,
-                                                       track_name_str);
+    result = qbridge_full_track_name_from_strings(&track_config.full_track_name, track_namespace_str, track_name_str);
     if (result != QBRIDGE_OK) {
         printf("Failed to create track name: %s\n", qbridge_result_to_string(result));
         qbridge_client_destroy(client);
@@ -214,9 +221,9 @@ int main(int argc, char* argv[]) {
     track_config.end_group_id = end_group;
     track_config.end_object_id = end_object;
 
-    qbridge_subscribe_track_handler_t* track_handler = 
-        qbridge_create_subscribe_track_handler(&track_config, object_received_callback, NULL);
-    
+    qbridge_subscribe_track_handler_t* track_handler =
+      qbridge_create_subscribe_track_handler(&track_config, object_received_callback, NULL);
+
     if (!track_handler) {
         printf("Failed to create subscribe track handler\n");
         qbridge_client_destroy(client);
@@ -232,12 +239,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    printf("Subscribed to track: %s/%s\n",
-           track_namespace_str,
-           track_name_str);
+    printf("Subscribed to track: %s/%s\n", track_namespace_str, track_name_str);
 
     printf("Waiting for objects (Ctrl+C to stop)...\n");
-    
+
     // Main loop - just wait for objects to arrive via callbacks
     while (keep_running) {
         usleep(100000); // 100ms
@@ -248,7 +253,7 @@ int main(int argc, char* argv[]) {
     // Cleanup
     qbridge_client_unsubscribe_track(client, track_handler);
     qbridge_destroy_subscribe_track_handler(track_handler);
-    
+
     qbridge_client_disconnect(client);
     qbridge_client_destroy(client);
 

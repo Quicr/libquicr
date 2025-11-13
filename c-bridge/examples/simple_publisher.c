@@ -1,56 +1,72 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <signal.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "quicr/quicr_bridge.h"
 
 static volatile int keep_running = 1;
-static int publish_clock = 0; // send one second intervals objects
-static volatile int can_send_data = 0;  // Track if we can send data (forward state)
+static int publish_clock = 0;          // send one second intervals objects
+static volatile int can_send_data = 0; // Track if we can send data (forward state)
 
-void signal_handler(int signum) {
+void
+signal_handler(int signum)
+{
     printf("\nReceived signal %d, shutting down...\n", signum);
     keep_running = 0;
 }
 
-void get_time_string(char* buffer, size_t buffer_size) {
+void
+get_time_string(char* buffer, size_t buffer_size)
+{
     struct timespec ts;
     struct tm tm_result;
-    
+
     clock_gettime(CLOCK_REALTIME, &ts);
     localtime_r(&ts.tv_sec, &tm_result);
-    
-    snprintf(buffer, buffer_size, "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
-             tm_result.tm_year + 1900, tm_result.tm_mon + 1, tm_result.tm_mday,
-             tm_result.tm_hour, tm_result.tm_min, tm_result.tm_sec,
+
+    snprintf(buffer,
+             buffer_size,
+             "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
+             tm_result.tm_year + 1900,
+             tm_result.tm_mon + 1,
+             tm_result.tm_mday,
+             tm_result.tm_hour,
+             tm_result.tm_min,
+             tm_result.tm_sec,
              ts.tv_nsec / 1000);
 }
 
-void status_callback(qbridge_connection_status_t status, void* user_data) {
+void
+status_callback(qbridge_connection_status_t status, void* user_data)
+{
     printf("Client status changed: %s\n", qbridge_status_to_string(status));
 }
 
-void object_published_callback(qbridge_group_id_t group_id,
-                               qbridge_object_id_t object_id,
-                               qbridge_result_t result,
-                               void* user_data) {
+void
+object_published_callback(qbridge_group_id_t group_id,
+                          qbridge_object_id_t object_id,
+                          qbridge_result_t result,
+                          void* user_data)
+{
     if (result == QBRIDGE_OK) {
         printf("Published object: group=%llu, object=%llu\n", group_id, object_id);
     } else {
         printf("Failed to publish object: group=%llu, object=%llu, error=%s\n",
-               group_id, object_id, qbridge_result_to_string(result));
+               group_id,
+               object_id,
+               qbridge_result_to_string(result));
     }
 }
 
-void publish_status_callback(qbridge_publish_status_t status,
-                              bool can_publish,
-                              void* user_data) {
+void
+publish_status_callback(qbridge_publish_status_t status, bool can_publish, void* user_data)
+{
     const char* status_str;
     switch (status) {
         case QBRIDGE_PUBLISH_STATUS_OK:
@@ -87,7 +103,9 @@ void publish_status_callback(qbridge_publish_status_t status,
     can_send_data = can_publish;
 }
 
-void print_usage(const char* program_name) {
+void
+print_usage(const char* program_name)
+{
     printf("Usage: %s [OPTIONS]\n", program_name);
     printf("QuicR Bridge Simple Publisher\n\n");
     printf("Options:\n");
@@ -103,7 +121,9 @@ void print_usage(const char* program_name) {
     printf("  %s --server 127.0.0.1 --port 33435 --announce --clock\n", program_name);
 }
 
-int main(int argc, char* argv[]) {
+int
+main(int argc, char* argv[])
+{
     printf("Starting QuicR Bridge Simple Publisher\n");
 
     // Check for help option
@@ -121,11 +141,11 @@ int main(int argc, char* argv[]) {
     // Initialize client configuration
     qbridge_client_config_t config;
     qbridge_client_config_init(&config);
-    
+
     // Set default server configuration
     strncpy(config.server_hostname, "127.0.0.1", sizeof(config.server_hostname) - 1);
     config.server_port = 33435;
-    
+
     // Default namespace and track
     const char* namespace_str = "example/publisher";
     const char* track_name_str = "video_stream";
@@ -154,7 +174,7 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    
+
     config.debug_logs = true;
     printf("Connecting to %s:%d\n", config.server_hostname, config.server_port);
 
@@ -216,10 +236,8 @@ int main(int argc, char* argv[]) {
     // Create publish track handler
     qbridge_publish_track_config_t track_config;
     qbridge_publish_track_config_init(&track_config);
-    
-    result = qbridge_full_track_name_from_strings(&track_config.full_track_name,
-                                                       namespace_str,
-                                                       track_name_str);
+
+    result = qbridge_full_track_name_from_strings(&track_config.full_track_name, namespace_str, track_name_str);
     if (result != QBRIDGE_OK) {
         printf("Failed to create track name: %s\n", qbridge_result_to_string(result));
         qbridge_client_destroy(client);
@@ -240,12 +258,9 @@ int main(int argc, char* argv[]) {
         printf("Using publish flow\n");
     }
 
-    qbridge_publish_track_handler_t* track_handler =
-        qbridge_create_publish_track_handler_with_status(&track_config,
-                                                                object_published_callback,
-                                                                publish_status_callback,
-                                                                NULL);
-    
+    qbridge_publish_track_handler_t* track_handler = qbridge_create_publish_track_handler_with_status(
+      &track_config, object_published_callback, publish_status_callback, NULL);
+
     if (!track_handler) {
         printf("Failed to create publish track handler\n");
         qbridge_client_destroy(client);
@@ -261,9 +276,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    printf("Published track: %s/%s\n",
-           namespace_str,
-           track_name_str);
+    printf("Published track: %s/%s\n", namespace_str, track_name_str);
 
     // Start publishing objects
     uint64_t group_id = 0;
@@ -279,14 +292,12 @@ int main(int argc, char* argv[]) {
             printf("Group:%llu Object:%llu, Timestamp:%s\n", group_id, object_id, test_data);
 
             // Create object headers
-            qbridge_object_headers_t headers = {
-                .group_id = group_id,
-                .subgroup_id = 0,
-                .object_id = object_id,
-                .priority = QBRIDGE_PRIORITY_HIGH,
-                .ttl_ms = 5000,
-                .cacheable = true
-            };
+            qbridge_object_headers_t headers = { .group_id = group_id,
+                                                 .subgroup_id = 0,
+                                                 .object_id = object_id,
+                                                 .priority = QBRIDGE_PRIORITY_HIGH,
+                                                 .ttl_ms = 5000,
+                                                 .cacheable = true };
 
             // Check if we can publish before attempting to publish
             if (!can_send_data) {
@@ -295,9 +306,8 @@ int main(int argc, char* argv[]) {
                 // Skip if not ready
             } else {
                 // Publish object
-                result = qbridge_publish_object_with_headers(track_handler, &headers,
-                                                                  (const uint8_t*)test_data,
-                                                                  strlen(test_data));
+                result = qbridge_publish_object_with_headers(
+                  track_handler, &headers, (const uint8_t*)test_data, strlen(test_data));
 
                 if (result != QBRIDGE_OK) {
                     printf("Failed to publish object: %s\n", qbridge_result_to_string(result));
@@ -322,8 +332,8 @@ int main(int argc, char* argv[]) {
         while (keep_running && fgets(input_buffer, sizeof(input_buffer), stdin) != NULL) {
             // Remove newline
             size_t len = strlen(input_buffer);
-            if (len > 0 && input_buffer[len-1] == '\n') {
-                input_buffer[len-1] = '\0';
+            if (len > 0 && input_buffer[len - 1] == '\n') {
+                input_buffer[len - 1] = '\0';
                 len--;
             }
 
@@ -334,19 +344,21 @@ int main(int argc, char* argv[]) {
             // Create test data with user input
             char test_data[1280];
             time_t now = time(NULL);
-            snprintf(test_data, sizeof(test_data),
-                    "Test object data - %s (timestamp: %ld, group: %llu, object: %llu)",
-                    input_buffer, now, group_id, object_id);
+            snprintf(test_data,
+                     sizeof(test_data),
+                     "Test object data - %s (timestamp: %ld, group: %llu, object: %llu)",
+                     input_buffer,
+                     now,
+                     group_id,
+                     object_id);
 
             // Create object headers
-            qbridge_object_headers_t headers = {
-                .group_id = group_id,
-                .subgroup_id = 0,
-                .object_id = object_id,
-                .priority = QBRIDGE_PRIORITY_HIGH,
-                .ttl_ms = 5000,
-                .cacheable = true
-            };
+            qbridge_object_headers_t headers = { .group_id = group_id,
+                                                 .subgroup_id = 0,
+                                                 .object_id = object_id,
+                                                 .priority = QBRIDGE_PRIORITY_HIGH,
+                                                 .ttl_ms = 5000,
+                                                 .cacheable = true };
 
             // Check if we can publish before attempting to publish
             if (!can_send_data) {
@@ -355,9 +367,8 @@ int main(int argc, char* argv[]) {
                 printf("Cannot publish: not ready\n");
             } else {
                 // Publish object
-                result = qbridge_publish_object_with_headers(track_handler, &headers,
-                                                                  (const uint8_t*)test_data,
-                                                                  strlen(test_data));
+                result = qbridge_publish_object_with_headers(
+                  track_handler, &headers, (const uint8_t*)test_data, strlen(test_data));
 
                 if (result != QBRIDGE_OK) {
                     printf("Failed to publish object: %s\n", qbridge_result_to_string(result));
@@ -381,7 +392,7 @@ int main(int argc, char* argv[]) {
     qbridge_client_unpublish_track(client, track_handler);
     qbridge_client_unpublish_namespace(client, &namespace);
     qbridge_destroy_publish_track_handler(track_handler);
-    
+
     qbridge_client_disconnect(client);
     qbridge_client_destroy(client);
 
