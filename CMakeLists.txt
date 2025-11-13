@@ -9,16 +9,18 @@ set (CMAKE_POLICY_VERSION_MINIMUM 3.5)
 if(DEFINED PROJECT_NAME)
     option(QUICR_BUILD_TESTS "Build tests for quicr" OFF)
     option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" OFF)
+    option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" OFF)
 else()
     option(QUICR_BUILD_TESTS "Build tests for quicr" ON)
     option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" ON)
     option(QUICR_BUILD_INTEGRATION_TESTS "Also build integration tests for quicr" ON)
+    option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON)
 endif()
 
 project(quicr
         VERSION 1.14.0
         DESCRIPTION "QuicR, a Media over QUIC Library"
-        LANGUAGES CXX)
+        LANGUAGES C CXX)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
     message(FATAL_ERROR
@@ -116,6 +118,14 @@ endif()
 ###
 if(QUICR_BUILD_FUZZ)
    add_subdirectory(fuzz)
+endif()
+
+
+###
+### C Bridge API
+###
+if(QUICR_BUILD_C_BRIDGE)
+   add_subdirectory(c-bridge)
 endif()
 
 ###
