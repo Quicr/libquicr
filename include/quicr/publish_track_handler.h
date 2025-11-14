@@ -356,8 +356,9 @@ namespace quicr {
          */
         void SetStatus(Status status) noexcept
         {
-            if (publish_status_ == status)
+            if (publish_status_ == status) {
                 return;
+            }
 
             publish_status_ = status;
             StatusChanged(status);

@@ -515,9 +515,9 @@ PicoQuicTransport::Start()
     // picoquic_set_default_wifi_shadow_rtt(quic_ctx, tconfig.quic_wifi_shadow_rtt_us);
     // logger->info << "Setting wifi shadow RTT to " << tconfig.quic_wifi_shadow_rtt_us << "us" << std::flush;
 
-    picoquic_runner_queue_.SetLimit(10000);
+    picoquic_runner_queue_.SetLimit(tconfig_.callback_queue_size);
 
-    cbNotifyQueue_.SetLimit(10000);
+    cbNotifyQueue_.SetLimit(tconfig_.callback_queue_size);
     cbNotifyThread_ = std::thread(&PicoQuicTransport::CbNotifier, this);
 
     if (!tconfig_.quic_qlog_path.empty()) {
