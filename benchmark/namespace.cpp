@@ -43,8 +43,6 @@ PrefixHashNamespaceTuples(TrackNamespace name_space)
 static void
 TrackNamespace_ToStateMap(benchmark::State& state)
 {
-    std::map<uint64_t, ValueObject> value_map;
-    ValueObject value_object{ "hello", 0x123456 };
     value_map.emplace(1, value_object);
 
     std::map<uint64_t, std::map<uint64_t, ValueObject>> data_map;
