@@ -273,6 +273,19 @@ namespace quicr {
                                                                            const TrackNamespace& track_namespace) = 0;
 
         /**
+         * @brief Finalize the publish done received
+         *
+         * @details Server calls this to have libquicr send Publish Namespace Done to SUBSCRIBE_NAMESPACE
+         *  requestors.
+         * @param connection_handle        Connection ID of the received publish done message
+         * @param track_namespace          Track namespace of publish namespace
+         * @param subscribers              Vector/list of subscriber connection handles/ids that should be sent a done
+         */
+        void ResolvePublishNamespaceDone(ConnectionHandle connection_handle,
+                                         const TrackNamespace& track_namespace,
+                                         const std::vector<ConnectionHandle>& subscribers);
+
+        /**
          * @brief Callback notification for Unsubscribe announces received
          *
          * @param connection_handle         Source connection ID

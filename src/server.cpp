@@ -36,6 +36,25 @@ namespace quicr {
                                          const std::vector<ConnectionHandle>& subscribers,
                                          const PublishNamespaceResponse& response)
     {
+        auto th = TrackHash({ track_namespace, {} });
+        auto fanout_subscribe_namespace_requestors = [&] {
+            for (const auto& sub_conn_handle : subscribers) {
+                auto it = connections_.find(sub_conn_handle);
+                if (it == connections_.end()) {
+                    continue;
+                }
+
+                auto request_id = it->second.GetNextRequestId();
+                SendPublishNamespace(it->second, request_id, track_namespace);
+                it->second.pub_namespaces_by_request_id[th.track_fullname_hash] = request_id;
+            }
+        };
+
+        if (!connection_handle) {
+            fanout_subscribe_namespace_requestors();
+            return;
+        }
+
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
@@ -45,19 +64,30 @@ namespace quicr {
             case PublishNamespaceResponse::ReasonCode::kOk: {
                 SendPublishNamespaceOk(conn_it->second, request_id);
 
-                for (const auto& sub_conn_handle : subscribers) {
-                    auto it = connections_.find(sub_conn_handle);
-                    if (it == connections_.end()) {
-                        continue;
-                    }
-
-                    // TODO: what request Id do we send for subscribe announces???
-                    SendPublishNamespace(it->second, request_id, track_namespace);
-                }
+                fanout_subscribe_namespace_requestors();
                 break;
             }
             default: {
                 // TODO: Send announce error
+            }
+        }
+    }
+
+    void Server::ResolvePublishNamespaceDone(ConnectionHandle connection_handle,
+                                             const TrackNamespace& track_namespace,
+                                             const std::vector<ConnectionHandle>& subscribers)
+    {
+        for (const auto& sub_conn_handle : subscribers) {
+            auto it = connections_.find(sub_conn_handle);
+            if (it == connections_.end()) {
+                continue;
+            }
+
+            auto th = TrackHash({ track_namespace, {} });
+            auto req_it = it->second.pub_namespaces_by_request_id.find(th.track_fullname_hash);
+            if (req_it != it->second.pub_namespaces_by_request_id.end()) {
+                SendPublishNamespaceDone(it->second, track_namespace);
+                it->second.pub_namespaces_by_request_id.erase(req_it);
             }
         }
     }
@@ -138,6 +168,8 @@ namespace quicr {
             return;
         }
 
+        auto th = TrackHash({ prefix, {} });
+
         if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
             SendSubscribeNamespaceError(
               conn_it->second, request_id, messages::SubscribeNamespaceErrorCode::kInternalError, "Internal error");
@@ -152,7 +184,10 @@ namespace quicr {
                 SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
                 continue;
             }
-            SendPublishNamespace(conn_it->second, conn_it->second.GetNextRequestId(), name_space);
+
+            auto request_id = conn_it->second.GetNextRequestId();
+            SendPublishNamespace(conn_it->second, request_id, name_space);
+            conn_it->second.pub_namespaces_by_request_id[th.track_fullname_hash] = request_id;
         }
 
         // Fan out PUBLISH for matching tracks.
