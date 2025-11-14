@@ -18,7 +18,6 @@ const TrackNamespace kNamespace{ "example"s, "chat555"s, "user1"s, "dev1"s, "tim
 const std::string kNameStr = "test";
 const FullTrackName kFullTrackName{ kNamespace, std::vector<uint8_t>{ kNameStr.begin(), kNameStr.end() } };
 
-
 template<typename T, std::enable_if_t<std::is_integral<T>::value || std::is_floating_point<T>::value, bool> = true>
 std::span<const uint8_t>
 BytesOf(const T& value)
