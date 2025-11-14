@@ -256,21 +256,34 @@ namespace quicr {
                                      const PublishNamespaceResponse& announce_response);
 
         /**
-         * @brief Callback notification for unannounce received
+         * @brief Callback notification for publish namespace done received
          *
-         * @details The callback will indicate that a new unannounce has been received. The
+         * @details The callback will indicate that publish namespace done has been received. The
          *    app should return a vector of connection handler ids that should receive a
-         *    copy of the unannounce. The returned list is based on subscribe announces prefix
+         *    copy of the pubilsh namespace done message. The returned list is based on subscribe namespace prefix
          *    matching.
          *
          * @param connection_handle         Source connection ID
          * @param track_namespace           Track namespace
          *
-         * @returns vector of subscribe announces connection handler ids matching prefix to the namespace being
-         * unannounced.
+         * @returns vector of subscribe namespace connection handler ids matching prefix to the namespace being
+         * marked as done.
          */
-        virtual std::vector<ConnectionHandle> UnannounceReceived(ConnectionHandle connection_handle,
-                                                                 const TrackNamespace& track_namespace) = 0;
+        virtual std::vector<ConnectionHandle> PublishNamespaceDoneReceived(ConnectionHandle connection_handle,
+                                                                           const TrackNamespace& track_namespace) = 0;
+
+        /**
+         * @brief Finalize the publish done received
+         *
+         * @details Server calls this to have libquicr send Publish Namespace Done to SUBSCRIBE_NAMESPACE
+         *  requestors.
+         * @param connection_handle        Connection ID of the received publish done message
+         * @param track_namespace          Track namespace of publish namespace
+         * @param subscribers              Vector/list of subscriber connection handles/ids that should be sent a done
+         */
+        void ResolvePublishNamespaceDone(ConnectionHandle connection_handle,
+                                         const TrackNamespace& track_namespace,
+                                         const std::vector<ConnectionHandle>& subscribers);
 
         /**
          * @brief Callback notification for Unsubscribe announces received

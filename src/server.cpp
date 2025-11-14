@@ -36,6 +36,25 @@ namespace quicr {
                                          const std::vector<ConnectionHandle>& subscribers,
                                          const PublishNamespaceResponse& response)
     {
+        auto th = TrackHash({ track_namespace, {} });
+        auto fanout_subscribe_namespace_requestors = [&] {
+            for (const auto& sub_conn_handle : subscribers) {
+                auto it = connections_.find(sub_conn_handle);
+                if (it == connections_.end()) {
+                    continue;
+                }
+
+                auto request_id = it->second.GetNextRequestId();
+                SendPublishNamespace(it->second, request_id, track_namespace);
+                it->second.pub_namespaces_by_request_id[th.track_fullname_hash] = request_id;
+            }
+        };
+
+        if (!connection_handle) {
+            fanout_subscribe_namespace_requestors();
+            return;
+        }
+
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
@@ -45,19 +64,30 @@ namespace quicr {
             case PublishNamespaceResponse::ReasonCode::kOk: {
                 SendPublishNamespaceOk(conn_it->second, request_id);
 
-                for (const auto& sub_conn_handle : subscribers) {
-                    auto it = connections_.find(sub_conn_handle);
-                    if (it == connections_.end()) {
-                        continue;
-                    }
-
-                    // TODO: what request Id do we send for subscribe announces???
-                    SendPublishNamespace(it->second, request_id, track_namespace);
-                }
+                fanout_subscribe_namespace_requestors();
                 break;
             }
             default: {
                 // TODO: Send announce error
+            }
+        }
+    }
+
+    void Server::ResolvePublishNamespaceDone(ConnectionHandle connection_handle,
+                                             const TrackNamespace& track_namespace,
+                                             const std::vector<ConnectionHandle>& subscribers)
+    {
+        for (const auto& sub_conn_handle : subscribers) {
+            auto it = connections_.find(sub_conn_handle);
+            if (it == connections_.end()) {
+                continue;
+            }
+
+            auto th = TrackHash({ track_namespace, {} });
+            auto req_it = it->second.pub_namespaces_by_request_id.find(th.track_fullname_hash);
+            if (req_it != it->second.pub_namespaces_by_request_id.end()) {
+                SendPublishNamespaceDone(it->second, track_namespace);
+                it->second.pub_namespaces_by_request_id.erase(req_it);
             }
         }
     }
@@ -92,10 +122,6 @@ namespace quicr {
                                   uint64_t track_alias,
                                   const SubscribeResponse& subscribe_response)
     {
-        if (subscribe_response.is_publisher_initiated) {
-            throw std::invalid_argument("ResolveSubscribe should not be called when publisher initiated");
-        }
-
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
@@ -116,14 +142,18 @@ namespace quicr {
 
                 req_it->second.largest_location = subscribe_response.largest_location;
 
-                // Send the ok.
-                SendSubscribeOk(
-                  conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
+                if (!subscribe_response.is_publisher_initiated) {
+                    // Send the ok.
+                    SendSubscribeOk(
+                      conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
+                }
                 break;
             }
             default:
-                SendSubscribeError(
-                  conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
+                if (!subscribe_response.is_publisher_initiated) {
+                    SendSubscribeError(
+                      conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
+                }
                 break;
         }
     }
@@ -137,6 +167,8 @@ namespace quicr {
         if (conn_it == connections_.end()) {
             return;
         }
+
+        auto th = TrackHash({ prefix, {} });
 
         if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
             SendSubscribeNamespaceError(
@@ -152,7 +184,10 @@ namespace quicr {
                 SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
                 continue;
             }
-            SendPublishNamespace(conn_it->second, conn_it->second.GetNextRequestId(), name_space);
+
+            auto request_id = conn_it->second.GetNextRequestId();
+            SendPublishNamespace(conn_it->second, request_id, name_space);
+            conn_it->second.pub_namespaces_by_request_id[th.track_fullname_hash] = request_id;
         }
 
         // Fan out PUBLISH for matching tracks.
@@ -664,12 +699,13 @@ namespace quicr {
                 auto tfn = FullTrackName{ msg.track_namespace, {} };
                 auto th = TrackHash(tfn);
 
-                SPDLOG_LOGGER_INFO(logger_, "Received unannounce for namespace_hash: {0}", th.track_namespace_hash);
+                SPDLOG_LOGGER_INFO(
+                  logger_, "Received publish namespace done for namespace_hash: {0}", th.track_namespace_hash);
 
-                auto sub_anno_conns = UnannounceReceived(conn_ctx.connection_handle, tfn.name_space);
+                auto sub_namespace_conns = PublishNamespaceDoneReceived(conn_ctx.connection_handle, tfn.name_space);
 
                 std::lock_guard<std::mutex> _(state_mutex_);
-                for (auto conn_id : sub_anno_conns) {
+                for (auto conn_id : sub_namespace_conns) {
                     auto conn_it = connections_.find(conn_id);
                     if (conn_it == connections_.end()) {
                         continue;

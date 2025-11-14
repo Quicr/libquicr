@@ -358,8 +358,9 @@ class MyServer : public quicr::Server
                      metrics.quic.tx_lost_pkts);
     }
 
-    std::vector<quicr::ConnectionHandle> UnannounceReceived(quicr::ConnectionHandle connection_handle,
-                                                            const quicr::TrackNamespace& track_namespace) override
+    std::vector<quicr::ConnectionHandle> PublishNamespaceDoneReceived(
+      quicr::ConnectionHandle connection_handle,
+      const quicr::TrackNamespace& track_namespace) override
     {
         auto th = quicr::TrackHash({ track_namespace, {} });
 
