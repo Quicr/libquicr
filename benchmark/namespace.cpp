@@ -18,26 +18,6 @@ const TrackNamespace kNamespace{ "example"s, "chat555"s, "user1"s, "dev1"s, "tim
 const std::string kNameStr = "test";
 const FullTrackName kFullTrackName{ kNamespace, std::vector<uint8_t>{ kNameStr.begin(), kNameStr.end() } };
 
-template<typename Key, typename Value, unsigned int N>
-struct VarMapHelper
-{
-    typedef std::map<Key, typename VarMapHelper<Key, Value, N - 1>::type> type;
-};
-
-template<typename Key, typename Value>
-struct VarMapHelper<Key, Value, 1>
-{
-    typedef std::map<Key, Value> type;
-};
-
-template<typename Key, typename Value, unsigned int N>
-using VarMap = typename VarMapHelper<Key, Value, N>::type;
-
-struct ValueObject
-{
-    std::string some_string;
-    uint64_t some_value;
-};
 
 template<typename T, std::enable_if_t<std::is_integral<T>::value || std::is_floating_point<T>::value, bool> = true>
 std::span<const uint8_t>
