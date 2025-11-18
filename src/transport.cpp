@@ -1095,6 +1095,10 @@ namespace quicr {
         auto handler_status = handler.GetStatus();
 
         switch (handler_status) {
+            case SubscribeTrackHandler::Status::kDoneByFin:
+                [[fallthrough]];
+            case SubscribeTrackHandler::Status::kDoneByReset:
+                [[fallthrough]];
             case SubscribeTrackHandler::Status::kOk:
                 try {
                     if (not handler.IsPublisherInitiated() && not conn_ctx.closed) {
