@@ -1,0 +1,114 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
+#pragma once
+
+namespace quicr {
+
+    /**
+     * @brief MOQ track handler for subscribe namespace and associated tracks.
+     *
+     * @details MOQ subscribe namespace handler defines all track related callbacks and
+     *  functions for subscribe namespace and accepted tracks.
+     *  This Track handler notifies of available tracks, and handles object delivery of accepted
+     *  ones.
+     */
+    class SubscribeNamespaceHandler
+    {
+      public:
+        using Error = std::pair<messages::SubscribeNamespaceErrorCode, messages::ReasonPhrase>;
+        /**
+         * @brief  Status codes for the subscribe track
+         */
+        enum class Status : uint8_t
+        {
+            kOk = 0,
+            kNotSubscribed,
+            kError,
+        };
+
+      protected:
+        /**
+         * @brief Subscribe track handler constructor
+         *
+         * @param namespace_prefix Namespace prefix to receive notifications for.
+         */
+        explicit SubscribeNamespaceHandler(const TrackNamespace& namespace_prefix)
+          : namespace_prefix_(namespace_prefix)
+        {
+        }
+
+      public:
+        /**
+         * @brief Create shared Subscribe Namespace handler.
+         *
+         * @param namespace_prefix Namespace prefix to receive notifications for.
+         */
+        static std::shared_ptr<SubscribeNamespaceHandler> Create(const TrackNamespace& namespace_prefix)
+        {
+            return std::shared_ptr<SubscribeNamespaceHandler>(new SubscribeNamespaceHandler(namespace_prefix));
+        }
+
+        /**
+         * @brief Get the namespace prefix this handler is interested in.
+         * @return The namespace prefix.
+         */
+        TrackNamespace GetNamespacePrefix() const noexcept { return namespace_prefix_; }
+
+        /**
+         * @brief Get the status of the subscribe
+         *
+         * @return Status of the subscribe
+         */
+        constexpr Status GetStatus() const noexcept { return status_; }
+
+        /**
+         * @brief Get the error code and reason for the subscribe namespace, if any.
+         * @return Subscribe namespace error code and reason.
+         */
+        std::optional<Error> GetError() const noexcept { return error_; }
+
+        // --------------------------------------------------------------------------
+        // Public Virtual API callback event methods
+        // --------------------------------------------------------------------------
+        /** @name Callbacks
+         */
+        ///@{
+
+        /**
+         * @brief Notification of subscribe status
+         *
+         * @details Notification of the subscribe status
+         *
+         * @param status        Indicates status of the subscribe
+         */
+        virtual void StatusChanged([[maybe_unused]] Status status) {}
+
+      protected:
+        /**
+         * @brief Set the subscribe status
+         * @param status                Status of the subscribe
+         */
+        void SetStatus(const Status status) noexcept
+        {
+            status_ = status;
+            StatusChanged(status);
+        }
+
+        void SetError(const Error& error)
+        {
+            error_ = error;
+            SetStatus(Status::kError);
+        }
+
+      private:
+        Status status_{ Status::kNotSubscribed };
+        const TrackNamespace namespace_prefix_;
+        std::optional<Error> error_{};
+
+        friend class Transport;
+        friend class Client;
+        friend class Server;
+    };
+
+} // namespace moq

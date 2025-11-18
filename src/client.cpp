@@ -25,12 +25,6 @@ namespace quicr {
     void Client::PublishNamespaceReceived(const TrackNamespace&, const PublishNamespaceAttributes&) {}
     void Client::PublishNamespaceDoneReceived(const TrackNamespace&) {}
 
-    void Client::SubscribeNamespaceStatusChanged(const TrackNamespace&,
-                                                 std::optional<messages::SubscribeNamespaceErrorCode>,
-                                                 std::optional<messages::ReasonPhrase>)
-    {
-    }
-
     void Client::PublishReceived(const ConnectionHandle connection_handle,
                                  const uint64_t request_id,
                                  const messages::PublishAttributes& publish_attributes)
@@ -508,7 +502,8 @@ namespace quicr {
 
                 const auto it = conn_ctx.sub_namespace_prefix_by_request_id.find(msg.request_id);
                 if (it != conn_ctx.sub_namespace_prefix_by_request_id.end()) {
-                    SubscribeNamespaceStatusChanged(it->second, std::nullopt, std::nullopt);
+                    const auto& handler = it->second;
+                    handler->SetStatus(SubscribeNamespaceHandler::Status::kOk);
                 }
 
                 return true;
@@ -519,11 +514,8 @@ namespace quicr {
 
                 const auto it = conn_ctx.sub_namespace_prefix_by_request_id.find(msg.request_id);
                 if (it != conn_ctx.sub_namespace_prefix_by_request_id.end()) {
-                    SubscribeNamespaceStatusChanged(it->second, std::nullopt, std::nullopt);
-
-                    auto error_code = static_cast<messages::SubscribeNamespaceErrorCode>(msg.error_code);
-                    SubscribeNamespaceStatusChanged(
-                      it->second, error_code, std::make_optional<messages::ReasonPhrase>(msg.error_reason));
+                    const auto& handler = it->second;
+                    handler->SetError(std::make_pair(msg.error_code, msg.error_reason));
                 }
 
                 return true;

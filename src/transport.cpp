@@ -700,19 +700,11 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendSubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
+    void Transport::SendSubscribeNamespace(ConnectionContext& conn_ctx,
+                                           const RequestID request_id,
+                                           const TrackNamespace& prefix_namespace)
     try {
-        std::lock_guard<std::mutex> _(state_mutex_);
-        auto conn_it = connections_.find(conn_handle);
-        if (conn_it == connections_.end()) {
-            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", conn_handle);
-            return;
-        }
-
-        auto rid = conn_it->second.GetNextRequestId();
-
-        conn_it->second.sub_namespace_prefix_by_request_id[rid] = prefix_namespace;
-        auto msg = messages::SubscribeNamespace(rid, prefix_namespace, {});
+        const auto msg = messages::SubscribeNamespace(request_id, prefix_namespace, {});
 
         Bytes buffer;
         buffer << msg;
@@ -721,11 +713,11 @@ namespace quicr {
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending SUBSCRIBE_NAMESPACE to conn_id: {} request_id: {} prefix_hash: {}",
-                            conn_it->second.connection_handle,
-                            rid,
+                            conn_ctx.connection_handle,
+                            request_id,
                             th.track_namespace_hash);
 
-        SendCtrlMsg(conn_it->second, buffer);
+        SendCtrlMsg(conn_ctx, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -1086,6 +1078,22 @@ namespace quicr {
           priority,
           true,
           false);
+    }
+
+    void Transport::SubscribeNamespace(const ConnectionHandle connection_handle,
+                                       std::shared_ptr<SubscribeNamespaceHandler> handler)
+    {
+        std::lock_guard<std::mutex> _(state_mutex_);
+        const auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {0} does not exist.", connection_handle);
+            return;
+        }
+
+        const auto request_id = conn_it->second.GetNextRequestId();
+        handler->SetRequestId(request_id);
+        conn_it->second.sub_namespace_prefix_by_request_id[request_id] = std::move(handler);
+        SendSubscribeNamespace(connection_handle, request_id, handler->GetNamespacePrefix());
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,

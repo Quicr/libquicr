@@ -9,6 +9,7 @@
 #include <quicr/detail/attributes.h>
 #include <quicr/detail/transport.h>
 #include <quicr/publish_fetch_handler.h>
+#include <quicr/subscribe_namespace_handler.h>
 #include <quicr/track_name.h>
 
 namespace quicr {
@@ -104,20 +105,6 @@ namespace quicr {
          * @param track_namespace       Track namespace
          */
         virtual void PublishNamespaceDoneReceived(const TrackNamespace& track_namespace);
-
-        /**
-         * @brief Callback notification for subscribe namespace OK or Error
-         *
-         * @details error_code and reason will be nullopt if the status is OK and accepted.
-         *      If error, the error_code and reason will be set to indicate the error.
-         *
-         * @param track_namespace       Track namespace
-         * @param error_code            Set if there is an error; error code
-         * @param reason                Set if there is an error; reason phrase
-         */
-        virtual void SubscribeNamespaceStatusChanged(const TrackNamespace& track_namespace,
-                                                     std::optional<messages::SubscribeNamespaceErrorCode> error_code,
-                                                     std::optional<messages::ReasonPhrase> reason);
 
         /**
          * Received notification of an interested track. The app must call ResolvePublish()
@@ -332,31 +319,30 @@ namespace quicr {
         /**
          * @brief Subscribe to prefix namespace
          *
-         * @note SubscribeNamespaceStatusChanged will be called after receiving either an OK or ERROR
+         * @note The handler will be notified of status changes, available tracks,
+         * and will receive relevant objects if configured to.
          *
-         * @param prefix_namespace      Prefix namespace to subscribe namespace
+         * @param handler The subscribe namespace handler.
          */
-        void SubscribeNamespace(const TrackNamespace& prefix_namespace)
+        void SubscribeNamespace(std::shared_ptr<SubscribeNamespaceHandler> handler)
         {
-            if (!connection_handle_) {
-                return;
+            if (connection_handle_) {
+                Transport::SubscribeNamespace(*connection_handle_, std::move(handler));
             }
-
-            SendSubscribeNamespace(*connection_handle_, prefix_namespace);
         }
 
         /**
          * @brief Unsubscribe namespace to prefix namespace
          *
-         * @param prefix_namespace      Prefix namespace to unsubscribe namespace
+         * @param handler The subscribe namespace handler.
          */
-        void UnsubscribeNamespace(const TrackNamespace& prefix_namespace)
+        void UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler)
         {
             if (!connection_handle_) {
                 return;
             }
 
-            SendUnsubscribeNamespace(*connection_handle_, prefix_namespace);
+            SendUnsubscribeNamespace(*connection_handle_, handler->GetNamespacePrefix());
         }
 
         /**

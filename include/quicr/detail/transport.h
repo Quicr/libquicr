@@ -8,6 +8,7 @@
 #include "tick_service.h"
 
 #include "quic_transport.h"
+#include "quicr/subscribe_namespace_handler.h"
 
 #include <chrono>
 #include <quicr/common.h>
@@ -145,6 +146,13 @@ namespace quicr {
          */
         void UpdateTrackSubscription(ConnectionHandle connection_handle,
                                      std::shared_ptr<SubscribeTrackHandler> track_handler);
+
+        /**
+         * @brief Subscribe to a namespace prefix.
+         * @param connection_handle Connection ID to send subscribe namespace
+         * @param handler Handler for related callbacks
+         */
+        void SubscribeNamespace(ConnectionHandle connection_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
 
         /**
          * @brief Publish to a track
@@ -451,7 +459,8 @@ namespace quicr {
             std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
 
             /// Subscribe Namespace prefix by request Id
-            std::map<messages::RequestID, TrackNamespace> sub_namespace_prefix_by_request_id;
+            std::map<messages::RequestID, std::shared_ptr<SubscribeNamespaceHandler>>
+              sub_namespace_prefix_by_request_id;
 
             ConnectionMetrics metrics{}; ///< Connection metrics
 
@@ -550,7 +559,9 @@ namespace quicr {
                               messages::SubscribeErrorCode error,
                               const std::string& reason);
 
-        void SendSubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
+        void SendSubscribeNamespace(ConnectionContext& conn_ctx,
+                                    messages::RequestID request_id,
+                                    const TrackNamespace& prefix_namespace);
         void SendUnsubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
         void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
         void SendSubscribeNamespaceError(ConnectionContext& conn_ctx,

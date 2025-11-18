@@ -19,9 +19,6 @@ namespace quicr_test {
         {
             subscribe_namespace_ok_ = std::move(promise);
         }
-        void SubscribeNamespaceStatusChanged(const quicr::TrackNamespace& prefix_namespace,
-                                             std::optional<quicr::messages::SubscribeNamespaceErrorCode> error_code,
-                                             std::optional<quicr::messages::ReasonPhrase> error_reason) override;
 
         // Publish Namespace received.
         void SetPublishNamespaceReceivedPromise(std::promise<quicr::TrackNamespace> promise)
