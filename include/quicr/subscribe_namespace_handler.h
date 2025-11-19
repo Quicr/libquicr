@@ -3,6 +3,14 @@
 
 #pragma once
 
+#include "quicr/detail/ctrl_message_types.h"
+#include "quicr/track_name.h"
+
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <utility>
+
 namespace quicr {
 
     /**
@@ -35,6 +43,7 @@ namespace quicr {
          */
         explicit SubscribeNamespaceHandler(const TrackNamespace& namespace_prefix)
           : namespace_prefix_(namespace_prefix)
+          , request_id_{ 0 }
         {
         }
 
@@ -48,6 +57,8 @@ namespace quicr {
         {
             return std::shared_ptr<SubscribeNamespaceHandler>(new SubscribeNamespaceHandler(namespace_prefix));
         }
+
+        virtual ~SubscribeNamespaceHandler() = default;
 
         /**
          * @brief Get the namespace prefix this handler is interested in.
@@ -68,9 +79,12 @@ namespace quicr {
          */
         std::optional<Error> GetError() const noexcept { return error_; }
 
+        void SetRequestID(messages::RequestID new_id) noexcept { request_id_ = new_id; }
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
+
         /** @name Callbacks
          */
         ///@{
@@ -82,7 +96,7 @@ namespace quicr {
          *
          * @param status        Indicates status of the subscribe
          */
-        virtual void StatusChanged([[maybe_unused]] Status status) {}
+        virtual void StatusChanged(Status status);
 
       protected:
         /**
@@ -104,6 +118,7 @@ namespace quicr {
       private:
         Status status_{ Status::kNotSubscribed };
         const TrackNamespace namespace_prefix_;
+        messages::RequestID request_id_;
         std::optional<Error> error_{};
 
         friend class Transport;

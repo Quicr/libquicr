@@ -11,6 +11,7 @@
 #include <quicr/defer.h>
 #include <quicr/object.h>
 #include <quicr/publish_fetch_handler.h>
+#include <quicr/subscribe_namespace_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
@@ -469,27 +470,6 @@ class MyClient : public quicr::Client
     {
         auto th = quicr::TrackHash({ track_namespace, {} });
         SPDLOG_INFO("Received unannounce for namespace_hash: {}", th.track_namespace_hash);
-    }
-
-    void SubscribeNamespaceStatusChanged(const quicr::TrackNamespace& track_namespace,
-                                         std::optional<quicr::messages::SubscribeNamespaceErrorCode> error_code,
-                                         std::optional<quicr::messages::ReasonPhrase> reason) override
-    {
-        auto th = quicr::TrackHash({ track_namespace, {} });
-        if (!error_code.has_value()) {
-            SPDLOG_INFO("Subscribe announces namespace_hash: {} status changed to OK", th.track_namespace_hash);
-            return;
-        }
-
-        std::string reason_str;
-        if (reason.has_value()) {
-            reason_str.assign(reason.value().begin(), reason.value().end());
-        }
-
-        SPDLOG_WARN("Subscribe announces to namespace_hash: {} has error {} with reason: {}",
-                    th.track_namespace_hash,
-                    static_cast<uint64_t>(error_code.value()),
-                    reason_str);
     }
 
     std::optional<quicr::messages::Location> GetLargestAvailable(const quicr::FullTrackName& track_full_name)
@@ -1172,6 +1152,7 @@ main(int argc, char* argv[])
 
         if (result.count("sub_announces")) {
             const auto& prefix_ns = quicr::example::MakeFullTrackName(result["sub_announces"].as<std::string>(), "");
+            const auto sub_ns_handler = quicr::SubscribeNamespaceHandler::Create(prefix_ns.name_space);
 
             auto th = quicr::TrackHash(prefix_ns);
 
@@ -1179,7 +1160,7 @@ main(int argc, char* argv[])
                         result["sub_announces"].as<std::string>(),
                         th.track_namespace_hash);
 
-            client->SubscribeNamespace(prefix_ns.name_space);
+            client->SubscribeNamespace(sub_ns_handler);
         }
 
         if (enable_pub) {

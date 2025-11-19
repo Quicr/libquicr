@@ -273,7 +273,8 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     client->SetPublishReceivedPromise(std::move(publish_promise));
 
     // Client sends SUBSCRIBE_NAMESPACE
-    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+    const auto sub_ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace);
+    CHECK_NOTHROW(client->SubscribeNamespace(sub_ns_handler));
 
     // Server should receive the SUBSCRIBE_NAMESPACE message
     auto server_status = server_future.wait_for(kDefaultTimeout);
@@ -311,7 +312,8 @@ TEST_CASE("Integration - Subscribe Namespace with matching namespace")
     client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
     // SUBSCRIBE_NAMESPACE to prefix.
-    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+    const auto sub_ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace);
+    CHECK_NOTHROW(client->SubscribeNamespace(sub_ns_handler));
 
     // Client should receive matched PUBLISH_NAMESPACE.
     auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
@@ -345,7 +347,8 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
     server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
     // SUBSCRIBE_NAMESPACE to prefix.
-    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+    const auto sub_ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace);
+    CHECK_NOTHROW(client->SubscribeNamespace(sub_ns_handler));
 
     // Client should receive matched PUBLISH for existing track.
     auto publish_status = publish_future.wait_for(kDefaultTimeout);
@@ -389,7 +392,8 @@ TEST_CASE("Integration - Subscribe Namespace with ongoing match")
     server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
     // SUBSCRIBE_NAMESPACE to prefix.
-    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+    const auto sub_ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace);
+    CHECK_NOTHROW(client->SubscribeNamespace(sub_ns_handler));
 
     // In the future, a PUBLISH arrives.
     std::this_thread::sleep_for(kDefaultTimeout);
@@ -427,7 +431,8 @@ TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
     client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
     // SUBSCRIBE_NAMESPACE to prefix.
-    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+    const auto sub_ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace);
+    CHECK_NOTHROW(client->SubscribeNamespace(sub_ns_handler));
 
     // Client should NOT receive PUBLISH_NAMESPACE.
     auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);

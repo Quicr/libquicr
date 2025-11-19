@@ -775,7 +775,7 @@ namespace quicr {
         for (auto it = conn_it->second.sub_namespace_prefix_by_request_id.begin();
              it != conn_it->second.sub_namespace_prefix_by_request_id.end();
              ++it) {
-            if (it->second == prefix_namespace) {
+            if (it->second->GetNamespacePrefix() == prefix_namespace) {
                 conn_it->second.sub_namespace_prefix_by_request_id.erase(it);
                 break;
             }
@@ -1091,9 +1091,9 @@ namespace quicr {
         }
 
         const auto request_id = conn_it->second.GetNextRequestId();
-        handler->SetRequestId(request_id);
+        handler->SetRequestID(request_id);
         conn_it->second.sub_namespace_prefix_by_request_id[request_id] = std::move(handler);
-        SendSubscribeNamespace(connection_handle, request_id, handler->GetNamespacePrefix());
+        SendSubscribeNamespace(conn_it->second, request_id, handler->GetNamespacePrefix());
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
