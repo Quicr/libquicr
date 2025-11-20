@@ -1095,6 +1095,10 @@ namespace quicr {
         auto handler_status = handler.GetStatus();
 
         switch (handler_status) {
+            case SubscribeTrackHandler::Status::kDoneByFin:
+                [[fallthrough]];
+            case SubscribeTrackHandler::Status::kDoneByReset:
+                [[fallthrough]];
             case SubscribeTrackHandler::Status::kOk:
                 try {
                     if (not handler.IsPublisherInitiated() && not conn_ctx.closed) {
@@ -1735,7 +1739,7 @@ namespace quicr {
                                    StreamClosedFlag flag)
     {
         auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
-        if (auto handler = handler_weak.lock()) {
+        if (auto handler = handler_weak.lock(); handler->is_fetch_handler_) {
             try {
                 switch (flag) {
                     case StreamClosedFlag::Fin:

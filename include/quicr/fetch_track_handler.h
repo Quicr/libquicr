@@ -35,6 +35,7 @@ namespace quicr {
           , end_group_(end_group)
           , end_object_(end_object)
         {
+            is_fetch_handler_ = true;
         }
 
       public:
