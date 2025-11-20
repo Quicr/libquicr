@@ -1091,9 +1091,10 @@ namespace quicr {
         }
 
         const auto request_id = conn_it->second.GetNextRequestId();
+        const auto ns = handler->GetNamespacePrefix();
         handler->SetRequestID(request_id);
         conn_it->second.sub_namespace_prefix_by_request_id[request_id] = std::move(handler);
-        SendSubscribeNamespace(conn_it->second, request_id, handler->GetNamespacePrefix());
+        SendSubscribeNamespace(conn_it->second, request_id, ns);
     }
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
