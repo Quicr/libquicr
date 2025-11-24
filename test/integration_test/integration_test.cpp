@@ -257,11 +257,6 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     std::future<TestServer::SubscribeNamespaceDetails> server_future = server_promise.get_future();
     server->SetSubscribeNamespacePromise(std::move(server_promise));
 
-    // Set up promise to capture client-side SUBSCRIBE_NAMESPACE_OK
-    std::promise<TrackNamespace> client_promise;
-    std::future<TrackNamespace> client_future = client_promise.get_future();
-    client->SetSubscribeNamespaceOkPromise(std::move(client_promise));
-
     // Set up promise to verify client does NOT receive PUBLISH_NAMESPACE
     std::promise<TrackNamespace> publish_namespace_promise;
     std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
@@ -273,8 +268,8 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     client->SetPublishReceivedPromise(std::move(publish_promise));
 
     // Client sends SUBSCRIBE_NAMESPACE
-    const auto sub_ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace);
-    CHECK_NOTHROW(client->SubscribeNamespace(sub_ns_handler));
+    const auto handler = SubscribeNamespaceHandler::Create(prefix_namespace);
+    CHECK_NOTHROW(client->SubscribeNamespace(handler));
 
     // Server should receive the SUBSCRIBE_NAMESPACE message
     auto server_status = server_future.wait_for(kDefaultTimeout);
@@ -283,9 +278,10 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     CHECK_EQ(details.prefix_namespace, prefix_namespace);
 
     // Client should receive SUBSCRIBE_NAMESPACE_OK from relay
-    auto client_status = client_future.wait_for(kDefaultTimeout);
-    REQUIRE(client_status == std::future_status::ready);
-    const auto& received_namespace = client_future.get();
+    std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
+    CHECK_EQ(handler->GetStatus(), SubscribeNamespaceHandler::Status::kOk);
+
+    const auto& received_namespace = handler->GetNamespacePrefix();
     CHECK_EQ(received_namespace, prefix_namespace);
 
     // Client should NOT receive PUBLISH_NAMESPACE because there are no matching namespaces.

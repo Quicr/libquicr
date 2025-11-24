@@ -14,12 +14,6 @@ namespace quicr_test {
         }
         void ServerSetupReceived(const quicr::ServerSetupAttributes& server_setup_attributes) override;
 
-        // Subscribe Namespace.
-        void SetSubscribeNamespaceOkPromise(std::promise<quicr::TrackNamespace> promise)
-        {
-            subscribe_namespace_ok_ = std::move(promise);
-        }
-
         // Publish Namespace received.
         void SetPublishNamespaceReceivedPromise(std::promise<quicr::TrackNamespace> promise)
         {
@@ -48,7 +42,6 @@ namespace quicr_test {
 
       private:
         std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;
-        std::optional<std::promise<quicr::TrackNamespace>> subscribe_namespace_ok_;
         std::optional<std::promise<quicr::TrackNamespace>> publish_namespace_received_;
         std::optional<std::promise<quicr::FullTrackName>> publish_received_;
         std::optional<std::promise<quicr::TrackNamespace>> publish_namespace_status_changed_;
