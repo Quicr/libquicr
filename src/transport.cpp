@@ -1738,24 +1738,33 @@ namespace quicr {
                                    std::shared_ptr<StreamRxContext> rx_ctx,
                                    StreamClosedFlag flag)
     {
-        auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
-        if (auto handler = handler_weak.lock(); handler->is_fetch_handler_) {
-            try {
-                switch (flag) {
-                    case StreamClosedFlag::Fin:
-                        handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
-                        break;
-                    case StreamClosedFlag::Reset:
-                        handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
-                        break;
+        if (!rx_ctx->caller_any.has_value()) {
+            SPDLOG_LOGGER_WARN(logger_, "Received stream closed with null handler");
+            return;
+        }
+
+        try {
+            const auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
+            if (const auto handler = handler_weak.lock(); handler && handler->is_fetch_handler_) {
+                try {
+                    switch (flag) {
+                        case StreamClosedFlag::Fin:
+                            handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                            break;
+                        case StreamClosedFlag::Reset:
+                            handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                            break;
+                    }
+                } catch (const ProtocolViolationException& e) {
+                    SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
+                    CloseConnection(connection_handle, TerminationReason::kProtocolViolation, e.reason);
+                } catch (const std::exception& e) {
+                    SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
+                    CloseConnection(connection_handle, TerminationReason::kInternalError, "Internal error");
                 }
-            } catch (const ProtocolViolationException& e) {
-                SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
-                CloseConnection(connection_handle, TerminationReason::kProtocolViolation, e.reason);
-            } catch (const std::exception& e) {
-                SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
-                CloseConnection(connection_handle, TerminationReason::kInternalError, "Internal error");
             }
+        } catch (const std::bad_any_cast&) {
+            SPDLOG_LOGGER_WARN(logger_, "Received stream closed for unknown handler");
         }
     }
 
