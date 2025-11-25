@@ -30,7 +30,7 @@ namespace quicr {
     class UintVar
     {
       public:
-        constexpr UintVar(uint64_t value)
+        constexpr UintVar(uint64_t value, const std::source_location caller = std::source_location::current())
           : be_value_{ std::bit_cast<std::array<std::uint8_t, sizeof(std::uint64_t)>>(SwapBytes(value)) }
         {
             constexpr uint64_t k14bitLength = (static_cast<uint64_t>(-1) << (64 - 6) >> (64 - 6));
@@ -38,7 +38,7 @@ namespace quicr {
             constexpr uint64_t k62bitLength = (static_cast<uint64_t>(-1) << (64 - 30) >> (64 - 30));
 
             if (be_value_.front() & 0xC0u) { // Check if invalid
-                throw UintVarInvalidArgException("Value greater than uintvar maximum");
+                throw UintVarInvalidArgException("Value greater than uintvar maximum", caller);
             }
 
             std::uint64_t be_v = std::bit_cast<std::uint64_t>(be_value_);
@@ -57,11 +57,12 @@ namespace quicr {
             be_value_ = std::bit_cast<std::array<std::uint8_t, sizeof(std::uint64_t)>>(be_v);
         }
 
-        constexpr UintVar(std::span<const std::uint8_t> bytes)
+        constexpr UintVar(std::span<const std::uint8_t> bytes,
+                          const std::source_location caller = std::source_location::current())
           : be_value_{ 0 }
         {
             if (bytes.empty() || bytes.size() < Size(bytes.front())) {
-                throw UintVarInvalidArgException("Invalid bytes for uintvar");
+                throw UintVarInvalidArgException("Invalid bytes for uintvar", caller);
             }
 
             const std::size_t size = Size(bytes.front());

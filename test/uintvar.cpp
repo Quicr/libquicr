@@ -5,6 +5,7 @@
 
 #include "quicr/detail/uintvar.h"
 
+#include <iostream>
 #include <limits>
 
 namespace var {
