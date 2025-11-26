@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <quicr/detail/base_track_handler.h>
 #include <quicr/detail/messages.h>
+#include <quicr/detail/receive_track_handler.h>
 #include <quicr/detail/stream_buffer.h>
 #include <quicr/metrics.h>
 
@@ -18,7 +18,7 @@ namespace quicr {
      *
      *  This extends the base track handler to add subscribe handling
      */
-    class SubscribeTrackHandler : public BaseTrackHandler
+    class SubscribeTrackHandler : public ReceiveTrackHandler
     {
       public:
         /**
@@ -77,7 +77,7 @@ namespace quicr {
                               messages::FilterType filter_type,
                               const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
                               bool publisher_initiated = false)
-          : BaseTrackHandler(full_track_name)
+          : ReceiveTrackHandler(full_track_name)
           , priority_(priority)
           , group_order_(group_order)
           , filter_type_(filter_type)
@@ -252,8 +252,7 @@ namespace quicr {
          * @param object_headers    Object headers, must include group and object Ids
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
          */
-        virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                    [[maybe_unused]] BytesSpan data);
+        virtual void ObjectReceived(const ObjectHeaders& object_headers, BytesSpan data);
 
         /**
          * @brief Notification of received stream data slice
@@ -266,7 +265,7 @@ namespace quicr {
          */
         virtual void StreamDataRecv(bool is_start,
                                     uint64_t stream_id,
-                                    std::shared_ptr<const std::vector<uint8_t>> data);
+                                    std::shared_ptr<const std::vector<uint8_t>> data) override;
 
         /**
          * @brief Notification of received datagram data
@@ -275,7 +274,7 @@ namespace quicr {
          *
          * @param data        Shared pointer to the data received
          */
-        virtual void DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data);
+        virtual void DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data) override;
 
         /**
          * @brief Notification of a partial object received data object

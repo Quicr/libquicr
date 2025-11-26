@@ -184,7 +184,7 @@ namespace quicr {
          */
         virtual void PublishReceived(ConnectionHandle connection_handle,
                                      uint64_t request_id,
-                                     const messages::PublishAttributes& publish_attributes) = 0;
+                                     const messages::PublishAttributes& publish_attributes);
 
         /**
          * @brief Accept or reject publish that was received
@@ -461,6 +461,8 @@ namespace quicr {
             /// Subscribe Namespace prefix by request Id
             std::map<messages::RequestID, std::shared_ptr<SubscribeNamespaceHandler>>
               sub_namespace_prefix_by_request_id;
+            std::map<messages::TrackAlias, std::shared_ptr<SubscribeNamespaceHandler>>
+              sub_namespace_prefix_by_track_alias;
 
             ConnectionMetrics metrics{}; ///< Connection metrics
 

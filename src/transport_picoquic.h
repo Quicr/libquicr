@@ -151,7 +151,7 @@ namespace quicr {
                 RxStreamBuffer()
                   : rx_ctx(std::make_shared<StreamRxContext>())
                 {
-                    rx_ctx->caller_any.reset();
+                    rx_ctx->receive_handler.reset();
                     rx_ctx->data_queue.Clear();
                 }
             };

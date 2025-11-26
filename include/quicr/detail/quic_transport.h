@@ -132,8 +132,8 @@ namespace quicr {
     /// Stream receive data context
     struct StreamRxContext
     {
-        std::any caller_any; ///< Caller any object - Set and used by caller/app
-        bool is_new{ true }; ///< Indicates if new stream, on read set to false
+        std::weak_ptr<class ReceiveTrackHandler> receive_handler; ///< Caller any object - Set and used by caller/app
+        bool is_new{ true };                                      ///< Indicates if new stream, on read set to false
 
         /**
          * Future tick value in milliseconds that indicates this context has

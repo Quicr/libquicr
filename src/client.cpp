@@ -25,16 +25,6 @@ namespace quicr {
     void Client::PublishNamespaceReceived(const TrackNamespace&, const PublishNamespaceAttributes&) {}
     void Client::PublishNamespaceDoneReceived(const TrackNamespace&) {}
 
-    void Client::PublishReceived(const ConnectionHandle connection_handle,
-                                 const uint64_t request_id,
-                                 const messages::PublishAttributes& publish_attributes)
-    {
-        ResolvePublish(connection_handle,
-                       request_id,
-                       publish_attributes,
-                       { .reason_code = PublishResponse::ReasonCode::kNotSupported });
-    }
-
     void Client::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&)
     {
         // TODO: add the default response
@@ -610,6 +600,7 @@ namespace quicr {
                 attrs.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
                 attrs.is_publisher_initiated = true;
                 attrs.new_group_request_id = new_group_request_id;
+                attrs.priority = 0;
                 PublishReceived(conn_ctx.connection_handle, msg.request_id, attrs);
                 return true;
             }

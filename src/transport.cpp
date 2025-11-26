@@ -4,9 +4,10 @@
 #include "quicr/detail/transport.h"
 
 #include "quicr/detail/ctrl_messages.h"
+#include "quicr/detail/joining_fetch_handler.h"
 #include "quicr/detail/messages.h"
+#include "quicr/detail/receive_track_handler.h"
 
-#include <quicr/detail/joining_fetch_handler.h>
 #include <sstream>
 
 namespace quicr {
@@ -772,14 +773,18 @@ namespace quicr {
             return;
         }
 
-        for (auto it = conn_it->second.sub_namespace_prefix_by_request_id.begin();
-             it != conn_it->second.sub_namespace_prefix_by_request_id.end();
-             ++it) {
-            if (it->second->GetNamespacePrefix() == prefix_namespace) {
-                conn_it->second.sub_namespace_prefix_by_request_id.erase(it);
-                break;
+        const auto remove_handler = [&](auto& container) {
+            auto it = std::find_if(container.begin(), container.end(), [&](auto&& e) {
+                return e.second->GetNamespacePrefix() == prefix_namespace;
+            });
+
+            if (it != container.end()) {
+                container.erase(it);
             }
-        }
+        };
+
+        remove_handler(conn_it->second.sub_namespace_prefix_by_request_id);
+        remove_handler(conn_it->second.sub_namespace_prefix_by_track_alias);
 
         auto msg = messages::UnsubscribeNamespace(prefix_namespace);
 
@@ -1294,6 +1299,8 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
+    void Transport::PublishReceived(ConnectionHandle, uint64_t, const messages::PublishAttributes&) {}
+
     void Transport::ResolvePublish(const ConnectionHandle connection_handle,
                                    const uint64_t request_id,
                                    const PublishAttributes& attributes,
@@ -1313,24 +1320,40 @@ namespace quicr {
                               attributes.group_order,
                               attributes.filter_type);
 
-                // Fan out PUBLISH, if requested.
-                for (const auto& handle : publish_response.namespace_subscribers) {
-                    const auto& conn_it = connections_.find(handle);
-                    if (conn_it == connections_.end()) {
-                        SPDLOG_LOGGER_WARN(logger_, "Bad connection handle on SUBSCRIBE_NAMESPACE fan out");
-                        continue;
+                for (const auto& [_, handler] : conn_it->second.sub_namespace_prefix_by_request_id) {
+                    if (handler->TrackAvailable(attributes.track_full_name)) {
+                        conn_it->second.sub_namespace_prefix_by_track_alias[attributes.track_alias] = handler;
+
+                        SendPublish(conn_it->second,
+                                    conn_it->second.GetNextRequestId(),
+                                    attributes.track_full_name,
+                                    attributes.track_alias,
+                                    attributes.group_order,
+                                    publish_response.largest_location,
+                                    attributes.forward,
+                                    attributes.dynamic_groups);
                     }
-                    const auto outgoing_request = conn_it->second.GetNextRequestId();
-                    conn_it->second.pub_by_request_id[outgoing_request] = attributes.track_full_name;
-                    SendPublish(conn_it->second,
-                                outgoing_request,
-                                attributes.track_full_name,
-                                attributes.track_alias,
-                                attributes.group_order,
-                                publish_response.largest_location,
-                                attributes.forward,
-                                attributes.dynamic_groups);
                 }
+
+                // // Fan out PUBLISH, if requested.
+                // for (const auto& handle : publish_response.namespace_subscribers) {
+                //     const auto& conn_it = connections_.find(handle);
+                //     if (conn_it == connections_.end()) {
+                //         SPDLOG_LOGGER_WARN(logger_, "Bad connection handle on SUBSCRIBE_NAMESPACE fan out");
+                //         continue;
+                //     }
+
+                //     const auto outgoing_request = conn_it->second.GetNextRequestId();
+                //     conn_it->second.pub_by_request_id[outgoing_request] = attributes.track_full_name;
+                //     SendPublish(conn_it->second,
+                //                 outgoing_request,
+                //                 attributes.track_full_name,
+                //                 attributes.track_alias,
+                //                 attributes.group_order,
+                //                 publish_response.largest_location,
+                //                 attributes.forward,
+                //                 attributes.dynamic_groups);
+                // }
                 break;
             }
             default:
@@ -1713,21 +1736,18 @@ namespace quicr {
 
                 rx_ctx->data_queue.PopFront();
 
-            } else if (rx_ctx->caller_any.has_value()) {
+            } else if (auto handler = rx_ctx->receive_handler.lock()) {
                 rx_ctx->data_queue.PopFront();
 
                 // fast processing for existing stream using weak pointer to subscribe handler
-                auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
-                if (auto sub_handler = sub_handler_weak.lock()) {
-                    try {
-                        sub_handler->StreamDataRecv(false, stream_id, data_opt.value());
-                    } catch (const ProtocolViolationException& e) {
-                        SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
-                        CloseConnection(conn_id, TerminationReason::kProtocolViolation, e.reason);
-                    } catch (std::exception& e) {
-                        SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
-                        CloseConnection(conn_id, TerminationReason::kInternalError, "Internal error");
-                    }
+                try {
+                    handler->StreamDataRecv(false, stream_id, data_opt.value());
+                } catch (const ProtocolViolationException& e) {
+                    SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
+                    CloseConnection(conn_id, TerminationReason::kProtocolViolation, e.reason);
+                } catch (std::exception& e) {
+                    SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
+                    CloseConnection(conn_id, TerminationReason::kInternalError, "Internal error");
                 }
             }
         } // end of for loop rx data queue
@@ -1743,15 +1763,19 @@ namespace quicr {
                                    std::shared_ptr<StreamRxContext> rx_ctx,
                                    StreamClosedFlag flag)
     {
-        auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
-        if (auto handler = handler_weak.lock()) {
+        if (auto handler = rx_ctx->receive_handler.lock()) {
+            auto sub_handler = std::dynamic_pointer_cast<SubscribeTrackHandler>(handler);
+            if (!sub_handler) {
+                return;
+            }
+
             try {
                 switch (flag) {
                     case StreamClosedFlag::Fin:
-                        handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                        sub_handler->SetStatus(SubscribeTrackHandler::Status::kDoneByFin);
                         break;
                     case StreamClosedFlag::Reset:
-                        handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                        sub_handler->SetStatus(SubscribeTrackHandler::Status::kDoneByReset);
                         break;
                 }
             } catch (const ProtocolViolationException& e) {
@@ -1796,7 +1820,19 @@ namespace quicr {
             return false;
         }
 
+        auto sub_ns_it = conn_ctx.sub_namespace_prefix_by_track_alias.find(track_alias);
+        if (sub_ns_it != conn_ctx.sub_namespace_prefix_by_track_alias.end()) {
+            rx_ctx.is_new = false;
+
+            rx_ctx.receive_handler = sub_ns_it->second;
+            sub_ns_it->second->SetPriority(priority);
+            sub_ns_it->second->StreamDataRecv(true, stream_id, std::move(data));
+
+            return true;
+        }
+
         auto sub_it = conn_ctx.sub_by_recv_track_alias.find(track_alias);
+
         if (sub_it == conn_ctx.sub_by_recv_track_alias.end()) {
             conn_ctx.metrics.rx_stream_unknown_track_alias++;
             SPDLOG_LOGGER_WARN(
@@ -1810,7 +1846,7 @@ namespace quicr {
 
         rx_ctx.is_new = false;
 
-        rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
+        rx_ctx.receive_handler = sub_it->second;
         sub_it->second->SetPriority(priority);
         sub_it->second->StreamDataRecv(true, stream_id, std::move(data));
         return true;
@@ -1848,7 +1884,7 @@ namespace quicr {
             return false;
         }
 
-        rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(fetch_it->second);
+        rx_ctx.receive_handler = fetch_it->second;
         fetch_it->second->StreamDataRecv(true, stream_id, std::move(data));
         return true;
     }
@@ -1887,6 +1923,21 @@ namespace quicr {
                 }
 
                 auto& conn_ctx = connections_[conn_id];
+
+                auto sub_ns_it = conn_ctx.sub_namespace_prefix_by_track_alias.find(track_alias);
+                if (sub_ns_it != conn_ctx.sub_namespace_prefix_by_track_alias.end()) {
+                    SPDLOG_LOGGER_TRACE(logger_,
+                                        "Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
+                                        "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
+                                        conn_id,
+                                        (data_ctx_id ? *data_ctx_id : 0),
+                                        sub_id,
+                                        track_alias,
+                                        data.value()->size());
+                    sub_ns_it->second->DgramDataRecv(data);
+                    continue;
+                }
+
                 auto sub_it = conn_ctx.sub_by_recv_track_alias.find(track_alias);
                 if (sub_it == conn_ctx.sub_by_recv_track_alias.end()) {
                     conn_ctx.metrics.rx_dgram_unknown_track_alias++;

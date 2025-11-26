@@ -17,8 +17,10 @@
 
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iomanip>
 #include <set>
+#include <utility>
 
 using json = nlohmann::json; // NOLINT
 
@@ -64,18 +66,24 @@ namespace qclient_consts {
 }
 
 namespace {
+    std::string ToString(const quicr::TrackNamespace& ns)
+    {
+        std::string str;
+        const auto& entries = ns.GetEntries();
+        for (const auto& entry : std::span{ entries }.subspan(0, entries.size() - 1)) {
+            str += std::string(entry.begin(), entry.end()) + '/';
+        }
+
+        auto last = entries.rbegin();
+        str += std::string(last->begin(), last->end());
+
+        return str;
+    }
+
     // TODO: Escape/drop invalid filename characters.
     std::string ToString(const quicr::FullTrackName& ftn)
     {
-        std::string str;
-        const auto& entries = ftn.name_space.GetEntries();
-        for (const auto& entry : entries) {
-            str += std::string(entry.begin(), entry.end()) + '_';
-        }
-
-        str += std::string(ftn.name.begin(), ftn.name.end());
-
-        return str;
+        return ToString(ftn.name_space) + ":" + std::string(ftn.name.begin(), ftn.name.end());
     }
 }
 
@@ -420,6 +428,85 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
     }
 };
 
+class MySubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
+{
+    MySubscribeNamespaceHandler(const quicr::TrackNamespace& prefix)
+      : quicr::SubscribeNamespaceHandler(prefix)
+    {
+    }
+
+  public:
+    static auto Create(const quicr::TrackNamespace& prefix)
+    {
+        return std::shared_ptr<MySubscribeNamespaceHandler>(new MySubscribeNamespaceHandler(prefix));
+    }
+
+    virtual void StatusChanged(Status status) override
+    {
+        auto th = quicr::TrackHash({ GetNamespacePrefix(), {} });
+
+        switch (status) {
+            case Status::kOk:
+                SPDLOG_INFO("Subscription to namespace with hash: {} status changed to OK", th.track_namespace_hash);
+                break;
+            case Status::kNotSubscribed:
+                SPDLOG_WARN("Subscription to namespace with hash: {} status changed to NOT_SUBSCRIBED",
+                            th.track_namespace_hash);
+                break;
+            case Status::kError:
+                SPDLOG_WARN("Subscription to namespace with hash: {} status changed to ERROR: {}",
+                            th.track_namespace_hash,
+                            std::string(GetError()->second.begin(), GetError()->second.end()));
+                break;
+            default:
+                break;
+        }
+    }
+
+    virtual bool TrackAvailable(const quicr::FullTrackName& track_name) override
+    {
+        return GetNamespacePrefix().HasSamePrefix(track_name.name_space);
+    }
+
+    virtual void ObjectReceived(const quicr::messages::TrackAlias& track_alias,
+                                const quicr::ObjectHeaders& hdr,
+                                quicr::BytesSpan data) override
+    {
+        std::stringstream ext;
+
+        if (hdr.extensions) {
+            ext << "mutable hdrs: ";
+
+            for (const auto& [type, values] : hdr.extensions.value()) {
+                for (const auto& value : values) {
+                    ext << std::hex << std::setfill('0') << std::setw(2) << type;
+                    ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+                }
+            }
+        }
+
+        if (hdr.immutable_extensions) {
+            ext << "immutable hdrs: ";
+
+            for (const auto& [type, values] : hdr.immutable_extensions.value()) {
+                for (const auto& value : values) {
+                    ext << std::hex << std::setfill('0') << std::setw(2) << type;
+                    ext << " = " << std::dec << std::setw(0) << uint64_t(quicr::UintVar(value)) << " ";
+                }
+            }
+        }
+
+        std::string msg(data.begin(), data.end());
+
+        SPDLOG_INFO("Received message for {}: {} Group:{}, Object:{} - {}",
+                    track_alias,
+                    ext.str(),
+                    hdr.group_id,
+                    hdr.object_id,
+                    msg);
+    }
+};
+
 /**
  * @brief MoQ client
  * @details Implementation of the MoQ Client
@@ -575,7 +662,7 @@ class MyClient : public quicr::Client
     void StandaloneFetchReceived(quicr::ConnectionHandle connection_handle,
                                  uint64_t request_id,
                                  const quicr::FullTrackName& track_full_name,
-                                 const quicr::messages::StandaloneFetchAttributes& attributes)
+                                 const quicr::messages::StandaloneFetchAttributes& attributes) override
     {
         FetchReceived(connection_handle,
                       request_id,
@@ -589,7 +676,7 @@ class MyClient : public quicr::Client
     void JoiningFetchReceived(quicr::ConnectionHandle connection_handle,
                               uint64_t request_id,
                               const quicr::FullTrackName& track_full_name,
-                              const quicr::messages::JoiningFetchAttributes& attributes)
+                              const quicr::messages::JoiningFetchAttributes& attributes) override
     {
         uint64_t joining_start = 0;
 
@@ -643,17 +730,6 @@ class MyClient : public quicr::Client
           th.track_fullname_hash,
           request_id);
 
-        // Bind publish initiated handler.
-        const auto track_handler = std::make_shared<MySubscribeTrackHandler>(
-          publish_attributes.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
-        track_handler->SetRequestId(request_id);
-        track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);
-        track_handler->SetPriority(publish_attributes.priority);
-        track_handler->SetDeliveryTimeout(publish_attributes.delivery_timeout);
-        track_handler->SupportNewGroupRequest(publish_attributes.new_group_request_id.has_value());
-        SubscribeTrack(track_handler);
-
-        // Accept the PUBLISH.
         ResolvePublish(connection_handle,
                        request_id,
                        publish_attributes,
@@ -828,8 +904,16 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
         }
 
         quicr::ObjectHeaders obj_headers = {
-            group_id,       object_id++,    subgroup_id,  msg.size(),   quicr::ObjectStatus::kAvailable,
-            2 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
+            .group_id = group_id,
+            .object_id = object_id++,
+            .subgroup_id = subgroup_id,
+            .payload_length = msg.size(),
+            .status = quicr::ObjectStatus::kAvailable,
+            .priority = 2,
+            .ttl = 3000,
+            .track_mode = std::nullopt,
+            .extensions = std::nullopt,
+            .immutable_extensions = std::nullopt,
         };
 
         try {
@@ -949,6 +1033,40 @@ DoFetch(const quicr::FullTrackName& full_track_name,
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
+    moq_example::terminate = true;
+}
+
+/*===========================================================================*/
+// Subscriber thread to perform subscribe
+/*===========================================================================*/
+
+void
+DoSubscribeNamespace(const std::shared_ptr<quicr::Client>& client,
+                     const quicr::TrackNamespace& prefix,
+                     const bool& stop)
+{
+    SPDLOG_INFO("Starting Namespace Subscribe for prefix '{}'", ToString(prefix));
+
+    const auto track_handler = MySubscribeNamespaceHandler::Create(prefix);
+
+    bool subscribe_track = false;
+    while (not stop) {
+        if ((!subscribe_track) && (client->GetStatus() == MyClient::Status::kReady)) {
+            SPDLOG_INFO("Subscribing Namespace to track {} (alias={})",
+                        ToString(prefix),
+                        std::hash<quicr::TrackNamespace>{}(prefix));
+            client->SubscribeNamespace(track_handler);
+            subscribe_track = true;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+
+    client->UnsubscribeNamespace(track_handler);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    SPDLOG_INFO("Subscribe Namespace done track");
     moq_example::terminate = true;
 }
 
@@ -1093,7 +1211,7 @@ main(int argc, char* argv[])
         ("sub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("sub_name", "Track name", cxxopts::value<std::string>())
         ("start_point", "Start point for Subscription - 0 for from the beginning, 1 from the latest object", cxxopts::value<uint64_t>())
-        ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
+        ("sub_ns_prefix", "Prefix namespace to subscribe to", cxxopts::value<std::string>())
         ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())
         ("new_group", "Request new group on subscribe", cxxopts::value<uint64_t>()->default_value("0"))
         ("joining_fetch", "Subscribe with a joining fetch using this joining start", cxxopts::value<std::uint64_t>())
@@ -1150,17 +1268,10 @@ main(int argc, char* argv[])
         std::thread sub_thread;
         std::thread fetch_thread;
 
-        if (result.count("sub_announces")) {
-            const auto& prefix_ns = quicr::example::MakeFullTrackName(result["sub_announces"].as<std::string>(), "");
-            const auto sub_ns_handler = quicr::SubscribeNamespaceHandler::Create(prefix_ns.name_space);
+        if (result.count("sub_ns_prefix")) {
+            const auto& prefix = quicr::example::MakeFullTrackName(result["sub_ns_prefix"].as<std::string>(), "");
 
-            auto th = quicr::TrackHash(prefix_ns);
-
-            SPDLOG_INFO("Sending subscribe announces for prefix '{}' namespace_hash: {}",
-                        result["sub_announces"].as<std::string>(),
-                        th.track_namespace_hash);
-
-            client->SubscribeNamespace(sub_ns_handler);
+            sub_thread = std::thread(DoSubscribeNamespace, client, prefix.name_space, std::ref(stop_threads));
         }
 
         if (enable_pub) {
