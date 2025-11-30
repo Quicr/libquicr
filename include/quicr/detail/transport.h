@@ -412,6 +412,7 @@ namespace quicr {
             std::map<messages::RequestID, TrackNamespace> sub_namespace_prefix_by_request_id;
 
             ConnectionMetrics metrics{}; ///< Connection metrics
+            bool is_webtransport{ false }; ///< True if this connection uses WebTransport over HTTP/3
 
             ConnectionContext() { ctrl_msg_buffer.reserve(kControlMessageBufferSize); }
 
@@ -584,6 +585,14 @@ namespace quicr {
         // Private member functions that will be implemented by Client class
         // -------------------------------------------------------------------------------------------------
         virtual void MetricsSampled(const ConnectionMetrics&) {}
+
+      public:
+        /**
+         * @brief Set the WebTransport flag for a connection
+         * @param conn_id Connection ID
+         * @param is_webtransport True if this is a WebTransport connection
+         */
+        void SetWebTransportMode(ConnectionHandle conn_id, bool is_webtransport);
 
       protected:
         std::shared_ptr<Transport> GetSharedPtr();

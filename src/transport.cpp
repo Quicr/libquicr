@@ -8,6 +8,7 @@
 
 #include <quicr/detail/joining_fetch_handler.h>
 #include <sstream>
+#include <iomanip>
 
 namespace quicr {
     using namespace quicr::messages;
@@ -30,13 +31,45 @@ namespace quicr {
     {
     }
 
-    static std::optional<std::tuple<std::string, uint16_t>> ParseConnectUri(const std::string& connect_uri)
+    static std::string
+    to_hex(std::vector<uint8_t> data)
     {
-        // moq://domain:port/<dont-care>
-        const std::string proto = "moq://";
-        auto it = std::search(connect_uri.begin(), connect_uri.end(), proto.begin(), proto.end());
+        std::stringstream hex(std::ios_base::out);
+        hex.flags(std::ios::hex);
+        for (const auto& byte : data) {
+            hex << std::setw(2) << std::setfill('0') << int(byte);
+        }
+        return hex.str();
+    }
 
-        if (it == connect_uri.end()) {
+    static std::optional<std::tuple<std::string, uint16_t, TransportProtocol>> ParseConnectUri(const std::string& connect_uri)
+    {
+        // Support moq://, moqt://, https:// (for WebTransport)
+        std::string proto;
+        TransportProtocol transport_proto = TransportProtocol::kQuic;
+        
+        const std::string moq_proto = "moq://";
+        const std::string moqt_proto = "moqt://";
+        const std::string https_proto = "https://";
+        
+        auto it = connect_uri.begin();
+        
+        if (auto moq_it = std::search(it, connect_uri.end(), moq_proto.begin(), moq_proto.end()); 
+            moq_it != connect_uri.end()) {
+            proto = moq_proto;
+            transport_proto = TransportProtocol::kQuic;
+            it = moq_it;
+        } else if (auto moqt_it = std::search(it, connect_uri.end(), moqt_proto.begin(), moqt_proto.end()); 
+                   moqt_it != connect_uri.end()) {
+            proto = moqt_proto;
+            transport_proto = TransportProtocol::kQuic;
+            it = moqt_it;
+        } else if (auto https_it = std::search(it, connect_uri.end(), https_proto.begin(), https_proto.end()); 
+                   https_it != connect_uri.end()) {
+            proto = https_proto;
+            transport_proto = TransportProtocol::kWebTransport;
+            it = https_it;
+        } else {
             return std::nullopt;
         }
 
@@ -80,7 +113,7 @@ namespace quicr {
             return std::nullopt;
         }
 
-        return std::make_tuple(address_str, port);
+        return std::make_tuple(address_str, port, transport_proto);
     }
 
     Transport::Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service)
@@ -144,10 +177,10 @@ namespace quicr {
             if (!parse_result) {
                 return Status::kInvalidParams;
             }
-            auto [address, port] = parse_result.value();
+            auto [address, port, protocol] = parse_result.value();
             relay.host_or_ip = address;
-            relay.port = port; // TODO: Add URI parser
-            relay.proto = TransportProtocol::kQuic;
+            relay.port = port;
+            relay.proto = protocol;
 
             quic_transport_ =
               ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
@@ -175,7 +208,11 @@ namespace quicr {
         TransportRemote server;
         server.host_or_ip = server_config_.server_bind_ip;
         server.port = server_config_.server_port;
-        server.proto = TransportProtocol::kQuic;
+        // Note: server.proto is ignored in server mode - the server automatically
+        // supports both raw QUIC (moq-00) and WebTransport (h3) simultaneously.
+        // The transport mode is determined per-connection based on ALPN negotiation.
+        // Any value can be set here; it won't affect server behavior.
+        server.proto = TransportProtocol::kQuic; // Ignored by server
 
         quic_transport_ =
           ITransport::MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
@@ -1268,6 +1305,11 @@ namespace quicr {
         }
 
         track_handler->connection_handle_ = conn_id;
+        SPDLOG_LOGGER_INFO(logger_,
+                           "Publish track creating new data context connId {0}, track namespace hash: {1}, name hash: {2}",
+                           conn_id,
+                           th.track_namespace_hash,
+                           th.track_name_hash);
         track_handler->publish_data_ctx_id_ =
           quic_transport_->CreateDataContext(conn_id,
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
@@ -1530,8 +1572,14 @@ namespace quicr {
 
             // CONTROL STREAM
             if (is_bidir) {
+                //auto blob = to_hex(data);
                 conn_ctx.ctrl_msg_buffer.insert(conn_ctx.ctrl_msg_buffer.end(), data.begin(), data.end());
                 rx_ctx->data_queue.PopFront();
+                SPDLOG_LOGGER_INFO(logger_, "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
+                                   conn_id,
+                                   stream_id,
+                                   conn_ctx.ctrl_msg_buffer.size());
+
 
                 if (not conn_ctx.ctrl_data_ctx_id) {
                     if (not data_ctx_id) {
@@ -1620,6 +1668,8 @@ namespace quicr {
 
                 auto msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
                 auto cursor_it = std::next(data.begin(), type_sz);
+
+                SPDLOG_LOGGER_DEBUG(logger_, "Received stream message type: 0x{:02x} ({})", msg_type, msg_type);
 
                 bool parsed_header = false;
                 const auto type = static_cast<StreamMessageType>(msg_type);
@@ -1719,6 +1769,9 @@ namespace quicr {
         uint64_t track_alias = 0;
         uint8_t priority = 0;
 
+        SPDLOG_LOGGER_INFO(logger_, "OnRecvSubgroup: Type {}, conn {}, stream {}, data size {}",
+                           static_cast<int>(type), conn_ctx.connection_handle, stream_id, data->size());
+
         try {
             // First header in subgroup starts with track alias
             auto ta_sz = UintVar::Size(*cursor_it);
@@ -1757,6 +1810,7 @@ namespace quicr {
 
         rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
         sub_it->second->SetPriority(priority);
+        SPDLOG_LOGGER_INFO(logger_, "OnRecvSubgroup: Invoking  StreamDataRecv stream {}, data size {}", stream_id, data->size());
         sub_it->second->StreamDataRecv(true, stream_id, std::move(data));
         return true;
     }
@@ -1874,7 +1928,13 @@ namespace quicr {
                                                const QuicConnectionMetrics& quic_connection_metrics)
     {
         // TODO: doesn't require lock right now, but might need to add lock
-        auto& conn = connections_[conn_id];
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            // Connection no longer exists, skip metrics sampling
+            return;
+        }
+
+        auto& conn = conn_it->second;
 
         conn.metrics.last_sample_time = sample_time.time_since_epoch() / std::chrono::microseconds(1);
         conn.metrics.quic = quic_connection_metrics;
@@ -1891,7 +1951,13 @@ namespace quicr {
                                           const DataContextId data_ctx_id,
                                           const QuicDataContextMetrics& quic_data_context_metrics)
     {
-        const auto& conn = connections_[conn_id];
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            // Connection no longer exists, skip metrics sampling
+            return;
+        }
+
+        const auto& conn = conn_it->second;
         const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);
 
         if (pub_th_it != conn.pub_tracks_by_data_ctx_id.end()) {
@@ -1970,6 +2036,15 @@ namespace quicr {
     Transport::ConnectionContext& Transport::GetConnectionContext(ConnectionHandle conn)
     {
         return connections_.at(conn);
+    }
+
+    void Transport::SetWebTransportMode(ConnectionHandle conn_id, bool is_webtransport)
+    {
+        std::lock_guard<std::mutex> _(state_mutex_);
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it != connections_.end()) {
+            conn_it->second.is_webtransport = is_webtransport;
+        }
     }
 
     TransportError Transport::Enqueue(const TransportConnId& conn_id,

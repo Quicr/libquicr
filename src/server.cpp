@@ -285,6 +285,14 @@ namespace quicr {
 
         track_handler->connection_handle_ = conn_id;
 
+        SPDLOG_LOGGER_DEBUG(
+          logger_,
+          "BindingPublisherTrack, Creating DataContext: conn_id: {}, full_name_hash: {}, namespace_hash: {}, name_hash: {}",
+          conn_id,
+          th.track_fullname_hash,
+          th.track_namespace_hash,
+          th.track_name_hash);
+
         track_handler->publish_data_ctx_id_ =
           quic_transport_->CreateDataContext(conn_id,
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
@@ -566,7 +574,8 @@ namespace quicr {
                                     { msg.subscriber_priority,
                                       static_cast<messages::GroupOrder>(msg.group_order),
                                       std::chrono::milliseconds{ 0 },
-                                      msg.forward });
+                                      msg.forward,
+                                      {} });
                 return true;
             }
             case messages::ControlMessageType::kTrackStatusOk: {

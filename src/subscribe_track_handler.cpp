@@ -23,10 +23,14 @@ namespace quicr {
                                                uint64_t stream_id,
                                                std::shared_ptr<const std::vector<uint8_t>> data)
     {
+        SPDLOG_INFO(
+          "SubHandler:StreamDataRecv, is_start {}, current_stream {}, stream_id: {}, data_sz {}",
+          is_start, current_stream_id_, stream_id, data->size());
+
         if (stream_id > current_stream_id_) {
             current_stream_id_ = stream_id;
         } else if (stream_id < current_stream_id_) {
-            SPDLOG_DEBUG(
+            SPDLOG_INFO(
               "Old stream data received, stream_id: {} is less than {}, ignoring", stream_id, current_stream_id_);
             return;
         }
@@ -41,7 +45,7 @@ namespace quicr {
 
             auto& s_hdr = stream_buffer_.GetAny<messages::StreamHeaderSubGroup>();
             if (not(stream_buffer_ >> s_hdr)) {
-                SPDLOG_ERROR("Not enough data to process new stream headers, stream is invalid");
+                SPDLOG_ERROR("SubHandler:StreamDataRecv:Not enough data to process new stream headers, stream is invalid");
                 // TODO: Add metrics to track this
                 return;
             }
@@ -59,13 +63,13 @@ namespace quicr {
         obj.stream_type = s_hdr.type;
         const auto subgroup_properties = messages::StreamHeaderProperties(s_hdr.type);
         if (stream_buffer_ >> obj) {
-            SPDLOG_TRACE("Received stream_subgroup_object priority: {} track_alias: {} "
+            SPDLOG_INFO("SubHandler:StreamDataRecv:Received stream_subgroup_object priority: {} track_alias: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
                          s_hdr.priority,
                          s_hdr.track_alias,
                          s_hdr.group_id,
                          s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,
-                         obj.object_id,
+                         obj.object_delta,
                          obj.payload.size());
 
             if (next_object_id_.has_value()) {
@@ -93,6 +97,15 @@ namespace quicr {
             subscribe_track_metrics_.bytes_received += obj.payload.size();
 
             try {
+                SPDLOG_INFO("SubHandler:StreamDataRecv Invoking ObjectReceived stream_subgroup_object priority: {} track_alias: {} "
+                            "group_id: {} subgroup_id: {} object_id: {} data size: {}",
+                            s_hdr.priority,
+                            s_hdr.track_alias,
+                            s_hdr.group_id,
+                            s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,
+                            obj.object_delta,
+                            obj.payload.size());
+
                 ObjectReceived({ s_hdr.group_id,
                                  next_object_id_.value(),
                                  s_hdr.subgroup_id.value(),
@@ -106,12 +119,18 @@ namespace quicr {
                                obj.payload);
 
                 *next_object_id_ += 1;
+                SPDLOG_INFO("SubHandler:StreamDataRecv Done Invoking ObjectReceived");
+
             } catch (const std::exception& e) {
                 SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());
             }
 
+
             stream_buffer_.ResetAnyB<messages::StreamSubGroupObject>();
+        } else {
+            SPDLOG_ERROR("SubHandler:StreamDataRecv, not enough data to process stream object, stream {}", stream_id);
         }
+
     }
 
     void SubscribeTrackHandler::DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data)

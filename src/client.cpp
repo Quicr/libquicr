@@ -634,7 +634,8 @@ namespace quicr {
                                     { msg.subscriber_priority,
                                       static_cast<messages::GroupOrder>(msg.group_order),
                                       std::chrono::milliseconds{ 0 },
-                                      msg.forward });
+                                      msg.forward,
+                                      {} });
                 return true;
             }
             case messages::ControlMessageType::kTrackStatusOk: {
