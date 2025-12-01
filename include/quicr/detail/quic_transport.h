@@ -132,7 +132,8 @@ namespace quicr {
     /// Stream receive data context
     struct StreamRxContext
     {
-        std::weak_ptr<class ReceiveTrackHandler> receive_handler; ///< Caller any object - Set and used by caller/app
+        std::weak_ptr<class ReceiveTrackHandler> receive_handler; ///< Receive handler
+        std::any metadata;                                        ///< Caller metadata(any) - Set and used by caller/app
         bool is_new{ true };                                      ///< Indicates if new stream, on read set to false
 
         /**
