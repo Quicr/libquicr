@@ -8,15 +8,29 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <source_location>
 #include <span>
 #include <stdexcept>
 #include <vector>
 
 namespace quicr {
+
+    struct UintVarInvalidArgException : std::invalid_argument
+    {
+        const std::string reason;
+        UintVarInvalidArgException(const std::string& reason,
+                                   const std::source_location location = std::source_location::current())
+          : std::invalid_argument("Invalid argument: " + reason + " (line " + std::to_string(location.line()) +
+                                  ", file " + location.file_name() + ")")
+          , reason(reason)
+        {
+        }
+    };
+
     class UintVar
     {
       public:
-        constexpr UintVar(uint64_t value)
+        constexpr UintVar(uint64_t value, const std::source_location caller = std::source_location::current())
           : be_value_{ std::bit_cast<std::array<std::uint8_t, sizeof(std::uint64_t)>>(SwapBytes(value)) }
         {
             constexpr uint64_t k14bitLength = (static_cast<uint64_t>(-1) << (64 - 6) >> (64 - 6));
@@ -24,7 +38,7 @@ namespace quicr {
             constexpr uint64_t k62bitLength = (static_cast<uint64_t>(-1) << (64 - 30) >> (64 - 30));
 
             if (be_value_.front() & 0xC0u) { // Check if invalid
-                throw std::invalid_argument("Value greater than uintvar maximum");
+                throw UintVarInvalidArgException("Value greater than uintvar maximum", caller);
             }
 
             std::uint64_t be_v = std::bit_cast<std::uint64_t>(be_value_);
@@ -43,11 +57,12 @@ namespace quicr {
             be_value_ = std::bit_cast<std::array<std::uint8_t, sizeof(std::uint64_t)>>(be_v);
         }
 
-        constexpr UintVar(std::span<const std::uint8_t> bytes)
+        constexpr UintVar(std::span<const std::uint8_t> bytes,
+                          const std::source_location caller = std::source_location::current())
           : be_value_{ 0 }
         {
             if (bytes.empty() || bytes.size() < Size(bytes.front())) {
-                throw std::invalid_argument("Invalid bytes for uintvar");
+                throw UintVarInvalidArgException("Invalid bytes for uintvar", caller);
             }
 
             const std::size_t size = Size(bytes.front());

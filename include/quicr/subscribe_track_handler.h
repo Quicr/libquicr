@@ -225,6 +225,12 @@ namespace quicr {
          */
         void SupportNewGroupRequest(bool is_supported) noexcept;
 
+        /**
+         * @brief Indicate if subscribe handler can send new group requests or not
+         * @return True if new group requests are supported.
+         */
+        bool IsNewGroupRequestSupported() const noexcept { return support_new_group_request_; }
+
         std::chrono::milliseconds GetDeliveryTimeout() const noexcept { return delivery_timeout_; }
 
         void SetDeliveryTimeout(std::chrono::milliseconds timeout) noexcept { delivery_timeout_ = timeout; }
@@ -339,6 +345,7 @@ namespace quicr {
         uint64_t current_group_id_{ 0 };
         uint64_t current_subgroup_id_{ 0 };
         std::optional<uint64_t> pending_new_group_request_id_;
+        bool is_fetch_handler_{ false };
 
       private:
         Status status_{ Status::kNotSubscribed };

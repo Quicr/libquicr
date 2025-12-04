@@ -180,7 +180,11 @@ namespace quicr::messages {
 
             // Serialize immutable extensions.
             Bytes immutable_bytes;
-            immutable_bytes << *immutable_extensions;
+            for (const auto& [key, values] : *immutable_extensions) {
+                for (const auto& value : values) {
+                    immutable_bytes << KeyValuePair<std::uint64_t>{ key, value };
+                }
+            }
             combined_extensions[immutable_key].push_back(std::move(immutable_bytes));
         }
 
@@ -210,8 +214,8 @@ namespace quicr::messages {
                 // Deserialize the immutable extension map.
                 auto stream_buffer = StreamBuffer<uint8_t>();
                 stream_buffer.Push(std::span<const uint8_t>(it->second[0]));
-                std::optional<std::size_t> immutable_length;
-                std::size_t immutable_bytes_remaining = 0;
+                std::optional<std::size_t> immutable_length = it->second[0].size();
+                std::size_t immutable_bytes_remaining = it->second[0].size();
                 std::optional<std::uint64_t> immutable_current_header;
                 if (!ParseExtensions(stream_buffer,
                                      immutable_length,

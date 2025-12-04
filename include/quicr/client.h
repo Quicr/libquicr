@@ -120,6 +120,18 @@ namespace quicr {
                                                      std::optional<messages::ReasonPhrase> reason);
 
         /**
+         * Received notification of an interested track. The app must call ResolvePublish()
+         * with a reason code of OK to accept, or another reason code to reject.
+         *
+         * @param connection_handle Our own connection that received this Publish.
+         * @param request_id Incoming publish request ID.
+         * @param publish_attributes Attributes of the publish.
+         */
+        void PublishReceived(ConnectionHandle connection_handle,
+                             uint64_t request_id,
+                             const messages::PublishAttributes& publish_attributes) override;
+
+        /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
          *
          * @details When a new subscribe is received that doesn't match any existing publish track, this

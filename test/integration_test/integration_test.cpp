@@ -20,7 +20,8 @@ const std::string kServerId = "test-server";
 constexpr std::chrono::milliseconds kDefaultTimeout(50);
 
 static std::shared_ptr<TestServer>
-MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt)
+MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
+               std::optional<std::size_t> max_connections = std::nullopt)
 {
     // Run the server.
     ServerConfig server_config;
@@ -32,6 +33,9 @@ MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt)
     server_config.transport_config.tls_key_filename = "server-key.pem";
     if (qlog_path.has_value()) {
         server_config.transport_config.quic_qlog_path = *qlog_path;
+    }
+    if (max_connections.has_value()) {
+        server_config.transport_config.max_connections = *max_connections;
     }
     auto server = std::make_shared<TestServer>(server_config);
     const auto starting = server->Start();
@@ -99,7 +103,7 @@ TEST_CASE("Integration - Subscribe")
     const auto& details = future.get();
     CHECK_EQ(details.track_full_name.name, ftn.name);
     CHECK_EQ(details.track_full_name.name_space, ftn.name_space);
-    CHECK_EQ(details.filter_type, filter_type);
+    CHECK_EQ(details.subscribe_attributes.filter_type, filter_type);
 
     // Server should respond, track should go live.
     std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
@@ -263,6 +267,11 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
     client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
+    // Set up promise to verify client does NOT receive PUBLISH
+    std::promise<FullTrackName> publish_promise;
+    auto publish_future = publish_promise.get_future();
+    client->SetPublishReceivedPromise(std::move(publish_promise));
+
     // Client sends SUBSCRIBE_NAMESPACE
     CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
 
@@ -282,7 +291,9 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
     CHECK(publish_namespace_status == std::future_status::timeout);
 
-    // TODO: Client should NOT receive PUBLISH because there are no matching tracks.
+    // Client should NOT receive PUBLISH because there are no matching tracks.
+    auto publish_status = publish_future.wait_for(kDefaultTimeout);
+    CHECK(publish_status == std::future_status::timeout);
 }
 
 TEST_CASE("Integration - Subscribe Namespace with matching namespace")
@@ -309,6 +320,97 @@ TEST_CASE("Integration - Subscribe Namespace with matching namespace")
     CHECK_EQ(received_namespace, prefix_namespace);
 }
 
+TEST_CASE("Integration - Subscribe Namespace with matching track")
+{
+    auto server = MakeTestServer();
+    auto client = MakeTestClient();
+
+    // Track.
+    TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+
+    // Existing track.
+    const FullTrackName existing_track{ prefix_namespace, { 0x01 } };
+
+    // Set up promise to verify client received matching PUBLISH_NAMESPACE.
+    std::promise<FullTrackName> publish_promise;
+    auto publish_future = publish_promise.get_future();
+    messages::PublishAttributes publish_attributes;
+    // TODO: Validate full attribute round-trip.
+    server->AddKnownPublishedTrack(existing_track, std::nullopt, publish_attributes);
+    client->SetPublishReceivedPromise(std::move(publish_promise));
+
+    // Set up promise to verify server gets accepted publish.
+    std::promise<TestServer::SubscribeDetails> publish_ok_promise;
+    auto publish_ok_future = publish_ok_promise.get_future();
+    server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
+
+    // SUBSCRIBE_NAMESPACE to prefix.
+    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+
+    // Client should receive matched PUBLISH for existing track.
+    auto publish_status = publish_future.wait_for(kDefaultTimeout);
+    REQUIRE(publish_status == std::future_status::ready);
+    const auto& received_name = publish_future.get();
+    CHECK_EQ(received_name.name_space, existing_track.name_space);
+    CHECK_EQ(received_name.name, existing_track.name);
+
+    // Client accepts, server should receive PUBLISH_OK (wired to SubscribeReceived).
+    auto publish_ok_status = publish_ok_future.wait_for(kDefaultTimeout);
+    REQUIRE(publish_ok_status == std::future_status::ready);
+    const auto& received_publish_ok = publish_ok_future.get();
+    CHECK_EQ(received_publish_ok.track_full_name.name_space, existing_track.name_space);
+    CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
+
+    // TODO: Test the Error / reject path.
+}
+
+TEST_CASE("Integration - Subscribe Namespace with ongoing match")
+{
+    auto server = MakeTestServer(std::nullopt, 2);
+    auto client = MakeTestClient();
+    auto publisher = MakeTestClient();
+
+    // Track.
+    TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+
+    // Existing track.
+    FullTrackName existing_track;
+    existing_track.name_space = prefix_namespace;
+    existing_track.name = { 0x01 };
+
+    // Set up promise to verify client received matching PUBLISH_NAMESPACE.
+    std::promise<FullTrackName> publish_promise;
+    auto publish_future = publish_promise.get_future();
+    client->SetPublishReceivedPromise(std::move(publish_promise));
+
+    // Set up promise to verify server gets accepted publish.
+    std::promise<TestServer::SubscribeDetails> publish_ok_promise;
+    auto publish_ok_future = publish_ok_promise.get_future();
+    server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
+
+    // SUBSCRIBE_NAMESPACE to prefix.
+    CHECK_NOTHROW(client->SubscribeNamespace(prefix_namespace));
+
+    // In the future, a PUBLISH arrives.
+    std::this_thread::sleep_for(kDefaultTimeout);
+    const auto publish = PublishTrackHandler::Create(existing_track, TrackMode::kStream, 10, 5000);
+    publisher->PublishTrack(publish);
+
+    // Client should receive matched PUBLISH for existing track.
+    auto publish_status = publish_future.wait_for(kDefaultTimeout);
+    REQUIRE(publish_status == std::future_status::ready);
+    const auto& received_name = publish_future.get();
+    CHECK_EQ(received_name.name_space, existing_track.name_space);
+    CHECK_EQ(received_name.name, existing_track.name);
+
+    // Client accepts, server should receive PUBLISH_OK (wired to SubscribeReceived).
+    auto publish_ok_status = publish_ok_future.wait_for(kDefaultTimeout);
+    REQUIRE(publish_ok_status == std::future_status::ready);
+    const auto& received_publish_ok = publish_ok_future.get();
+    CHECK_EQ(received_publish_ok.track_full_name.name_space, existing_track.name_space);
+    CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
+}
+
 TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
 {
     auto server = MakeTestServer();
@@ -330,4 +432,37 @@ TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
     // Client should NOT receive PUBLISH_NAMESPACE.
     auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
     REQUIRE(publish_namespace_status == std::future_status::timeout);
+}
+
+TEST_CASE("Integration - Annouce Flow")
+{
+    auto server = MakeTestServer();
+    auto client = MakeTestClient();
+
+    // Create a track with announce enabled.
+    FullTrackName ftn;
+    ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "namespace" });
+    ftn.name = { 1, 2, 3 };
+    const auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500);
+    pub_handler->SetUseAnnounce(true);
+
+    // Set up promise to capture server receiving PUBLISH_NAMESPACE.
+    std::promise<TestServer::PublishNamespaceDetails> server_promise;
+    std::future<TestServer::PublishNamespaceDetails> server_future = server_promise.get_future();
+    server->SetPublishNamespacePromise(std::move(server_promise));
+
+    // Publush with announce, PUBLISH_NAMESPACE sent.
+    CHECK_NOTHROW(client->PublishTrack(pub_handler));
+
+    // Server should receive the PUBLISH_NAMESPACE for the namespace.
+    auto server_status = server_future.wait_for(kDefaultTimeout);
+    REQUIRE(server_status == std::future_status::ready);
+    const auto& server_details = server_future.get();
+    CHECK_EQ(server_details.track_namespace, ftn.name_space);
+
+    // Wait for PUBLISH_NAMESPACE_OK to land.
+    std::this_thread::sleep_for(kDefaultTimeout);
+
+    // Verify the publish track handler transitions to kNoSubscribers (PUBLISH_NAMESPACE_OK).
+    CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kNoSubscribers);
 }

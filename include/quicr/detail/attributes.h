@@ -9,6 +9,10 @@
 #include <optional>
 
 namespace quicr::messages {
+
+    // TODO: Maybe split base attributes out from SUBSCRIBE / PUBLISH?
+    // TODO: E.g priority, new_group_request_id.
+
     /**
      * @brief Subscribe attributes
      */
@@ -17,13 +21,17 @@ namespace quicr::messages {
         std::uint8_t priority;                        ///< Subscriber priority
         GroupOrder group_order;                       ///< Subscriber group order
         std::chrono::milliseconds delivery_timeout;   ///< Subscriber delivery timeout
+        FilterType filter_type;                       /// Subscriber filter type
         std::uint8_t forward;                         ///< True to Resume/forward data, False to pause/stop data
         std::optional<uint64_t> new_group_request_id; ///< Indicates new group id is requested
+        bool is_publisher_initiated;                  ///< True will not send SUBSCRIBE_OK.
     };
 
     struct PublishAttributes : SubscribeAttributes
     {
+        FullTrackName track_full_name;
         TrackAlias track_alias;
+        bool dynamic_groups = false;
     };
 
     struct StandaloneFetchAttributes

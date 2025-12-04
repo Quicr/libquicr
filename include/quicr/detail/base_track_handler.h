@@ -4,7 +4,9 @@
 #pragma once
 
 #include "quicr/common.h"
+#include "quicr/detail/attributes.h"
 #include "quicr/detail/ctrl_message_types.h"
+#include "quicr/detail/ctrl_messages.h"
 #include "quicr/track_name.h"
 
 #include <optional>
@@ -48,6 +50,7 @@ namespace quicr {
             kExpiredAuthToken,
         };
         ReasonCode reason_code;
+        bool is_publisher_initiated = false;
 
         std::optional<std::string> error_reason = std::nullopt;
 
@@ -75,6 +78,8 @@ namespace quicr {
         std::optional<std::string> error_reason = std::nullopt;
 
         std::optional<messages::Location> largest_location = std::nullopt;
+
+        std::vector<ConnectionHandle> namespace_subscribers{};
     };
 
     struct SubscribeNamespaceResponse
@@ -93,7 +98,21 @@ namespace quicr {
         ReasonCode reason_code;
 
         // Matched tracks that will be advertised in response via PUBLISH.
-        std::vector<FullTrackName> tracks;
+        struct AvailableTrack
+        {
+            const FullTrackName track_full_name;
+            const std::optional<messages::Location> largest_location;
+            const messages::PublishAttributes attributes;
+            AvailableTrack(const FullTrackName& track_full_name,
+                           const std::optional<messages::Location>& largest_location,
+                           const messages::PublishAttributes& attributes)
+              : track_full_name(track_full_name)
+              , largest_location(largest_location)
+              , attributes(attributes)
+            {
+            }
+        };
+        std::vector<AvailableTrack> tracks;
 
         // Matched tracks that will be advertised in response via PUBLISH_NAMESPACE.
         std::vector<TrackNamespace> namespaces;

@@ -1132,6 +1132,10 @@ namespace quicr {
         auto handler_status = handler.GetStatus();
 
         switch (handler_status) {
+            case SubscribeTrackHandler::Status::kDoneByFin:
+                [[fallthrough]];
+            case SubscribeTrackHandler::Status::kDoneByReset:
+                [[fallthrough]];
             case SubscribeTrackHandler::Status::kOk:
                 try {
                     if (not handler.IsPublisherInitiated() && not conn_ctx.closed) {
@@ -1275,6 +1279,7 @@ namespace quicr {
                 lock.lock();
 
                 SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
+                conn_it->second.pub_tracks_ns_by_request_id[*track_handler->GetRequestId()] = th.track_namespace_hash;
             } else {
                 auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
                 if (pub_n_it == pub_ns_it->second.end()) {
@@ -1324,6 +1329,51 @@ namespace quicr {
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash][conn_id] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+    }
+
+    void Transport::ResolvePublish(const ConnectionHandle connection_handle,
+                                   const uint64_t request_id,
+                                   const PublishAttributes& attributes,
+                                   const PublishResponse& publish_response)
+    {
+        const auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        switch (publish_response.reason_code) {
+            case PublishResponse::ReasonCode::kOk: {
+                SendPublishOk(conn_it->second,
+                              request_id,
+                              attributes.forward,
+                              attributes.priority,
+                              attributes.group_order,
+                              attributes.filter_type);
+
+                // Fan out PUBLISH, if requested.
+                for (const auto& handle : publish_response.namespace_subscribers) {
+                    const auto& conn_it = connections_.find(handle);
+                    if (conn_it == connections_.end()) {
+                        SPDLOG_LOGGER_WARN(logger_, "Bad connection handle on SUBSCRIBE_NAMESPACE fan out");
+                        continue;
+                    }
+                    const auto outgoing_request = conn_it->second.GetNextRequestId();
+                    conn_it->second.pub_by_request_id[outgoing_request] = attributes.track_full_name;
+                    SendPublish(conn_it->second,
+                                outgoing_request,
+                                attributes.track_full_name,
+                                attributes.track_alias,
+                                attributes.group_order,
+                                publish_response.largest_location,
+                                attributes.forward,
+                                attributes.dynamic_groups);
+                }
+                break;
+            }
+            default:
+                SendPublishError(conn_it->second, request_id, SubscribeErrorCode::kInternalError, "Internal error");
+                break;
+        }
     }
 
     void Transport::StandaloneFetchReceived(
@@ -1738,24 +1788,33 @@ namespace quicr {
                                    std::shared_ptr<StreamRxContext> rx_ctx,
                                    StreamClosedFlag flag)
     {
-        auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
-        if (auto handler = handler_weak.lock()) {
-            try {
-                switch (flag) {
-                    case StreamClosedFlag::Fin:
-                        handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
-                        break;
-                    case StreamClosedFlag::Reset:
-                        handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
-                        break;
+        if (!rx_ctx->caller_any.has_value()) {
+            SPDLOG_LOGGER_WARN(logger_, "Received stream closed with null handler");
+            return;
+        }
+
+        try {
+            const auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
+            if (const auto handler = handler_weak.lock(); handler && handler->is_fetch_handler_) {
+                try {
+                    switch (flag) {
+                        case StreamClosedFlag::Fin:
+                            handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                            break;
+                        case StreamClosedFlag::Reset:
+                            handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                            break;
+                    }
+                } catch (const ProtocolViolationException& e) {
+                    SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
+                    CloseConnection(connection_handle, TerminationReason::kProtocolViolation, e.reason);
+                } catch (const std::exception& e) {
+                    SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
+                    CloseConnection(connection_handle, TerminationReason::kInternalError, "Internal error");
                 }
-            } catch (const ProtocolViolationException& e) {
-                SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
-                CloseConnection(connection_handle, TerminationReason::kProtocolViolation, e.reason);
-            } catch (const std::exception& e) {
-                SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
-                CloseConnection(connection_handle, TerminationReason::kInternalError, "Internal error");
             }
+        } catch (const std::bad_any_cast&) {
+            SPDLOG_LOGGER_WARN(logger_, "Received stream closed for unknown handler");
         }
     }
 

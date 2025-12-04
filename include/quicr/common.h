@@ -12,7 +12,7 @@ namespace quicr {
 
     constexpr uint64_t kMoqtVersion = 0xff00000E; ///< draft-ietf-moq-transport-14
     constexpr uint64_t kSubscribeExpires = 0;     ///< Never expires
-    constexpr int kReadLoopMaxPerStream = 60; ///< Support packet/frame bursts, but do not allow starving other streams
+    constexpr int kReadLoopMaxPerStream = 100; ///< Support packet/frame bursts, but do not allow starving other streams
 
     using namespace quicr;
 
