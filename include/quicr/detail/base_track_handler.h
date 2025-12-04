@@ -176,8 +176,6 @@ namespace quicr {
         {
         }
 
-        FullTrackName full_track_name_;
-
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods to be overridden
         // --------------------------------------------------------------------------
@@ -212,6 +210,10 @@ namespace quicr {
          */
         uint64_t GetConnectionId() const noexcept { return connection_handle_; };
 
+        void SetPriority(uint8_t priority) noexcept { priority_ = priority; }
+
+        constexpr uint8_t GetPriority() const noexcept { return priority_; }
+
       protected:
         /**
          * Set the transport to use.
@@ -221,9 +223,6 @@ namespace quicr {
 
         const std::weak_ptr<Transport>& GetTransport() const noexcept;
 
-        // --------------------------------------------------------------------------
-        // Internal
-        // --------------------------------------------------------------------------
       private:
         /**
          * @brief Set the connection ID
@@ -232,10 +231,10 @@ namespace quicr {
          */
         void SetConnectionId(uint64_t connection_handle) { connection_handle_ = connection_handle; };
 
-        // --------------------------------------------------------------------------
-        // Member variables
-        // --------------------------------------------------------------------------
+      protected:
+        FullTrackName full_track_name_;
 
+      private:
         ConnectionHandle connection_handle_; // QUIC transport connection ID
 
         /**
@@ -247,6 +246,8 @@ namespace quicr {
         std::optional<uint64_t> request_id_;
 
         std::weak_ptr<Transport> transport_;
+
+        std::uint8_t priority_;
     };
 
 } // namespace moq

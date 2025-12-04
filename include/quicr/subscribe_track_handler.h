@@ -78,12 +78,12 @@ namespace quicr {
                               const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
                               bool publisher_initiated = false)
           : ReceiveTrackHandler(full_track_name)
-          , priority_(priority)
           , group_order_(group_order)
           , filter_type_(filter_type)
           , joining_fetch_(publisher_initiated ? std::nullopt : joining_fetch)
           , publisher_initiated_(publisher_initiated)
         {
+            SetPriority(priority);
         }
 
       public:
@@ -111,20 +111,6 @@ namespace quicr {
          * @return Status of the subscribe
          */
         constexpr Status GetStatus() const noexcept { return status_; }
-
-        /**
-         * @brief Set the priority of received data
-         *
-         * @param priority      Priority value of received data
-         */
-        void SetPriority(uint8_t priority) noexcept { priority_ = priority; }
-
-        /**
-         * @brief Get subscription priority
-         *
-         * @return Priority value
-         */
-        constexpr messages::SubscriberPriority GetPriority() const noexcept { return priority_; }
 
         /**
          * @brief Get subscription group order
@@ -255,28 +241,6 @@ namespace quicr {
         virtual void ObjectReceived(const ObjectHeaders& object_headers, BytesSpan data);
 
         /**
-         * @brief Notification of received stream data slice
-         *
-         * @details Event notification to provide the caller the raw data received on a stream
-         *
-         * @param is_start    True to indicate if this data is the start of a new stream
-         * @param stream_id   Stream ID data was received on
-         * @param data        Shared pointer to the data received
-         */
-        virtual void StreamDataRecv(bool is_start,
-                                    uint64_t stream_id,
-                                    std::shared_ptr<const std::vector<uint8_t>> data) override;
-
-        /**
-         * @brief Notification of received datagram data
-         *
-         * @details Event notification to provide the caller the raw data received as a datagram
-         *
-         * @param data        Shared pointer to the data received
-         */
-        virtual void DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data) override;
-
-        /**
          * @brief Notification of a partial object received data object
          *
          * @details Event notification to provide the caller the received data object
@@ -300,17 +264,6 @@ namespace quicr {
          */
         virtual void StatusChanged([[maybe_unused]] Status status) {}
 
-        /**
-         * @brief Notification callback to provide sampled metrics
-         *
-         * @details Callback will be triggered on Config::metrics_sample_ms to provide the sampled data based
-         *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
-         *      for the new period.
-         *
-         * @param metrics           Copy of the subscribed metrics for the sample period
-         */
-        virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
-
         ///@}
 
         /**
@@ -318,14 +271,6 @@ namespace quicr {
          * @return True if publisher initiated, false if initiated by the relay/server
          */
         bool IsPublisherInitiated() const noexcept { return publisher_initiated_; }
-
-        /**
-         * @brief Subscribe metrics for the track
-         *
-         * @details Subscribe metrics are updated real-time and transport quic metrics on metrics_sample_ms
-         *     period.
-         */
-        SubscribeTrackMetrics subscribe_track_metrics_;
 
       protected:
         /**
@@ -338,6 +283,12 @@ namespace quicr {
             StatusChanged(status);
         }
 
+      private:
+        void ObjectReceived(const messages::TrackAlias& track_alias,
+                            const ObjectHeaders& object_headers,
+                            BytesSpan data) override;
+
+      protected:
         StreamBuffer<uint8_t> stream_buffer_;
 
         std::optional<uint64_t> next_object_id_;
@@ -347,7 +298,6 @@ namespace quicr {
 
       private:
         Status status_{ Status::kNotSubscribed };
-        messages::SubscriberPriority priority_;
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
         uint64_t current_stream_id_{ 0 };

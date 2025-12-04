@@ -22,6 +22,7 @@ target_sources (quicr PRIVATE
     transport_picoquic.cpp
     joining_fetch_handler.cpp
     subscribe_namespace_handler.cpp
+    receive_track_handler.cpp
 )
 
 set_source_files_properties(${ctrl_messages_SOURCE} PROPERTIES GENERATED TRUE)

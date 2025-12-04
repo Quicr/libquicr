@@ -28,8 +28,7 @@ namespace quicr {
         std::uint64_t group_id = object_headers.group_id;
         std::uint64_t object_id = object_headers.object_id;
         std::uint16_t ttl = object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_;
-        std::uint8_t priority =
-          object_headers.priority.has_value() ? object_headers.priority.value() : default_priority_;
+        std::uint8_t priority = object_headers.priority.has_value() ? object_headers.priority.value() : GetPriority();
 
         object_msg_buffer_.clear();
 

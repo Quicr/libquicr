@@ -1097,7 +1097,7 @@ namespace quicr {
 
         const auto request_id = conn_it->second.GetNextRequestId();
         const auto ns = handler->GetNamespacePrefix();
-        handler->SetRequestID(request_id);
+        handler->SetRequestId(request_id);
         conn_it->second.sub_namespace_prefix_by_request_id[request_id] = std::move(handler);
         SendSubscribeNamespace(conn_it->second, request_id, ns);
     }
@@ -1286,7 +1286,7 @@ namespace quicr {
         track_handler->publish_data_ctx_id_ =
           quic_transport_->CreateDataContext(conn_id,
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
-                                             track_handler->default_priority_,
+                                             track_handler->priority_,
                                              false);
 
         // Set this transport as the one for the publisher to use.
@@ -2018,7 +2018,7 @@ namespace quicr {
         }
 
         for (const auto& [_, sub_h] : conn.sub_tracks_by_request_id) {
-            sub_h->MetricsSampled(sub_h->subscribe_track_metrics_);
+            sub_h->MetricsSampled(sub_h->track_metrics_);
         }
     }
 

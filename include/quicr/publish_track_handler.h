@@ -95,9 +95,9 @@ namespace quicr {
                             std::optional<messages::StreamHeaderType> stream_mode = std::nullopt)
           : BaseTrackHandler(full_track_name)
           , default_track_mode_(track_mode)
-          , default_priority_(default_priority)
           , default_ttl_(default_ttl)
         {
+            SetPriority(default_priority);
             switch (track_mode) {
                 case TrackMode::kDatagram:
                     if (stream_mode.has_value()) {
@@ -165,16 +165,6 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Various getter/setters
         // --------------------------------------------------------------------------
-        /**
-         * @brief set/update the default priority for published objects
-         */
-        void SetDefaultPriority(const uint8_t priority) noexcept { default_priority_ = priority; }
-
-        /**
-         * @brief Get the default priority for published objects.
-         * @return The default priority.
-         */
-        constexpr uint8_t GetDefaultPriority() const noexcept { return default_priority_; }
 
         /**
          * @brief set/update the default TTL expiry for published objects
@@ -370,8 +360,7 @@ namespace quicr {
         Status publish_status_{ Status::kNotAnnounced };
         TrackMode default_track_mode_;
         messages::StreamHeaderType stream_mode_;
-        uint8_t default_priority_; // Set by caller and is used when priority is not specified
-        uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
+        uint32_t default_ttl_; // Set by caller and is used when TTL is not specified
 
         uint64_t publish_data_ctx_id_; // set byte the transport; publishing data context ID
 

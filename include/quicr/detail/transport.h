@@ -5,24 +5,24 @@
 
 #include "attributes.h"
 #include "messages.h"
+#include "quic_transport.h"
+#include "quicr/common.h"
+#include "quicr/config.h"
+#include "quicr/fetch_track_handler.h"
+#include "quicr/metrics.h"
+#include "quicr/publish_namespace_handler.h"
+#include "quicr/publish_track_handler.h"
+#include "quicr/subscribe_namespace_handler.h"
+#include "quicr/subscribe_track_handler.h"
 #include "tick_service.h"
 
-#include "quic_transport.h"
-#include "quicr/subscribe_namespace_handler.h"
-
-#include <chrono>
-#include <quicr/common.h>
-#include <quicr/config.h>
-#include <quicr/fetch_track_handler.h>
-#include <quicr/metrics.h>
-#include <quicr/publish_track_handler.h>
-#include <quicr/subscribe_track_handler.h>
-#include <span>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
 #include <atomic>
+#include <chrono>
 #include <map>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -153,6 +153,9 @@ namespace quicr {
          * @param handler Handler for related callbacks
          */
         void SubscribeNamespace(ConnectionHandle connection_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
+
+        void PublishNamespace(ConnectionHandle connection_handle,
+                              std::shared_ptr<PublishNamespaceHandler> track_handler);
 
         /**
          * @brief Publish to a track

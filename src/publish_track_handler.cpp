@@ -85,7 +85,7 @@ namespace quicr {
         }
 
         auto result = transport->Enqueue(
-          GetConnectionId(), publish_data_ctx_id_, latest_group_id_, data, default_priority_, default_ttl_, 0, eflags);
+          GetConnectionId(), publish_data_ctx_id_, latest_group_id_, data, GetPriority(), default_ttl_, 0, eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -220,8 +220,7 @@ namespace quicr {
 
         std::uint64_t group_id = object_headers.group_id;
         std::uint16_t ttl = object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_;
-        std::uint8_t priority =
-          object_headers.priority.has_value() ? object_headers.priority.value() : default_priority_;
+        std::uint8_t priority = object_headers.priority.has_value() ? object_headers.priority.value() : GetPriority();
 
         object_msg_buffer_.clear();
 
