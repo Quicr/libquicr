@@ -373,6 +373,7 @@ namespace quicr {
         void OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                DataContext* data_ctx,
                                uint64_t stream_id,
+                               int is_fin,
                                std::span<const uint8_t> bytes);
 
         void OnStreamClosed(TransportConnId conn_id,

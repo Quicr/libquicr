@@ -196,7 +196,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             }
 
             if (auto conn_ctx = transport->GetConnContext(conn_id)) {
-                transport->OnRecvStreamBytes(conn_ctx, data_ctx, stream_id, std::span{ bytes, length });
+                transport->OnRecvStreamBytes(conn_ctx, data_ctx, stream_id, is_fin, std::span{ bytes, length });
 
                 if (is_fin) {
                     SPDLOG_LOGGER_DEBUG(transport->logger, "Received FIN for stream {0}", stream_id);
@@ -619,7 +619,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             // Process received data
             if (length > 0) {
-                transport->OnRecvStreamBytes(conn_ctx, data_ctx, stream_id, std::span{ bytes, length });
+                transport->OnRecvStreamBytes(conn_ctx, data_ctx, stream_id, is_fin, std::span{ bytes, length });
             }
 
             if (is_fin) {
@@ -1949,15 +1949,18 @@ void
 PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                      DataContext* data_ctx,
                                      uint64_t stream_id,
+                                     int is_fin,
                                      std::span<const uint8_t> bytes)
 try {
 
     SPDLOG_LOGGER_INFO(logger,
-                        "OnRecvStreamBytes: conn_id={}, stream_id={}, len={}",
+                        "OnRecvStreamBytes: conn_id={}, stream_id={}, is_fin={}, len={}",
                         conn_ctx->conn_id,
                         stream_id,
+                        is_fin,
                         bytes.size());
 
+    std::lock_guard<std::mutex> l(state_mutex_);
 
     // Handle control stream message processing for WebTransport mode
     if (conn_ctx->transport_mode == TransportMode::kWebTransport &&
@@ -1990,45 +1993,47 @@ try {
                                conn_ctx->wt_capsule.error_code,
                                stream_id, conn_ctx->conn_id);
 
-            // Mark FIN received on control stream
-            conn_ctx->wt_control_stream_ctx->ps.stream_state.is_fin_received = 1;
+            if (is_fin) {
+                // Mark FIN received on control stream
+                conn_ctx->wt_control_stream_ctx->ps.stream_state.is_fin_received = 1;
 
-            if (!is_server_mode) {
-                // Client: close the connection
-                SPDLOG_LOGGER_INFO(logger,
-                                   "OnRecvStreamBytes: Client received control stream capsule, closing connection {}",
-                                   conn_ctx->conn_id);
-                picoquic_close(conn_ctx->pq_cnx, 0);
-            } else {
-                // Server: send FIN back on control stream if not already sent
-                if (!conn_ctx->wt_control_stream_ctx->ps.stream_state.is_fin_sent) {
+                if (!is_server_mode) {
+                    // Client: close the connection
                     SPDLOG_LOGGER_INFO(logger,
-                                       "OnRecvStreamBytes: Server sending FIN on control stream {} for conn_id={}",
-                                       stream_id, conn_ctx->conn_id);
-                    picoquic_add_to_stream(conn_ctx->pq_cnx, stream_id, NULL, 0, 1);
+                                       "OnRecvStreamBytes: Client received control stream capsule, closing connection {}",
+                                       conn_ctx->conn_id);
+                    picoquic_close(conn_ctx->pq_cnx, 0);
+                } else {
+                    // Server: send FIN back on control stream if not already sent
+                    if (!conn_ctx->wt_control_stream_ctx->ps.stream_state.is_fin_sent) {
+                        SPDLOG_LOGGER_INFO(logger,
+                                           "OnRecvStreamBytes: Server sending FIN on control stream {} for conn_id={}",
+                                           stream_id, conn_ctx->conn_id);
+                        picoquic_add_to_stream(conn_ctx->pq_cnx, stream_id, NULL, 0, 1);
+                    }
+                    // Delete the stream prefix for this WebTransport session
+                    if (conn_ctx->wt_h3_ctx != nullptr) {
+                        h3zero_delete_stream_prefix(conn_ctx->pq_cnx, conn_ctx->wt_h3_ctx, stream_id);
+                    }
                 }
-                // Delete the stream prefix for this WebTransport session
-                if (conn_ctx->wt_h3_ctx != nullptr) {
-                    h3zero_delete_stream_prefix(conn_ctx->pq_cnx, conn_ctx->wt_h3_ctx, stream_id);
-                }
+
+                // Release the capsule resources
+                picowt_release_capsule(&conn_ctx->wt_capsule);
+
+                // Notify the delegate that the connection is closing
+                OnConnectionStatus(conn_ctx->conn_id, TransportStatus::kDisconnected);
             }
 
-            // Release the capsule resources
-            picowt_release_capsule(&conn_ctx->wt_capsule);
-
-            // Notify the delegate that the connection is closing
-            OnConnectionStatus(conn_ctx->conn_id, TransportStatus::kDisconnected);
         }
 
         return;
     }
 
+    // Handle application stream data
     if (bytes.empty()) {
         SPDLOG_LOGGER_DEBUG(logger, "on_recv_stream_bytes length is ZERO");
         return;
     }
-
-    std::lock_guard<std::mutex> l(state_mutex_);
 
     auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
     if (rx_buf_it == conn_ctx->rx_stream_buffer.end()) {
@@ -2076,7 +2081,6 @@ try {
         // When data_ctx is null, determine if stream is bidirectional from stream_id
         // QUIC stream IDs have bit 1 set to 0 for bidirectional streams
         bool is_bidir = (stream_id & 2) == 0;
-        SPDLOG_LOGGER_DEBUG(logger, "OnRecvStreamBytes: data_ctx is null, stream_id={}, is_bidir={}", stream_id, is_bidir);
         if (!cbNotifyQueue_.Push([=, this]() { delegate_.OnRecvStream(conn_ctx->conn_id, stream_id, std::nullopt, is_bidir); })) {
             SPDLOG_LOGGER_ERROR(
               logger, "conn_id: {0} stream_id: {1} notify queue is full", conn_ctx->conn_id, stream_id);
