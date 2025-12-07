@@ -18,6 +18,7 @@
 
 // WebTransport includes
 #include <pico_webtransport.h>
+#include <h3zero_uri.h>
 
 // PicoHTTP includes
 #include <democlient.h>
@@ -535,13 +536,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         case picohttp_callback_connect:
             /* A connect has been received on this stream, and could be accepted.
              */
-            /* The web transport should create a web transport connection context,
-             * and also register the stream ID as identifying this context.
-             * Then, callback the application. That means the WT app context
-             * should be obtained from the path app context, etc.
-             */
-
-            transport->logger->info("DefaultWT: {} request received on path for connection {}", wt_event_to_string(wt_event), conn_id);
+            transport->logger->info("DefaultWT: {} connect received on path for connection {}", wt_event_to_string(wt_event), conn_id);
 
             if (transport->is_server_mode) {
                 // Accept the incoming WebTransport connection
@@ -2857,15 +2852,43 @@ int PicoQuicTransport::AcceptWebTransportConnection(picoquic_cnx_t* cnx,
                                                      size_t path_length,
                                                      h3zero_stream_ctx_t* stream_ctx)
 {
-    // TODO: Parse path parameters if needed (see wt_baton_ctx_path_params in wt_baton.c:550-578)
-    (void)path;
-    (void)path_length;
-
     int ret = 0;
     auto conn_id = reinterpret_cast<TransportConnId>(cnx);
 
+    // Validate path parameters
+    if (path != nullptr && path_length > 0) {
+        std::string path_str(reinterpret_cast<char*>(path), path_length);
+        SPDLOG_LOGGER_INFO(logger, "AcceptWebTransportConnection: received path '{}'", path_str);
 
-    SPDLOG_LOGGER_INFO(logger,  "AcceptWebTransportConnection: creating connection context");
+        // Get the path portion (before query parameters)
+        size_t query_offset = h3zero_query_offset(path, path_length);
+        std::string path_only(reinterpret_cast<char*>(path), query_offset);
+
+        // Validate the path matches the expected path
+        std::string expected_path = wt_config_ ? wt_config_->path : "/relay";
+        if (path_only != expected_path) {
+            SPDLOG_LOGGER_ERROR(logger, "AcceptWebTransportConnection: path '{}' does not match expected path '{}'",
+                                path_only, expected_path);
+            return -1;
+        }
+        // Parse query parameters if present
+        if (query_offset < path_length) {
+            const uint8_t* queries = path + query_offset;
+            size_t queries_length = path_length - query_offset;
+            SPDLOG_LOGGER_DEBUG(logger, "AcceptWebTransportConnection: query string '{}'",
+                                std::string(reinterpret_cast<const char*>(queries), queries_length));
+
+            // Example: Parse a "version" parameter if needed in the future
+            // uint64_t version = 0;
+            // if (h3zero_query_parameter_number(queries, queries_length, "version", 7, &version, 1) != 0) {
+            //     SPDLOG_LOGGER_ERROR(logger, "AcceptWebTransportConnection: failed to parse version parameter");
+            //     return -1;
+            // }
+        }
+    } else {
+        SPDLOG_LOGGER_INFO(logger, "AcceptWebTransportConnection: no path provided");
+    }
+
     // Create or get connection context (similar to wt_baton_accept creating baton_ctx)
     auto& conn_ctx = CreateConnContext(cnx);
 
@@ -2882,7 +2905,6 @@ int PicoQuicTransport::AcceptWebTransportConnection(picoquic_cnx_t* cnx,
         conn_ctx.wt_h3_ctx = h3_ctx;
 
         // Register the stream prefix for this WebTransport session
-        // (similar to wt_baton_ctx_init:845 calling h3zero_declare_stream_prefix)
         ret = h3zero_declare_stream_prefix(h3_ctx, stream_ctx->stream_id,
                                           DefaultWebTransportCallback, this);
 
@@ -2902,7 +2924,7 @@ int PicoQuicTransport::AcceptWebTransportConnection(picoquic_cnx_t* cnx,
     stream_ctx->path_callback = DefaultWebTransportCallback;
     stream_ctx->path_callback_ctx = this;
 
-    SPDLOG_LOGGER_INFO(logger, "AcceptWebTransportConnection: WebTransport connection accepted for connection {}", conn_id);
+    SPDLOG_LOGGER_INFO(logger, "AcceptWebTransportConnection: Done accepting WebTransport connection {}", conn_id);
 
     // Notify application that a new connection is ready
     OnNewConnection(conn_id);
