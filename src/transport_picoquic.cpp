@@ -579,7 +579,8 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             auto conn_ctx = transport->GetConnContext(conn_id);
             if (!conn_ctx) {
-                transport->logger->warn("DefaultWT: No connection context for conn_id {}", conn_id);
+                transport->logger->warn("DefaultWT: {} No connection context for conn_id {}",
+                                        wt_event_to_string(wt_event),conn_id);
                 return -1;
             }
 
@@ -596,7 +597,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             // For bidir streams that are remotely initiated, create data context if needed
             if (data_ctx == nullptr) {
                 // Check if this is a bidir stream (bit 0x2 == 0)
-                if (!((stream_id & 0x2) == 2)) {
+                if ((stream_id & 0x2) != 2) {
                     // Create bidir stream if it wasn't initiated by this instance (remote initiated it)
                     if (((stream_id & 0x1) == 1 && !transport->is_server_mode) ||
                         ((stream_id & 0x0) == 0 && transport->is_server_mode)) {
@@ -623,7 +624,8 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             }
 
             if (is_fin) {
-                transport->logger->debug("DefaultWT: Received FIN for stream {}", stream_id);
+                transport->logger->debug("DefaultWT: {} Received FIN for connection{}, stream {}",
+                                         wt_event_to_string(wt_event), conn_id, stream_id);
 
                 picoquic_reset_stream_ctx(cnx, stream_id);
 
@@ -679,7 +681,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                 break;
             }
 
-            // Check congestion similar to PqEventCb lines 169-176
+            // Check congestion
             if (picoquic_get_cwin(cnx) < kPqCcLowCwin) {
                 conn_ctx->metrics.cwin_congested++;
             }
@@ -695,7 +697,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         }
 
         case picohttp_callback_post_datagram: {
-            // Datagram received - similar to picoquic_callback_datagram in PqEventCb
+            // Datagram received
             transport->logger->debug("DefaultWT: {} received {} bytes for connection {}",
                                      wt_event_to_string(wt_event), length, conn_id);
 
@@ -709,7 +711,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         }
 
         case picohttp_callback_provide_datagram: {
-            // Stack is ready to send a datagram - similar to picoquic_callback_prepare_datagram in PqEventCb
+            // Stack is ready to send a datagram
             auto conn_ctx = transport->GetConnContext(conn_id);
             if (conn_ctx) {
                 conn_ctx->metrics.tx_dgram_cb++;
@@ -723,7 +725,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         }
 
         case picohttp_callback_reset: {
-            // Stream has been abandoned - similar to picoquic_callback_stream_reset in PqEventCb
+            // Stream has been abandoned
             if (!stream_ctx) {
                 transport->logger->warn("DefaultWT: {} with null stream_ctx", wt_event_to_string(wt_event));
                 return -1;
@@ -734,10 +736,15 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             transport->logger->warn("DefaultWT: {} for stream {} on connection {}",
                                     wt_event_to_string(wt_event), stream_id, conn_id);
 
-            picoquic_reset_stream_ctx(cnx, stream_id);
-
             auto conn_ctx = transport->GetConnContext(conn_id);
             if (conn_ctx) {
+                // Send close session message similar to wt_baton.c
+                if (conn_ctx->wt_control_stream_ctx &&
+                    !conn_ctx->wt_control_stream_ctx->ps.stream_state.is_fin_sent) {
+                    picowt_send_close_session_message(cnx, conn_ctx->wt_control_stream_ctx,
+                                                      0x03, "Stream has been reset");
+                }
+
                 auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
                 if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                     rx_buf_it->second.closed = true;
@@ -755,6 +762,8 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                     conn_ctx->wt_stream_to_data_ctx.erase(stream_to_ctx_it);
                 }
             }
+
+            picoquic_reset_stream_ctx(cnx, stream_id);
 
             break;
         }
