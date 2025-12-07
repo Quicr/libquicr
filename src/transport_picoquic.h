@@ -19,6 +19,7 @@
 // WebTransport headers
 #include <h3zero.h>
 #include <h3zero_common.h>
+#include <pico_webtransport.h>
 
 #include <atomic>
 #include <chrono>
@@ -198,6 +199,11 @@ namespace quicr {
 
             /// Client mode: connection-specific authority (server:port)
             std::string wt_authority;
+
+            /// WebTransport capsule accumulator for control stream message parsing
+            /// Used to parse CLOSE_WEBTRANSPORT_SESSION and other capsules
+            picowt_capsule_t wt_capsule{};
+
 
             char peer_addr_text[45]{ 0 };
             uint16_t peer_port{ 0 };

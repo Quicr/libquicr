@@ -536,7 +536,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         case picohttp_callback_connect:
             /* A connect has been received on this stream, and could be accepted.
              */
-            transport->logger->info("DefaultWT: {} connect received on path for connection {}", wt_event_to_string(wt_event), conn_id);
+            transport->logger->debug("DefaultWT: {} connect received on path for connection {}", wt_event_to_string(wt_event), conn_id);
 
             if (transport->is_server_mode) {
                 // Accept the incoming WebTransport connection
@@ -550,15 +550,14 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             break;
 
         case picohttp_callback_connect_refused:
-            // wt_baton.c:758-764: Response from server is negative
             transport->logger->warn("DefaultWT: {} for connection {}", wt_event_to_string(wt_event), conn_id);
             transport->OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
             break;
 
         case picohttp_callback_connect_accepted:
-            transport->logger->info("DefaultWT: {} for connection {}, h3 stream {}",
-                                    wt_event_to_string(wt_event),
-                                    conn_id, stream_ctx->stream_id);
+            transport->logger->debug("DefaultWT: {} for connection {}, h3 stream {}",
+                                     wt_event_to_string(wt_event),
+                                     conn_id, stream_ctx->stream_id);
 
             transport->SetStatus(TransportStatus::kReady);
             transport->OnConnectionStatus(conn_id, TransportStatus::kReady);
@@ -1953,7 +1952,6 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                      std::span<const uint8_t> bytes)
 try {
 
-    //auto blob = to_hex(bytes);
     SPDLOG_LOGGER_INFO(logger,
                         "OnRecvStreamBytes: conn_id={}, stream_id={}, len={}",
                         conn_ctx->conn_id,
@@ -1961,10 +1959,70 @@ try {
                         bytes.size());
 
 
-    if (stream_id == 0) {
-        SPDLOG_LOGGER_DEBUG(logger, "on_recv_stream_bytes Skipping stream ID ZERO");
+    // Handle control stream message processing for WebTransport mode
+    if (conn_ctx->transport_mode == TransportMode::kWebTransport &&
+        conn_ctx->wt_control_stream_ctx != nullptr &&
+        stream_id == conn_ctx->wt_control_stream_ctx->stream_id) {
+
+        SPDLOG_LOGGER_INFO(logger,
+                           "OnRecvStreamBytes: Received data on control stream {} for conn_id={}, len={}",
+                           stream_id, conn_ctx->conn_id, bytes.size());
+
+        // Parse the capsule data using picowt_receive_capsule
+        // This accumulates partial capsule data across multiple calls
+        int ret = picowt_receive_capsule(conn_ctx->pq_cnx,
+                                         conn_ctx->wt_control_stream_ctx,
+                                         bytes.data(),
+                                         bytes.data() + bytes.size(),
+                                         &conn_ctx->wt_capsule);
+
+        if (ret != 0) {
+            SPDLOG_LOGGER_ERROR(logger,
+                                "OnRecvStreamBytes: Failed to parse capsule on control stream {} for conn_id={}",
+                                stream_id, conn_ctx->conn_id);
+        }
+
+        // Check if capsule is fully received and stored
+        if (conn_ctx->wt_capsule.h3_capsule.is_stored) {
+            SPDLOG_LOGGER_INFO(logger,
+                               "OnRecvStreamBytes: Received capsule type={} error_code={} on control stream {} for conn_id={}",
+                               conn_ctx->wt_capsule.h3_capsule.capsule_type,
+                               conn_ctx->wt_capsule.error_code,
+                               stream_id, conn_ctx->conn_id);
+
+            // Mark FIN received on control stream
+            conn_ctx->wt_control_stream_ctx->ps.stream_state.is_fin_received = 1;
+
+            if (!is_server_mode) {
+                // Client: close the connection
+                SPDLOG_LOGGER_INFO(logger,
+                                   "OnRecvStreamBytes: Client received control stream capsule, closing connection {}",
+                                   conn_ctx->conn_id);
+                picoquic_close(conn_ctx->pq_cnx, 0);
+            } else {
+                // Server: send FIN back on control stream if not already sent
+                if (!conn_ctx->wt_control_stream_ctx->ps.stream_state.is_fin_sent) {
+                    SPDLOG_LOGGER_INFO(logger,
+                                       "OnRecvStreamBytes: Server sending FIN on control stream {} for conn_id={}",
+                                       stream_id, conn_ctx->conn_id);
+                    picoquic_add_to_stream(conn_ctx->pq_cnx, stream_id, NULL, 0, 1);
+                }
+                // Delete the stream prefix for this WebTransport session
+                if (conn_ctx->wt_h3_ctx != nullptr) {
+                    h3zero_delete_stream_prefix(conn_ctx->pq_cnx, conn_ctx->wt_h3_ctx, stream_id);
+                }
+            }
+
+            // Release the capsule resources
+            picowt_release_capsule(&conn_ctx->wt_capsule);
+
+            // Notify the delegate that the connection is closing
+            OnConnectionStatus(conn_ctx->conn_id, TransportStatus::kDisconnected);
+        }
+
         return;
     }
+
     if (bytes.empty()) {
         SPDLOG_LOGGER_DEBUG(logger, "on_recv_stream_bytes length is ZERO");
         return;
@@ -2936,10 +2994,6 @@ void PicoQuicTransport::SetWebTransportPathCallback(const std::string& path,
                                                    picohttp_post_data_cb_fn callback,
                                                    void* app_ctx)
 {
-    if (transport_mode_ != TransportMode::kWebTransport) {
-        SPDLOG_LOGGER_WARN(logger, "SetWebTransportPathCallback called but not in WebTransport mode");
-        return;
-    }
 
     if (!wt_config_) {
         wt_config_ = WebTransportConfig{};
