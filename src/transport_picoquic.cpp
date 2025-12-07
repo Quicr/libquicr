@@ -518,7 +518,6 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                             h3zero_stream_ctx_t* stream_ctx,
                             void* path_app_ctx)
 {
-    // Default implementation based on wt_baton_callback pattern and PqEventCb
     auto* transport = static_cast<PicoQuicTransport*>(path_app_ctx);
     if (!transport) {
         return -1;
@@ -738,7 +737,6 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             auto conn_ctx = transport->GetConnContext(conn_id);
             if (conn_ctx) {
-                // Send close session message similar to wt_baton.c
                 if (conn_ctx->wt_control_stream_ctx &&
                     !conn_ctx->wt_control_stream_ctx->ps.stream_state.is_fin_sent) {
                     picowt_send_close_session_message(cnx, conn_ctx->wt_control_stream_ctx,
@@ -773,10 +771,19 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             transport->logger->debug("DefaultWT: {} callback for connection {}", wt_event_to_string(wt_event), conn_id);
             break;
 
-        case picohttp_callback_deregister:
-            // The app context has been removed from the registry
+        case picohttp_callback_deregister: {
+            // The app context has been removed from the registry.
+            // Its references should be removed from streams belonging to this session.
             transport->logger->debug("DefaultWT: {} callback for connection {}", wt_event_to_string(wt_event), conn_id);
+
+            transport->DeregisterWebTransport(cnx);
+
+            // For client mode, notify that connection is disconnected
+            if (!transport->is_server_mode) {
+                transport->OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
+            }
             break;
+        }
 
         default:
             //  Unknown event
@@ -2652,7 +2659,7 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
         conn_ctx.last_stream_id = stream_ctx->stream_id;
         conn_ctx.wt_stream_to_data_ctx[stream_ctx->stream_id] = data_ctx->data_ctx_id;
 
-        // Set callback and context for the stream (similar to wt_baton.c:181-182)
+        // Set callback and context for the stream
         stream_ctx->path_callback = DefaultWebTransportCallback;
         stream_ctx->path_callback_ctx = this;
 
@@ -2729,7 +2736,6 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* data_ct
         conn_ctx.wt_stream_to_data_ctx.erase(*data_ctx->current_stream_id);
 
         // Properly delete the h3zero_stream_ctx_t to avoid memory leaks
-        // Similar to wt_baton.c:431,538
         if (data_ctx->wt_stream_ctx && conn_ctx.wt_h3_ctx) {
             h3zero_delete_stream(conn_ctx.pq_cnx, conn_ctx.wt_h3_ctx, data_ctx->wt_stream_ctx);
         }
@@ -2769,10 +2775,9 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id, const DataCon
         return;
     }
 
-    // For WebTransport and raw QUIC, pass the correct stream context (similar to wt_baton.c:184)
+    // For WebTransport and raw QUIC, pass the correct stream context
     void* stream_ctx = nullptr;
     if (conn_it->second.transport_mode == TransportMode::kWebTransport) {
-        // For WebTransport, pass the h3zero_stream_ctx_t* (like wt_baton.c:184)
         stream_ctx = data_ctx_it->second.wt_stream_ctx;
     } else {
         // For raw QUIC, pass the DataContext pointer
@@ -2850,7 +2855,6 @@ int PicoQuicTransport::SetupWebTransportConnection(picoquic_cnx_t* cnx)
             return -1;
         }
 
-        // Use picowt_prepare_client_cnx for proper setup (similar to baton_app.c)
         picoquic_cnx_t* prepared_cnx = cnx;
         h3zero_callback_ctx_t* h3_ctx = nullptr;
         h3zero_stream_ctx_t* control_stream_ctx = nullptr;
@@ -2890,7 +2894,6 @@ int PicoQuicTransport::SetupWebTransportConnection(picoquic_cnx_t* cnx)
             return ret;
         }
 
-        // Log initial connection ID for debugging (similar to baton_app.c:254-260)
         picoquic_connection_id_t icid = picoquic_get_initial_cnxid(cnx);
         std::string icid_str;
         icid_str.reserve(icid.id_len * 2);
@@ -2960,12 +2963,10 @@ int PicoQuicTransport::AcceptWebTransportConnection(picoquic_cnx_t* cnx,
         SPDLOG_LOGGER_INFO(logger, "AcceptWebTransportConnection: no path provided");
     }
 
-    // Create or get connection context (similar to wt_baton_accept creating baton_ctx)
     auto& conn_ctx = CreateConnContext(cnx);
 
     // Store the WebTransport control stream context for this connection
     // The stream_ctx parameter is the control stream for this WebTransport connection
-    // (similar to wt_baton_accept storing control_stream_id in wt_baton_ctx_init:843-844)
     if (stream_ctx) {
         conn_ctx.wt_control_stream_ctx = stream_ctx;
         // Set the control stream ID in the stream context
@@ -3049,7 +3050,6 @@ h3zero_stream_ctx_t* PicoQuicTransport::CreateWebTransportStream(picoquic_cnx_t*
     }
 
     // Use picowt_create_local_stream (pico_webtransport.h:94-95)
-    // Similar to wt_baton.c:159-161, 165-167
     h3zero_stream_ctx_t* stream_ctx = picowt_create_local_stream(
         cnx,
         is_bidir ? 1 : 0,
@@ -3058,7 +3058,6 @@ h3zero_stream_ctx_t* PicoQuicTransport::CreateWebTransportStream(picoquic_cnx_t*
     );
 
     if (stream_ctx) {
-        // Set callback and context for the stream (similar to wt_baton.c:181-182)
         stream_ctx->path_callback = DefaultWebTransportCallback;
         stream_ctx->path_callback_ctx = this;
 
@@ -3094,7 +3093,6 @@ int PicoQuicTransport::SendWebTransportCloseSession(picoquic_cnx_t* cnx, uint32_
     }
 
     // Use picowt_send_close_session_message (pico_webtransport.h:69)
-    // Similar to wt_baton.c:119
     int ret = picowt_send_close_session_message(cnx, conn_ctx->wt_control_stream_ctx, error_code, error_msg);
 
     if (ret == 0) {
@@ -3175,13 +3173,17 @@ void PicoQuicTransport::DeregisterWebTransport(picoquic_cnx_t* cnx)
         return;
     }
 
-    // Use picowt_deregister (pico_webtransport.h:87)
-    // Similar to wt_baton.c:650
+    // Use picowt_deregister to clean up all streams associated with this control stream
     picowt_deregister(cnx, conn_ctx->wt_h3_ctx, conn_ctx->wt_control_stream_ctx);
+
+    // Release any accumulated capsule memory
+    picowt_release_capsule(&conn_ctx->wt_capsule);
 
     SPDLOG_LOGGER_INFO(logger, "WebTransport context deregistered for conn_id {}", conn_id);
 
     // Clear the per-connection context
     conn_ctx->wt_control_stream_ctx = nullptr;
-    // Note: h3_ctx should be cleaned up elsewhere as it may be shared (especially in server mode)
+
+    // Clear WebTransport stream mappings for this session
+    conn_ctx->wt_stream_to_data_ctx.clear();
 }

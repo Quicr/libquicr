@@ -388,6 +388,15 @@ namespace quicr {
         bool StreamActionCheck(DataContext* data_ctx, StreamAction stream_action);
 
         /**
+         * @brief Deregister WebTransport context
+         * @details Cleans up WebTransport session resources including all streams
+         *          associated with the control stream, capsule memory, and mappings.
+         *          Similar to wt_baton.c:650 wt_baton_unlink_context().
+         * @param cnx The picoquic connection
+         */
+        void DeregisterWebTransport(picoquic_cnx_t* cnx);
+
+        /**
          * @brief Function to run the queue functions within the picoquic thread via the pq_loop_cb
          *
          * @details Function runs the picoquic specific functions in the same thread that runs the
@@ -490,13 +499,6 @@ namespace quicr {
          * @return 0 on success, -1 on failure
          */
         int SendWebTransportDrainSession(picoquic_cnx_t* cnx);
-
-        /**
-         * @brief Deregister WebTransport context
-         * @details Cleans up WebTransport session resources (wrapper around picowt_deregister)
-         * @param cnx The picoquic connection
-         */
-        void DeregisterWebTransport(picoquic_cnx_t* cnx);
 
         /**
          * @brief Create a new stream
