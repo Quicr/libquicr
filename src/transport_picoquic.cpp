@@ -863,10 +863,16 @@ PqAlpnSelectCb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t count)
         void* base = list_ptr[i * 2];  // base is first element
         size_t len = ((size_t*)list)[i * 2 + 1];  // len is second element
 
-        // Check for MOQ ALPN
+        // Check for MOQ ALPN (raw QUIC)
         if (len == moq_len && memcmp(base, moq_alpn, moq_len) == 0) {
             ret = i;
-            picoquic_set_callback(cnx, PqEventCb, default_callback_ctx);
+            // For raw QUIC, we need the PicoQuicTransport pointer, not the HTTP server parameters.
+            // The transport pointer is stored in path_table[0].path_app_ctx during server setup.
+            auto* server_params = static_cast<picohttp_server_parameters_t*>(default_callback_ctx);
+            void* transport_ctx = (server_params && server_params->path_table_nb > 0)
+                                  ? server_params->path_table[0].path_app_ctx
+                                  : nullptr;
+            picoquic_set_callback(cnx, PqEventCb, transport_ctx);
             break;
         }
         // Check for H3 ALPN

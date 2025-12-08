@@ -67,7 +67,6 @@ namespace quicr {
      */
     enum class TransportProtocol : uint8_t
     {
-        kUdp = 0,
         kQuic,
         kWebTransport
     };
@@ -173,7 +172,7 @@ namespace quicr {
      * 	is ensured by the transport owing the lock and
      * 	access to the queues.
      *
-     * @note Some implementations may cho/ose to
+     * @note Some implementations may choose to
      * 	have enqueue/dequeue being blocking. However
      * 	in such cases applications needs to
      * 	take the burden of non-blocking flows.
@@ -315,8 +314,7 @@ namespace quicr {
          * @details Server mode automatically supports BOTH raw QUIC (ALPN: moq-00) and
          * WebTransport (ALPN: h3) simultaneously. The transport mode for each connection
          * is determined dynamically based on the ALPN negotiated with each client during
-         * the TLS handshake. This allows a single server to handle mixed clients - some
-         * using raw QUIC and others using WebTransport.
+         * the TLS handshake.
          *
          * @param[in] server      Transport remote server information (server.proto is ignored)
          * @param[in] tcfg        Transport configuration
