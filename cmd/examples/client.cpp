@@ -1096,7 +1096,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
                 SPDLOG_INFO("Using raw QUIC with URL: {}", config.connect_uri);
             }
         }
-    } else if (transport_type != "auto") {
+    } else {
         SPDLOG_ERROR("Invalid transport type: {}. Valid options: quic, webtransport", transport_type);
         exit(-1);
     }
