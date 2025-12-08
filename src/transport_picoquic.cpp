@@ -1626,6 +1626,20 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
         return;
     }
 
+    const bool is_webtransport = conn_ctx->transport_mode == TransportMode::kWebTransport;
+
+    // Helper lambda to get datagram buffer based on transport mode
+    auto provide_buffer = [is_webtransport, bytes_ctx](size_t length, bool more_data) -> uint8_t* {
+        if (is_webtransport) {
+            return h3zero_provide_datagram_buffer(bytes_ctx, length, more_data ? 1 : 0);
+        } else {
+            return picoquic_provide_datagram_buffer_ex(
+                bytes_ctx,
+                length,
+                more_data ? picoquic_datagram_active_any_path : picoquic_datagram_not_active);
+        }
+    };
+
     TimeQueueElement<ConnData> out_data;
     conn_ctx->dgram_tx_data->Front(out_data);
     if (out_data.has_value) {
@@ -1661,12 +1675,8 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
             data_ctx_it->second.metrics.tx_dgrams_bytes += out_data.value.data->size();
             data_ctx_it->second.metrics.tx_dgrams++;
 
-            uint8_t* buf = nullptr;
-
-            buf = picoquic_provide_datagram_buffer_ex(
-              bytes_ctx,
-              out_data.value.data->size(),
-              conn_ctx->dgram_tx_data->Empty() ? picoquic_datagram_not_active : picoquic_datagram_active_any_path);
+            bool more_data = !conn_ctx->dgram_tx_data->Empty();
+            uint8_t* buf = provide_buffer(out_data.value.data->size(), more_data);
 
             if (buf != nullptr) {
                 std::memcpy(buf, out_data.value.data->data(), out_data.value.data->size());
@@ -1680,10 +1690,10 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
             /* TODO(tievens): picoquic_prepare_stream_and_datagrams() appears to ignore the
              *     below unless data was sent/provided
              */
-            picoquic_provide_datagram_buffer_ex(bytes_ctx, 0, picoquic_datagram_active_any_path);
+            provide_buffer(0, true);
         }
     } else {
-        picoquic_provide_datagram_buffer_ex(bytes_ctx, 0, picoquic_datagram_not_active);
+        provide_buffer(0, false);
     }
 }
 
