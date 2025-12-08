@@ -207,9 +207,19 @@ namespace quicr {
         return PublishNamespaceStatus();
     }
 
-    void Client::PublishNamespace(const TrackNamespace&) {}
+    void Client::PublishNamespace(std::shared_ptr<PublishNamespaceHandler> handler)
+    {
+        if (connection_handle_) {
+            Transport::PublishNamespace(*connection_handle_, std::move(handler));
+        }
+    }
 
-    void Client::PublishNamespaceDone(const TrackNamespace&) {}
+    void Client::PublishNamespaceDone(std::shared_ptr<PublishNamespaceHandler> handler)
+    {
+        if (connection_handle_) {
+            Transport::PublishNamespaceDone(*connection_handle_, std::move(handler));
+        }
+    }
 
     bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
     try {
@@ -464,10 +474,10 @@ namespace quicr {
                 }
 
                 auto pub_it = conn_ctx.pub_tracks_by_name.find(pub_ns_it->second);
-                for (const auto& td : pub_it->second) {
-                    if (td.second.get()->GetStatus() != PublishTrackHandler::Status::kOk)
-                        td.second.get()->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+                for (const auto& [_, handler] : pub_it->second) {
+                    handler->SetStatus(PublishTrackHandler::Status::kOk);
                 }
+
                 conn_ctx.pub_tracks_ns_by_request_id.erase(pub_ns_it);
                 return true;
             }

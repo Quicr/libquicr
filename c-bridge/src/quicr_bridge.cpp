@@ -337,11 +337,6 @@ struct qbridge_publish_track_handler
                                                             status_cb,
                                                             data);
 
-            // Set use_announce flag if configured
-            if (config->use_announce) {
-                cpp_handler->SetUseAnnounce(true);
-            }
-
             // Set track alias if provided
             if (config->track_alias > 0) {
                 cpp_handler->SetTrackAlias(config->track_alias);
@@ -575,6 +570,124 @@ struct qbridge_fetch_track_handler
 };
 
 /**
+ * @brief Bridge publish track handler extending quicr::PublishTrackHandler
+ */
+class BridgePublishNamespaceHandler : public quicr::PublishNamespaceHandler
+{
+  public:
+    static std::shared_ptr<BridgePublishNamespaceHandler> Create(const quicr::TrackNamespace& prefix,
+                                                                 const quicr::TrackMode track_mode,
+                                                                 const uint8_t default_priority,
+                                                                 const uint32_t default_ttl,
+                                                                 qbridge_object_published_callback_t callback,
+                                                                 qbridge_publish_status_callback_t status_cb,
+                                                                 void* user_data)
+    {
+        return std::shared_ptr<BridgePublishNamespaceHandler>(new BridgePublishNamespaceHandler(
+          prefix, track_mode, default_priority, default_ttl, callback, status_cb, user_data));
+    }
+
+    qbridge_object_published_callback_t published_callback = nullptr;
+    qbridge_publish_status_callback_t status_callback = nullptr;
+    void* user_data = nullptr;
+    std::mutex callback_mutex;
+
+  protected:
+    BridgePublishNamespaceHandler(const quicr::TrackNamespace& prefix,
+                                  const quicr::TrackMode track_mode,
+                                  const uint8_t default_priority,
+                                  const uint32_t default_ttl,
+                                  qbridge_object_published_callback_t callback,
+                                  qbridge_publish_status_callback_t status_cb,
+                                  void* data)
+      : quicr::PublishNamespaceHandler(prefix, track_mode, default_priority, default_ttl)
+      , published_callback(callback)
+      , status_callback(status_cb)
+      , user_data(data)
+    {
+    }
+
+  public:
+    /**
+     * @brief Handle status changes and notify C callback
+     */
+    void StatusChanged(const Status status) override
+    {
+        std::lock_guard<std::mutex> lock(callback_mutex);
+        if (status_callback) {
+            qbridge_publish_status_t c_status;
+            switch (status) {
+                case Status::kOk:
+                    c_status = QBRIDGE_PUBLISH_STATUS_OK;
+                    break;
+                case Status::kNotConnected:
+                    c_status = QBRIDGE_PUBLISH_STATUS_NOT_CONNECTED;
+                    break;
+                case Status::kNotAnnounced:
+                    c_status = QBRIDGE_PUBLISH_STATUS_NOT_ANNOUNCED;
+                    break;
+                case Status::kPendingAnnounceResponse:
+                    c_status = QBRIDGE_PUBLISH_STATUS_PENDING_ANNOUNCE_RESPONSE;
+                    break;
+                case Status::kAnnounceNotAuthorized:
+                    c_status = QBRIDGE_PUBLISH_STATUS_ANNOUNCE_NOT_AUTHORIZED;
+                    break;
+                case Status::kNoSubscribers:
+                    c_status = QBRIDGE_PUBLISH_STATUS_NO_SUBSCRIBERS;
+                    break;
+                case Status::kSubscriptionUpdated:
+                    c_status = QBRIDGE_PUBLISH_STATUS_SUBSCRIPTION_UPDATED;
+                    break;
+                case Status::kNewGroupRequested:
+                    c_status = QBRIDGE_PUBLISH_STATUS_NEW_GROUP_REQUESTED;
+                    break;
+                case Status::kPaused:
+                    c_status = QBRIDGE_PUBLISH_STATUS_PAUSED;
+                    break;
+                default:
+                    c_status = QBRIDGE_PUBLISH_STATUS_NOT_CONNECTED;
+                    break;
+            }
+
+            const bool can_publish = CanPublish();
+            status_callback(c_status, can_publish, user_data);
+        }
+        quicr::PublishNamespaceHandler::StatusChanged(status);
+    }
+};
+
+/**
+ * @brief C publish track handler structure
+ */
+struct qbridge_publish_namespace_track_handler
+{
+    std::shared_ptr<BridgePublishNamespaceHandler> cpp_handler;
+
+    qbridge_publish_namespace_track_handler(const qbridge_publish_namespace_track_config_t* config,
+                                            qbridge_object_published_callback_t callback,
+                                            qbridge_publish_status_callback_t status_cb,
+                                            void* data)
+    {
+        if (config) {
+            const auto prefix = cpp_namespace_from_c(&config->prefix);
+
+            // Map delivery mode to track mode
+            const quicr::TrackMode track_mode = (config->delivery_mode == QBRIDGE_DELIVERY_MODE_STREAM)
+                                                  ? quicr::TrackMode::kStream
+                                                  : quicr::TrackMode::kDatagram;
+
+            cpp_handler = BridgePublishNamespaceHandler::Create(prefix,
+                                                                track_mode,
+                                                                static_cast<uint8_t>(config->default_priority),
+                                                                config->default_ttl_ms,
+                                                                callback,
+                                                                status_cb,
+                                                                data);
+        }
+    }
+};
+
+/**
  * @brief Bridge fetch track handler extending quicr::FetchTrackHandler
  */
 class BridgeSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
@@ -695,25 +808,25 @@ extern "C"
     }
 
     // Namespace operations
-    qbridge_result_t qbridge_client_publish_namespace(qbridge_client_t* client, const qbridge_namespace_t* ns)
+    qbridge_result_t qbridge_client_publish_namespace(qbridge_client_t* client,
+                                                      const qbridge_publish_namespace_track_handler_t* handler)
     {
-        if (!client || !client->cpp_client || !ns) {
+        if (!client || !client->cpp_client || !handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto cpp_namespace = cpp_namespace_from_c(ns);
-        client->cpp_client->PublishNamespace(cpp_namespace);
+        client->cpp_client->PublishNamespace(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_client_unpublish_namespace(qbridge_client_t* client, const qbridge_namespace_t* ns)
+    qbridge_result_t qbridge_client_unpublish_namespace(qbridge_client_t* client,
+                                                        const qbridge_publish_namespace_track_handler_t* handler)
     {
-        if (!client || !client->cpp_client || !ns) {
+        if (!client || !client->cpp_client || !handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto cpp_namespace = cpp_namespace_from_c(ns);
-        client->cpp_client->PublishNamespaceDone(cpp_namespace);
+        client->cpp_client->PublishNamespaceDone(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
@@ -1084,7 +1197,6 @@ extern "C"
         config->default_ttl_ms = 5000;
         config->default_cacheable = true;
         config->delivery_mode = QBRIDGE_DELIVERY_MODE_DATAGRAM;
-        config->use_announce = false; // Use publish flow by default
     }
 
     void qbridge_subscribe_track_config_init(qbridge_subscribe_track_config_t* config)

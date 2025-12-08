@@ -54,6 +54,7 @@ extern "C"
     typedef struct qbridge_publish_track_handler qbridge_publish_track_handler_t;
     typedef struct qbridge_subscribe_track_handler qbridge_subscribe_track_handler_t;
     typedef struct qbridge_fetch_track_handler qbridge_fetch_track_handler_t;
+    typedef struct qbridge_publish_namespace_track_handler qbridge_publish_namespace_track_handler_t;
     typedef struct qbridge_subscribe_namespace_track_handler qbridge_subscribe_namespace_track_handler_t;
 
     /** @} */
@@ -262,8 +263,17 @@ extern "C"
         uint32_t default_ttl_ms;                   /**< Default TTL in ms */
         bool default_cacheable;                    /**< Default cacheable flag */
         uint64_t track_alias;                      /**< Track alias */
-        bool use_announce;                         /**< Use announce flow */
     } qbridge_publish_track_config_t;
+
+    typedef struct
+    {
+        qbridge_namespace_t prefix;            /**< Prefix */
+        qbridge_delivery_mode_t delivery_mode; /**< Delivery mode */
+        qbridge_priority_t default_priority;   /**< Default priority */
+        uint32_t default_ttl_ms;               /**< Default TTL in ms */
+        bool default_cacheable;                /**< Default cacheable flag */
+        uint64_t track_alias;                  /**< Track alias */
+    } qbridge_publish_namespace_track_config_t;
 
     /**
      * @brief Subscribe track configuration
@@ -430,7 +440,8 @@ extern "C"
      * @param ns Namespace to publish
      * @return Result code
      */
-    qbridge_result_t qbridge_client_publish_namespace(qbridge_client_t* client, const qbridge_namespace_t* ns);
+    qbridge_result_t qbridge_client_publish_namespace(qbridge_client_t* client,
+                                                      const qbridge_publish_namespace_track_handler_t* handler);
 
     /**
      * @brief Unpublish a namespace
@@ -438,7 +449,8 @@ extern "C"
      * @param ns Namespace to unpublish
      * @return Result code
      */
-    qbridge_result_t qbridge_client_unpublish_namespace(qbridge_client_t* client, const qbridge_namespace_t* ns);
+    qbridge_result_t qbridge_client_unpublish_namespace(qbridge_client_t* client,
+                                                        const qbridge_publish_namespace_track_handler_t* handler);
 
     /**
      * @brief Subscribe to a namespace

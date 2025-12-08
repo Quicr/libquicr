@@ -441,11 +441,8 @@ TEST_CASE("Integration - Annouce Flow")
     auto client = MakeTestClient();
 
     // Create a track with announce enabled.
-    FullTrackName ftn;
-    ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "namespace" });
-    ftn.name = { 1, 2, 3 };
-    const auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500);
-    pub_handler->SetUseAnnounce(true);
+    const auto prefix = TrackNamespace(std::vector<std::string>{ "test", "namespace" });
+    const auto pub_handler = PublishNamespaceHandler::Create(prefix, TrackMode::kStream, 0, 500);
 
     // Set up promise to capture server receiving PUBLISH_NAMESPACE.
     std::promise<TestServer::PublishNamespaceDetails> server_promise;
@@ -453,13 +450,13 @@ TEST_CASE("Integration - Annouce Flow")
     server->SetPublishNamespacePromise(std::move(server_promise));
 
     // Publush with announce, PUBLISH_NAMESPACE sent.
-    CHECK_NOTHROW(client->PublishTrack(pub_handler));
+    CHECK_NOTHROW(client->PublishNamespace(pub_handler));
 
     // Server should receive the PUBLISH_NAMESPACE for the namespace.
     auto server_status = server_future.wait_for(kDefaultTimeout);
     REQUIRE(server_status == std::future_status::ready);
     const auto& server_details = server_future.get();
-    CHECK_EQ(server_details.track_namespace, ftn.name_space);
+    CHECK_EQ(server_details.track_namespace, prefix);
 
     // Wait for PUBLISH_NAMESPACE_OK to land.
     std::this_thread::sleep_for(kDefaultTimeout);

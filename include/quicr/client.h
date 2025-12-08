@@ -289,10 +289,9 @@ namespace quicr {
          *      Name and track alias is not used.
          *
          *
-         * @param track_namespace    Track handler to use for track related functions
-         *                           and callbacks
+         * @param handler The publish namespace handler to register
          */
-        void PublishNamespace(const TrackNamespace& track_namespace);
+        void PublishNamespace(std::shared_ptr<PublishNamespaceHandler> handler);
 
         /**
          * @brief Unannounce a publish namespace
@@ -300,9 +299,9 @@ namespace quicr {
          * @details Unannounce a publish namespace. **ALL** tracks will be marked unpublish, as if called
          *    by UnpublishTrack()
          *
-         * @param track_namespace         Track namespace to unannounce
+         * @param handler The publisher namespace handler that is done.
          */
-        void PublishNamespaceDone(const TrackNamespace& track_namespace);
+        void PublishNamespaceDone(std::shared_ptr<PublishNamespaceHandler> handler);
 
         /**
          * @brief Subscribe to prefix namespace

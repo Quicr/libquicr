@@ -157,6 +157,9 @@ namespace quicr {
         void PublishNamespace(ConnectionHandle connection_handle,
                               std::shared_ptr<PublishNamespaceHandler> track_handler);
 
+        void PublishNamespaceDone(ConnectionHandle connection_handle,
+                                  std::shared_ptr<PublishNamespaceHandler> track_handler);
+
         /**
          * @brief Publish to a track
          *
@@ -424,6 +427,13 @@ namespace quicr {
              */
             std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
 
+            /// Subscribe Namespace prefix by request Id
+            std::map<messages::RequestID, std::shared_ptr<SubscribeNamespaceHandler>>
+              sub_namespace_prefix_by_request_id; // TODO: Maybe this can be compressed with `sub_tracks_by_request_id`?
+
+            std::map<messages::TrackAlias, std::shared_ptr<SubscribeNamespaceHandler>>
+              sub_namespace_prefix_by_track_alias; // TODO: Maybe this can be compressed with `sub_by_recv_track_alias`?
+
             /**
              * Publish tracks by namespace and name. map[track namespace][track name] = track handler
              * Used mainly in client mode only
@@ -434,6 +444,9 @@ namespace quicr {
             /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
             std::map<messages::TrackAlias, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>>
               pub_tracks_by_track_alias;
+
+            /// Publish Namespace prefix by request Id
+            std::map<messages::RequestID, std::shared_ptr<PublishNamespaceHandler>> pub_namespace_prefix_by_request_id;
 
             /** MoQT does not send all announce messages with namespace. Instead, they are sent
              *  with request-id. The namespace is needed. This map is used to map request ID to namespace
@@ -460,12 +473,6 @@ namespace quicr {
 
             /// Fetch Publishers by request ID.
             std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
-
-            /// Subscribe Namespace prefix by request Id
-            std::map<messages::RequestID, std::shared_ptr<SubscribeNamespaceHandler>>
-              sub_namespace_prefix_by_request_id;
-            std::map<messages::TrackAlias, std::shared_ptr<SubscribeNamespaceHandler>>
-              sub_namespace_prefix_by_track_alias;
 
             ConnectionMetrics metrics{}; ///< Connection metrics
 
