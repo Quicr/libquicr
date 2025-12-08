@@ -500,12 +500,60 @@ wt_event_to_string(picohttp_call_back_event_t wt_event)
             return "picohttp_callback_provide_datagram";
         case picohttp_callback_reset:
             return "picohttp_callback_reset";
+        case picohttp_callback_stop_sending:
+            return "picohttp_callback_stop_sending";
         case picohttp_callback_deregister:
             return "picohttp_callback_deregister";
         case picohttp_callback_free:
             return "picohttp_callback_free";
         default:
             return "unknown";
+    }
+}
+
+// Helper to get connection context with logging on failure
+static PicoQuicTransport::ConnectionContext*
+GetConnCtxForWT(PicoQuicTransport* transport, TransportConnId conn_id, picohttp_call_back_event_t wt_event)
+{
+    auto conn_ctx = transport->GetConnContext(conn_id);
+    if (!conn_ctx) {
+        transport->logger->warn("DefaultWT: {} No connection context for conn_id {}",
+                                wt_event_to_string(wt_event), conn_id);
+    }
+    return conn_ctx;
+}
+
+// Helper to get data context from WebTransport stream mapping
+static PicoQuicTransport::DataContext*
+GetDataCtxForWT(PicoQuicTransport::ConnectionContext* conn_ctx, uint64_t stream_id)
+{
+    if (!conn_ctx) {
+        return nullptr;
+    }
+    auto stream_to_ctx_it = conn_ctx->wt_stream_to_data_ctx.find(stream_id);
+    if (stream_to_ctx_it != conn_ctx->wt_stream_to_data_ctx.end()) {
+        auto data_ctx_it = conn_ctx->active_data_contexts.find(stream_to_ctx_it->second);
+        if (data_ctx_it != conn_ctx->active_data_contexts.end()) {
+            return &data_ctx_it->second;
+        }
+    }
+    return nullptr;
+}
+
+// Helper to clear data context stream and remove from WebTransport stream mapping
+static void
+ClearDataCtxStream(PicoQuicTransport::ConnectionContext* conn_ctx, uint64_t stream_id)
+{
+    if (!conn_ctx) {
+        return;
+    }
+    auto stream_to_ctx_it = conn_ctx->wt_stream_to_data_ctx.find(stream_id);
+    if (stream_to_ctx_it != conn_ctx->wt_stream_to_data_ctx.end()) {
+        auto data_ctx_it = conn_ctx->active_data_contexts.find(stream_to_ctx_it->second);
+        if (data_ctx_it != conn_ctx->active_data_contexts.end()) {
+            data_ctx_it->second.current_stream_id = std::nullopt;
+        }
+        conn_ctx->wt_stream_to_data_ctx.erase(stream_to_ctx_it);
     }
 }
 
@@ -576,22 +624,12 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             transport->logger->debug("DefaultWT: {} received {} bytes on stream {} for connection {}, is_fin {}",
                                      wt_event_to_string(wt_event), length, stream_id, conn_id, is_fin);
 
-            auto conn_ctx = transport->GetConnContext(conn_id);
+            auto conn_ctx = GetConnCtxForWT(transport, conn_id, wt_event);
             if (!conn_ctx) {
-                transport->logger->warn("DefaultWT: {} No connection context for conn_id {}",
-                                        wt_event_to_string(wt_event),conn_id);
                 return -1;
             }
 
-            // Get data context from WebTransport stream mapping
-            PicoQuicTransport::DataContext* data_ctx = nullptr;
-            auto stream_to_ctx_it = conn_ctx->wt_stream_to_data_ctx.find(stream_id);
-            if (stream_to_ctx_it != conn_ctx->wt_stream_to_data_ctx.end()) {
-                auto data_ctx_it = conn_ctx->active_data_contexts.find(stream_to_ctx_it->second);
-                if (data_ctx_it != conn_ctx->active_data_contexts.end()) {
-                    data_ctx = &data_ctx_it->second;
-                }
-            }
+            auto data_ctx = GetDataCtxForWT(conn_ctx, stream_id);
 
             // For bidir streams that are remotely initiated, create data context if needed
             if (data_ctx == nullptr) {
@@ -643,7 +681,6 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         }
 
         case picohttp_callback_provide_data: {
-
             // Stack is ready to send data on a stream - similar to picoquic_callback_prepare_to_send in PqEventCb
             if (!stream_ctx) {
                 transport->logger->warn("DefaultWT: {} with null stream_ctx", wt_event_to_string(wt_event));
@@ -656,24 +693,12 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                                     wt_event_to_string(wt_event),
                                     conn_id, stream_id);
 
-
-            auto conn_ctx = transport->GetConnContext(conn_id);
+            auto conn_ctx = GetConnCtxForWT(transport, conn_id, wt_event);
             if (!conn_ctx) {
-                transport->logger->warn("DefaultWT: {} No connection context for conn_id {}",
-                                        wt_event_to_string(wt_event), conn_id);
                 return -1;
             }
 
-            // Get data context from WebTransport stream mapping
-            PicoQuicTransport::DataContext* data_ctx = nullptr;
-            auto stream_to_ctx_it = conn_ctx->wt_stream_to_data_ctx.find(stream_id);
-            if (stream_to_ctx_it != conn_ctx->wt_stream_to_data_ctx.end()) {
-                auto data_ctx_it = conn_ctx->active_data_contexts.find(stream_to_ctx_it->second);
-                if (data_ctx_it != conn_ctx->active_data_contexts.end()) {
-                    data_ctx = &data_ctx_it->second;
-                }
-            }
-
+            auto data_ctx = GetDataCtxForWT(conn_ctx, stream_id);
             if (data_ctx == nullptr) {
                 // No data context, nothing to send
                 transport->logger->trace("DefaultWT: {} no data_ctx for stream {}", wt_event_to_string(wt_event), stream_id);
@@ -700,19 +725,15 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             transport->logger->debug("DefaultWT: {} received {} bytes for connection {}",
                                      wt_event_to_string(wt_event), length, conn_id);
 
-            auto conn_ctx = transport->GetConnContext(conn_id);
-            if (conn_ctx) {
+            if (auto conn_ctx = GetConnCtxForWT(transport, conn_id, wt_event)) {
                 transport->OnRecvDatagram(conn_ctx, bytes, length);
-            } else {
-                transport->logger->warn("DefaultWT: No connection context for datagram on conn_id {}", conn_id);
             }
             break;
         }
 
         case picohttp_callback_provide_datagram: {
             // Stack is ready to send a datagram
-            auto conn_ctx = transport->GetConnContext(conn_id);
-            if (conn_ctx) {
+            if (auto conn_ctx = GetConnCtxForWT(transport, conn_id, wt_event)) {
                 conn_ctx->metrics.tx_dgram_cb++;
                 transport->SendNextDatagram(conn_ctx, bytes, length);
 
@@ -735,8 +756,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             transport->logger->warn("DefaultWT: {} for stream {} on connection {}",
                                     wt_event_to_string(wt_event), stream_id, conn_id);
 
-            auto conn_ctx = transport->GetConnContext(conn_id);
-            if (conn_ctx) {
+            if (auto conn_ctx = transport->GetConnContext(conn_id)) {
                 if (conn_ctx->wt_control_stream_ctx &&
                     !conn_ctx->wt_control_stream_ctx->ps.stream_state.is_fin_sent) {
                     picowt_send_close_session_message(cnx, conn_ctx->wt_control_stream_ctx,
@@ -749,19 +769,39 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                     transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::Reset);
                 }
 
-                // Get data context from WebTransport stream mapping and clear stream_id
-                auto stream_to_ctx_it = conn_ctx->wt_stream_to_data_ctx.find(stream_id);
-                if (stream_to_ctx_it != conn_ctx->wt_stream_to_data_ctx.end()) {
-                    auto data_ctx_it = conn_ctx->active_data_contexts.find(stream_to_ctx_it->second);
-                    if (data_ctx_it != conn_ctx->active_data_contexts.end()) {
-                        data_ctx_it->second.current_stream_id = std::nullopt;
-                    }
-                    // Remove from WebTransport stream mapping
-                    conn_ctx->wt_stream_to_data_ctx.erase(stream_to_ctx_it);
-                }
+                ClearDataCtxStream(conn_ctx, stream_id);
             }
 
-            picoquic_reset_stream_ctx(cnx, stream_id);
+            // Use picowt_reset_stream to properly reset the WebTransport stream
+            picowt_reset_stream(cnx, stream_ctx, 0);
+
+            break;
+        }
+
+        case picohttp_callback_stop_sending: {
+            // Peer wants to abandon receiving on the stream
+            if (!stream_ctx) {
+                transport->logger->warn("DefaultWT: {} with null stream_ctx", wt_event_to_string(wt_event));
+                return -1;
+            }
+
+            uint64_t stream_id = stream_ctx->stream_id;
+
+            transport->logger->warn("DefaultWT: {} for stream {} on connection {}",
+                                    wt_event_to_string(wt_event), stream_id, conn_id);
+
+            if (auto conn_ctx = transport->GetConnContext(conn_id)) {
+                auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
+                if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
+                    rx_buf_it->second.closed = true;
+                    transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::Reset);
+                }
+
+                ClearDataCtxStream(conn_ctx, stream_id);
+            }
+
+            // Use picowt_reset_stream to properly reset the WebTransport stream
+            picowt_reset_stream(cnx, stream_ctx, 0);
 
             break;
         }
@@ -920,6 +960,9 @@ PicoQuicTransport::Start()
         SPDLOG_LOGGER_CRITICAL(logger, "Unable to create picoquic context, check certificate and key filenames");
         throw PicoQuicException("Unable to create picoquic context");
     }
+
+    // Set WebTransport default transport parameters (enables reset_stream_at)
+    picowt_set_default_transport_parameters(quic_ctx_);
 
     if (config_.enable_sslkeylog) {
         if (std::getenv("SSLKEYLOGFILE") == nullptr) {
