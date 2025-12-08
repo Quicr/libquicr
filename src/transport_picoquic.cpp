@@ -2825,9 +2825,18 @@ PicoQuicTransport::MarkDgramReady(const TransportConnId conn_id)
         return;
     }
 
-    picoquic_mark_datagram_ready(conn_it->second.pq_cnx, 1);
+    auto& conn_ctx = conn_it->second;
 
-    conn_it->second.mark_dgram_ready = false;
+    if (conn_ctx.transport_mode == TransportMode::kWebTransport && conn_ctx.wt_control_stream_ctx) {
+        // WebTransport requires using h3zero_set_datagram_ready to set the ready_to_send_datagrams
+        // flag on the stream prefix, which triggers the picohttp_callback_provide_datagram callback
+        h3zero_set_datagram_ready(conn_ctx.pq_cnx, conn_ctx.wt_control_stream_ctx->stream_id);
+    } else {
+        // Raw QUIC mode uses picoquic_mark_datagram_ready directly
+        picoquic_mark_datagram_ready(conn_ctx.pq_cnx, 1);
+    }
+
+    conn_ctx.mark_dgram_ready = false;
 }
 
 const char* PicoQuicTransport::GetAlpn() const
