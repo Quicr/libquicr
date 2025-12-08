@@ -1828,9 +1828,6 @@ namespace quicr {
         uint64_t track_alias = 0;
         uint8_t priority = 0;
 
-        SPDLOG_LOGGER_INFO(logger_, "OnRecvSubgroup: Type {}, conn {}, stream {}, data size {}",
-                           static_cast<int>(type), conn_ctx.connection_handle, stream_id, data->size());
-
         try {
             // First header in subgroup starts with track alias
             auto ta_sz = UintVar::Size(*cursor_it);
@@ -1869,7 +1866,6 @@ namespace quicr {
 
         rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
         sub_it->second->SetPriority(priority);
-        SPDLOG_LOGGER_INFO(logger_, "OnRecvSubgroup: Invoking  StreamDataRecv stream {}, data size {}", stream_id, data->size());
         sub_it->second->StreamDataRecv(true, stream_id, std::move(data));
         return true;
     }

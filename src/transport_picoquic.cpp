@@ -577,13 +577,13 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
     switch (wt_event) {
         case picohttp_callback_connecting:
             // Called when initiating WebTransport connect
-            transport->logger->debug("DefaultWT: {} for connection {}", wt_event_to_string(wt_event), conn_id);
+            transport->logger->trace("DefaultWT: {} for connection {}", wt_event_to_string(wt_event), conn_id);
             break;
 
         case picohttp_callback_connect:
             /* A connect has been received on this stream, and could be accepted.
              */
-            transport->logger->debug("DefaultWT: {} connect received on path for connection {}", wt_event_to_string(wt_event), conn_id);
+            transport->logger->trace("DefaultWT: {} connect received on path for connection {}", wt_event_to_string(wt_event), conn_id);
 
             if (transport->is_server_mode) {
                 // Accept the incoming WebTransport connection
@@ -602,7 +602,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             break;
 
         case picohttp_callback_connect_accepted:
-            transport->logger->debug("DefaultWT: {} for connection {}, h3 stream {}",
+            transport->logger->trace("DefaultWT: {} for connection {}, h3 stream {}",
                                      wt_event_to_string(wt_event),
                                      conn_id, stream_ctx->stream_id);
 
@@ -614,14 +614,14 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         case picohttp_callback_post_fin: {
             // Data received on a stream - similar to picoquic_callback_stream_data in PqEventCb
             if (!stream_ctx) {
-                transport->logger->warn("DefaultWT: {} with null stream_ctx", wt_event_to_string(wt_event));
+                transport->logger->trace("DefaultWT: {} with null stream_ctx", wt_event_to_string(wt_event));
                 return -1;
             }
 
             uint64_t stream_id = stream_ctx->stream_id;
             bool is_fin = (wt_event == picohttp_callback_post_fin);
 
-            transport->logger->debug("DefaultWT: {} received {} bytes on stream {} for connection {}, is_fin {}",
+            transport->logger->trace("DefaultWT: {} received {} bytes on stream {} for connection {}, is_fin {}",
                                      wt_event_to_string(wt_event), length, stream_id, conn_id, is_fin);
 
             auto conn_ctx = GetConnCtxForWT(transport, conn_id, wt_event);
@@ -661,7 +661,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             }
 
             if (is_fin) {
-                transport->logger->debug("DefaultWT: {} Received FIN for connection{}, stream {}",
+                transport->logger->trace("DefaultWT: {} Received FIN for connection{}, stream {}",
                                          wt_event_to_string(wt_event), conn_id, stream_id);
 
                 picoquic_reset_stream_ctx(cnx, stream_id);
@@ -689,9 +689,9 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             uint64_t stream_id = stream_ctx->stream_id;
 
-            transport->logger->info("DefaultWT: {} for connection {}, h3 stream {}",
-                                    wt_event_to_string(wt_event),
-                                    conn_id, stream_id);
+            transport->logger->trace("DefaultWT: {} for connection {}, h3 stream {}",
+                                     wt_event_to_string(wt_event),
+                                     conn_id, stream_id);
 
             auto conn_ctx = GetConnCtxForWT(transport, conn_id, wt_event);
             if (!conn_ctx) {
@@ -722,7 +722,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
         case picohttp_callback_post_datagram: {
             // Datagram received
-            transport->logger->debug("DefaultWT: {} received {} bytes for connection {}",
+            transport->logger->trace("DefaultWT: {} received {} bytes for connection {}",
                                      wt_event_to_string(wt_event), length, conn_id);
 
             if (auto conn_ctx = GetConnCtxForWT(transport, conn_id, wt_event)) {
@@ -753,8 +753,8 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             uint64_t stream_id = stream_ctx->stream_id;
 
-            transport->logger->warn("DefaultWT: {} for stream {} on connection {}",
-                                    wt_event_to_string(wt_event), stream_id, conn_id);
+            transport->logger->trace("DefaultWT: {} for stream {} on connection {}",
+                                     wt_event_to_string(wt_event), stream_id, conn_id);
 
             if (auto conn_ctx = transport->GetConnContext(conn_id)) {
                 if (conn_ctx->wt_control_stream_ctx &&
@@ -787,8 +787,8 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             uint64_t stream_id = stream_ctx->stream_id;
 
-            transport->logger->warn("DefaultWT: {} for stream {} on connection {}",
-                                    wt_event_to_string(wt_event), stream_id, conn_id);
+            transport->logger->trace("DefaultWT: {} for stream {} on connection {}",
+                                     wt_event_to_string(wt_event), stream_id, conn_id);
 
             if (auto conn_ctx = transport->GetConnContext(conn_id)) {
                 auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
@@ -808,13 +808,13 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
         case picohttp_callback_free:
             // Clean up the stream
-            transport->logger->debug("DefaultWT: {} callback for connection {}", wt_event_to_string(wt_event), conn_id);
+            transport->logger->trace("DefaultWT: {} callback for connection {}", wt_event_to_string(wt_event), conn_id);
             break;
 
         case picohttp_callback_deregister: {
             // The app context has been removed from the registry.
             // Its references should be removed from streams belonging to this session.
-            transport->logger->debug("DefaultWT: {} callback for connection {}", wt_event_to_string(wt_event), conn_id);
+            transport->logger->trace("DefaultWT: {} callback for connection {}", wt_event_to_string(wt_event), conn_id);
 
             transport->DeregisterWebTransport(cnx);
 
@@ -826,9 +826,6 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         }
 
         default:
-            //  Unknown event
-            transport->logger->warn("DefaultWT: {} callback event for connection {}",
-                                    wt_event_to_string(wt_event), conn_id);
             return -1;
     }
 
@@ -1057,7 +1054,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
                            [[maybe_unused]] const uint32_t delay_ms,
                            const EnqueueFlags flags)
 {
-    SPDLOG_LOGGER_INFO(
+    SPDLOG_LOGGER_TRACE(
       logger, "Enqueue conn_id: {0} data_ctx_id: {1}, size: {2}, new_stream ?: {3}",
       conn_id, data_ctx_id, bytes->size(), flags.new_stream);
 
@@ -1916,12 +1913,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
         return;
     }
 
-    SPDLOG_LOGGER_ERROR(logger,
-                        "conn_id: {0} data_ctx_id: {1} priority: {2} sendin pq buffer size: {3}",
-                        data_ctx->conn_id,
-                        data_ctx->data_ctx_id,
-                        static_cast<int>(data_ctx->priority),
-                        data_len);
     // Write data
     std::memcpy(buf, data_ctx->stream_tx_object->data() + offset, data_len);
 
@@ -2017,14 +2008,6 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                      int is_fin,
                                      std::span<const uint8_t> bytes)
 try {
-
-    SPDLOG_LOGGER_INFO(logger,
-                        "OnRecvStreamBytes: conn_id={}, stream_id={}, is_fin={}, len={}",
-                        conn_ctx->conn_id,
-                        stream_id,
-                        is_fin,
-                        bytes.size());
-
     std::lock_guard<std::mutex> l(state_mutex_);
 
     // Handle control stream message processing for WebTransport mode
@@ -2674,7 +2657,6 @@ PicoQuicTransport::CbNotifier()
 void
 PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_ctx)
 {
-    SPDLOG_LOGGER_INFO(logger, "CreateStream connection {} data_context {}", conn_ctx.conn_id, data_ctx->data_ctx_id);
 
     if (data_ctx->current_stream_id) {
         CloseStream(conn_ctx, data_ctx, false);
@@ -2711,12 +2693,6 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
         // Set callback and context for the stream
         stream_ctx->path_callback = DefaultWebTransportCallback;
         stream_ctx->path_callback_ctx = this;
-
-        SPDLOG_LOGGER_INFO(logger,
-                            "CreateStream: conn_id: {0} data_ctx_id: {1} created WebTransport stream with stream_id: {2}",
-                            conn_ctx.conn_id,
-                            data_ctx->data_ctx_id,
-                            stream_ctx->stream_id);
     } else {
         // For raw QUIC, use the traditional approach
         conn_ctx.last_stream_id = picoquic_get_next_local_stream_id(conn_ctx.pq_cnx, !data_ctx->is_bidir);
