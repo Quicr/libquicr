@@ -12,9 +12,9 @@
 #include <picoquic.h>
 #include <picoquic_config.h>
 #include <picoquic_packet_loop.h>
-#include <tls_api.h>
 #include <quicr/detail/quic_transport.h>
 #include <spdlog/spdlog.h>
+#include <tls_api.h>
 
 // WebTransport headers
 #include <h3zero.h>
@@ -49,8 +49,9 @@ namespace quicr {
      */
     constexpr int kMinStreamBytesForSend = 2;
 
-    enum class TransportMode {
-        kQuic,       // Raw QUIC transport with moq-00 ALPN
+    enum class TransportMode
+    {
+        kQuic,        // Raw QUIC transport with moq-00 ALPN
         kWebTransport // WebTransport over HTTP/3 with h3 ALPN
     };
 
@@ -144,7 +145,7 @@ namespace quicr {
             picoquic_cnx_t* pq_cnx = nullptr; /// Picoquic connection/path context
             uint64_t last_stream_id{ 0 };     /// last stream Id
 
-            bool mark_dgram_ready{ false }; /// Instructs datagram to be marked ready/active
+            bool mark_dgram_ready{ false };                       /// Instructs datagram to be marked ready/active
             TransportMode transport_mode{ TransportMode::kQuic }; /// Transport mode for this connection
 
             DataContextId next_data_ctx_id{ 1 }; /// Next data context ID; zero is reserved for default context
@@ -203,7 +204,6 @@ namespace quicr {
             /// WebTransport capsule accumulator for control stream message parsing
             /// Used to parse CLOSE_WEBTRANSPORT_SESSION and other capsules
             picowt_capsule_t wt_capsule{};
-
 
             char peer_addr_text[45]{ 0 };
             uint16_t peer_port{ 0 };
@@ -313,8 +313,8 @@ namespace quicr {
         std::shared_ptr<StreamRxContext> GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) override;
 
         int CloseWebTransportSession(TransportConnId conn_id,
-                                    uint32_t error_code,
-                                    const char* error_msg = nullptr) override;
+                                     uint32_t error_code,
+                                     const char* error_msg = nullptr) override;
 
         int DrainWebTransportSession(TransportConnId conn_id) override;
 
@@ -345,8 +345,6 @@ namespace quicr {
                                          uint8_t* path,
                                          size_t path_length,
                                          h3zero_stream_ctx_t* stream_ctx);
-
-
 
         /**
          * @brief Create bidirectional data context for received new stream
@@ -415,7 +413,7 @@ namespace quicr {
         bool is_server_mode;
         bool is_unidirectional{ false };
         bool debug{ false };
-        TransportMode transport_mode_{ TransportMode::kQuic };
+        TransportMode transport_mode{ TransportMode::kQuic };
 
       private:
         void DeleteDataContextInternal(TransportConnId conn_id, DataContextId data_ctx_id, bool delete_on_empty);
@@ -469,8 +467,8 @@ namespace quicr {
          * @param app_ctx Application context to pass to the callback
          */
         void SetWebTransportPathCallback(const std::string& path,
-                                        picohttp_post_data_cb_fn callback = nullptr,
-                                        void* app_ctx = nullptr);
+                                         picohttp_post_data_cb_fn callback = nullptr,
+                                         void* app_ctx = nullptr);
 
         /**
          * @brief Create a local WebTransport stream
@@ -548,9 +546,9 @@ namespace quicr {
         // WebTransport configuration (server-wide, not per-connection)
         struct WebTransportConfig
         {
-            std::string path{ "/relay" };                     /// WebTransport path (default: "/relay" - only this path is accepted)
-            picohttp_post_data_cb_fn path_callback = nullptr; /// WebTransport path callback function
-            void* path_app_ctx = nullptr;                     /// Application context for path callback
+            std::string path{ "/relay" }; /// WebTransport path (default: "/relay" - only this path is accepted)
+            picohttp_post_data_cb_fn path_callback = nullptr;    /// WebTransport path callback function
+            void* path_app_ctx = nullptr;                        /// Application context for path callback
             std::vector<picohttp_server_path_item_t> path_items; /// Server path items for WebTransport
         };
 

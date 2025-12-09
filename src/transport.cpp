@@ -6,9 +6,9 @@
 #include "quicr/detail/ctrl_messages.h"
 #include "quicr/detail/messages.h"
 
+#include <iomanip>
 #include <quicr/detail/joining_fetch_handler.h>
 #include <sstream>
-#include <iomanip>
 
 namespace quicr {
     using namespace quicr::messages;
@@ -31,8 +31,8 @@ namespace quicr {
     {
     }
 
-    static std::string
-    to_hex(std::vector<uint8_t> data)
+    [[maybe_unused]]
+    static std::string ToHex(std::vector<uint8_t> data)
     {
         std::stringstream hex(std::ios_base::out);
         hex.flags(std::ios::hex);
@@ -42,29 +42,30 @@ namespace quicr {
         return hex.str();
     }
 
-    static std::optional<std::tuple<std::string, uint16_t, TransportProtocol>> ParseConnectUri(const std::string& connect_uri)
+    static std::optional<std::tuple<std::string, uint16_t, TransportProtocol>> ParseConnectUri(
+      const std::string& connect_uri)
     {
         // Support moq://, moqt://, https:// (for WebTransport)
         std::string proto;
         TransportProtocol transport_proto = TransportProtocol::kQuic;
-        
+
         const std::string moq_proto = "moq://";
         const std::string moqt_proto = "moqt://";
         const std::string https_proto = "https://";
-        
+
         auto it = connect_uri.begin();
-        
-        if (auto moq_it = std::search(it, connect_uri.end(), moq_proto.begin(), moq_proto.end()); 
+
+        if (auto moq_it = std::search(it, connect_uri.end(), moq_proto.begin(), moq_proto.end());
             moq_it != connect_uri.end()) {
             proto = moq_proto;
             transport_proto = TransportProtocol::kQuic;
             it = moq_it;
-        } else if (auto moqt_it = std::search(it, connect_uri.end(), moqt_proto.begin(), moqt_proto.end()); 
+        } else if (auto moqt_it = std::search(it, connect_uri.end(), moqt_proto.begin(), moqt_proto.end());
                    moqt_it != connect_uri.end()) {
             proto = moqt_proto;
             transport_proto = TransportProtocol::kQuic;
             it = moqt_it;
-        } else if (auto https_it = std::search(it, connect_uri.end(), https_proto.begin(), https_proto.end()); 
+        } else if (auto https_it = std::search(it, connect_uri.end(), https_proto.begin(), https_proto.end());
                    https_it != connect_uri.end()) {
             proto = https_proto;
             transport_proto = TransportProtocol::kWebTransport;
@@ -1310,11 +1311,12 @@ namespace quicr {
         }
 
         track_handler->connection_handle_ = conn_id;
-        SPDLOG_LOGGER_INFO(logger_,
-                           "Publish track creating new data context connId {0}, track namespace hash: {1}, name hash: {2}",
-                           conn_id,
-                           th.track_namespace_hash,
-                           th.track_name_hash);
+        SPDLOG_LOGGER_INFO(
+          logger_,
+          "Publish track creating new data context connId {0}, track namespace hash: {1}, name hash: {2}",
+          conn_id,
+          th.track_namespace_hash,
+          th.track_name_hash);
         track_handler->publish_data_ctx_id_ =
           quic_transport_->CreateDataContext(conn_id,
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
@@ -1622,14 +1624,14 @@ namespace quicr {
 
             // CONTROL STREAM
             if (is_bidir) {
-                //auto blob = to_hex(data);
+                // auto blob = to_hex(data);
                 conn_ctx.ctrl_msg_buffer.insert(conn_ctx.ctrl_msg_buffer.end(), data.begin(), data.end());
                 rx_ctx->data_queue.PopFront();
-                SPDLOG_LOGGER_INFO(logger_, "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
                                    conn_id,
                                    stream_id,
                                    conn_ctx.ctrl_msg_buffer.size());
-
 
                 if (not conn_ctx.ctrl_data_ctx_id) {
                     if (not data_ctx_id) {
