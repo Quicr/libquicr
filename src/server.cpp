@@ -653,6 +653,18 @@ namespace quicr {
                 TrackStatusResponseReceived(conn_ctx.connection_handle, msg.request_id, response);
                 return true;
             }
+
+            case messages::ControlMessageType::kPublishNamespaceOk: {
+                auto msg = messages::PublishNamespaceOk{};
+                msg_bytes >> msg;
+
+                SPDLOG_LOGGER_INFO(logger_,
+                                   "Received publish namespace ok for request_id: {}, ignoring",
+                                   msg.request_id);
+
+                return true;
+            }
+
             case messages::ControlMessageType::kPublishNamespace: {
                 auto msg = messages::PublishNamespace{};
                 msg_bytes >> msg;
