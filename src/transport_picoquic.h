@@ -550,6 +550,7 @@ namespace quicr {
             picohttp_post_data_cb_fn path_callback = nullptr;    /// WebTransport path callback function
             void* path_app_ctx = nullptr;                        /// Application context for path callback
             std::vector<picohttp_server_path_item_t> path_items; /// Server path items for WebTransport
+            picohttp_server_parameters_t server_params{};        /// Server parameters (must persist for ALPN callback)
         };
 
         std::optional<WebTransportConfig> wt_config_;

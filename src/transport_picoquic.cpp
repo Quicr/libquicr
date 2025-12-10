@@ -940,11 +940,12 @@ PicoQuicTransport::Start()
         // Store path items in the class member to ensure memory persists after Start() returns
         wt_config_->path_items = { { "/relay", 6, DefaultWebTransportCallback, this } };
 
-        picohttp_server_parameters_t picoquic_file_param;
-        memset(&picoquic_file_param, 0, sizeof(picohttp_server_parameters_t));
-        picoquic_file_param.path_table = wt_config_->path_items.data();
-        picoquic_file_param.path_table_nb = wt_config_->path_items.size();
-        quic_ctx_ = picoquic_create_and_configure(&config_, NULL, &picoquic_file_param, current_time, NULL);
+        // Store server_params in class member so it persists for the ALPN callback
+        // The ALPN callback uses path_table[0].path_app_ctx to get the transport pointer for raw QUIC
+        memset(&wt_config_->server_params, 0, sizeof(picohttp_server_parameters_t));
+        wt_config_->server_params.path_table = wt_config_->path_items.data();
+        wt_config_->server_params.path_table_nb = wt_config_->path_items.size();
+        quic_ctx_ = picoquic_create_and_configure(&config_, NULL, &wt_config_->server_params, current_time, NULL);
         picoquic_set_alpn_select_fn(quic_ctx_, PqAlpnSelectCb);
         picoquic_use_unique_log_names(quic_ctx_, 1);
     } else {
@@ -1000,11 +1001,10 @@ PicoQuicTransport::Start()
     cbNotifyQueue_.SetLimit(tconfig_.callback_queue_size);
     cbNotifyThread_ = std::thread(&PicoQuicTransport::CbNotifier, this);
 
-    // if (!tconfig_.quic_qlog_path.empty()) {
-    SPDLOG_LOGGER_INFO(logger, "Enabling qlog using '{0}' path", tconfig_.quic_qlog_path);
-    std::string qlog_path = "/Users/snk/Downloads";
-    picoquic_set_qlog(quic_ctx_, qlog_path.c_str());
-    //}
+    if (!tconfig_.quic_qlog_path.empty()) {
+        SPDLOG_LOGGER_INFO(logger, "Enabling qlog using '{0}' path", tconfig_.quic_qlog_path);
+        picoquic_set_qlog(quic_ctx_, tconfig_.quic_qlog_path.c_str());
+    }
 
     TransportConnId cid = 0;
     std::ostringstream log_msg;
