@@ -390,8 +390,6 @@ namespace quicr::messages {
           static_cast<uint8_t>(StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions),
         kSubgroup0NotEndOfGroupWithExtensions =
           static_cast<uint8_t>(StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions),
-        kEndOfGroupNoExtensions = static_cast<uint8_t>(StreamHeaderType::kSubgroup0EndOfGroupNoExtensions),
-        kEndOfGroupWithExtensions = static_cast<uint8_t>(StreamHeaderType::kSubgroup0EndOfGroupWithExtensions),
         kSubgroupFirstObjectNotEndOfGroupNoExtensions =
           static_cast<uint8_t>(StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions),
         kSubgroupFirstObjectNotEndOfGroupWithExtensions =
@@ -485,12 +483,12 @@ namespace quicr::messages {
         switch (type) {
             case StreamMessageType::kSubgroup0NotEndOfGroupNoExtensions:
             case StreamMessageType::kSubgroup0NotEndOfGroupWithExtensions:
-            case StreamMessageType::kEndOfGroupNoExtensions:
-            case StreamMessageType::kEndOfGroupWithExtensions:
             case StreamMessageType::kSubgroupFirstObjectNotEndOfGroupNoExtensions:
             case StreamMessageType::kSubgroupFirstObjectNotEndOfGroupWithExtensions:
             case StreamMessageType::kSubgroupExplicitNotEndOfGroupNoExtensions:
             case StreamMessageType::kSubgroupExplicitNotEndOfGroupWithExtensions:
+            case StreamMessageType::kSubgroup0EndOfGroupNoExtensions:
+            case StreamMessageType::kSubgroup0EndOfGroupWithExtensions:
             case StreamMessageType::kSubgroupFirstObjectEndOfGroupNoExtensions:
             case StreamMessageType::kSubgroupFirstObjectEndOfGroupWithExtensions:
             case StreamMessageType::kSubgroupExplicitEndOfGroupNoExtensions:
