@@ -154,15 +154,16 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
     {
         SPDLOG_CRITICAL("ExampleServer: ObjectReceived: track_alias: {0} group_id: {1} object_id: {2} data size: {3}",
-                    GetTrackAlias().value(),
-                    object_headers.group_id,
-                    object_headers.object_id,
-                    data.size());
+                        GetTrackAlias().value(),
+                        object_headers.group_id,
+                        object_headers.object_id,
+                        data.size());
 
         if (data.size() > 255) {
             SPDLOG_CRITICAL("Example server is for example only, received data > 255 bytes is not allowed!");
             SPDLOG_CRITICAL("Use github.com/quicr/laps for full relay functionality");
-            //throw std::runtime_error("Example server is for example only, received data > 255 bytes is not allowed!");
+            // throw std::runtime_error("Example server is for example only, received data > 255 bytes is not
+            // allowed!");
         }
 
         latest_group_ = object_headers.group_id;
@@ -203,7 +204,8 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         // Fan out to all subscribers
         try {
             for (const auto& [conn_id, pth] : sub_it->second) {
-                SPDLOG_CRITICAL("ExampleServer, Publishing Object Alias {0}, Data: {1} ", pth->GetTrackAlias().value(), data.size());
+                SPDLOG_CRITICAL(
+                  "ExampleServer, Publishing Object Alias {0}, Data: {1} ", pth->GetTrackAlias().value(), data.size());
                 pth->PublishObject(object_headers, data);
             }
         } catch (const std::exception& e) {

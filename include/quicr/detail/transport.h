@@ -453,7 +453,7 @@ namespace quicr {
             /// Subscribe Namespace prefix by request Id
             std::map<messages::RequestID, TrackNamespace> sub_namespace_prefix_by_request_id;
 
-            ConnectionMetrics metrics{}; ///< Connection metrics
+            ConnectionMetrics metrics{};   ///< Connection metrics
             bool is_webtransport{ false }; ///< True if this connection uses WebTransport over HTTP/3
 
             ConnectionContext() { ctrl_msg_buffer.reserve(kControlMessageBufferSize); }

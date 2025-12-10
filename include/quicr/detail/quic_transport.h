@@ -516,8 +516,8 @@ namespace quicr {
          * @returns 0 on success, -1 on failure (e.g., not a WebTransport connection)
          */
         virtual int CloseWebTransportSession(TransportConnId conn_id,
-                                           uint32_t error_code,
-                                           const char* error_msg = nullptr) = 0;
+                                             uint32_t error_code,
+                                             const char* error_msg = nullptr) = 0;
 
         /**
          * @brief Drain a WebTransport session gracefully

@@ -545,7 +545,8 @@ class MyClient : public quicr::Client
                         largest_location.value().object);
         }
 
-        if (largest_location.has_value() && (start.group > end->group || largest_location.value().group < start.group)) {
+        if (largest_location.has_value() &&
+            (start.group > end->group || largest_location.value().group < start.group)) {
             reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
         }
 
@@ -1073,7 +1074,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();
     config.transport_config.ssl_keylog = cli_opts["ssl_keylog"].as<bool>();
-    
+
     // Handle transport protocol override
     std::string transport_type = cli_opts["transport"].as<std::string>();
     if (transport_type == "webtransport") {
