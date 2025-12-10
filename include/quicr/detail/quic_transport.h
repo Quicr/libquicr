@@ -78,9 +78,10 @@ namespace quicr {
      */
     struct TransportRemote
     {
-        std::string host_or_ip;  /// IPv4/v6 or FQDN (user input)
-        uint16_t port;           /// Port (user input)
-        TransportProtocol proto; /// Protocol to use for the transport
+        std::string host_or_ip;      /// IPv4/v6 or FQDN (user input)
+        uint16_t port;               /// Port (user input)
+        TransportProtocol proto;     /// Protocol to use for the transport
+        std::string path{ "relay" }; /// When using WT, the path to use
     };
 
     /**

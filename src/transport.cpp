@@ -42,7 +42,7 @@ namespace quicr {
         return hex.str();
     }
 
-    static std::optional<std::tuple<std::string, uint16_t, TransportProtocol>> ParseConnectUri(
+    static std::optional<std::tuple<std::string, uint16_t, TransportProtocol, std::string>> ParseConnectUri(
       const std::string& connect_uri)
     {
         // Support moq://, moqt://, https:// (for WebTransport)
@@ -74,47 +74,54 @@ namespace quicr {
             return std::nullopt;
         }
 
-        // move to end for moq://
+        // move to end of proto://
         std::advance(it, proto.length());
 
         std::string address_str;
-        std::string port_str;
-        uint16_t port = 0;
+        std::string path_str;
+        uint16_t port = 0; // 0 indicates no port specified
 
-        do {
-            auto colon = std::find(it, connect_uri.end(), ':');
-            if (address_str.empty() && colon == connect_uri.end()) {
-                break;
-            }
+        // Find first ':' (port) or '/' (path)
+        auto colon_it = std::find(it, connect_uri.end(), ':');
+        auto slash_it = std::find(it, connect_uri.end(), '/');
 
-            if (address_str.empty()) {
-                // parse resource id
-                address_str.reserve(distance(it, colon));
-                address_str.assign(it, colon);
-                std::advance(it, address_str.length());
-                it++;
-                continue;
-            }
+        // Determine where address ends
+        auto address_end_it = std::min(colon_it, slash_it);
 
-            auto slash = std::find(it, connect_uri.end(), '/');
+        // Parse address (everything before ':' or '/' or end)
+        address_str.assign(it, address_end_it);
 
-            if (port_str.empty()) {
-                // parse client/sender id
-                port_str.reserve(distance(it, slash));
-                port_str.assign(it, slash);
-                std::advance(it, port_str.length());
-                port = stoi(port_str, nullptr);
-                it++;
-                break;
-            }
-
-        } while (it != connect_uri.end());
-
-        if (address_str.empty() || port_str.empty()) {
+        if (address_str.empty()) {
             return std::nullopt;
         }
 
-        return std::make_tuple(address_str, port, transport_proto);
+        it = address_end_it;
+
+        // Parse port if present (: comes before /)
+        if (it != connect_uri.end() && *it == ':') {
+            ++it; // skip ':'
+
+            // Find where port ends (at '/' or end of string)
+            auto port_end_it = std::find(it, connect_uri.end(), '/');
+
+            std::string port_str(it, port_end_it);
+            if (!port_str.empty()) {
+                try {
+                    port = static_cast<uint16_t>(std::stoi(port_str));
+                } catch (...) {
+                    return std::nullopt; // Invalid port number
+                }
+            }
+
+            it = port_end_it;
+        }
+
+        // Parse path if present (starts with '/')
+        if (it != connect_uri.end() && *it == '/') {
+            path_str.assign(it, connect_uri.end()); // Include the leading '/'
+        }
+
+        return std::make_tuple(address_str, port, transport_proto, path_str);
     }
 
     Transport::Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service)
@@ -178,10 +185,11 @@ namespace quicr {
             if (!parse_result) {
                 return Status::kInvalidParams;
             }
-            auto [address, port, protocol] = parse_result.value();
+            auto [address, port, protocol, path] = parse_result.value();
             relay.host_or_ip = address;
             relay.port = port;
             relay.proto = protocol;
+            relay.path = path;
 
             quic_transport_ =
               ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);

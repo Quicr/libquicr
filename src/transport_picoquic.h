@@ -546,7 +546,7 @@ namespace quicr {
         // WebTransport configuration (server-wide, not per-connection)
         struct WebTransportConfig
         {
-            std::string path{ "/relay" }; /// WebTransport path (default: "/relay" - only this path is accepted)
+            std::string path;                                    /// WebTransport path
             picohttp_post_data_cb_fn path_callback = nullptr;    /// WebTransport path callback function
             void* path_app_ctx = nullptr;                        /// Application context for path callback
             std::vector<picohttp_server_path_item_t> path_items; /// Server path items for WebTransport

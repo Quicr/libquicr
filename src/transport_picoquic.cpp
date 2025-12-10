@@ -938,7 +938,7 @@ PicoQuicTransport::Start()
         SPDLOG_LOGGER_DEBUG(logger, "Start: As Server, configuring WebTransport Path Params");
 
         // Store path items in the class member to ensure memory persists after Start() returns
-        wt_config_->path_items = { { "/relay", 6, DefaultWebTransportCallback, this } };
+        wt_config_->path_items = { { serverInfo_.path.c_str(), 6, DefaultWebTransportCallback, this } };
 
         // Store server_params in class member so it persists for the ALPN callback
         // The ALPN callback uses path_table[0].path_app_ctx to get the transport pointer for raw QUIC
@@ -2880,7 +2880,7 @@ PicoQuicTransport::InitializeWebTransportContext()
 
     if (!wt_config_) {
         wt_config_ = WebTransportConfig{};
-        wt_config_->path = "/relay"; // Only accept WebTransport connections to /relay path
+        wt_config_->path = serverInfo_.path; // Only accept WebTransport connections to /relay path
         wt_config_->path_callback = DefaultWebTransportCallback;
         wt_config_->path_app_ctx = this; // Default app context is this transport instance
     }
