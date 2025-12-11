@@ -762,15 +762,10 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             uint64_t stream_id = stream_ctx->stream_id;
 
-            transport->logger->trace(
+            transport->logger->debug(
               "DefaultWT: {} for stream {} on connection {}", WtEventToString(wt_event), stream_id, conn_id);
 
             if (auto conn_ctx = transport->GetConnContext(conn_id)) {
-                if (conn_ctx->wt_control_stream_ctx && !conn_ctx->wt_control_stream_ctx->ps.stream_state.is_fin_sent) {
-                    picowt_send_close_session_message(
-                      cnx, conn_ctx->wt_control_stream_ctx, 0x03, "Stream has been reset");
-                }
-
                 auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
                 if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                     rx_buf_it->second.closed = true;
@@ -1175,11 +1170,10 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
     std::lock_guard<std::mutex> _(state_mutex_);
 
     if (priority > 127) {
-        /*
-         * Picoquic most significant bit of priority indicates to use round-robin. We don't want
-         *      to use round-robin of same priorities right now.
-         */
-        throw std::runtime_error("Create stream priority cannot be greater than 127, range is 0 - 127");
+        auto new_priority = priority >> 1;
+        SPDLOG_LOGGER_DEBUG(
+          logger, "Priority is greater than allowed by picoquic, adjusting from {} to {}", priority, new_priority);
+        priority = new_priority;
     }
 
     const auto conn_it = conn_context_.find(conn_id);
@@ -2015,6 +2009,12 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                      int is_fin,
                                      std::span<const uint8_t> bytes)
 try {
+    // Handle application stream data
+    if (bytes.empty()) {
+        SPDLOG_LOGGER_DEBUG(logger, "on_recv_stream_bytes length is ZERO");
+        return;
+    }
+
     std::lock_guard<std::mutex> l(state_mutex_);
 
     // Handle control stream message processing for WebTransport mode
@@ -2086,12 +2086,6 @@ try {
             }
         }
 
-        return;
-    }
-
-    // Handle application stream data
-    if (bytes.empty()) {
-        SPDLOG_LOGGER_DEBUG(logger, "on_recv_stream_bytes length is ZERO");
         return;
     }
 

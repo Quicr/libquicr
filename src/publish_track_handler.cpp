@@ -262,24 +262,23 @@ namespace quicr {
                     subgroup_hdr.track_alias = GetTrackAlias().value();
                     object_msg_buffer_ << subgroup_hdr;
 
-                    auto result = transport->Enqueue(
-                      GetConnectionId(),
-                      publish_data_ctx_id_,
-                      group_id,
-                      std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-                      priority,
-                      ttl,
-                      0,
-                      eflags);
+                    /*
+                                        auto result = transport->Enqueue(
+                                          GetConnectionId(),
+                                          publish_data_ctx_id_,
+                                          group_id,
+                                          std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(),
+                       object_msg_buffer_.end()), priority, ttl, 0, eflags);
 
-                    object_msg_buffer_.clear();
+                                        object_msg_buffer_.clear();
+                    */
                     eflags.new_stream = false;
                     eflags.clear_tx_queue = false;
                     eflags.use_reset = false;
 
-                    if (result != TransportError::kNone) {
-                        throw TransportException(result);
-                    }
+                    // if (result != TransportError::kNone) {
+                    //     throw TransportException(result);
+                    // }
                 }
 
                 messages::StreamSubGroupObject object;

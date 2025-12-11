@@ -658,9 +658,8 @@ namespace quicr {
                 auto msg = messages::PublishNamespaceOk{};
                 msg_bytes >> msg;
 
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Received publish namespace ok for request_id: {}, ignoring",
-                                   msg.request_id);
+                SPDLOG_LOGGER_INFO(
+                  logger_, "Received publish namespace ok for request_id: {}, ignoring", msg.request_id);
 
                 return true;
             }

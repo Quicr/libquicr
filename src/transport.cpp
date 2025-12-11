@@ -222,6 +222,7 @@ namespace quicr {
         // The transport mode is determined per-connection based on ALPN negotiation.
         // Any value can be set here; it won't affect server behavior.
         server.proto = TransportProtocol::kQuic; // Ignored by server
+        server.path = "/relay";
 
         quic_transport_ =
           ITransport::MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
@@ -482,23 +483,24 @@ namespace quicr {
             throw std::runtime_error("Absolute filtering not yet supported for Subscribe");
         }
 
-        auto subscribe =
-          Subscribe(request_id,
-                    tfn.name_space,
-                    tfn.name,
-                    priority,
-                    group_order,
-                    1,
-                    filter_type,
-                    start_location,
-                    end_group,
-                    {
-                      Parameter{
-                        ParameterType::kDeliveryTimeout,
-                        Bytes{ reinterpret_cast<uint8_t*>(&delivery_timeout_ms),
-                               reinterpret_cast<uint8_t*>(&delivery_timeout_ms) + sizeof(std::uint64_t) },
-                      },
-                    });
+        auto params = Parameters{};
+
+        if (delivery_timeout_ms) {
+            params.emplace_back(ParameterType::kDeliveryTimeout,
+                                Bytes{ reinterpret_cast<uint8_t*>(&delivery_timeout_ms),
+                                       reinterpret_cast<uint8_t*>(&delivery_timeout_ms) + sizeof(std::uint64_t) });
+        }
+
+        auto subscribe = Subscribe(request_id,
+                                   tfn.name_space,
+                                   tfn.name,
+                                   priority,
+                                   group_order,
+                                   1,
+                                   filter_type,
+                                   start_location,
+                                   end_group,
+                                   params);
 
         Bytes buffer;
         buffer << subscribe;
