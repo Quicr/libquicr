@@ -427,7 +427,7 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
 
             if (targ->current_time - transport->pq_loop_prev_time > kCongestionCheckInterval) {
 
-                // transport->CheckConnsForCongestion();
+                transport->CheckConnsForCongestion();
 
                 transport->pq_loop_prev_time = targ->current_time;
             }
@@ -624,6 +624,11 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             uint64_t stream_id = stream_ctx->stream_id;
             bool is_fin = (wt_event == picohttp_callback_post_fin);
 
+            if (is_fin) {
+                transport->logger->debug(
+                  "DefaultWT: {} conn_id: {} stream_id: {} FIN", WtEventToString(wt_event), conn_id, stream_id);
+            }
+
             transport->logger->trace("DefaultWT: {} received {} bytes on stream {} for connection {}, is_fin {}",
                                      WtEventToString(wt_event),
                                      length,
@@ -790,7 +795,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             uint64_t stream_id = stream_ctx->stream_id;
 
-            transport->logger->trace(
+            transport->logger->debug(
               "DefaultWT: {} for stream {} on connection {}", WtEventToString(wt_event), stream_id, conn_id);
 
             if (auto conn_ctx = transport->GetConnContext(conn_id)) {
@@ -811,13 +816,13 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
         case picohttp_callback_free:
             // Clean up the stream
-            transport->logger->trace("DefaultWT: {} callback for connection {}", WtEventToString(wt_event), conn_id);
+            transport->logger->debug("DefaultWT: {} callback for connection {}", WtEventToString(wt_event), conn_id);
             break;
 
         case picohttp_callback_deregister: {
             // The app context has been removed from the registry.
             // Its references should be removed from streams belonging to this session.
-            transport->logger->trace("DefaultWT: {} callback for connection {}", WtEventToString(wt_event), conn_id);
+            transport->logger->debug("DefaultWT: {} callback for connection {}", WtEventToString(wt_event), conn_id);
 
             transport->DeregisterWebTransport(cnx);
 
@@ -3224,7 +3229,7 @@ PicoQuicTransport::DrainWebTransportSession(TransportConnId conn_id)
 void
 PicoQuicTransport::DeregisterWebTransport(picoquic_cnx_t* cnx)
 {
-    if (transport_mode != TransportMode::kWebTransport) {
+    if (!is_server_mode && transport_mode != TransportMode::kWebTransport) {
         SPDLOG_LOGGER_WARN(logger, "DeregisterWebTransport called but not in WebTransport mode");
         return;
     }
@@ -3255,4 +3260,8 @@ PicoQuicTransport::DeregisterWebTransport(picoquic_cnx_t* cnx)
 
     // Clear WebTransport stream mappings for this session
     conn_ctx->wt_stream_to_data_ctx.clear();
+
+    conn_context_.erase(conn_id);
+
+    OnConnectionStatus(conn_id, TransportStatus::kRemoteRequestClose);
 }
