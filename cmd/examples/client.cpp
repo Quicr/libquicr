@@ -419,6 +419,34 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
     }
 };
 
+class MySubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
+{
+    MySubscribeNamespaceHandler(const quicr::TrackNamespace& prefix)
+      : quicr::SubscribeNamespaceHandler(prefix)
+    {
+    }
+
+  public:
+    static auto Create(const quicr::TrackNamespace& prefix)
+    {
+        return std::shared_ptr<MySubscribeNamespaceHandler>(new MySubscribeNamespaceHandler(prefix));
+    }
+
+    virtual bool IsTrackAcceptable(const quicr::FullTrackName& name) const override
+    {
+        return GetPrefix().HasSamePrefix(name.name_space);
+    }
+
+    virtual std::shared_ptr<quicr::SubscribeTrackHandler> CreateHandler(
+      const quicr::messages::PublishAttributes& attrs) override
+    {
+        return std::make_shared<MySubscribeTrackHandler>(
+          attrs.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
+    }
+
+  private:
+};
+
 /**
  * @brief MoQ client
  * @details Implementation of the MoQ Client
@@ -662,16 +690,6 @@ class MyClient : public quicr::Client
           th.track_name_hash,
           th.track_fullname_hash,
           request_id);
-
-        // Bind publish initiated handler.
-        const auto track_handler = std::make_shared<MySubscribeTrackHandler>(
-          publish_attributes.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
-        track_handler->SetRequestId(request_id);
-        track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);
-        track_handler->SetPriority(publish_attributes.priority);
-        track_handler->SetDeliveryTimeout(publish_attributes.delivery_timeout);
-        track_handler->SupportNewGroupRequest(publish_attributes.new_group_request_id.has_value());
-        SubscribeTrack(track_handler);
 
         // Accept the PUBLISH.
         ResolvePublish(connection_handle,
@@ -1179,7 +1197,7 @@ main(int argc, char* argv[])
                         result["sub_announces"].as<std::string>(),
                         th.track_namespace_hash);
 
-            client->SubscribeNamespace(prefix_ns.name_space);
+            client->SubscribeNamespace(MySubscribeNamespaceHandler::Create(prefix_ns.name_space));
         }
 
         if (enable_pub) {

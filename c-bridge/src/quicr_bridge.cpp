@@ -15,6 +15,7 @@
 #include <quicr/object.h>
 #include <quicr/publish_track_handler.h>
 #include <quicr/server.h>
+#include <quicr/subscribe_namespace_handler.h>
 #include <quicr/subscribe_track_handler.h>
 #include <quicr/track_name.h>
 
@@ -468,6 +469,48 @@ struct qbridge_subscribe_track_handler
 };
 
 /**
+ * @brief Bridge subscribe namespace handler extending quicr::SubscribeNamespaceHandler
+ */
+class BridgeSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
+{
+  public:
+    static std::shared_ptr<BridgeSubscribeNamespaceHandler> Create(const quicr::TrackNamespace& ns)
+    {
+        return std::shared_ptr<BridgeSubscribeNamespaceHandler>(new BridgeSubscribeNamespaceHandler(ns));
+    }
+
+    qbridge_object_received_callback_t received_callback = nullptr;
+    void* user_data = nullptr;
+
+  protected:
+    BridgeSubscribeNamespaceHandler(const quicr::TrackNamespace& ns)
+      : quicr::SubscribeNamespaceHandler(ns)
+    {
+    }
+
+  public:
+    /**
+     * @brief Handle received objects and notify C callback
+     */
+    void StatusChanged(Status) override {}
+};
+
+/**
+ * @brief C subscribe namespace track handler structure
+ */
+struct qbridge_subscribe_namespace_track_handler
+{
+    std::shared_ptr<BridgeSubscribeNamespaceHandler> cpp_handler;
+
+    qbridge_subscribe_namespace_track_handler(const qbridge_namespace_t* ns)
+    {
+        if (ns) {
+            cpp_handler = BridgeSubscribeNamespaceHandler::Create(cpp_namespace_from_c(ns));
+        }
+    }
+};
+
+/**
  * @brief Bridge fetch track handler extending quicr::FetchTrackHandler
  */
 class BridgeFetchTrackHandler : public quicr::FetchTrackHandler
@@ -674,25 +717,25 @@ extern "C"
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_client_subscribe_namespace(qbridge_client_t* client, const qbridge_namespace_t* ns)
+    qbridge_result_t qbridge_client_subscribe_namespace(qbridge_client_t* client,
+                                                        const qbridge_subscribe_namespace_track_handler_t* handler)
     {
-        if (!client || !client->cpp_client || !ns) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto cpp_namespace = cpp_namespace_from_c(ns);
-        client->cpp_client->SubscribeNamespace(cpp_namespace);
+        client->cpp_client->SubscribeNamespace(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_client_unsubscribe_namespace(qbridge_client_t* client, const qbridge_namespace_t* ns)
+    qbridge_result_t qbridge_client_unsubscribe_namespace(qbridge_client_t* client,
+                                                          const qbridge_subscribe_namespace_track_handler_t* handler)
     {
-        if (!client || !client->cpp_client || !ns) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto cpp_namespace = cpp_namespace_from_c(ns);
-        client->cpp_client->UnsubscribeNamespace(cpp_namespace);
+        client->cpp_client->UnsubscribeNamespace(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 

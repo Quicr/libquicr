@@ -5,23 +5,23 @@
 
 #include "attributes.h"
 #include "messages.h"
+#include "quic_transport.h"
+#include "quicr/common.h"
+#include "quicr/config.h"
+#include "quicr/fetch_track_handler.h"
+#include "quicr/metrics.h"
+#include "quicr/publish_track_handler.h"
+#include "quicr/subscribe_namespace_handler.h"
+#include "quicr/subscribe_track_handler.h"
 #include "tick_service.h"
 
-#include "quic_transport.h"
-
-#include <chrono>
-#include <quicr/common.h>
-#include <quicr/config.h>
-#include <quicr/fetch_track_handler.h>
-#include <quicr/metrics.h>
-#include <quicr/publish_track_handler.h>
-#include <quicr/subscribe_track_handler.h>
-#include <span>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
 #include <atomic>
+#include <chrono>
 #include <map>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -453,6 +453,8 @@ namespace quicr {
             /// Subscribe Namespace prefix by request Id
             std::map<messages::RequestID, TrackNamespace> sub_namespace_prefix_by_request_id;
 
+            std::map<TrackNamespace, std::shared_ptr<SubscribeNamespaceHandler>> sub_namespace_handlers;
+
             ConnectionMetrics metrics{}; ///< Connection metrics
 
             ConnectionContext() { ctrl_msg_buffer.reserve(kControlMessageBufferSize); }
@@ -550,8 +552,9 @@ namespace quicr {
                               messages::SubscribeErrorCode error,
                               const std::string& reason);
 
-        void SendSubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
-        void SendUnsubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
+        void SendSubscribeNamespace(ConnectionHandle conn_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
+        void SendUnsubscribeNamespace(ConnectionHandle conn_handle,
+                                      const std::shared_ptr<SubscribeNamespaceHandler>& handler);
         void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
         void SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
                                          messages::RequestID request_id,

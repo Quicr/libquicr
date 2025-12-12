@@ -334,29 +334,28 @@ namespace quicr {
          *
          * @note SubscribeNamespaceStatusChanged will be called after receiving either an OK or ERROR
          *
-         * @param prefix_namespace      Prefix namespace to subscribe namespace
+         * @param handler The namespace handler to subscribe to.
          */
-        void SubscribeNamespace(const TrackNamespace& prefix_namespace)
+        void SubscribeNamespace(std::shared_ptr<SubscribeNamespaceHandler> handler)
         {
             if (!connection_handle_) {
                 return;
             }
-
-            SendSubscribeNamespace(*connection_handle_, prefix_namespace);
+            SendSubscribeNamespace(*connection_handle_, std::move(handler));
         }
 
         /**
          * @brief Unsubscribe namespace to prefix namespace
          *
-         * @param prefix_namespace      Prefix namespace to unsubscribe namespace
+         * @param handler The namespace handler to unsubscribe from.
          */
-        void UnsubscribeNamespace(const TrackNamespace& prefix_namespace)
+        void UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler)
         {
             if (!connection_handle_) {
                 return;
             }
 
-            SendUnsubscribeNamespace(*connection_handle_, prefix_namespace);
+            SendUnsubscribeNamespace(*connection_handle_, handler);
         }
 
         /**
