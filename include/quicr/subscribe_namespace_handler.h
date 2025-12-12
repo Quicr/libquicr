@@ -107,5 +107,9 @@ namespace quicr {
         std::optional<Error> error_{};
 
         quicr::ConnectionHandle connection_handle_;
+
+        friend class Transport;
+        friend class Client;
+        friend class Server;
     };
 }

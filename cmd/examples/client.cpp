@@ -499,27 +499,6 @@ class MyClient : public quicr::Client
         SPDLOG_INFO("Received unannounce for namespace_hash: {}", th.track_namespace_hash);
     }
 
-    void SubscribeNamespaceStatusChanged(const quicr::TrackNamespace& track_namespace,
-                                         std::optional<quicr::messages::SubscribeNamespaceErrorCode> error_code,
-                                         std::optional<quicr::messages::ReasonPhrase> reason) override
-    {
-        auto th = quicr::TrackHash({ track_namespace, {} });
-        if (!error_code.has_value()) {
-            SPDLOG_INFO("Subscribe announces namespace_hash: {} status changed to OK", th.track_namespace_hash);
-            return;
-        }
-
-        std::string reason_str;
-        if (reason.has_value()) {
-            reason_str.assign(reason.value().begin(), reason.value().end());
-        }
-
-        SPDLOG_WARN("Subscribe announces to namespace_hash: {} has error {} with reason: {}",
-                    th.track_namespace_hash,
-                    static_cast<uint64_t>(error_code.value()),
-                    reason_str);
-    }
-
     std::optional<quicr::messages::Location> GetLargestAvailable(const quicr::FullTrackName& track_full_name)
     {
         std::optional<quicr::messages::Location> largest_location = std::nullopt;
