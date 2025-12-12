@@ -1771,7 +1771,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
         return;
     }
 
-    SPDLOG_LOGGER_DEBUG(logger,
+    SPDLOG_LOGGER_TRACE(logger,
                         "SendStreamBytes conn_id: {} data_ctx_id: {} bytes_len: {}",
                         data_ctx->conn_id,
                         data_ctx->data_ctx_id,
@@ -1820,7 +1820,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
     });
 
     if (data_ctx->stream_tx_object == nullptr) {
-        SPDLOG_LOGGER_DEBUG(logger,
+        SPDLOG_LOGGER_TRACE(logger,
                             "SendStreamBytes conn_id: {} data_ctx_id: {} stream_tx_object is nullptr",
                             data_ctx->conn_id,
                             data_ctx->data_ctx_id);
@@ -2039,7 +2039,9 @@ try {
             SPDLOG_LOGGER_ERROR(logger,
                                 "OnRecvStreamBytes: Failed to parse capsule on control stream {} for conn_id={}",
                                 stream_id,
-                                conn_ctx->conn_id);
+                                 conn_ctx->conn_id);
+            picowt_release_capsule(&conn_ctx->wt_capsule);
+            return;
         }
 
         // Check if capsule is fully received and stored

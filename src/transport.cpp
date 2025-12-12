@@ -1801,7 +1801,7 @@ namespace quicr {
                                    StreamClosedFlag flag)
     {
         if (!rx_ctx->caller_any.has_value()) {
-            SPDLOG_LOGGER_WARN(logger_, "Received stream closed with null handler");
+            SPDLOG_LOGGER_DEBUG(logger_, "Received stream closed with null handler");
             return;
         }
 

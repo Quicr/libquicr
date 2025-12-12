@@ -23,7 +23,7 @@ namespace quicr {
                                                uint64_t stream_id,
                                                std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        SPDLOG_INFO("SubHandler:StreamDataRecv, is_start {}, current_stream {}, stream_id: {}, data_sz {}",
+        SPDLOG_TRACE("SubHandler:StreamDataRecv, is_start {}, current_stream {}, stream_id: {}, data_sz {}",
                     is_start,
                     current_stream_id_,
                     stream_id,
@@ -66,7 +66,7 @@ namespace quicr {
         obj.stream_type = s_hdr.type;
         const auto subgroup_properties = messages::StreamHeaderProperties(s_hdr.type);
         if (stream_buffer_ >> obj) {
-            SPDLOG_INFO("SubHandler:StreamDataRecv:Received stream_subgroup_object priority: {} track_alias: {} "
+            SPDLOG_TRACE("SubHandler:StreamDataRecv:Received stream_subgroup_object priority: {} track_alias: {} "
                         "group_id: {} subgroup_id: {} object_id: {} data size: {}",
                         s_hdr.priority,
                         s_hdr.track_alias,
@@ -100,7 +100,7 @@ namespace quicr {
             subscribe_track_metrics_.bytes_received += obj.payload.size();
 
             try {
-                SPDLOG_INFO("SubHandler:StreamDataRecv Invoking ObjectReceived stream_subgroup_object priority: {} "
+                SPDLOG_TRACE("SubHandler:StreamDataRecv Invoking ObjectReceived stream_subgroup_object priority: {} "
                             "track_alias: {} "
                             "group_id: {} subgroup_id: {} object_id: {} data size: {}",
                             s_hdr.priority,
@@ -123,7 +123,6 @@ namespace quicr {
                                obj.payload);
 
                 *next_object_id_ += 1;
-                SPDLOG_INFO("SubHandler:StreamDataRecv Done Invoking ObjectReceived");
 
             } catch (const std::exception& e) {
                 SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());

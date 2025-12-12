@@ -152,7 +152,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                             bool publisher_initiated = false,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
       : SubscribeTrackHandler(full_track_name,
-                              3,
+                              128,
                               quicr::messages::GroupOrder::kAscending,
                               filter_type,
                               joining_fetch,
@@ -704,7 +704,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
             bool& stop)
 {
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
-      full_track_name, quicr::TrackMode::kStream /*mode*/, 2 /*priority*/, 3000 /*ttl*/);
+      full_track_name, quicr::TrackMode::kStream /*mode*/, 128 /*priority*/, 3000 /*ttl*/);
 
     track_handler->SetUseAnnounce(use_announce);
 
@@ -855,7 +855,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
 
         quicr::ObjectHeaders obj_headers = {
             group_id,       object_id++,    subgroup_id,  msg.size(),   quicr::ObjectStatus::kAvailable,
-            2 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
+            128 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
         };
 
         try {
@@ -898,9 +898,10 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
 {
     typedef quicr::SubscribeTrackHandler::JoiningFetch Fetch;
     const auto joining_fetch = join_fetch.has_value()
-                                 ? Fetch{ 4, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
+                                 ? Fetch{ 128, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
                                  : std::optional<Fetch>(std::nullopt);
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
+    track_handler->SetPriority(128);
 
     SPDLOG_INFO("Started subscriber");
 
