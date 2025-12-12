@@ -2039,7 +2039,7 @@ try {
             SPDLOG_LOGGER_ERROR(logger,
                                 "OnRecvStreamBytes: Failed to parse capsule on control stream {} for conn_id={}",
                                 stream_id,
-                                 conn_ctx->conn_id);
+                                conn_ctx->conn_id);
             picowt_release_capsule(&conn_ctx->wt_capsule);
             return;
         }

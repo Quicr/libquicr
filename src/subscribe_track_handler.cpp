@@ -24,10 +24,10 @@ namespace quicr {
                                                std::shared_ptr<const std::vector<uint8_t>> data)
     {
         SPDLOG_TRACE("SubHandler:StreamDataRecv, is_start {}, current_stream {}, stream_id: {}, data_sz {}",
-                    is_start,
-                    current_stream_id_,
-                    stream_id,
-                    data->size());
+                     is_start,
+                     current_stream_id_,
+                     stream_id,
+                     data->size());
 
         if (stream_id > current_stream_id_) {
             current_stream_id_ = stream_id;
@@ -67,13 +67,13 @@ namespace quicr {
         const auto subgroup_properties = messages::StreamHeaderProperties(s_hdr.type);
         if (stream_buffer_ >> obj) {
             SPDLOG_TRACE("SubHandler:StreamDataRecv:Received stream_subgroup_object priority: {} track_alias: {} "
-                        "group_id: {} subgroup_id: {} object_id: {} data size: {}",
-                        s_hdr.priority,
-                        s_hdr.track_alias,
-                        s_hdr.group_id,
-                        s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,
-                        obj.object_delta,
-                        obj.payload.size());
+                         "group_id: {} subgroup_id: {} object_id: {} data size: {}",
+                         s_hdr.priority,
+                         s_hdr.track_alias,
+                         s_hdr.group_id,
+                         s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,
+                         obj.object_delta,
+                         obj.payload.size());
 
             if (next_object_id_.has_value()) {
                 if (current_group_id_ != s_hdr.group_id || current_subgroup_id_ != s_hdr.subgroup_id) {
@@ -101,14 +101,14 @@ namespace quicr {
 
             try {
                 SPDLOG_TRACE("SubHandler:StreamDataRecv Invoking ObjectReceived stream_subgroup_object priority: {} "
-                            "track_alias: {} "
-                            "group_id: {} subgroup_id: {} object_id: {} data size: {}",
-                            s_hdr.priority,
-                            s_hdr.track_alias,
-                            s_hdr.group_id,
-                            s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,
-                            obj.object_delta,
-                            obj.payload.size());
+                             "track_alias: {} "
+                             "group_id: {} subgroup_id: {} object_id: {} data size: {}",
+                             s_hdr.priority,
+                             s_hdr.track_alias,
+                             s_hdr.group_id,
+                             s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,
+                             obj.object_delta,
+                             obj.payload.size());
 
                 ObjectReceived({ s_hdr.group_id,
                                  next_object_id_.value(),
