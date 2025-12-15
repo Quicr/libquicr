@@ -339,13 +339,18 @@ namespace quicr {
             StatusChanged(status);
         }
 
-        StreamBuffer<uint8_t> stream_buffer_;
+        struct StreamContext
+        {
+            StreamBuffer<uint8_t> buffer;
 
-        std::optional<uint64_t> next_object_id_;
-        uint64_t current_group_id_{ 0 };
-        uint64_t current_subgroup_id_{ 0 };
+            std::optional<uint64_t> next_object_id;
+            uint64_t current_group_id{ 0 };
+            uint64_t current_subgroup_id{ 0 };
+        };
+
         std::optional<uint64_t> pending_new_group_request_id_;
         bool is_fetch_handler_{ false };
+        std::map<std::uint64_t, StreamContext> streams_;
 
       private:
         Status status_{ Status::kNotSubscribed };
