@@ -107,10 +107,12 @@ namespace quicr {
          * @param connection_handle         Connection ID of the client/subscriber
          * @param src_id                    Connect or peering Id of the receiving publisher
          * @param track_handler             Server publish track handler
+         * @param send_publish_done         Indicates to send publish done or not
          */
         void UnbindPublisherTrack(ConnectionHandle connection_handle,
                                   ConnectionHandle src_id,
-                                  const std::shared_ptr<PublishTrackHandler>& track_handler);
+                                  const std::shared_ptr<PublishTrackHandler>& track_handler,
+                                  bool send_publish_done = false);
 
         /**
          * @brief Bind a server fetch publisher track handler.

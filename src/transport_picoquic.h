@@ -144,6 +144,7 @@ namespace quicr {
             TransportConnId conn_id{ 0 };     /// This connection ID
             picoquic_cnx_t* pq_cnx = nullptr; /// Picoquic connection/path context
             uint64_t last_stream_id{ 0 };     /// last stream Id
+            std::optional<uint64_t> control_stream_id{ std::nullopt };
 
             bool mark_dgram_ready{ false };                       /// Instructs datagram to be marked ready/active
             TransportMode transport_mode{ TransportMode::kQuic }; /// Transport mode for this connection

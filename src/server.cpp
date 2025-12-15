@@ -242,7 +242,8 @@ namespace quicr {
 
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
                                       ConnectionHandle src_id,
-                                      const std::shared_ptr<PublishTrackHandler>& track_handler)
+                                      const std::shared_ptr<PublishTrackHandler>& track_handler,
+                                      bool send_publish_done)
     {
         std::lock_guard lock(state_mutex_);
 
@@ -280,6 +281,13 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id.erase(track_handler->publish_data_ctx_id_);
 
         quic_transport_->DeleteDataContext(connection_handle, track_handler->publish_data_ctx_id_);
+
+        if (send_publish_done) {
+            SendPublishDone(conn_it->second,
+                            track_handler->GetRequestId().value(),
+                            messages::PublishDoneStatusCode::kSubscribtionEnded,
+                            "No publishers");
+        }
     }
 
     void Server::BindPublisherTrack(ConnectionHandle conn_id,

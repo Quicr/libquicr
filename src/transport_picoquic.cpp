@@ -235,6 +235,17 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                     rx_buf_it->second.closed = true;
                     transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::Reset);
                 }
+
+                if (conn_ctx->control_stream_id.has_value() && conn_ctx->control_stream_id == stream_id) {
+                    SPDLOG_LOGGER_INFO(transport->logger,
+                                       "Received RESET for control stream; conn_id: {0} data_ctx_id: {1} stream_id: "
+                                       "{2}, closing connection",
+                                       data_ctx->conn_id,
+                                       data_ctx->data_ctx_id,
+                                       stream_id);
+                    transport->Close(conn_id, 100);
+                    break;
+                }
             }
 
             if (data_ctx == NULL) {
@@ -248,6 +259,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                                 data_ctx->conn_id,
                                 data_ctx->data_ctx_id,
                                 stream_id);
+
             break;
         }
 
@@ -778,6 +790,16 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                 }
 
                 ClearDataCtxStream(conn_ctx, stream_id);
+
+                if (conn_ctx->control_stream_id.has_value() && conn_ctx->control_stream_id == stream_id) {
+                    SPDLOG_LOGGER_INFO(transport->logger,
+                                       "Received RESET for control stream; conn_id: {} stream_id: {} "
+                                       ", closing connection",
+                                       conn_ctx->conn_id,
+                                       stream_id);
+                    transport->DeregisterWebTransport(cnx);
+                    break;
+                }
             }
 
             // Use picowt_reset_stream to properly reset the WebTransport stream
@@ -826,10 +848,8 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             transport->DeregisterWebTransport(cnx);
 
-            // For client mode, notify that connection is disconnected
-            if (!transport->is_server_mode) {
-                transport->OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
-            }
+            transport->OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
+
             break;
         }
 
@@ -1514,6 +1534,10 @@ PicoQuicTransport::CreateDataContextBiDirRecv(TransportConnId conn_id, uint64_t 
         return nullptr;
     }
 
+    if (!conn_it->second.control_stream_id.has_value()) {
+        conn_it->second.control_stream_id = stream_id;
+    }
+
     const auto [data_ctx_it, is_new] =
       conn_it->second.active_data_contexts.emplace(conn_it->second.next_data_ctx_id, DataContext{});
 
@@ -1933,6 +1957,8 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
 void
 PicoQuicTransport::OnConnectionStatus(const TransportConnId conn_id, const TransportStatus status)
 {
+    SPDLOG_LOGGER_DEBUG(logger, "Connection changed conn_id: {} to status: {}", conn_id, static_cast<int>(status));
+
     if (status == TransportStatus::kReady) {
         auto conn_ctx = GetConnContext(conn_id);
         SPDLOG_LOGGER_INFO(logger, "Connection established to server {0}", conn_ctx->peer_addr_text);
@@ -2026,11 +2052,11 @@ try {
     if (conn_ctx->transport_mode == TransportMode::kWebTransport && conn_ctx->wt_control_stream_ctx != nullptr &&
         stream_id == conn_ctx->wt_control_stream_ctx->stream_id) {
 
-        SPDLOG_LOGGER_INFO(logger,
-                           "OnRecvStreamBytes: Received data on control stream {} for conn_id={}, len={}",
-                           stream_id,
-                           conn_ctx->conn_id,
-                           bytes.size());
+        SPDLOG_LOGGER_DEBUG(logger,
+                            "OnRecvStreamBytes: Received data on control stream {} for conn_id={}, len={}",
+                            stream_id,
+                            conn_ctx->conn_id,
+                            bytes.size());
 
         // Parse the capsule data using picowt_receive_capsule
         // This accumulates partial capsule data across multiple calls
@@ -3261,7 +3287,5 @@ PicoQuicTransport::DeregisterWebTransport(picoquic_cnx_t* cnx)
     // Clear WebTransport stream mappings for this session
     conn_ctx->wt_stream_to_data_ctx.clear();
 
-    conn_context_.erase(conn_id);
-
-    OnConnectionStatus(conn_id, TransportStatus::kRemoteRequestClose);
+    Close(conn_id, 100);
 }

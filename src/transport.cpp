@@ -1024,8 +1024,7 @@ namespace quicr {
             th.track_fullname_hash = proposed_track_alias.value();
         }
 
-        SPDLOG_LOGGER_INFO(
-          logger_, "Subscribe track conn_id: {0} track_alias: {1} request_id", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {} track_alias: {}", conn_id, th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
@@ -1150,7 +1149,11 @@ namespace quicr {
             case SubscribeTrackHandler::Status::kOk:
                 try {
                     if (not handler.IsPublisherInitiated() && not conn_ctx.closed) {
-                        SendUnsubscribe(conn_ctx, handler.GetRequestId().value());
+                        // SendUnsubscribe(conn_ctx, handler.GetRequestId().value());
+                        SendPublishDone(conn_ctx,
+                                        handler.GetRequestId().value(),
+                                        PublishDoneStatusCode::kSubscribtionEnded,
+                                        "No publishers left");
                     }
                 } catch (const std::exception& e) {
                     SPDLOG_LOGGER_ERROR(logger_, "Failed to send unsubscribe: {0}", e.what());
