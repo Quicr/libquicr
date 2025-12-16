@@ -486,9 +486,10 @@ namespace quicr {
         auto params = Parameters{};
 
         if (delivery_timeout_ms) {
-            params.emplace_back(ParameterType::kDeliveryTimeout,
-                                Bytes{ reinterpret_cast<uint8_t*>(&delivery_timeout_ms),
-                                       reinterpret_cast<uint8_t*>(&delivery_timeout_ms) + sizeof(std::uint64_t) });
+            params.push_back(
+              { .type = ParameterType::kDeliveryTimeout,
+                .value = Bytes{ reinterpret_cast<uint8_t*>(&delivery_timeout_ms),
+                                reinterpret_cast<uint8_t*>(&delivery_timeout_ms) + sizeof(std::uint64_t) } });
         }
 
         auto subscribe = Subscribe(request_id,
