@@ -1324,7 +1324,7 @@ namespace quicr {
                                });
 
                 if (namespace_handler_it == conn_it->second.sub_namespace_handlers.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
+                    SPDLOG_LOGGER_INFO(logger_,
                                        "No subscribe namespace handler available for incoming track with alias = ",
                                        attributes.track_alias);
                 } else if (namespace_handler_it->second->IsTrackAcceptable(attributes.track_full_name)) {

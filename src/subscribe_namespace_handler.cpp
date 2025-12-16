@@ -34,9 +34,13 @@ quicr::SubscribeNamespaceHandler::StatusChanged(Status status)
                         th.track_namespace_hash);
             break;
         case Status::kError:
-            SPDLOG_WARN("Subscription to namespace with hash: {} status changed to ERROR: {}",
-                        th.track_namespace_hash,
-                        std::string(error_->second.begin(), error_->second.end()));
+            if (error_ != std::nullopt) {
+                SPDLOG_WARN("Subscription to namespace with hash: {} status changed to ERROR: {}",
+                            th.track_namespace_hash,
+                            std::string(error_->second.begin(), error_->second.end()));
+            } else {
+                SPDLOG_WARN("Subscription to namespace with hash: {} status changed to unknown ERROR");
+            }
             break;
         default:
             break;
