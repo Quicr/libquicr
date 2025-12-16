@@ -52,7 +52,7 @@ MakeTestClient(const bool connect = true,
     // Connect a client.
     ClientConfig client_config;
     client_config.transport_config.debug = true;
-    client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(kPort);
+    client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(kPort) + "/relay";
     if (qlog_path.has_value()) {
         client_config.transport_config.quic_qlog_path = *qlog_path;
     }

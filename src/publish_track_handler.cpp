@@ -182,28 +182,31 @@ namespace quicr {
             pending_new_group_request_id_ = std::nullopt;
         }
 
-        if (group_id_delta > 1) {
-            const std::uint64_t value = group_id_delta - 1;
-            std::vector<std::uint8_t> value_bytes(sizeof(value));
-            memcpy(value_bytes.data(), &value, sizeof(value));
-            if (not object_extensions.has_value()) {
-                object_extensions = Extensions{};
+        // Only client (publishers) can add these extensions. Per moqt, relays do not add these extensions
+        if (transport->client_mode_) {
+            if (group_id_delta > 1) {
+                const std::uint64_t value = group_id_delta - 1;
+                std::vector<std::uint8_t> value_bytes(sizeof(value));
+                memcpy(value_bytes.data(), &value, sizeof(value));
+                if (not object_extensions.has_value()) {
+                    object_extensions = Extensions{};
+                }
+
+                (*object_extensions)[static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap)].push_back(
+                  value_bytes);
             }
 
-            (*object_extensions)[static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap)].push_back(
-              value_bytes);
-        }
+            if (object_id_delta > 0) {
+                const std::uint64_t value = object_id_delta;
+                std::vector<std::uint8_t> value_bytes(sizeof(value));
+                memcpy(value_bytes.data(), &value, sizeof(value));
+                if (not object_extensions.has_value()) {
+                    object_extensions = Extensions{};
+                }
 
-        if (object_id_delta > 0) {
-            const std::uint64_t value = object_id_delta;
-            std::vector<std::uint8_t> value_bytes(sizeof(value));
-            memcpy(value_bytes.data(), &value, sizeof(value));
-            if (not object_extensions.has_value()) {
-                object_extensions = Extensions{};
+                (*object_extensions)[static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorObjectIdGap)].push_back(
+                  value_bytes);
             }
-
-            (*object_extensions)[static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorObjectIdGap)].push_back(
-              value_bytes);
         }
 
         latest_group_id_ = object_headers.group_id;

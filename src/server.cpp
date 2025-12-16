@@ -490,16 +490,18 @@ namespace quicr {
                 }
 
                 // TODO(tievens): add filter type when caching supports it
-                SubscribeReceived(conn_ctx.connection_handle,
-                                  msg.request_id,
-                                  tfn,
-                                  { msg.subscriber_priority,
-                                    static_cast<messages::GroupOrder>(msg.group_order),
-                                    std::chrono::milliseconds{ delivery_timeout },
-                                    msg.filter_type,
-                                    msg.forward,
-                                    new_group_request_id,
-                                    false });
+                SubscribeReceived(
+                  conn_ctx.connection_handle,
+                  msg.request_id,
+                  tfn,
+                  { msg.subscriber_priority,
+                    static_cast<messages::GroupOrder>(msg.group_order),
+                    std::chrono::milliseconds{ delivery_timeout },
+                    msg.filter_type,
+                    msg.forward,
+                    new_group_request_id,
+                    false,
+                    msg.group_0.has_value() ? msg.group_0->start_location : messages::Location{ 0, 0 } });
 
                 // Handle new group request after subscribe callback
                 if (new_group_request_id.has_value()) {
