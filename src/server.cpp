@@ -1119,7 +1119,8 @@ namespace quicr {
                                                              .filter_type = msg.filter_type,
                                                              .forward = msg.forward,
                                                              .new_group_request_id = new_group_request_id,
-                                                             .is_publisher_initiated = true };
+                                                             .is_publisher_initiated = true,
+                                                             { 0, 0 } };
                 SubscribeReceived(conn_ctx.connection_handle, msg.request_id, tfn, attributes);
                 return true;
             }
