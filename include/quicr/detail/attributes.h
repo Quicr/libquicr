@@ -25,6 +25,7 @@ namespace quicr::messages {
         std::uint8_t forward;                         ///< True to Resume/forward data, False to pause/stop data
         std::optional<uint64_t> new_group_request_id; ///< Indicates new group id is requested
         bool is_publisher_initiated;                  ///< True will not send SUBSCRIBE_OK.
+        Location start_location;                      ///< Start location of group and object
     };
 
     struct PublishAttributes : SubscribeAttributes

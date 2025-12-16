@@ -112,7 +112,7 @@ if (${USE_MBEDTLS})
     set(PICOQUIC_PTLS_SUBMODULE ON)
     option(WITH_OPENSSL OFF)
     option(BUILD_DEMO OFF)
-    option(BUILD_HTTP OFF)
+    option(BUILD_HTTP ON)
     option(BUILD_LOGREADER OFF) # Disable picolog_t build
     set(picoquic_BUILD_TESTS OFF)
     set(PICOQUIC_ADDITIONAL_C_FLAGS -Wno-error=format)
