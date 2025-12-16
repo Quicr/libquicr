@@ -441,7 +441,6 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
         const FullTrackName existing_track{ prefix_namespace, { 0x01 } };
         const auto existing_track_hash = TrackHash(existing_track);
 
-
         // Set up promise to verify client received matching PUBLISH_NAMESPACE.
         std::promise<FullTrackName> publish_promise;
         auto publish_future = publish_promise.get_future();
