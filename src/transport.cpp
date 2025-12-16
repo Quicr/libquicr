@@ -1859,13 +1859,10 @@ namespace quicr {
 
     void Transport::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
     {
-        messages::ObjectDatagram object_datagram_out;
         for (int i = 0; i < kReadLoopMaxPerStream; i++) {
             auto data = quic_transport_->Dequeue(conn_id, data_ctx_id);
             if (data && !data->empty() && data->size() > 3) {
                 auto msg_type = data->front();
-
-                // TODO: Handle ObjectDatagramStatus objects as well.
 
                 // Message type needs to be either datagram header types or status types.
                 const auto data_type = static_cast<DatagramMessageType>(msg_type);
