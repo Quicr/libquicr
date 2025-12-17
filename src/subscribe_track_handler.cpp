@@ -122,7 +122,6 @@ namespace quicr {
 
         // Payload or status?
         const auto msg_type = static_cast<messages::DatagramMessageType>(data->front());
-
         if (messages::TypeIsDatagramStatusType(msg_type)) {
             messages::ObjectDatagramStatus status_msg;
             if (stream_buffer_ >> status_msg) {
@@ -144,40 +143,42 @@ namespace quicr {
                     SPDLOG_ERROR("Caught exception in ObjectStatusReceived. (error={})", e.what());
                 }
             }
-        } else {
-            messages::ObjectDatagram msg;
-            if (stream_buffer_ >> msg) {
-                SPDLOG_TRACE("Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
-                             "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
-                             conn_id,
-                             (data_ctx_id ? *data_ctx_id : 0),
-                             msg.subscribe_id,
-                             msg.track_alias,
-                             msg.group_id,
-                             msg.object_id,
-                             msg.payload.size());
+            return;
+        }
 
-                subscribe_track_metrics_.objects_received++;
-                subscribe_track_metrics_.bytes_received += msg.payload.size();
+        // Data.
+        messages::ObjectDatagram msg;
+        if (stream_buffer_ >> msg) {
+            SPDLOG_TRACE("Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
+                         "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
+                         conn_id,
+                         (data_ctx_id ? *data_ctx_id : 0),
+                         msg.subscribe_id,
+                         msg.track_alias,
+                         msg.group_id,
+                         msg.object_id,
+                         msg.payload.size());
 
-                try {
-                    ObjectReceived(
-                      {
-                        msg.group_id,
-                        msg.object_id,
-                        0, // datagrams don't have subgroups
-                        msg.payload.size(),
-                        ObjectStatus::kAvailable,
-                        msg.priority,
-                        std::nullopt,
-                        TrackMode::kDatagram,
-                        msg.extensions,
-                        msg.immutable_extensions,
-                      },
-                      std::move(msg.payload));
-                } catch (const std::exception& e) {
-                    SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());
-                }
+            subscribe_track_metrics_.objects_received++;
+            subscribe_track_metrics_.bytes_received += msg.payload.size();
+
+            try {
+                ObjectReceived(
+                  {
+                    msg.group_id,
+                    msg.object_id,
+                    0, // datagrams don't have subgroups
+                    msg.payload.size(),
+                    ObjectStatus::kAvailable,
+                    msg.priority,
+                    std::nullopt,
+                    TrackMode::kDatagram,
+                    msg.extensions,
+                    msg.immutable_extensions,
+                  },
+                  std::move(msg.payload));
+            } catch (const std::exception& e) {
+                SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());
             }
         }
     }

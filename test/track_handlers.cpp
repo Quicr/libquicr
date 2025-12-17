@@ -62,18 +62,18 @@ class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
         return std::shared_ptr<TestSubscribeTrackHandler>(new TestSubscribeTrackHandler());
     }
 
-    void ObjectStatusReceived(uint64_t group_id,
-                              uint64_t object_id,
-                              quicr::ObjectStatus status,
-                              std::optional<quicr::Extensions> extensions,
-                              std::optional<quicr::Extensions> immutable_extensions) override
+    void ObjectStatusReceived(const uint64_t group_id,
+                              const uint64_t object_id,
+                              const quicr::ObjectStatus status,
+                              const std::optional<quicr::Extensions> extensions,
+                              const std::optional<quicr::Extensions> immutable_extensions) override
     {
-        last_status_ = { group_id, object_id, status, extensions, immutable_extensions };
-        status_received_count_++;
+        last_status = { group_id, object_id, status, extensions, immutable_extensions };
+        status_received_count++;
     }
 
-    std::optional<ReceivedStatus> last_status_;
-    int status_received_count_{ 0 };
+    std::optional<ReceivedStatus> last_status;
+    int status_received_count{ 0 };
 };
 
 TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kDoesNotExist")
@@ -97,11 +97,11 @@ TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kDoesNotExist")
     handler->DgramDataRecv(data);
 
     // Verify the callback was invoked with correct parameters
-    REQUIRE(handler->last_status_.has_value());
-    CHECK_EQ(handler->last_status_->group_id, 100);
-    CHECK_EQ(handler->last_status_->object_id, 50);
-    CHECK_EQ(handler->last_status_->status, quicr::ObjectStatus::kDoesNotExist);
-    CHECK_EQ(handler->status_received_count_, 1);
+    REQUIRE(handler->last_status.has_value());
+    CHECK_EQ(handler->last_status->group_id, 100);
+    CHECK_EQ(handler->last_status->object_id, 50);
+    CHECK_EQ(handler->last_status->status, quicr::ObjectStatus::kDoesNotExist);
+    CHECK_EQ(handler->status_received_count, 1);
 }
 
 TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kEndOfGroup")
@@ -121,10 +121,10 @@ TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kEndOfGroup")
     auto data = std::make_shared<std::vector<uint8_t>>(buffer.begin(), buffer.end());
     handler->DgramDataRecv(data);
 
-    REQUIRE(handler->last_status_.has_value());
-    CHECK_EQ(handler->last_status_->group_id, 200);
-    CHECK_EQ(handler->last_status_->object_id, 10);
-    CHECK_EQ(handler->last_status_->status, quicr::ObjectStatus::kEndOfGroup);
+    REQUIRE(handler->last_status.has_value());
+    CHECK_EQ(handler->last_status->group_id, 200);
+    CHECK_EQ(handler->last_status->object_id, 10);
+    CHECK_EQ(handler->last_status->status, quicr::ObjectStatus::kEndOfGroup);
 }
 
 TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kEndOfTrack")
@@ -144,10 +144,10 @@ TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kEndOfTrack")
     auto data = std::make_shared<std::vector<uint8_t>>(buffer.begin(), buffer.end());
     handler->DgramDataRecv(data);
 
-    REQUIRE(handler->last_status_.has_value());
-    CHECK_EQ(handler->last_status_->group_id, 999);
-    CHECK_EQ(handler->last_status_->object_id, 0);
-    CHECK_EQ(handler->last_status_->status, quicr::ObjectStatus::kEndOfTrack);
+    REQUIRE(handler->last_status.has_value());
+    CHECK_EQ(handler->last_status->group_id, 999);
+    CHECK_EQ(handler->last_status->object_id, 0);
+    CHECK_EQ(handler->last_status->status, quicr::ObjectStatus::kEndOfTrack);
 }
 
 TEST_CASE("Subscribe Track Handler ObjectStatusReceived with extensions")
@@ -172,13 +172,13 @@ TEST_CASE("Subscribe Track Handler ObjectStatusReceived with extensions")
     auto data = std::make_shared<std::vector<uint8_t>>(buffer.begin(), buffer.end());
     handler->DgramDataRecv(data);
 
-    REQUIRE(handler->last_status_.has_value());
-    CHECK_EQ(handler->last_status_->group_id, 42);
-    CHECK_EQ(handler->last_status_->object_id, 7);
-    CHECK_EQ(handler->last_status_->status, quicr::ObjectStatus::kDoesNotExist);
+    REQUIRE(handler->last_status.has_value());
+    CHECK_EQ(handler->last_status->group_id, 42);
+    CHECK_EQ(handler->last_status->object_id, 7);
+    CHECK_EQ(handler->last_status->status, quicr::ObjectStatus::kDoesNotExist);
     // Verify extensions were received
-    REQUIRE(handler->last_status_->extensions.has_value());
-    REQUIRE(handler->last_status_->extensions->contains(0x1));
-    CHECK_EQ(handler->last_status_->extensions->at(0x1).size(), 1);
-    CHECK_EQ(handler->last_status_->extensions->at(0x1)[0], quicr::Bytes({ 0xAA, 0xBB }));
+    REQUIRE(handler->last_status->extensions.has_value());
+    REQUIRE(handler->last_status->extensions->contains(0x1));
+    CHECK_EQ(handler->last_status->extensions->at(0x1).size(), 1);
+    CHECK_EQ(handler->last_status->extensions->at(0x1)[0], quicr::Bytes({ 0xAA, 0xBB }));
 }

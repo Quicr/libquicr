@@ -109,18 +109,19 @@ CompareExtensions(const std::optional<Extensions>& sent, const std::optional<Ext
 }
 
 static void
-ObjectDatagramEncodeDecode(ExtensionTest extensions, bool end_of_group)
+ObjectDatagramEncodeDecode(ExtensionTest extensions, bool end_of_group, bool non_zero_object_id)
 {
     CAPTURE(extensions);
     CAPTURE(end_of_group);
-    DatagramHeaderProperties expected = { end_of_group, extensions != ExtensionTest::kNone };
+    CAPTURE(non_zero_object_id);
+    DatagramHeaderProperties expected = { end_of_group, extensions != ExtensionTest::kNone, non_zero_object_id };
     const DatagramHeaderType expected_type = expected.GetType();
 
     Bytes buffer;
     auto object_datagram = messages::ObjectDatagram{};
     object_datagram.track_alias = uint64_t(kTrackAliasAliceVideo);
     object_datagram.group_id = 0x1000;
-    object_datagram.object_id = 0xFF;
+    object_datagram.object_id = non_zero_object_id ? 0xFF : 0;
     object_datagram.priority = 0xA;
     if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kMutable) {
         object_datagram.extensions = kOptionalExtensions;
@@ -161,8 +162,10 @@ TEST_CASE("ObjectDatagram  Message encode/decode")
 {
     for (const auto ext :
          { ExtensionTest::kNone, ExtensionTest::kMutable, ExtensionTest::kImmutable, ExtensionTest::kBoth }) {
-        ObjectDatagramEncodeDecode(ext, false);
-        ObjectDatagramEncodeDecode(ext, true);
+        ObjectDatagramEncodeDecode(ext, false, false);
+        ObjectDatagramEncodeDecode(ext, true, false);
+        ObjectDatagramEncodeDecode(ext, false, true);
+        ObjectDatagramEncodeDecode(ext, true, true);
     }
 }
 
@@ -213,6 +216,91 @@ TEST_CASE("ObjectDatagramStatus  Message encode/decode")
     for (const auto ext :
          { ExtensionTest::kNone, ExtensionTest::kMutable, ExtensionTest::kImmutable, ExtensionTest::kBoth }) {
         ObjectDatagramStatusEncodeDecode(ext);
+    }
+}
+
+TEST_CASE("DatagramHeaderProperties encoding")
+{
+    SUBCASE("Type to properties")
+    {
+        // Type 0x00: end_of_group=false, extensions=false, object_id=true
+        auto props0 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupNoExtensionsObjectId);
+        CHECK_EQ(props0.end_of_group, false);
+        CHECK_EQ(props0.has_extensions, false);
+        CHECK_EQ(props0.has_object_id, true);
+
+        // Type 0x01: end_of_group=false, extensions=true, object_id=true
+        auto props1 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupWithExtensionsObjectId);
+        CHECK_EQ(props1.end_of_group, false);
+        CHECK_EQ(props1.has_extensions, true);
+        CHECK_EQ(props1.has_object_id, true);
+
+        // Type 0x02: end_of_group=true, extensions=false, object_id=true
+        auto props2 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupNoExtensionsObjectId);
+        CHECK_EQ(props2.end_of_group, true);
+        CHECK_EQ(props2.has_extensions, false);
+        CHECK_EQ(props2.has_object_id, true);
+
+        // Type 0x03: end_of_group=true, extensions=true, object_id=true
+        auto props3 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupWithExtensionsObjectId);
+        CHECK_EQ(props3.end_of_group, true);
+        CHECK_EQ(props3.has_extensions, true);
+        CHECK_EQ(props3.has_object_id, true);
+
+        // Type 0x04: end_of_group=false, extensions=false, object_id=false
+        auto props4 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupNoExtensionsNoObjectId);
+        CHECK_EQ(props4.end_of_group, false);
+        CHECK_EQ(props4.has_extensions, false);
+        CHECK_EQ(props4.has_object_id, false);
+
+        // Type 0x05: end_of_group=false, extensions=true, object_id=false
+        auto props5 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupWithExtensionsNoObjectId);
+        CHECK_EQ(props5.end_of_group, false);
+        CHECK_EQ(props5.has_extensions, true);
+        CHECK_EQ(props5.has_object_id, false);
+
+        // Type 0x06: end_of_group=true, extensions=false, object_id=false
+        auto props6 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupNoExtensionsNoObjectId);
+        CHECK_EQ(props6.end_of_group, true);
+        CHECK_EQ(props6.has_extensions, false);
+        CHECK_EQ(props6.has_object_id, false);
+
+        // Type 0x07: end_of_group=true, extensions=true, object_id=false
+        auto props7 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupWithExtensionsNoObjectId);
+        CHECK_EQ(props7.end_of_group, true);
+        CHECK_EQ(props7.has_extensions, true);
+        CHECK_EQ(props7.has_object_id, false);
+    }
+
+    SUBCASE("Properties to type")
+    {
+        CHECK_EQ(DatagramHeaderProperties(false, false, true).GetType(),
+                 DatagramHeaderType::kNotEndOfGroupNoExtensionsObjectId);
+        CHECK_EQ(DatagramHeaderProperties(false, true, true).GetType(),
+                 DatagramHeaderType::kNotEndOfGroupWithExtensionsObjectId);
+        CHECK_EQ(DatagramHeaderProperties(true, false, true).GetType(),
+                 DatagramHeaderType::kEndOfGroupNoExtensionsObjectId);
+        CHECK_EQ(DatagramHeaderProperties(true, true, true).GetType(),
+                 DatagramHeaderType::kEndOfGroupWithExtensionsObjectId);
+        CHECK_EQ(DatagramHeaderProperties(false, false, false).GetType(),
+                 DatagramHeaderType::kNotEndOfGroupNoExtensionsNoObjectId);
+        CHECK_EQ(DatagramHeaderProperties(false, true, false).GetType(),
+                 DatagramHeaderType::kNotEndOfGroupWithExtensionsNoObjectId);
+        CHECK_EQ(DatagramHeaderProperties(true, false, false).GetType(),
+                 DatagramHeaderType::kEndOfGroupNoExtensionsNoObjectId);
+        CHECK_EQ(DatagramHeaderProperties(true, true, false).GetType(),
+                 DatagramHeaderType::kEndOfGroupWithExtensionsNoObjectId);
+    }
+
+    SUBCASE("Round trip known headers")
+    {
+        constexpr uint8_t min_header = 0x00;
+        constexpr uint8_t max_header = 0x07;
+        for (uint8_t i = min_header; i <= max_header; i++) {
+            auto type = static_cast<DatagramHeaderType>(i);
+            auto props = DatagramHeaderProperties(type);
+            CHECK_EQ(props.GetType(), type);
+        }
     }
 }
 
