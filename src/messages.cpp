@@ -392,10 +392,11 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const ObjectDatagram& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(msg.GetType()));
+        const auto properties = msg.GetProperties();
+        buffer << UintVar(static_cast<uint64_t>(properties.GetType()));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
-        if (msg.object_id > 0) {
+        if (properties.encodes_object_id) {
             buffer << UintVar(msg.object_id);
         }
         buffer.push_back(msg.priority);
@@ -444,7 +445,7 @@ namespace quicr::messages {
             }
             case 3: {
                 const auto properties = DatagramHeaderProperties(*msg.type);
-                if (properties.has_object_id) {
+                if (properties.encodes_object_id) {
                     if (!ParseUintVField(buffer, msg.object_id)) {
                         return false;
                     }

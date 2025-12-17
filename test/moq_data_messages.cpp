@@ -135,7 +135,7 @@ ObjectDatagramEncodeDecode(ExtensionTest extensions, bool end_of_group, bool non
     }
     object_datagram.payload = { 0x1, 0x2, 0x3, 0x5, 0x6 };
     object_datagram.end_of_group = end_of_group;
-    REQUIRE_EQ(object_datagram.GetType(), expected_type);
+    REQUIRE_EQ(object_datagram.GetProperties().GetType(), expected_type);
 
     buffer << object_datagram;
 
@@ -227,49 +227,49 @@ TEST_CASE("DatagramHeaderProperties encoding")
         auto props0 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupNoExtensionsObjectId);
         CHECK_EQ(props0.end_of_group, false);
         CHECK_EQ(props0.has_extensions, false);
-        CHECK_EQ(props0.has_object_id, true);
+        CHECK_EQ(props0.encodes_object_id, true);
 
         // Type 0x01: end_of_group=false, extensions=true, object_id=true
         auto props1 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupWithExtensionsObjectId);
         CHECK_EQ(props1.end_of_group, false);
         CHECK_EQ(props1.has_extensions, true);
-        CHECK_EQ(props1.has_object_id, true);
+        CHECK_EQ(props1.encodes_object_id, true);
 
         // Type 0x02: end_of_group=true, extensions=false, object_id=true
         auto props2 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupNoExtensionsObjectId);
         CHECK_EQ(props2.end_of_group, true);
         CHECK_EQ(props2.has_extensions, false);
-        CHECK_EQ(props2.has_object_id, true);
+        CHECK_EQ(props2.encodes_object_id, true);
 
         // Type 0x03: end_of_group=true, extensions=true, object_id=true
         auto props3 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupWithExtensionsObjectId);
         CHECK_EQ(props3.end_of_group, true);
         CHECK_EQ(props3.has_extensions, true);
-        CHECK_EQ(props3.has_object_id, true);
+        CHECK_EQ(props3.encodes_object_id, true);
 
         // Type 0x04: end_of_group=false, extensions=false, object_id=false
         auto props4 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupNoExtensionsNoObjectId);
         CHECK_EQ(props4.end_of_group, false);
         CHECK_EQ(props4.has_extensions, false);
-        CHECK_EQ(props4.has_object_id, false);
+        CHECK_EQ(props4.encodes_object_id, false);
 
         // Type 0x05: end_of_group=false, extensions=true, object_id=false
         auto props5 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupWithExtensionsNoObjectId);
         CHECK_EQ(props5.end_of_group, false);
         CHECK_EQ(props5.has_extensions, true);
-        CHECK_EQ(props5.has_object_id, false);
+        CHECK_EQ(props5.encodes_object_id, false);
 
         // Type 0x06: end_of_group=true, extensions=false, object_id=false
         auto props6 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupNoExtensionsNoObjectId);
         CHECK_EQ(props6.end_of_group, true);
         CHECK_EQ(props6.has_extensions, false);
-        CHECK_EQ(props6.has_object_id, false);
+        CHECK_EQ(props6.encodes_object_id, false);
 
         // Type 0x07: end_of_group=true, extensions=true, object_id=false
         auto props7 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupWithExtensionsNoObjectId);
         CHECK_EQ(props7.end_of_group, true);
         CHECK_EQ(props7.has_extensions, true);
-        CHECK_EQ(props7.has_object_id, false);
+        CHECK_EQ(props7.encodes_object_id, false);
     }
 
     SUBCASE("Properties to type")

@@ -277,19 +277,19 @@ namespace quicr::messages {
         // True if this object has extensions.
         const bool has_extensions;
         // True if this object encodes an object ID.
-        const bool has_object_id;
+        const bool encodes_object_id;
 
         constexpr explicit DatagramHeaderProperties(const DatagramHeaderType type)
           : end_of_group(static_cast<uint8_t>(type) & 0x02)
           , has_extensions(static_cast<uint8_t>(type) & 0x01)
-          , has_object_id((static_cast<uint8_t>(type) & 0x04) == 0)
+          , encodes_object_id((static_cast<uint8_t>(type) & 0x04) == 0)
         {
         }
 
         constexpr DatagramHeaderProperties(const bool end_of_group, const bool has_extensions, const bool has_object_id)
           : end_of_group(end_of_group)
           , has_extensions(has_extensions)
-          , has_object_id(has_object_id)
+          , encodes_object_id(has_object_id)
         {
         }
 
@@ -304,7 +304,7 @@ namespace quicr::messages {
                 type |= 0x01;
             if (end_of_group)
                 type |= 0x02;
-            if (!has_object_id)
+            if (!encodes_object_id)
                 type |= 0x04;
             return static_cast<DatagramHeaderType>(type);
         }
@@ -550,11 +550,16 @@ namespace quicr::messages {
          * Determine the type of this datagram header based on its properties.
          * @return The DatagramHeaderType corresponding to this datagram header.
          */
-        DatagramHeaderType GetType() const
+        DatagramHeaderType GetType() const { return GetProperties().GetType(); }
+
+        /**
+         * Determine the properties of this datagram header based on its fields.
+         * @return The DatagramHeaderProperties corresponding to this datagram object.
+         */
+        DatagramHeaderProperties GetProperties() const
         {
             return DatagramHeaderProperties(
-                     end_of_group, extensions.has_value() || immutable_extensions.has_value(), object_id > 0)
-              .GetType();
+              end_of_group, extensions.has_value() || immutable_extensions.has_value(), object_id > 0);
         }
 
       private:
