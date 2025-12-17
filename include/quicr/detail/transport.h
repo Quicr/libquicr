@@ -452,10 +452,10 @@ namespace quicr {
 
             /// Subscribe Namespace prefix by request Id
             std::map<messages::RequestID, TrackNamespace> sub_namespace_prefix_by_request_id;
-            
+
             /// Subscribe Namespace handlers by namespace.
             std::map<TrackNamespace, std::shared_ptr<SubscribeNamespaceHandler>> sub_namespace_handlers;
-            
+
             ConnectionMetrics metrics{};   ///< Connection metrics
             bool is_webtransport{ false }; ///< True if this connection uses WebTransport over HTTP/3
 
