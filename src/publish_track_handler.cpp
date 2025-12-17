@@ -182,28 +182,31 @@ namespace quicr {
             pending_new_group_request_id_ = std::nullopt;
         }
 
-        if (group_id_delta > 1) {
-            const std::uint64_t value = group_id_delta - 1;
-            std::vector<std::uint8_t> value_bytes(sizeof(value));
-            memcpy(value_bytes.data(), &value, sizeof(value));
-            if (not object_extensions.has_value()) {
-                object_extensions = Extensions{};
+        // Only client (publishers) can add these extensions. Per moqt, relays do not add these extensions
+        if (transport->client_mode_) {
+            if (group_id_delta > 1) {
+                const std::uint64_t value = group_id_delta - 1;
+                std::vector<std::uint8_t> value_bytes(sizeof(value));
+                memcpy(value_bytes.data(), &value, sizeof(value));
+                if (not object_extensions.has_value()) {
+                    object_extensions = Extensions{};
+                }
+
+                (*object_extensions)[static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap)].push_back(
+                  value_bytes);
             }
 
-            (*object_extensions)[static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap)].push_back(
-              value_bytes);
-        }
+            if (object_id_delta > 0) {
+                const std::uint64_t value = object_id_delta;
+                std::vector<std::uint8_t> value_bytes(sizeof(value));
+                memcpy(value_bytes.data(), &value, sizeof(value));
+                if (not object_extensions.has_value()) {
+                    object_extensions = Extensions{};
+                }
 
-        if (object_id_delta > 0) {
-            const std::uint64_t value = object_id_delta;
-            std::vector<std::uint8_t> value_bytes(sizeof(value));
-            memcpy(value_bytes.data(), &value, sizeof(value));
-            if (not object_extensions.has_value()) {
-                object_extensions = Extensions{};
+                (*object_extensions)[static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorObjectIdGap)].push_back(
+                  value_bytes);
             }
-
-            (*object_extensions)[static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorObjectIdGap)].push_back(
-              value_bytes);
         }
 
         latest_group_id_ = object_headers.group_id;
@@ -261,25 +264,6 @@ namespace quicr {
                     subgroup_hdr.priority = priority;
                     subgroup_hdr.track_alias = GetTrackAlias().value();
                     object_msg_buffer_ << subgroup_hdr;
-
-                    auto result = transport->Enqueue(
-                      GetConnectionId(),
-                      publish_data_ctx_id_,
-                      group_id,
-                      std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-                      priority,
-                      ttl,
-                      0,
-                      eflags);
-
-                    object_msg_buffer_.clear();
-                    eflags.new_stream = false;
-                    eflags.clear_tx_queue = false;
-                    eflags.use_reset = false;
-
-                    if (result != TransportError::kNone) {
-                        throw TransportException(result);
-                    }
                 }
 
                 messages::StreamSubGroupObject object;

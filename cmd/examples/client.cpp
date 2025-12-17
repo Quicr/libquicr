@@ -152,7 +152,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                             bool publisher_initiated = false,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
       : SubscribeTrackHandler(full_track_name,
-                              3,
+                              128,
                               quicr::messages::GroupOrder::kAscending,
                               filter_type,
                               joining_fetch,
@@ -298,7 +298,12 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
 
     void StatusChanged(Status status) override
     {
-        const auto alias = GetTrackAlias().value();
+        auto track_alias_opt = GetTrackAlias();
+        if (!track_alias_opt.has_value()) {
+            SPDLOG_WARN("StatusChanged called but track alias not available, status: {}", static_cast<int>(status));
+            return;
+        }
+        const auto alias = track_alias_opt.value();
         switch (status) {
             case Status::kOk: {
                 SPDLOG_INFO("Publish track alias: {0} is ready to send", alias);
@@ -547,7 +552,8 @@ class MyClient : public quicr::Client
                         largest_location.value().object);
         }
 
-        if (start.group > end->group || largest_location.value().group < start.group) {
+        if (largest_location.has_value() &&
+            (start.group > end->group || largest_location.value().group < start.group)) {
             reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
         }
 
@@ -695,7 +701,7 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
             bool& stop)
 {
     auto track_handler = std::make_shared<MyPublishTrackHandler>(
-      full_track_name, quicr::TrackMode::kStream /*mode*/, 2 /*priority*/, 3000 /*ttl*/);
+      full_track_name, quicr::TrackMode::kStream /*mode*/, 128 /*priority*/, 3000 /*ttl*/);
 
     track_handler->SetUseAnnounce(use_announce);
 
@@ -845,8 +851,8 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
         }
 
         quicr::ObjectHeaders obj_headers = {
-            group_id,       object_id++,    subgroup_id,  msg.size(),   quicr::ObjectStatus::kAvailable,
-            2 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
+            group_id,         object_id++,    subgroup_id,  msg.size(),   quicr::ObjectStatus::kAvailable,
+            128 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
         };
 
         try {
@@ -889,9 +895,10 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
 {
     typedef quicr::SubscribeTrackHandler::JoiningFetch Fetch;
     const auto joining_fetch = join_fetch.has_value()
-                                 ? Fetch{ 4, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
+                                 ? Fetch{ 128, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
                                  : std::optional<Fetch>(std::nullopt);
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
+    track_handler->SetPriority(128);
 
     SPDLOG_INFO("Started subscriber");
 
@@ -1066,6 +1073,33 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     config.transport_config.debug = cli_opts["debug"].as<bool>();
     config.transport_config.ssl_keylog = cli_opts["ssl_keylog"].as<bool>();
 
+    // Handle transport protocol override
+    std::string transport_type = cli_opts["transport"].as<std::string>();
+    if (transport_type == "webtransport") {
+        // Convert URL scheme to https:// for WebTransport
+        if (config.connect_uri.starts_with("moq://") || config.connect_uri.starts_with("moqt://")) {
+            size_t scheme_end = config.connect_uri.find("://");
+            if (scheme_end != std::string::npos) {
+                config.connect_uri = "https://" + config.connect_uri.substr(scheme_end + 3);
+                SPDLOG_INFO("Using WebTransport with URL: {}", config.connect_uri);
+            }
+        } else if (!config.connect_uri.starts_with("https://")) {
+            SPDLOG_WARN("WebTransport requires https:// URL scheme");
+        }
+    } else if (transport_type == "quic") {
+        // Convert URL scheme to moq:// for raw QUIC if needed
+        if (config.connect_uri.starts_with("https://")) {
+            size_t scheme_end = config.connect_uri.find("://");
+            if (scheme_end != std::string::npos) {
+                config.connect_uri = "moq://" + config.connect_uri.substr(scheme_end + 3);
+                SPDLOG_INFO("Using raw QUIC with URL: {}", config.connect_uri);
+            }
+        }
+    } else {
+        SPDLOG_ERROR("Invalid transport type: {}. Valid options: quic, webtransport", transport_type);
+        exit(-1);
+    }
+
     config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
     config.transport_config.tls_cert_filename = "";
@@ -1093,7 +1127,8 @@ main(int argc, char* argv[])
         ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
         ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
         ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
-        ("s,ssl_keylog", "Enable SSL Keylog for transport debugging");
+        ("s,ssl_keylog", "Enable SSL Keylog for transport debugging")
+        ("t,transport", "Transport protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"));
 
     options.add_options("Publisher")
         ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>())

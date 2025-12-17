@@ -67,8 +67,8 @@ namespace quicr {
      */
     enum class TransportProtocol : uint8_t
     {
-        kUdp = 0,
-        kQuic
+        kQuic,
+        kWebTransport
     };
 
     /**
@@ -78,9 +78,10 @@ namespace quicr {
      */
     struct TransportRemote
     {
-        std::string host_or_ip;  /// IPv4/v6 or FQDN (user input)
-        uint16_t port;           /// Port (user input)
-        TransportProtocol proto; /// Protocol to use for the transport
+        std::string host_or_ip;      /// IPv4/v6 or FQDN (user input)
+        uint16_t port;               /// Port (user input)
+        TransportProtocol proto;     /// Protocol to use for the transport
+        std::string path{ "relay" }; /// When using WT, the path to use
     };
 
     /**
@@ -172,7 +173,7 @@ namespace quicr {
      * 	is ensured by the transport owing the lock and
      * 	access to the queues.
      *
-     * @note Some implementations may cho/ose to
+     * @note Some implementations may choose to
      * 	have enqueue/dequeue being blocking. However
      * 	in such cases applications needs to
      * 	take the burden of non-blocking flows.
@@ -309,15 +310,20 @@ namespace quicr {
                                                                std::shared_ptr<spdlog::logger> logger);
 
         /**
-         * @brief Create a new server transport based on the remote (server) ip and
-         * port
+         * @brief Create a new server transport based on the remote (server) ip and port
          *
-         * @param[in] server      Transport remote server information
+         * @details Server mode automatically supports BOTH raw QUIC (ALPN: moq-00) and
+         * WebTransport (ALPN: h3) simultaneously. The transport mode for each connection
+         * is determined dynamically based on the ALPN negotiated with each client during
+         * the TLS handshake.
+         *
+         * @param[in] server      Transport remote server information (server.proto is ignored)
          * @param[in] tcfg        Transport configuration
          * @param[in] delegate    Implemented callback methods
+         * @param[in] tick_service Shared pointer to tick service
          * @param[in] logger      Shared pointer to logger
          *
-         * @return shared_ptr for the under lining transport.
+         * @return shared_ptr for the underlying transport
          */
         static std::shared_ptr<ITransport> MakeServerTransport(const TransportRemote& server,
                                                                const TransportConfig& tcfg,
@@ -487,5 +493,56 @@ namespace quicr {
          * @throws TransportError for invalid connection or stream id
          */
         virtual std::shared_ptr<StreamRxContext> GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) = 0;
+
+        /**
+         * @brief Close a WebTransport session with error code and message
+         *
+         * @details Sends a CLOSE_WEBTRANSPORT_SESSION capsule to gracefully close
+         * the WebTransport session. This is only valid for connections using
+         * WebTransport over HTTP/3. For raw QUIC connections, this method has no effect.
+         *
+         * The close session message allows the application to provide:
+         * - An error code to indicate the reason for closure
+         * - An optional error message string for debugging
+         *
+         * After sending the close session message, the WebTransport session will be
+         * terminated and all associated streams will be cleaned up. This is typically
+         * used when the application wants to explicitly close the session due to an
+         * error condition or when normal session termination is required.
+         *
+         * @param conn_id           Connection ID to close WebTransport session
+         * @param error_code        WebTransport error code (application-defined)
+         * @param error_msg         Optional error message string (can be nullptr)
+         *
+         * @returns 0 on success, -1 on failure (e.g., not a WebTransport connection)
+         */
+        virtual int CloseWebTransportSession(TransportConnId conn_id,
+                                             uint32_t error_code,
+                                             const char* error_msg = nullptr) = 0;
+
+        /**
+         * @brief Drain a WebTransport session gracefully
+         *
+         * @details Sends a DRAIN_WEBTRANSPORT_SESSION capsule to indicate that the
+         * peer should finish sending any pending data and then close the session.
+         * This is a more graceful shutdown compared to CloseWebTransportSession,
+         * allowing both peers to complete ongoing operations before closure.
+         *
+         * The drain message signals to the peer that:
+         * - No new operations should be started
+         * - Existing operations should be completed
+         * - The session will be closed after all pending data is sent
+         *
+         * This is typically used during normal application shutdown when you want
+         * to ensure all data is properly flushed before closing the connection.
+         *
+         * Only valid for WebTransport connections. For raw QUIC connections,
+         * this method has no effect.
+         *
+         * @param conn_id           Connection ID to drain WebTransport session
+         *
+         * @returns 0 on success, -1 on failure (e.g., not a WebTransport connection)
+         */
+        virtual int DrainWebTransportSession(TransportConnId conn_id) = 0;
     };
 } // namespace quicr

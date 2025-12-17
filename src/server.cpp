@@ -242,7 +242,8 @@ namespace quicr {
 
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
                                       ConnectionHandle src_id,
-                                      const std::shared_ptr<PublishTrackHandler>& track_handler)
+                                      const std::shared_ptr<PublishTrackHandler>& track_handler,
+                                      bool send_publish_done)
     {
         std::lock_guard lock(state_mutex_);
 
@@ -280,6 +281,13 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id.erase(track_handler->publish_data_ctx_id_);
 
         quic_transport_->DeleteDataContext(connection_handle, track_handler->publish_data_ctx_id_);
+
+        if (send_publish_done) {
+            SendPublishDone(conn_it->second,
+                            track_handler->GetRequestId().value(),
+                            messages::PublishDoneStatusCode::kSubscribtionEnded,
+                            "No publishers");
+        }
     }
 
     void Server::BindPublisherTrack(ConnectionHandle conn_id,
@@ -482,16 +490,18 @@ namespace quicr {
                 }
 
                 // TODO(tievens): add filter type when caching supports it
-                SubscribeReceived(conn_ctx.connection_handle,
-                                  msg.request_id,
-                                  tfn,
-                                  { msg.subscriber_priority,
-                                    static_cast<messages::GroupOrder>(msg.group_order),
-                                    std::chrono::milliseconds{ delivery_timeout },
-                                    msg.filter_type,
-                                    msg.forward,
-                                    new_group_request_id,
-                                    false });
+                SubscribeReceived(
+                  conn_ctx.connection_handle,
+                  msg.request_id,
+                  tfn,
+                  { msg.subscriber_priority,
+                    static_cast<messages::GroupOrder>(msg.group_order),
+                    std::chrono::milliseconds{ delivery_timeout },
+                    msg.filter_type,
+                    msg.forward,
+                    new_group_request_id,
+                    false,
+                    msg.group_0.has_value() ? msg.group_0->start_location : messages::Location{ 0, 0 } });
 
                 // Handle new group request after subscribe callback
                 if (new_group_request_id.has_value()) {
@@ -653,6 +663,17 @@ namespace quicr {
                 TrackStatusResponseReceived(conn_ctx.connection_handle, msg.request_id, response);
                 return true;
             }
+
+            case messages::ControlMessageType::kPublishNamespaceOk: {
+                auto msg = messages::PublishNamespaceOk{};
+                msg_bytes >> msg;
+
+                SPDLOG_LOGGER_INFO(
+                  logger_, "Received publish namespace ok for request_id: {}, ignoring", msg.request_id);
+
+                return true;
+            }
+
             case messages::ControlMessageType::kPublishNamespace: {
                 auto msg = messages::PublishNamespace{};
                 msg_bytes >> msg;
@@ -1098,7 +1119,8 @@ namespace quicr {
                                                              .filter_type = msg.filter_type,
                                                              .forward = msg.forward,
                                                              .new_group_request_id = new_group_request_id,
-                                                             .is_publisher_initiated = true };
+                                                             .is_publisher_initiated = true,
+                                                             .start_location = { 0, 0 } };
                 SubscribeReceived(conn_ctx.connection_handle, msg.request_id, tfn, attributes);
                 return true;
             }

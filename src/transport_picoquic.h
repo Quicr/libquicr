@@ -14,6 +14,12 @@
 #include <picoquic_packet_loop.h>
 #include <quicr/detail/quic_transport.h>
 #include <spdlog/spdlog.h>
+#include <tls_api.h>
+
+// WebTransport headers
+#include <h3zero.h>
+#include <h3zero_common.h>
+#include <pico_webtransport.h>
 
 #include <atomic>
 #include <chrono>
@@ -43,10 +49,17 @@ namespace quicr {
      */
     constexpr int kMinStreamBytesForSend = 2;
 
+    enum class TransportMode
+    {
+        kQuic,        // Raw QUIC transport with moq-00 ALPN
+        kWebTransport // WebTransport over HTTP/3 with h3 ALPN
+    };
+
     class PicoQuicTransport : public ITransport
     {
       public:
         const char* quicr_alpn = "moq-00";
+        const char* webtransport_alpn = "h3";
 
         using BytesT = std::vector<uint8_t>;
         using DataContextId = uint64_t;
@@ -61,8 +74,8 @@ namespace quicr {
 
         /**
          * Data context information
-         *      Data context is intended to be a container for metrics and other state that is related to a flow of
-         *      data that may use datagram or one or more stream QUIC frames
+         *  Data context is intended to be a container for metrics and other state that is
+         *  related to a flow of data that may use datagram or one or more stream QUIC frames
          */
         struct DataContext
         {
@@ -118,6 +131,9 @@ namespace quicr {
             uint64_t last_tx_tick{ 0 };
 
             QuicDataContextMetrics metrics;
+
+            /// WebTransport stream context (only used in WebTransport mode)
+            h3zero_stream_ctx_t* wt_stream_ctx{ nullptr };
         };
 
         /**
@@ -128,8 +144,10 @@ namespace quicr {
             TransportConnId conn_id{ 0 };     /// This connection ID
             picoquic_cnx_t* pq_cnx = nullptr; /// Picoquic connection/path context
             uint64_t last_stream_id{ 0 };     /// last stream Id
+            std::optional<uint64_t> control_stream_id{ std::nullopt };
 
-            bool mark_dgram_ready{ false }; /// Instructs datagram to be marked ready/active
+            bool mark_dgram_ready{ false };                       /// Instructs datagram to be marked ready/active
+            TransportMode transport_mode{ TransportMode::kQuic }; /// Transport mode for this connection
 
             DataContextId next_data_ctx_id{ 1 }; /// Next data context ID; zero is reserved for default context
 
@@ -162,6 +180,31 @@ namespace quicr {
              * Active data contexts (streams bidir/unidir and datagram)
              */
             std::map<quicr::DataContextId, DataContext> active_data_contexts;
+
+            /**
+             * WebTransport stream ID to data context ID mapping
+             * Used in WebTransport mode to look up data context for a stream
+             */
+            std::map<uint64_t, DataContextId> wt_stream_to_data_ctx;
+
+            /// WebTransport HTTP/3 context for this connection (only used in WebTransport mode)
+            /// - Server mode: created by h3zero_callback per connection
+            /// - Client mode: created by picowt_prepare_client_cnx per connection
+            h3zero_callback_ctx_t* wt_h3_ctx{ nullptr };
+
+            /// WebTransport control stream context for this connection (only used in WebTransport mode)
+            h3zero_stream_ctx_t* wt_control_stream_ctx{ nullptr };
+
+            /// True if this connection owns the wt_h3_ctx and should free it on cleanup (client mode)
+            /// False for server mode where h3zero manages the h3_ctx lifecycle
+            bool wt_h3_ctx_owned{ false };
+
+            /// Client mode: connection-specific authority (server:port)
+            std::string wt_authority;
+
+            /// WebTransport capsule accumulator for control stream message parsing
+            /// Used to parse CLOSE_WEBTRANSPORT_SESSION and other capsules
+            picowt_capsule_t wt_capsule{};
 
             char peer_addr_text[45]{ 0 };
             uint16_t peer_port{ 0 };
@@ -219,12 +262,25 @@ namespace quicr {
         }
 
       public:
+        /**
+         * @brief Constructor for PicoQuicTransport
+         * @param server Server connection information
+         * @param tcfg Transport configuration
+         * @param delegate Transport delegate for callbacks
+         * @param is_server_mode True for server mode, false for client mode
+         * @param tick_service Shared pointer to tick service
+         * @param logger Shared pointer to logger
+         * @param transport_mode For clients: sets ALPN (kQuic→moq-00, kWebTransport→h3).
+         *                       For servers: NOT USED - server auto-negotiates per connection
+         *                       based on client ALPN (supports both moq-00 and h3 simultaneously)
+         */
         PicoQuicTransport(const TransportRemote& server,
                           const TransportConfig& tcfg,
                           TransportDelegate& delegate,
                           bool is_server_mode,
                           std::shared_ptr<TickService> tick_service,
-                          std::shared_ptr<spdlog::logger> logger);
+                          std::shared_ptr<spdlog::logger> logger,
+                          TransportMode transport_mode = TransportMode::kQuic);
 
         virtual ~PicoQuicTransport();
 
@@ -257,6 +313,12 @@ namespace quicr {
 
         std::shared_ptr<StreamRxContext> GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) override;
 
+        int CloseWebTransportSession(TransportConnId conn_id,
+                                     uint32_t error_code,
+                                     const char* error_msg = nullptr) override;
+
+        int DrainWebTransportSession(TransportConnId conn_id) override;
+
         void SetRemoteDataCtxId(TransportConnId conn_id,
                                 DataContextId data_ctx_id,
                                 DataContextId remote_data_ctx_id) override;
@@ -269,6 +331,21 @@ namespace quicr {
          */
         ConnectionContext* GetConnContext(const TransportConnId& conn_id);
         void SetStatus(TransportStatus status);
+
+        /**
+         * @brief Accept an incoming WebTransport connection
+         * @details Initializes WebTransport context, updates internal data structures,
+         *          and reports OnNewConnection() callback. Similar to wt_baton_accept.
+         * @param cnx Picoquic connection
+         * @param path WebTransport path (may be nullptr)
+         * @param path_length Length of path
+         * @param stream_ctx WebTransport control stream context
+         * @return 0 on success, -1 on error
+         */
+        int AcceptWebTransportConnection(picoquic_cnx_t* cnx,
+                                         uint8_t* path,
+                                         size_t path_length,
+                                         h3zero_stream_ctx_t* stream_ctx);
 
         /**
          * @brief Create bidirectional data context for received new stream
@@ -295,6 +372,7 @@ namespace quicr {
         void OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                DataContext* data_ctx,
                                uint64_t stream_id,
+                               int is_fin,
                                std::span<const uint8_t> bytes);
 
         void OnStreamClosed(TransportConnId conn_id,
@@ -307,6 +385,15 @@ namespace quicr {
         void RemoveClosedStreams();
 
         bool StreamActionCheck(DataContext* data_ctx, StreamAction stream_action);
+
+        /**
+         * @brief Deregister WebTransport context
+         * @details Cleans up WebTransport session resources including all streams
+         *          associated with the control stream, capsule memory, and mappings.
+         *          Similar to wt_baton.c:650 wt_baton_unlink_context().
+         * @param cnx The picoquic connection
+         */
+        void DeregisterWebTransport(picoquic_cnx_t* cnx);
 
         /**
          * @brief Function to run the queue functions within the picoquic thread via the pq_loop_cb
@@ -327,6 +414,7 @@ namespace quicr {
         bool is_server_mode;
         bool is_unidirectional{ false };
         bool debug{ false };
+        TransportMode transport_mode{ TransportMode::kQuic };
 
       private:
         void DeleteDataContextInternal(TransportConnId conn_id, DataContextId data_ctx_id, bool delete_on_empty);
@@ -353,6 +441,63 @@ namespace quicr {
          *      thread methods can call this via the pq_runner.
          */
         void MarkDgramReady(TransportConnId conn_id);
+
+        /**
+         * @brief Initialize WebTransport context
+         * @details Sets up the HTTP/3 and WebTransport contexts for WebTransport mode
+         */
+        int InitializeWebTransportContext();
+
+        /**
+         * @brief Setup WebTransport connection
+         * @details Establishes the WebTransport connection over HTTP/3
+         */
+        int SetupWebTransportConnection(picoquic_cnx_t* cnx);
+
+        /**
+         * @brief Get the appropriate ALPN based on transport mode
+         */
+        const char* GetAlpn() const;
+
+        /**
+         * @brief Set WebTransport path and callback for server mode
+         * @details Configures the path and callback function for handling WebTransport connections.
+         * ONLY connections to the configured path will be accepted; all other paths are rejected.
+         * @param path The WebTransport path to accept (default: "/relay"). Only this exact path is allowed.
+         * @param callback The callback function to handle WebTransport events (nullptr = use default)
+         * @param app_ctx Application context to pass to the callback
+         */
+        void SetWebTransportPathCallback(const std::string& path,
+                                         picohttp_post_data_cb_fn callback = nullptr,
+                                         void* app_ctx = nullptr);
+
+        /**
+         * @brief Create a local WebTransport stream
+         * @details Creates a WebTransport stream using per-connection h3_ctx.
+         *          Stream data callbacks are handled through the configured path_callback.
+         * @param cnx The picoquic connection
+         * @param is_bidir True for bidirectional stream, false for unidirectional
+         * @return Stream context or nullptr on failure
+         */
+        h3zero_stream_ctx_t* CreateWebTransportStream(picoquic_cnx_t* cnx, bool is_bidir);
+
+        /**
+         * @brief Send close session message for WebTransport
+         * @details Sends a close_webtransport_session capsule and closes the control stream
+         * @param cnx The picoquic connection
+         * @param error_code WebTransport error code
+         * @param error_msg Error message string
+         * @return 0 on success, -1 on failure
+         */
+        int SendWebTransportCloseSession(picoquic_cnx_t* cnx, uint32_t error_code, const char* error_msg);
+
+        /**
+         * @brief Send drain session message for WebTransport
+         * @details Sends a drain_webtransport_session capsule to tell peer to finish and close
+         * @param cnx The picoquic connection
+         * @return 0 on success, -1 on failure
+         */
+        int SendWebTransportDrainSession(picoquic_cnx_t* cnx);
 
         /**
          * @brief Create a new stream
@@ -398,6 +543,18 @@ namespace quicr {
 
         std::map<TransportConnId, ConnectionContext> conn_context_;
         std::shared_ptr<TickService> tick_service_;
+
+        // WebTransport configuration (server-wide, not per-connection)
+        struct WebTransportConfig
+        {
+            std::string path;                                    /// WebTransport path
+            picohttp_post_data_cb_fn path_callback = nullptr;    /// WebTransport path callback function
+            void* path_app_ctx = nullptr;                        /// Application context for path callback
+            std::vector<picohttp_server_path_item_t> path_items; /// Server path items for WebTransport
+            picohttp_server_parameters_t server_params{};        /// Server parameters (must persist for ALPN callback)
+        };
+
+        std::optional<WebTransportConfig> wt_config_;
     };
 
 } // namespace quicr
