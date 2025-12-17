@@ -321,6 +321,12 @@ namespace quicr {
         bool IsPublisherInitiated() const noexcept { return publisher_initiated_; }
 
         /**
+         * @brief Notification that a stream has been closed.
+         * @param stream_id The ID of the stream beign closed.
+         */
+        void StreamClosed(std::uint64_t stream_id);
+
+        /**
          * @brief Subscribe metrics for the track
          *
          * @details Subscribe metrics are updated real-time and transport quic metrics on metrics_sample_ms
@@ -357,7 +363,6 @@ namespace quicr {
         messages::SubscriberPriority priority_;
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
-        uint64_t current_stream_id_{ 0 };
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;

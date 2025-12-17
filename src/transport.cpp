@@ -1821,6 +1821,7 @@ namespace quicr {
                             handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
                             break;
                     }
+                    handler->StreamClosed(stream_id);
                 } catch (const ProtocolViolationException& e) {
                     SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
                     CloseConnection(connection_handle, TerminationReason::kProtocolViolation, e.reason);
