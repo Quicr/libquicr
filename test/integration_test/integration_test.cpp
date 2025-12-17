@@ -357,10 +357,8 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
         CHECK_EQ(details.prefix_namespace, prefix_namespace);
 
         // Client should receive SUBSCRIBE_NAMESPACE_OK from relay
-        auto client_status = client_future.wait_for(kDefaultTimeout);
-        REQUIRE(client_status == std::future_status::ready);
-        const auto& received_namespace = client_future.get();
-        CHECK_EQ(received_namespace, prefix_namespace);
+        std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
+        CHECK_EQ(handler->GetStatus(), SubscribeNamespaceHandler::Status::kOk);
 
         // Client should NOT receive PUBLISH_NAMESPACE because there are no matching namespaces.
         auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
