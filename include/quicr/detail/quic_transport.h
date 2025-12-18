@@ -381,6 +381,14 @@ namespace quicr {
         virtual void Close(const TransportConnId& conn_id, uint64_t app_reason_code = 0) = 0;
 
         /**
+         * @brief Close stream by stream id
+         * @param conn_id           Connection id of stream
+         * @param stream_id         Stream ID to close
+         * @param use_reset         True to close by RESET, false to close by FIN
+         */
+        virtual void CloseStreamById(TransportConnId conn_id, uint64_t stream_id, bool use_reset) = 0;
+
+        /**
          * @brief Delete data context
          * @details Deletes a data context for the given connection id. If reliable, the stream will
          *    be closed by FIN (graceful).

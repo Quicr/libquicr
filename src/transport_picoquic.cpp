@@ -2766,6 +2766,29 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
 }
 
 void
+PicoQuicTransport::CloseStreamById(TransportConnId conn_id, uint64_t stream_id, bool use_reset)
+{
+    auto conn_ctx = GetConnContext(conn_id);
+
+    if (conn_ctx == nullptr) {
+        return;
+    }
+
+    RunPqFunction([this, conn_ctx, stream_id, use_reset]() {
+        if (use_reset) {
+            picoquic_reset_stream_ctx(conn_ctx->pq_cnx, stream_id);
+            picoquic_reset_stream(conn_ctx->pq_cnx, stream_id, 0);
+        } else {
+            picoquic_reset_stream_ctx(conn_ctx->pq_cnx, stream_id);
+            uint8_t empty{ 0 };
+            picoquic_add_to_stream(conn_ctx->pq_cnx, stream_id, &empty, 0, 1);
+        }
+
+        return 0;
+    });
+}
+
+void
 PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx, DataContext* data_ctx, const bool send_reset)
 {
     if (!data_ctx->current_stream_id.has_value()) {
