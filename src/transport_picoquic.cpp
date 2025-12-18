@@ -1844,7 +1844,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
         data_ctx->mark_stream_active = false;
     }
 
-    defer(if (data_ctx->tx_data->Empty() && data_ctx->delete_on_empty) {
+    defer(if (data_ctx->tx_data->Empty() && data_ctx->stream_tx_object == nullptr && data_ctx->delete_on_empty) {
         DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
     });
 

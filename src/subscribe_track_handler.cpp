@@ -129,8 +129,6 @@ namespace quicr {
             }
 
             stream_buffer_.ResetAnyB<messages::StreamSubGroupObject>();
-        } else {
-            SPDLOG_ERROR("SubHandler:StreamDataRecv, not enough data to process stream object, stream {}", stream_id);
         }
     }
 
