@@ -403,24 +403,6 @@ namespace quicr {
         virtual bool GetPeerAddrInfo(const TransportConnId& context_id, sockaddr_storage* addr) = 0;
 
         /**
-         * @brief Set the data context id for RX unidir stream id
-         *
-         * @param conn_id                 Connection ID of the data context ID
-         * @param data_ctx_id             Local data context ID
-         * @param stream_id               RX stream ID
-         */
-        virtual void SetStreamIdDataCtxId(TransportConnId conn_id, DataContextId data_ctx_id, uint64_t stream_id) = 0;
-
-        /**
-         * @brief Set/update prioirty for the data context
-         *
-         * @param conn_id                 Connection ID of the data context ID
-         * @param data_ctx_id             Local data context ID
-         * @param priority                Priority for data context stream, range should be 0 - 255
-         */
-        virtual void SetDataCtxPriority(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority) = 0;
-
-        /**
          * @brief Set the remote data context id
          * @details sets the remote data context id for data objects transmitted
          *
@@ -544,5 +526,30 @@ namespace quicr {
          * @returns 0 on success, -1 on failure (e.g., not a WebTransport connection)
          */
         virtual int DrainWebTransportSession(TransportConnId conn_id) = 0;
+
+        /**
+         * @brief Create a new stream.
+         *
+         * @param conn_id       The connection id for the stream.
+         * @param data_ctx_id   Tje data context ID that the stream belongs to.
+         *
+         * @returns The optionally created stream id. If no stream was created, returns nullopt.
+         */
+        virtual std::optional<std::uint64_t> CreateStream(TransportConnId conn_id, DataContextId data_ctx_id) = 0;
+
+        /**
+         * @brief App initiated Close stream
+         * @details App initiated close stream. When the app deletes a context or wants to switch streams to a new
+         * stream this function is used to close out the current stream. A FIN will be sent.
+         *
+         * @param conn_id       Connection id for the stream
+         * @param data_ctx_id   Data context for the stream
+         * @param stream_id     ID of the stream to close.
+         * @param send_reset    Indicates if the stream should be closed by RESET, otherwise FIN
+         */
+        virtual void CloseStream(TransportConnId conn_id,
+                                 DataContextId data_ctx_id,
+                                 std::uint64_t stream_id,
+                                 bool send_reset) = 0;
     };
 } // namespace quicr

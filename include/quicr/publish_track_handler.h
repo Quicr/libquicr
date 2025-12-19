@@ -339,18 +339,6 @@ namespace quicr {
         // --------------------------------------------------------------------------
       protected:
         /**
-         * @brief Set the Data context ID
-         *
-         * @details The MOQ Handler sets the data context ID
-         */
-        void SetDataContextId(uint64_t data_ctx_id) noexcept { publish_data_ctx_id_ = data_ctx_id; };
-
-        /**
-         * @brief Get the Data context ID
-         */
-        constexpr uint64_t GetDataContextId() const noexcept { return publish_data_ctx_id_; };
-
-        /**
          * @brief Set the publish status
          * @param status                Status of publishing (aka publish objects)
          */

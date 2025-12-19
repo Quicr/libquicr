@@ -2119,9 +2119,14 @@ namespace quicr {
         }
     }
 
+    std::optional<std::uint64_t> Transport::CreateStream(ConnectionHandle conn_id, std::uint64_t data_ctx_id)
+    {
+        return quic_transport_->CreateStream(conn_id, data_ctx_id);
+    }
+
     TransportError Transport::Enqueue(const TransportConnId& conn_id,
                                       const DataContextId& data_ctx_id,
-                                      std::uint64_t group_id,
+                                      std::uint64_t stream_id,
                                       std::shared_ptr<const std::vector<uint8_t>> bytes,
                                       const uint8_t priority,
                                       const uint32_t ttl_ms,
@@ -2129,6 +2134,6 @@ namespace quicr {
                                       const ITransport::EnqueueFlags flags)
     {
         return quic_transport_->Enqueue(
-          conn_id, data_ctx_id, group_id, std::move(bytes), priority, ttl_ms, delay_ms, flags);
+          conn_id, data_ctx_id, stream_id, std::move(bytes), priority, ttl_ms, delay_ms, flags);
     }
 } // namespace moq
