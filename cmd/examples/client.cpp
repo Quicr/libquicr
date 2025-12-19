@@ -584,7 +584,7 @@ class MyClient : public quicr::Client
             for (const auto& entry : cache_entries) {
                 for (const auto& object : *entry) {
                     if (end->object && object.headers.group_id == end->group &&
-                        object.headers.object_id >= end->object) {
+                        object.headers.object_id > end->object) {
                         return;
                     }
 
@@ -1159,9 +1159,9 @@ main(int argc, char* argv[])
         ("fetch_namespace", "Track namespace", cxxopts::value<std::string>())
         ("fetch_name", "Track name", cxxopts::value<std::string>())
         ("start_group", "Starting group ID", cxxopts::value<uint64_t>())
-        ("end_group", "One past the final group ID", cxxopts::value<uint64_t>())
+        ("end_group", "End Group ID", cxxopts::value<uint64_t>())
         ("start_object", "The starting object ID within the group", cxxopts::value<uint64_t>())
-        ("end_object", "One past the final object ID in the group", cxxopts::value<uint64_t>());
+        ("end_object", "One past the final object ID in the group, 0 for all", cxxopts::value<uint64_t>());
 
     // clang-format on
 

@@ -1844,7 +1844,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
         data_ctx->mark_stream_active = false;
     }
 
-    defer(if (data_ctx->tx_data->Empty() && data_ctx->delete_on_empty) {
+    defer(if (data_ctx->tx_data->Empty() && data_ctx->stream_tx_object == nullptr && data_ctx->delete_on_empty) {
         DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
     });
 
@@ -2761,6 +2761,29 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
 
     RunPqFunction([this, conn_id = conn_ctx.conn_id, data_ctx_id = data_ctx->data_ctx_id]() {
         MarkStreamActive(conn_id, data_ctx_id);
+        return 0;
+    });
+}
+
+void
+PicoQuicTransport::CloseStreamById(TransportConnId conn_id, uint64_t stream_id, bool use_reset)
+{
+    auto conn_ctx = GetConnContext(conn_id);
+
+    if (conn_ctx == nullptr) {
+        return;
+    }
+
+    RunPqFunction([this, conn_ctx, stream_id, use_reset]() {
+        if (use_reset) {
+            picoquic_reset_stream_ctx(conn_ctx->pq_cnx, stream_id);
+            picoquic_reset_stream(conn_ctx->pq_cnx, stream_id, 0);
+        } else {
+            picoquic_reset_stream_ctx(conn_ctx->pq_cnx, stream_id);
+            uint8_t empty{ 0 };
+            picoquic_add_to_stream(conn_ctx->pq_cnx, stream_id, &empty, 0, 1);
+        }
+
         return 0;
     });
 }
