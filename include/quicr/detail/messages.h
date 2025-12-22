@@ -74,6 +74,18 @@ namespace quicr::messages {
     };
 
     /**
+     * Datagram bitfield masks.
+     */
+    namespace DatagramBits {
+        constexpr uint8_t kExtensions = 0x01;
+        constexpr uint8_t kEndOfGroup = 0x02;
+        constexpr uint8_t kNoObjectId = 0x04;
+        constexpr uint8_t kStatus = 0x20;
+        constexpr uint8_t kDataValidMask = 0xF8;
+        constexpr uint8_t kStatusBaseMask = 0xFE;
+    }
+
+    /**
      * Possible datagram object header types.
      */
     enum class DatagramHeaderType : uint8_t
@@ -104,6 +116,19 @@ namespace quicr::messages {
     {
         kFetchHeader = 0x05
     };
+
+    /**
+     * Stream header bitfields.
+     */
+    namespace StreamBits {
+        constexpr uint8_t kExtensions = 0x01;
+        constexpr uint8_t kSubgroupIdModeMask = 0x06;
+        constexpr uint8_t kSubgroupIdModeShift = 1;
+        constexpr uint8_t kEndOfGroup = 0x08;
+        constexpr uint8_t kStreamMarker = 0x10;
+        constexpr uint8_t kReservedMode = 0x06;    // Mode value 3 (0b11) is reserved
+        constexpr uint8_t kInvalidBitsMask = 0xE0; // Bits 5,6,7 must be 0
+    }
 
     /**
      * Possible stream subgroup header types.
@@ -172,98 +197,51 @@ namespace quicr::messages {
          */
         StreamHeaderType GetType() const
         {
-            switch (subgroup_id_type) {
-                case SubgroupIdType::kIsZero: {
-                    if (end_of_group) {
-                        return may_contain_extensions ? StreamHeaderType::kSubgroup0EndOfGroupWithExtensions
-                                                      : StreamHeaderType::kSubgroup0EndOfGroupNoExtensions;
-                    }
-                    return may_contain_extensions ? StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions
-                                                  : StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions;
-                }
-                case SubgroupIdType::kSetFromFirstObject: {
-                    if (end_of_group) {
-                        return may_contain_extensions ? StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions
-                                                      : StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions;
-                    }
-                    return may_contain_extensions ? StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions
-                                                  : StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions;
-                }
-                case SubgroupIdType::kExplicit: {
-                    if (end_of_group) {
-                        return may_contain_extensions ? StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions
-                                                      : StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions;
-                    }
-                    return may_contain_extensions ? StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions
-                                                  : StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions;
-                }
+            uint8_t type = StreamBits::kStreamMarker;
+            if (may_contain_extensions) {
+                type |= StreamBits::kExtensions;
             }
-            throw ProtocolViolationException("Unknown subgroup header type");
+            switch (subgroup_id_type) {
+                case SubgroupIdType::kIsZero:
+                    break;
+                case SubgroupIdType::kSetFromFirstObject:
+                    type |= 1 << StreamBits::kSubgroupIdModeShift;
+                    break;
+                case SubgroupIdType::kExplicit:
+                    type |= 2 << StreamBits::kSubgroupIdModeShift;
+                    break;
+            }
+            if (end_of_group) {
+                type |= StreamBits::kEndOfGroup;
+            }
+            return static_cast<StreamHeaderType>(type);
         }
 
       private:
         static constexpr bool MayContainExtensions(const StreamHeaderType type)
         {
-            switch (type) {
-                case StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroup0EndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions:
-                    return false;
-                case StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroup0EndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions:
-                    return true;
-            }
-            throw ProtocolViolationException("Unknown subgroup header type");
+            return static_cast<uint8_t>(type) & StreamBits::kExtensions;
         }
 
         static constexpr bool EndOfGroup(const StreamHeaderType type)
         {
-            switch (type) {
-                case StreamHeaderType::kSubgroup0EndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroup0EndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions:
-                    return true;
-                case StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions:
-                    return false;
-            }
-            throw ProtocolViolationException("Unknown subgroup header type");
+            return static_cast<uint8_t>(type) & StreamBits::kEndOfGroup;
         }
 
         static constexpr SubgroupIdType GetSubgroupIdType(const StreamHeaderType type)
         {
-            switch (type) {
-                case StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroup0EndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroup0EndOfGroupWithExtensions:
+            constexpr auto kModeMask = StreamBits::kSubgroupIdModeMask >> StreamBits::kSubgroupIdModeShift;
+            const auto mode = (static_cast<uint8_t>(type) >> StreamBits::kSubgroupIdModeShift) & kModeMask;
+            switch (mode) {
+                case 0:
                     return SubgroupIdType::kIsZero;
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions:
+                case 1:
                     return SubgroupIdType::kSetFromFirstObject;
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions:
+                case 2:
                     return SubgroupIdType::kExplicit;
+                default:
+                    throw ProtocolViolationException("Reserved subgroup ID mode");
             }
-            throw ProtocolViolationException("Unknown subgroup header type");
         }
     };
 
@@ -280,9 +258,9 @@ namespace quicr::messages {
         const bool encodes_object_id;
 
         constexpr explicit DatagramHeaderProperties(const DatagramHeaderType type)
-          : end_of_group(static_cast<uint8_t>(type) & 0x02)
-          , has_extensions(static_cast<uint8_t>(type) & 0x01)
-          , encodes_object_id((static_cast<uint8_t>(type) & 0x04) == 0)
+          : end_of_group(static_cast<uint8_t>(type) & DatagramBits::kEndOfGroup)
+          , has_extensions(static_cast<uint8_t>(type) & DatagramBits::kExtensions)
+          , encodes_object_id((static_cast<uint8_t>(type) & DatagramBits::kNoObjectId) == 0)
         {
         }
 
@@ -301,11 +279,11 @@ namespace quicr::messages {
         {
             uint8_t type = 0;
             if (has_extensions)
-                type |= 0x01;
+                type |= DatagramBits::kExtensions;
             if (end_of_group)
-                type |= 0x02;
+                type |= DatagramBits::kEndOfGroup;
             if (!encodes_object_id)
-                type |= 0x04;
+                type |= DatagramBits::kNoObjectId;
             return static_cast<DatagramHeaderType>(type);
         }
     };
@@ -340,13 +318,7 @@ namespace quicr::messages {
       private:
         static constexpr bool HasExtensions(const DatagramStatusType type)
         {
-            switch (type) {
-                case DatagramStatusType::kNoExtensions:
-                    return false;
-                case DatagramStatusType::kWithExtensions:
-                    return true;
-            }
-            throw ProtocolViolationException("Unknown datagram status type");
+            return static_cast<uint8_t>(type) & DatagramBits::kExtensions;
         }
     };
 
@@ -355,12 +327,22 @@ namespace quicr::messages {
      */
     enum class DatagramMessageType : uint8_t
     {
-        kDatagramNotEndOfGroupNoExtensions =
+        kDatagramNotEndOfGroupNoExtensionsObjectId =
           static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupNoExtensionsObjectId),
-        kDatagramNotEndOfGroupWithExtensions =
+        kDatagramNotEndOfGroupWithExtensionsObjectId =
           static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensionsObjectId),
-        kDatagramEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensionsObjectId),
-        kDatagramEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensionsObjectId),
+        kDatagramEndOfGroupNoExtensionsObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensionsObjectId),
+        kDatagramEndOfGroupWithExtensionsObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensionsObjectId),
+        kDatagramNotEndOfGroupNoExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupNoExtensionsNoObjectId),
+        kDatagramNotEndOfGroupWithExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensionsNoObjectId),
+        kDatagramEndOfGroupNoExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensionsNoObjectId),
+        kDatagramEndOfGroupWithExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensionsNoObjectId),
         kDatagramStatusNoExtensions = static_cast<uint8_t>(DatagramStatusType::kNoExtensions),
         kDatagramStatusWithExtensions = static_cast<uint8_t>(DatagramStatusType::kWithExtensions),
     };
@@ -396,27 +378,6 @@ namespace quicr::messages {
     };
 
     /**
-     * @brief Check if the given type is a datagram message type.
-     * @details This primarily exists to enforce compile time validation of message type handling. The actual message
-     * type can be assumed to be a datagram message if it arrives on a datagram transport.
-     * @param type The type to query.
-     * @return True if this is a datagram message type, false otherwise.
-     */
-    constexpr bool TypeIsDatagram(const DatagramMessageType type)
-    {
-        switch (type) {
-            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
-            case DatagramMessageType::kDatagramStatusNoExtensions:
-            case DatagramMessageType::kDatagramStatusWithExtensions:
-                return true;
-        }
-        throw ProtocolViolationException("Unknown datagram message type");
-    }
-
-    /**
      * @brief Check if the given datagram message type is a datagram object header.
      * @param type The type to query.
      * @return True if this is a datagram object type, false otherwise.
@@ -424,17 +385,8 @@ namespace quicr::messages {
     [[maybe_unused]]
     static bool TypeIsDatagramHeaderType(const DatagramMessageType type)
     {
-        switch (type) {
-            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
-                return true;
-            case DatagramMessageType::kDatagramStatusNoExtensions:
-            case DatagramMessageType::kDatagramStatusWithExtensions:
-                return false;
-        }
-        throw ProtocolViolationException("Unknown datagram message type");
+        const auto val = static_cast<uint8_t>(type);
+        return (val & DatagramBits::kDataValidMask) == 0;
     }
 
     /**
@@ -445,17 +397,19 @@ namespace quicr::messages {
     [[maybe_unused]]
     static bool TypeIsDatagramStatusType(const DatagramMessageType type)
     {
-        switch (type) {
-            case DatagramMessageType::kDatagramStatusNoExtensions:
-            case DatagramMessageType::kDatagramStatusWithExtensions:
-                return true;
-            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
-                return false;
-        }
-        throw ProtocolViolationException("Unknown datagram message type");
+        const auto val = static_cast<uint8_t>(type);
+        return (val & DatagramBits::kStatusBaseMask) == DatagramBits::kStatus;
+    }
+
+    /**
+     * @brief Check if the given type is a datagram message type.
+     * @details This primarily exists to enforce compile time validation of message type handling. The actual message
+     * type can be assumed to be a datagram message if it arrives on a datagram transport.
+     * @param type The type to query.
+     * @return True if this is a datagram message type, false otherwise.*/
+    constexpr bool TypeIsDatagram(const DatagramMessageType type)
+    {
+        return TypeIsDatagramHeaderType(type) || TypeIsDatagramStatusType(type);
     }
 
     /**
@@ -465,24 +419,9 @@ namespace quicr::messages {
      */
     [[maybe_unused]] static bool TypeIsStreamHeaderType(const StreamMessageType type)
     {
-        switch (type) {
-            case StreamMessageType::kSubgroup0NotEndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroup0NotEndOfGroupWithExtensions:
-            case StreamMessageType::kSubgroupFirstObjectNotEndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroupFirstObjectNotEndOfGroupWithExtensions:
-            case StreamMessageType::kSubgroupExplicitNotEndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroupExplicitNotEndOfGroupWithExtensions:
-            case StreamMessageType::kSubgroup0EndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroup0EndOfGroupWithExtensions:
-            case StreamMessageType::kSubgroupFirstObjectEndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroupFirstObjectEndOfGroupWithExtensions:
-            case StreamMessageType::kSubgroupExplicitEndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroupExplicitEndOfGroupWithExtensions:
-                return true;
-            case StreamMessageType::kFetchHeader:
-                return false;
-        }
-        throw ProtocolViolationException("Unknown stream header type");
+        const auto val = static_cast<uint8_t>(type);
+        return (val & StreamBits::kInvalidBitsMask) == 0 && (val & StreamBits::kStreamMarker) != 0 &&
+               (val & StreamBits::kSubgroupIdModeMask) != StreamBits::kReservedMode;
     }
 
     struct FetchHeader

@@ -292,14 +292,69 @@ TEST_CASE("DatagramHeaderProperties encoding")
                  DatagramHeaderType::kEndOfGroupWithExtensionsNoObjectId);
     }
 
-    SUBCASE("Round trip known headers")
+    SUBCASE("Property check")
     {
-        constexpr uint8_t min_header = 0x00;
-        constexpr uint8_t max_header = 0x07;
-        for (uint8_t i = min_header; i <= max_header; i++) {
-            auto type = static_cast<DatagramHeaderType>(i);
-            auto props = DatagramHeaderProperties(type);
+        for (bool end_of_group : { false, true }) {
+            for (bool has_extensions : { false, true }) {
+                for (bool encodes_object_id : { false, true }) {
+                    CAPTURE(end_of_group);
+                    CAPTURE(has_extensions);
+                    CAPTURE(encodes_object_id);
+
+                    auto props = DatagramHeaderProperties(end_of_group, has_extensions, encodes_object_id);
+                    auto type = props.GetType();
+                    auto msg_type = static_cast<DatagramMessageType>(static_cast<uint8_t>(type));
+
+                    CHECK_NOTHROW(TypeIsDatagram(msg_type));
+                    CHECK(TypeIsDatagram(msg_type));
+                    CHECK_NOTHROW(TypeIsDatagramHeaderType(msg_type));
+                    CHECK(TypeIsDatagramHeaderType(msg_type));
+                    CHECK_FALSE(TypeIsDatagramStatusType(msg_type));
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("StreamHeaderProperties encoding")
+{
+    SUBCASE("All stream header property combinations are valid types")
+    {
+        for (bool may_contain_extensions : { false, true }) {
+            for (bool end_of_group : { false, true }) {
+                for (auto subgroup_id_type :
+                     { SubgroupIdType::kIsZero, SubgroupIdType::kSetFromFirstObject, SubgroupIdType::kExplicit }) {
+                    CAPTURE(may_contain_extensions);
+                    CAPTURE(end_of_group);
+                    CAPTURE(static_cast<int>(subgroup_id_type));
+
+                    auto props = StreamHeaderProperties(subgroup_id_type, end_of_group, may_contain_extensions);
+                    auto type = props.GetType();
+                    auto msg_type = static_cast<StreamMessageType>(static_cast<uint8_t>(type));
+
+                    CHECK(TypeIsStreamHeaderType(msg_type));
+                }
+            }
+        }
+    }
+
+    SUBCASE("Round trip known stream headers")
+    {
+        // Valid stream header types: 0x10-0x15, 0x18-0x1D (skip 0x16,0x17,0x1E,0x1F which are reserved mode=3)
+        for (uint8_t i : { 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D }) {
+            auto type = static_cast<StreamHeaderType>(i);
+            auto props = StreamHeaderProperties(type);
             CHECK_EQ(props.GetType(), type);
+        }
+    }
+
+    SUBCASE("Reserved subgroup ID mode throws")
+    {
+        // Types with mode=3 (bits 1-2 = 0b11) should throw when parsed
+        // These are: 0x16, 0x17, 0x1E, 0x1F
+        for (uint8_t i : { 0x16, 0x17, 0x1E, 0x1F }) {
+            auto type = static_cast<StreamHeaderType>(i);
+            CHECK_THROWS_AS((StreamHeaderProperties(type)), ProtocolViolationException);
         }
     }
 }
