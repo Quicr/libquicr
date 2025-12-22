@@ -361,6 +361,14 @@ namespace quicr::messages {
           static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensionsObjectId),
         kDatagramEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensionsObjectId),
         kDatagramEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensionsObjectId),
+        kDatagramNotEndOfGroupNoExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupNoExtensionsNoObjectId),
+        kDatagramNotEndOfGroupWithExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensionsNoObjectId),
+        kDatagramEndOfGroupNoExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensionsNoObjectId),
+        kDatagramEndOfGroupWithExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensionsNoObjectId),
         kDatagramStatusNoExtensions = static_cast<uint8_t>(DatagramStatusType::kNoExtensions),
         kDatagramStatusWithExtensions = static_cast<uint8_t>(DatagramStatusType::kWithExtensions),
     };
@@ -409,6 +417,10 @@ namespace quicr::messages {
             case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
             case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
             case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
+            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupWithExtensionsNoObjectId:
             case DatagramMessageType::kDatagramStatusNoExtensions:
             case DatagramMessageType::kDatagramStatusWithExtensions:
                 return true;
@@ -429,6 +441,10 @@ namespace quicr::messages {
             case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
             case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
             case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
+            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupWithExtensionsNoObjectId:
                 return true;
             case DatagramMessageType::kDatagramStatusNoExtensions:
             case DatagramMessageType::kDatagramStatusWithExtensions:
@@ -453,6 +469,10 @@ namespace quicr::messages {
             case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
             case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
             case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
+            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupWithExtensionsNoObjectId:
                 return false;
         }
         throw ProtocolViolationException("Unknown datagram message type");

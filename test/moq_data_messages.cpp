@@ -302,6 +302,29 @@ TEST_CASE("DatagramHeaderProperties encoding")
             CHECK_EQ(props.GetType(), type);
         }
     }
+
+    SUBCASE("Type validation for all property combinations")
+    {
+        for (bool end_of_group : { false, true }) {
+            for (bool has_extensions : { false, true }) {
+                for (bool encodes_object_id : { false, true }) {
+                    CAPTURE(end_of_group);
+                    CAPTURE(has_extensions);
+                    CAPTURE(encodes_object_id);
+
+                    auto props = DatagramHeaderProperties(end_of_group, has_extensions, encodes_object_id);
+                    auto type = props.GetType();
+                    auto msg_type = static_cast<DatagramMessageType>(static_cast<uint8_t>(type));
+
+                    CHECK_NOTHROW(TypeIsDatagram(msg_type));
+                    CHECK(TypeIsDatagram(msg_type));
+                    CHECK_NOTHROW(TypeIsDatagramHeaderType(msg_type));
+                    CHECK(TypeIsDatagramHeaderType(msg_type));
+                    CHECK_FALSE(TypeIsDatagramStatusType(msg_type));
+                }
+            }
+        }
+    }
 }
 
 static void
