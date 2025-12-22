@@ -1616,7 +1616,7 @@ PicoQuicTransport::DeleteDataContextInternal(TransportConnId conn_id, DataContex
                         delete_on_empty,
                         data_ctx_it->second.delete_on_empty);
 
-    if (delete_on_empty && !data_ctx_it->second.tx_data->Empty()) {
+    if (delete_on_empty && (!data_ctx_it->second.tx_data->Empty() || data_ctx_it->second.stream_tx_object != nullptr)) {
         data_ctx_it->second.delete_on_empty = true;
     } else {
         SPDLOG_LOGGER_DEBUG(logger, "Delete data context {0} in conn_id: {1}", data_ctx_id, conn_id);
