@@ -2119,9 +2119,11 @@ namespace quicr {
         }
     }
 
-    std::optional<std::uint64_t> Transport::CreateStream(ConnectionHandle conn_id, std::uint64_t data_ctx_id)
+    std::optional<std::uint64_t> Transport::CreateStream(ConnectionHandle conn_id,
+                                                         std::uint64_t data_ctx_id,
+                                                         uint8_t priority)
     {
-        return quic_transport_->CreateStream(conn_id, data_ctx_id);
+        return quic_transport_->CreateStream(conn_id, data_ctx_id, priority);
     }
 
     TransportError Transport::Enqueue(const TransportConnId& conn_id,

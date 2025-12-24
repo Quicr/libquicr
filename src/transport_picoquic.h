@@ -417,7 +417,23 @@ namespace quicr {
          */
         int SendWebTransportDrainSession(picoquic_cnx_t* cnx);
 
-        virtual std::optional<std::uint64_t> CreateStream(TransportConnId conn_id, DataContextId data_ctx_id) override;
+        /**
+         * @brief Create stream a new stream
+         *
+         * @details Create a new stream. Will block up to 100ms max to create the stream
+         *
+         * @note Thread-safe
+         *
+         * @param conn_id           Connection ID to create the stream
+         * @param data_ctx_id       Data context to create stream in
+         * @param priority          Priority of the stream
+         *
+         * @return stream ID if created, false if not.
+         */
+        std::optional<std::uint64_t> CreateStream(TransportConnId conn_id,
+                                                  DataContextId data_ctx_id,
+                                                  uint8_t priority) override;
+
         /**
          * @brief App initiated Close stream
          * @details App initiated close stream. When the app deletes a context or wants to switch streams to a new
@@ -520,13 +536,16 @@ namespace quicr {
          *
          * @param conn_ctx      Connection context to create stream under
          * @param data_ctx      Data context in connection context to create streams
+         * @param priority      Priority of the stream
          */
-        std::optional<std::uint64_t> CreateStream(ConnectionContext& conn_ctx, DataContext* data_ctx);
+        std::optional<std::uint64_t> CreateStream(ConnectionContext& conn_ctx, DataContext* data_ctx, uint8_t priority);
 
         /**
          * @brief App initiated Close stream
          * @details App initiated close stream. When the app deletes a context or wants to switch streams to a new
          * stream this function is used to close out the current stream. A FIN will be sent.
+         *
+         * @warning This method must be called within the picoquic thread
          *
          * @param conn_ctx      Connection context for the stream
          * @param data_ctx      Data context for the stream

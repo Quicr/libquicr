@@ -357,6 +357,7 @@ namespace quicr {
         std::optional<uint64_t> pending_new_group_request_id_;
         bool is_fetch_handler_{ false };
         std::map<std::uint64_t, StreamContext> streams_;
+        StreamBuffer<uint8_t> dgram_buffer_;
 
       private:
         Status status_{ Status::kNotSubscribed };

@@ -2565,7 +2565,7 @@ PicoQuicTransport::CbNotifier()
 }
 
 std::optional<std::uint64_t>
-PicoQuicTransport::CreateStream(TransportConnId conn_id, DataContextId data_ctx_id)
+PicoQuicTransport::CreateStream(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority)
 {
     std::lock_guard _(state_mutex_);
 
@@ -2579,11 +2579,39 @@ PicoQuicTransport::CreateStream(TransportConnId conn_id, DataContextId data_ctx_
         return std::nullopt;
     }
 
-    return CreateStream(conn_it->second, std::addressof(data_ctx_it->second));
+    std::condition_variable cv;
+    std::mutex cv_m;
+    std::optional<uint64_t> stream_id;
+
+    RunPqFunction([this,
+                   &conn_ctx = conn_it->second,
+                   pq_cnx = conn_it->second.pq_cnx,
+                   data_ctx = std::addressof(data_ctx_it->second),
+                   &cv_m = cv_m,
+                   &cv = cv,
+                   &stream_id = stream_id,
+                   priority]() {
+        {
+            std::lock_guard lk(cv_m);
+            stream_id = CreateStream(conn_ctx, data_ctx, priority);
+        }
+        cv.notify_all();
+
+        return 0;
+    });
+
+    std::unique_lock lk(cv_m);
+    cv.wait_for(lk, std::chrono::milliseconds(100), [&stream_id = stream_id] { return stream_id.has_value(); });
+
+    if (!stream_id.has_value()) {
+        throw PicoQuicException("Unable to create stream");
+    }
+
+    return stream_id;
 }
 
 std::optional<std::uint64_t>
-PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_ctx)
+PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_ctx, uint8_t priority)
 {
     DataContext::StreamContext stream;
     stream.mark_stream_active = true;
@@ -2643,10 +2671,8 @@ PicoQuicTransport::CreateStream(ConnectionContext& conn_ctx, DataContext* data_c
 
     data_ctx->streams[stream_id] = std::move(stream);
 
-    RunPqFunction([this, conn_id = conn_ctx.conn_id, data_ctx_id = data_ctx->data_ctx_id, stream_id]() {
-        MarkStreamActive(conn_id, data_ctx_id, stream_id);
-        return 0;
-    });
+    picoquic_set_stream_priority(conn_ctx.pq_cnx, stream_id, (priority << 1));
+    MarkStreamActive(conn_ctx.conn_id, data_ctx->data_ctx_id, stream_id);
 
     return stream_id;
 }
@@ -2752,7 +2778,6 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id,
     }
 
     picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 1, stream_ctx);
-    picoquic_set_stream_priority(conn_it->second.pq_cnx, stream_id, (stream_it->second.priority << 1));
 }
 
 void

@@ -366,7 +366,6 @@ namespace quicr {
         uint64_t latest_group_id_{ 0 };
         uint64_t latest_sub_group_id_{ 0 };
         std::optional<uint64_t> latest_object_id_;
-        uint64_t object_payload_remaining_length_{ 0 };
         std::optional<uint64_t> track_alias_;
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize

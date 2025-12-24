@@ -531,11 +531,14 @@ namespace quicr {
          * @brief Create a new stream.
          *
          * @param conn_id       The connection id for the stream.
-         * @param data_ctx_id   Tje data context ID that the stream belongs to.
+         * @param data_ctx_id   The data context ID that the stream belongs to.
+         * @param priority      Priority of the stream
          *
          * @returns The optionally created stream id. If no stream was created, returns nullopt.
          */
-        virtual std::optional<std::uint64_t> CreateStream(TransportConnId conn_id, DataContextId data_ctx_id) = 0;
+        virtual std::optional<std::uint64_t> CreateStream(TransportConnId conn_id,
+                                                          DataContextId data_ctx_id,
+                                                          uint8_t priority) = 0;
 
         /**
          * @brief App initiated Close stream

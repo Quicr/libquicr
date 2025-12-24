@@ -118,13 +118,11 @@ namespace quicr {
 
     void SubscribeTrackHandler::DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        auto& stream = streams_[0]; // TODO: Choose better id for dgram?
-        stream.buffer.Clear();
-
-        stream.buffer.Push(*data);
+        dgram_buffer_.Clear();
+        dgram_buffer_.Push(*data);
 
         messages::ObjectDatagram msg;
-        if (stream.buffer >> msg) {
+        if (dgram_buffer_ >> msg) {
             SPDLOG_TRACE("Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
                          "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
                          conn_id,
