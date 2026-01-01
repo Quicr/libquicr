@@ -23,6 +23,13 @@ target_sources (quicr PRIVATE
     joining_fetch_handler.cpp
 )
 
+# Add bare-metal platform support sources
+if (PLATFORM_ESP_HAL)
+    target_sources(quicr PRIVATE
+        ${PROJECT_SOURCE_DIR}/platform/baremetal/src/pthread_stubs.c
+    )
+endif()
+
 set_source_files_properties(${ctrl_messages_SOURCE} PROPERTIES GENERATED TRUE)
 
 target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include )

@@ -24,8 +24,19 @@ endif()
 # Submodules
 # --------------------------------------------------------
 
-if (NOT TARGET spdlog)
-    add_subdirectory(spdlog)
+# For bare-metal builds, use stub spdlog from platform/baremetal
+if (NOT PLATFORM_ESP_HAL)
+    if (NOT TARGET spdlog)
+        add_subdirectory(spdlog)
+    endif()
+else()
+    # Create a header-only stub target for bare-metal
+    add_library(spdlog INTERFACE)
+    target_include_directories(spdlog INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../platform/baremetal/include)
+    # Create alias to match real spdlog's namespace
+    add_library(spdlog::spdlog ALIAS spdlog)
+    message(STATUS "Using bare-metal spdlog stub")
 endif()
 
 if(BUILD_TESTING AND QUICR_BUILD_TESTS AND NOT TARGET doctest)
@@ -39,7 +50,56 @@ set(BUILD_STATIC_LIBS ON)
 if (${USE_MBEDTLS})
     message("Transport building with MBedTLS")
 
-    if (NOT TARGET mbedcrypto) # If not already available on build server
+    if (PLATFORM_ESP_HAL)
+        # For bare-metal ESP-HAL, build mbedtls with cross-compilation settings
+        message(STATUS "Building mbedtls for bare-metal ESP-HAL")
+
+        option(ENABLE_TESTING OFF)
+        option(ENABLE_PROGRAMS OFF)
+        set(MBEDTLS_AS_SUBPROJECT ON)
+
+        # Disable features that require OS support
+        set(MBEDTLS_THREADING OFF CACHE BOOL "" FORCE)
+        set(MBEDTLS_FS_IO OFF CACHE BOOL "" FORCE)
+
+        # Add compile definitions for bare-metal
+        add_compile_definitions(MBEDTLS_NO_PLATFORM_ENTROPY)
+
+        add_subdirectory(mbedtls)
+
+        # Remove net_sockets.c from mbedtls target for bare-metal
+        # net_sockets.c requires Unix/Windows and has a compile-time #error
+        get_target_property(MBEDTLS_SOURCES mbedtls SOURCES)
+        if(MBEDTLS_SOURCES)
+            list(FILTER MBEDTLS_SOURCES EXCLUDE REGEX "net_sockets\\.c$")
+            set_target_properties(mbedtls PROPERTIES SOURCES "${MBEDTLS_SOURCES}")
+        endif()
+
+        # Disable -Werror for mbedtls on bare-metal (various header redefinition warnings)
+        if(TARGET mbedtls)
+            target_compile_options(mbedtls PRIVATE -Wno-error)
+        endif()
+        if(TARGET mbedx509)
+            target_compile_options(mbedx509 PRIVATE -Wno-error)
+        endif()
+        if(TARGET mbedcrypto)
+            target_compile_options(mbedcrypto PRIVATE -Wno-error)
+        endif()
+        if(TARGET builtin)
+            target_compile_options(builtin PRIVATE -Wno-error)
+        endif()
+        if(TARGET tfpsacrypto)
+            target_compile_options(tfpsacrypto PRIVATE -Wno-error)
+        endif()
+
+        set(MBEDTLS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
+        set(MBEDTLS_INCLUDE_DIRS
+            ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls
+            ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/tf-psa-crypto/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/tf-psa-crypto/drivers/builtin/include)
+
+    elseif (NOT TARGET mbedcrypto) # If not already available on build server
         # Setup python environment for mbedtls to find.
         find_package(Python3 REQUIRED)
         execute_process(
@@ -73,7 +133,11 @@ if (${USE_MBEDTLS})
         add_subdirectory(mbedtls)
 
         set(MBEDTLS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
-        set(MBEDTLS_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/include)
+        set(MBEDTLS_INCLUDE_DIRS
+            ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls
+            ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/tf-psa-crypto/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/tf-psa-crypto/drivers/builtin/include)
 
     elseif(PLATFORM_ESP_IDF)
         set(MBEDTLS_ROOT_DIR ${IDF_PATH}/components/mbedtls/mbedtls)
@@ -92,12 +156,16 @@ if (${USE_MBEDTLS})
     option(WITH_FUSION OFF)
     set(PICOTLS_USE_BROTLI OFF)
     set(picotls_BUILD_TESTS OFF)
+
+    # For bare-metal, QUICR_BAREMETAL is already defined and compat header is force-included
+    # via parent CMakeLists.txt
+
     add_subdirectory(picotls)
     add_dependencies(picotls-mbedtls mbedtls)
 
     # picoQUIC
     # Picoquic uses its own find mbedtls, which works with a prefix and will not work if mbedtls include dirs is set
-    if(NOT PLATFORM_ESP_IDF)
+    if(NOT PLATFORM_ESP_IDF AND NOT PLATFORM_ESP_HAL)
         unset(MBEDTLS_INCLUDE_DIRS)
     endif()
     set(MbedTLS_FOUND ON)
@@ -110,13 +178,26 @@ if (${USE_MBEDTLS})
 
     set(OPENSSL_INCLUDE_DIR "") # Picoquic will still error if this is not set
     set(PICOQUIC_PTLS_SUBMODULE ON)
-    option(WITH_OPENSSL OFF)
-    option(BUILD_DEMO OFF)
-    option(BUILD_HTTP ON)
-    option(BUILD_LOGREADER OFF) # Disable picolog_t build
+    # Set PTLS_INCLUDE_DIR for FindPTLS.cmake when using submodule with mbedtls
+    set(PTLS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/picotls/include)
+    set(WITH_OPENSSL OFF CACHE BOOL "" FORCE)
+    set(BUILD_DEMO OFF CACHE BOOL "" FORCE)
+    set(BUILD_HTTP ON CACHE BOOL "" FORCE)
+    set(BUILD_LOGREADER OFF CACHE BOOL "" FORCE)
     set(picoquic_BUILD_TESTS OFF)
-    set(PICOQUIC_ADDITIONAL_C_FLAGS -Wno-error=format)
-    set(PICOQUIC_ADDITIONAL_CXX_FLAGS -Wno-error=format)
+
+    # For bare-metal, disable socket-dependent features
+    # (CMAKE_C/CXX_FLAGS already include the baremetal include directory)
+    if (PLATFORM_ESP_HAL)
+        set(PICOQUIC_ADDITIONAL_C_FLAGS -Wno-error=format)
+        set(PICOQUIC_ADDITIONAL_CXX_FLAGS -Wno-error=format)
+        # Disable socket loop and demo for bare-metal
+        set(BUILD_SOCKLOOP OFF CACHE BOOL "" FORCE)
+    else()
+        set(PICOQUIC_ADDITIONAL_C_FLAGS -Wno-error=format)
+        set(PICOQUIC_ADDITIONAL_CXX_FLAGS -Wno-error=format)
+    endif()
+
     add_subdirectory(picoquic)
     add_dependencies(picoquic-core picotls-core mbedtls)
 else ()

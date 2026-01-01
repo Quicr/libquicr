@@ -30,20 +30,21 @@ endif()
 
 configure_file( src/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h )
 
-IF (NOT UNIX AND NOT APPLE AND NOT PLATFORM_ESP_IDF)
+IF (NOT UNIX AND NOT APPLE AND NOT PLATFORM_ESP_IDF AND NOT PLATFORM_ESP_HAL)
     message(FATAL_ERROR "Unsupported platform, Linux and Apple are the only supported platforms")
 endif ()
 
-set (supported_archs arm64 x86_64 aarch64 i686 armv7-a arm64-v8a)
+set (supported_archs arm64 x86_64 aarch64 i686 armv7-a arm64-v8a xtensa riscv32)
 if (NOT ${CMAKE_SYSTEM_PROCESSOR} IN_LIST supported_archs)
-    message(FATAL_ERROR "Unsupported system architecture '${CMAKE_SYSTEM_PROCESSOR}'. Supported is arm64 and x86_64")
+    message(FATAL_ERROR "Unsupported system architecture '${CMAKE_SYSTEM_PROCESSOR}'. Supported is arm64, x86_64, xtensa, riscv32")
 endif()
 
 message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
 
 option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
-option(PLATFORM_ESP_IDF "Enabble support for esp-idf (Default OFF)" OFF)
+option(PLATFORM_ESP_IDF "Enable support for esp-idf (Default OFF)" OFF)
+option(PLATFORM_ESP_HAL "Enable support for esp-hal bare-metal (Default OFF)" OFF)
 option(USE_MBEDTLS OFF)
 option(DRAFT_PARSER_SETUP_VENV "Set up Python virtual environment for draft parser" ON)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
@@ -58,11 +59,39 @@ else()
     set(DRAFT_INTERNAL ${DRAFT})
 endif()
 
-if (NOT PLATFORM_ESP_IDF)
+if (NOT PLATFORM_ESP_IDF AND NOT PLATFORM_ESP_HAL)
   find_package(Threads REQUIRED)
   find_package(PkgConfig REQUIRED)
 else()
   set(USE_MBEDTLS ON)
+endif()
+
+# Bare-metal (esp-hal) specific configuration
+if (PLATFORM_ESP_HAL)
+  message(STATUS "Building for bare-metal ESP-HAL platform")
+  add_compile_definitions(QUICR_BAREMETAL=1)
+
+  # Add baremetal include directory for POSIX compatibility headers
+  set(QUICR_BAREMETAL_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/platform/baremetal/include)
+  include_directories(BEFORE ${QUICR_BAREMETAL_INCLUDE_DIR})
+
+  # Force include the bare-metal compatibility header
+  set(QUICR_BAREMETAL_COMPAT_HEADER ${QUICR_BAREMETAL_INCLUDE_DIR}/quicr_baremetal_compat.h)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -include ${QUICR_BAREMETAL_COMPAT_HEADER}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include ${QUICR_BAREMETAL_COMPAT_HEADER}")
+
+  # Disable features not available on bare-metal
+  set(QUICR_BUILD_TESTS OFF)
+  set(QUICR_BUILD_C_BRIDGE ON)  # Build C bridge for Rust FFI
+  set(BUILD_BRIDGE_EXAMPLES OFF CACHE BOOL "" FORCE)  # No examples on bare-metal
+  set(quicr_BUILD_BENCHMARKS OFF)
+  set(DRAFT_PARSER_SETUP_VENV OFF)
+
+  # Use lwIP for networking if available
+  if (DEFINED LWIP_DIR)
+    add_compile_definitions(QUICR_USE_LWIP=1)
+    include_directories(${LWIP_DIR}/src/include)
+  endif()
 endif()
 
 ###
@@ -89,13 +118,28 @@ add_subdirectory(dependencies)
 ###
 ### Draft Parser Integration
 ###
-include(tools/draft_parser/cmake/ParseDraft.cmake)
-parse_draft(
-    RFC_FILE ${DRAFT_INTERNAL}
-    OUTPUT_NAME "ctrl_messages"
-    OUTPUT_DIR "${CMAKE_BINARY_DIR}/include/quicr/detail"
-    SETUP_VENV ${DRAFT_PARSER_SETUP_VENV}
-)
+# Skip draft parser for bare-metal builds - use pre-generated headers
+if (NOT PLATFORM_ESP_HAL)
+    include(tools/draft_parser/cmake/ParseDraft.cmake)
+    parse_draft(
+        RFC_FILE ${DRAFT_INTERNAL}
+        OUTPUT_NAME "ctrl_messages"
+        OUTPUT_DIR "${CMAKE_BINARY_DIR}/include/quicr/detail"
+        SETUP_VENV ${DRAFT_PARSER_SETUP_VENV}
+    )
+else()
+    message(STATUS "Skipping draft parser for bare-metal build - using pre-generated headers")
+    # For bare-metal, copy pre-generated ctrl_messages from platform/baremetal
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/include/quicr/detail")
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/baremetal/pregenerated/quicr/detail/ctrl_messages.h"
+        "${CMAKE_BINARY_DIR}/include/quicr/detail/ctrl_messages.h"
+        COPYONLY)
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/baremetal/pregenerated/quicr/detail/ctrl_messages.cpp"
+        "${CMAKE_BINARY_DIR}/include/quicr/detail/ctrl_messages.cpp"
+        COPYONLY)
+endif()
 
 ###
 ### Build the quicr library
