@@ -875,9 +875,7 @@ namespace quicr {
                             .group_order = msg.group_order,
                             .start_location = msg.group_0->standalone.start,
                             .end_location = { .group = msg.group_0->standalone.end.group,
-                                              .object = msg.group_0->standalone.end.object > 0
-                                                          ? msg.group_0->standalone.end.object - 1
-                                                          : 0 },
+                                              .object = msg.group_0->standalone.end.object },
                         };
 
                         StandaloneFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
