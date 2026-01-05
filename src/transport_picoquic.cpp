@@ -1102,9 +1102,9 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
             stream.tx_start_stream = true;
 
             if (flags.use_reset) {
-                stream_action = StreamAction::kReplaceStreamUseReset;
+                stream_action = StreamAction::kCloseStreamUseReset;
             } else {
-                stream_action = StreamAction::kReplaceStreamUseFin;
+                stream_action = StreamAction::kCloseStreamUseFin;
             }
         }
 
@@ -1667,8 +1667,8 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, si
             if (obj.has_value) {
                 data_ctx->metrics.tx_queue_discards++;
 
-                if (obj.value.stream_action == StreamAction::kReplaceStreamUseFin ||
-                    obj.value.stream_action == StreamAction::kReplaceStreamUseReset) {
+                if (obj.value.stream_action == StreamAction::kCloseStreamUseFin ||
+                    obj.value.stream_action == StreamAction::kCloseStreamUseReset) {
 
                     std::lock_guard<std::mutex> _(state_mutex_);
                     const auto conn_ctx = GetConnContext(data_ctx->conn_id);

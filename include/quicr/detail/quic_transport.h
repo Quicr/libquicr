@@ -113,8 +113,8 @@ namespace quicr {
     enum class StreamAction : uint8_t
     {
         kNoAction = 0,
-        kReplaceStreamUseReset,
-        kReplaceStreamUseFin,
+        kCloseStreamUseReset,
+        kCloseStreamUseFin,
     };
 
     struct ConnData
