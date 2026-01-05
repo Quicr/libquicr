@@ -383,12 +383,13 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
     }
 
     if (transport->Status() == TransportStatus::kDisconnected) {
+        SPDLOG_LOGGER_INFO(transport->logger, "PqLoopCb: Transport disconnected, terminating packet loop");
         return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
     }
 
     switch (cb_mode) {
         case picoquic_packet_loop_ready: {
-            SPDLOG_LOGGER_INFO(transport->logger, "packet_loop_ready, waiting for packets");
+            SPDLOG_LOGGER_INFO(transport->logger, "PqLoopCb: packet_loop_ready - network thread is now ready for packets");
 
             if (transport->is_server_mode)
                 transport->SetStatus(TransportStatus::kReady);
@@ -396,20 +397,36 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
             if (callback_arg != nullptr) {
                 auto* options = static_cast<picoquic_packet_loop_options_t*>(callback_arg);
                 options->do_time_check = 1;
+                SPDLOG_LOGGER_INFO(transport->logger, "PqLoopCb: Set do_time_check=1");
             }
 
             break;
         }
 
-        case picoquic_packet_loop_after_receive:
-            //        log_msg << "packet_loop_after_receive";
-            //        transport->logger.log(LogLevel::debug, log_msg.str());
+        case picoquic_packet_loop_after_receive: {
+            // Log occasionally to avoid spam
+            static int recv_count = 0;
+            recv_count++;
+            if (recv_count <= 5 || recv_count % 100 == 0) {
+                SPDLOG_LOGGER_DEBUG(transport->logger, "PqLoopCb: packet_loop_after_receive (count={})", recv_count);
+            }
             break;
+        }
 
-        case picoquic_packet_loop_after_send:
-            //        log_msg << "packet_loop_after_send";
-            //        transport->logger.log(LogLevel::debug, log_msg.str());
+        case picoquic_packet_loop_after_send: {
+            // Log occasionally to avoid spam
+            static int send_count = 0;
+            send_count++;
+            if (send_count <= 5 || send_count % 100 == 0) {
+                SPDLOG_LOGGER_INFO(transport->logger, "PqLoopCb: packet_loop_after_send (count={})", send_count);
+            }
+#ifdef ESP_PLATFORM
+            // ESP32: wake_up event doesn't work (no pipe support), so process
+            // queued functions here on every iteration instead
+            transport->PqRunner();
+#endif
             break;
+        }
 
         case picoquic_packet_loop_port_update:
             SPDLOG_LOGGER_DEBUG(transport->logger, "packet_loop_port_update");
@@ -2416,12 +2433,16 @@ PicoQuicTransport::Server()
 TransportConnId
 PicoQuicTransport::StartClient()
 {
+    SPDLOG_LOGGER_INFO(logger, "StartClient: Beginning client connection setup");
+
     std::condition_variable cv;
     TransportConnId conn_id{ 0 };
     std::mutex mtx;
     std::unique_lock lock(mtx);
 
     RunPqFunction([this, &conn_id, &cv, &mtx]() {
+        SPDLOG_LOGGER_INFO(logger, "StartClient: RunPqFunction callback executing");
+
         auto notify_caller = [&cv, &conn_id, &mtx](uint64_t id) {
             std::lock_guard _(mtx);
             conn_id = id;
@@ -2434,13 +2455,20 @@ PicoQuicTransport::StartClient()
         char const* sni = "cisco.webex.com";
         int ret;
         int is_name = 0;
+
+        SPDLOG_LOGGER_INFO(logger, "StartClient: Resolving server address {}:{}", serverInfo_.host_or_ip, serverInfo_.port);
+
         ret = picoquic_get_server_address(serverInfo_.host_or_ip.c_str(), serverInfo_.port, &server_address, &is_name);
         if (ret != 0 || server_address.ss_family == 0) {
             SPDLOG_LOGGER_ERROR(
-              logger, "Failed to resolve server: {0} port: {1}", serverInfo_.host_or_ip, serverInfo_.port);
+              logger, "Failed to resolve server: {0} port: {1}, ret={2}, ss_family={3}",
+              serverInfo_.host_or_ip, serverInfo_.port, ret, server_address.ss_family);
             notify_caller(1);
             return 0;
         }
+
+        SPDLOG_LOGGER_INFO(logger, "StartClient: Server address resolved, ss_family={}, is_name={}",
+                           server_address.ss_family, is_name);
 
         if (is_name) {
             sni = serverInfo_.host_or_ip.c_str();
@@ -2448,6 +2476,9 @@ PicoQuicTransport::StartClient()
 
         picoquic_cnx_t* cnx = NULL;
         if (transport_mode == TransportMode::kQuic) {
+            SPDLOG_LOGGER_INFO(logger, "StartClient: Creating raw QUIC connection, sni={}, alpn={}",
+                               sni ? sni : "null", config_.alpn ? config_.alpn : "null");
+
             cnx = picoquic_create_cnx(quic_ctx_,
                                       picoquic_null_connection_id,
                                       picoquic_null_connection_id,
@@ -2463,10 +2494,14 @@ PicoQuicTransport::StartClient()
                 return PICOQUIC_ERROR_DISCONNECTED;
             }
 
+            SPDLOG_LOGGER_INFO(logger, "StartClient: Connection context created, cnx={}", (void*)cnx);
+
             picoquic_set_transport_parameters(cnx, &local_tp_options_);
             picoquic_set_feedback_loss_notification(cnx, 1);
             picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
             picoquic_set_callback(cnx, PqEventCb, this);
+
+            SPDLOG_LOGGER_INFO(logger, "StartClient: Starting client connection...");
 
             if (auto ret = picoquic_start_client_cnx(cnx)) {
                 SPDLOG_LOGGER_ERROR(logger, "Could not activate connection ret: {}", ret);
@@ -2474,7 +2509,7 @@ PicoQuicTransport::StartClient()
                 return PICOQUIC_ERROR_DISCONNECTED;
             }
 
-            SPDLOG_LOGGER_INFO(logger, "StartClient: Creating connection context");
+            SPDLOG_LOGGER_INFO(logger, "StartClient: Client connection started, creating connection context");
             CreateConnContext(cnx);
 
         } else if (transport_mode == TransportMode::kWebTransport) {
@@ -2585,6 +2620,7 @@ PicoQuicTransport::ClientLoop()
     quic_network_thread_params_.socket_buffer_size = tconfig_.socket_buffer_size;
 #ifdef ESP_PLATFORM
     quic_network_thread_params_.socket_buffer_size = 0x2048;
+    SPDLOG_LOGGER_INFO(logger, "ESP_PLATFORM: Using socket_buffer_size={}", quic_network_thread_params_.socket_buffer_size);
 #endif
     quic_network_thread_params_.do_not_use_gso = 0;
     quic_network_thread_params_.extra_socket_required = 0;
@@ -2592,8 +2628,16 @@ PicoQuicTransport::ClientLoop()
     quic_network_thread_params_.simulate_eio = 0;
     quic_network_thread_params_.send_length_max = 0;
 
+    SPDLOG_LOGGER_INFO(logger, "ClientLoop: Calling picoquic_start_network_thread with params: local_port={}, local_af={}, socket_buffer_size={}",
+                       quic_network_thread_params_.local_port,
+                       quic_network_thread_params_.local_af,
+                       quic_network_thread_params_.socket_buffer_size);
+
     quic_network_thread_ctx_ =
       picoquic_start_network_thread(quic_ctx_, &quic_network_thread_params_, PqLoopCb, this, &quic_loop_return_value_);
+
+    SPDLOG_LOGGER_INFO(logger, "ClientLoop: picoquic_start_network_thread returned, ctx={}, quic_ctx={}",
+                       (void*)quic_network_thread_ctx_, (void*)quic_ctx_);
 
     if (quic_ctx_ == nullptr || quic_network_thread_ctx_ == nullptr) {
         SPDLOG_LOGGER_ERROR(logger, "Failed to create picoquic network thread");
@@ -2602,10 +2646,25 @@ PicoQuicTransport::ClientLoop()
         return false;
     }
 
+    SPDLOG_LOGGER_INFO(logger, "ClientLoop: Waiting for network thread to be ready...");
+
     // Wait for something to happen with the thread
+    int wait_count = 0;
     while (!quic_network_thread_ctx_->thread_is_ready && !quic_network_thread_ctx_->return_code) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        wait_count++;
+        if (wait_count % 100 == 0) {
+            SPDLOG_LOGGER_INFO(logger, "ClientLoop: Still waiting for thread... wait_count={}, thread_is_ready={}, return_code={}",
+                               wait_count, quic_network_thread_ctx_->thread_is_ready, quic_network_thread_ctx_->return_code);
+        }
+        if (wait_count > 5000) {
+            SPDLOG_LOGGER_ERROR(logger, "ClientLoop: Timeout waiting for network thread after 5 seconds");
+            return false;
+        }
     }
+
+    SPDLOG_LOGGER_INFO(logger, "ClientLoop: Thread wait completed, thread_is_ready={}, return_code={}",
+                       quic_network_thread_ctx_->thread_is_ready, quic_network_thread_ctx_->return_code);
 
     if (quic_network_thread_ctx_->return_code) {
         SPDLOG_LOGGER_ERROR(
@@ -2613,7 +2672,7 @@ PicoQuicTransport::ClientLoop()
         return false;
     }
 
-    SPDLOG_LOGGER_DEBUG(logger, "Thread client packet loop started");
+    SPDLOG_LOGGER_INFO(logger, "Thread client packet loop started successfully");
 
     return true;
 }
