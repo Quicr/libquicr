@@ -389,6 +389,14 @@ namespace quicr {
         bool StreamActionCheck(DataContext* data_ctx, StreamAction stream_action);
 
         /**
+         * @brief Close stream by stream id
+         * @param conn_id           Connection id of stream
+         * @param stream_id         Stream ID to close
+         * @param use_reset         True to close by RESET, false to close by FIN
+         */
+        void CloseStreamById(TransportConnId conn_id, uint64_t stream_id, bool use_reset) override;
+
+        /**
          * @brief Deregister WebTransport context
          * @details Cleans up WebTransport session resources including all streams
          *          associated with the control stream, capsule memory, and mappings.

@@ -1789,6 +1789,12 @@ namespace quicr {
                         SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
                         CloseConnection(conn_id, TerminationReason::kInternalError, "Internal error");
                     }
+                } else {
+                    SPDLOG_LOGGER_ERROR(
+                      logger_,
+                      "Received data on existing stream_id: {} with no handler anymore, resetting stream",
+                      stream_id);
+                    quic_transport_->CloseStreamById(conn_id, stream_id, true);
                 }
             }
         } // end of for loop rx data queue
