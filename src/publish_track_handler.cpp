@@ -228,6 +228,8 @@ namespace quicr {
 
         object_msg_buffer_.clear();
 
+        std::optional<std::uint64_t> group_subgroup_hash;
+
         switch (default_track_mode_) {
             case TrackMode::kDatagram: {
                 messages::ObjectDatagram object;
@@ -249,6 +251,9 @@ namespace quicr {
                 // use stream per subgroup, group change
                 eflags.use_reliable = true;
 
+                group_subgroup_hash = group_id;
+                hash_combine(group_subgroup_hash.value(), object_headers.subgroup_id);
+
                 if (is_stream_header_needed) {
                     eflags.new_stream = true;
                     eflags.clear_tx_queue = true;
@@ -264,6 +269,11 @@ namespace quicr {
                     subgroup_hdr.priority = priority;
                     subgroup_hdr.track_alias = GetTrackAlias().value();
                     object_msg_buffer_ << subgroup_hdr;
+
+                    if (auto stream_id = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
+                        stream_id.has_value()) {
+                        stream_id_by_group_[group_subgroup_hash.value()] = stream_id.value();
+                    }
                 }
 
                 messages::StreamSubGroupObject object;
@@ -284,7 +294,7 @@ namespace quicr {
         auto result = transport->Enqueue(
           GetConnectionId(),
           publish_data_ctx_id_,
-          group_id,
+          stream_id_by_group_.at(group_subgroup_hash.value()),
           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
           priority,
           ttl,

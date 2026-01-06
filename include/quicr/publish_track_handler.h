@@ -362,6 +362,7 @@ namespace quicr {
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
         uint64_t publish_data_ctx_id_; // set byte the transport; publishing data context ID
+        std::map<std::uint64_t, std::uint64_t> stream_id_by_group_;
 
         uint64_t latest_group_id_{ 0 };
         uint64_t latest_sub_group_id_{ 0 };

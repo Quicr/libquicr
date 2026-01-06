@@ -383,10 +383,11 @@ namespace quicr {
         /**
          * @brief Close stream by stream id
          * @param conn_id           Connection id of stream
+         * @param data_ctx_id       Data context id that owns the stream
          * @param stream_id         Stream ID to close
          * @param use_reset         True to close by RESET, false to close by FIN
          */
-        virtual void CloseStreamById(TransportConnId conn_id, uint64_t stream_id, bool use_reset) = 0;
+        virtual void CloseStream(TransportConnId conn_id, uint64_t data_ctx_id, uint64_t stream_id, bool use_reset) = 0;
 
         /**
          * @brief Delete data context
@@ -547,20 +548,5 @@ namespace quicr {
         virtual std::optional<std::uint64_t> CreateStream(TransportConnId conn_id,
                                                           DataContextId data_ctx_id,
                                                           uint8_t priority) = 0;
-
-        /**
-         * @brief App initiated Close stream
-         * @details App initiated close stream. When the app deletes a context or wants to switch streams to a new
-         * stream this function is used to close out the current stream. A FIN will be sent.
-         *
-         * @param conn_id       Connection id for the stream
-         * @param data_ctx_id   Data context for the stream
-         * @param stream_id     ID of the stream to close.
-         * @param send_reset    Indicates if the stream should be closed by RESET, otherwise FIN
-         */
-        virtual void CloseStream(TransportConnId conn_id,
-                                 DataContextId data_ctx_id,
-                                 std::uint64_t stream_id,
-                                 bool send_reset) = 0;
     };
 } // namespace quicr

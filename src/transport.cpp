@@ -311,10 +311,10 @@ namespace quicr {
 
     void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
     {
-        if (not conn_ctx.ctrl_data_ctx_id) {
+        if (!conn_ctx.ctrl_data_ctx_id.has_value()) {
             CloseConnection(conn_ctx.connection_handle,
                             messages::TerminationReason::kProtocolViolation,
-                            "Control bidir stream not created");
+                            "Control bidir data context not created");
             return;
         }
 
@@ -1794,7 +1794,8 @@ namespace quicr {
                       logger_,
                       "Received data on existing stream_id: {} with no handler anymore, resetting stream",
                       stream_id);
-                    quic_transport_->CloseStreamById(conn_id, stream_id, true);
+
+                    quic_transport_->CloseStream(conn_id, data_ctx_id.value(), stream_id, true);
                 }
             }
         } // end of for loop rx data queue

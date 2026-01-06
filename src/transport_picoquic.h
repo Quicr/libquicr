@@ -81,7 +81,15 @@ namespace quicr {
         {
           public:
             DataContext() = default;
-            DataContext(DataContext&&) = default;
+            DataContext(DataContext&& other)
+              : data_ctx_id(other.data_ctx_id)
+              , conn_id(other.conn_id)
+              , is_bidir(other.is_bidir)
+              , uses_reset_wait(other.uses_reset_wait)
+              , delete_on_empty(other.delete_on_empty)
+              , metrics(std::move(other.metrics))
+            {
+            }
 
             DataContext& operator=(const DataContext&) = delete;
             DataContext& operator=(DataContext&&) = delete;
@@ -138,6 +146,8 @@ namespace quicr {
             };
 
             std::map<std::uint64_t, StreamContext> streams;
+
+            std::mutex stream_mutex_;
         };
 
         /**
@@ -391,10 +401,11 @@ namespace quicr {
         /**
          * @brief Close stream by stream id
          * @param conn_id           Connection id of stream
+         * @param data_ctx_id       Data context id that owns the stream
          * @param stream_id         Stream ID to close
          * @param use_reset         True to close by RESET, false to close by FIN
          */
-        void CloseStreamById(TransportConnId conn_id, uint64_t stream_id, bool use_reset) override;
+        void CloseStream(TransportConnId conn_id, uint64_t data_ctx_id, uint64_t stream_id, bool use_reset) override;
 
         /**
          * @brief Deregister WebTransport context
@@ -441,21 +452,6 @@ namespace quicr {
         std::optional<std::uint64_t> CreateStream(TransportConnId conn_id,
                                                   DataContextId data_ctx_id,
                                                   uint8_t priority) override;
-
-        /**
-         * @brief App initiated Close stream
-         * @details App initiated close stream. When the app deletes a context or wants to switch streams to a new
-         * stream this function is used to close out the current stream. A FIN will be sent.
-         *
-         * @param conn_id       Connection id for the stream
-         * @param data_ctx_id   Data context for the stream
-         * @param stream_id     ID of the stream to close.
-         * @param send_reset    Indicates if the stream should be closed by RESET, otherwise FIN
-         */
-        virtual void CloseStream(TransportConnId conn_id,
-                                 DataContextId data_ctx_id,
-                                 std::uint64_t stream_id,
-                                 bool send_reset) override;
 
       public:
         std::shared_ptr<spdlog::logger> logger;
