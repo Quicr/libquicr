@@ -54,6 +54,7 @@ extern "C"
     typedef struct qbridge_publish_track_handler qbridge_publish_track_handler_t;
     typedef struct qbridge_subscribe_track_handler qbridge_subscribe_track_handler_t;
     typedef struct qbridge_fetch_track_handler qbridge_fetch_track_handler_t;
+    typedef struct qbridge_subscribe_namespace_track_handler qbridge_subscribe_namespace_track_handler_t;
 
     /** @} */
 
@@ -442,18 +443,20 @@ extern "C"
     /**
      * @brief Subscribe to a namespace
      * @param client Client handle
-     * @param ns Namespace to subscribe to
+     * @param handler Track handler to subscribe to
      * @return Result code
      */
-    qbridge_result_t qbridge_client_subscribe_namespace(qbridge_client_t* client, const qbridge_namespace_t* ns);
+    qbridge_result_t qbridge_client_subscribe_namespace(qbridge_client_t* client,
+                                                        const qbridge_subscribe_namespace_track_handler_t* handler);
 
     /**
      * @brief Unsubscribe from a namespace
      * @param client Client handle
-     * @param ns Namespace to unsubscribe from
+     * @param handler Track handler to unsubscribe from
      * @return Result code
      */
-    qbridge_result_t qbridge_client_unsubscribe_namespace(qbridge_client_t* client, const qbridge_namespace_t* ns);
+    qbridge_result_t qbridge_client_unsubscribe_namespace(qbridge_client_t* client,
+                                                          const qbridge_subscribe_namespace_track_handler_t* handler);
 
     /** @} */
 
