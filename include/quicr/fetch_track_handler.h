@@ -19,7 +19,6 @@ namespace quicr {
          * @param group_order The group order to use.
          * @param start_location The starting location of the fetch's range (inclusive).
          * @param end_location The ending location of the fetch's range (inclusive).
-         * entire end_group.
          */
         FetchTrackHandler(const FullTrackName& full_track_name,
                           const messages::SubscriberPriority priority,
@@ -42,7 +41,6 @@ namespace quicr {
          * @param group_order The group order to use.
          * @param start_location The starting location of the fetch's range (inclusive).
          * @param end_location The ending location of the fetch's range (inclusive).
-         * entire end_group.
          *
          * @returns Shared pointer to a Fetch track handler.
          */
