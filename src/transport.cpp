@@ -907,13 +907,14 @@ namespace quicr {
                               const FullTrackName& tfn,
                               messages::SubscriberPriority priority,
                               messages::GroupOrder group_order,
-                              messages::GroupId start_group,
-                              messages::GroupId start_object,
-                              messages::GroupId end_group,
-                              messages::GroupId end_object)
+                              const messages::Location& start_location,
+                              const messages::FetchEndLocation& end_location)
     try {
+        messages::Location wire_end_location = { .group = end_location.group,
+                                                 .object =
+                                                   end_location.object.has_value() ? *end_location.object + 1 : 0 };
         const auto group_0 = std::make_optional<messages::Fetch::Group_0>() = {
-            tfn.name_space, tfn.name, { start_group, start_object }, { end_group, end_object }
+            tfn.name_space, tfn.name, start_location, wire_end_location
         };
 
         auto fetch = messages::Fetch(
@@ -1429,18 +1430,15 @@ namespace quicr {
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
-        auto start_group = track_handler->GetStartGroup();
-        auto start_object = track_handler->GetStartObject();
-        auto end_group = track_handler->GetEndGroup();
-        auto end_object = track_handler->GetEndObject();
+        auto start_location = track_handler->GetStartLocation();
+        auto end_location = track_handler->GetEndLocation();
 
         track_handler->SetStatus(FetchTrackHandler::Status::kPendingResponse);
 
         const auto request_id = *track_handler->GetRequestId();
         conn_it->second.sub_tracks_by_request_id[*track_handler->GetRequestId()] = std::move(track_handler);
 
-        SendFetch(
-          conn_it->second, request_id, tfn, priority, group_order, start_group, start_object, end_group, end_object);
+        SendFetch(conn_it->second, request_id, tfn, priority, group_order, start_location, end_location);
     }
 
     void Transport::CancelFetchTrack(ConnectionHandle connection_handle,

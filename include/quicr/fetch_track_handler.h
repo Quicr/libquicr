@@ -17,23 +17,18 @@ namespace quicr {
          * @param full_track_name Full track name struct.
          * @param priority The priority of the track.
          * @param group_order The group order to use.
-         * @param start_group The starting group of the range.
-         * @param end_group The final group in the range.
-         * @param start_object The starting object in a group.
-         * @param end_object The final object in a group.
+         * @param start_location The starting location of the fetch's range (inclusive).
+         * @param end_location The ending location of the fetch's range (inclusive).
+         * entire end_group.
          */
         FetchTrackHandler(const FullTrackName& full_track_name,
-                          messages::SubscriberPriority priority,
-                          messages::GroupOrder group_order,
-                          messages::GroupId start_group,
-                          messages::GroupId end_group,
-                          messages::GroupId start_object,
-                          messages::GroupId end_object)
+                          const messages::SubscriberPriority priority,
+                          const messages::GroupOrder group_order,
+                          const messages::Location& start_location,
+                          const messages::FetchEndLocation& end_location)
           : SubscribeTrackHandler(full_track_name, priority, group_order, messages::FilterType::kNextGroupStart)
-          , start_group_(start_group)
-          , start_object_(start_object)
-          , end_group_(end_group)
-          , end_object_(end_object)
+          , start_location_(start_location)
+          , end_location_(end_location)
         {
             is_fetch_handler_ = true;
         }
@@ -45,58 +40,41 @@ namespace quicr {
          * @param full_track_name Full track name struct.
          * @param priority The priority of the track.
          * @param group_order The group order to use.
-         * @param start_group The starting group of the range.
-         * @param start_object The starting object in a group.
-         * @param end_group The final group in the range.
-         * @param end_object The final object in a group.
+         * @param start_location The starting location of the fetch's range (inclusive).
+         * @param end_location The ending location of the fetch's range (inclusive).
+         * entire end_group.
          *
          * @returns Shared pointer to a Fetch track handler.
          */
         static std::shared_ptr<FetchTrackHandler> Create(const FullTrackName& full_track_name,
-                                                         messages::SubscriberPriority priority,
-                                                         messages::GroupOrder group_order,
-                                                         messages::GroupId start_group,
-                                                         messages::GroupId end_group,
-                                                         messages::GroupId start_object,
-                                                         messages::GroupId end_object)
+                                                         const messages::SubscriberPriority priority,
+                                                         const messages::GroupOrder group_order,
+                                                         const messages::Location& start_location,
+                                                         const messages::FetchEndLocation& end_location)
         {
-            return std::shared_ptr<FetchTrackHandler>(new FetchTrackHandler(
-              full_track_name, priority, group_order, start_group, end_group, start_object, end_object));
+            return std::shared_ptr<FetchTrackHandler>(
+              new FetchTrackHandler(full_track_name, priority, group_order, start_location, end_location));
         }
 
         /**
-         * @brief Get the starting group id of the Fetch range.
-         * @returns The starting group ID.
+         * @brief Get the start location of the Fetch.
+         * @returns The starting location.
          */
-        constexpr const messages::GroupId& GetStartGroup() const noexcept { return start_group_; }
+        constexpr const messages::Location& GetStartLocation() const noexcept { return start_location_; }
 
         /**
-         * @brief Get the id of the group one past the end of the Fetch range.
-         * @returns The ending group ID.
+         * @brief Get the end location of the Fetch.
+         * @returns The ending location.
          */
-        constexpr const messages::GroupId& GetEndGroup() const noexcept { return end_group_; }
-
-        /**
-         * @brief Get the starting object id of the Group range.
-         * @returns The starting object ID.
-         */
-        constexpr const messages::GroupId& GetStartObject() const noexcept { return start_object_; }
-
-        /**
-         * @brief Get the id of the object one past the end of the group range.
-         * @returns The ending object ID.
-         */
-        constexpr const messages::GroupId& GetEndObject() const noexcept { return end_object_; }
+        constexpr const messages::FetchEndLocation& GetEndLocation() const noexcept { return end_location_; }
 
         void StreamDataRecv(bool is_start,
                             uint64_t stream_id,
                             std::shared_ptr<const std::vector<uint8_t>> data) override;
 
       private:
-        messages::GroupId start_group_;
-        messages::GroupId start_object_;
-        messages::GroupId end_group_;
-        messages::GroupId end_object_;
+        messages::Location start_location_;
+        messages::FetchEndLocation end_location_;
 
         friend class Transport;
         friend class Client;

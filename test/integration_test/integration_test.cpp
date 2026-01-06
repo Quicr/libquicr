@@ -157,8 +157,8 @@ TEST_CASE("Integration - Fetch")
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
-        const auto handler =
-          FetchTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, 0, 0, 0, 0);
+        const auto handler = FetchTrackHandler::Create(
+          ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, { 0, 0 }, { 0, std::nullopt });
         client->FetchTrack(handler);
     };
 
@@ -204,8 +204,8 @@ TEST_CASE("Integration - Handlers with no transport")
 
     // Fetch.
     {
-        const auto handler =
-          FetchTrackHandler::Create(FullTrackName(), 0, messages::GroupOrder::kOriginalPublisherOrder, 0, 0, 0, 0);
+        const auto handler = FetchTrackHandler::Create(
+          FullTrackName(), 0, messages::GroupOrder::kOriginalPublisherOrder, { 0, 0 }, { 0, std::nullopt });
         handler->Pause();
         handler->Resume();
         handler->RequestNewGroup();
