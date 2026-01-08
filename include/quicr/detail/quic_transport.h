@@ -59,7 +59,8 @@ namespace quicr {
         kInvalidDataContextId,
         kInvalidIpv4Address,
         kInvalidIpv6Address,
-        kInvalidStreamId
+        kInvalidStreamId,
+        kFailedToCreateQuicInstance
     };
 
     /**

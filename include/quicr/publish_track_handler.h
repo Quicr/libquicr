@@ -381,6 +381,8 @@ namespace quicr {
 
         std::optional<uint64_t> track_alias_;
 
+        messages::Location largest_location_{ 0, 0 };
+
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
         bool use_announce_{ false }; // Indicates to use announce publish flow if true, otherwise use publish flow

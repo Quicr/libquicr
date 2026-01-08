@@ -68,6 +68,11 @@ namespace quicr {
 
         ITransport::EnqueueFlags eflags;
 
+        if (group_id > largest_location_.group) {
+            largest_location_.group = group_id;
+            largest_location_.object = 0;
+        }
+
         auto group_subgroup_hash = group_id;
         hash_combine(group_subgroup_hash, subgroup_id);
 
@@ -129,6 +134,14 @@ namespace quicr {
 
         auto group_subgroup_hash = object_headers.group_id;
         hash_combine(group_subgroup_hash, object_headers.subgroup_id);
+
+        if (object_headers.group_id > largest_location_.group) {
+            largest_location_.group = object_headers.group_id;
+            largest_location_.object = object_headers.object_id;
+
+        } else if (largest_location_.group == object_headers.group_id) {
+            largest_location_.object = object_headers.object_id;
+        }
 
         bool is_stream_header_needed{ false };
 

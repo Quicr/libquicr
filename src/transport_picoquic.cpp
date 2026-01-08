@@ -950,6 +950,11 @@ PicoQuicTransport::Start()
         wt_config_->server_params.path_table = wt_config_->path_items.data();
         wt_config_->server_params.path_table_nb = wt_config_->path_items.size();
         quic_ctx_ = picoquic_create_and_configure(&config_, NULL, &wt_config_->server_params, current_time, NULL);
+
+        if (quic_ctx_ == NULL) {
+            throw TransportException(TransportError::kFailedToCreateQuicInstance);
+        }
+
         picoquic_set_alpn_select_fn(quic_ctx_, PqAlpnSelectCb);
         picoquic_use_unique_log_names(quic_ctx_, 1);
     } else {
@@ -1761,17 +1766,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
             data_ctx->metrics.tx_stream_objects++;
             data_ctx->metrics.tx_object_duration_us.AddValue(tick_service_->Microseconds() -
                                                              obj.value.tick_microseconds);
-
-            if (StreamActionCheck(data_ctx, obj.value.stream_action)) {
-                stream_ctx.tx_object = std::move(obj.value.data);
-                SPDLOG_LOGGER_TRACE(logger,
-                                    "New Stream conn_id: {} data_ctx_id: {} stream_id: {}, object size: {}",
-                                    data_ctx->conn_id,
-                                    data_ctx->data_ctx_id,
-                                    *data_ctx->current_stream_id,
-                                    data_ctx->stream_tx_object->size());
-                return;
-            }
 
             if (obj.value.stream_action != StreamAction::kNoAction) {
                 SPDLOG_LOGGER_TRACE(

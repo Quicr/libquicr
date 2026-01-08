@@ -348,7 +348,7 @@ namespace quicr {
 
                             if (!(ptd->pending_new_group_request_id_.has_value() &&
                                   *ptd->pending_new_group_request_id_ == 0 && new_group_request_id == 0) &&
-                                (new_group_request_id == 0 || ptd->latest_group_id_ < new_group_request_id)) {
+                                (new_group_request_id == 0 || ptd->largest_location_.group < new_group_request_id)) {
 
                                 ptd->pending_new_group_request_id_ = new_group_request_id;
                                 ptd->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);

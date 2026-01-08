@@ -1317,9 +1317,8 @@ namespace quicr {
                         tfn,
                         track_handler->GetTrackAlias().value(),
                         GroupOrder::kAscending,
-                        std::make_optional(Location{
-                          track_handler->latest_group_id_,
-                          track_handler->latest_object_id_.has_value() ? *track_handler->latest_object_id_ : 0 }),
+                        std::make_optional(
+                          Location{ track_handler->largest_location_.group, track_handler->largest_location_.object }),
                         true,
                         track_handler->support_new_group_request_);
         }
