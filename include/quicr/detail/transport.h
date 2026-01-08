@@ -650,7 +650,7 @@ namespace quicr {
 
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
 
-        std::optional<std::uint64_t> CreateStream(ConnectionHandle conn, std::uint64_t data_ctx_id, uint8_t priority);
+        std::uint64_t CreateStream(ConnectionHandle conn, std::uint64_t data_ctx_id, uint8_t priority);
 
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,

@@ -6,6 +6,7 @@
 #include "quicr/detail/priority_queue.h"
 #include "quicr/detail/quic_transport_metrics.h"
 #include "quicr/detail/safe_queue.h"
+#include "quicr/detail/safe_time_queue.h"
 #include "quicr/detail/stream_buffer.h"
 #include "quicr/detail/time_queue.h"
 
@@ -112,16 +113,19 @@ namespace quicr {
                  */
                 void ResetTxObject()
                 {
-                    stream_tx_object = nullptr;
-                    stream_tx_object_offset = 0;
+                    tx_object = nullptr;
+                    tx_object_offset = 0;
                 }
 
               public:
                 /// Instructs the stream to be marked active
-                bool mark_stream_active : 1 { false };
+                bool mark_active : 1 { false };
 
-                /// Indicates tx queue starts a new stream
-                bool tx_start_stream : 1 { false };
+                /// Instructs that the stream should be closed upon empty
+                bool close_on_empty : 1 { false };
+
+                /// Instructs to use reset when closing stream
+                bool close_using_reset : 1 { false };
 
                 /// Instructs TX objects to be discarded on POP instead
                 bool tx_reset_wait_discard{ false };
@@ -130,13 +134,13 @@ namespace quicr {
                 uint8_t priority{ 0 };
 
                 /// Pending objects to be written to the network
-                std::unique_ptr<TimeQueue<ConnData>> tx_data;
+                std::unique_ptr<SafeTimeQueue<ConnData>> tx_data;
 
                 /// Current object that is being sent as a byte stream
-                std::shared_ptr<const std::vector<uint8_t>> stream_tx_object;
+                std::shared_ptr<const std::vector<uint8_t>> tx_object;
 
                 /// Pointer offset to next byte to send
-                size_t stream_tx_object_offset{ 0 };
+                size_t tx_object_offset{ 0 };
 
                 // The last ticks when TX callback was run
                 uint64_t last_tx_tick{ 0 };
@@ -374,7 +378,6 @@ namespace quicr {
         ConnectionContext& CreateConnContext(picoquic_cnx_t* pq_cnx);
 
         void SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_ctx, size_t max_len);
-        void SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, size_t max_len);
         void SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_id, uint8_t* bytes_ctx, size_t max_len);
 
         void OnConnectionStatus(TransportConnId conn_id, TransportStatus status);
@@ -447,11 +450,10 @@ namespace quicr {
          * @param data_ctx_id       Data context to create stream in
          * @param priority          Priority of the stream
          *
-         * @return stream ID if created, false if not.
+         * @return stream ID if created
+         * @throws PicoQuicException if unable to create stram
          */
-        std::optional<std::uint64_t> CreateStream(TransportConnId conn_id,
-                                                  DataContextId data_ctx_id,
-                                                  uint8_t priority) override;
+        std::uint64_t CreateStream(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority) override;
 
       public:
         std::shared_ptr<spdlog::logger> logger;
@@ -538,11 +540,11 @@ namespace quicr {
         /**
          * @brief Create a new stream
          *
-         * @param conn_ctx      Connection context to create stream under
-         * @param data_ctx      Data context in connection context to create streams
+         * @param conn_id       Connection id
+         * @param data_ctx_id   Data context id
          * @param priority      Priority of the stream
          */
-        std::optional<std::uint64_t> CreateStream(ConnectionContext& conn_ctx, DataContext* data_ctx, uint8_t priority);
+        std::uint64_t CreateStreamInternal(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority);
 
         /**
          * @brief App initiated Close stream

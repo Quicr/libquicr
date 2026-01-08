@@ -171,7 +171,7 @@ namespace quicr {
         eflags.use_reliable = true;
 
         if (stream_header_needed) {
-            eflags.new_stream = true;
+            eflags.close_stream = true;
             eflags.clear_tx_queue = true;
             eflags.use_reset = true;
 
@@ -190,7 +190,7 @@ namespace quicr {
                                      eflags);
 
             track_handler.object_msg_buffer_.clear();
-            eflags.new_stream = false;
+            eflags.close_stream = false;
             eflags.clear_tx_queue = false;
             eflags.use_reset = false;
         }

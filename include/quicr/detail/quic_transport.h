@@ -429,7 +429,7 @@ namespace quicr {
         struct EnqueueFlags
         {
             bool use_reliable{ false };   /// Indicates if object should use reliable stream or unreliable
-            bool new_stream{ false };     /// Indicates that a new stream should be created to replace existing one
+            bool close_stream{ false };   /// Indicates that a new stream should be created to replace existing one
             bool clear_tx_queue{ false }; /// Indicates that the TX queue should be cleared before adding new object
             bool use_reset{ false };      /// Indicates new stream created will close the previous using reset/abrupt
         };
@@ -545,8 +545,6 @@ namespace quicr {
          *
          * @returns The optionally created stream id. If no stream was created, returns nullopt.
          */
-        virtual std::optional<std::uint64_t> CreateStream(TransportConnId conn_id,
-                                                          DataContextId data_ctx_id,
-                                                          uint8_t priority) = 0;
+        virtual std::uint64_t CreateStream(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority) = 0;
     };
 } // namespace quicr

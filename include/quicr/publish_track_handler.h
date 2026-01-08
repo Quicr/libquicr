@@ -285,10 +285,16 @@ namespace quicr {
          *    implement this method to forward bytes received to subscriber connection.
          *
          * @param is_new_stream       Indicates if this data starts a new stream
+         * @param group_id            Group ID for stream
+         * @param subgroup_id         Subgroup ID for stream
          * @param data                MoQ data to send
+         *
          * @return Publish status on forwarding the data
          */
-        PublishObjectStatus ForwardPublishedData(bool is_new_stream, std::shared_ptr<const std::vector<uint8_t>> data);
+        PublishObjectStatus ForwardPublishedData(bool is_new_stream,
+                                                 uint64_t group_id,
+                                                 uint64_t subgroup_id,
+                                                 std::shared_ptr<const std::vector<uint8_t>> data);
 
         /**
          * @brief Publish object to the announced track
@@ -362,11 +368,17 @@ namespace quicr {
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
         uint64_t publish_data_ctx_id_; // set byte the transport; publishing data context ID
-        std::map<std::uint64_t, std::uint64_t> stream_id_by_group_;
 
-        uint64_t latest_group_id_{ 0 };
-        uint64_t latest_sub_group_id_{ 0 };
-        std::optional<uint64_t> latest_object_id_;
+        struct StreamInfo
+        {
+            uint64_t stream_id{ 0 };
+            uint64_t last_group_id{ 0 };
+            uint64_t last_subgroup_id{ 0 };
+            std::optional<uint64_t> last_object_id;
+        };
+
+        std::map<std::uint64_t, StreamInfo> stream_info_by_group_;
+
         std::optional<uint64_t> track_alias_;
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
