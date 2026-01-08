@@ -367,7 +367,7 @@ namespace quicr {
         uint8_t default_priority_; // Set by caller and is used when priority is not specified
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
-        uint64_t publish_data_ctx_id_; // set byte the transport; publishing data context ID
+        uint64_t publish_data_ctx_id_; // set by the transport; publishing data context ID
 
         struct StreamInfo
         {

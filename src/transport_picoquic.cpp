@@ -2533,7 +2533,7 @@ PicoQuicTransport::CheckCallbackDelta(DataContext* data_ctx, bool tx)
 
     const auto current_tick = tick_service_->Milliseconds();
 
-    std::lock_guard _(data_ctx->stream_mutex_); // TODO: This doesn't seem to help.
+    std::lock_guard _(data_ctx->stream_mutex); // TODO: This doesn't seem to help.
 
     for (auto& [_, stream] : data_ctx->streams) {
         if (stream.last_tx_tick == 0) {

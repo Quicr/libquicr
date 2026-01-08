@@ -40,6 +40,8 @@ namespace quicr {
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
 
+            stream_id_ = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
+
             messages::FetchHeader fetch_hdr;
             fetch_hdr.request_id = *request_id;
             object_msg_buffer_ << fetch_hdr;
@@ -47,7 +49,7 @@ namespace quicr {
             auto result = transport->Enqueue(
               GetConnectionId(),
               publish_data_ctx_id_,
-              group_id,
+              stream_id_,
               std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
               priority,
               ttl,
