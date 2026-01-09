@@ -2617,6 +2617,8 @@ PicoQuicTransport::CreateStream(TransportConnId conn_id, DataContextId data_ctx_
 std::uint64_t
 PicoQuicTransport::CreateStreamInternal(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority)
 {
+    void* cb_stream_ctx = nullptr;
+
     std::unique_lock lock(state_mutex_);
 
     const auto conn_it = conn_context_.find(conn_id);
@@ -2659,6 +2661,7 @@ PicoQuicTransport::CreateStreamInternal(TransportConnId conn_id, DataContextId d
 
         stream_id = stream_ctx->stream_id;
         stream.wt_stream_ctx = stream_ctx;
+        cb_stream_ctx = stream_ctx;
         conn_it->second.last_stream_id = stream_ctx->stream_id;
         conn_it->second.wt_stream_to_data_ctx[stream_ctx->stream_id] = data_ctx_it->second.data_ctx_id;
 
@@ -2678,11 +2681,12 @@ PicoQuicTransport::CreateStreamInternal(TransportConnId conn_id, DataContextId d
                            conn_it->second.last_stream_id);
 
         picoquic_set_app_stream_ctx(conn_it->second.pq_cnx, stream_id, &data_ctx_it->second);
+        cb_stream_ctx = &data_ctx_it->second;
     }
 
     data_ctx_it->second.streams[stream_id] = std::move(stream);
 
-    picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 1, &data_ctx_it->second);
+    picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 1, cb_stream_ctx);
     picoquic_set_stream_priority(conn_it->second.pq_cnx, stream_id, (priority << 1));
 
     return stream_id;
@@ -2794,10 +2798,10 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id,
         stream_ctx = stream_it->second.wt_stream_ctx;
     } else {
         // For raw QUIC, pass the DataContext pointer
-        stream_ctx = &stream_it->second;
+        stream_ctx = &data_ctx_it->second;
     }
 
-    picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 1, &data_ctx_it->second);
+    picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 1, stream_ctx);
 }
 
 void
