@@ -121,6 +121,33 @@ namespace quicr {
         dgram_buffer_.Clear();
         dgram_buffer_.Push(*data);
 
+        // Payload or status?
+        const auto msg_type = static_cast<messages::DatagramMessageType>(data->front());
+        if (messages::TypeIsDatagramStatusType(msg_type)) {
+            messages::ObjectDatagramStatus status_msg;
+            if (stream_buffer_ >> status_msg) {
+                SPDLOG_TRACE("Received object datagram status track_alias: {} group_id: {} object_id: {} status: {}",
+                             status_msg.track_alias,
+                             status_msg.group_id,
+                             status_msg.object_id,
+                             static_cast<uint8_t>(status_msg.status));
+
+                subscribe_track_metrics_.objects_received++;
+
+                try {
+                    ObjectStatusReceived(status_msg.group_id,
+                                         status_msg.object_id,
+                                         status_msg.status,
+                                         status_msg.extensions,
+                                         status_msg.immutable_extensions);
+                } catch (const std::exception& e) {
+                    SPDLOG_ERROR("Caught exception in ObjectStatusReceived. (error={})", e.what());
+                }
+            }
+            return;
+        }
+
+        // Data.
         messages::ObjectDatagram msg;
         if (dgram_buffer_ >> msg) {
             SPDLOG_TRACE("Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "

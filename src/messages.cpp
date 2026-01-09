@@ -392,10 +392,13 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const ObjectDatagram& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(msg.GetType()));
+        const auto properties = msg.GetProperties();
+        buffer << UintVar(static_cast<uint64_t>(properties.GetType()));
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
-        buffer << UintVar(msg.object_id);
+        if (properties.encodes_object_id) {
+            buffer << UintVar(msg.object_id);
+        }
         buffer.push_back(msg.priority);
         if (msg.extensions.has_value() || msg.immutable_extensions.has_value()) {
             SerializeExtensions(buffer, msg.extensions, msg.immutable_extensions);
@@ -441,8 +444,13 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 3: {
-                if (!ParseUintVField(buffer, msg.object_id)) {
-                    return false;
+                const auto properties = DatagramHeaderProperties(*msg.type);
+                if (properties.encodes_object_id) {
+                    if (!ParseUintVField(buffer, msg.object_id)) {
+                        return false;
+                    }
+                } else {
+                    msg.object_id = 0;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
