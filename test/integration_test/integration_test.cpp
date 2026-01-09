@@ -6,10 +6,12 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <future>
 #include <iostream>
 #include <string>
+#include <thread>
 
 using namespace quicr;
 using namespace quicr_test;
@@ -17,7 +19,45 @@ using namespace quicr_test;
 const std::string kIp = "127.0.0.1";
 constexpr uint16_t kPort = 12345;
 const std::string kServerId = "test-server";
-constexpr std::chrono::milliseconds kDefaultTimeout(100);
+
+/// @brief Get test timeout from environment or use default
+/// @details Set LIBQUICR_TEST_TIMEOUT_MS environment variable to override (useful for CI)
+static std::chrono::milliseconds
+GetTestTimeout()
+{
+    const char* env_timeout = std::getenv("LIBQUICR_TEST_TIMEOUT_MS");
+    if (env_timeout != nullptr) {
+        try {
+            return std::chrono::milliseconds(std::stoi(env_timeout));
+        } catch (...) {
+            // Fall through to default
+        }
+    }
+    return std::chrono::milliseconds(300);
+}
+
+static const std::chrono::milliseconds kDefaultTimeout = GetTestTimeout();
+
+/// @brief Wait for a condition to become true with polling
+/// @param predicate Function returning true when condition is met
+/// @param timeout Maximum time to wait
+/// @param poll_interval How often to check the condition
+/// @return true if condition was met, false if timeout
+template<typename Predicate>
+bool
+WaitFor(Predicate predicate,
+        std::chrono::milliseconds timeout = kDefaultTimeout,
+        std::chrono::milliseconds poll_interval = std::chrono::milliseconds(10))
+{
+    const auto start = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - start < timeout) {
+        if (predicate()) {
+            return true;
+        }
+        std::this_thread::sleep_for(poll_interval);
+    }
+    return predicate(); // Final check
+}
 
 static std::shared_ptr<TestServer>
 MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
@@ -40,7 +80,11 @@ MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
     auto server = std::make_shared<TestServer>(server_config);
     const auto starting = server->Start();
     CHECK_EQ(starting, Transport::Status::kReady);
-    std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
+
+    // Wait for server to be ready instead of fixed sleep
+    const bool ready = WaitFor([&server]() { return server->GetStatus() == Transport::Status::kReady; });
+    CHECK(ready);
+
     return server;
 }
 
@@ -59,7 +103,12 @@ MakeTestClient(const bool connect = true,
     auto client = std::make_shared<TestClient>(client_config);
     if (connect) {
         client->Connect();
-        std::this_thread::sleep_for(kDefaultTimeout);
+        // Wait for client to be connected instead of fixed sleep
+        const bool connected = WaitFor([&client]() {
+            const auto status = client->GetStatus();
+            return status == Transport::Status::kReady || status == Transport::Status::kNotConnected;
+        });
+        CHECK(connected);
     }
     return client;
 }
@@ -125,7 +174,9 @@ TEST_CASE("Integration - Subscribe")
         CHECK_EQ(details.subscribe_attributes.filter_type, filter_type);
 
         // Server should respond, track should go live.
-        std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
+        const bool track_live =
+          WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        CHECK(track_live);
         CHECK_EQ(handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
 
         // Test is complete, unsubscribe while we are connected.
@@ -225,7 +276,10 @@ TEST_CASE("Group ID Gap")
         // Pub.
         const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500);
         client->PublishTrack(pub);
-        std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
+
+        // Wait for publisher to be ready
+        const bool pub_ready = WaitFor([&pub]() { return pub->CanPublish(); });
+        CHECK(pub_ready);
 
         constexpr messages::GroupId expected_gap = 1758273157;
 
@@ -618,8 +672,10 @@ TEST_CASE("Integration - Annouce Flow")
         const auto& server_details = server_future.get();
         CHECK_EQ(server_details.track_namespace, ftn.name_space);
 
-        // Wait for PUBLISH_NAMESPACE_OK to land.
-        std::this_thread::sleep_for(kDefaultTimeout);
+        // Wait for PUBLISH_NAMESPACE_OK to land - poll until status changes.
+        const bool got_ok =
+          WaitFor([&pub_handler]() { return pub_handler->GetStatus() == PublishTrackHandler::Status::kNoSubscribers; });
+        CHECK(got_ok);
 
         // Verify the publish track handler transitions to kNoSubscribers (PUBLISH_NAMESPACE_OK).
         CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kNoSubscribers);

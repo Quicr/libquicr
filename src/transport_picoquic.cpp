@@ -2292,18 +2292,23 @@ PicoQuicTransport::Server()
 TransportConnId
 PicoQuicTransport::StartClient()
 {
-    std::condition_variable cv;
-    TransportConnId conn_id{ 0 };
-    std::mutex mtx;
-    std::unique_lock lock(mtx);
+    // Use shared state to avoid lifetime issues if timeout occurs before lambda executes
+    struct SharedState
+    {
+        std::condition_variable cv;
+        std::mutex mtx;
+        TransportConnId conn_id{ 0 };
+    };
+    auto state = std::make_shared<SharedState>();
+    std::unique_lock lock(state->mtx);
 
-    RunPqFunction([this, &conn_id, &cv, &mtx]() {
-        auto notify_caller = [&cv, &conn_id, &mtx](uint64_t id) {
-            std::lock_guard _(mtx);
-            conn_id = id;
+    RunPqFunction([this, state]() {
+        auto notify_caller = [state](uint64_t id) {
+            std::lock_guard _(state->mtx);
+            state->conn_id = id;
 
             // Notify calling thread of connection Id
-            cv.notify_all();
+            state->cv.notify_all();
         };
 
         sockaddr_storage server_address;
@@ -2438,16 +2443,16 @@ PicoQuicTransport::StartClient()
 
     SPDLOG_LOGGER_DEBUG(logger, "Waiting for client connection context");
 
-    cv.wait_for(lock, std::chrono::milliseconds(3000), [&]() { return conn_id > 0; });
+    state->cv.wait_for(lock, std::chrono::milliseconds(3000), [&state]() { return state->conn_id > 0; });
 
-    SPDLOG_LOGGER_DEBUG(logger, "Got client connection context conn_id: {}", conn_id);
-    if (conn_id <= 1) {
+    SPDLOG_LOGGER_DEBUG(logger, "Got client connection context conn_id: {}", state->conn_id);
+    if (state->conn_id <= 1) {
         SPDLOG_LOGGER_DEBUG(logger, "Client connection to {}:{} failed", serverInfo_.host_or_ip, serverInfo_.port);
         SetStatus(TransportStatus::kDisconnected);
         return 0;
     }
 
-    return conn_id;
+    return state->conn_id;
 }
 
 bool

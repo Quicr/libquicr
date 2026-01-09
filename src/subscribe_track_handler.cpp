@@ -125,7 +125,7 @@ namespace quicr {
         const auto msg_type = static_cast<messages::DatagramMessageType>(data->front());
         if (messages::TypeIsDatagramStatusType(msg_type)) {
             messages::ObjectDatagramStatus status_msg;
-            if (stream_buffer_ >> status_msg) {
+            if (dgram_buffer_ >> status_msg) {
                 SPDLOG_TRACE("Received object datagram status track_alias: {} group_id: {} object_id: {} status: {}",
                              status_msg.track_alias,
                              status_msg.group_id,
