@@ -256,6 +256,25 @@ namespace quicr {
                                     [[maybe_unused]] BytesSpan data);
 
         /**
+         * @brief Notification of received object status
+         *
+         * @details Event notification when an ObjectDatagramStatus message is received.
+         *
+         * @param group_id              Group ID of the status
+         * @param object_id             Object ID of the status
+         * @param status                Status
+         * @param extensions            Mutable extensions, if any
+         * @param immutable_extensions  Immutable extensions, if any
+         */
+        virtual void ObjectStatusReceived([[maybe_unused]] uint64_t group_id,
+                                          [[maybe_unused]] uint64_t object_id,
+                                          [[maybe_unused]] ObjectStatus status,
+                                          [[maybe_unused]] std::optional<Extensions> extensions,
+                                          [[maybe_unused]] std::optional<Extensions> immutable_extensions)
+        {
+        }
+
+        /**
          * @brief Notification of received stream data slice
          *
          * @details Event notification to provide the caller the raw data received on a stream
