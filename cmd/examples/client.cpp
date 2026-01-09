@@ -590,6 +590,7 @@ class MyClient : public quicr::Client
 
                     SPDLOG_DEBUG(
                       "Fetch sending group: {} object: {}", object.headers.group_id, object.headers.object_id);
+
                     pub_fetch_h->PublishObject(object.headers, object.data);
                 }
             }
@@ -601,7 +602,7 @@ class MyClient : public quicr::Client
     void StandaloneFetchReceived(quicr::ConnectionHandle connection_handle,
                                  uint64_t request_id,
                                  const quicr::FullTrackName& track_full_name,
-                                 const quicr::messages::StandaloneFetchAttributes& attributes)
+                                 const quicr::messages::StandaloneFetchAttributes& attributes) override
     {
         FetchReceived(connection_handle,
                       request_id,
@@ -615,7 +616,7 @@ class MyClient : public quicr::Client
     void JoiningFetchReceived(quicr::ConnectionHandle connection_handle,
                               uint64_t request_id,
                               const quicr::FullTrackName& track_full_name,
-                              const quicr::messages::JoiningFetchAttributes& attributes)
+                              const quicr::messages::JoiningFetchAttributes& attributes) override
     {
         uint64_t joining_start = 0;
 

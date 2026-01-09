@@ -40,6 +40,9 @@ namespace quicr {
         std::optional<TrackMode> track_mode; ///< Track Mode of how the object was received or mode to use when sending
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
+
+        bool end_of_subgroup{ false };
+        bool end_of_group{ false };
     };
 
 }

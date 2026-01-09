@@ -6,6 +6,7 @@
 #include "quicr/detail/priority_queue.h"
 #include "quicr/detail/quic_transport_metrics.h"
 #include "quicr/detail/safe_queue.h"
+#include "quicr/detail/safe_time_queue.h"
 #include "quicr/detail/stream_buffer.h"
 #include "quicr/detail/time_queue.h"
 
@@ -81,59 +82,75 @@ namespace quicr {
         {
           public:
             DataContext() = default;
-            DataContext(DataContext&&) = default;
+            DataContext(DataContext&& other)
+              : data_ctx_id(other.data_ctx_id)
+              , conn_id(other.conn_id)
+              , is_bidir(other.is_bidir)
+              , uses_reset_wait(other.uses_reset_wait)
+              , delete_on_empty(other.delete_on_empty)
+              , metrics(std::move(other.metrics))
+            {
+            }
 
             DataContext& operator=(const DataContext&) = delete;
             DataContext& operator=(DataContext&&) = delete;
 
-            ~DataContext()
-            {
-                // clean up
-                stream_tx_object = nullptr;
-            }
-
-            /**
-             * Reset the TX object buffer
-             */
-            void ResetTxObject()
-            {
-                // reset/clean up
-                stream_tx_object = nullptr;
-                stream_tx_object_offset = 0;
-            }
+            ~DataContext() = default;
 
           public:
-            bool is_bidir : 1 { false };           /// Indicates if the stream is bidir (true) or unidir (false)
-            bool mark_stream_active : 1 { false }; /// Instructs the stream to be marked active
-            bool tx_start_stream : 1 { false };    /// Indicates tx queue starts a new stream
-
-            bool uses_reset_wait : 1 { false };  /// Indicates if data context can/uses reset wait strategy
-            bool tx_reset_wait_discard{ false }; /// Instructs TX objects to be discarded on POP instead
-
-            bool delete_on_empty{ false }; /// Instructs TX objects to be discarded on POP instead
-
-            DataContextId data_ctx_id{ 0 }; /// The ID of this context
-            TransportConnId conn_id{ 0 };   /// The connection ID this context is under
-
-            std::optional<uint64_t> current_stream_id; /// Current active stream if the value is >= 4
-
-            uint8_t priority{ 0 };
-
-            uint64_t in_data_cb_skip_count{ 0 }; /// Number of times callback was skipped due to size
-
-            std::unique_ptr<PriorityQueue<ConnData>> tx_data; /// Pending objects to be written to the network
-
-            /// Current object that is being sent as a byte stream
-            std::shared_ptr<const std::vector<uint8_t>> stream_tx_object;
-            size_t stream_tx_object_offset{ 0 }; /// Pointer offset to next byte to send
-
-            // The last ticks when TX callback was run
-            uint64_t last_tx_tick{ 0 };
+            DataContextId data_ctx_id{ 0 };     /// The ID of this context
+            TransportConnId conn_id{ 0 };       /// The connection ID this context is under
+            bool is_bidir : 1 { false };        /// Indicates if the stream is bidir (true) or unidir (false)
+            bool uses_reset_wait : 1 { false }; /// Indicates if data context can/uses reset wait strategy
+            bool delete_on_empty{ false };      /// Instructs TX objects to be discarded on POP instead
 
             QuicDataContextMetrics metrics;
 
-            /// WebTransport stream context (only used in WebTransport mode)
-            h3zero_stream_ctx_t* wt_stream_ctx{ nullptr };
+            struct StreamContext
+            {
+                /**
+                 * Reset the TX object buffer
+                 */
+                void ResetTxObject()
+                {
+                    tx_object = nullptr;
+                    tx_object_offset = 0;
+                }
+
+              public:
+                /// Instructs the stream to be marked active
+                bool mark_active : 1 { false };
+
+                /// Instructs that the stream should be closed upon empty
+                bool close_on_empty : 1 { false };
+
+                /// Instructs to use reset when closing stream
+                bool close_using_reset : 1 { false };
+
+                /// Instructs TX objects to be discarded on POP instead
+                bool tx_reset_wait_discard{ false };
+
+                /// The priority of the stream.
+                uint8_t priority{ 0 };
+
+                /// Pending objects to be written to the network
+                std::unique_ptr<SafeTimeQueue<ConnData>> tx_data;
+
+                /// Current object that is being sent as a byte stream
+                std::shared_ptr<const std::vector<uint8_t>> tx_object;
+
+                /// Pointer offset to next byte to send
+                size_t tx_object_offset{ 0 };
+
+                // The last ticks when TX callback was run
+                uint64_t last_tx_tick{ 0 };
+
+                /// WebTransport stream context (only used in WebTransport mode)
+                h3zero_stream_ctx_t* wt_stream_ctx{ nullptr };
+            };
+
+            std::map<std::uint64_t, StreamContext> streams;
+            std::mutex stream_mutex;
         };
 
         /**
@@ -301,7 +318,7 @@ namespace quicr {
 
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,
-                               std::uint64_t group_id,
+                               std::uint64_t stream_id,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                uint8_t priority,
                                uint32_t ttl_ms,
@@ -322,9 +339,6 @@ namespace quicr {
         void SetRemoteDataCtxId(TransportConnId conn_id,
                                 DataContextId data_ctx_id,
                                 DataContextId remote_data_ctx_id) override;
-
-        void SetStreamIdDataCtxId(TransportConnId conn_id, DataContextId data_ctx_id, uint64_t stream_id) override;
-        void SetDataCtxPriority(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority) override;
 
         /*
          * Internal public methods
@@ -363,7 +377,7 @@ namespace quicr {
         ConnectionContext& CreateConnContext(picoquic_cnx_t* pq_cnx);
 
         void SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_ctx, size_t max_len);
-        void SendStreamBytes(DataContext* data_ctx, uint8_t* bytes_ctx, size_t max_len);
+        void SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_id, uint8_t* bytes_ctx, size_t max_len);
 
         void OnConnectionStatus(TransportConnId conn_id, TransportStatus status);
 
@@ -389,10 +403,11 @@ namespace quicr {
         /**
          * @brief Close stream by stream id
          * @param conn_id           Connection id of stream
+         * @param data_ctx_id       Data context id that owns the stream
          * @param stream_id         Stream ID to close
          * @param use_reset         True to close by RESET, false to close by FIN
          */
-        void CloseStreamById(TransportConnId conn_id, uint64_t stream_id, bool use_reset) override;
+        void CloseStream(TransportConnId conn_id, uint64_t data_ctx_id, uint64_t stream_id, bool use_reset) override;
 
         /**
          * @brief Deregister WebTransport context
@@ -415,9 +430,31 @@ namespace quicr {
          */
         int PqRunner();
 
-        /*
-         * Internal Public Variables
+        /**
+         * @brief Send drain session message for WebTransport
+         * @details Sends a drain_webtransport_session capsule to tell peer to finish and close
+         * @param cnx The picoquic connection
+         * @return 0 on success, -1 on failure
          */
+        int SendWebTransportDrainSession(picoquic_cnx_t* cnx);
+
+        /**
+         * @brief Create stream a new stream
+         *
+         * @details Create a new stream. Will block up to 100ms max to create the stream
+         *
+         * @note Thread-safe
+         *
+         * @param conn_id           Connection ID to create the stream
+         * @param data_ctx_id       Data context to create stream in
+         * @param priority          Priority of the stream
+         *
+         * @return stream ID if created
+         * @throws PicoQuicException if unable to create stram
+         */
+        std::uint64_t CreateStream(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority) override;
+
+      public:
         std::shared_ptr<spdlog::logger> logger;
         bool is_server_mode;
         bool is_unidirectional{ false };
@@ -441,7 +478,7 @@ namespace quicr {
          * @details This method MUST only be called within the picoquic thread. Enqueue and other
          *      thread methods can call this via the pq_runner.
          */
-        void MarkStreamActive(TransportConnId conn_id, DataContextId data_ctx_id);
+        void MarkStreamActive(TransportConnId conn_id, DataContextId data_ctx_id, std::uint64_t stream_id);
 
         /**
          * @brief Mark datagram ready
@@ -500,31 +537,27 @@ namespace quicr {
         int SendWebTransportCloseSession(picoquic_cnx_t* cnx, uint32_t error_code, const char* error_msg);
 
         /**
-         * @brief Send drain session message for WebTransport
-         * @details Sends a drain_webtransport_session capsule to tell peer to finish and close
-         * @param cnx The picoquic connection
-         * @return 0 on success, -1 on failure
-         */
-        int SendWebTransportDrainSession(picoquic_cnx_t* cnx);
-
-        /**
          * @brief Create a new stream
          *
-         * @param conn_ctx      Connection context to create stream under
-         * @param data_ctx      Data context in connection context to create streams
+         * @param conn_id       Connection id
+         * @param data_ctx_id   Data context id
+         * @param priority      Priority of the stream
          */
-        void CreateStream(ConnectionContext& conn_ctx, DataContext* data_ctx);
+        std::uint64_t CreateStreamInternal(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority);
 
         /**
          * @brief App initiated Close stream
          * @details App initiated close stream. When the app deletes a context or wants to switch streams to a new
          * stream this function is used to close out the current stream. A FIN will be sent.
          *
+         * @warning This method must be called within the picoquic thread
+         *
          * @param conn_ctx      Connection context for the stream
          * @param data_ctx      Data context for the stream
+         * @param stream_id     ID of the stream to close.
          * @param send_reset    Indicates if the stream should be closed by RESET, otherwise FIN
          */
-        void CloseStream(ConnectionContext& conn_ctx, DataContext* data_ctx, bool send_reset);
+        void CloseStream(ConnectionContext& conn_ctx, DataContext* data_ctx, std::uint64_t stream_id, bool send_reset);
 
         /*
          * Variables

@@ -5,37 +5,40 @@
 
 namespace quicr {
     void FetchTrackHandler::StreamDataRecv(bool is_start,
-                                           [[maybe_unused]] uint64_t stream_id,
+                                           std::uint64_t stream_id,
                                            std::shared_ptr<const std::vector<uint8_t>> data)
     {
         SPDLOG_DEBUG("Got fetch data size: {}", data->size());
-        if (is_start) {
-            stream_buffer_.Clear();
 
-            stream_buffer_.InitAny<messages::FetchHeader>();
-            stream_buffer_.Push(*data);
+        auto& stream = streams_[stream_id];
+
+        if (is_start) {
+            stream.buffer.Clear();
+
+            stream.buffer.InitAny<messages::FetchHeader>();
+            stream.buffer.Push(*data);
 
             // Expect that on initial start of stream, there is enough data to process the stream headers
 
-            auto& f_hdr = stream_buffer_.GetAny<messages::FetchHeader>();
-            if (not(stream_buffer_ >> f_hdr)) {
+            auto& f_hdr = stream.buffer.GetAny<messages::FetchHeader>();
+            if (not(stream.buffer >> f_hdr)) {
                 SPDLOG_ERROR("Not enough data to process new stream headers, stream is invalid len: {} / {}",
-                             stream_buffer_.Size(),
+                             stream.buffer.Size(),
                              data->size());
                 // TODO: Add metrics to track this
                 return;
             }
         } else {
-            stream_buffer_.Push(*data);
+            stream.buffer.Push(*data);
         }
 
-        if (not stream_buffer_.AnyHasValueB()) {
-            stream_buffer_.InitAnyB<messages::FetchObject>();
+        if (not stream.buffer.AnyHasValueB()) {
+            stream.buffer.InitAnyB<messages::FetchObject>();
         }
 
-        auto& obj = stream_buffer_.GetAnyB<messages::FetchObject>();
+        auto& obj = stream.buffer.GetAnyB<messages::FetchObject>();
 
-        if (stream_buffer_ >> obj) {
+        if (stream.buffer >> obj) {
             SPDLOG_TRACE("Received fetch_object subscribe_id: {} priority: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
                          *GetSubscribeId(),
@@ -64,7 +67,7 @@ namespace quicr {
                 SPDLOG_ERROR("Caught exception trying to receive Fetch object. (error={})", e.what());
             }
 
-            stream_buffer_.ResetAnyB<messages::FetchObject>();
+            stream.buffer.ResetAnyB<messages::FetchObject>();
         }
     }
 }
