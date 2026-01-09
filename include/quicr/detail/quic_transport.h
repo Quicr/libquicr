@@ -443,7 +443,7 @@ namespace quicr {
          *
          * @param[in] context_id	Identifying the connection
          * @param[in] data_ctx_id	stream Id to send data on
-         * @param[in] group_id     The id of the group we're currently enqueuing.
+         * @param[in] stream_id     Stream ID to send message on
          * @param[in] bytes		    Data to send/write
          * @param[in] priority      Priority of the object, range should be 0 - 255
          * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
@@ -454,7 +454,7 @@ namespace quicr {
          */
         virtual TransportError Enqueue(const TransportConnId& context_id,
                                        const DataContextId& data_ctx_id,
-                                       std::uint64_t group_id,
+                                       std::uint64_t stream_id,
                                        std::shared_ptr<const std::vector<uint8_t>> bytes,
                                        uint8_t priority = 1,
                                        uint32_t ttl_ms = 350,

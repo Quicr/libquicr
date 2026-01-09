@@ -590,6 +590,7 @@ class MyClient : public quicr::Client
 
                     SPDLOG_DEBUG(
                       "Fetch sending group: {} object: {}", object.headers.group_id, object.headers.object_id);
+
                     pub_fetch_h->PublishObject(object.headers, object.data);
                 }
             }

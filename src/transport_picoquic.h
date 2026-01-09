@@ -150,7 +150,6 @@ namespace quicr {
             };
 
             std::map<std::uint64_t, StreamContext> streams;
-
             std::mutex stream_mutex;
         };
 

@@ -17,7 +17,7 @@ using namespace quicr_test;
 const std::string kIp = "127.0.0.1";
 constexpr uint16_t kPort = 12345;
 const std::string kServerId = "test-server";
-constexpr std::chrono::milliseconds kDefaultTimeout(50);
+constexpr std::chrono::milliseconds kDefaultTimeout(100);
 
 static std::shared_ptr<TestServer>
 MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,

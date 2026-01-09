@@ -308,6 +308,11 @@ namespace quicr {
                     object_msg_buffer_ << subgroup_hdr;
                 }
 
+                // TODO: send end of group/subgroup status/type
+                if (object_headers.end_of_group || object_headers.end_of_subgroup) {
+                    eflags.close_stream = true;
+                }
+
                 messages::StreamSubGroupObject object;
                 object.object_delta = object_id_delta;
                 object.stream_type = GetStreamMode();

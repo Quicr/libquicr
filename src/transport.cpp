@@ -311,7 +311,7 @@ namespace quicr {
 
     void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
     {
-        if (!conn_ctx.ctrl_data_ctx_id.has_value()) {
+        if (!conn_ctx.ctrl_data_ctx_id.has_value() || !conn_ctx.ctrl_stream_id.has_value()) {
             CloseConnection(conn_ctx.connection_handle,
                             messages::TerminationReason::kProtocolViolation,
                             "Control bidir data context not created");
@@ -320,7 +320,7 @@ namespace quicr {
 
         auto result = quic_transport_->Enqueue(conn_ctx.connection_handle,
                                                *conn_ctx.ctrl_data_ctx_id,
-                                               0,
+                                               *conn_ctx.ctrl_stream_id,
                                                std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
                                                0,
                                                2000,
@@ -1527,6 +1527,8 @@ namespace quicr {
                                        "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
 
                     conn_ctx.ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, true);
+                    conn_ctx.ctrl_stream_id =
+                      quic_transport_->CreateStream(conn_id, conn_ctx.ctrl_data_ctx_id.value(), 0);
 
                     SendClientSetup();
 
@@ -1654,6 +1656,7 @@ namespace quicr {
                         return;
                     }
                     conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+                    conn_ctx.ctrl_stream_id = stream_id;
                 }
 
                 while (conn_ctx.ctrl_msg_buffer.size() > 0) {

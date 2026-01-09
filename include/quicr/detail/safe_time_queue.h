@@ -46,17 +46,9 @@ namespace quicr {
                       size_t interval,
                       const std::shared_ptr<TickService>& tick_service,
                       size_t initial_queue_size)
-          : time_queue_(duration_ms_, interval_ms_, tick_service_, initial_queue_size_)
+          : time_queue_(duration, interval, tick_service, initial_queue_size)
           , tick_service_(tick_service)
         {
-
-            if (tick_service == nullptr) {
-                throw std::invalid_argument("Tick service cannot be null");
-            }
-
-            initial_queue_size_ = initial_queue_size;
-            duration_ms_ = duration;
-            interval_ms_ = interval;
         }
 
         /**
@@ -158,10 +150,6 @@ namespace quicr {
 
       private:
         std::mutex mutex_;
-        size_t initial_queue_size_;
-        size_t duration_ms_;
-        size_t interval_ms_;
-
         TimeQueueType time_queue_;
 
         std::shared_ptr<TickService> tick_service_;
