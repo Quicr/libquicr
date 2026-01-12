@@ -749,7 +749,8 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendSubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
+    void Transport::SendSubscribeNamespace(ConnectionHandle conn_handle,
+                                           std::shared_ptr<SubscribeNamespaceHandler> handler)
     try {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_handle);
@@ -758,15 +759,27 @@ namespace quicr {
             return;
         }
 
+        const auto& prefix = handler->GetPrefix();
+
         auto rid = conn_it->second.GetNextRequestId();
 
-        conn_it->second.sub_namespace_prefix_by_request_id[rid] = prefix_namespace;
-        auto msg = messages::SubscribeNamespace(rid, prefix_namespace, {});
+        conn_it->second.sub_namespace_prefix_by_request_id[rid] = prefix;
+        auto msg = messages::SubscribeNamespace(rid, prefix, {});
 
         Bytes buffer;
         buffer << msg;
 
-        auto th = TrackHash({ prefix_namespace, {} });
+        auto th = TrackHash({ prefix, {} });
+
+        handler->SetTransport(GetSharedPtr());
+
+        const auto& [handler_it, is_new] =
+          conn_it->second.sub_namespace_handlers.try_emplace(prefix, std::move(handler));
+
+        if (!is_new) {
+            SPDLOG_LOGGER_WARN(logger_, "Namespace already subscribed to (alias={})", th.track_fullname_hash);
+            return;
+        }
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending SUBSCRIBE_NAMESPACE to conn_id: {} request_id: {} prefix_hash: {}",
@@ -820,7 +833,8 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendUnsubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
+    void Transport::SendUnsubscribeNamespace(ConnectionHandle conn_handle,
+                                             const std::shared_ptr<SubscribeNamespaceHandler>& handler)
     try {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_handle);
@@ -829,21 +843,25 @@ namespace quicr {
             return;
         }
 
+        const auto& prefix = handler->GetPrefix();
+
         for (auto it = conn_it->second.sub_namespace_prefix_by_request_id.begin();
              it != conn_it->second.sub_namespace_prefix_by_request_id.end();
              ++it) {
-            if (it->second == prefix_namespace) {
+            if (it->second == prefix) {
                 conn_it->second.sub_namespace_prefix_by_request_id.erase(it);
                 break;
             }
         }
 
-        auto msg = messages::UnsubscribeNamespace(prefix_namespace);
+        conn_it->second.sub_namespace_handlers.erase(prefix);
+
+        auto msg = messages::UnsubscribeNamespace(prefix);
 
         Bytes buffer;
         buffer << msg;
 
-        auto th = TrackHash({ prefix_namespace, {} });
+        auto th = TrackHash({ prefix, {} });
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending UNSUBSCRIBE_NAMESPACE to conn_id: {} prefix_hash: {}",
@@ -1359,6 +1377,22 @@ namespace quicr {
 
         switch (publish_response.reason_code) {
             case PublishResponse::ReasonCode::kOk: {
+                const auto& namespace_handler_it =
+                  std::find_if(conn_it->second.sub_namespace_handlers.begin(),
+                               conn_it->second.sub_namespace_handlers.end(),
+                               [&](auto&& e) {
+                                   // TODO(trigaux,tievens): Would IsPrefixOf be more explicit?
+                                   return e.first.HasSamePrefix(attributes.track_full_name.name_space);
+                               });
+
+                if (namespace_handler_it == conn_it->second.sub_namespace_handlers.end()) {
+                    SPDLOG_LOGGER_INFO(logger_,
+                                       "No subscribe namespace handler available for incoming track with alias = ",
+                                       attributes.track_alias);
+                } else if (namespace_handler_it->second->IsTrackAcceptable(attributes.track_full_name)) {
+                    namespace_handler_it->second->AcceptNewTrack(connection_handle, request_id, attributes);
+                }
+
                 SendPublishOk(conn_it->second,
                               request_id,
                               attributes.forward,
