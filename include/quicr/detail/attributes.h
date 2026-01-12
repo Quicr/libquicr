@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/detail/ctrl_messages.h"
+#include "quicr/detail/subscription_filters.h"
 
 #include <chrono>
 #include <optional>
@@ -21,11 +22,12 @@ namespace quicr::messages {
         std::uint8_t priority;                        ///< Subscriber priority
         GroupOrder group_order;                       ///< Subscriber group order
         std::chrono::milliseconds delivery_timeout;   ///< Subscriber delivery timeout
-        FilterType filter_type;                       /// Subscriber filter type
+        FilterType filter_type;                       ///< Subscriber filter type
         std::uint8_t forward;                         ///< True to Resume/forward data, False to pause/stop data
         std::optional<uint64_t> new_group_request_id; ///< Indicates new group id is requested
         bool is_publisher_initiated;                  ///< True will not send SUBSCRIBE_OK.
         Location start_location;                      ///< Start location of group and object
+        filters::SubscriptionFilter subscription_filter; ///< Advanced subscription filter for fine-grained control
     };
 
     struct PublishAttributes : SubscribeAttributes

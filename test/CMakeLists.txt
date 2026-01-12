@@ -14,6 +14,7 @@ add_executable(quicr_test
     data_storage.cpp
     cache.cpp
     priority_queue.cpp
+    subscription_filters.cpp
 )
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 

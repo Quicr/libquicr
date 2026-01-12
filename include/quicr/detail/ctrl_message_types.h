@@ -196,8 +196,15 @@ namespace quicr::messages {
         kAuthorizationToken = 0x03,
         kMaxCacheDuration = 0x04,
         kDynamicGroups = 0x20,
+        kLocationFilter = 0x21,   // Subscription filter: location range
         kNewGroupRequest = 0x22,
-        kInvalid = 0xFF, // used internally
+        kGroupFilter = 0x23,      // Subscription filter: group ID ranges
+        kSubgroupFilter = 0x25,   // Subscription filter: subgroup ID ranges
+        kObjectFilter = 0x27,     // Subscription filter: object ID ranges
+        kPriorityFilter = 0x29,   // Subscription filter: priority ranges
+        kExtensionFilter = 0x2B,  // Subscription filter: extension header values
+        kTrackFilter = 0x2D,      // Subscription filter: track selection
+        kInvalid = 0xFF,          // used internally
     };
 
     using Parameter = KeyValuePair<ParameterType>;
