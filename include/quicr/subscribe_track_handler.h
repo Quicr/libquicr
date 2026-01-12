@@ -192,6 +192,15 @@ namespace quicr {
                                         headers.priority.value_or(0),
                                         &headers.extensions,
                                         &headers.immutable_extensions);
+
+            // Use track_id for full filter evaluation (including track filter) if available
+            if (!subscription_filter_.GetTrackFilter().IsEmpty()) {
+                auto track_id = received_track_alias_.value_or(track_alias_.value_or(0));
+                if (track_id != 0) {
+                    return subscription_filter_.FullMatch(track_id, ctx);
+                }
+            }
+
             return subscription_filter_.Matches(ctx);
         }
 

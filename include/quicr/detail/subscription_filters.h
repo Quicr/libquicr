@@ -736,7 +736,7 @@ class TrackFilter
      * @param ctx Object context with extension values
      * @return true if the track is selected after this object
      */
-    [[nodiscard]] bool EvaluateTrackSelection(uint64_t track_id, const ObjectContext& ctx)
+    [[nodiscard]] bool EvaluateTrackSelection(uint64_t track_id, const ObjectContext& ctx) const
     {
         if (!state_) {
             state_ = std::make_shared<State>();
@@ -827,7 +827,7 @@ class TrackFilter
         return 0;
     }
 
-    void ExpireStaleSelections(std::chrono::steady_clock::time_point now)
+    void ExpireStaleSelections(std::chrono::steady_clock::time_point now) const
     {
         if (config_.max_time_selected.count() == 0 || !state_) {
             return;
@@ -843,7 +843,7 @@ class TrackFilter
         }
     }
 
-    void RecalculateSelections()
+    void RecalculateSelections() const
     {
         if (!state_) {
             return;
@@ -969,7 +969,7 @@ class SubscriptionFilter
      * @param ctx Object context for the track
      * @return true if track is selected
      */
-    [[nodiscard]] bool EvaluateTrack(uint64_t track_id, const ObjectContext& ctx)
+    [[nodiscard]] bool EvaluateTrack(uint64_t track_id, const ObjectContext& ctx) const
     {
         if (track_filter_.IsEmpty()) {
             return true;
@@ -980,7 +980,7 @@ class SubscriptionFilter
     /**
      * @brief Full evaluation: object filters AND track filter
      */
-    [[nodiscard]] bool FullMatch(uint64_t track_id, const ObjectContext& ctx)
+    [[nodiscard]] bool FullMatch(uint64_t track_id, const ObjectContext& ctx) const
     {
         // Object filters first
         if (!Matches(ctx)) {
@@ -1035,7 +1035,7 @@ class SubscriptionFilter
     ObjectIdFilter object_filter_;
     PriorityFilter priority_filter_;
     ExtensionFilter extension_filter_;
-    TrackFilter track_filter_;
+    mutable TrackFilter track_filter_; ///< Mutable to allow state updates in const methods
 };
 
 // ============================================================================
