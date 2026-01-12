@@ -490,6 +490,261 @@ TEST_CASE("TrackFilter - Basic")
     }
 }
 
+TEST_CASE("TrackFilter - max_tracks_deselected behavior")
+{
+    SUBCASE("Deselected tracks are removed when limit exceeded")
+    {
+        // max_selected=2, max_deselected=2 means we keep at most 4 tracks total
+        TrackFilter filter(0x10, 2, 2, 0);
+
+        // Create extensions with descending values for track ordering
+        TestExtensions ext_high, ext_med_high, ext_med, ext_low, ext_lowest;
+        ext_high[0x10] = { { 100, 0, 0, 0, 0, 0, 0, 0 } };
+        ext_med_high[0x10] = { { 80, 0, 0, 0, 0, 0, 0, 0 } };
+        ext_med[0x10] = { { 60, 0, 0, 0, 0, 0, 0, 0 } };
+        ext_low[0x10] = { { 40, 0, 0, 0, 0, 0, 0, 0 } };
+        ext_lowest[0x10] = { { 20, 0, 0, 0, 0, 0, 0, 0 } };
+
+        std::optional<TestExtensions> opt_high = ext_high;
+        std::optional<TestExtensions> opt_med_high = ext_med_high;
+        std::optional<TestExtensions> opt_med = ext_med;
+        std::optional<TestExtensions> opt_low = ext_low;
+        std::optional<TestExtensions> opt_lowest = ext_lowest;
+
+        // Add 5 tracks - exceeds max_selected(2) + max_deselected(2) = 4
+        ObjectContext ctx_high(100, 0, 0, 0, &opt_high, nullptr);
+        ObjectContext ctx_med_high(100, 0, 0, 0, &opt_med_high, nullptr);
+        ObjectContext ctx_med(100, 0, 0, 0, &opt_med, nullptr);
+        ObjectContext ctx_low(100, 0, 0, 0, &opt_low, nullptr);
+        ObjectContext ctx_lowest(100, 0, 0, 0, &opt_lowest, nullptr);
+
+        // Track 1 (value 100) - will be selected
+        (void)filter.EvaluateTrackSelection(1, ctx_high);
+        CHECK(filter.IsTrackSelected(1));
+
+        // Track 2 (value 80) - will be selected
+        (void)filter.EvaluateTrackSelection(2, ctx_med_high);
+        CHECK(filter.IsTrackSelected(2));
+
+        // Track 3 (value 60) - will be deselected (not in top 2)
+        (void)filter.EvaluateTrackSelection(3, ctx_med);
+        CHECK_FALSE(filter.IsTrackSelected(3));
+
+        // Track 4 (value 40) - will be deselected
+        (void)filter.EvaluateTrackSelection(4, ctx_low);
+        CHECK_FALSE(filter.IsTrackSelected(4));
+
+        // Now we have 4 tracks (2 selected + 2 deselected) - at limit
+        CHECK_EQ(filter.GetSelectedTrackCount(), 2);
+
+        // Track 5 (value 20) - should trigger removal of oldest deselected track
+        (void)filter.EvaluateTrackSelection(5, ctx_lowest);
+        CHECK_FALSE(filter.IsTrackSelected(5));
+
+        // Verify selected tracks are still correct
+        CHECK(filter.IsTrackSelected(1));  // highest value
+        CHECK(filter.IsTrackSelected(2));  // second highest
+        CHECK_EQ(filter.GetSelectedTrackCount(), 2);
+    }
+
+    SUBCASE("max_deselected=0 means no deselected tracks are kept")
+    {
+        // max_selected=2, max_deselected=0 means only keep selected tracks
+        TrackFilter filter(0x10, 2, 0, 0);
+
+        TestExtensions ext1, ext2, ext3;
+        ext1[0x10] = { { 100, 0, 0, 0, 0, 0, 0, 0 } };
+        ext2[0x10] = { { 200, 0, 0, 0, 0, 0, 0, 0 } };
+        ext3[0x10] = { { 50, 0, 0, 0, 0, 0, 0, 0 } };
+
+        std::optional<TestExtensions> opt_ext1 = ext1;
+        std::optional<TestExtensions> opt_ext2 = ext2;
+        std::optional<TestExtensions> opt_ext3 = ext3;
+
+        ObjectContext ctx1(100, 0, 0, 0, &opt_ext1, nullptr);
+        ObjectContext ctx2(100, 0, 0, 0, &opt_ext2, nullptr);
+        ObjectContext ctx3(100, 0, 0, 0, &opt_ext3, nullptr);
+
+        // Add tracks
+        (void)filter.EvaluateTrackSelection(1, ctx1);
+        (void)filter.EvaluateTrackSelection(2, ctx2);
+        (void)filter.EvaluateTrackSelection(3, ctx3); // This should be removed immediately
+
+        // Only 2 selected tracks should remain
+        CHECK(filter.IsTrackSelected(1));
+        CHECK(filter.IsTrackSelected(2));
+        CHECK_EQ(filter.GetSelectedTrackCount(), 2);
+    }
+
+    SUBCASE("Track reselection when higher value track arrives")
+    {
+        TrackFilter filter(0x10, 2, 3, 0);
+
+        TestExtensions ext_low, ext_med, ext_high;
+        ext_low[0x10] = { { 10, 0, 0, 0, 0, 0, 0, 0 } };
+        ext_med[0x10] = { { 50, 0, 0, 0, 0, 0, 0, 0 } };
+        ext_high[0x10] = { { 100, 0, 0, 0, 0, 0, 0, 0 } };
+
+        std::optional<TestExtensions> opt_low = ext_low;
+        std::optional<TestExtensions> opt_med = ext_med;
+        std::optional<TestExtensions> opt_high = ext_high;
+
+        ObjectContext ctx_low(100, 0, 0, 0, &opt_low, nullptr);
+        ObjectContext ctx_med(100, 0, 0, 0, &opt_med, nullptr);
+        ObjectContext ctx_high(100, 0, 0, 0, &opt_high, nullptr);
+
+        // Start with 2 low-value tracks selected
+        (void)filter.EvaluateTrackSelection(1, ctx_low);   // value 10
+        (void)filter.EvaluateTrackSelection(2, ctx_med);   // value 50
+
+        CHECK(filter.IsTrackSelected(1));
+        CHECK(filter.IsTrackSelected(2));
+
+        // Add a high-value track - should displace track 1 (lowest value)
+        (void)filter.EvaluateTrackSelection(3, ctx_high);  // value 100
+
+        CHECK_FALSE(filter.IsTrackSelected(1)); // Displaced
+        CHECK(filter.IsTrackSelected(2));       // Still selected
+        CHECK(filter.IsTrackSelected(3));       // Newly selected
+        CHECK_EQ(filter.GetSelectedTrackCount(), 2);
+    }
+}
+
+TEST_CASE("TrackFilter - max_time_selected behavior")
+{
+    SUBCASE("Tracks expire after max_time_selected")
+    {
+        // max_time_selected = 100ms
+        TrackFilter filter(0x10, 2, 5, 100);
+
+        TestExtensions ext;
+        ext[0x10] = { { 100, 0, 0, 0, 0, 0, 0, 0 } };
+        std::optional<TestExtensions> opt_ext = ext;
+
+        ObjectContext ctx(100, 0, 0, 0, &opt_ext, nullptr);
+
+        // Select a track
+        (void)filter.EvaluateTrackSelection(1, ctx);
+        CHECK(filter.IsTrackSelected(1));
+
+        // Sleep for longer than max_time_selected
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
+        // Evaluate a different track - this triggers expiration check
+        TestExtensions ext2;
+        ext2[0x10] = { { 50, 0, 0, 0, 0, 0, 0, 0 } };
+        std::optional<TestExtensions> opt_ext2 = ext2;
+        ObjectContext ctx2(100, 0, 0, 0, &opt_ext2, nullptr);
+        (void)filter.EvaluateTrackSelection(2, ctx2);
+
+        // Track 1 should be expired (no recent activity), track 2 should be selected
+        CHECK_FALSE(filter.IsTrackSelected(1));
+        CHECK(filter.IsTrackSelected(2));
+    }
+
+    SUBCASE("max_time_selected=0 means no time-based expiration")
+    {
+        // max_time_selected = 0 means no expiration
+        TrackFilter filter(0x10, 2, 5, 0);
+
+        TestExtensions ext;
+        ext[0x10] = { { 100, 0, 0, 0, 0, 0, 0, 0 } };
+        std::optional<TestExtensions> opt_ext = ext;
+
+        ObjectContext ctx(100, 0, 0, 0, &opt_ext, nullptr);
+
+        // Select a track
+        (void)filter.EvaluateTrackSelection(1, ctx);
+        CHECK(filter.IsTrackSelected(1));
+
+        // Sleep briefly
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+        // Evaluate another track
+        TestExtensions ext2;
+        ext2[0x10] = { { 50, 0, 0, 0, 0, 0, 0, 0 } };
+        std::optional<TestExtensions> opt_ext2 = ext2;
+        ObjectContext ctx2(100, 0, 0, 0, &opt_ext2, nullptr);
+        (void)filter.EvaluateTrackSelection(2, ctx2);
+
+        // Track 1 should still be selected (no time-based expiration)
+        CHECK(filter.IsTrackSelected(1));
+        CHECK(filter.IsTrackSelected(2));
+        CHECK_EQ(filter.GetSelectedTrackCount(), 2);
+    }
+
+    SUBCASE("Track activity refreshes selection time")
+    {
+        // max_time_selected = 100ms
+        TrackFilter filter(0x10, 2, 5, 100);
+
+        TestExtensions ext;
+        ext[0x10] = { { 100, 0, 0, 0, 0, 0, 0, 0 } };
+        std::optional<TestExtensions> opt_ext = ext;
+
+        ObjectContext ctx(100, 0, 0, 0, &opt_ext, nullptr);
+
+        // Select track 1
+        (void)filter.EvaluateTrackSelection(1, ctx);
+        CHECK(filter.IsTrackSelected(1));
+
+        // Wait 60ms
+        std::this_thread::sleep_for(std::chrono::milliseconds(60));
+
+        // Send another object to track 1 (refreshes time)
+        (void)filter.EvaluateTrackSelection(1, ctx);
+        CHECK(filter.IsTrackSelected(1));
+
+        // Wait another 60ms (total 120ms from first, but only 60ms from refresh)
+        std::this_thread::sleep_for(std::chrono::milliseconds(60));
+
+        // Trigger expiration check with another track
+        TestExtensions ext2;
+        ext2[0x10] = { { 50, 0, 0, 0, 0, 0, 0, 0 } };
+        std::optional<TestExtensions> opt_ext2 = ext2;
+        ObjectContext ctx2(100, 0, 0, 0, &opt_ext2, nullptr);
+        (void)filter.EvaluateTrackSelection(2, ctx2);
+
+        // Track 1 should still be selected (refreshed recently)
+        CHECK(filter.IsTrackSelected(1));
+        CHECK(filter.IsTrackSelected(2));
+    }
+}
+
+TEST_CASE("TrackFilter - Combined max_deselected and max_time behavior")
+{
+    SUBCASE("Expired tracks count against deselected limit")
+    {
+        // max_selected=1, max_deselected=1, max_time=50ms
+        TrackFilter filter(0x10, 1, 1, 50);
+
+        TestExtensions ext_high, ext_med, ext_low;
+        ext_high[0x10] = { { 100, 0, 0, 0, 0, 0, 0, 0 } };
+        ext_med[0x10] = { { 50, 0, 0, 0, 0, 0, 0, 0 } };
+        ext_low[0x10] = { { 25, 0, 0, 0, 0, 0, 0, 0 } };
+
+        std::optional<TestExtensions> opt_high = ext_high;
+        std::optional<TestExtensions> opt_med = ext_med;
+        std::optional<TestExtensions> opt_low = ext_low;
+
+        ObjectContext ctx_high(100, 0, 0, 0, &opt_high, nullptr);
+        ObjectContext ctx_med(100, 0, 0, 0, &opt_med, nullptr);
+        ObjectContext ctx_low(100, 0, 0, 0, &opt_low, nullptr);
+
+        // Add track with high value - selected
+        (void)filter.EvaluateTrackSelection(1, ctx_high);
+        CHECK(filter.IsTrackSelected(1));
+
+        // Wait for expiration
+        std::this_thread::sleep_for(std::chrono::milliseconds(70));
+
+        // Add track with medium value - should become selected, track 1 expires
+        (void)filter.EvaluateTrackSelection(2, ctx_med);
+        CHECK_FALSE(filter.IsTrackSelected(1)); // Expired
+        CHECK(filter.IsTrackSelected(2));       // Now selected
+    }
+}
+
 // ============================================================================
 // SubscriptionFilter Composite Tests
 // ============================================================================

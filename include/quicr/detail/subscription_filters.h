@@ -758,7 +758,7 @@ class TrackFilter
         ExpireStaleSelections(now);
 
         // Recalculate selections
-        RecalculateSelections();
+        RecalculateSelections(now);
 
         return track_state.is_selected;
     }
@@ -843,33 +843,50 @@ class TrackFilter
         }
     }
 
-    void RecalculateSelections() const
+    void RecalculateSelections(std::chrono::steady_clock::time_point now) const
     {
         if (!state_) {
             return;
         }
 
-        // Collect all tracks and sort by extension value (descending)
-        std::vector<std::pair<uint64_t, TrackSelectionState*>> tracks;
-        tracks.reserve(state_->track_states.size());
+        // Collect eligible tracks (not expired) and sort by extension value (descending)
+        std::vector<std::pair<uint64_t, TrackSelectionState*>> eligible_tracks;
+        std::vector<std::pair<uint64_t, TrackSelectionState*>> expired_tracks;
+        eligible_tracks.reserve(state_->track_states.size());
 
         for (auto& [id, track_state] : state_->track_states) {
-            tracks.emplace_back(id, &track_state);
+            // Check if track is expired (if time-based expiration is enabled)
+            bool is_expired = false;
+            if (config_.max_time_selected.count() > 0) {
+                auto elapsed = now - track_state.last_object_time;
+                is_expired = elapsed > config_.max_time_selected;
+            }
+
+            if (is_expired) {
+                expired_tracks.emplace_back(id, &track_state);
+            } else {
+                eligible_tracks.emplace_back(id, &track_state);
+            }
         }
 
-        std::ranges::sort(tracks, [](const auto& a, const auto& b) {
+        std::ranges::sort(eligible_tracks, [](const auto& a, const auto& b) {
             return a.second->highest_extension_value > b.second->highest_extension_value;
         });
 
-        // Select top N tracks
+        // Select top N eligible tracks
         uint64_t selected_count = 0;
-        for (auto& [id, state_ptr] : tracks) {
+        for (auto& [id, state_ptr] : eligible_tracks) {
             if (selected_count < config_.max_tracks_selected) {
                 state_ptr->is_selected = true;
                 ++selected_count;
             } else {
                 state_ptr->is_selected = false;
             }
+        }
+
+        // Expired tracks are always deselected
+        for (auto& [id, state_ptr] : expired_tracks) {
+            state_ptr->is_selected = false;
         }
 
         // Trim deselected track list if needed
