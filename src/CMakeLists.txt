@@ -16,6 +16,7 @@ target_sources (quicr PRIVATE
     publish_track_handler.cpp
     fetch_track_handler.cpp
     subscribe_track_handler.cpp
+    subscription_filters.cpp
     server.cpp
     quic_transport.cpp
     transport.cpp

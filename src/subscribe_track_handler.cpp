@@ -110,17 +110,27 @@ namespace quicr {
                              obj.object_delta,
                              obj.payload.size());
 
-                ObjectReceived({ s_hdr.group_id,
-                                 next_object_id_.value(),
-                                 s_hdr.subgroup_id.value(),
-                                 obj.payload.size(),
-                                 obj.object_status,
-                                 s_hdr.priority,
-                                 std::nullopt,
-                                 TrackMode::kStream,
-                                 obj.extensions,
-                                 obj.immutable_extensions },
-                               obj.payload);
+                ObjectHeaders headers{ s_hdr.group_id,
+                                       next_object_id_.value(),
+                                       s_hdr.subgroup_id.value(),
+                                       obj.payload.size(),
+                                       obj.object_status,
+                                       s_hdr.priority,
+                                       std::nullopt,
+                                       TrackMode::kStream,
+                                       obj.extensions,
+                                       obj.immutable_extensions };
+
+                // Apply subscription filter before delivering the object
+                if (ShouldDeliverObject(headers)) {
+                    ObjectReceived(headers, obj.payload);
+                } else {
+                    SPDLOG_TRACE("SubHandler:StreamDataRecv Object filtered out group_id: {} object_id: {}",
+                                 s_hdr.group_id,
+                                 next_object_id_.value());
+                    subscribe_track_metrics_.objects_received--; // Don't count filtered objects
+                    subscribe_track_metrics_.bytes_received -= obj.payload.size();
+                }
 
                 *next_object_id_ += 1;
 
@@ -181,8 +191,7 @@ namespace quicr {
             subscribe_track_metrics_.bytes_received += msg.payload.size();
 
             try {
-                ObjectReceived(
-                  {
+                ObjectHeaders headers{
                     msg.group_id,
                     msg.object_id,
                     0, // datagrams don't have subgroups
@@ -193,8 +202,18 @@ namespace quicr {
                     TrackMode::kDatagram,
                     msg.extensions,
                     msg.immutable_extensions,
-                  },
-                  std::move(msg.payload));
+                };
+
+                // Apply subscription filter before delivering the object
+                if (ShouldDeliverObject(headers)) {
+                    ObjectReceived(headers, std::move(msg.payload));
+                } else {
+                    SPDLOG_TRACE("SubHandler:DgramDataRecv Object filtered out group_id: {} object_id: {}",
+                                 msg.group_id,
+                                 msg.object_id);
+                    subscribe_track_metrics_.objects_received--; // Don't count filtered objects
+                    subscribe_track_metrics_.bytes_received -= msg.payload.size();
+                }
             } catch (const std::exception& e) {
                 SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());
             }

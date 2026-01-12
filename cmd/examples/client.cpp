@@ -9,6 +9,7 @@
 #include <quicr/cache.h>
 #include <quicr/client.h>
 #include <quicr/defer.h>
+#include <quicr/detail/subscription_filters.h>
 #include <quicr/object.h>
 #include <quicr/publish_fetch_handler.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -885,6 +886,187 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
 }
 
 /*===========================================================================*/
+// Filter parsing helpers
+/*===========================================================================*/
+
+/**
+ * @brief Parse a range string like "10-20" or "100-" into a Range
+ * @param range_str Range string (e.g., "10-20", "100-", "50")
+ * @return Parsed range
+ */
+template<typename T>
+std::optional<quicr::filters::Range<T>>
+ParseRange(const std::string& range_str)
+{
+    if (range_str.empty()) {
+        return std::nullopt;
+    }
+
+    auto dash_pos = range_str.find('-');
+    if (dash_pos == std::string::npos) {
+        // Single value, treat as start with no end (unbounded)
+        try {
+            T start = static_cast<T>(std::stoull(range_str));
+            return quicr::filters::Range<T>{ start, start };
+        } catch (...) {
+            return std::nullopt;
+        }
+    }
+
+    try {
+        T start = static_cast<T>(std::stoull(range_str.substr(0, dash_pos)));
+        std::optional<T> end;
+
+        if (dash_pos + 1 < range_str.size()) {
+            end = static_cast<T>(std::stoull(range_str.substr(dash_pos + 1)));
+        }
+
+        return quicr::filters::Range<T>{ start, end };
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
+/**
+ * @brief Parse a comma-separated list of ranges into a RangeSet
+ * @param ranges_str Comma-separated ranges (e.g., "10-20,50-100,200-")
+ * @return Populated RangeSet
+ */
+template<typename T>
+quicr::filters::RangeSet<T>
+ParseRangeSet(const std::string& ranges_str)
+{
+    quicr::filters::RangeSet<T> range_set;
+
+    if (ranges_str.empty()) {
+        return range_set;
+    }
+
+    std::stringstream ss(ranges_str);
+    std::string range_str;
+
+    while (std::getline(ss, range_str, ',')) {
+        // Trim whitespace
+        range_str.erase(0, range_str.find_first_not_of(" \t"));
+        range_str.erase(range_str.find_last_not_of(" \t") + 1);
+
+        if (auto range = ParseRange<T>(range_str)) {
+            range_set.Add(*range);
+        }
+    }
+
+    return range_set;
+}
+
+/**
+ * @brief Parse a hex string like "0x1234" or "1234" to uint64_t
+ */
+std::optional<uint64_t>
+ParseHexValue(const std::string& hex_str)
+{
+    if (hex_str.empty()) {
+        return std::nullopt;
+    }
+
+    try {
+        std::size_t pos = 0;
+        // Handle 0x prefix
+        if (hex_str.size() > 2 && hex_str[0] == '0' && (hex_str[1] == 'x' || hex_str[1] == 'X')) {
+            return std::stoull(hex_str.substr(2), &pos, 16);
+        }
+        // Try as decimal first, then hex
+        return std::stoull(hex_str, &pos, 0);
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
+/**
+ * @brief Build a SubscriptionFilter from command-line options
+ */
+quicr::filters::SubscriptionFilter
+BuildFilterFromOptions(const cxxopts::ParseResult& opts)
+{
+    quicr::filters::SubscriptionFilter filter;
+
+    if (opts.count("filter_groups")) {
+        auto ranges = ParseRangeSet<uint64_t>(opts["filter_groups"].as<std::string>());
+        if (!ranges.IsEmpty()) {
+            quicr::filters::GroupFilter group_filter(std::move(ranges));
+            filter.SetGroupFilter(std::move(group_filter));
+            SPDLOG_INFO("Applied group filter: {}", opts["filter_groups"].as<std::string>());
+        }
+    }
+
+    if (opts.count("filter_objects")) {
+        auto ranges = ParseRangeSet<uint64_t>(opts["filter_objects"].as<std::string>());
+        if (!ranges.IsEmpty()) {
+            quicr::filters::ObjectIdFilter object_filter(std::move(ranges));
+            filter.SetObjectFilter(std::move(object_filter));
+            SPDLOG_INFO("Applied object filter: {}", opts["filter_objects"].as<std::string>());
+        }
+    }
+
+    if (opts.count("filter_priority")) {
+        auto ranges = ParseRangeSet<uint8_t>(opts["filter_priority"].as<std::string>());
+        if (!ranges.IsEmpty()) {
+            quicr::filters::PriorityFilter priority_filter(std::move(ranges));
+            filter.SetPriorityFilter(std::move(priority_filter));
+            SPDLOG_INFO("Applied priority filter: {}", opts["filter_priority"].as<std::string>());
+        }
+    }
+
+    if (opts.count("filter_subgroups")) {
+        auto ranges = ParseRangeSet<uint64_t>(opts["filter_subgroups"].as<std::string>());
+        if (!ranges.IsEmpty()) {
+            quicr::filters::SubgroupFilter subgroup_filter(std::move(ranges));
+            filter.SetSubgroupFilter(std::move(subgroup_filter));
+            SPDLOG_INFO("Applied subgroup filter: {}", opts["filter_subgroups"].as<std::string>());
+        }
+    }
+
+    // Extension filter: format is "type:ranges" e.g., "0x1234:100-200,500-1000"
+    if (opts.count("filter_extension")) {
+        const auto& ext_str = opts["filter_extension"].as<std::string>();
+        auto colon_pos = ext_str.find(':');
+        if (colon_pos != std::string::npos) {
+            auto ext_type = ParseHexValue(ext_str.substr(0, colon_pos));
+            if (ext_type) {
+                auto ranges = ParseRangeSet<uint64_t>(ext_str.substr(colon_pos + 1));
+                if (!ranges.IsEmpty()) {
+                    quicr::filters::ExtensionFilter ext_filter;
+                    ext_filter.AddTypeFilter(*ext_type, std::move(ranges));
+                    filter.SetExtensionFilter(std::move(ext_filter));
+                    SPDLOG_INFO("Applied extension filter: type=0x{:x}, ranges={}",
+                                *ext_type,
+                                ext_str.substr(colon_pos + 1));
+                }
+            }
+        }
+    }
+
+    // Track filter: requires extension type and at least max_tracks_selected
+    if (opts.count("filter_track_ext")) {
+        auto ext_type = ParseHexValue(opts["filter_track_ext"].as<std::string>());
+        uint64_t max_selected = opts["filter_track_max_sel"].as<uint64_t>();
+        uint64_t max_deselected = opts["filter_track_max_desel"].as<uint64_t>();
+        uint64_t max_time_ms = opts["filter_track_max_time"].as<uint64_t>();
+
+        if (ext_type && max_selected > 0) {
+            quicr::filters::TrackFilter track_filter(*ext_type, max_selected, max_deselected, max_time_ms);
+            filter.SetTrackFilter(std::move(track_filter));
+            SPDLOG_INFO("Applied track filter: ext_type=0x{:x}, max_sel={}, max_desel={}, max_time={}ms",
+                        *ext_type,
+                        max_selected,
+                        max_deselected,
+                        max_time_ms);
+        }
+    }
+
+    return filter;
+}
+
+/*===========================================================================*/
 // Subscriber thread to perform subscribe
 /*===========================================================================*/
 
@@ -892,6 +1074,7 @@ void
 DoSubscriber(const quicr::FullTrackName& full_track_name,
              const std::shared_ptr<quicr::Client>& client,
              quicr::messages::FilterType filter_type,
+             const quicr::filters::SubscriptionFilter& subscription_filter,
              const bool& stop,
              const std::optional<std::uint64_t> join_fetch,
              const bool absolute)
@@ -902,6 +1085,12 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
                                  : std::optional<Fetch>(std::nullopt);
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
     track_handler->SetPriority(128);
+
+    // Apply subscription filter if configured
+    if (!subscription_filter.IsEmpty()) {
+        track_handler->SetSubscriptionFilter(subscription_filter);
+        SPDLOG_INFO("Subscription filter applied to track handler");
+    }
 
     SPDLOG_INFO("Started subscriber");
 
@@ -1155,6 +1344,17 @@ main(int argc, char* argv[])
         ("absolute", "Joining fetch will be absolute not relative", cxxopts::value<bool>())
         ("track_status", "Request track status using sub_namespace and sub_name options", cxxopts::value<bool>());
 
+    options.add_options("Filters")
+        ("filter_groups", "Group ID filter ranges (e.g., '10-20,50-100,200-')", cxxopts::value<std::string>())
+        ("filter_objects", "Object ID filter ranges (e.g., '0-10,100-200')", cxxopts::value<std::string>())
+        ("filter_priority", "Priority filter range (e.g., '0-50' for high priority only)", cxxopts::value<std::string>())
+        ("filter_subgroups", "Subgroup ID filter ranges", cxxopts::value<std::string>())
+        ("filter_extension", "Extension filter: type:ranges (e.g., '0x1234:100-200,500-1000')", cxxopts::value<std::string>())
+        ("filter_track_ext", "Track filter extension type (hex, e.g., '0xABCD')", cxxopts::value<std::string>())
+        ("filter_track_max_sel", "Track filter: max tracks selected", cxxopts::value<uint64_t>()->default_value("0"))
+        ("filter_track_max_desel", "Track filter: max tracks deselected", cxxopts::value<uint64_t>()->default_value("0"))
+        ("filter_track_max_time", "Track filter: max time selected (ms)", cxxopts::value<uint64_t>()->default_value("0"));
+
     options.add_options("Fetcher")
         ("fetch_namespace", "Track namespace", cxxopts::value<std::string>())
         ("fetch_name", "Track name", cxxopts::value<std::string>())
@@ -1168,7 +1368,7 @@ main(int argc, char* argv[])
     auto result = options.parse(argc, argv);
 
     if (result.count("help")) {
-        std::cout << options.help({ "", "Publisher", "Subscriber", "Fetcher" }) << std::endl;
+        std::cout << options.help({ "", "Publisher", "Subscriber", "Filters", "Fetcher" }) << std::endl;
         return EXIT_SUCCESS;
     }
 
@@ -1244,8 +1444,17 @@ main(int argc, char* argv[])
                 client->RequestTrackStatus(sub_track_name);
             }
 
-            sub_thread = std::thread(
-              DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads), joining_fetch, absolute);
+            // Build subscription filter from command-line options
+            auto subscription_filter = BuildFilterFromOptions(result);
+
+            sub_thread = std::thread(DoSubscriber,
+                                     sub_track_name,
+                                     client,
+                                     filter_type,
+                                     subscription_filter,
+                                     std::ref(stop_threads),
+                                     joining_fetch,
+                                     absolute);
         }
         if (enable_fetch) {
             const auto& fetch_track_name = quicr::example::MakeFullTrackName(

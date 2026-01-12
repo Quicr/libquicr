@@ -6,9 +6,15 @@
 #include <quicr/detail/base_track_handler.h>
 #include <quicr/detail/messages.h>
 #include <quicr/detail/stream_buffer.h>
+#include <quicr/detail/subscription_filters.h>
 #include <quicr/metrics.h>
+#include <quicr/object.h>
 
 namespace quicr {
+
+    // Verify that FilterExtensions and Extensions are the same type for safe pointer conversion
+    static_assert(std::is_same_v<filters::FilterExtensions, Extensions>,
+                  "FilterExtensions must match quicr::Extensions for safe pointer conversion");
 
     /**
      * @brief MOQ track handler for subscribed track
@@ -141,6 +147,53 @@ namespace quicr {
          */
 
         constexpr messages::FilterType GetFilterType() const noexcept { return filter_type_; }
+
+        /**
+         * @brief Get the subscription filter
+         *
+         * @return Reference to the subscription filter
+         */
+        const filters::SubscriptionFilter& GetSubscriptionFilter() const noexcept { return subscription_filter_; }
+
+        /**
+         * @brief Get mutable subscription filter for configuration
+         *
+         * @return Reference to the subscription filter
+         */
+        filters::SubscriptionFilter& GetSubscriptionFilter() noexcept { return subscription_filter_; }
+
+        /**
+         * @brief Set the subscription filter
+         *
+         * @param filter The subscription filter to use
+         */
+        void SetSubscriptionFilter(filters::SubscriptionFilter filter) noexcept
+        {
+            subscription_filter_ = std::move(filter);
+        }
+
+        /**
+         * @brief Check if an object passes the subscription filter
+         *
+         * @param headers Object headers to check
+         * @return true if object should be delivered, false if filtered out
+         */
+        [[nodiscard]] bool ShouldDeliverObject(const ObjectHeaders& headers) const noexcept
+        {
+            if (subscription_filter_.IsEmpty()) {
+                return true;
+            }
+
+            // Convert headers to filter context
+            // FilterExtensions is an alias to quicr::Extensions, so direct pointer use is safe
+            filters::ObjectContext ctx(headers.group_id,
+                                        headers.subgroup_id,
+                                        headers.object_id,
+                                        headers.priority.value_or(0),
+                                        &headers.extensions,
+                                        &headers.immutable_extensions);
+            return subscription_filter_.Matches(ctx);
+        }
 
         constexpr std::optional<messages::Location> GetLatestLocation() const noexcept { return latest_location_; }
 
@@ -371,6 +424,7 @@ namespace quicr {
         messages::SubscriberPriority priority_;
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
+        filters::SubscriptionFilter subscription_filter_; ///< Subscription filter for object filtering
         uint64_t current_stream_id_{ 0 };
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
