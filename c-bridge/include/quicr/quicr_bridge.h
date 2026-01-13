@@ -293,7 +293,8 @@ extern "C"
         uint64_t start_group_id;                   /**< Start group ID */
         uint64_t start_object_id;                  /**< Start object ID */
         uint64_t end_group_id;                     /**< End group ID (inclusive) */
-        uint64_t end_object_id; /**< End object ID (inclusive), or QBRIDGE_FETCH_END_OF_GROUP for all */
+        uint64_t end_object_id; /**< End object ID (inclusive), or QBRIDGE_FETCH_END_OF_GROUP to fetch to the end of the
+                                   end group */
     } qbridge_fetch_track_config_t;
 
     /** @} */

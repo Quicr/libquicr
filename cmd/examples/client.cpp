@@ -571,6 +571,13 @@ class MyClient : public quicr::Client
 
             for (const auto& entry : cache_entries) {
                 for (const auto& object : *entry) {
+                    // When intra-group, skip any objects prior to start.
+                    if (start.group == end.group && object.headers.group_id == start.group &&
+                        object.headers.object_id < start.object) {
+                        continue;
+                    }
+
+                    // Are we done?
                     if (end.object.has_value() && object.headers.group_id == end.group &&
                         object.headers.object_id > *end.object) {
                         return;
@@ -924,14 +931,13 @@ DoFetch(const quicr::FullTrackName& full_track_name,
         const std::shared_ptr<quicr::Client>& client,
         const bool& stop)
 {
-    // TODO: Support for whole group.
     auto track_handler = MyFetchTrackHandler::Create(full_track_name, start_location, end_location);
 
     SPDLOG_INFO("Started fetch start: {}.{} end: {}.{}",
                 start_location.group,
                 start_location.object,
                 end_location.group,
-                end_location.object.has_value() ? std::to_string(end_location.object.value()) : "all");
+                end_location.object.has_value() ? std::to_string(end_location.object.value()) : "to_end");
 
     bool fetch_track{ false };
 
@@ -1143,7 +1149,7 @@ main(int argc, char* argv[])
         ("start_group", "Starting group ID", cxxopts::value<uint64_t>())
         ("end_group", "End Group ID", cxxopts::value<uint64_t>())
         ("start_object", "The starting object ID within the start group", cxxopts::value<uint64_t>())
-        ("end_object", "The final object ID within the end group, or -1 for all", cxxopts::value<int64_t>());
+        ("end_object", "The final object ID within the end group, or -1 to run to the end of the group", cxxopts::value<int64_t>());
 
     // clang-format on
 
