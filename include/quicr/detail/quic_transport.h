@@ -72,6 +72,15 @@ namespace quicr {
     };
 
     /**
+     * QUIC Stack implementation to use
+     */
+    enum class QuicStack : uint8_t
+    {
+        kPicoquic,  ///< Default - picoquic library
+        kMvfst      ///< Facebook's mvfst library (requires USE_MVFST build option)
+    };
+
+    /**
      * @brief Remote/Destination endpoint address info.
      *
      * @details Remote destination is either a client or server hostname/ip and port
@@ -107,6 +116,8 @@ namespace quicr {
         bool ssl_keylog{ false };         ///< Enable SSL key logging for QUIC connections
         std::size_t socket_buffer_size{ 1'000'000 }; ///< QUIC UDP socket buffer size
         uint32_t callback_queue_size{ 2000 };        ///< Callback function queue size for callbacks
+        QuicStack quic_stack{ QuicStack::kPicoquic }; ///< QUIC stack implementation to use
+        bool tls_skip_verify{ false };    ///< Skip TLS certificate verification (client only, for testing)
     };
 
     /// Stream action that should be done by send/receive processing

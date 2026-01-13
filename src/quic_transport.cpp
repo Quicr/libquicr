@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "transport_picoquic.h"
+#ifdef USE_MVFST
+#include "transport_mvfst.h"
+#endif
 #include <memory>
 #include <quicr/detail/quic_transport.h>
 #include <spdlog/logger.h>
@@ -18,21 +21,52 @@ namespace quicr {
                                                                 std::shared_ptr<TickService> tick_service,
                                                                 std::shared_ptr<spdlog::logger> logger)
     {
-        switch (server.proto) {
-            case TransportProtocol::kQuic:
-                return std::make_shared<PicoQuicTransport>(
-                  server, tcfg, delegate, false, std::move(tick_service), std::move(logger), TransportMode::kQuic);
-            case TransportProtocol::kWebTransport:
-                return std::make_shared<PicoQuicTransport>(server,
-                                                           tcfg,
-                                                           delegate,
-                                                           false,
-                                                           std::move(tick_service),
-                                                           std::move(logger),
-                                                           TransportMode::kWebTransport);
-            default:
-                throw std::runtime_error("make_client_transport: Protocol not implemented");
+        // Select QUIC stack based on configuration
+        switch (tcfg.quic_stack) {
+            case QuicStack::kPicoquic:
+                // Use picoquic (default)
+                switch (server.proto) {
+                    case TransportProtocol::kQuic:
+                        return std::make_shared<PicoQuicTransport>(
+                          server, tcfg, delegate, false, std::move(tick_service), std::move(logger), TransportMode::kQuic);
+                    case TransportProtocol::kWebTransport:
+                        return std::make_shared<PicoQuicTransport>(server,
+                                                                   tcfg,
+                                                                   delegate,
+                                                                   false,
+                                                                   std::move(tick_service),
+                                                                   std::move(logger),
+                                                                   TransportMode::kWebTransport);
+                    default:
+                        throw std::runtime_error("make_client_transport: Protocol not implemented for picoquic");
+                }
                 break;
+
+            case QuicStack::kMvfst:
+#ifdef USE_MVFST
+                // Use mvfst (Facebook's QUIC)
+                switch (server.proto) {
+                    case TransportProtocol::kQuic:
+                        return std::make_shared<MvfstTransport>(
+                          server, tcfg, delegate, false, std::move(tick_service), std::move(logger), MvfstTransportMode::kQuic);
+                    case TransportProtocol::kWebTransport:
+                        return std::make_shared<MvfstTransport>(server,
+                                                                tcfg,
+                                                                delegate,
+                                                                false,
+                                                                std::move(tick_service),
+                                                                std::move(logger),
+                                                                MvfstTransportMode::kWebTransport);
+                    default:
+                        throw std::runtime_error("make_client_transport: Protocol not implemented for mvfst");
+                }
+#else
+                throw std::runtime_error("make_client_transport: mvfst support not compiled. Build with -DUSE_MVFST=ON");
+#endif
+                break;
+
+            default:
+                throw std::runtime_error("make_client_transport: Unknown QUIC stack");
         }
 
         return nullptr;
@@ -44,20 +78,38 @@ namespace quicr {
                                                                 std::shared_ptr<TickService> tick_service,
                                                                 std::shared_ptr<spdlog::logger> logger)
     {
-        // Server mode supports BOTH raw QUIC (moq-00) and WebTransport (h3) simultaneously.
-        //
-        // The server.proto field is IGNORED - the transport mode is automatically determined
-        // per-connection based on the ALPN negotiated with each client:
-        //   - Client sends ALPN "moq-00" -> ConnectionContext.transport_mode = TransportMode::kQuic
-        //   - Client sends ALPN "h3"     -> ConnectionContext.transport_mode = TransportMode::kWebTransport
-        //
-        // See PqAlpnSelectCb() in transport_picoquic.cpp for ALPN selection logic.
-        // See CreateConnContext() in transport_picoquic.cpp for per-connection mode assignment.
-        //
-        // The TransportMode parameter passed to PicoQuicTransport constructor is only used as
-        // a default/fallback and is overridden for each connection based on ALPN.
-        return std::make_shared<PicoQuicTransport>(
-          server, tcfg, delegate, true, std::move(tick_service), std::move(logger), TransportMode::kQuic);
+        // Select QUIC stack based on configuration
+        switch (tcfg.quic_stack) {
+            case QuicStack::kPicoquic:
+                // Server mode supports BOTH raw QUIC (moq-00) and WebTransport (h3) simultaneously.
+                //
+                // The server.proto field is IGNORED - the transport mode is automatically determined
+                // per-connection based on the ALPN negotiated with each client:
+                //   - Client sends ALPN "moq-00" -> ConnectionContext.transport_mode = TransportMode::kQuic
+                //   - Client sends ALPN "h3"     -> ConnectionContext.transport_mode = TransportMode::kWebTransport
+                //
+                // See PqAlpnSelectCb() in transport_picoquic.cpp for ALPN selection logic.
+                // See CreateConnContext() in transport_picoquic.cpp for per-connection mode assignment.
+                //
+                // The TransportMode parameter passed to PicoQuicTransport constructor is only used as
+                // a default/fallback and is overridden for each connection based on ALPN.
+                return std::make_shared<PicoQuicTransport>(
+                  server, tcfg, delegate, true, std::move(tick_service), std::move(logger), TransportMode::kQuic);
+
+            case QuicStack::kMvfst:
+#ifdef USE_MVFST
+                // mvfst server mode
+                return std::make_shared<MvfstTransport>(
+                  server, tcfg, delegate, true, std::move(tick_service), std::move(logger), MvfstTransportMode::kQuic);
+#else
+                throw std::runtime_error("make_server_transport: mvfst support not compiled. Build with -DUSE_MVFST=ON");
+#endif
+
+            default:
+                throw std::runtime_error("make_server_transport: Unknown QUIC stack");
+        }
+
+        return nullptr;
     }
 
 } // namespace quicr

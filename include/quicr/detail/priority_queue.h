@@ -127,7 +127,7 @@ namespace quicr {
             std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
 
             std::lock_guard _(mutex_);
-            defer(RemoveGroupTimeQueue(remove_group_ids));
+            QUICR_DEFER(RemoveGroupTimeQueue(remove_group_ids));
 
             for (auto& [priority, queue] : queues_) {
                 for (auto& [group_id, tqueue] : queue) {
@@ -158,7 +158,7 @@ namespace quicr {
             std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
 
             std::lock_guard _(mutex_);
-            defer(RemoveGroupTimeQueue(remove_group_ids));
+            QUICR_DEFER(RemoveGroupTimeQueue(remove_group_ids));
 
             for (auto& [priority, queue] : queues_) {
                 for (auto& [group_id, tqueue] : queue) {
@@ -184,7 +184,7 @@ namespace quicr {
             std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
 
             std::lock_guard _(mutex_);
-            defer(RemoveGroupTimeQueue(remove_group_ids));
+            QUICR_DEFER(RemoveGroupTimeQueue(remove_group_ids));
 
             for (auto& [priority, queue] : queues_) {
                 remove_group_ids.clear();

@@ -47,6 +47,18 @@ option(PLATFORM_ESP_IDF "Enabble support for esp-idf (Default OFF)" OFF)
 option(USE_MBEDTLS OFF)
 option(DRAFT_PARSER_SETUP_VENV "Set up Python virtual environment for draft parser" ON)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
+option(USE_MVFST "Build with mvfst QUIC stack support (requires folly, fizz)" OFF)
+
+# Add compile definition for mvfst if enabled
+if(USE_MVFST)
+    add_compile_definitions(USE_MVFST)
+    message(STATUS "mvfst QUIC stack support enabled")
+
+    # Add our cmake directory which contains FindSodium.cmake (required by fizz)
+    # We copy this from fizz because find_dependency() loses CMAKE_MODULE_PATH scope
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+    message(STATUS "Added cmake modules: ${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+endif()
 
 # Which MOQ draft to use.
 # Addendum is added automatically

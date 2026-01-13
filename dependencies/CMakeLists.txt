@@ -24,6 +24,10 @@ endif()
 # Submodules
 # --------------------------------------------------------
 
+# Note: We use spdlog's bundled fmt even with mvfst to avoid
+# version conflicts. The mvfst_compat.h header handles the
+# macro conflicts between macOS math.h and fmt.
+
 if (NOT TARGET spdlog)
     add_subdirectory(spdlog)
 endif()
@@ -137,3 +141,55 @@ else ()
     add_dependencies(picoquic-core picotls-core)
 
 endif ()
+
+# --------------------------------------------------------
+# mvfst QUIC Stack (optional)
+# --------------------------------------------------------
+#
+# mvfst and its dependencies (folly, fizz) have complex build requirements.
+# They expect to be installed system-wide and found via find_package().
+#
+# RECOMMENDED: Install mvfst via homebrew or getdeps.py before building:
+#   macOS: brew install mvfst folly fizz
+#   Other: cd dependencies/mvfst && python3 build/fbcode_builder/getdeps.py build mvfst
+#
+# The submodules are provided for reference but building from source requires
+# additional configuration (see plan document for details).
+
+if(USE_MVFST)
+    message(STATUS "Building with mvfst QUIC stack support")
+
+    # Try to find system-installed mvfst first (recommended approach)
+    # Note: CMAKE_MODULE_PATH with FindSodium.cmake is set in root CMakeLists.txt
+    find_package(mvfst CONFIG QUIET)
+    find_package(folly CONFIG QUIET)
+    find_package(fizz CONFIG QUIET)
+    find_package(proxygen CONFIG QUIET)
+
+    if(mvfst_FOUND AND folly_FOUND AND fizz_FOUND)
+        message(STATUS "Found system-installed mvfst, folly, fizz - using those")
+        set(MVFST_FROM_SYSTEM ON CACHE BOOL "Using system-installed mvfst" FORCE)
+
+        if(proxygen_FOUND)
+            message(STATUS "Found system-installed proxygen - WebTransport support enabled")
+            set(PROXYGEN_FOUND ON CACHE BOOL "Proxygen found for WebTransport support" FORCE)
+        else()
+            message(STATUS "proxygen not found - WebTransport will use basic QUIC close/drain")
+            set(PROXYGEN_FOUND OFF CACHE BOOL "Proxygen not found" FORCE)
+        endif()
+        # Done - skip all submodule builds
+    else()
+        # System mvfst not found - submodule build is complex and typically fails
+        # Recommend installing via homebrew/getdeps.py instead
+        message(FATAL_ERROR
+            "mvfst, folly, or fizz not found. Please install them first:\n"
+            "  macOS: brew install mvfst\n"
+            "  Linux: cd dependencies/mvfst && python3 build/fbcode_builder/getdeps.py build mvfst\n"
+            "\n"
+            "Building from submodules is not supported due to Facebook's CMake design.\n"
+            "See the plan document for details on why system installation is required."
+        )
+    endif()
+
+    message(STATUS "mvfst and dependencies configured")
+endif()

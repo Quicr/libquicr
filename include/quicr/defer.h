@@ -5,9 +5,9 @@
 
 #include <functional>
 
-#define DEFER_CONCAT(a, b) DEFER_CONCAT_INNER(a, b)
-#define DEFER_CONCAT_INNER(a, b) a##b
-#define defer(n) quicr::DeferType DEFER_CONCAT(defer_, __COUNTER__)([&] { n; })
+#define QUICR_DEFER_CONCAT(a, b) QUICR_DEFER_CONCAT_INNER(a, b)
+#define QUICR_DEFER_CONCAT_INNER(a, b) a##b
+#define QUICR_DEFER(n) quicr::DeferType QUICR_DEFER_CONCAT(defer_, __COUNTER__)([&] { n; })
 
 namespace quicr {
     class DeferType

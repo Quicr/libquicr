@@ -579,7 +579,7 @@ class MyClient : public quicr::Client
         BindFetchTrack(connection_handle, pub_fetch_h);
 
         std::thread retrieve_cache_thread([=, cache_entries = std::move(cache_entries), this] {
-            defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
+            QUICR_DEFER(UnbindFetchTrack(connection_handle, pub_fetch_h));
 
             for (const auto& entry : cache_entries) {
                 for (const auto& object : *entry) {
@@ -1075,6 +1075,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();
     config.transport_config.ssl_keylog = cli_opts["ssl_keylog"].as<bool>();
+    config.transport_config.tls_skip_verify = cli_opts["tls_skip_verify"].as<bool>();
 
     // Handle transport protocol override
     std::string transport_type = cli_opts["transport"].as<std::string>();
@@ -1100,6 +1101,19 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         }
     } else {
         SPDLOG_ERROR("Invalid transport type: {}. Valid options: quic, webtransport", transport_type);
+        exit(-1);
+    }
+
+    // Handle QUIC stack selection
+    std::string quic_stack = cli_opts["quic_stack"].as<std::string>();
+    if (quic_stack == "picoquic") {
+        config.transport_config.quic_stack = quicr::QuicStack::kPicoquic;
+        SPDLOG_INFO("Using picoquic QUIC stack");
+    } else if (quic_stack == "mvfst") {
+        config.transport_config.quic_stack = quicr::QuicStack::kMvfst;
+        SPDLOG_INFO("Using mvfst QUIC stack");
+    } else {
+        SPDLOG_ERROR("Invalid QUIC stack: {}. Valid options: picoquic, mvfst", quic_stack);
         exit(-1);
     }
 
@@ -1131,7 +1145,9 @@ main(int argc, char* argv[])
         ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
         ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
         ("s,ssl_keylog", "Enable SSL Keylog for transport debugging")
-        ("t,transport", "Transport protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"));
+        ("t,transport", "Transport protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"))
+        ("quic_stack", "QUIC stack: picoquic, mvfst", cxxopts::value<std::string>()->default_value("picoquic"))
+        ("tls_skip_verify", "Skip TLS certificate verification (for testing with self-signed certs)");
 
     options.add_options("Publisher")
         ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>())

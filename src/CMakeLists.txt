@@ -21,6 +21,7 @@ target_sources (quicr PRIVATE
     transport.cpp
     transport_picoquic.cpp
     joining_fetch_handler.cpp
+    $<$<BOOL:${USE_MVFST}>:transport_mvfst.cpp>
 )
 
 set_source_files_properties(${ctrl_messages_SOURCE} PROPERTIES GENERATED TRUE)
@@ -63,6 +64,77 @@ target_link_libraries(quicr
 target_link_libraries(quicr
     PUBLIC
         picoquic-core picoquic-log picohttp-core)
+
+# Link mvfst libraries if enabled
+if(USE_MVFST)
+    # Re-find mvfst to ensure targets are available in this scope
+    find_package(mvfst CONFIG REQUIRED)
+    find_package(folly CONFIG REQUIRED)
+    find_package(gflags CONFIG REQUIRED)
+
+    # Fix folly's broken gflags target reference on macOS
+    # Folly references "gflags_shared" but gflags exports "gflags::gflags_shared"
+    if(NOT TARGET gflags_shared AND TARGET gflags::gflags_shared)
+        add_library(gflags_shared ALIAS gflags::gflags_shared)
+    endif()
+
+    # Fix folly's broken include paths on macOS
+    # Folly's cmake config hardcodes the SDK path it was built with, which may differ
+    # from the current SDK. This breaks C++ header include order.
+    # We need to filter the problematic path from ALL folly/mvfst related targets.
+    if(APPLE)
+        # Function to fix include paths for a target
+        function(fix_target_includes target_name)
+            if(TARGET ${target_name})
+                get_target_property(_includes ${target_name} INTERFACE_INCLUDE_DIRECTORIES)
+                if(_includes)
+                    set(_new_includes "")
+                    foreach(_inc IN LISTS _includes)
+                        # Skip CommandLineTools SDK include paths
+                        if(NOT _inc MATCHES ".*/CommandLineTools/SDKs/.*/usr/include")
+                            list(APPEND _new_includes "${_inc}")
+                        endif()
+                    endforeach()
+                    set_target_properties(${target_name} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${_new_includes}")
+                endif()
+            endif()
+        endfunction()
+
+        # Fix all known problematic targets
+        fix_target_includes(Folly::folly)
+        fix_target_includes(Folly::folly_deps)
+        fix_target_includes(fizz::fizz)
+    endif()
+
+    find_package(fizz CONFIG REQUIRED)
+
+    target_link_libraries(quicr
+        PUBLIC
+            mvfst::mvfst_transport
+            mvfst::mvfst_client
+            mvfst::mvfst_server
+            mvfst::mvfst_fizz_client
+            fizz::fizz
+            Folly::folly
+    )
+
+    # Add proxygen for WebTransport support if available
+    # NOTE: Disabled because homebrew's proxygen doesn't include QuicWebTransport implementation
+    # find_package(proxygen CONFIG QUIET)
+    # if(proxygen_FOUND)
+    #     message(STATUS "Linking with proxygen for WebTransport support")
+    #     target_compile_definitions(quicr PRIVATE HAVE_PROXYGEN_WEBTRANSPORT)
+    #     target_link_libraries(quicr
+    #         PUBLIC
+    #             proxygen::proxygen
+    #             proxygen::proxygenhttpserver
+    #     )
+    #     if(APPLE)
+    #         fix_target_includes(proxygen::proxygen)
+    #     endif()
+    # endif()
+
+endif()
 
 add_dependencies(quicr ${ctrl_messages_TARGET})
 

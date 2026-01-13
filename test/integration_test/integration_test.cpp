@@ -290,7 +290,7 @@ TEST_CASE("Qlog Generation")
         // Create temporary destination for QLOG files.
         const auto temp_dir = std::filesystem::temp_directory_path() / "libquicr_qlog_test";
         std::filesystem::create_directories(temp_dir);
-        defer(std::filesystem::remove_all(temp_dir));
+        QUICR_DEFER(std::filesystem::remove_all(temp_dir));
 
         // Enable qlog.
         auto server = MakeTestServer(temp_dir.string());

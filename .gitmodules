@@ -13,3 +13,30 @@
 [submodule "dependencies/spdlog"]
 	path = dependencies/spdlog
 	url = https://github.com/gabime/spdlog.git
+[submodule "dependencies/mvfst"]
+	path = dependencies/mvfst
+	url = git@github.com:facebook/mvfst.git
+[submodule "dependencies/folly"]
+	path = dependencies/folly
+	url = git@github.com:facebook/folly.git
+[submodule "dependencies/fizz"]
+	path = dependencies/fizz
+	url = git@github.com:facebookincubator/fizz.git
+[submodule "dependencies/proxygen"]
+	path = dependencies/proxygen
+	url = git@github.com:facebook/proxygen.git
+[submodule "dependencies/wangle"]
+	path = dependencies/wangle
+	url = git@github.com:facebook/wangle.git
+[submodule "dependencies/fmt"]
+	path = dependencies/fmt
+	url = git@github.com:fmtlib/fmt.git
+[submodule "dependencies/glog"]
+	path = dependencies/glog
+	url = git@github.com:google/glog.git
+[submodule "dependencies/double-conversion"]
+	path = dependencies/double-conversion
+	url = git@github.com:google/double-conversion.git
+[submodule "dependencies/fast_float"]
+	path = dependencies/fast_float
+	url = git@github.com:fastfloat/fast_float.git
