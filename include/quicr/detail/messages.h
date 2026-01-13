@@ -78,10 +78,14 @@ namespace quicr::messages {
      */
     enum class DatagramHeaderType : uint8_t
     {
-        kNotEndOfGroupNoExtensions = 0x00,
-        kNotEndOfGroupWithExtensions = 0x01,
-        kEndOfGroupNoExtensions = 0x02,
-        kEndOfGroupWithExtensions = 0x03
+        kNotEndOfGroupNoExtensionsObjectId = 0x00,
+        kNotEndOfGroupWithExtensionsObjectId = 0x01,
+        kEndOfGroupNoExtensionsObjectId = 0x02,
+        kEndOfGroupWithExtensionsObjectId = 0x03,
+        kNotEndOfGroupNoExtensionsNoObjectId = 0x04,
+        kNotEndOfGroupWithExtensionsNoObjectId = 0x05,
+        kEndOfGroupNoExtensionsNoObjectId = 0x06,
+        kEndOfGroupWithExtensionsNoObjectId = 0x07
     };
 
     /**
@@ -89,8 +93,8 @@ namespace quicr::messages {
      */
     enum class DatagramStatusType : uint8_t
     {
-        kNoExtensions = 0x04,
-        kWithExtensions = 0x05
+        kNoExtensions = 0x20,
+        kWithExtensions = 0x21
     };
 
     /**
@@ -272,16 +276,20 @@ namespace quicr::messages {
         const bool end_of_group;
         // True if this object has extensions.
         const bool has_extensions;
+        // True if this object encodes an object ID.
+        const bool encodes_object_id;
 
         constexpr explicit DatagramHeaderProperties(const DatagramHeaderType type)
-          : end_of_group(EndOfGroup(type))
-          , has_extensions(HasExtensions(type))
+          : end_of_group(static_cast<uint8_t>(type) & 0x02)
+          , has_extensions(static_cast<uint8_t>(type) & 0x01)
+          , encodes_object_id((static_cast<uint8_t>(type) & 0x04) == 0)
         {
         }
 
-        constexpr DatagramHeaderProperties(const bool end_of_group, const bool has_extensions)
+        constexpr DatagramHeaderProperties(const bool end_of_group, const bool has_extensions, const bool has_object_id)
           : end_of_group(end_of_group)
           , has_extensions(has_extensions)
+          , encodes_object_id(has_object_id)
         {
         }
 
@@ -291,39 +299,14 @@ namespace quicr::messages {
          */
         constexpr DatagramHeaderType GetType() const
         {
-            if (end_of_group) {
-                return has_extensions ? DatagramHeaderType::kEndOfGroupWithExtensions
-                                      : DatagramHeaderType::kEndOfGroupNoExtensions;
-            }
-            return has_extensions ? DatagramHeaderType::kNotEndOfGroupWithExtensions
-                                  : DatagramHeaderType::kNotEndOfGroupNoExtensions;
-        }
-
-      private:
-        static constexpr bool EndOfGroup(const DatagramHeaderType type)
-        {
-            switch (type) {
-                case DatagramHeaderType::kEndOfGroupNoExtensions:
-                case DatagramHeaderType::kEndOfGroupWithExtensions:
-                    return true;
-                case DatagramHeaderType::kNotEndOfGroupNoExtensions:
-                case DatagramHeaderType::kNotEndOfGroupWithExtensions:
-                    return false;
-            }
-            throw ProtocolViolationException("Unknown datagram header type");
-        }
-
-        static constexpr bool HasExtensions(const DatagramHeaderType type)
-        {
-            switch (type) {
-                case DatagramHeaderType::kNotEndOfGroupNoExtensions:
-                case DatagramHeaderType::kEndOfGroupNoExtensions:
-                    return false;
-                case DatagramHeaderType::kNotEndOfGroupWithExtensions:
-                case DatagramHeaderType::kEndOfGroupWithExtensions:
-                    return true;
-            }
-            throw ProtocolViolationException("Unknown datagram header type");
+            uint8_t type = 0;
+            if (has_extensions)
+                type |= 0x01;
+            if (end_of_group)
+                type |= 0x02;
+            if (!encodes_object_id)
+                type |= 0x04;
+            return static_cast<DatagramHeaderType>(type);
         }
     };
 
@@ -372,10 +355,20 @@ namespace quicr::messages {
      */
     enum class DatagramMessageType : uint8_t
     {
-        kDatagramNotEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupNoExtensions),
-        kDatagramNotEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensions),
-        kDatagramEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensions),
-        kDatagramEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensions),
+        kDatagramNotEndOfGroupNoExtensions =
+          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupNoExtensionsObjectId),
+        kDatagramNotEndOfGroupWithExtensions =
+          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensionsObjectId),
+        kDatagramEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensionsObjectId),
+        kDatagramEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensionsObjectId),
+        kDatagramNotEndOfGroupNoExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupNoExtensionsNoObjectId),
+        kDatagramNotEndOfGroupWithExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensionsNoObjectId),
+        kDatagramEndOfGroupNoExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensionsNoObjectId),
+        kDatagramEndOfGroupWithExtensionsNoObjectId =
+          static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensionsNoObjectId),
         kDatagramStatusNoExtensions = static_cast<uint8_t>(DatagramStatusType::kNoExtensions),
         kDatagramStatusWithExtensions = static_cast<uint8_t>(DatagramStatusType::kWithExtensions),
     };
@@ -424,6 +417,10 @@ namespace quicr::messages {
             case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
             case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
             case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
+            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupWithExtensionsNoObjectId:
             case DatagramMessageType::kDatagramStatusNoExtensions:
             case DatagramMessageType::kDatagramStatusWithExtensions:
                 return true;
@@ -444,6 +441,10 @@ namespace quicr::messages {
             case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
             case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
             case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
+            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupWithExtensionsNoObjectId:
                 return true;
             case DatagramMessageType::kDatagramStatusNoExtensions:
             case DatagramMessageType::kDatagramStatusWithExtensions:
@@ -468,6 +469,10 @@ namespace quicr::messages {
             case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
             case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
             case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
+            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupNoExtensionsNoObjectId:
+            case DatagramMessageType::kDatagramEndOfGroupWithExtensionsNoObjectId:
                 return false;
         }
         throw ProtocolViolationException("Unknown datagram message type");
@@ -565,10 +570,16 @@ namespace quicr::messages {
          * Determine the type of this datagram header based on its properties.
          * @return The DatagramHeaderType corresponding to this datagram header.
          */
-        DatagramHeaderType GetType() const
+        DatagramHeaderType GetType() const { return GetProperties().GetType(); }
+
+        /**
+         * Determine the properties of this datagram header based on its fields.
+         * @return The DatagramHeaderProperties corresponding to this datagram object.
+         */
+        DatagramHeaderProperties GetProperties() const
         {
-            return DatagramHeaderProperties(end_of_group, extensions.has_value() || immutable_extensions.has_value())
-              .GetType();
+            return DatagramHeaderProperties(
+              end_of_group, extensions.has_value() || immutable_extensions.has_value(), object_id > 0);
         }
 
       private:

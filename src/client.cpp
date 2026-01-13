@@ -878,11 +878,11 @@ namespace quicr {
                         } else {
                             end_location.object = msg.group_0->standalone.end.object - 1;
                         }
+
                         messages::StandaloneFetchAttributes attrs = { .priority = msg.subscriber_priority,
                                                                       .group_order = msg.group_order,
                                                                       .start_location = msg.group_0->standalone.start,
                                                                       .end_location = end_location };
-
                         StandaloneFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
                         return true;
                     }
