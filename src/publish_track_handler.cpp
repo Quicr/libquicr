@@ -128,9 +128,8 @@ namespace quicr {
             return PublishObjectStatus::kInternalError;
         }
 
-        std::uint16_t ttl = object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_;
-        std::uint8_t priority =
-          object_headers.priority.has_value() ? object_headers.priority.value() : default_priority_;
+        std::uint16_t ttl = object_headers.ttl.value_or(default_ttl_);
+        std::uint8_t priority = object_headers.priority.value_or(default_priority_);
 
         auto group_subgroup_hash = object_headers.group_id;
         hash_combine(group_subgroup_hash, object_headers.subgroup_id);
@@ -212,7 +211,7 @@ namespace quicr {
                                ? 0
                                : object_headers.group_id - stream_it->second.last_group_id;
 
-            object_id_delta = stream_it->second.last_group_id > object_headers.object_id
+            object_id_delta = stream_it->second.last_object_id > object_headers.object_id
                                 ? object_headers.object_id
                                 : object_headers.object_id - *stream_it->second.last_object_id;
         } else {

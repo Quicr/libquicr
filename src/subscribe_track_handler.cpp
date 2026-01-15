@@ -26,7 +26,7 @@ namespace quicr {
         SPDLOG_TRACE(
           "SubHandler:StreamDataRecv, is_start {}, stream_id: {}, data_sz {}", is_start, stream_id, data->size());
 
-        auto& stream = streams_[stream_id];
+        auto& stream = streams_.at(stream_id);
 
         if (is_start) {
             stream.buffer.Clear();
