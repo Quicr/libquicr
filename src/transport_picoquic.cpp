@@ -1714,9 +1714,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
         stream_ctx.mark_active = false;
     }
 
-    defer(if (stream_ctx.tx_data && stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr &&
-              stream_ctx.close_on_empty) { CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, false); });
-
     defer({
         const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
         if (data_ctx->delete_on_empty && empty) {
