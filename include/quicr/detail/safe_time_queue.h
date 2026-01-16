@@ -47,7 +47,6 @@ namespace quicr {
                       const std::shared_ptr<TickService>& tick_service,
                       size_t initial_queue_size)
           : time_queue_(duration, interval, tick_service, initial_queue_size)
-          , tick_service_(tick_service)
         {
         }
 
@@ -101,7 +100,6 @@ namespace quicr {
             elem.has_value = false;
 
             std::lock_guard _(mutex_);
-
             time_queue_.Front(elem);
         }
 
@@ -142,16 +140,17 @@ namespace quicr {
         size_t Size()
         {
             std::lock_guard _(mutex_);
-
             return time_queue_.Size();
         }
 
-        bool Empty() const { return time_queue_.Empty(); }
+        bool Empty() const
+        {
+            std::lock_guard _(mutex_);
+            return time_queue_.Empty();
+        }
 
       private:
-        std::mutex mutex_;
+        mutable std::mutex mutex_;
         TimeQueueType time_queue_;
-
-        std::shared_ptr<TickService> tick_service_;
     };
 }; // end of namespace quicr
