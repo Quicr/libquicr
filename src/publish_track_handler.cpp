@@ -1,9 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <quicr/publish_track_handler.h>
-
 #include "quicr/detail/transport.h"
+#include <quicr/publish_track_handler.h>
 
 namespace quicr {
     void PublishTrackHandler::StatusChanged(Status) {}
@@ -85,10 +84,6 @@ namespace quicr {
                 eflags.use_reliable = true;
 
                 if (is_new_stream) {
-                    eflags.close_stream = true;
-                    eflags.clear_tx_queue = true;
-                    eflags.use_reset = false;
-
                     auto stream_id =
                       transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, GetDefaultPriority());
                     stream_info_by_group_[group_subgroup_hash] = { stream_id, group_id, subgroup_id, 0 };
@@ -153,7 +148,7 @@ namespace quicr {
             auto [it, _] = stream_info_by_group_.emplace(
               group_subgroup_hash,
               StreamInfo{ stream_id, object_headers.group_id, object_headers.subgroup_id, object_headers.object_id });
-            stream_it = it;
+            stream_it = std::move(it);
         }
 
         switch (publish_status_) {
@@ -291,10 +286,6 @@ namespace quicr {
                 eflags.use_reliable = true;
 
                 if (is_stream_header_needed) {
-                    eflags.close_stream = true;
-                    eflags.clear_tx_queue = true;
-                    eflags.use_reset = false;
-
                     messages::StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.type = GetStreamMode();
                     subgroup_hdr.group_id = object_headers.group_id;
@@ -327,6 +318,12 @@ namespace quicr {
             }
         }
 
+        SPDLOG_INFO("Published conn_id: {} object stream_id: {} group: {} subgroup: {} object: {}",
+                    GetConnectionId(),
+                    stream_it->second.stream_id,
+                    object_headers.group_id,
+                    object_headers.subgroup_id,
+                    object_headers.object_id);
         auto result = transport->Enqueue(
           GetConnectionId(),
           publish_data_ctx_id_,
@@ -336,6 +333,10 @@ namespace quicr {
           ttl,
           0,
           eflags);
+
+        if (eflags.close_stream) {
+            stream_info_by_group_.erase(stream_it);
+        }
 
         if (result != TransportError::kNone) {
             throw TransportException(result);

@@ -1642,11 +1642,11 @@ namespace quicr {
                 // auto blob = to_hex(data);
                 conn_ctx.ctrl_msg_buffer.insert(conn_ctx.ctrl_msg_buffer.end(), data.begin(), data.end());
                 rx_ctx->data_queue.PopFront();
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
-                                   conn_id,
-                                   stream_id,
-                                   conn_ctx.ctrl_msg_buffer.size());
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
+                                    conn_id,
+                                    stream_id,
+                                    conn_ctx.ctrl_msg_buffer.size());
 
                 if (not conn_ctx.ctrl_data_ctx_id) {
                     if (not data_ctx_id) {
@@ -1737,7 +1737,7 @@ namespace quicr {
                 auto msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
                 auto cursor_it = std::next(data.begin(), type_sz);
 
-                SPDLOG_LOGGER_DEBUG(logger_, "Received stream message type: 0x{:02x} ({})", msg_type, msg_type);
+                SPDLOG_LOGGER_TRACE(logger_, "Received stream message type: 0x{:02x} ({})", msg_type, msg_type);
 
                 bool parsed_header = false;
                 const auto type = static_cast<StreamMessageType>(msg_type);

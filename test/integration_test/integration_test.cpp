@@ -1,17 +1,22 @@
 #include "quicr/config.h"
 #include "quicr/defer.h"
+#include "quicr/subscribe_track_handler.h"
 #include "test_client.h"
 #include "test_server.h"
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
+#include <atomic>
 #include <cstdlib>
 #include <filesystem>
 #include <future>
 #include <iostream>
+#include <mutex>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <thread>
+#include <vector>
 
 using namespace quicr;
 using namespace quicr_test;
@@ -50,7 +55,7 @@ WaitFor(Predicate predicate,
         std::chrono::milliseconds poll_interval = std::chrono::milliseconds(10))
 {
     const auto start = std::chrono::steady_clock::now();
-    while (std::chrono::steady_clock::now() - start < timeout) {
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start) < timeout) {
         if (predicate()) {
             return true;
         }
@@ -71,6 +76,7 @@ MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
     server_config.transport_config.debug = true;
     server_config.transport_config.tls_cert_filename = "server-cert.pem";
     server_config.transport_config.tls_key_filename = "server-key.pem";
+    server_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
     if (qlog_path.has_value()) {
         server_config.transport_config.quic_qlog_path = *qlog_path;
     }
@@ -96,6 +102,7 @@ MakeTestClient(const bool connect = true,
     // Connect a client.
     ClientConfig client_config;
     client_config.transport_config.debug = true;
+    client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
     client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(kPort) + "/relay";
     if (qlog_path.has_value()) {
         client_config.transport_config.quic_qlog_path = *qlog_path;
@@ -112,6 +119,90 @@ MakeTestClient(const bool connect = true,
     }
     return client;
 }
+
+/// @brief Test subscribe handler that tracks received objects and exposes stream state
+class TestSubscribeHandler : public SubscribeTrackHandler
+{
+  public:
+    /// @brief Information about a received object
+    struct ReceivedObject
+    {
+        uint64_t group_id;
+        uint64_t subgroup_id;
+        uint64_t object_id;
+        ObjectStatus status;
+        std::vector<uint8_t> data;
+    };
+
+    static std::shared_ptr<TestSubscribeHandler> Create(const FullTrackName& full_track_name,
+                                                        messages::SubscriberPriority priority,
+                                                        messages::GroupOrder group_order,
+                                                        messages::FilterType filter_type)
+    {
+        return std::shared_ptr<TestSubscribeHandler>(
+          new TestSubscribeHandler(full_track_name, priority, group_order, filter_type));
+    }
+
+    /// @brief Get all received objects
+    std::vector<ReceivedObject> GetReceivedObjects() const
+    {
+        std::lock_guard lock(mutex_);
+        return received_objects_;
+    }
+
+    /// @brief Get number of received objects
+    std::size_t GetReceivedCount() const
+    {
+        std::lock_guard lock(mutex_);
+        return received_objects_.size();
+    }
+
+    /// @brief Get number of active streams (exposes protected streams_ member)
+    std::size_t GetActiveStreamCount() const
+    {
+        std::lock_guard lock(mutex_);
+        return streams_.size();
+    }
+
+    /// @brief Set a promise to be fulfilled when a specific object count is reached
+    void SetObjectCountPromise(std::size_t target_count, std::promise<void> promise)
+    {
+        std::lock_guard lock(mutex_);
+        target_object_count_ = target_count;
+        object_count_promise_ = std::move(promise);
+    }
+
+  protected:
+    TestSubscribeHandler(const FullTrackName& full_track_name,
+                         messages::SubscriberPriority priority,
+                         messages::GroupOrder group_order,
+                         messages::FilterType filter_type)
+      : SubscribeTrackHandler(full_track_name, priority, group_order, filter_type)
+    {
+    }
+
+    void ObjectReceived(const ObjectHeaders& object_headers, BytesSpan data) override
+    {
+        std::lock_guard lock(mutex_);
+        received_objects_.push_back({ .group_id = object_headers.group_id,
+                                      .subgroup_id = object_headers.subgroup_id,
+                                      .object_id = object_headers.object_id,
+                                      .status = object_headers.status,
+                                      .data = std::vector<uint8_t>(data.begin(), data.end()) });
+
+        // Check if we've reached the target count
+        if (object_count_promise_.has_value() && received_objects_.size() >= target_object_count_) {
+            object_count_promise_->set_value();
+            object_count_promise_.reset();
+        }
+    }
+
+  private:
+    mutable std::mutex mutex_;
+    std::vector<ReceivedObject> received_objects_;
+    std::size_t target_object_count_{ 0 };
+    std::optional<std::promise<void>> object_count_promise_;
+};
 
 TEST_CASE("Integration - Connection")
 {
@@ -691,5 +782,243 @@ TEST_CASE("Integration - Annouce Flow")
     {
         CAPTURE("WebTransport");
         test_announce("https");
+    }
+}
+
+TEST_CASE("Integration - Subgroup and Stream Testing")
+{
+    // Server needs to support 2 connections (subscriber + publisher)
+    auto server = MakeTestServer(std::nullopt, 2);
+
+    auto test_subgroups = [&](const std::string& protocol_scheme) {
+        // Create subscriber and publisher clients
+        auto subscriber_client = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto publisher_client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        // Track configuration
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "subgroups" });
+        ftn.name = { 0x01, 0x02, 0x03 };
+
+        // Constants for test
+        constexpr std::size_t kNumGroups = 2;
+        constexpr std::size_t kNumSubgroups = 3;
+        constexpr std::size_t kMessagesPerPhase = 10;
+
+        // Message totals per subgroup (all subgroups run simultaneously each phase):
+        // - Subgroup 0: 10 messages (runs in phase 1 only, then closes)
+        // - Subgroup 1: 20 messages (runs in phases 1 and 2, then closes)
+        // - Subgroup 2: 30 messages (runs in phases 1, 2, and 3, then closes with end_of_group)
+        // Per group total: 10 + 20 + 30 = 60
+        // Total for 2 groups: 120
+        constexpr std::size_t kSubgroup0Messages = kMessagesPerPhase;                                           // 10
+        constexpr std::size_t kSubgroup1Messages = kMessagesPerPhase * 2;                                       // 20
+        constexpr std::size_t kSubgroup2Messages = kMessagesPerPhase * 3;                                       // 30
+        constexpr std::size_t kMessagesPerGroup = kSubgroup0Messages + kSubgroup1Messages + kSubgroup2Messages; // 60
+        constexpr std::size_t kTotalMessages = kNumGroups * kMessagesPerGroup;                                  // 120
+
+        // Create subscribe handler that tracks received objects
+        auto sub_handler = TestSubscribeHandler::Create(
+          ftn, 3, messages::GroupOrder::kOriginalPublisherOrder, messages::FilterType::kLargestObject);
+
+        // Set up promise for subscriber receiving all messages
+        std::promise<void> all_received_promise;
+        auto all_received_future = all_received_promise.get_future();
+        sub_handler->SetObjectCountPromise(kTotalMessages, std::move(all_received_promise));
+
+        // Subscribe to the track
+        subscriber_client->SubscribeTrack(sub_handler);
+
+        // Wait for subscription to be ready
+        const bool sub_ready =
+          WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        REQUIRE(sub_ready);
+
+        // Create publisher with stream mode (explicit subgroup ID)
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000);
+        publisher_client->PublishTrack(pub_handler);
+
+        // Wait for publisher to be ready
+        const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
+        REQUIRE(pub_ready);
+
+        // Helper to publish an object
+        auto publish_object = [&](uint64_t group_id,
+                                  uint64_t subgroup_id,
+                                  uint64_t object_id,
+                                  bool end_of_subgroup = false,
+                                  bool end_of_group = false) {
+            std::vector<uint8_t> payload = { static_cast<uint8_t>(group_id),
+                                             static_cast<uint8_t>(subgroup_id),
+                                             static_cast<uint8_t>(object_id) };
+            payload.resize(100);
+
+            ObjectHeaders headers = { .group_id = group_id,
+                                      .object_id = object_id,
+                                      .subgroup_id = subgroup_id,
+                                      .payload_length = payload.size(),
+                                      .status = ObjectStatus::kAvailable,
+                                      .priority = 3,
+                                      .ttl = 1000,
+                                      .track_mode = TrackMode::kStream,
+                                      .extensions = std::nullopt,
+                                      .immutable_extensions = std::nullopt,
+                                      .end_of_subgroup = end_of_subgroup,
+                                      .end_of_group = end_of_group };
+
+            auto status = pub_handler->PublishObject(headers, payload);
+            REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
+        };
+
+        // Track object IDs per group+subgroup
+        std::map<std::pair<uint64_t, uint64_t>, uint64_t> next_object_id;
+        for (uint64_t group = 0; group < kNumGroups; ++group) {
+            for (uint64_t subgroup = 0; subgroup < kNumSubgroups; ++subgroup) {
+                next_object_id[{ group, subgroup }] = 0;
+            }
+        }
+
+        // Helper to get and increment object ID for a group+subgroup
+        auto get_next_obj_id = [&](uint64_t group, uint64_t subgroup) -> uint64_t {
+            return next_object_id[{ group, subgroup }]++;
+        };
+
+        // ================================================================================
+        // Phase 1: Publish 10 messages to ALL subgroups (0, 1, 2) in both groups
+        // Then close subgroup 0 with end_of_subgroup
+        // After phase 1:
+        //   - Subgroup 0: 10 messages (closed)
+        //   - Subgroup 1: 10 messages (still open)
+        //   - Subgroup 2: 10 messages (still open)
+        // ================================================================================
+        for (uint64_t msg = 0; msg < kMessagesPerPhase; ++msg) {
+            bool is_last_in_phase = (msg == kMessagesPerPhase - 1);
+
+            for (uint64_t group = 0; group < kNumGroups; ++group) {
+                for (uint64_t subgroup = 0; subgroup < kNumSubgroups; ++subgroup) {
+                    bool close_subgroup = is_last_in_phase && (subgroup == 0);
+                    publish_object(group, subgroup, get_next_obj_id(group, subgroup), close_subgroup, false);
+                }
+            }
+        }
+
+        // Wait for all 6 streams to be created (2 groups × 3 subgroups)
+        const bool streams_created = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() >= 6; },
+                                             std::chrono::milliseconds(100000));
+        INFO("Active streams after publishing phase 1: ", sub_handler->GetActiveStreamCount());
+        CHECK(streams_created);
+
+        // Verify subgroup 0 is closed (4 streams remain)
+        const bool subgroup0_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() <= 4; },
+                                              std::chrono::milliseconds(1000));
+        INFO("Active streams after phase 1 (subgroup 0 closed): ", sub_handler->GetActiveStreamCount());
+        CHECK(subgroup0_closed);
+
+        // ================================================================================
+        // Phase 2: Publish 10 more messages to subgroups 1 and 2 in both groups
+        // Then close subgroup 1 with end_of_subgroup
+        // After phase 2:
+        //   - Subgroup 0: 10 messages (already closed)
+        //   - Subgroup 1: 20 messages (closed)
+        //   - Subgroup 2: 20 messages (still open)
+        // ================================================================================
+        for (uint64_t msg = 0; msg < kMessagesPerPhase; ++msg) {
+            bool is_last_in_phase = (msg == kMessagesPerPhase - 1);
+
+            for (uint64_t group = 0; group < kNumGroups; ++group) {
+                for (uint64_t subgroup = 1; subgroup < kNumSubgroups; ++subgroup) {
+                    bool close_subgroup = is_last_in_phase && (subgroup == 1);
+                    publish_object(group, subgroup, get_next_obj_id(group, subgroup), close_subgroup, false);
+                }
+            }
+        }
+
+        // Verify subgroup 1 is closed (2 streams remain - subgroup 2 in both groups)
+        const bool subgroup1_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() <= 2; },
+                                              std::chrono::milliseconds(1000));
+        INFO("Active streams after phase 2 (subgroup 1 closed): ", sub_handler->GetActiveStreamCount());
+        CHECK(subgroup1_closed);
+
+        // ================================================================================
+        // Phase 3: Publish 10 more messages to subgroup 2 in both groups
+        // Then close subgroup 2 with end_of_subgroup AND end_of_group
+        // After phase 3:
+        //   - Subgroup 0: 10 messages (already closed)
+        //   - Subgroup 1: 20 messages (already closed)
+        //   - Subgroup 2: 30 messages (closed with end_of_group)
+        // ================================================================================
+        for (uint64_t msg = 0; msg < kMessagesPerPhase; ++msg) {
+            bool is_last_in_phase = (msg == kMessagesPerPhase - 1);
+
+            for (uint64_t group = 0; group < kNumGroups; ++group) {
+                uint64_t subgroup = 2;
+                bool close_subgroup = is_last_in_phase;
+                bool close_group = is_last_in_phase;
+                publish_object(group, subgroup, get_next_obj_id(group, subgroup), close_subgroup, close_group);
+            }
+        }
+
+        // Wait for all streams to be closed
+        const bool all_streams_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() == 0; },
+                                                std::chrono::milliseconds(1000));
+        INFO("Active streams after phase 3 (all closed): ", sub_handler->GetActiveStreamCount());
+        CHECK(all_streams_closed);
+
+        // Wait for all messages to be received
+        auto receive_status = all_received_future.wait_for(std::chrono::milliseconds(3000));
+        REQUIRE(receive_status == std::future_status::ready);
+
+        // Verify total received count
+        const auto received_objects = sub_handler->GetReceivedObjects();
+        INFO("Total messages received: ", received_objects.size(), ", expected: ", kTotalMessages);
+        CHECK_EQ(received_objects.size(), kTotalMessages);
+
+        // Verify we received messages from all groups and subgroups
+        std::map<uint64_t, std::map<uint64_t, std::size_t>> counts_by_group_subgroup;
+        for (const auto& obj : received_objects) {
+            counts_by_group_subgroup[obj.group_id][obj.subgroup_id]++;
+        }
+
+        // Should have received from 2 groups
+        CHECK_EQ(counts_by_group_subgroup.size(), kNumGroups);
+
+        for (uint64_t group = 0; group < kNumGroups; ++group) {
+            // Should have received from 3 subgroups per group
+            CHECK_EQ(counts_by_group_subgroup[group].size(), kNumSubgroups);
+
+            // Verify per-subgroup message counts
+            // Subgroup 0: ran for 1 phase = 10 messages
+            INFO(
+              "Group ", group, " subgroup 0: ", counts_by_group_subgroup[group][0], " expected: ", kSubgroup0Messages);
+            CHECK_EQ(counts_by_group_subgroup[group][0], kSubgroup0Messages);
+
+            // Subgroup 1: ran for 2 phases = 20 messages
+            INFO(
+              "Group ", group, " subgroup 1: ", counts_by_group_subgroup[group][1], " expected: ", kSubgroup1Messages);
+            CHECK_EQ(counts_by_group_subgroup[group][1], kSubgroup1Messages);
+
+            // Subgroup 2: ran for 3 phases = 30 messages
+            INFO(
+              "Group ", group, " subgroup 2: ", counts_by_group_subgroup[group][2], " expected: ", kSubgroup2Messages);
+            CHECK_EQ(counts_by_group_subgroup[group][2], kSubgroup2Messages);
+        }
+
+        INFO("Successfully verified ", kTotalMessages, " messages:");
+        INFO("  - Per group: ", kMessagesPerGroup, " messages");
+        INFO("  - Subgroup 0: ", kSubgroup0Messages, " messages (ran 1 phase)");
+        INFO("  - Subgroup 1: ", kSubgroup1Messages, " messages (ran 2 phases)");
+        INFO("  - Subgroup 2: ", kSubgroup2Messages, " messages (ran 3 phases)");
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_subgroups("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_subgroups("https");
     }
 }

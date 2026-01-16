@@ -242,11 +242,13 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                 }
             }
 
-            SPDLOG_LOGGER_DEBUG(transport->logger,
-                                "Received RESET stream; conn_id: {0} data_ctx_id: {1} stream_id: {2}",
-                                data_ctx->conn_id,
-                                data_ctx->data_ctx_id,
-                                stream_id);
+            if (data_ctx != nullptr) {
+                SPDLOG_LOGGER_DEBUG(transport->logger,
+                                    "Received RESET stream; conn_id: {} data_ctx_id: {} stream_id: {}",
+                                    data_ctx->conn_id,
+                                    data_ctx->data_ctx_id,
+                                    stream_id);
+            }
 
             break;
         }
@@ -1063,11 +1065,11 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
                            const EnqueueFlags flags)
 {
     SPDLOG_LOGGER_TRACE(logger,
-                        "Enqueue conn_id: {0} data_ctx_id: {1}, size: {2}, new_stream ?: {3}",
+                        "Enqueue conn_id: {} data_ctx_id: {} stream_id: {} size: {}",
                         conn_id,
                         data_ctx_id,
-                        bytes->size(),
-                        flags.new_stream);
+                        stream_id,
+                        bytes->size());
 
     if (bytes->empty()) {
         SPDLOG_LOGGER_ERROR(
@@ -1712,18 +1714,10 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
         stream_ctx.mark_active = false;
     }
 
-    switch (obj.value.stream_action) {
-        case StreamAction::kCloseStreamUseFin:
-            stream_ctx.close_on_empty = true;
-            break;
-        case StreamAction::kCloseStreamUseReset:
-            stream_ctx.close_on_empty = true;
-            stream_ctx.close_using_reset = true;
-            break;
-        case StreamAction::kNoAction:
-            break;
-    }
+    defer(if (stream_ctx.tx_data && stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr &&
+              stream_ctx.close_on_empty) { CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, false); });
 
+<<<<<<< Updated upstream
     defer({
         const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
         if (data_ctx->delete_on_empty && empty) {
@@ -1732,6 +1726,11 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
             CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, false);
         }
     });
+=======
+    defer(
+      if (stream_ctx.tx_data && stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr &&
+          data_ctx->delete_on_empty) { DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false); });
+>>>>>>> Stashed changes
 
     if (stream_ctx.tx_object == nullptr) {
         SPDLOG_LOGGER_TRACE(logger,
@@ -1740,6 +1739,18 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
                             data_ctx->data_ctx_id);
 
         stream_ctx.tx_data->PopFront(obj);
+
+        switch (obj.value.stream_action) {
+            case StreamAction::kCloseStreamUseFin:
+                stream_ctx.close_on_empty = true;
+                break;
+            case StreamAction::kCloseStreamUseReset:
+                stream_ctx.close_on_empty = true;
+                stream_ctx.close_using_reset = true;
+                break;
+            case StreamAction::kNoAction:
+                break;
+        }
 
         if (obj.expired_count) {
             stream_ctx.tx_reset_wait_discard = true;
@@ -1922,8 +1933,6 @@ try {
         return;
     }
 
-    std::lock_guard<std::mutex> l(state_mutex_);
-
     // Handle control stream message processing for WebTransport mode
     if (conn_ctx->transport_mode == TransportMode::kWebTransport && conn_ctx->wt_control_stream_ctx != nullptr &&
         stream_id == conn_ctx->wt_control_stream_ctx->stream_id) {
@@ -2006,11 +2015,12 @@ try {
                                 stream_id,
                                 bytes.size());
         }
-        conn_ctx->rx_stream_buffer.try_emplace(stream_id);
-        conn_ctx->rx_stream_buffer[stream_id].rx_ctx->data_queue.SetLimit(tconfig_.time_queue_rx_size);
+        auto [it, _] = conn_ctx->rx_stream_buffer.try_emplace(stream_id);
+        it->second.rx_ctx->data_queue.SetLimit(tconfig_.time_queue_rx_size);
+        rx_buf_it = std::move(it);
     }
 
-    auto& rx_buf = conn_ctx->rx_stream_buffer[stream_id];
+    auto& rx_buf = rx_buf_it->second;
 
     if (rx_buf.rx_ctx->unknown_expiry_tick_ms &&
         tick_service_->Milliseconds() > rx_buf.rx_ctx->unknown_expiry_tick_ms) {
