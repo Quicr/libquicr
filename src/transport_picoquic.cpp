@@ -1541,9 +1541,9 @@ PicoQuicTransport::DeleteDataContextInternal(TransportConnId conn_id, DataContex
                         data_ctx_it->second.delete_on_empty);
 
     const auto& streams = data_ctx_it->second.streams;
-    bool all_streams_empty =
-      std::all_of(streams.begin(), streams.end(), [](auto&& e) { return e.second.tx_data->Empty(); });
-    if (delete_on_empty && !streams.empty() && all_streams_empty) {
+
+    if (delete_on_empty && !streams.empty() &&
+        std::all_of(streams.begin(), streams.end(), [](auto&& e) { return e.second.tx_data->Empty(); })) {
         data_ctx_it->second.delete_on_empty = true;
     } else {
         SPDLOG_LOGGER_DEBUG(logger, "Delete data context {} in conn_id: {}", data_ctx_id, conn_id);
