@@ -1724,12 +1724,13 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
             break;
     }
 
-    defer(if (stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr && stream_ctx.close_on_empty) {
-        CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, false);
-    });
-
-    defer(if (stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr && data_ctx->delete_on_empty) {
-        DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
+    defer({
+        const bool empty = if (stream_ctx.tx_data->Empty() && !stream_ctx.tx_object == nullptr;
+        if (data_ctx->delete_on_empty && empty) {
+            DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
+        } else if (stream_ctx.close_on_empty && empty) {
+            CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, false);
+        }
     });
 
     if (stream_ctx.tx_object == nullptr) {
