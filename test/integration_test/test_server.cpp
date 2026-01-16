@@ -11,15 +11,15 @@ TestServer::TestServer(const ServerConfig& config)
 }
 
 void
-PublishDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle, [[maybe_unused]] uint64_t request_id)
-{
-}
-
-void
 TestServer::PublishReceived(const ConnectionHandle connection_handle,
                             const uint64_t request_id,
                             const messages::PublishAttributes& publish_attributes)
 {
+    std::lock_guard lock(state_mutex_);
+
+    const auto th = TrackHash(publish_attributes.track_full_name);
+    const auto track_alias = th.track_fullname_hash;
+
     // Is anyone interested in this prefix?
     std::vector<ConnectionHandle> namespace_subscribers;
     for (const auto& interested : namespace_subscribers_) {
@@ -30,6 +30,26 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
         }
     }
 
+    // Create a subscribe handler to receive objects from the publisher
+    auto sub_track_handler = std::make_shared<TestSubscribeTrackHandler>(publish_attributes.track_full_name, true);
+
+    sub_track_handler->SetRequestId(request_id);
+    sub_track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);
+    sub_track_handler->SetPriority(publish_attributes.priority);
+
+    // If there are subscribers for this track, link the subscribe handler to forward to them
+    auto sub_it = subscribes_.find(track_alias);
+    if (sub_it != subscribes_.end() && !sub_it->second.empty()) {
+        // Link to first subscriber's publish handler for forwarding
+        auto& pub_handler = sub_it->second.begin()->second;
+        if (pub_handler) {
+            sub_track_handler->SetPublishHandler(pub_handler);
+        }
+    }
+
+    SubscribeTrack(connection_handle, sub_track_handler);
+    pub_subscribes_[track_alias][connection_handle] = sub_track_handler;
+
     ResolvePublish(connection_handle,
                    request_id,
                    publish_attributes,
@@ -37,9 +57,18 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
 }
 
 void
-TestServer::PublishDoneReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                                [[maybe_unused]] uint64_t request_id)
+TestServer::PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id)
 {
+    std::lock_guard lock(state_mutex_);
+
+    // Clean up publisher subscribe handlers
+    for (auto& [track_alias, conn_map] : pub_subscribes_) {
+        auto it = conn_map.find(connection_handle);
+        if (it != conn_map.end() && it->second && it->second->GetRequestId() == request_id) {
+            conn_map.erase(it);
+            break;
+        }
+    }
 }
 
 void
@@ -48,6 +77,8 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
                               const FullTrackName& track_full_name,
                               const messages::SubscribeAttributes& subscribe_attributes)
 {
+    std::lock_guard lock(state_mutex_);
+
     const SubscribeDetails details = { connection_handle, request_id, track_full_name, subscribe_attributes };
     if (subscribe_promise_.has_value()) {
         subscribe_promise_->set_value(details);
@@ -56,13 +87,41 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
     if (publish_accepted_promise_.has_value()) {
         publish_accepted_promise_->set_value(details);
     }
+
     const auto th = TrackHash(track_full_name);
+    const auto track_alias = th.track_fullname_hash;
+
+    // Calculate TTL from delivery timeout
+    const std::uint32_t ttl = subscribe_attributes.delivery_timeout != std::chrono::milliseconds::zero()
+                                ? static_cast<std::uint32_t>(subscribe_attributes.delivery_timeout.count())
+                                : 5000;
+
+    // Create a publish track handler to send objects to this subscriber
+    auto pub_track_handler = std::make_shared<TestPublishTrackHandler>(
+      track_full_name, TrackMode::kStream, subscribe_attributes.priority, ttl);
+
     if (!subscribe_attributes.is_publisher_initiated) {
         ResolveSubscribe(connection_handle,
                          request_id,
-                         th.track_fullname_hash,
+                         track_alias,
                          { .reason_code = SubscribeResponse::ReasonCode::kOk,
                            .is_publisher_initiated = subscribe_attributes.is_publisher_initiated });
+    }
+
+    // Store the publish handler for this subscriber
+    subscribes_[track_alias][connection_handle] = pub_track_handler;
+
+    // Bind the publish track handler to send data to the subscriber
+    BindPublisherTrack(connection_handle, connection_handle, request_id, pub_track_handler, false);
+
+    // Link any existing publisher subscribe handlers to forward to this subscriber
+    auto pub_sub_it = pub_subscribes_.find(track_alias);
+    if (pub_sub_it != pub_subscribes_.end()) {
+        for (auto& [pub_conn, sub_handler] : pub_sub_it->second) {
+            if (sub_handler) {
+                sub_handler->SetPublishHandler(pub_track_handler);
+            }
+        }
     }
 }
 

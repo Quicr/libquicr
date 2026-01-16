@@ -37,6 +37,7 @@ namespace quicr {
       private:
         messages::GroupOrder group_order_;
         bool sent_first_header_{ false };
+        uint64_t stream_id_{ 0 }; /// Stream ID for fetch, set on sent_first_header
     };
 
 } // namespace moq
