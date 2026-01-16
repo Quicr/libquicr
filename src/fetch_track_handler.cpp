@@ -10,7 +10,7 @@ namespace quicr {
     {
         SPDLOG_DEBUG("Got fetch data size: {}", data->size());
 
-        auto& stream = streams_.at(stream_id);
+        auto& stream = streams_[stream_id];
 
         if (is_start) {
             stream.buffer.Clear();

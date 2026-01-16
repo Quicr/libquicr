@@ -8,7 +8,7 @@ namespace quicr {
                                              std::uint64_t stream_id,
                                              std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        auto& stream = streams_.at(stream_id);
+        auto& stream = streams_[stream_id];
 
         if (is_start) {
             stream.buffer.Clear();

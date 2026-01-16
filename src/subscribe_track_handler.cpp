@@ -23,14 +23,7 @@ namespace quicr {
                                                uint64_t stream_id,
                                                std::shared_ptr<const std::vector<uint8_t>> data)
     {
-<<<<<<< Updated upstream
-        SPDLOG_TRACE(
-          "SubHandler:StreamDataRecv, is_start {}, stream_id: {}, data_sz {}", is_start, stream_id, data->size());
-
-        auto& stream = streams_.at(stream_id);
-=======
         auto& stream = streams_[stream_id];
->>>>>>> Stashed changes
 
         if (is_start) {
             stream.buffer.Clear();

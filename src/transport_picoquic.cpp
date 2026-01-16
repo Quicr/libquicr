@@ -1717,7 +1717,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
     defer(if (stream_ctx.tx_data && stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr &&
               stream_ctx.close_on_empty) { CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, false); });
 
-<<<<<<< Updated upstream
     defer({
         const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
         if (data_ctx->delete_on_empty && empty) {
@@ -1726,11 +1725,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
             CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, false);
         }
     });
-=======
-    defer(
-      if (stream_ctx.tx_data && stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr &&
-          data_ctx->delete_on_empty) { DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false); });
->>>>>>> Stashed changes
 
     if (stream_ctx.tx_object == nullptr) {
         SPDLOG_LOGGER_TRACE(logger,
