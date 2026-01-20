@@ -803,9 +803,9 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         ftn.name = { 0x01, 0x02, 0x03 };
 
         // Constants for test
-        constexpr std::size_t kNumGroups = 2;
-        constexpr std::size_t kNumSubgroups = 3;
-        constexpr std::size_t kMessagesPerPhase = 10;
+        constexpr std::size_t num_groups = 2;
+        constexpr std::size_t num_subgroups = 3;
+        constexpr std::size_t messages_per_phase = 10;
 
         // Message totals per subgroup (all subgroups run simultaneously each phase):
         // - Subgroup 0: 10 messages (runs in phase 1 only, then closes)
@@ -813,11 +813,12 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         // - Subgroup 2: 30 messages (runs in phases 1, 2, and 3, then closes with end_of_group)
         // Per group total: 10 + 20 + 30 = 60
         // Total for 2 groups: 120
-        constexpr std::size_t kSubgroup0Messages = kMessagesPerPhase;                                           // 10
-        constexpr std::size_t kSubgroup1Messages = kMessagesPerPhase * 2;                                       // 20
-        constexpr std::size_t kSubgroup2Messages = kMessagesPerPhase * 3;                                       // 30
-        constexpr std::size_t kMessagesPerGroup = kSubgroup0Messages + kSubgroup1Messages + kSubgroup2Messages; // 60
-        constexpr std::size_t kTotalMessages = kNumGroups * kMessagesPerGroup;                                  // 120
+        constexpr std::size_t subgroup_0_messages = messages_per_phase;     // 10
+        constexpr std::size_t subgroup_1_messages = messages_per_phase * 2; // 20
+        constexpr std::size_t subgroup_2_messages = messages_per_phase * 3; // 30
+        constexpr std::size_t messages_per_group =
+          subgroup_0_messages + subgroup_1_messages + subgroup_2_messages;      // 60
+        constexpr std::size_t total_messages = num_groups * messages_per_group; // 120
 
         // Create subscribe handler that tracks received objects
         auto sub_handler = TestSubscribeHandler::Create(
@@ -826,7 +827,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         // Set up promise for subscriber receiving all messages
         std::promise<void> all_received_promise;
         auto all_received_future = all_received_promise.get_future();
-        sub_handler->SetObjectCountPromise(kTotalMessages, std::move(all_received_promise));
+        sub_handler->SetObjectCountPromise(total_messages, std::move(all_received_promise));
 
         // Subscribe to the track
         subscriber_client->SubscribeTrack(sub_handler);
@@ -878,8 +879,8 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
 
         // Track object IDs per group+subgroup
         std::map<std::pair<uint64_t, uint64_t>, uint64_t> next_object_id;
-        for (uint64_t group = 0; group < kNumGroups; ++group) {
-            for (uint64_t subgroup = 0; subgroup < kNumSubgroups; ++subgroup) {
+        for (uint64_t group = 0; group < num_groups; ++group) {
+            for (uint64_t subgroup = 0; subgroup < num_subgroups; ++subgroup) {
                 next_object_id[{ group, subgroup }] = 0;
             }
         }
@@ -897,11 +898,11 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         //   - Subgroup 1: 10 messages (still open)
         //   - Subgroup 2: 10 messages (still open)
         // ================================================================================
-        for (uint64_t msg = 0; msg < kMessagesPerPhase; ++msg) {
-            bool is_last_in_phase = (msg == kMessagesPerPhase - 1);
+        for (uint64_t msg = 0; msg < messages_per_phase; ++msg) {
+            bool is_last_in_phase = (msg == messages_per_phase - 1);
 
-            for (uint64_t group = 0; group < kNumGroups; ++group) {
-                for (uint64_t subgroup = 0; subgroup < kNumSubgroups; ++subgroup) {
+            for (uint64_t group = 0; group < num_groups; ++group) {
+                for (uint64_t subgroup = 0; subgroup < num_subgroups; ++subgroup) {
                     bool close_subgroup = is_last_in_phase && (subgroup == 0);
                     publish_object(group, subgroup, get_next_obj_id(group, subgroup), close_subgroup, false);
                 }
@@ -928,11 +929,11 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         //   - Subgroup 1: 20 messages (closed)
         //   - Subgroup 2: 20 messages (still open)
         // ================================================================================
-        for (uint64_t msg = 0; msg < kMessagesPerPhase; ++msg) {
-            bool is_last_in_phase = (msg == kMessagesPerPhase - 1);
+        for (uint64_t msg = 0; msg < messages_per_phase; ++msg) {
+            bool is_last_in_phase = (msg == messages_per_phase - 1);
 
-            for (uint64_t group = 0; group < kNumGroups; ++group) {
-                for (uint64_t subgroup = 1; subgroup < kNumSubgroups; ++subgroup) {
+            for (uint64_t group = 0; group < num_groups; ++group) {
+                for (uint64_t subgroup = 1; subgroup < num_subgroups; ++subgroup) {
                     bool close_subgroup = is_last_in_phase && (subgroup == 1);
                     publish_object(group, subgroup, get_next_obj_id(group, subgroup), close_subgroup, false);
                 }
@@ -953,10 +954,10 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         //   - Subgroup 1: 20 messages (already closed)
         //   - Subgroup 2: 30 messages (closed with end_of_group)
         // ================================================================================
-        for (uint64_t msg = 0; msg < kMessagesPerPhase; ++msg) {
-            bool is_last_in_phase = (msg == kMessagesPerPhase - 1);
+        for (uint64_t msg = 0; msg < messages_per_phase; ++msg) {
+            bool is_last_in_phase = (msg == messages_per_phase - 1);
 
-            for (uint64_t group = 0; group < kNumGroups; ++group) {
+            for (uint64_t group = 0; group < num_groups; ++group) {
                 uint64_t subgroup = 2;
                 bool close_subgroup = is_last_in_phase;
                 bool close_group = is_last_in_phase;
@@ -976,8 +977,8 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
 
         // Verify total received count
         const auto received_objects = sub_handler->GetReceivedObjects();
-        INFO("Total messages received: ", received_objects.size(), ", expected: ", kTotalMessages);
-        CHECK_EQ(received_objects.size(), kTotalMessages);
+        INFO("Total messages received: ", received_objects.size(), ", expected: ", total_messages);
+        CHECK_EQ(received_objects.size(), total_messages);
 
         // Verify we received messages from all groups and subgroups
         std::map<uint64_t, std::map<uint64_t, std::size_t>> counts_by_group_subgroup;
@@ -986,34 +987,34 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         }
 
         // Should have received from 2 groups
-        CHECK_EQ(counts_by_group_subgroup.size(), kNumGroups);
+        CHECK_EQ(counts_by_group_subgroup.size(), num_groups);
 
-        for (uint64_t group = 0; group < kNumGroups; ++group) {
+        for (uint64_t group = 0; group < num_groups; ++group) {
             // Should have received from 3 subgroups per group
-            CHECK_EQ(counts_by_group_subgroup[group].size(), kNumSubgroups);
+            CHECK_EQ(counts_by_group_subgroup[group].size(), num_subgroups);
 
             // Verify per-subgroup message counts
             // Subgroup 0: ran for 1 phase = 10 messages
             INFO(
-              "Group ", group, " subgroup 0: ", counts_by_group_subgroup[group][0], " expected: ", kSubgroup0Messages);
-            CHECK_EQ(counts_by_group_subgroup[group][0], kSubgroup0Messages);
+              "Group ", group, " subgroup 0: ", counts_by_group_subgroup[group][0], " expected: ", subgroup_0_messages);
+            CHECK_EQ(counts_by_group_subgroup[group][0], subgroup_0_messages);
 
             // Subgroup 1: ran for 2 phases = 20 messages
             INFO(
-              "Group ", group, " subgroup 1: ", counts_by_group_subgroup[group][1], " expected: ", kSubgroup1Messages);
-            CHECK_EQ(counts_by_group_subgroup[group][1], kSubgroup1Messages);
+              "Group ", group, " subgroup 1: ", counts_by_group_subgroup[group][1], " expected: ", subgroup_1_messages);
+            CHECK_EQ(counts_by_group_subgroup[group][1], subgroup_1_messages);
 
             // Subgroup 2: ran for 3 phases = 30 messages
             INFO(
-              "Group ", group, " subgroup 2: ", counts_by_group_subgroup[group][2], " expected: ", kSubgroup2Messages);
-            CHECK_EQ(counts_by_group_subgroup[group][2], kSubgroup2Messages);
+              "Group ", group, " subgroup 2: ", counts_by_group_subgroup[group][2], " expected: ", subgroup_2_messages);
+            CHECK_EQ(counts_by_group_subgroup[group][2], subgroup_2_messages);
         }
 
-        INFO("Successfully verified ", kTotalMessages, " messages:");
-        INFO("  - Per group: ", kMessagesPerGroup, " messages");
-        INFO("  - Subgroup 0: ", kSubgroup0Messages, " messages (ran 1 phase)");
-        INFO("  - Subgroup 1: ", kSubgroup1Messages, " messages (ran 2 phases)");
-        INFO("  - Subgroup 2: ", kSubgroup2Messages, " messages (ran 3 phases)");
+        INFO("Successfully verified ", total_messages, " messages:");
+        INFO("  - Per group: ", messages_per_group, " messages");
+        INFO("  - Subgroup 0: ", subgroup_0_messages, " messages (ran 1 phase)");
+        INFO("  - Subgroup 1: ", subgroup_1_messages, " messages (ran 2 phases)");
+        INFO("  - Subgroup 2: ", subgroup_2_messages, " messages (ran 3 phases)");
     };
 
     SUBCASE("Raw QUIC")
