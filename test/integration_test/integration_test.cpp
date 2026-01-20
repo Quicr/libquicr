@@ -1,5 +1,6 @@
 #include "quicr/config.h"
 #include "quicr/defer.h"
+#include "quicr/fetch_track_handler.h"
 #include "test_client.h"
 #include "test_server.h"
 
@@ -635,5 +636,113 @@ TEST_CASE("Integration - Annouce Flow")
     {
         CAPTURE("WebTransport");
         test_announce("https");
+    }
+}
+
+class TestFetchTrackHandler final : public FetchTrackHandler
+{
+  public:
+    struct ReceivedObject
+    {
+        const ObjectHeaders headers;
+        const std::vector<uint8_t> payload;
+    };
+
+    TestFetchTrackHandler(const FullTrackName& full_track_name,
+                          const messages::SubscriberPriority priority,
+                          const messages::GroupOrder group_order,
+                          const messages::GroupId start_group,
+                          const messages::GroupId end_group,
+                          const messages::ObjectId start_object,
+                          const messages::ObjectId end_object)
+      : FetchTrackHandler(full_track_name, priority, group_order, start_group, end_group, start_object, end_object)
+    {
+    }
+
+    static std::shared_ptr<TestFetchTrackHandler> Create(const FullTrackName& full_track_name,
+                                                         const messages::SubscriberPriority priority,
+                                                         const messages::GroupOrder group_order,
+                                                         const messages::GroupId start_group,
+                                                         const messages::GroupId end_group,
+                                                         const messages::ObjectId start_object,
+                                                         const messages::ObjectId end_object)
+    {
+        return std::make_shared<TestFetchTrackHandler>(
+          full_track_name, priority, group_order, start_group, end_group, start_object, end_object);
+    }
+
+    void ObjectReceived(const ObjectHeaders& headers, BytesSpan data) override
+    {
+        ReceivedObject obj{ .headers = headers, .payload = std::vector<uint8_t>(data.begin(), data.end()) };
+        if (object_received_promise_.has_value()) {
+            object_received_promise_->set_value(std::move(obj));
+        }
+    }
+
+    void SetObjectReceivedPromise(std::promise<ReceivedObject> promise)
+    {
+        object_received_promise_ = std::move(promise);
+    }
+
+  private:
+    std::optional<std::promise<ReceivedObject>> object_received_promise_;
+};
+
+TEST_CASE("Integration - Fetch object roundtrip")
+{
+    const auto server = MakeTestServer();
+    auto test_fetch_roundtrip = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "namespace" });
+        ftn.name = { 1, 2, 3 };
+
+        // Set up test data with specific values for all fields
+        TestServer::FetchResponseData response_data;
+        response_data.headers.group_id = 100;
+        response_data.headers.subgroup_id = 42;
+        response_data.headers.object_id = 200;
+        response_data.headers.status = ObjectStatus::kAvailable;
+        response_data.headers.priority = 5;
+        response_data.payload = { 0xDE, 0xAD, 0xBE, 0xEF };
+        response_data.headers.payload_length = response_data.payload.size();
+
+        server->SetFetchResponseData(response_data);
+
+        auto fetch_handler = TestFetchTrackHandler::Create(ftn,
+                                                           0,
+                                                           messages::GroupOrder::kOriginalPublisherOrder,
+                                                           response_data.headers.group_id,
+                                                           response_data.headers.group_id + 1,
+                                                           0,
+                                                           1000);
+
+        std::promise<TestFetchTrackHandler::ReceivedObject> object_promise;
+        auto object_future = object_promise.get_future();
+        fetch_handler->SetObjectReceivedPromise(std::move(object_promise));
+
+        client->FetchTrack(fetch_handler);
+
+        auto status = object_future.wait_for(std::chrono::milliseconds(kDefaultTimeout));
+        REQUIRE(status == std::future_status::ready);
+
+        const auto& received = object_future.get();
+        CHECK_EQ(received.headers.group_id, response_data.headers.group_id);
+        CHECK_EQ(received.headers.subgroup_id, response_data.headers.subgroup_id);
+        CHECK_EQ(received.headers.object_id, response_data.headers.object_id);
+        CHECK_EQ(received.payload, response_data.payload);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_fetch_roundtrip("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_fetch_roundtrip("https");
     }
 }
