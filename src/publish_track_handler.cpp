@@ -322,12 +322,12 @@ namespace quicr {
             }
         }
 
-        SPDLOG_INFO("Published conn_id: {} object stream_id: {} group: {} subgroup: {} object: {}",
-                    GetConnectionId(),
-                    stream_it->second.stream_id,
-                    object_headers.group_id,
-                    object_headers.subgroup_id,
-                    object_headers.object_id);
+        SPDLOG_TRACE("Published conn_id: {} object stream_id: {} group: {} subgroup: {} object: {}",
+                     GetConnectionId(),
+                     stream_it->second.stream_id,
+                     object_headers.group_id,
+                     object_headers.subgroup_id,
+                     object_headers.object_id);
         auto result = transport->Enqueue(
           GetConnectionId(),
           publish_data_ctx_id_,
