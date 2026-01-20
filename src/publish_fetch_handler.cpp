@@ -83,7 +83,7 @@ namespace quicr {
         auto result = transport->Enqueue(
           GetConnectionId(),
           publish_data_ctx_id_,
-          group_id,
+          stream_id_,
           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
           priority,
           ttl,
