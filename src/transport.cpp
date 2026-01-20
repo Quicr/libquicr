@@ -1820,17 +1820,18 @@ namespace quicr {
 
         try {
             const auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
-            if (const auto handler = handler_weak.lock(); handler && handler->is_fetch_handler_) {
+            if (const auto handler = handler_weak.lock(); handler) {
                 try {
                     switch (flag) {
-                        case StreamClosedFlag::Fin:
+                        case StreamClosedFlag::kFin:
                             handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                            handler->StreamClosed(stream_id, false);
                             break;
-                        case StreamClosedFlag::Reset:
+                        case StreamClosedFlag::kReset:
                             handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                            handler->StreamClosed(stream_id, true);
                             break;
                     }
-                    handler->StreamClosed(stream_id);
                 } catch (const ProtocolViolationException& e) {
                     SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
                     CloseConnection(connection_handle, TerminationReason::kProtocolViolation, e.reason);

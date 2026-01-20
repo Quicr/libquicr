@@ -341,9 +341,11 @@ namespace quicr {
 
         /**
          * @brief Notification that a stream has been closed.
-         * @param stream_id The ID of the stream beign closed.
+         * @param stream_id The ID of the stream being closed.
+         * @param reset     True if stream closed by reset
+         *
          */
-        void StreamClosed(std::uint64_t stream_id);
+        virtual void StreamClosed(std::uint64_t stream_id, bool reset = false);
 
         /**
          * @brief Subscribe metrics for the track

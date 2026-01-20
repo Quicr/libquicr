@@ -299,8 +299,12 @@ namespace quicr {
                 }
 
                 // TODO: send end of group/subgroup status/type
-                if (object_headers.end_of_group || object_headers.end_of_subgroup) {
+                if (object_headers.end_of_subgroup.has_value()) {
                     eflags.close_stream = true;
+
+                    if (*object_headers.end_of_subgroup == ObjectHeaders::CloseStream::kReset) {
+                        eflags.use_reset = true;
+                    }
                 }
 
                 messages::StreamSubGroupObject object;

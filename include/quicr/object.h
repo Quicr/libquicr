@@ -41,7 +41,13 @@ namespace quicr {
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
 
-        bool end_of_subgroup{ false };
+        enum class CloseStream : uint8_t
+        {
+            kFin,
+            kReset
+        };
+
+        std::optional<CloseStream> end_of_subgroup;
         bool end_of_group{ false };
     };
 

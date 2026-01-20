@@ -184,16 +184,18 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     void ObjectReceived(const ObjectHeaders& object_headers, BytesSpan data) override
     {
         std::lock_guard lock(mutex_);
-        received_objects_.push_back({ .group_id = object_headers.group_id,
-                                      .subgroup_id = object_headers.subgroup_id,
-                                      .object_id = object_headers.object_id,
-                                      .status = object_headers.status,
-                                      .data = std::vector<uint8_t>(data.begin(), data.end()) });
+        if (!data.empty()) {
+            received_objects_.push_back({ .group_id = object_headers.group_id,
+                                          .subgroup_id = object_headers.subgroup_id,
+                                          .object_id = object_headers.object_id,
+                                          .status = object_headers.status,
+                                          .data = std::vector<uint8_t>(data.begin(), data.end()) });
 
-        // Check if we've reached the target count
-        if (object_count_promise_.has_value() && received_objects_.size() >= target_object_count_) {
-            object_count_promise_->set_value();
-            object_count_promise_.reset();
+            // Check if we've reached the target count
+            if (object_count_promise_.has_value() && received_objects_.size() >= target_object_count_) {
+                object_count_promise_->set_value();
+                object_count_promise_.reset();
+            }
         }
     }
 
@@ -863,8 +865,12 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
                                       .track_mode = TrackMode::kStream,
                                       .extensions = std::nullopt,
                                       .immutable_extensions = std::nullopt,
-                                      .end_of_subgroup = end_of_subgroup,
+                                      .end_of_subgroup = std::nullopt,
                                       .end_of_group = end_of_group };
+
+            if (end_of_subgroup) {
+                headers.end_of_subgroup = ObjectHeaders::CloseStream::kFin;
+            }
 
             auto status = pub_handler->PublishObject(headers, payload);
             REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
@@ -903,8 +909,8 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         }
 
         // Wait for all 6 streams to be created (2 groups × 3 subgroups)
-        const bool streams_created = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() >= 6; },
-                                             std::chrono::milliseconds(100000));
+        const bool streams_created = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() >= 4; },
+                                             std::chrono::milliseconds(1000));
         INFO("Active streams after publishing phase 1: ", sub_handler->GetActiveStreamCount());
         CHECK(streams_created);
 

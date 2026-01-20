@@ -155,10 +155,10 @@ namespace quicr {
         TransportError Error;
     };
 
-    enum class StreamClosedFlag
+    enum class StreamClosedFlag : uint8_t
     {
-        Fin,
-        Reset,
+        kFin,
+        kReset,
     };
 
     /**

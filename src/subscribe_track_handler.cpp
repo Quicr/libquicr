@@ -245,7 +245,7 @@ namespace quicr {
                                        true);
     }
 
-    void SubscribeTrackHandler::StreamClosed(std::uint64_t stream_id)
+    void SubscribeTrackHandler::StreamClosed(std::uint64_t stream_id, bool)
     {
         streams_.erase(stream_id);
     }

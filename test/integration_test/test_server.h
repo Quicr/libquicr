@@ -48,6 +48,34 @@ namespace quicr_test {
 
         void StatusChanged([[maybe_unused]] Status status) override {}
 
+        void StreamClosed(std::uint64_t stream_id, bool reset) override
+        {
+            auto it = streams_.find(stream_id);
+            if (it != streams_.end()) {
+                SPDLOG_INFO("Stream closed by {} stream_id: {} group: {} subgroup: {}",
+                            reset ? "RESET" : "FIN",
+                            stream_id,
+                            it->second.current_group_id,
+                            it->second.current_subgroup_id);
+
+                quicr::ObjectHeaders object_headers;
+                object_headers.end_of_subgroup =
+                  reset ? quicr::ObjectHeaders::CloseStream::kReset : quicr::ObjectHeaders::CloseStream::kFin;
+                object_headers.group_id = it->second.current_group_id;
+                object_headers.subgroup_id = it->second.current_subgroup_id;
+                object_headers.payload_length = 0;
+                object_headers.ttl = 5000; // TODO: Revisit TTL for end of subgroup/stream
+                object_headers.object_id =
+                  it->second.next_object_id.has_value() ? it->second.next_object_id.value() : 1;
+
+                if (pub_handler_) {
+                    pub_handler_->PublishObject(object_headers, {});
+                }
+
+                streams_.erase(it);
+            }
+        }
+
       private:
         mutable std::mutex mutex_;
         std::shared_ptr<quicr::PublishTrackHandler> pub_handler_;
