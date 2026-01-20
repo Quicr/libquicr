@@ -2753,12 +2753,6 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx,
     if (rx_buf_it != conn_ctx.rx_stream_buffer.end()) {
         std::lock_guard<std::mutex> _(state_mutex_);
 
-        rx_buf_it->second.closed = true;
-        OnStreamClosed(conn_ctx.conn_id,
-                       stream_id,
-                       rx_buf_it->second.rx_ctx,
-                       use_reset ? StreamClosedFlag::Reset : StreamClosedFlag::Fin);
-
         conn_ctx.rx_stream_buffer.erase(rx_buf_it);
     }
 
