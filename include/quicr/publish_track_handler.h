@@ -376,7 +376,7 @@ namespace quicr {
             std::optional<uint64_t> last_object_id;
         };
 
-        std::map<std::uint64_t, StreamInfo> stream_info_by_group_;
+        std::map<std::uint64_t, std::map<std::uint64_t, StreamInfo>> stream_info_by_group_;
 
         std::optional<uint64_t> track_alias_;
 
