@@ -1551,8 +1551,11 @@ PicoQuicTransport::DeleteDataContextInternal(TransportConnId conn_id, DataContex
     } else {
         SPDLOG_LOGGER_DEBUG(logger, "Delete data context {} in conn_id: {}", data_ctx_id, conn_id);
 
-        const auto stream_ids_view = std::views::keys(streams);
-        const std::vector<std::uint64_t> stream_ids(stream_ids_view.begin(), stream_ids_view.end());
+        std::vector<std::uint64_t> stream_ids;
+        stream_ids.reserve(streams.size());
+        for (const auto& [stream_id, _] : streams) {
+            stream_ids.push_back(stream_id);
+        }
 
         for (const auto& stream_id : stream_ids) {
             CloseStream(conn_it->second, &data_ctx_it->second, stream_id, false);
