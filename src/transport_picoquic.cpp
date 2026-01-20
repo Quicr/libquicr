@@ -49,6 +49,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <sstream>
 #include <stdexcept>
@@ -1550,7 +1551,10 @@ PicoQuicTransport::DeleteDataContextInternal(TransportConnId conn_id, DataContex
     } else {
         SPDLOG_LOGGER_DEBUG(logger, "Delete data context {} in conn_id: {}", data_ctx_id, conn_id);
 
-        for (const auto& [stream_id, _] : streams) {
+        const auto stream_ids_view = std::views::keys(streams);
+        const std::vector<std::uint64_t> stream_ids(stream_ids_view.begin(), stream_ids_view.end());
+
+        for (const auto& stream_id : stream_ids) {
             CloseStream(conn_it->second, &data_ctx_it->second, stream_id, false);
         }
 
@@ -2748,6 +2752,7 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx,
     const auto rx_buf_it = conn_ctx.rx_stream_buffer.find(stream_id);
     if (rx_buf_it != conn_ctx.rx_stream_buffer.end()) {
         std::lock_guard<std::mutex> _(state_mutex_);
+
         conn_ctx.rx_stream_buffer.erase(rx_buf_it);
     }
 
