@@ -11,6 +11,7 @@
 #include <quicr/defer.h>
 #include <quicr/object.h>
 #include <quicr/publish_fetch_handler.h>
+#include <sframe/sframe.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
@@ -55,6 +56,7 @@ namespace qclient_vars {
     std::unordered_map<quicr::messages::TrackAlias, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>>
       cache;
     std::shared_ptr<quicr::ThreadedTickService> tick_service = std::make_shared<quicr::ThreadedTickService>();
+    std::optional<sframe::MLSContext> mls_ctx = sframe::MLSContext(sframe::CipherSuite::AES_GCM_128_SHA256, 1);
 
 }
 
@@ -161,11 +163,19 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         if (qclient_vars::record) {
             std::filesystem::create_directory(dir);
 
-            const std::string name_str = ToString(full_track_name);
+            std::string name_str = ToString(full_track_name);
+            std::replace(name_str.begin(), name_str.end(), '/', '_');
+            std::replace(name_str.begin(), name_str.end(), ':', '_');
+
             data_fs_.open(dir / (name_str + ".dat"), std::ios::in | std::ios::out | std::ios::trunc);
+            if (!data_fs_.is_open()) {
+                throw std::runtime_error("Failed to open/create data file");
+            }
 
             moq_fs_.open(dir / (name_str + ".moq"), std::ios::in | std::ios::out | std::ios::trunc);
             moq_fs_ << json::array();
+
+            SPDLOG_INFO("Creating recording files for track name {} in directory {}", name_str, dir.string());
         }
     }
 
@@ -180,7 +190,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
     void ObjectReceived(const quicr::ObjectHeaders& hdr, quicr::BytesSpan data) override
     {
-        if (qclient_vars::record) {
+        quicr::Bytes pt(data.size());
+        if (qclient_vars::mls_ctx.has_value()) {
+            data = qclient_vars::mls_ctx->unprotect(pt, data, {});
+        }
+
+        if (qclient_vars::record && !data.empty()) {
             RecordObject(GetFullTrackName(), hdr, data);
         }
 
@@ -357,7 +372,13 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
               .Insert(object_headers.group_id, { std::move(object) }, qclient_vars ::cache_duration_ms.count());
         }
 
-        return quicr::PublishTrackHandler::PublishObject(object_headers, data);
+        if (qclient_vars::mls_ctx.has_value()) {
+            quicr::Bytes ct(data.size() + sframe::Context::max_overhead);
+            auto payload = qclient_vars::mls_ctx->protect(0, track_alias.value(), ct, data, {});
+            return quicr::PublishTrackHandler::PublishObject(object_headers, payload);
+        } else {
+            return quicr::PublishTrackHandler::PublishObject(object_headers, data);
+        }
     }
 };
 
@@ -1039,6 +1060,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     }
 
     if (cli_opts.count("record")) {
+        SPDLOG_WARN("!!! RECORDING !!!");
         qclient_vars::record = true;
     }
 
@@ -1069,6 +1091,14 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
 
     if (cli_opts.count("ssl_keylog") && cli_opts["ssl_keylog"].as<bool>() == true) {
         SPDLOG_INFO("SSL Keylog enabled");
+    }
+
+    if (cli_opts.count("mls_key")) {
+        const std::string mls_key = cli_opts["mls_key"].as<std::string>();
+        const std::vector<uint8_t> mls_key_bytes(mls_key.begin(), mls_key.end());
+        qclient_vars::mls_ctx->add_epoch(0, mls_key_bytes);
+    } else {
+        qclient_vars::mls_ctx = std::nullopt;
     }
 
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
@@ -1131,7 +1161,8 @@ main(int argc, char* argv[])
         ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
         ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
         ("s,ssl_keylog", "Enable SSL Keylog for transport debugging")
-        ("t,transport", "Transport protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"));
+        ("t,transport", "Transport protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"))
+        ("k,mls_key", "Enable MLS with a key", cxxopts::value<std::string>());
 
     options.add_options("Publisher")
         ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>())
