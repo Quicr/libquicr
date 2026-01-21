@@ -64,8 +64,9 @@ namespace quicr {
             }
         }
 
-        messages::FetchObject object;
+        messages::FetchObject object{};
         object.group_id = group_id;
+        object.subgroup_id = object_headers.subgroup_id;
         object.object_id = object_id;
         object.publisher_priority = priority;
         object.extensions = object_headers.extensions;
