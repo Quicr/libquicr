@@ -50,6 +50,11 @@ namespace qclient_vars {
     std::optional<uint64_t> new_group_request_id;
     bool add_gaps = false;
     bool req_track_status = false;
+    bool subgroup_test{ false };
+    std::size_t subgroup_test_num_groups{ 2 };
+    std::size_t subgroup_test_num_subgroups{ 3 };
+    std::size_t subgroup_test_messages_per_phase{ 10 };
+    std::chrono::milliseconds subgroup_test_interval_ms(100);
     std::chrono::milliseconds playback_speed_ms(20);
     std::chrono::milliseconds cache_duration_ms(180000);
     std::unordered_map<quicr::messages::TrackAlias, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>>
@@ -886,6 +891,207 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
 }
 
 /*===========================================================================*/
+// Subgroup/Stream Test Publisher Thread
+/*===========================================================================*/
+
+void
+DoSubgroupTest(const quicr::FullTrackName& full_track_name,
+               const std::shared_ptr<quicr::Client>& client,
+               bool use_announce,
+               bool& stop)
+{
+    auto track_handler = std::make_shared<MyPublishTrackHandler>(
+      full_track_name, quicr::TrackMode::kStream /*mode*/, 128 /*priority*/, 3000 /*ttl*/);
+
+    track_handler->SetUseAnnounce(use_announce);
+
+    if (qclient_vars::track_alias.has_value()) {
+        track_handler->SetTrackAlias(*qclient_vars::track_alias);
+    }
+
+    SPDLOG_INFO("Started subgroup/stream test publisher");
+
+    bool published_track{ false };
+
+    // Wait for connection and publish track
+    while (not stop) {
+        if ((!published_track) && (client->GetStatus() == MyClient::Status::kReady)) {
+            SPDLOG_INFO("Publish track for subgroup test");
+            client->PublishTrack(track_handler);
+            published_track = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    // Wait for track handler to be ready
+    while (not stop) {
+        if (track_handler->GetStatus() == MyPublishTrackHandler::Status::kOk ||
+            track_handler->GetStatus() == MyPublishTrackHandler::Status::kSubscriptionUpdated ||
+            track_handler->GetStatus() == MyPublishTrackHandler::Status::kNewGroupRequested) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    SPDLOG_INFO("--------------------------------------------------------------------------");
+    SPDLOG_INFO(" Subgroup/Stream Test: {} groups, {} subgroups, {} messages/phase",
+                qclient_vars::subgroup_test_num_groups,
+                qclient_vars::subgroup_test_num_subgroups,
+                qclient_vars::subgroup_test_messages_per_phase);
+    SPDLOG_INFO(" Test will repeat until stopped (Ctrl+C)");
+    SPDLOG_INFO("--------------------------------------------------------------------------");
+
+    const std::size_t num_groups = qclient_vars::subgroup_test_num_groups;
+    const std::size_t num_subgroups = qclient_vars::subgroup_test_num_subgroups;
+    const std::size_t messages_per_phase = qclient_vars::subgroup_test_messages_per_phase;
+
+    // Helper to publish an object
+    auto publish_object = [&](uint64_t group_id,
+                              uint64_t subgroup_id,
+                              uint64_t object_id,
+                              bool end_of_subgroup = false,
+                              bool end_of_group = false) {
+        std::string timestamp = quicr::example::GetTimeStr();
+        std::string msg = "G" + std::to_string(group_id) + "S" + std::to_string(subgroup_id) + "O" +
+                          std::to_string(object_id) + " " + timestamp;
+
+        quicr::ObjectHeaders headers = { .group_id = group_id,
+                                         .object_id = object_id,
+                                         .subgroup_id = subgroup_id,
+                                         .payload_length = msg.size(),
+                                         .status = quicr::ObjectStatus::kAvailable,
+                                         .priority = 128,
+                                         .ttl = 3000,
+                                         .track_mode = quicr::TrackMode::kStream,
+                                         .extensions = std::nullopt,
+                                         .immutable_extensions = std::nullopt,
+                                         .end_of_subgroup = std::nullopt,
+                                         .end_of_group = end_of_group };
+
+        if (end_of_subgroup) {
+            headers.end_of_subgroup = quicr::ObjectHeaders::CloseStream::kFin;
+        }
+
+        try {
+            if (track_handler->CanPublish()) {
+                auto status =
+                  track_handler->PublishObject(headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
+
+                if (status == decltype(status)::kOk) {
+                    SPDLOG_INFO("Published: group={} subgroup={} object={} end_subgroup={} end_group={}",
+                                group_id,
+                                subgroup_id,
+                                object_id,
+                                end_of_subgroup,
+                                end_of_group);
+                } else if (status == decltype(status)::kNoSubscribers) {
+                    SPDLOG_WARN("No subscribers for group={} subgroup={}", group_id, subgroup_id);
+                } else {
+                    SPDLOG_ERROR("Publish failed with status={}", static_cast<int>(status));
+                }
+            }
+        } catch (const std::exception& e) {
+            SPDLOG_ERROR("Exception publishing: {}", e.what());
+        }
+    };
+
+    uint64_t iteration = 0;
+    uint64_t base_group_id = 0;
+
+    // Repeat the test until stopped
+    while (!stop) {
+        iteration++;
+        SPDLOG_INFO("========== Starting Test Iteration {} ==========", iteration);
+
+        // Track object IDs per group+subgroup (reset each iteration)
+        std::map<std::pair<uint64_t, uint64_t>, uint64_t> next_object_id;
+        for (uint64_t group = 0; group < num_groups; ++group) {
+            for (uint64_t subgroup = 0; subgroup < num_subgroups; ++subgroup) {
+                next_object_id[{ group, subgroup }] = 0;
+            }
+        }
+
+        // Helper to get and increment object ID for a group+subgroup
+        auto get_next_obj_id = [&](uint64_t group, uint64_t subgroup) -> uint64_t {
+            return next_object_id[{ group, subgroup }]++;
+        };
+
+        // Track which subgroups are still active per group (reset each iteration)
+        std::map<uint64_t, std::set<uint64_t>> active_subgroups;
+        for (uint64_t group = 0; group < num_groups; ++group) {
+            for (uint64_t subgroup = 0; subgroup < num_subgroups; ++subgroup) {
+                active_subgroups[group].insert(subgroup);
+            }
+        }
+
+        // Run through phases: close one subgroup per phase (from lowest to highest)
+        for (std::size_t phase = 0; phase < num_subgroups && !stop; ++phase) {
+            uint64_t subgroup_to_close = phase;
+            bool is_last_subgroup = (phase == num_subgroups - 1);
+
+            SPDLOG_INFO("=== Iteration {} Phase {} ===", iteration, phase + 1);
+            SPDLOG_INFO(
+              "Publishing {} messages to {} active subgroups per group", messages_per_phase, num_subgroups - phase);
+
+            // Publish messages_per_phase messages to all active subgroups
+            for (std::size_t msg = 0; msg < messages_per_phase && !stop; ++msg) {
+                bool is_last_in_phase = (msg == messages_per_phase - 1);
+
+                for (uint64_t group = 0; group < num_groups; ++group) {
+                    uint64_t actual_group_id = base_group_id + group;
+                    for (uint64_t subgroup : active_subgroups[group]) {
+                        bool close_subgroup = is_last_in_phase && (subgroup == subgroup_to_close);
+                        bool close_group = close_subgroup && is_last_subgroup;
+
+                        publish_object(
+                          actual_group_id, subgroup, get_next_obj_id(group, subgroup), close_subgroup, close_group);
+                    }
+                }
+
+                std::this_thread::sleep_for(qclient_vars::subgroup_test_interval_ms);
+            }
+
+            // Remove closed subgroup from active set
+            for (uint64_t group = 0; group < num_groups; ++group) {
+                active_subgroups[group].erase(subgroup_to_close);
+            }
+
+            SPDLOG_INFO(
+              "Closed subgroup {} in all groups. {} subgroups remain.", subgroup_to_close, active_subgroups[0].size());
+        }
+
+        // Calculate and report totals for this iteration
+        std::size_t total_messages = 0;
+        for (uint64_t subgroup = 0; subgroup < num_subgroups; ++subgroup) {
+            std::size_t messages_for_subgroup = messages_per_phase * (subgroup + 1);
+            total_messages += messages_for_subgroup * num_groups;
+        }
+
+        SPDLOG_INFO("=== Iteration {} Complete ===", iteration);
+        SPDLOG_INFO("Messages published this iteration: {}", total_messages);
+        SPDLOG_INFO("Groups used: {} - {}", base_group_id, base_group_id + num_groups - 1);
+
+        // Move to next set of group IDs for next iteration
+        base_group_id += num_groups;
+
+        // Brief pause between iterations
+        SPDLOG_INFO("Pausing before next iteration...");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+
+    // Wait a bit for any remaining data to be sent
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    client->UnpublishTrack(track_handler);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    SPDLOG_INFO("Subgroup test publisher done after {} iterations", iteration);
+    moq_example::terminate = true;
+    moq_example::cv.notify_all();
+}
+
+/*===========================================================================*/
 // Subscriber thread to perform subscribe
 /*===========================================================================*/
 
@@ -1060,6 +1266,29 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::req_track_status = true;
     }
 
+    if (cli_opts.count("subgroup_test")) {
+        qclient_vars::subgroup_test = true;
+        qclient_vars::publish_clock = true; // Enable clock mode for timing
+        SPDLOG_INFO("Subgroup/stream test mode enabled");
+    }
+
+    if (cli_opts.count("subgroup_num_groups")) {
+        qclient_vars::subgroup_test_num_groups = cli_opts["subgroup_num_groups"].as<uint64_t>();
+    }
+
+    if (cli_opts.count("subgroup_num_subgroups")) {
+        qclient_vars::subgroup_test_num_subgroups = cli_opts["subgroup_num_subgroups"].as<uint64_t>();
+    }
+
+    if (cli_opts.count("subgroup_messages_per_phase")) {
+        qclient_vars::subgroup_test_messages_per_phase = cli_opts["subgroup_messages_per_phase"].as<uint64_t>();
+    }
+
+    if (cli_opts.count("subgroup_interval_ms")) {
+        qclient_vars::subgroup_test_interval_ms =
+          std::chrono::milliseconds(cli_opts["subgroup_interval_ms"].as<uint64_t>());
+    }
+
     if (cli_opts.count("playback_speed_ms")) {
         qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
@@ -1143,7 +1372,12 @@ main(int argc, char* argv[])
         ("playback", "Playback recorded data from moq and dat files", cxxopts::value<bool>())
         ("playback_speed_ms", "Playback speed in ms", cxxopts::value<std::uint64_t>())
         ("cache_duration_ms", "TTL of objects in the cache", cxxopts::value<std::uint64_t>()->default_value("50000"))
-        ("gaps", "Add gaps to groups and objects");
+        ("gaps", "Add gaps to groups and objects")
+        ("subgroup_test", "Run subgroup/stream test mode with multiple groups and subgroups")
+        ("subgroup_num_groups", "Number of groups for subgroup test", cxxopts::value<std::uint64_t>()->default_value("2"))
+        ("subgroup_num_subgroups", "Number of subgroups per group for subgroup test", cxxopts::value<std::uint64_t>()->default_value("3"))
+        ("subgroup_messages_per_phase", "Messages per phase for subgroup test", cxxopts::value<std::uint64_t>()->default_value("10"))
+        ("subgroup_interval_ms", "Interval between messages in subgroup test (ms)", cxxopts::value<std::uint64_t>()->default_value("100"));
 
     options.add_options("Subscriber")
         ("sub_namespace", "Track namespace", cxxopts::value<std::string>())
@@ -1222,7 +1456,11 @@ main(int argc, char* argv[])
             const auto& pub_track_name = quicr::example::MakeFullTrackName(result["pub_namespace"].as<std::string>(),
                                                                            result["pub_name"].as<std::string>());
 
-            pub_thread = std::thread(DoPublisher, pub_track_name, client, use_announce, std::ref(stop_threads));
+            if (qclient_vars::subgroup_test) {
+                pub_thread = std::thread(DoSubgroupTest, pub_track_name, client, use_announce, std::ref(stop_threads));
+            } else {
+                pub_thread = std::thread(DoPublisher, pub_track_name, client, use_announce, std::ref(stop_threads));
+            }
         }
         if (enable_sub) {
             auto filter_type = quicr::messages::FilterType::kLargestObject;

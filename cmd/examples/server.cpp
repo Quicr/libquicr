@@ -153,17 +153,15 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
     void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
     {
-        SPDLOG_CRITICAL("ExampleServer: ObjectReceived: track_alias: {0} group_id: {1} object_id: {2} data size: {3}",
-                        GetTrackAlias().value(),
-                        object_headers.group_id,
-                        object_headers.object_id,
-                        data.size());
+        SPDLOG_DEBUG("ExampleServer: ObjectReceived: track_alias: {0} group_id: {1} object_id: {2} data size: {3}",
+                     GetTrackAlias().value(),
+                     object_headers.group_id,
+                     object_headers.object_id,
+                     data.size());
 
         if (data.size() > 255) {
             SPDLOG_CRITICAL("Example server is for example only, received data > 255 bytes is not allowed!");
             SPDLOG_CRITICAL("Use github.com/quicr/laps for full relay functionality");
-            // throw std::runtime_error("Example server is for example only, received data > 255 bytes is not
-            // allowed!");
         }
 
         latest_group_ = object_headers.group_id;
@@ -204,7 +202,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         // Fan out to all subscribers
         try {
             for (const auto& [conn_id, pth] : sub_it->second) {
-                SPDLOG_CRITICAL(
+                SPDLOG_DEBUG(
                   "ExampleServer, Publishing Object Alias {0}, Data: {1} ", pth->GetTrackAlias().value(), data.size());
                 pth->PublishObject(object_headers, data);
             }
@@ -253,6 +251,50 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                     break;
             }
             SPDLOG_INFO("Track alias: {0} failed to subscribe reason: {1}", GetTrackAlias().value(), reason);
+        }
+    }
+
+    void StreamClosed(std::uint64_t stream_id, bool reset) override
+    {
+        auto it = streams_.find(stream_id);
+        if (it != streams_.end()) {
+            SPDLOG_TRACE("Stream closed by {} stream_id: {} group: {} subgroup: {}",
+                         reset ? "RESET" : "FIN",
+                         stream_id,
+                         it->second.current_group_id,
+                         it->second.current_subgroup_id);
+
+            quicr::ObjectHeaders object_headers;
+            object_headers.end_of_subgroup =
+              reset ? quicr::ObjectHeaders::CloseStream::kReset : quicr::ObjectHeaders::CloseStream::kFin;
+            object_headers.group_id = it->second.current_group_id;
+            object_headers.subgroup_id = it->second.current_subgroup_id;
+            object_headers.payload_length = 0;
+            object_headers.ttl = 5000; // TODO: Revisit TTL for end of subgroup/stream
+            object_headers.object_id = it->second.next_object_id.has_value() ? it->second.next_object_id.value() : 1;
+
+            // Fan out to all subscribers
+            try {
+                auto track_alias = GetTrackAlias();
+                if (!track_alias.has_value()) {
+                    SPDLOG_INFO("Data without valid track alias");
+                    return;
+                }
+
+                auto sub_it = qserver_vars::subscribes.find(track_alias.value());
+
+                if (sub_it == qserver_vars::subscribes.end()) {
+                    return;
+                }
+
+                for (const auto& [conn_id, pth] : sub_it->second) {
+                    pth->PublishObject(object_headers, {});
+                }
+            } catch (const std::exception& e) {
+                SPDLOG_ERROR("Caught exception trying to publish to close stream. (error={})", e.what());
+            }
+
+            streams_.erase(it);
         }
     }
 
