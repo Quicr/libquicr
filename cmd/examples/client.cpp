@@ -277,7 +277,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                              .count();
         j["dataFile"] = data_filename;
         j["dataOffset"] = data_offset;
-        j["dataLength"] = hdr.payload_length;
+        j["dataLength"] = data.size();
 
         moq_fs_.clear();
         moq_fs_.seekg(0);
