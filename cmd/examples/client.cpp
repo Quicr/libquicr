@@ -215,7 +215,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
         std::string msg(data.begin(), data.end());
 
-        SPDLOG_INFO("Received message: {} Group:{}, Object:{} - {}", ext.str(), hdr.group_id, hdr.object_id, msg);
+        SPDLOG_INFO("Received message: {} Group:{}, Subgroup: {} Object:{} - {}",
+                    ext.str(),
+                    hdr.group_id,
+                    hdr.subgroup_id,
+                    hdr.object_id,
+                    msg);
 
         if (qclient_vars::new_group_request_id.has_value() && not new_group_requested_) {
             SPDLOG_INFO("Track alias: {} requesting new group {}",

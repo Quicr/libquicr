@@ -981,7 +981,8 @@ namespace quicr {
                                         conn_ctx.connection_handle,
                                         msg.request_id);
                 }
-                pub_it->second.get()->SetStatus(PublishTrackHandler::Status::kOk);
+                pub_it->second.get()->SetStatus(msg.forward ? PublishTrackHandler::Status::kOk
+                                                            : PublishTrackHandler::Status::kPaused);
                 return true;
             }
             default: {
