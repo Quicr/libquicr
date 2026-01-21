@@ -6,8 +6,15 @@ include(FetchContent)
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
 FetchContent_MakeAvailable(json)
 
+FetchContent_Declare(
+        sframe
+        GIT_REPOSITORY https://github.com/cisco/sframe.git
+        GIT_TAG main
+)
+FetchContent_MakeAvailable(sframe)
+
 add_executable(qclient client.cpp)
-target_link_libraries(qclient PRIVATE quicr nlohmann_json::nlohmann_json)
+target_link_libraries(qclient PRIVATE quicr nlohmann_json::nlohmann_json sframe)
 target_include_directories(qclient PRIVATE ../dependencies )
 
 target_compile_options(qclient
