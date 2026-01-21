@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <regex>
 #include <set>
 
 using json = nlohmann::json; // NOLINT
@@ -65,13 +66,13 @@ namespace qclient_consts {
 }
 
 namespace {
-    // TODO: Escape/drop invalid filename characters.
     std::string ToString(const quicr::FullTrackName& ftn)
     {
         std::string str;
+        const std::regex pattern("[<>:\"/\\|?*]+");
         const auto& entries = ftn.name_space.GetEntries();
         for (const auto& entry : entries) {
-            str += std::string(entry.begin(), entry.end()) + '_';
+            str += std::regex_replace(std::string(entry.begin(), entry.end()), pattern, "_") + '_';
         }
 
         str += std::string(ftn.name.begin(), ftn.name.end());
@@ -164,8 +165,6 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
             std::filesystem::create_directory(dir);
 
             std::string name_str = ToString(full_track_name);
-            std::replace(name_str.begin(), name_str.end(), '/', '_');
-            std::replace(name_str.begin(), name_str.end(), ':', '_');
 
             data_fs_.open(dir / (name_str + ".dat"), std::ios::in | std::ios::out | std::ios::trunc);
             if (!data_fs_.is_open()) {
