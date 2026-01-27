@@ -10,6 +10,7 @@
 #include "quicr/config.h"
 #include "quicr/fetch_track_handler.h"
 #include "quicr/metrics.h"
+#include "quicr/publish_namespace_handler.h"
 #include "quicr/publish_track_handler.h"
 #include "quicr/subscribe_namespace_handler.h"
 #include "quicr/subscribe_track_handler.h"
@@ -163,6 +164,25 @@ namespace quicr {
          */
         void UnpublishTrack(ConnectionHandle connection_handle,
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
+
+        /**
+         * @brief Publish to a track
+         *
+         * @param connection_handle           Connection ID from transport for the QUIC connection context
+         * @param track_handler               Track handler to use for track related functions
+         *                                    and callbacks
+         */
+        void PublishNamespace(ConnectionHandle connection_handle,
+                              std::shared_ptr<PublishNamespaceHandler> track_handler);
+
+        /**
+         * @brief Unpublish track
+         *
+         * @param connection_handle           Connection ID from transport for the QUIC connection context
+         * @param track_handler               Track handler used when published track
+         */
+        void PublishNamespaceDone(ConnectionHandle connection_handle,
+                                  const std::shared_ptr<PublishNamespaceHandler>& track_handler);
 
         /**
          * @brief Callback notification for new publish received
@@ -452,11 +472,17 @@ namespace quicr {
             /// Fetch Publishers by request ID.
             std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
 
+            /// Publish Namespace handlers by namespace.
+            std::map<TrackNamespace, std::shared_ptr<PublishNamespaceHandler>> pub_namespace_handlers;
+
             /// Subscribe Namespace prefix by request Id
-            std::map<messages::RequestID, TrackNamespace> sub_namespace_prefix_by_request_id;
+            std::map<messages::RequestID, TrackNamespace> pub_namespace_prefix_by_request_id;
 
             /// Subscribe Namespace handlers by namespace.
             std::map<TrackNamespace, std::shared_ptr<SubscribeNamespaceHandler>> sub_namespace_handlers;
+
+            /// Subscribe Namespace prefix by request Id
+            std::map<messages::RequestID, TrackNamespace> sub_namespace_prefix_by_request_id;
 
             ConnectionMetrics metrics{};   ///< Connection metrics
             bool is_webtransport{ false }; ///< True if this connection uses WebTransport over HTTP/3

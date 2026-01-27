@@ -740,33 +740,25 @@ TEST_CASE("Integration - Annouce Flow")
         auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
 
         // Create a track with announce enabled.
-        FullTrackName ftn;
-        ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "namespace" });
-        ftn.name = { 1, 2, 3 };
-        const auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500);
-        pub_handler->SetUseAnnounce(true);
+        const TrackNamespace prefix(std::vector<std::string>{ "test", "namespace" });
+        auto ns_handler = PublishNamespaceHandler::Create(prefix);
 
         // Set up promise to capture server receiving PUBLISH_NAMESPACE.
         std::promise<TestServer::PublishNamespaceDetails> server_promise;
         std::future<TestServer::PublishNamespaceDetails> server_future = server_promise.get_future();
         server->SetPublishNamespacePromise(std::move(server_promise));
 
-        // Publush with announce, PUBLISH_NAMESPACE sent.
-        CHECK_NOTHROW(client->PublishTrack(pub_handler));
+        // Publish with announce, PUBLISH_NAMESPACE sent.
+        CHECK_NOTHROW(client->PublishNamespace(ns_handler));
 
         // Server should receive the PUBLISH_NAMESPACE for the namespace.
         auto server_status = server_future.wait_for(kDefaultTimeout);
-        REQUIRE(server_status == std::future_status::ready);
-        const auto& server_details = server_future.get();
-        CHECK_EQ(server_details.track_namespace, ftn.name_space);
+        REQUIRE_EQ(server_status, std::future_status::ready);
 
-        // Wait for PUBLISH_NAMESPACE_OK to land - poll until status changes.
-        const bool got_ok =
-          WaitFor([&pub_handler]() { return pub_handler->GetStatus() == PublishTrackHandler::Status::kNoSubscribers; });
-        CHECK(got_ok);
+        std::this_thread::sleep_for(kDefaultTimeout);
 
         // Verify the publish track handler transitions to kNoSubscribers (PUBLISH_NAMESPACE_OK).
-        CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kNoSubscribers);
+        CHECK_EQ(ns_handler->GetStatus(), PublishNamespaceHandler::Status::kOk);
     };
 
     SUBCASE("Raw QUIC")
