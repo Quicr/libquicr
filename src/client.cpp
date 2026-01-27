@@ -504,11 +504,21 @@ namespace quicr {
                     return true;
                 }
 
-                auto handler = conn_ctx.pub_namespace_handlers.at(pub_ns_it->second);
+                auto handler_it = conn_ctx.pub_namespace_handlers.find(pub_ns_it->second);
+                if (handler_it == conn_ctx.pub_namespace_handlers.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received publish namespace ok to unknown namespace (hash={})",
+                                       std::hash<TrackNamespace>{}(pub_ns_it->second));
+                    return true;
+                }
+
+                auto& handler = handler_it->second;
                 handler->SetStatus(PublishNamespaceHandler::Status::kOk);
 
                 for (const auto& [_, pub_handler] : handler->handlers_) {
-                    pub_handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+                    if (pub_handler->GetStatus() != PublishTrackHandler::Status::kOk) {
+                        pub_handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+                    }
                 }
 
                 conn_ctx.pub_namespace_prefix_by_request_id.erase(pub_ns_it);
