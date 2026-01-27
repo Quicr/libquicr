@@ -1258,7 +1258,7 @@ main(int argc, char* argv[])
         }
 
         // Wait until told to terminate
-        moq_example::cv.wait(lock, [&]() { return moq_example::terminate; });
+        moq_example::cv.wait(lock, [&]() { return moq_example::terminate.load(); });
 
         stop_threads = true;
         SPDLOG_INFO("Stopping threads...");

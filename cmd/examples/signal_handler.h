@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <csignal>
 #include <iostream>
@@ -10,7 +11,7 @@
 
 namespace moq_example {
     std::mutex main_mutex;                     // Main's mutex
-    bool terminate{ false };                   // Termination flag
+    std::atomic<bool> terminate{ false };      // Termination flag
     std::condition_variable cv;                // Main thread waits on this
     const char* termination_reason{ nullptr }; // Termination reason
 };
