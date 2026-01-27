@@ -14,14 +14,15 @@ target_sources (quicr PRIVATE
     messages.cpp
     publish_fetch_handler.cpp
     publish_track_handler.cpp
+    publish_namespace_handler.cpp
     fetch_track_handler.cpp
     subscribe_track_handler.cpp
+    subscribe_namespace_handler.cpp
     server.cpp
     quic_transport.cpp
     transport.cpp
     transport_picoquic.cpp
     joining_fetch_handler.cpp
-    subscribe_namespace_handler.cpp
 )
 
 set_source_files_properties(${ctrl_messages_SOURCE} PROPERTIES GENERATED TRUE)

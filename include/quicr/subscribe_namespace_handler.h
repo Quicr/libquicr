@@ -83,6 +83,14 @@ namespace quicr {
         void SetStatus(const Status status) noexcept
         {
             status_ = status;
+            if (status == Status::kError && !error_.has_value()) {
+                const std::string reason = "Unknown error";
+
+                error_ = {
+                    messages::SubscribeNamespaceErrorCode::kInternalError,
+                    Bytes{ reason.begin(), reason.end() },
+                };
+            }
             StatusChanged(status);
         }
 
