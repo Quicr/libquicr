@@ -1172,9 +1172,6 @@ main(int argc, char* argv[])
     // Install a signal handlers to catch operating system signals
     installSignalHandlers();
 
-    // Lock the mutex so that main can then wait on it
-    std::unique_lock lock(moq_example::main_mutex);
-
     bool enable_pub{ false };
     bool enable_sub{ false };
     bool enable_fetch{ false };
@@ -1190,13 +1187,16 @@ main(int argc, char* argv[])
             exit(-1);
         }
 
-        while (not stop_threads) {
+        while (not stop_threads && not moq_example::terminate.load()) {
             if (client->GetStatus() == MyClient::Status::kReady) {
                 SPDLOG_INFO("Connected to server");
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }
+
+        // Lock the mutex for cv.wait
+        std::unique_lock lock(moq_example::main_mutex);
 
         std::thread pub_thread;
         std::thread sub_thread;
@@ -1258,7 +1258,7 @@ main(int argc, char* argv[])
         }
 
         // Wait until told to terminate
-        moq_example::cv.wait(lock, [&]() { return moq_example::terminate; });
+        moq_example::cv.wait(lock, [&]() { return moq_example::terminate.load(); });
 
         stop_threads = true;
         SPDLOG_INFO("Stopping threads...");

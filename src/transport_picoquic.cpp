@@ -2628,6 +2628,9 @@ PicoQuicTransport::Shutdown()
 
     if (quic_network_thread_ctx_ != NULL) {
         SPDLOG_LOGGER_INFO(logger, "Closing transport picoquic thread");
+
+        // Signal thread to exit BEFORE waiting
+        quic_network_thread_ctx_->thread_should_close = 1;
         picoquic_wake_up_network_thread(quic_network_thread_ctx_);
 
         while (quic_network_thread_ctx_->thread_is_ready) {
