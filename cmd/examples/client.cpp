@@ -1187,7 +1187,7 @@ main(int argc, char* argv[])
             exit(-1);
         }
 
-        while (not stop_threads && not moq_example::terminate) {
+        while (not stop_threads && not moq_example::terminate.load()) {
             if (client->GetStatus() == MyClient::Status::kReady) {
                 SPDLOG_INFO("Connected to server");
                 break;
