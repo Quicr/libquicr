@@ -2774,7 +2774,7 @@ PicoQuicTransport::CloseStreamById(TransportConnId conn_id, uint64_t stream_id, 
         return;
     }
 
-    RunPqFunction([this, conn_ctx, stream_id, use_reset]() {
+    RunPqFunction([conn_ctx, stream_id, use_reset]() {
         if (use_reset) {
             picoquic_reset_stream_ctx(conn_ctx->pq_cnx, stream_id);
             picoquic_reset_stream(conn_ctx->pq_cnx, stream_id, 0);
