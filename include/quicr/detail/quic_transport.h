@@ -59,7 +59,8 @@ namespace quicr {
         kInvalidDataContextId,
         kInvalidIpv4Address,
         kInvalidIpv6Address,
-        kInvalidStreamId
+        kInvalidStreamId,
+        kFailedToCreateQuicInstance
     };
 
     /**
@@ -113,8 +114,8 @@ namespace quicr {
     enum class StreamAction : uint8_t
     {
         kNoAction = 0,
-        kReplaceStreamUseReset,
-        kReplaceStreamUseFin,
+        kCloseStreamUseReset,
+        kCloseStreamUseFin,
     };
 
     struct ConnData
@@ -154,10 +155,10 @@ namespace quicr {
         TransportError Error;
     };
 
-    enum class StreamClosedFlag
+    enum class StreamClosedFlag : uint8_t
     {
-        Fin,
-        Reset,
+        kFin,
+        kReset,
     };
 
     /**
@@ -383,10 +384,11 @@ namespace quicr {
         /**
          * @brief Close stream by stream id
          * @param conn_id           Connection id of stream
+         * @param data_ctx_id       Data context id that owns the stream
          * @param stream_id         Stream ID to close
          * @param use_reset         True to close by RESET, false to close by FIN
          */
-        virtual void CloseStreamById(TransportConnId conn_id, uint64_t stream_id, bool use_reset) = 0;
+        virtual void CloseStream(TransportConnId conn_id, uint64_t data_ctx_id, uint64_t stream_id, bool use_reset) = 0;
 
         /**
          * @brief Delete data context
@@ -411,24 +413,6 @@ namespace quicr {
         virtual bool GetPeerAddrInfo(const TransportConnId& context_id, sockaddr_storage* addr) = 0;
 
         /**
-         * @brief Set the data context id for RX unidir stream id
-         *
-         * @param conn_id                 Connection ID of the data context ID
-         * @param data_ctx_id             Local data context ID
-         * @param stream_id               RX stream ID
-         */
-        virtual void SetStreamIdDataCtxId(TransportConnId conn_id, DataContextId data_ctx_id, uint64_t stream_id) = 0;
-
-        /**
-         * @brief Set/update prioirty for the data context
-         *
-         * @param conn_id                 Connection ID of the data context ID
-         * @param data_ctx_id             Local data context ID
-         * @param priority                Priority for data context stream, range should be 0 - 255
-         */
-        virtual void SetDataCtxPriority(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority) = 0;
-
-        /**
          * @brief Set the remote data context id
          * @details sets the remote data context id for data objects transmitted
          *
@@ -446,7 +430,7 @@ namespace quicr {
         struct EnqueueFlags
         {
             bool use_reliable{ false };   /// Indicates if object should use reliable stream or unreliable
-            bool new_stream{ false };     /// Indicates that a new stream should be created to replace existing one
+            bool close_stream{ false };   /// Indicates that a new stream should be created to replace existing one
             bool clear_tx_queue{ false }; /// Indicates that the TX queue should be cleared before adding new object
             bool use_reset{ false };      /// Indicates new stream created will close the previous using reset/abrupt
         };
@@ -459,7 +443,7 @@ namespace quicr {
          *
          * @param[in] context_id	Identifying the connection
          * @param[in] data_ctx_id	stream Id to send data on
-         * @param[in] group_id     The id of the group we're currently enqueuing.
+         * @param[in] stream_id     Stream ID to send message on
          * @param[in] bytes		    Data to send/write
          * @param[in] priority      Priority of the object, range should be 0 - 255
          * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
@@ -470,7 +454,7 @@ namespace quicr {
          */
         virtual TransportError Enqueue(const TransportConnId& context_id,
                                        const DataContextId& data_ctx_id,
-                                       std::uint64_t group_id,
+                                       std::uint64_t stream_id,
                                        std::shared_ptr<const std::vector<uint8_t>> bytes,
                                        uint8_t priority = 1,
                                        uint32_t ttl_ms = 350,
@@ -552,5 +536,16 @@ namespace quicr {
          * @returns 0 on success, -1 on failure (e.g., not a WebTransport connection)
          */
         virtual int DrainWebTransportSession(TransportConnId conn_id) = 0;
+
+        /**
+         * @brief Create a new stream.
+         *
+         * @param conn_id       The connection id for the stream.
+         * @param data_ctx_id   The data context ID that the stream belongs to.
+         * @param priority      Priority of the stream
+         *
+         * @returns The optionally created stream id. If no stream was created, returns nullopt.
+         */
+        virtual std::uint64_t CreateStream(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority) = 0;
     };
 } // namespace quicr

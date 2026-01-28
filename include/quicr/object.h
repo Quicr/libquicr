@@ -40,6 +40,15 @@ namespace quicr {
         std::optional<TrackMode> track_mode; ///< Track Mode of how the object was received or mode to use when sending
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
+
+        enum class CloseStream : uint8_t
+        {
+            kFin,
+            kReset
+        };
+
+        std::optional<CloseStream> end_of_subgroup;
+        bool end_of_group{ false };
     };
 
 }

@@ -105,10 +105,9 @@ namespace quicr {
                     }
                     break;
                 case TrackMode::kStream:
-                    // TODO: Is a default acceptable, or enforce?
                     stream_mode_ = stream_mode.has_value()
                                      ? stream_mode.value()
-                                     : messages::StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions;
+                                     : messages::StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions;
                     break;
             }
         }
@@ -285,10 +284,16 @@ namespace quicr {
          *    implement this method to forward bytes received to subscriber connection.
          *
          * @param is_new_stream       Indicates if this data starts a new stream
+         * @param group_id            Group ID for stream
+         * @param subgroup_id         Subgroup ID for stream
          * @param data                MoQ data to send
+         *
          * @return Publish status on forwarding the data
          */
-        PublishObjectStatus ForwardPublishedData(bool is_new_stream, std::shared_ptr<const std::vector<uint8_t>> data);
+        PublishObjectStatus ForwardPublishedData(bool is_new_stream,
+                                                 uint64_t group_id,
+                                                 uint64_t subgroup_id,
+                                                 std::shared_ptr<const std::vector<uint8_t>> data);
 
         /**
          * @brief Publish object to the announced track
@@ -339,18 +344,6 @@ namespace quicr {
         // --------------------------------------------------------------------------
       protected:
         /**
-         * @brief Set the Data context ID
-         *
-         * @details The MOQ Handler sets the data context ID
-         */
-        void SetDataContextId(uint64_t data_ctx_id) noexcept { publish_data_ctx_id_ = data_ctx_id; };
-
-        /**
-         * @brief Get the Data context ID
-         */
-        constexpr uint64_t GetDataContextId() const noexcept { return publish_data_ctx_id_; };
-
-        /**
          * @brief Set the publish status
          * @param status                Status of publishing (aka publish objects)
          */
@@ -373,13 +366,21 @@ namespace quicr {
         uint8_t default_priority_; // Set by caller and is used when priority is not specified
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
-        uint64_t publish_data_ctx_id_; // set byte the transport; publishing data context ID
+        uint64_t publish_data_ctx_id_; // set by the transport; publishing data context ID
 
-        uint64_t latest_group_id_{ 0 };
-        uint64_t latest_sub_group_id_{ 0 };
-        std::optional<uint64_t> latest_object_id_;
-        uint64_t object_payload_remaining_length_{ 0 };
+        struct StreamInfo
+        {
+            uint64_t stream_id{ 0 };
+            uint64_t last_group_id{ 0 };
+            uint64_t last_subgroup_id{ 0 };
+            std::optional<uint64_t> last_object_id;
+        };
+
+        std::map<std::uint64_t, std::map<std::uint64_t, StreamInfo>> stream_info_by_group_;
+
         std::optional<uint64_t> track_alias_;
+
+        messages::Location largest_location_{ 0, 0 };
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 

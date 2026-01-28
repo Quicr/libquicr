@@ -1,9 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <quicr/publish_track_handler.h>
-
 #include "quicr/detail/transport.h"
+#include <quicr/publish_track_handler.h>
 
 namespace quicr {
     void PublishTrackHandler::StatusChanged(Status) {}
@@ -11,9 +10,12 @@ namespace quicr {
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::ForwardPublishedData(
       bool is_new_stream,
+      uint64_t group_id,
+      uint64_t subgroup_id,
       std::shared_ptr<const std::vector<uint8_t>> data)
     {
         auto transport = GetTransport().lock();
+        uint64_t stream_id{ 0 };
 
         if (!transport) {
             return PublishObjectStatus::kInternalError;
@@ -66,6 +68,11 @@ namespace quicr {
 
         ITransport::EnqueueFlags eflags;
 
+        if (group_id > largest_location_.group) {
+            largest_location_.group = group_id;
+            largest_location_.object = 0;
+        }
+
         switch (default_track_mode_) {
             case TrackMode::kDatagram: {
                 eflags.use_reliable = false;
@@ -75,17 +82,27 @@ namespace quicr {
                 eflags.use_reliable = true;
 
                 if (is_new_stream) {
-                    eflags.new_stream = true;
-                    eflags.clear_tx_queue = true;
-                    eflags.use_reset = false;
+                    auto stream_id =
+                      transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, GetDefaultPriority());
+                    stream_info_by_group_[group_id][subgroup_id] = { stream_id, group_id, subgroup_id, 0 };
                 }
 
+                auto group_it = stream_info_by_group_.find(group_id);
+                if (group_it == stream_info_by_group_.end()) {
+                    return PublishTrackHandler::PublishObjectStatus::kInternalError;
+                }
+                auto subgroup_it = group_it->second.find(subgroup_id);
+                if (subgroup_it == group_it->second.end()) {
+                    return PublishTrackHandler::PublishObjectStatus::kInternalError;
+                }
+
+                stream_id = subgroup_it->second.stream_id;
                 break;
             }
         }
 
         auto result = transport->Enqueue(
-          GetConnectionId(), publish_data_ctx_id_, latest_group_id_, data, default_priority_, default_ttl_, 0, eflags);
+          GetConnectionId(), publish_data_ctx_id_, stream_id, data, default_priority_, default_ttl_, 0, eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -103,13 +120,77 @@ namespace quicr {
             return PublishObjectStatus::kInternalError;
         }
 
+        std::uint16_t ttl = object_headers.ttl.value_or(default_ttl_);
+        std::uint8_t priority = object_headers.priority.value_or(default_priority_);
+
+        if (object_headers.group_id > largest_location_.group) {
+            largest_location_.group = object_headers.group_id;
+            largest_location_.object = object_headers.object_id;
+
+        } else if (largest_location_.group == object_headers.group_id) {
+            largest_location_.object = object_headers.object_id;
+        }
+
         bool is_stream_header_needed{ false };
+        uint64_t group_id_delta{ 0 };
+        uint64_t object_id_delta{ 0 };
+        uint64_t stream_id{ 0 };
 
-        // change in subgroups and groups require a new stream
+        if (default_track_mode_ == TrackMode::kStream) {
+            // If this is the first time this group/subgroup has been seen, then a new stream is required
+            auto group_it = stream_info_by_group_.find(object_headers.group_id);
+            decltype(group_it->second.begin()) subgroup_it;
 
-        is_stream_header_needed = not latest_object_id_.has_value() ||
-                                  latest_sub_group_id_ != object_headers.subgroup_id ||
-                                  latest_group_id_ != object_headers.group_id;
+            if (group_it == stream_info_by_group_.end()) {
+                is_stream_header_needed = true;
+
+                auto stream_id = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
+                auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
+                auto [it, _] = subgroup_map.emplace(
+                  object_headers.subgroup_id,
+                  StreamInfo{
+                    stream_id, object_headers.group_id, object_headers.subgroup_id, object_headers.object_id });
+                subgroup_it = std::move(it);
+            } else {
+                subgroup_it = group_it->second.find(object_headers.subgroup_id);
+                if (subgroup_it == group_it->second.end()) {
+                    is_stream_header_needed = true;
+
+                    auto stream_id = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
+                    auto [it, _] = group_it->second.emplace(
+                      object_headers.subgroup_id,
+                      StreamInfo{
+                        stream_id, object_headers.group_id, object_headers.subgroup_id, object_headers.object_id });
+                    subgroup_it = std::move(it);
+                }
+            }
+
+            if (subgroup_it->second.last_object_id.has_value()) {
+                group_id_delta = subgroup_it->second.last_group_id > object_headers.group_id
+                                   ? 0
+                                   : object_headers.group_id - subgroup_it->second.last_group_id;
+
+                object_id_delta = subgroup_it->second.last_object_id > object_headers.object_id
+                                    ? object_headers.object_id
+                                    : object_headers.object_id - *subgroup_it->second.last_object_id;
+            } else {
+                object_id_delta = object_headers.object_id + 1;
+            }
+
+            if (object_id_delta)
+                object_id_delta--; // Adjust for delta in missing objects
+
+            if (group_id_delta) {
+                // Group change, reset pending new group request
+                pending_new_group_request_id_ = std::nullopt;
+            }
+
+            subgroup_it->second.last_group_id = object_headers.group_id;
+            subgroup_it->second.last_subgroup_id = object_headers.subgroup_id;
+            subgroup_it->second.last_object_id = object_headers.object_id;
+
+            stream_id = subgroup_it->second.stream_id;
+        }
 
         switch (publish_status_) {
             case Status::kOk:
@@ -143,9 +224,10 @@ namespace quicr {
             case Status::kSubscriptionUpdated:
 
                 /*
+                 * TODO: Need to revisit the below since subgroups doesn't really support this
                  * Always start a new stream on subscription update to support peering/pipelining
                  */
-                is_stream_header_needed = true;
+                // is_stream_header_needed = true;
 
                 publish_status_ = Status::kOk;
                 break;
@@ -158,29 +240,7 @@ namespace quicr {
             SetDefaultTrackMode(*object_headers.track_mode);
         }
 
-        uint64_t group_id_delta{ 0 };
-        uint64_t object_id_delta{ 0 };
-
-        if (latest_object_id_.has_value()) {
-            group_id_delta =
-              latest_group_id_ > object_headers.group_id ? 0 : object_headers.group_id - latest_group_id_;
-
-            object_id_delta = *latest_object_id_ > object_headers.object_id
-                                ? object_headers.object_id
-                                : object_headers.object_id - *latest_object_id_;
-        } else {
-            object_id_delta = object_headers.object_id + 1;
-        }
-
-        if (object_id_delta)
-            object_id_delta--; // Adjust for delta in missing objects
-
         auto object_extensions = object_headers.extensions;
-
-        if (group_id_delta) {
-            // Group change, reset pending new group request
-            pending_new_group_request_id_ = std::nullopt;
-        }
 
         // Only client (publishers) can add these extensions. Per moqt, relays do not add these extensions
         if (transport->client_mode_) {
@@ -209,9 +269,6 @@ namespace quicr {
             }
         }
 
-        latest_group_id_ = object_headers.group_id;
-        latest_sub_group_id_ = object_headers.subgroup_id;
-        latest_object_id_ = object_headers.object_id;
         publish_track_metrics_.bytes_published += data.size();
         publish_track_metrics_.objects_published++;
 
@@ -221,17 +278,12 @@ namespace quicr {
 
         ITransport::EnqueueFlags eflags;
 
-        std::uint64_t group_id = object_headers.group_id;
-        std::uint16_t ttl = object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_;
-        std::uint8_t priority =
-          object_headers.priority.has_value() ? object_headers.priority.value() : default_priority_;
-
         object_msg_buffer_.clear();
 
         switch (default_track_mode_) {
             case TrackMode::kDatagram: {
                 messages::ObjectDatagram object;
-                object.group_id = group_id;
+                object.group_id = object_headers.group_id;
                 object.object_id = object_headers.object_id;
                 object.priority = priority;
                 object.track_alias = GetTrackAlias().value();
@@ -250,10 +302,6 @@ namespace quicr {
                 eflags.use_reliable = true;
 
                 if (is_stream_header_needed) {
-                    eflags.new_stream = true;
-                    eflags.clear_tx_queue = true;
-                    eflags.use_reset = false;
-
                     messages::StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.type = GetStreamMode();
                     subgroup_hdr.group_id = object_headers.group_id;
@@ -264,6 +312,15 @@ namespace quicr {
                     subgroup_hdr.priority = priority;
                     subgroup_hdr.track_alias = GetTrackAlias().value();
                     object_msg_buffer_ << subgroup_hdr;
+                }
+
+                // TODO: send end of group/subgroup status/type
+                if (object_headers.end_of_subgroup.has_value()) {
+                    eflags.close_stream = true;
+
+                    if (*object_headers.end_of_subgroup == ObjectHeaders::CloseStream::kReset) {
+                        eflags.use_reset = true;
+                    }
                 }
 
                 messages::StreamSubGroupObject object;
@@ -281,15 +338,29 @@ namespace quicr {
             }
         }
 
+        SPDLOG_TRACE("Published conn_id: {} object stream_id: {} group: {} subgroup: {} object: {}",
+                     GetConnectionId(),
+                     subgroup_it->second.stream_id,
+                     object_headers.group_id,
+                     object_headers.subgroup_id,
+                     object_headers.object_id);
         auto result = transport->Enqueue(
           GetConnectionId(),
           publish_data_ctx_id_,
-          group_id,
+          stream_id,
           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
           priority,
           ttl,
           0,
           eflags);
+
+        if (eflags.close_stream) {
+            auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
+            subgroup_map.erase(object_headers.subgroup_id);
+            if (subgroup_map.empty()) {
+                stream_info_by_group_.erase(object_headers.group_id);
+            }
+        }
 
         if (result != TransportError::kNone) {
             throw TransportException(result);

@@ -311,16 +311,16 @@ namespace quicr {
 
     void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
     {
-        if (not conn_ctx.ctrl_data_ctx_id) {
+        if (!conn_ctx.ctrl_data_ctx_id.has_value() || !conn_ctx.ctrl_stream_id.has_value()) {
             CloseConnection(conn_ctx.connection_handle,
                             messages::TerminationReason::kProtocolViolation,
-                            "Control bidir stream not created");
+                            "Control bidir data context not created");
             return;
         }
 
         auto result = quic_transport_->Enqueue(conn_ctx.connection_handle,
                                                *conn_ctx.ctrl_data_ctx_id,
-                                               0,
+                                               *conn_ctx.ctrl_stream_id,
                                                std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
                                                0,
                                                2000,
@@ -1335,9 +1335,8 @@ namespace quicr {
                         tfn,
                         track_handler->GetTrackAlias().value(),
                         GroupOrder::kAscending,
-                        std::make_optional(Location{
-                          track_handler->latest_group_id_,
-                          track_handler->latest_object_id_.has_value() ? *track_handler->latest_object_id_ : 0 }),
+                        std::make_optional(
+                          Location{ track_handler->largest_location_.group, track_handler->largest_location_.object }),
                         true,
                         track_handler->support_new_group_request_);
         }
@@ -1562,6 +1561,8 @@ namespace quicr {
                                        "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
 
                     conn_ctx.ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, true);
+                    conn_ctx.ctrl_stream_id =
+                      quic_transport_->CreateStream(conn_id, conn_ctx.ctrl_data_ctx_id.value(), 0);
 
                     SendClientSetup();
 
@@ -1675,11 +1676,11 @@ namespace quicr {
                 // auto blob = to_hex(data);
                 conn_ctx.ctrl_msg_buffer.insert(conn_ctx.ctrl_msg_buffer.end(), data.begin(), data.end());
                 rx_ctx->data_queue.PopFront();
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
-                                   conn_id,
-                                   stream_id,
-                                   conn_ctx.ctrl_msg_buffer.size());
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
+                                    conn_id,
+                                    stream_id,
+                                    conn_ctx.ctrl_msg_buffer.size());
 
                 if (not conn_ctx.ctrl_data_ctx_id) {
                     if (not data_ctx_id) {
@@ -1689,6 +1690,7 @@ namespace quicr {
                         return;
                     }
                     conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+                    conn_ctx.ctrl_stream_id = stream_id;
                 }
 
                 while (conn_ctx.ctrl_msg_buffer.size() > 0) {
@@ -1769,7 +1771,7 @@ namespace quicr {
                 auto msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
                 auto cursor_it = std::next(data.begin(), type_sz);
 
-                SPDLOG_LOGGER_DEBUG(logger_, "Received stream message type: 0x{:02x} ({})", msg_type, msg_type);
+                SPDLOG_LOGGER_TRACE(logger_, "Received stream message type: 0x{:02x} ({})", msg_type, msg_type);
 
                 bool parsed_header = false;
                 const auto type = static_cast<StreamMessageType>(msg_type);
@@ -1828,7 +1830,8 @@ namespace quicr {
                       logger_,
                       "Received data on existing stream_id: {} with no handler anymore, resetting stream",
                       stream_id);
-                    quic_transport_->CloseStreamById(conn_id, stream_id, true);
+
+                    quic_transport_->CloseStream(conn_id, data_ctx_id.value(), stream_id, true);
                 }
             }
         } // end of for loop rx data queue
@@ -1851,14 +1854,16 @@ namespace quicr {
 
         try {
             const auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
-            if (const auto handler = handler_weak.lock(); handler && handler->is_fetch_handler_) {
+            if (const auto handler = handler_weak.lock(); handler) {
                 try {
                     switch (flag) {
-                        case StreamClosedFlag::Fin:
+                        case StreamClosedFlag::kFin:
                             handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                            handler->StreamClosed(stream_id, false);
                             break;
-                        case StreamClosedFlag::Reset:
+                        case StreamClosedFlag::kReset:
                             handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                            handler->StreamClosed(stream_id, true);
                             break;
                     }
                 } catch (const ProtocolViolationException& e) {
@@ -2155,9 +2160,14 @@ namespace quicr {
         }
     }
 
+    std::uint64_t Transport::CreateStream(ConnectionHandle conn_id, std::uint64_t data_ctx_id, uint8_t priority)
+    {
+        return quic_transport_->CreateStream(conn_id, data_ctx_id, priority);
+    }
+
     TransportError Transport::Enqueue(const TransportConnId& conn_id,
                                       const DataContextId& data_ctx_id,
-                                      std::uint64_t group_id,
+                                      std::uint64_t stream_id,
                                       std::shared_ptr<const std::vector<uint8_t>> bytes,
                                       const uint8_t priority,
                                       const uint32_t ttl_ms,
@@ -2165,6 +2175,6 @@ namespace quicr {
                                       const ITransport::EnqueueFlags flags)
     {
         return quic_transport_->Enqueue(
-          conn_id, data_ctx_id, group_id, std::move(bytes), priority, ttl_ms, delay_ms, flags);
+          conn_id, data_ctx_id, stream_id, std::move(bytes), priority, ttl_ms, delay_ms, flags);
     }
 } // namespace moq

@@ -378,6 +378,8 @@ namespace quicr {
 
             ConnectionHandle connection_handle{ 0 };
             std::optional<uint64_t> ctrl_data_ctx_id;
+            std::optional<uint64_t> ctrl_stream_id;
+
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             bool closed{ false };
             uint64_t client_version{ 0 };
@@ -654,9 +656,11 @@ namespace quicr {
 
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
 
+        std::uint64_t CreateStream(ConnectionHandle conn, std::uint64_t data_ctx_id, uint8_t priority);
+
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,
-                               std::uint64_t group_id,
+                               std::uint64_t stream_id,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                const uint8_t priority,
                                const uint32_t ttl_ms,
