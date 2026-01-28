@@ -1090,20 +1090,20 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         return TransportError::kInvalidDataContextId;
     }
 
-    auto& streams = data_ctx_it->second.streams;
-
-    auto stream_it = streams.find(stream_id);
-    if (stream_it == streams.end()) {
-        return TransportError::kInvalidStreamId;
-    }
-
-    auto& stream = stream_it->second;
-
-    stream.priority = priority; // Match object priority for next stream create
-
     data_ctx_it->second.metrics.enqueued_objs++;
 
     if (flags.use_reliable) {
+        auto& streams = data_ctx_it->second.streams;
+
+        auto stream_it = streams.find(stream_id);
+        if (stream_it == streams.end()) {
+            return TransportError::kInvalidStreamId;
+        }
+
+        auto& stream = stream_it->second;
+
+        stream.priority = priority; // Match object priority for next stream create
+
         StreamAction stream_action{ StreamAction::kNoAction };
 
         if (flags.close_stream) {
