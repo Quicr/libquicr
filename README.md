@@ -89,7 +89,7 @@ Running `make` will build the examples.
 
 ### Server
 
-For an example on a simple server, look at the integration tests. For a more complicated example, [LAPS](https://github.com/Quicr/laps) is more a more flushed out server.
+For an example on a simple server, look at the integration tests. For a more complicated example, [LAPS](https://github.com/Quicr/laps) is more a more fleshed out server.
 
 ### qClient
 qClient is an example client. It implements the client API to make a connetion to the relay and to act as subscriber, publisher, or both.
