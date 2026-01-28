@@ -313,7 +313,6 @@ namespace quicr {
                     object_msg_buffer_ << subgroup_hdr;
                 }
 
-                // TODO: send end of group/subgroup status/type
                 if (object_headers.end_of_subgroup.has_value()) {
                     eflags.close_stream = true;
 
@@ -325,6 +324,18 @@ namespace quicr {
                 messages::StreamSubGroupObject object;
                 object.object_delta = object_id_delta;
                 object.stream_type = GetStreamMode();
+
+                // Derive object status from flags
+                if (object_headers.end_of_group) {
+                    object.object_status = ObjectStatus::kEndOfGroup;
+                } else if (object_headers.end_of_subgroup.has_value()) {
+                    object.object_status = ObjectStatus::kEndOfSubGroup;
+                } else if (data.empty()) {
+                    // Empty payload requires a status - use caller's value
+                    object.object_status = object_headers.status;
+                } else {
+                    object.object_status = ObjectStatus::kAvailable;
+                }
                 if (object_extensions) {
                     object.extensions = std::move(*object_extensions);
                 }
@@ -355,7 +366,7 @@ namespace quicr {
 
         if (eflags.close_stream) {
             auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
-            subgroup_map.erase(stream_id);
+            subgroup_map.erase(object_headers.subgroup_id);
             if (subgroup_map.empty()) {
                 stream_info_by_group_.erase(object_headers.group_id);
             }
