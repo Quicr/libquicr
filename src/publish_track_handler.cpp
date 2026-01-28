@@ -224,9 +224,10 @@ namespace quicr {
             case Status::kSubscriptionUpdated:
 
                 /*
+                 * TODO: Need to revisit the below since subgroups doesn't really support this
                  * Always start a new stream on subscription update to support peering/pipelining
                  */
-                is_stream_header_needed = true;
+                // is_stream_header_needed = true;
 
                 publish_status_ = Status::kOk;
                 break;
@@ -355,7 +356,7 @@ namespace quicr {
 
         if (eflags.close_stream) {
             auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
-            subgroup_map.erase(stream_id);
+            subgroup_map.erase(object_headers.subgroup_id);
             if (subgroup_map.empty()) {
                 stream_info_by_group_.erase(object_headers.group_id);
             }
