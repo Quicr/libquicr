@@ -570,10 +570,8 @@ namespace quicr {
                        const FullTrackName& tfn,
                        messages::SubscriberPriority priority,
                        messages::GroupOrder group_order,
-                       messages::GroupId start_group,
-                       messages::GroupId start_object,
-                       messages::GroupId end_group,
-                       messages::GroupId end_object);
+                       const messages::Location& start_location,
+                       const messages::FetchEndLocation& end_location);
         void SendJoiningFetch(ConnectionContext& conn_ctx,
                               messages::RequestID request_id,
                               messages::SubscriberPriority priority,
