@@ -340,6 +340,14 @@ namespace quicr {
         bool IsPublisherInitiated() const noexcept { return publisher_initiated_; }
 
         /**
+         * @brief Notification that a stream has been closed.
+         * @param stream_id The ID of the stream being closed.
+         * @param reset     True if stream closed by reset
+         *
+         */
+        virtual void StreamClosed(std::uint64_t stream_id, bool reset = false);
+
+        /**
          * @brief Subscribe metrics for the track
          *
          * @details Subscribe metrics are updated real-time and transport quic metrics on metrics_sample_ms
@@ -358,20 +366,25 @@ namespace quicr {
             StatusChanged(status);
         }
 
-        StreamBuffer<uint8_t> stream_buffer_;
+        struct StreamContext
+        {
+            StreamBuffer<uint8_t> buffer;
 
-        std::optional<uint64_t> next_object_id_;
-        uint64_t current_group_id_{ 0 };
-        uint64_t current_subgroup_id_{ 0 };
+            std::optional<uint64_t> next_object_id;
+            uint64_t current_group_id{ 0 };
+            uint64_t current_subgroup_id{ 0 };
+        };
+
         std::optional<uint64_t> pending_new_group_request_id_;
         bool is_fetch_handler_{ false };
+        std::map<std::uint64_t, StreamContext> streams_;
+        StreamBuffer<uint8_t> dgram_buffer_;
 
       private:
         Status status_{ Status::kNotSubscribed };
         messages::SubscriberPriority priority_;
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
-        uint64_t current_stream_id_{ 0 };
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;

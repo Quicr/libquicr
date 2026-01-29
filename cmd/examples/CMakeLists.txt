@@ -23,27 +23,7 @@ set_target_properties(qclient
 
 target_compile_definitions(qclient PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 
-add_executable(qserver
-        server.cpp
-)
-target_link_libraries(qserver PRIVATE quicr)
-target_include_directories(qserver PRIVATE ../dependencies )
-
-target_compile_options(qserver
-        PRIVATE
-        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
-        $<$<CXX_COMPILER_ID:MSVC>: >)
-
-set_target_properties(qserver
-        PROPERTIES
-        CXX_STANDARD 20
-        CXX_STANDARD_REQUIRED YES
-        CXX_EXTENSIONS ON)
-
-target_compile_definitions(qserver PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
-
 if(LINT)
         include(Lint)
-        Lint(qserver)
         Lint(qclient)
 endif()

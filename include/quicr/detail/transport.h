@@ -5,23 +5,23 @@
 
 #include "attributes.h"
 #include "messages.h"
+#include "quic_transport.h"
+#include "quicr/common.h"
+#include "quicr/config.h"
+#include "quicr/fetch_track_handler.h"
+#include "quicr/metrics.h"
+#include "quicr/publish_track_handler.h"
+#include "quicr/subscribe_namespace_handler.h"
+#include "quicr/subscribe_track_handler.h"
 #include "tick_service.h"
 
-#include "quic_transport.h"
-
-#include <chrono>
-#include <quicr/common.h>
-#include <quicr/config.h>
-#include <quicr/fetch_track_handler.h>
-#include <quicr/metrics.h>
-#include <quicr/publish_track_handler.h>
-#include <quicr/subscribe_track_handler.h>
-#include <span>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
 #include <atomic>
+#include <chrono>
 #include <map>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -378,6 +378,8 @@ namespace quicr {
 
             ConnectionHandle connection_handle{ 0 };
             std::optional<uint64_t> ctrl_data_ctx_id;
+            std::optional<uint64_t> ctrl_stream_id;
+
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             bool closed{ false };
             uint64_t client_version{ 0 };
@@ -452,6 +454,9 @@ namespace quicr {
 
             /// Subscribe Namespace prefix by request Id
             std::map<messages::RequestID, TrackNamespace> sub_namespace_prefix_by_request_id;
+
+            /// Subscribe Namespace handlers by namespace.
+            std::map<TrackNamespace, std::shared_ptr<SubscribeNamespaceHandler>> sub_namespace_handlers;
 
             ConnectionMetrics metrics{};   ///< Connection metrics
             bool is_webtransport{ false }; ///< True if this connection uses WebTransport over HTTP/3
@@ -551,8 +556,9 @@ namespace quicr {
                               messages::SubscribeErrorCode error,
                               const std::string& reason);
 
-        void SendSubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
-        void SendUnsubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace);
+        void SendSubscribeNamespace(ConnectionHandle conn_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
+        void SendUnsubscribeNamespace(ConnectionHandle conn_handle,
+                                      const std::shared_ptr<SubscribeNamespaceHandler>& handler);
         void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
         void SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
                                          messages::RequestID request_id,
@@ -650,9 +656,11 @@ namespace quicr {
 
         virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
 
+        std::uint64_t CreateStream(ConnectionHandle conn, std::uint64_t data_ctx_id, uint8_t priority);
+
         TransportError Enqueue(const TransportConnId& conn_id,
                                const DataContextId& data_ctx_id,
-                               std::uint64_t group_id,
+                               std::uint64_t stream_id,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                const uint8_t priority,
                                const uint32_t ttl_ms,

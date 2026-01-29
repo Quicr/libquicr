@@ -23,126 +23,105 @@ namespace quicr {
                                                uint64_t stream_id,
                                                std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        SPDLOG_TRACE("SubHandler:StreamDataRecv, is_start {}, current_stream {}, stream_id: {}, data_sz {}",
-                     is_start,
-                     current_stream_id_,
-                     stream_id,
-                     data->size());
-
-        if (stream_id > current_stream_id_) {
-            current_stream_id_ = stream_id;
-        } else if (stream_id < current_stream_id_) {
-            SPDLOG_INFO(
-              "Old stream data received, stream_id: {} is less than {}, ignoring", stream_id, current_stream_id_);
-            return;
-        }
+        auto& stream = streams_[stream_id];
 
         if (is_start) {
-            stream_buffer_.Clear();
+            stream.buffer.Clear();
 
-            stream_buffer_.InitAny<messages::StreamHeaderSubGroup>();
-            stream_buffer_.Push(*data);
+            stream.buffer.InitAny<messages::StreamHeaderSubGroup>();
+            stream.buffer.Push(*data);
 
             // Expect that on initial start of stream, there is enough data to process the stream headers
 
-            auto& s_hdr = stream_buffer_.GetAny<messages::StreamHeaderSubGroup>();
-            if (not(stream_buffer_ >> s_hdr)) {
-                SPDLOG_ERROR(
-                  "SubHandler:StreamDataRecv:Not enough data to process new stream headers, stream is invalid");
+            auto& s_hdr = stream.buffer.GetAny<messages::StreamHeaderSubGroup>();
+            if (not(stream.buffer >> s_hdr)) {
+                SPDLOG_ERROR("Not enough data to process new stream headers, stream is invalid");
                 // TODO: Add metrics to track this
                 return;
             }
         } else {
-            stream_buffer_.Push(*data);
+            stream.buffer.Push(*data);
         }
 
-        auto& s_hdr = stream_buffer_.GetAny<messages::StreamHeaderSubGroup>();
+        auto& s_hdr = stream.buffer.GetAny<messages::StreamHeaderSubGroup>();
 
-        if (not stream_buffer_.AnyHasValueB()) {
-            stream_buffer_.InitAnyB<messages::StreamSubGroupObject>();
+        if (not stream.buffer.AnyHasValueB()) {
+            stream.buffer.InitAnyB<messages::StreamSubGroupObject>();
         }
 
-        auto& obj = stream_buffer_.GetAnyB<messages::StreamSubGroupObject>();
+        auto& obj = stream.buffer.GetAnyB<messages::StreamSubGroupObject>();
         obj.stream_type = s_hdr.type;
         const auto subgroup_properties = messages::StreamHeaderProperties(s_hdr.type);
-        if (stream_buffer_ >> obj) {
-            SPDLOG_TRACE("SubHandler:StreamDataRecv:Received stream_subgroup_object priority: {} track_alias: {} "
-                         "group_id: {} subgroup_id: {} object_id: {} data size: {}",
+        if (stream.buffer >> obj) {
+            SPDLOG_TRACE("Received stream_subgroup_object priority: {} stream_id: {} track_alias: {} "
+                         "group: {} subgroup: {} object: {} data size: {}",
                          s_hdr.priority,
+                         stream_id,
                          s_hdr.track_alias,
                          s_hdr.group_id,
                          s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,
                          obj.object_delta,
                          obj.payload.size());
 
-            if (next_object_id_.has_value()) {
-                if (current_group_id_ != s_hdr.group_id || current_subgroup_id_ != s_hdr.subgroup_id) {
-                    next_object_id_ = obj.object_delta;
+            if (stream.next_object_id.has_value()) {
+                if (stream.current_group_id != s_hdr.group_id || stream.current_subgroup_id != s_hdr.subgroup_id) {
+                    stream.next_object_id = obj.object_delta;
                 } else {
-                    *next_object_id_ += obj.object_delta;
+                    *stream.next_object_id += obj.object_delta;
                 }
             } else {
-                next_object_id_ = obj.object_delta;
+                stream.next_object_id = obj.object_delta;
             }
 
-            current_group_id_ = s_hdr.group_id;
-            current_subgroup_id_ = s_hdr.subgroup_id.value();
+            stream.current_group_id = s_hdr.group_id;
+            stream.current_subgroup_id = s_hdr.subgroup_id.value();
 
             if (!s_hdr.subgroup_id.has_value()) {
                 if (subgroup_properties.subgroup_id_type != messages::SubgroupIdType::kSetFromFirstObject) {
                     throw messages::ProtocolViolationException("Subgoup ID mismatch");
                 }
                 // Set the subgroup ID from the first object ID.
-                s_hdr.subgroup_id = next_object_id_;
+                s_hdr.subgroup_id = stream.next_object_id;
             }
 
             subscribe_track_metrics_.objects_received++;
             subscribe_track_metrics_.bytes_received += obj.payload.size();
 
             try {
-                SPDLOG_TRACE("SubHandler:StreamDataRecv Invoking ObjectReceived stream_subgroup_object priority: {} "
-                             "track_alias: {} "
-                             "group_id: {} subgroup_id: {} object_id: {} data size: {}",
-                             s_hdr.priority,
-                             s_hdr.track_alias,
-                             s_hdr.group_id,
-                             s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,
-                             obj.object_delta,
-                             obj.payload.size());
+                ObjectReceived(
+                  {
+                    s_hdr.group_id,
+                    stream.next_object_id.value(),
+                    s_hdr.subgroup_id.value(),
+                    obj.payload.size(),
+                    obj.object_status,
+                    s_hdr.priority,
+                    std::nullopt,
+                    TrackMode::kStream,
+                    obj.extensions,
+                    obj.immutable_extensions,
+                  },
+                  obj.payload);
 
-                ObjectReceived({ s_hdr.group_id,
-                                 next_object_id_.value(),
-                                 s_hdr.subgroup_id.value(),
-                                 obj.payload.size(),
-                                 obj.object_status,
-                                 s_hdr.priority,
-                                 std::nullopt,
-                                 TrackMode::kStream,
-                                 obj.extensions,
-                                 obj.immutable_extensions },
-                               obj.payload);
-
-                *next_object_id_ += 1;
-
+                *stream.next_object_id += 1;
             } catch (const std::exception& e) {
                 SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());
             }
 
-            stream_buffer_.ResetAnyB<messages::StreamSubGroupObject>();
+            stream.buffer.ResetAnyB<messages::StreamSubGroupObject>();
         }
     }
 
     void SubscribeTrackHandler::DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        stream_buffer_.Clear();
-
-        stream_buffer_.Push(*data);
+        dgram_buffer_.Clear();
+        dgram_buffer_.Push(*data);
 
         // Payload or status?
         const auto msg_type = static_cast<messages::DatagramMessageType>(data->front());
         if (messages::TypeIsDatagramStatusType(msg_type)) {
             messages::ObjectDatagramStatus status_msg;
-            if (stream_buffer_ >> status_msg) {
+            if (dgram_buffer_ >> status_msg) {
                 SPDLOG_TRACE("Received object datagram status track_alias: {} group_id: {} object_id: {} status: {}",
                              status_msg.track_alias,
                              status_msg.group_id,
@@ -166,7 +145,7 @@ namespace quicr {
 
         // Data.
         messages::ObjectDatagram msg;
-        if (stream_buffer_ >> msg) {
+        if (dgram_buffer_ >> msg) {
             SPDLOG_TRACE("Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
                          "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
                          conn_id,
@@ -262,5 +241,10 @@ namespace quicr {
                                        GetPriority(),
                                        true,
                                        true);
+    }
+
+    void SubscribeTrackHandler::StreamClosed(std::uint64_t stream_id, bool)
+    {
+        streams_.erase(stream_id);
     }
 } // namespace quicr

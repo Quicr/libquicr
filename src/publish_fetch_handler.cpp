@@ -36,9 +36,11 @@ namespace quicr {
         eflags.use_reliable = true;
 
         if (is_stream_header_needed) {
-            eflags.new_stream = true;
+            eflags.close_stream = true;
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
+
+            stream_id_ = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
 
             messages::FetchHeader fetch_hdr;
             fetch_hdr.request_id = *request_id;
@@ -47,7 +49,7 @@ namespace quicr {
             auto result = transport->Enqueue(
               GetConnectionId(),
               publish_data_ctx_id_,
-              group_id,
+              stream_id_,
               std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
               priority,
               ttl,
@@ -55,13 +57,18 @@ namespace quicr {
               eflags);
 
             object_msg_buffer_.clear();
-            eflags.new_stream = false;
+            eflags.close_stream = false;
             eflags.clear_tx_queue = false;
             eflags.use_reset = false;
 
             if (result != TransportError::kNone) {
                 throw TransportException(result);
             }
+        }
+
+        // TODO: send end of group/subgroup status/type
+        if (object_headers.end_of_group || object_headers.end_of_subgroup) {
+            eflags.close_stream = true;
         }
 
         messages::FetchObject object{};
@@ -77,7 +84,7 @@ namespace quicr {
         auto result = transport->Enqueue(
           GetConnectionId(),
           publish_data_ctx_id_,
-          group_id,
+          stream_id_,
           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
           priority,
           ttl,

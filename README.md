@@ -13,7 +13,7 @@ API documentation can be found under https://quicr.github.io/libquicr
 ### Minimum Requirements
 
 * GCC/G++ version 12 or higher
-* Clang/llvm version 17 or higher 
+* Clang/llvm version 17 or higher
 * AppleClang/llvm version 17 or higher
 * Clang-tidy version 15 or higher
 * Python 3 with virtual environment
@@ -50,7 +50,7 @@ sudo apt-get install -y make wget git cmake openssl golang \
 
 ### Apple/Mac
 
-Both Apple Intel and Silicon are supported. 
+Both Apple Intel and Silicon are supported.
 
 
 #### (1) Install Xcode
@@ -59,7 +59,7 @@ Both Apple Intel and Silicon are supported.
 > You **MUST** install xcode from Apple in order to get the base development programs.
 
 
-Open the **App Store** and search for **Xcode** and install. 
+Open the **App Store** and search for **Xcode** and install.
 
 #### (2) Install Xcode Command Line Tools
 
@@ -68,46 +68,39 @@ You can install them via xcode UI or you can install them using `xcode-select --
 
 #### (3) Install Homebrew
 
-Install via https://brew.sh instructions.  
+Install via https://brew.sh instructions.
 
 #### (4) Install packages via brew
 
 ```
-brew install cmake clang-format 
+brew install cmake clang-format
 ```
 
 #### (5) Install GoLang
-Golang is required for BoringSSL build.  Install via https://go.dev/doc/install instructions. 
+Golang is required for BoringSSL build.  Install via https://go.dev/doc/install instructions.
 
 ---
 
 ## Example
-[cmd/examples](https://github.com/Quicr/libquicr/tree/main/cmd/examples) has an example client and server implementation showing chat and clock
+[cmd/examples](https://github.com/Quicr/libquicr/tree/main/cmd/examples) has an example client implementation showing chat and clock
 applications.
 
-Running `make` will build the examples. After running `make`, issue a `make cert` to generate a self-signed certificate
-that will be used by `qserver`.   
+Running `make` will build the examples.
 
-For the server, the default command line arguments look for the server certificate in the local directory. You can override
-that with the options `-c <cert file>` and `-k <key file>`, or you can run `qserver` from within the examples directory. 
+### Server
 
-### qServer
-qServer is an example server/relay. It implements the server API to accept connections and relay objects to subscribers from publishers. 
-
-Use `qserver -h` to get help. 
-
-By default, no options are required unless you need to change the defaults. The default listening port is **1234**
+For an example on a simple server, look at the integration tests. For a more complicated example, [LAPS](https://github.com/Quicr/laps) is more a more fleshed out server.
 
 ### qClient
 qClient is an example client. It implements the client API to make a connetion to the relay and to act as subscriber, publisher, or both.
 The client program will read from `stdin` when in publisher mode to publish data. Alternatively, the client can be configured to publish
-a timestamp using the option `--clock`.  
+a timestamp using the option `--clock`.
 
 Use `qclient -h` to get help.
 
 > [!NOTE]
 > The **namespace** and **name** for both publish and subscribe can be any string value. The only requirement is
-> to publish and subscribe to the same values. 
+> to publish and subscribe to the same values.
 
 #### As chat subscriber
 
@@ -155,7 +148,7 @@ Use `make fuzz` to run the fuzzer tests.
 
 libquicr includes C Bridge interfaces for C applications:
 
-#### Building C Bridge  
+#### Building C Bridge
 The C Bridge provides a C wrapper around the C++ libquicr library.
 
 See [c-bridge/README.md](c-bridge/README.md) for details.
@@ -189,7 +182,7 @@ openssl req -nodes -x509 -newkey ec:<(openssl ecparam -name prime256v1) -days 36
     -keyout server-key.pem -out server-cert.pem
 ```
 
-OR 
+OR
 
 ```
     openssl ecparam -name prime256v1 -genkey -noout -out server-key-ec.pem

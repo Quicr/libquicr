@@ -311,16 +311,16 @@ namespace quicr {
 
     void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
     {
-        if (not conn_ctx.ctrl_data_ctx_id) {
+        if (!conn_ctx.ctrl_data_ctx_id.has_value() || !conn_ctx.ctrl_stream_id.has_value()) {
             CloseConnection(conn_ctx.connection_handle,
                             messages::TerminationReason::kProtocolViolation,
-                            "Control bidir stream not created");
+                            "Control bidir data context not created");
             return;
         }
 
         auto result = quic_transport_->Enqueue(conn_ctx.connection_handle,
                                                *conn_ctx.ctrl_data_ctx_id,
-                                               0,
+                                               *conn_ctx.ctrl_stream_id,
                                                std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
                                                0,
                                                2000,
@@ -749,7 +749,8 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendSubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
+    void Transport::SendSubscribeNamespace(ConnectionHandle conn_handle,
+                                           std::shared_ptr<SubscribeNamespaceHandler> handler)
     try {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_handle);
@@ -758,15 +759,27 @@ namespace quicr {
             return;
         }
 
+        const auto& prefix = handler->GetPrefix();
+
         auto rid = conn_it->second.GetNextRequestId();
 
-        conn_it->second.sub_namespace_prefix_by_request_id[rid] = prefix_namespace;
-        auto msg = messages::SubscribeNamespace(rid, prefix_namespace, {});
+        conn_it->second.sub_namespace_prefix_by_request_id[rid] = prefix;
+        auto msg = messages::SubscribeNamespace(rid, prefix, {});
 
         Bytes buffer;
         buffer << msg;
 
-        auto th = TrackHash({ prefix_namespace, {} });
+        auto th = TrackHash({ prefix, {} });
+
+        handler->SetTransport(GetSharedPtr());
+
+        const auto& [handler_it, is_new] =
+          conn_it->second.sub_namespace_handlers.try_emplace(prefix, std::move(handler));
+
+        if (!is_new) {
+            SPDLOG_LOGGER_WARN(logger_, "Namespace already subscribed to (alias={})", th.track_fullname_hash);
+            return;
+        }
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending SUBSCRIBE_NAMESPACE to conn_id: {} request_id: {} prefix_hash: {}",
@@ -820,7 +833,8 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendUnsubscribeNamespace(ConnectionHandle conn_handle, const TrackNamespace& prefix_namespace)
+    void Transport::SendUnsubscribeNamespace(ConnectionHandle conn_handle,
+                                             const std::shared_ptr<SubscribeNamespaceHandler>& handler)
     try {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_handle);
@@ -829,21 +843,25 @@ namespace quicr {
             return;
         }
 
+        const auto& prefix = handler->GetPrefix();
+
         for (auto it = conn_it->second.sub_namespace_prefix_by_request_id.begin();
              it != conn_it->second.sub_namespace_prefix_by_request_id.end();
              ++it) {
-            if (it->second == prefix_namespace) {
+            if (it->second == prefix) {
                 conn_it->second.sub_namespace_prefix_by_request_id.erase(it);
                 break;
             }
         }
 
-        auto msg = messages::UnsubscribeNamespace(prefix_namespace);
+        conn_it->second.sub_namespace_handlers.erase(prefix);
+
+        auto msg = messages::UnsubscribeNamespace(prefix);
 
         Bytes buffer;
         buffer << msg;
 
-        auto th = TrackHash({ prefix_namespace, {} });
+        auto th = TrackHash({ prefix, {} });
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending UNSUBSCRIBE_NAMESPACE to conn_id: {} prefix_hash: {}",
@@ -1317,9 +1335,8 @@ namespace quicr {
                         tfn,
                         track_handler->GetTrackAlias().value(),
                         GroupOrder::kAscending,
-                        std::make_optional(Location{
-                          track_handler->latest_group_id_,
-                          track_handler->latest_object_id_.has_value() ? *track_handler->latest_object_id_ : 0 }),
+                        std::make_optional(
+                          Location{ track_handler->largest_location_.group, track_handler->largest_location_.object }),
                         true,
                         track_handler->support_new_group_request_);
         }
@@ -1359,6 +1376,22 @@ namespace quicr {
 
         switch (publish_response.reason_code) {
             case PublishResponse::ReasonCode::kOk: {
+                const auto& namespace_handler_it =
+                  std::find_if(conn_it->second.sub_namespace_handlers.begin(),
+                               conn_it->second.sub_namespace_handlers.end(),
+                               [&](auto&& e) {
+                                   // TODO(trigaux,tievens): Would IsPrefixOf be more explicit?
+                                   return e.first.HasSamePrefix(attributes.track_full_name.name_space);
+                               });
+
+                if (namespace_handler_it == conn_it->second.sub_namespace_handlers.end()) {
+                    SPDLOG_LOGGER_INFO(logger_,
+                                       "No subscribe namespace handler available for incoming track with alias = ",
+                                       attributes.track_alias);
+                } else if (namespace_handler_it->second->IsTrackAcceptable(attributes.track_full_name)) {
+                    namespace_handler_it->second->AcceptNewTrack(connection_handle, request_id, attributes);
+                }
+
                 SendPublishOk(conn_it->second,
                               request_id,
                               attributes.forward,
@@ -1528,6 +1561,8 @@ namespace quicr {
                                        "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
 
                     conn_ctx.ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, true);
+                    conn_ctx.ctrl_stream_id =
+                      quic_transport_->CreateStream(conn_id, conn_ctx.ctrl_data_ctx_id.value(), 0);
 
                     SendClientSetup();
 
@@ -1641,11 +1676,11 @@ namespace quicr {
                 // auto blob = to_hex(data);
                 conn_ctx.ctrl_msg_buffer.insert(conn_ctx.ctrl_msg_buffer.end(), data.begin(), data.end());
                 rx_ctx->data_queue.PopFront();
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
-                                   conn_id,
-                                   stream_id,
-                                   conn_ctx.ctrl_msg_buffer.size());
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
+                                    conn_id,
+                                    stream_id,
+                                    conn_ctx.ctrl_msg_buffer.size());
 
                 if (not conn_ctx.ctrl_data_ctx_id) {
                     if (not data_ctx_id) {
@@ -1655,6 +1690,7 @@ namespace quicr {
                         return;
                     }
                     conn_ctx.ctrl_data_ctx_id = data_ctx_id;
+                    conn_ctx.ctrl_stream_id = stream_id;
                 }
 
                 while (conn_ctx.ctrl_msg_buffer.size() > 0) {
@@ -1735,7 +1771,7 @@ namespace quicr {
                 auto msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
                 auto cursor_it = std::next(data.begin(), type_sz);
 
-                SPDLOG_LOGGER_DEBUG(logger_, "Received stream message type: 0x{:02x} ({})", msg_type, msg_type);
+                SPDLOG_LOGGER_TRACE(logger_, "Received stream message type: 0x{:02x} ({})", msg_type, msg_type);
 
                 bool parsed_header = false;
                 const auto type = static_cast<StreamMessageType>(msg_type);
@@ -1794,7 +1830,8 @@ namespace quicr {
                       logger_,
                       "Received data on existing stream_id: {} with no handler anymore, resetting stream",
                       stream_id);
-                    quic_transport_->CloseStreamById(conn_id, stream_id, true);
+
+                    quic_transport_->CloseStream(conn_id, data_ctx_id.value(), stream_id, true);
                 }
             }
         } // end of for loop rx data queue
@@ -1817,14 +1854,16 @@ namespace quicr {
 
         try {
             const auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
-            if (const auto handler = handler_weak.lock(); handler && handler->is_fetch_handler_) {
+            if (const auto handler = handler_weak.lock(); handler) {
                 try {
                     switch (flag) {
-                        case StreamClosedFlag::Fin:
+                        case StreamClosedFlag::kFin:
                             handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                            handler->StreamClosed(stream_id, false);
                             break;
-                        case StreamClosedFlag::Reset:
+                        case StreamClosedFlag::kReset:
                             handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                            handler->StreamClosed(stream_id, true);
                             break;
                     }
                 } catch (const ProtocolViolationException& e) {
@@ -2121,9 +2160,14 @@ namespace quicr {
         }
     }
 
+    std::uint64_t Transport::CreateStream(ConnectionHandle conn_id, std::uint64_t data_ctx_id, uint8_t priority)
+    {
+        return quic_transport_->CreateStream(conn_id, data_ctx_id, priority);
+    }
+
     TransportError Transport::Enqueue(const TransportConnId& conn_id,
                                       const DataContextId& data_ctx_id,
-                                      std::uint64_t group_id,
+                                      std::uint64_t stream_id,
                                       std::shared_ptr<const std::vector<uint8_t>> bytes,
                                       const uint8_t priority,
                                       const uint32_t ttl_ms,
@@ -2131,6 +2175,6 @@ namespace quicr {
                                       const ITransport::EnqueueFlags flags)
     {
         return quic_transport_->Enqueue(
-          conn_id, data_ctx_id, group_id, std::move(bytes), priority, ttl_ms, delay_ms, flags);
+          conn_id, data_ctx_id, stream_id, std::move(bytes), priority, ttl_ms, delay_ms, flags);
     }
 } // namespace moq
