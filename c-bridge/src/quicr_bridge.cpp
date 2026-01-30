@@ -935,6 +935,19 @@ extern "C"
         return (status == quicr::PublishTrackHandler::PublishObjectStatus::kOk) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
     }
 
+    qbridge_result_t qbridge_end_subgroup(qbridge_publish_track_handler_t* handler,
+                                          uint64_t group_id,
+                                          uint64_t subgroup_id,
+                                          bool completed)
+    {
+        if (!handler || !handler->cpp_handler) {
+            return QBRIDGE_ERROR_INVALID_PARAM;
+        }
+
+        handler->cpp_handler->EndSubgroup(group_id, subgroup_id, completed);
+        return QBRIDGE_OK;
+    }
+
     // Utility functions
     qbridge_result_t qbridge_namespace_from_string(qbridge_namespace_t* ns, const char* namespace_str)
     {

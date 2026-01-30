@@ -30,25 +30,16 @@ namespace quicr {
      */
     struct ObjectHeaders
     {
-        uint64_t group_id;                   ///< Object group ID - Application defined order of generation
-        uint64_t object_id;                  ///< Object ID - Application defined order of generation
-        uint64_t subgroup_id{ 0 };           ///< Subgroup ID - Starts at 0, monotonically increases by 1
-        uint64_t payload_length;             ///< Length of payload of the object data
-        ObjectStatus status;                 ///< Status of the object at the publisher
-        std::optional<uint8_t> priority;     ///< Priority of the object, lower value is better
-        std::optional<uint16_t> ttl;         ///< Object time to live in milliseconds
+        uint64_t group_id;                               ///< Object group ID - Application defined order of generation
+        uint64_t object_id;                              ///< Object ID - Application defined order of generation
+        uint64_t subgroup_id{ 0 };                       ///< Subgroup ID - Starts at 0, monotonically increases by 1
+        uint64_t payload_length;                         ///< Length of payload of the object data
+        ObjectStatus status{ ObjectStatus::kAvailable }; ///< Status of the object at the publisher
+        std::optional<uint8_t> priority;                 ///< Priority of the object, lower value is better
+        std::optional<uint16_t> ttl;                     ///< Object time to live in milliseconds
         std::optional<TrackMode> track_mode; ///< Track Mode of how the object was received or mode to use when sending
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
-
-        enum class CloseStream : uint8_t
-        {
-            kFin,
-            kReset
-        };
-
-        std::optional<CloseStream> end_of_subgroup;
-        bool end_of_group{ false };
     };
 
 }

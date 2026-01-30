@@ -840,11 +840,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         REQUIRE(pub_ready);
 
         // Helper to publish an object
-        auto publish_object = [&](uint64_t group_id,
-                                  uint64_t subgroup_id,
-                                  uint64_t object_id,
-                                  bool end_of_subgroup = false,
-                                  bool end_of_group = false) {
+        auto publish_object = [&](uint64_t group_id, uint64_t subgroup_id, uint64_t object_id) {
             std::vector<uint8_t> payload = { static_cast<uint8_t>(group_id),
                                              static_cast<uint8_t>(subgroup_id),
                                              static_cast<uint8_t>(object_id) };
@@ -859,13 +855,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
                                       .ttl = 1000,
                                       .track_mode = TrackMode::kStream,
                                       .extensions = std::nullopt,
-                                      .immutable_extensions = std::nullopt,
-                                      .end_of_subgroup = std::nullopt,
-                                      .end_of_group = end_of_group };
-
-            if (end_of_subgroup) {
-                headers.end_of_subgroup = ObjectHeaders::CloseStream::kFin;
-            }
+                                      .immutable_extensions = std::nullopt };
 
             auto status = pub_handler->PublishObject(headers, payload);
             REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
@@ -897,8 +887,11 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
 
             for (uint64_t group = 0; group < num_groups; ++group) {
                 for (uint64_t subgroup = 0; subgroup < num_subgroups; ++subgroup) {
-                    bool close_subgroup = is_last_in_phase && (subgroup == 0);
-                    publish_object(group, subgroup, get_next_obj_id(group, subgroup), close_subgroup, false);
+                    publish_object(group, subgroup, get_next_obj_id(group, subgroup));
+
+                    if (is_last_in_phase && (subgroup == 0)) {
+                        pub_handler->EndSubgroup(group, subgroup, true);
+                    }
                 }
             }
         }
@@ -928,8 +921,11 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
 
             for (uint64_t group = 0; group < num_groups; ++group) {
                 for (uint64_t subgroup = 1; subgroup < num_subgroups; ++subgroup) {
-                    bool close_subgroup = is_last_in_phase && (subgroup == 1);
-                    publish_object(group, subgroup, get_next_obj_id(group, subgroup), close_subgroup, false);
+                    publish_object(group, subgroup, get_next_obj_id(group, subgroup));
+
+                    if (is_last_in_phase && (subgroup == 1)) {
+                        pub_handler->EndSubgroup(group, subgroup, true);
+                    }
                 }
             }
         }
@@ -953,9 +949,12 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
 
             for (uint64_t group = 0; group < num_groups; ++group) {
                 uint64_t subgroup = 2;
-                bool close_subgroup = is_last_in_phase;
-                bool close_group = is_last_in_phase;
-                publish_object(group, subgroup, get_next_obj_id(group, subgroup), close_subgroup, close_group);
+
+                publish_object(group, subgroup, get_next_obj_id(group, subgroup));
+
+                if (is_last_in_phase) {
+                    pub_handler->EndSubgroup(group, subgroup, true);
+                }
             }
         }
 
