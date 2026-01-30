@@ -314,17 +314,9 @@ namespace quicr {
                     object_msg_buffer_ << subgroup_hdr;
                 }
 
-                // TODO: send end of group/subgroup status/type
-                if (object_headers.end_of_subgroup.has_value()) {
-                    eflags.close_stream = true;
-
-                    if (*object_headers.end_of_subgroup == ObjectHeaders::CloseStream::kReset) {
-                        eflags.use_reset = true;
-                    }
-                }
-
                 messages::StreamSubGroupObject object;
                 object.object_delta = object_id_delta;
+                object.object_status = object_headers.status;
                 object.stream_type = GetStreamMode();
                 if (object_extensions) {
                     object.extensions = std::move(*object_extensions);
@@ -354,19 +346,57 @@ namespace quicr {
           0,
           eflags);
 
-        if (eflags.close_stream) {
-            auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
-            subgroup_map.erase(object_headers.subgroup_id);
-            if (subgroup_map.empty()) {
-                stream_info_by_group_.erase(object_headers.group_id);
-            }
-        }
-
         if (result != TransportError::kNone) {
             throw TransportException(result);
         }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
+    }
+
+    void PublishTrackHandler::EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed)
+    {
+        auto transport = GetTransport().lock();
+
+        if (!transport) {
+            return;
+        }
+
+        const auto group_it = stream_info_by_group_.find(group_id);
+        if (group_it == stream_info_by_group_.end()) {
+            return;
+        }
+
+        const auto subgroup_it = group_it->second.find(subgroup_id);
+        if (subgroup_it == group_it->second.end()) {
+            return;
+        }
+
+        object_msg_buffer_.clear();
+        messages::StreamSubGroupObject object;
+        object.object_status = ObjectStatus::kEndOfSubGroup;
+        object.stream_type = GetStreamMode();
+        object.object_delta = 0;
+        object_msg_buffer_ << object;
+
+        ITransport::EnqueueFlags eflags;
+        eflags.use_reliable = true;
+        eflags.close_stream = true;
+        eflags.use_reset = !completed;
+
+        transport->Enqueue(GetConnectionId(),
+                           publish_data_ctx_id_,
+                           subgroup_it->second.stream_id,
+                           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
+                           default_priority_,
+                           default_ttl_,
+                           0,
+                           eflags);
+
+        auto& subgroup_map = stream_info_by_group_[group_id];
+        subgroup_map.erase(subgroup_id);
+        if (subgroup_map.empty()) {
+            stream_info_by_group_.erase(group_id);
+        }
     }
 
 } // namespace quicr

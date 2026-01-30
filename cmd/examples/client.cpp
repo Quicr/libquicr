@@ -972,7 +972,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                                          .end_of_group = end_of_group };
 
         if (end_of_subgroup) {
-            headers.end_of_subgroup = quicr::ObjectHeaders::CloseStream::kFin;
+            headers.end_of_subgroup = quicr::ObjectHeaders::CloseBy::kFin;
         }
 
         try {
