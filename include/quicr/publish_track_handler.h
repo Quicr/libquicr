@@ -327,6 +327,19 @@ namespace quicr {
          */
         PublishObjectStatus PublishPartialObject(const ObjectHeaders& object_headers, BytesSpan data);
 
+        /**
+         * @brief Ends the subgroup as completed or not.
+         *
+         * @details APP MUST call this to end subgroups, otherwise they will linger. If
+         *      completed is true, the subgroups will be closed after last message has
+         *      been delivered.
+         *
+         * @param group_id
+         * @param subgroup_id
+         * @param completed
+         */
+        void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true);
+
         // --------------------------------------------------------------------------
         // Metrics
         // --------------------------------------------------------------------------

@@ -42,6 +42,9 @@ extern "C"
 /** Maximum filename length for TLS certificates */
 #define QBRIDGE_MAX_FILENAME_LEN 512
 
+/** Sentinel value for end_object_id meaning "fetch to end of group" */
+#define QBRIDGE_FETCH_END_OF_GROUP UINT64_MAX
+
     /** @} */
 
     /**
@@ -290,8 +293,9 @@ extern "C"
         uint64_t group_order;                      /**< Group order */
         uint64_t start_group_id;                   /**< Start group ID */
         uint64_t start_object_id;                  /**< Start object ID */
-        uint64_t end_group_id;                     /**< End group ID */
-        uint64_t end_object_id;                    /**< End object ID */
+        uint64_t end_group_id;                     /**< End group ID (inclusive) */
+        uint64_t end_object_id; /**< End object ID (inclusive), or QBRIDGE_FETCH_END_OF_GROUP to fetch to the end of the
+                                   end group */
     } qbridge_fetch_track_config_t;
 
     /** @} */
@@ -605,6 +609,19 @@ extern "C"
                                                          const qbridge_object_headers_t* headers,
                                                          const uint8_t* data,
                                                          size_t data_len);
+
+    /**
+     * @brief End a subgroup
+     * @param handler Publish track handler
+     * @param group_id Group ID containing the subgroup
+     * @param subgroup_id Subgroup ID to end
+     * @param completed True to close gracefully (FIN), false to reset
+     * @return Result code
+     */
+    qbridge_result_t qbridge_end_subgroup(qbridge_publish_track_handler_t* handler,
+                                          uint64_t group_id,
+                                          uint64_t subgroup_id,
+                                          bool completed);
 
     /** @} */
     /** @} */

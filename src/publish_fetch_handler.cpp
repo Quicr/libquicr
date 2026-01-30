@@ -66,11 +66,6 @@ namespace quicr {
             }
         }
 
-        // TODO: send end of group/subgroup status/type
-        if (object_headers.end_of_group || object_headers.end_of_subgroup) {
-            eflags.close_stream = true;
-        }
-
         messages::FetchObject object{};
         object.group_id = group_id;
         object.subgroup_id = object_headers.subgroup_id;

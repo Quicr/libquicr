@@ -1927,7 +1927,6 @@ PicoQuicTransport::OnRecvStreamBytes(ConnectionContext* conn_ctx,
 try {
     // Handle application stream data
     if (bytes.empty()) {
-        SPDLOG_LOGGER_DEBUG(logger, "on_recv_stream_bytes length is ZERO");
         return;
     }
 

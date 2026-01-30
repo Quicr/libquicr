@@ -60,8 +60,6 @@ namespace quicr_test {
                              it->second.current_subgroup_id);
 
                 quicr::ObjectHeaders object_headers;
-                object_headers.end_of_subgroup =
-                  reset ? quicr::ObjectHeaders::CloseStream::kReset : quicr::ObjectHeaders::CloseStream::kFin;
                 object_headers.group_id = it->second.current_group_id;
                 object_headers.subgroup_id = it->second.current_subgroup_id;
                 object_headers.payload_length = 0;
@@ -70,7 +68,7 @@ namespace quicr_test {
                   it->second.next_object_id.has_value() ? it->second.next_object_id.value() : 1;
 
                 if (pub_handler_) {
-                    pub_handler_->PublishObject(object_headers, {});
+                    pub_handler_->EndSubgroup(object_headers.group_id, object_headers.subgroup_id);
                 }
 
                 streams_.erase(it);
