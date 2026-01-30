@@ -1,6 +1,7 @@
 #include "test_server.h"
 
 #include "quicr/detail/base_track_handler.h"
+#include "quicr/publish_fetch_handler.h"
 
 using namespace quicr;
 using namespace quicr_test;
@@ -178,4 +179,39 @@ TestServer::PublishNamespaceReceived(const ConnectionHandle connection_handle,
     // Accept the publish namespace by responding with OK
     const PublishNamespaceResponse response = { .reason_code = PublishNamespaceResponse::ReasonCode::kOk };
     ResolvePublishNamespace(connection_handle, publish_announce_attributes.request_id, track_namespace, {}, response);
+}
+
+void
+TestServer::StandaloneFetchReceived(const ConnectionHandle connection_handle,
+                                    const uint64_t request_id,
+                                    const FullTrackName& track_full_name,
+                                    const messages::StandaloneFetchAttributes& attrs)
+{
+    if (!fetch_response_data_.has_value()) {
+        // No response data configured
+        ResolveFetch(connection_handle,
+                     request_id,
+                     attrs.priority,
+                     attrs.group_order,
+                     { .reason_code = FetchResponse::ReasonCode::kInternalError,
+                       .error_reason = "No fetch test response configured" });
+        return;
+    }
+
+    // Create location for the response
+    const messages::Location largest_location = { .group = fetch_response_data_->headers.group_id,
+                                                  .object = fetch_response_data_->headers.object_id };
+
+    // Accept the fetch
+    ResolveFetch(connection_handle,
+                 request_id,
+                 attrs.priority,
+                 attrs.group_order,
+                 { .reason_code = FetchResponse::ReasonCode::kOk, .largest_location = largest_location });
+
+    // Publish the response
+    auto pub_fetch_handler =
+      PublishFetchHandler::Create(track_full_name, attrs.priority, request_id, attrs.group_order, 500);
+    BindFetchTrack(connection_handle, pub_fetch_handler);
+    pub_fetch_handler->PublishObject(fetch_response_data_->headers, fetch_response_data_->payload);
 }

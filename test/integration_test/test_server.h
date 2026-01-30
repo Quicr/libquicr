@@ -3,6 +3,7 @@
 #include <future>
 #include <map>
 #include <optional>
+#include <quicr/publish_fetch_handler.h>
 #include <quicr/publish_track_handler.h>
 #include <quicr/server.h>
 #include <quicr/subscribe_track_handler.h>
@@ -122,6 +123,13 @@ namespace quicr_test {
             quicr::PublishNamespaceAttributes attributes;
         };
 
+        // Data to respond with when a fetch is received
+        struct FetchResponseData
+        {
+            quicr::ObjectHeaders headers;
+            std::vector<uint8_t> payload;
+        };
+
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
@@ -141,6 +149,9 @@ namespace quicr_test {
         {
             publish_namespace_promise_ = std::move(promise);
         }
+
+        // Set up data to respond with when a fetch is received
+        void SetFetchResponseData(FetchResponseData data) { fetch_response_data_ = std::move(data); }
 
         void AddKnownPublishedNamespace(const quicr::TrackNamespace& track_namespace);
         void AddKnownPublishedTrack(const quicr::FullTrackName& track,
@@ -174,6 +185,11 @@ namespace quicr_test {
         {
         }
 
+        void StandaloneFetchReceived(quicr::ConnectionHandle connection_handle,
+                                     uint64_t request_id,
+                                     const quicr::FullTrackName& track_full_name,
+                                     const quicr::messages::StandaloneFetchAttributes& attrs) override;
+
         void SubscribeReceived(quicr::ConnectionHandle connection_handle,
                                uint64_t request_id,
                                const quicr::FullTrackName& track_full_name,
@@ -203,6 +219,7 @@ namespace quicr_test {
         std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
         std::unordered_map<quicr::messages::TrackNamespacePrefix, std::vector<quicr::ConnectionHandle>>
           namespace_subscribers_;
+        std::optional<FetchResponseData> fetch_response_data_;
 
         // Subscriber publish handlers: [track_alias][connection_handle] -> PublishTrackHandler
         std::map<quicr::messages::TrackAlias,
