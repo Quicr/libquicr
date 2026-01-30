@@ -35,12 +35,20 @@ namespace quicr::messages {
         bool dynamic_groups = false;
     };
 
+    struct FetchEndLocation
+    {
+        /// The group ID of the fetch's end location (inclusive).
+        GroupId group;
+        /// The object ID of the fetch's end location (inclusive), or null for the whole group.
+        std::optional<ObjectId> object;
+    };
+
     struct StandaloneFetchAttributes
     {
-        std::uint8_t priority;   ///< Fetch priority
-        GroupOrder group_order;  ///< Fetch group order
-        Location start_location; ///< Fetch starting location in range
-        Location end_location;   ///< Fetch final group and object id
+        std::uint8_t priority;         ///< Fetch priority
+        GroupOrder group_order;        ///< Fetch group order
+        Location start_location;       ///< Fetch starting location in range
+        FetchEndLocation end_location; ///< Fetch final location.
     };
 
     struct JoiningFetchAttributes

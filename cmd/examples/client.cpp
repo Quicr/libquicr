@@ -374,29 +374,19 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
 class MyFetchTrackHandler : public quicr::FetchTrackHandler
 {
     MyFetchTrackHandler(const quicr::FullTrackName& full_track_name,
-                        uint64_t start_group,
-                        uint64_t start_object,
-                        uint64_t end_group,
-                        uint64_t end_object)
-      : FetchTrackHandler(full_track_name,
-                          3,
-                          quicr::messages::GroupOrder::kAscending,
-                          start_group,
-                          end_group,
-                          start_object,
-                          end_object)
+                        quicr::messages::Location start_location,
+                        quicr::messages::FetchEndLocation end_location)
+      : FetchTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, start_location, end_location)
     {
     }
 
   public:
     static auto Create(const quicr::FullTrackName& full_track_name,
-                       uint64_t start_group,
-                       uint64_t start_object,
-                       uint64_t end_group,
-                       uint64_t end_object)
+                       quicr::messages::Location start_location,
+                       quicr::messages::FetchEndLocation end_location)
     {
         return std::shared_ptr<MyFetchTrackHandler>(
-          new MyFetchTrackHandler(full_track_name, start_group, start_object, end_group, end_object));
+          new MyFetchTrackHandler(full_track_name, start_location, end_location));
     }
 
     void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
@@ -537,7 +527,7 @@ class MyClient : public quicr::Client
                        quicr::messages::SubscriberPriority priority,
                        quicr::messages::GroupOrder group_order,
                        quicr::messages::Location start,
-                       std::optional<quicr::messages::Location> end)
+                       quicr::messages::FetchEndLocation end)
     {
         auto reason_code = quicr::FetchResponse::ReasonCode::kOk;
         std::optional<quicr::messages::Location> largest_location = std::nullopt;
@@ -562,13 +552,11 @@ class MyClient : public quicr::Client
                         largest_location.value().object);
         }
 
-        if (largest_location.has_value() &&
-            (start.group > end->group || largest_location.value().group < start.group)) {
+        if (largest_location.has_value() && (start.group > end.group || largest_location.value().group < start.group)) {
             reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
         }
 
-        const auto& cache_entries =
-          cache_entry_it->second.Get(start.group, end->group != 0 ? end->group : cache_entry_it->second.Size());
+        const auto& cache_entries = cache_entry_it->second.Get(start.group, end.group);
 
         if (cache_entries.empty()) {
             reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
@@ -600,8 +588,15 @@ class MyClient : public quicr::Client
 
             for (const auto& entry : cache_entries) {
                 for (const auto& object : *entry) {
-                    if (end->object && object.headers.group_id == end->group &&
-                        object.headers.object_id >= end->object) {
+                    // When intra-group, skip any objects prior to start.
+                    if (start.group == end.group && object.headers.group_id == start.group &&
+                        object.headers.object_id < start.object) {
+                        continue;
+                    }
+
+                    // Are we done?
+                    if (end.object.has_value() && object.headers.group_id == end.group &&
+                        object.headers.object_id > *end.object) {
                         return;
                     }
 
@@ -652,7 +647,7 @@ class MyClient : public quicr::Client
                       attributes.priority,
                       attributes.group_order,
                       { joining_start, 0 },
-                      std::nullopt);
+                      { joining_start, std::nullopt });
     }
 
     void TrackStatusResponseReceived(quicr::ConnectionHandle,
@@ -1132,27 +1127,20 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
 // Fetch thread to perform fetch
 /*===========================================================================*/
 
-struct Range
-{
-    uint64_t start;
-    uint64_t end;
-};
-
 void
 DoFetch(const quicr::FullTrackName& full_track_name,
-        const Range& group_range,
-        const Range& object_range,
+        const quicr::messages::Location& start_location,
+        const quicr::messages::FetchEndLocation& end_location,
         const std::shared_ptr<quicr::Client>& client,
         const bool& stop)
 {
-    auto track_handler = MyFetchTrackHandler::Create(
-      full_track_name, group_range.start, object_range.start, group_range.end, object_range.end);
+    auto track_handler = MyFetchTrackHandler::Create(full_track_name, start_location, end_location);
 
     SPDLOG_INFO("Started fetch start: {}.{} end: {}.{}",
-                group_range.start,
-                object_range.start,
-                group_range.end,
-                object_range.end);
+                start_location.group,
+                start_location.object,
+                end_location.group,
+                end_location.object.has_value() ? std::to_string(end_location.object.value()) : "to_end");
 
     bool fetch_track{ false };
 
@@ -1391,8 +1379,8 @@ main(int argc, char* argv[])
         ("fetch_name", "Track name", cxxopts::value<std::string>())
         ("start_group", "Starting group ID", cxxopts::value<uint64_t>())
         ("end_group", "End Group ID", cxxopts::value<uint64_t>())
-        ("start_object", "The starting object ID within the group", cxxopts::value<uint64_t>())
-        ("end_object", "One past the final object ID in the group, 0 for all", cxxopts::value<uint64_t>());
+        ("start_object", "The starting object ID within the start group", cxxopts::value<uint64_t>())
+        ("end_object", "The final object ID within the end group, or -1 to run to the end of the group", cxxopts::value<int64_t>());
 
     // clang-format on
 
@@ -1486,13 +1474,14 @@ main(int argc, char* argv[])
             const auto& fetch_track_name = quicr::example::MakeFullTrackName(
               result["fetch_namespace"].as<std::string>(), result["fetch_name"].as<std::string>());
 
+            const quicr::messages::Location start_location = { result["start_group"].as<uint64_t>(),
+                                                               result["start_object"].as<uint64_t>() };
+            const std::int64_t end_object_arg = result["end_object"].as<int64_t>();
+            const auto end_object = end_object_arg >= 0 ? std::optional<std::uint64_t>(end_object_arg) : std::nullopt;
+            const quicr::messages::FetchEndLocation end_location = { result["end_group"].as<uint64_t>(), end_object };
+
             fetch_thread =
-              std::thread(DoFetch,
-                          fetch_track_name,
-                          Range{ result["start_group"].as<uint64_t>(), result["end_group"].as<uint64_t>() },
-                          Range{ result["start_object"].as<uint64_t>(), result["end_object"].as<uint64_t>() },
-                          client,
-                          std::ref(stop_threads));
+              std::thread(DoFetch, fetch_track_name, start_location, end_location, client, std::ref(stop_threads));
         }
 
         // Wait until told to terminate

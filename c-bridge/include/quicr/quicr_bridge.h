@@ -42,6 +42,9 @@ extern "C"
 /** Maximum filename length for TLS certificates */
 #define QBRIDGE_MAX_FILENAME_LEN 512
 
+/** Sentinel value for end_object_id meaning "fetch to end of group" */
+#define QBRIDGE_FETCH_END_OF_GROUP UINT64_MAX
+
     /** @} */
 
     /**
@@ -290,8 +293,9 @@ extern "C"
         uint64_t group_order;                      /**< Group order */
         uint64_t start_group_id;                   /**< Start group ID */
         uint64_t start_object_id;                  /**< Start object ID */
-        uint64_t end_group_id;                     /**< End group ID */
-        uint64_t end_object_id;                    /**< End object ID */
+        uint64_t end_group_id;                     /**< End group ID (inclusive) */
+        uint64_t end_object_id; /**< End object ID (inclusive), or QBRIDGE_FETCH_END_OF_GROUP to fetch to the end of the
+                                   end group */
     } qbridge_fetch_track_config_t;
 
     /** @} */

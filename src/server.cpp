@@ -922,13 +922,18 @@ namespace quicr {
                         FullTrackName tfn{ msg.group_0->standalone.track_namespace,
                                            msg.group_0->standalone.track_name };
 
-                        messages::StandaloneFetchAttributes attrs = {
-                            .priority = msg.subscriber_priority,
-                            .group_order = msg.group_order,
-                            .start_location = msg.group_0->standalone.start,
-                            .end_location = { .group = msg.group_0->standalone.end.group,
-                                              .object = msg.group_0->standalone.end.object },
-                        };
+                        // Unwrap with the end location wire format.
+                        messages::FetchEndLocation end_location;
+                        end_location.group = msg.group_0->standalone.end.group;
+                        if (msg.group_0->standalone.end.object == 0) {
+                            end_location.object = std::nullopt;
+                        } else {
+                            end_location.object = msg.group_0->standalone.end.object - 1;
+                        }
+                        messages::StandaloneFetchAttributes attrs = { .priority = msg.subscriber_priority,
+                                                                      .group_order = msg.group_order,
+                                                                      .start_location = msg.group_0->standalone.start,
+                                                                      .end_location = end_location };
 
                         StandaloneFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
                         return true;
