@@ -967,13 +967,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                                          .ttl = 3000,
                                          .track_mode = quicr::TrackMode::kStream,
                                          .extensions = std::nullopt,
-                                         .immutable_extensions = std::nullopt,
-                                         .end_of_subgroup = std::nullopt,
-                                         .end_of_group = end_of_group };
-
-        if (end_of_subgroup) {
-            headers.end_of_subgroup = quicr::ObjectHeaders::CloseBy::kFin;
-        }
+                                         .immutable_extensions = std::nullopt };
 
         try {
             if (track_handler->CanPublish()) {
@@ -1043,11 +1037,11 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                 for (uint64_t group = 0; group < num_groups; ++group) {
                     uint64_t actual_group_id = base_group_id + group;
                     for (uint64_t subgroup : active_subgroups[group]) {
-                        bool close_subgroup = is_last_in_phase && (subgroup == subgroup_to_close);
-                        bool close_group = close_subgroup && is_last_subgroup;
+                        if (is_last_in_phase && (subgroup == subgroup_to_close)) {
+                            track_handler->EndSubgroup(group, subgroup, true);
+                        }
 
-                        publish_object(
-                          actual_group_id, subgroup, get_next_obj_id(group, subgroup), close_subgroup, close_group);
+                        publish_object(actual_group_id, subgroup, get_next_obj_id(group, subgroup));
                     }
                 }
 
