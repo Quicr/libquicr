@@ -794,24 +794,20 @@ class TestFetchTrackHandler final : public FetchTrackHandler
     TestFetchTrackHandler(const FullTrackName& full_track_name,
                           const messages::SubscriberPriority priority,
                           const messages::GroupOrder group_order,
-                          const messages::GroupId start_group,
-                          const messages::GroupId end_group,
-                          const messages::ObjectId start_object,
-                          const messages::ObjectId end_object)
-      : FetchTrackHandler(full_track_name, priority, group_order, start_group, end_group, start_object, end_object)
+                          const messages::Location& start_location,
+                          const messages::FetchEndLocation& end_location)
+      : FetchTrackHandler(full_track_name, priority, group_order, start_location, end_location)
     {
     }
 
     static std::shared_ptr<TestFetchTrackHandler> Create(const FullTrackName& full_track_name,
                                                          const messages::SubscriberPriority priority,
                                                          const messages::GroupOrder group_order,
-                                                         const messages::GroupId start_group,
-                                                         const messages::GroupId end_group,
-                                                         const messages::ObjectId start_object,
-                                                         const messages::ObjectId end_object)
+                                                         const messages::Location& start_location,
+                                                         const messages::FetchEndLocation& end_location)
     {
         return std::make_shared<TestFetchTrackHandler>(
-          full_track_name, priority, group_order, start_group, end_group, start_object, end_object);
+          full_track_name, priority, group_order, start_location, end_location);
     }
 
     void ObjectReceived(const ObjectHeaders& headers, BytesSpan data) override
@@ -856,10 +852,8 @@ TEST_CASE("Integration - Fetch object roundtrip")
         auto fetch_handler = TestFetchTrackHandler::Create(ftn,
                                                            0,
                                                            messages::GroupOrder::kOriginalPublisherOrder,
-                                                           response_data.headers.group_id,
-                                                           response_data.headers.group_id + 1,
-                                                           0,
-                                                           1000);
+                                                           { response_data.headers.group_id, 0 },
+                                                           { response_data.headers.group_id + 1, 1000 });
 
         std::promise<TestFetchTrackHandler::ReceivedObject> object_promise;
         auto object_future = object_promise.get_future();
