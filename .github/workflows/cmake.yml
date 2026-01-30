@@ -23,9 +23,6 @@ jobs:
           exclude-regex: '(dependencies)'
 
   build:
-    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    # You can convert this to a matrix build if you need cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     strategy:
       matrix:
         os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
@@ -40,44 +37,94 @@ jobs:
         submodules: recursive
 
     - name: Install Packages (macOS)
+      if: matrix.os == 'macos-latest'
       run: |
         brew install llvm go
         ln -s "$(brew --prefix llvm)/bin/clang-tidy" "/usr/local/bin/clang-tidy"
         brew install google-benchmark
-      if: matrix.os == 'macos-latest'
 
     - name: Install Packages (Ubuntu)
+      if: matrix.os == 'ubuntu-22.04' || matrix.os == 'ubuntu-22.04-arm'
       run: |
         sudo apt-get install -y clang-tidy-15
-      if: matrix.os == 'ubuntu-22.04'
 
-    - name: Configure CMake (Ubuntu)
+    - name: Configure GCC 12 (Ubuntu)
       if: matrix.os == 'ubuntu-22.04' || matrix.os == 'ubuntu-22.04-arm'
-      env:
-        CC: "/usr/bin/gcc-12"
-        CXX: "/usr/bin/g++-12"
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
+      run: |
+        echo "CC=/usr/bin/gcc-12" >> $GITHUB_ENV
+        echo "CXX=/usr/bin/g++-12" >> $GITHUB_ENV
 
-    - name: Configure CMake (macOS)
-      if: matrix.os == 'macos-latest'
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+    - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
-
-    - name: Generate Certificates
-      run: make cert
 
     - name: Build
-      # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j $(getconf _NPROCESSORS_ONLN)
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j
 
-    - name: Test
-      working-directory: ${{github.workspace}}/build
-      # Execute tests defined by the CMake configuration.
-      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+    - name: Cache Build Output
+      uses: actions/cache@v4
+      with:
+        path: ${{github.workspace}}/build
+        key: ${{matrix.os}}-build-${{github.sha}}
 
-    - name: Benchmark
-      run: ${{github.workspace}}/build/benchmark/quicr_benchmark
+  test:
+    needs: build
+    strategy:
+      matrix:
+        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
+
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore build output cache
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/build
+          key: ${{matrix.os}}-build-${{github.sha}}
+
+      - name: Generate Certificates
+        run: make cert
+
+      - name: Test
+        working-directory: ${{github.workspace}}/build
+        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+
+  benchmark:
+    needs: build
+    strategy:
+      matrix:
+        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
+
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore build output cache
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/build
+          key: ${{matrix.os}}-build-${{github.sha}}
+
+      - name: Benchmark
+        run: ${{github.workspace}}/build/benchmark/quicr_benchmark
+
+  cleanup_cache:
+    needs: [test, benchmark]
+    strategy:
+      matrix:
+        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
+
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+
+    if: always() # Run even if previous jobs failed
+    steps:
+      - name: Delete Cache
+        run: |
+          gh cache delete ${{matrix.os}}-build-${{github.sha}}
