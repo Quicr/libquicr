@@ -606,6 +606,19 @@ extern "C"
                                                          const uint8_t* data,
                                                          size_t data_len);
 
+    /**
+     * @brief End a subgroup
+     * @param handler Publish track handler
+     * @param group_id Group ID containing the subgroup
+     * @param subgroup_id Subgroup ID to end
+     * @param completed True to close gracefully (FIN), false to reset
+     * @return Result code
+     */
+    qbridge_result_t qbridge_end_subgroup(qbridge_publish_track_handler_t* handler,
+                                          uint64_t group_id,
+                                          uint64_t subgroup_id,
+                                          bool completed);
+
     /** @} */
     /** @} */
 
