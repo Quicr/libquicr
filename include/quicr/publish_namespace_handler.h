@@ -93,6 +93,11 @@ namespace quicr {
         std::optional<uint64_t> GetRequestId() const noexcept { return request_id_; }
 
       protected:
+        virtual std::shared_ptr<PublishTrackHandler> CreateHandler(const FullTrackName& full_track_name,
+                                                                   TrackMode track_mode,
+                                                                   uint8_t default_priority,
+                                                                   uint32_t default_ttl);
+
         /**
          * @brief Set the Publish status
          * @param status                Status of the Publish

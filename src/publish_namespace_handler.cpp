@@ -71,7 +71,7 @@ quicr::PublishNamespaceHandler::PublishTrack(const FullTrackName& full_track_nam
     }
 
     auto& handler = handlers_[TrackHash(full_track_name).track_fullname_hash] =
-      PublishTrackHandler::Create(full_track_name, track_mode, default_priority, default_ttl);
+      CreateHandler(full_track_name, track_mode, default_priority, default_ttl);
 
     const auto& transport = transport_.lock();
     if (!transport) {
@@ -81,4 +81,13 @@ quicr::PublishNamespaceHandler::PublishTrack(const FullTrackName& full_track_nam
     transport->PublishTrack(connection_handle_, handler);
 
     return handler;
+}
+
+std::shared_ptr<quicr::PublishTrackHandler>
+quicr::PublishNamespaceHandler::CreateHandler(const FullTrackName& full_track_name,
+                                              TrackMode track_mode,
+                                              uint8_t default_priority,
+                                              uint32_t default_ttl)
+{
+    return PublishTrackHandler::Create(full_track_name, track_mode, default_priority, default_ttl);
 }

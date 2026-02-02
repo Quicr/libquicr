@@ -337,11 +337,6 @@ struct qbridge_publish_track_handler
                                                             status_cb,
                                                             data);
 
-            // Set use_announce flag if configured
-            if (config->use_announce) {
-                cpp_handler->SetUseAnnounce(true);
-            }
-
             // Set track alias if provided
             if (config->track_alias > 0) {
                 cpp_handler->SetTrackAlias(config->track_alias);
@@ -1125,7 +1120,6 @@ extern "C"
         config->default_ttl_ms = 5000;
         config->default_cacheable = true;
         config->delivery_mode = QBRIDGE_DELIVERY_MODE_DATAGRAM;
-        config->use_announce = false; // Use publish flow by default
     }
 
     void qbridge_subscribe_track_config_init(qbridge_subscribe_track_config_t* config)

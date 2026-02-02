@@ -266,7 +266,6 @@ extern "C"
         uint32_t default_ttl_ms;                   /**< Default TTL in ms */
         bool default_cacheable;                    /**< Default cacheable flag */
         uint64_t track_alias;                      /**< Track alias */
-        bool use_announce;                         /**< Use announce flow */
     } qbridge_publish_track_config_t;
 
     /**

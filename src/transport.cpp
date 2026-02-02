@@ -1219,10 +1219,6 @@ namespace quicr {
         conn_it->second.pub_tracks_ns_by_request_id.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
-        if (not track_handler->UsingAnnounce()) {
-            conn_it->second.recv_req_id.erase(th.track_fullname_hash);
-        }
-
         /*
          * This is a round about way to send subscribe done because of the announce flow. This
          * will go away if we stop using the announce flow. For now, it works for both announce
@@ -1264,14 +1260,6 @@ namespace quicr {
                 lock.lock();
 
                 pub_ns_it->second.erase(pub_n_it);
-            }
-
-            if (pub_ns_it->second.size() == 0 && track_handler->UsingAnnounce()) {
-                SPDLOG_LOGGER_INFO(
-                  logger_, "Unpublish namespace hash: {0}, has no tracks, sending unannounce", th.track_namespace_hash);
-
-                SendPublishNamespaceDone(conn_it->second, tfn.name_space);
-                conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
             }
 
             quic_transport_->DeleteDataContext(conn_id, track_handler->publish_data_ctx_id_);
@@ -1364,9 +1352,6 @@ namespace quicr {
         conn_it->second.pub_namespace_handlers[track_handler->GetPrefix()] = track_handler;
 
         track_handler->connection_handle_ = conn_id;
-        SPDLOG_LOGGER_INFO(
-          logger_, "Publish Namespace creating new data context conn_id {}, prefix hash: {}", conn_id, prefix_hash);
-
         track_handler->SetTransport(GetSharedPtr());
     }
 
@@ -1388,7 +1373,7 @@ namespace quicr {
 
         auto pub_ns_it = conn_it->second.pub_namespace_handlers.find(prefix);
         if (pub_ns_it != conn_it->second.pub_namespace_handlers.end()) {
-            SPDLOG_LOGGER_INFO(logger_, "Unpublish namespace hash: {}, has no tracks, sending unannounce", prefix_hash);
+            SPDLOG_LOGGER_INFO(logger_, "Unpublish namespace hash: {}, sending unannounce", prefix_hash);
 
             SendPublishNamespaceDone(conn_it->second, prefix);
             conn_it->second.pub_namespace_handlers.erase(pub_ns_it);
