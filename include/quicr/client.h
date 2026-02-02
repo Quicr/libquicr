@@ -286,21 +286,15 @@ namespace quicr {
          * @brief Publish a track namespace
          *
          * @details In MoQ, a publish namespace will result in an announce being sent. Announce OK will
-         *      be reflected in the Status() of the PublishTrackHandler passed. This method can be called at any time,
-         *      but normally it would be called before publishing any tracks to the same namespace.
+         *      be reflected in the Status() of the PublishNamespaceHandler passed. This method can be called at any
+         *      time, but normally it would be called before publishing any tracks to the same namespace.
          *
-         *      If this method is called after a publish track with a matching namespace that already exists or if
-         * called more than once, this will result in this track handler being added to the active state of the
-         *      announce, but it will not result in a repeated announce being sent. Adding track handler to
-         *      the announce state ensures that the announce will remain active if the other tracks are
-         *      removed.
+         *      If this method is called after a publish namespace track with a matching namespace that already exists
+         *      or if called more than once, this will result in this track handler being added to the active state of
+         *      the announce, but it will not result in a repeated announce being sent. Adding track handler to the
+         *      announce state ensures that the announce will remain active if the other tracks are removed.
          *
-         * @note
-         *      The PublishTrackHandler with this method only needs to have the FullTrackName::name_space defined.
-         *      Name and track alias is not used.
-         *
-         *
-         * @param handler The namespace handler  to publish on.
+         * @param handler The namespace handler to publish on.
          */
         void PublishNamespace(std::shared_ptr<PublishNamespaceHandler> handler);
 
