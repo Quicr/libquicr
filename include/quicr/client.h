@@ -312,7 +312,7 @@ namespace quicr {
          *
          * @param handler The namespace handler  to publish on.
          */
-        void PublishNamespaceDone(std::shared_ptr<PublishNamespaceHandler> handler);
+        void PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& handler);
 
         /**
          * @brief Subscribe to prefix namespace

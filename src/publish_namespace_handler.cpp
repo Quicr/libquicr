@@ -61,15 +61,24 @@ quicr::PublishNamespaceHandler::StatusChanged(Status status)
 }
 
 std::weak_ptr<quicr::PublishTrackHandler>
-quicr::PublishNamespaceHandler::CreateHandler(const FullTrackName& full_track_name,
-                                              TrackMode track_mode,
-                                              uint8_t default_priority,
-                                              uint32_t default_ttl)
+quicr::PublishNamespaceHandler::PublishTrack(const FullTrackName& full_track_name,
+                                             TrackMode track_mode,
+                                             uint8_t default_priority,
+                                             uint32_t default_ttl)
 {
     if (!full_track_name.name_space.HasSamePrefix(GetPrefix())) {
         throw std::invalid_argument("New Publish track MUST have the same prefix as owning Namespace Handler");
     }
 
-    return handlers_[TrackHash(full_track_name).track_fullname_hash] =
-             PublishTrackHandler::Create(full_track_name, track_mode, default_priority, default_ttl);
+    auto& handler = handlers_[TrackHash(full_track_name).track_fullname_hash] =
+      PublishTrackHandler::Create(full_track_name, track_mode, default_priority, default_ttl);
+
+    const auto& transport = transport_.lock();
+    if (!transport) {
+        throw std::runtime_error("Cannot create publish track when transport is null");
+    }
+
+    transport->PublishTrack(connection_handle_, handler);
+
+    return handler;
 }

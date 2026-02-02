@@ -223,10 +223,10 @@ namespace quicr {
             return;
         }
 
-        Transport::PublishNamespace(connection_handle_.value(), handler);
+        Transport::PublishNamespace(connection_handle_.value(), std::move(handler));
     }
 
-    void Client::PublishNamespaceDone(std::shared_ptr<PublishNamespaceHandler> handler)
+    void Client::PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& handler)
     {
         if (!connection_handle_) {
             return;
@@ -535,6 +535,8 @@ namespace quicr {
                     const auto& handler = conn_ctx.pub_namespace_handlers.at(it->second);
                     handler->SetError({ error_code, msg.error_reason });
                 }
+
+                conn_ctx.pub_namespace_prefix_by_request_id.erase(it);
 
                 return true;
             }

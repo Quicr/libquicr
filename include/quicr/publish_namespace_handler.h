@@ -52,10 +52,10 @@ namespace quicr {
 
         virtual ~PublishNamespaceHandler();
 
-        virtual std::weak_ptr<PublishTrackHandler> CreateHandler(const FullTrackName& full_track_name,
-                                                                 TrackMode track_mode,
-                                                                 uint8_t default_priority,
-                                                                 uint32_t default_ttl);
+        virtual std::weak_ptr<PublishTrackHandler> PublishTrack(const FullTrackName& full_track_name,
+                                                                TrackMode track_mode,
+                                                                uint8_t default_priority,
+                                                                uint32_t default_ttl);
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 

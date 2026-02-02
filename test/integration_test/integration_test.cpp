@@ -755,10 +755,24 @@ TEST_CASE("Integration - Annouce Flow")
         auto server_status = server_future.wait_for(kDefaultTimeout);
         REQUIRE_EQ(server_status, std::future_status::ready);
 
-        std::this_thread::sleep_for(kDefaultTimeout);
-
         // Verify the publish track handler transitions to kNoSubscribers (PUBLISH_NAMESPACE_OK).
+        std::this_thread::sleep_for(kDefaultTimeout);
         CHECK_EQ(ns_handler->GetStatus(), PublishNamespaceHandler::Status::kOk);
+
+        const std::string name = "test";
+        const FullTrackName ftn(prefix, std::vector<uint8_t>{ name.begin(), name.end() });
+
+        REQUIRE_NOTHROW({
+            auto w_pub_handler = ns_handler->PublishTrack(ftn, TrackMode::kStream, 1, 5000);
+
+            auto pub_handler = w_pub_handler.lock();
+            REQUIRE_NE(pub_handler, nullptr);
+
+            CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kPendingPublishOk);
+
+            std::this_thread::sleep_for(kDefaultTimeout);
+            CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kOk);
+        });
     };
 
     SUBCASE("Raw QUIC")
