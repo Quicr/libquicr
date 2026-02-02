@@ -762,17 +762,16 @@ TEST_CASE("Integration - Annouce Flow")
         const std::string name = "test";
         const FullTrackName ftn(prefix, std::vector<uint8_t>{ name.begin(), name.end() });
 
-        REQUIRE_NOTHROW({
-            auto w_pub_handler = ns_handler->PublishTrack(ftn, TrackMode::kStream, 1, 5000);
+        std::weak_ptr<PublishTrackHandler> w_pub_handler;
+        REQUIRE_NOTHROW(w_pub_handler = ns_handler->PublishTrack(ftn, TrackMode::kStream, 1, 5000));
 
-            auto pub_handler = w_pub_handler.lock();
-            REQUIRE_NE(pub_handler, nullptr);
+        auto pub_handler = w_pub_handler.lock();
+        REQUIRE_NE(pub_handler, nullptr);
 
-            CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kPendingPublishOk);
+        CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kPendingPublishOk);
 
-            std::this_thread::sleep_for(kDefaultTimeout);
-            CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kOk);
-        });
+        std::this_thread::sleep_for(kDefaultTimeout);
+        CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kOk);
     };
 
     SUBCASE("Raw QUIC")

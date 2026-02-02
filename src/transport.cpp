@@ -1361,19 +1361,22 @@ namespace quicr {
         const auto& prefix = track_handler->GetPrefix();
         const auto prefix_hash = hash(prefix);
 
-        SPDLOG_LOGGER_INFO(logger_, "Unpublish namespace conn_id: {} hash: {}", conn_id, prefix_hash);
+        SPDLOG_LOGGER_INFO(logger_, "PublishNamespaceDone (conn_id={}, prefix_hash={})", conn_id, prefix_hash);
 
         std::unique_lock<std::mutex> lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
-            SPDLOG_LOGGER_ERROR(logger_, "Unpublish namespace conn_id: {} does not exist.", conn_id);
+            SPDLOG_LOGGER_ERROR(logger_,
+                                "PublishNamespaceDone failed, namespace does not exist (conn_id={}, prefix_hash={})",
+                                conn_id,
+                                prefix_hash);
             return;
         }
 
         auto pub_ns_it = conn_it->second.pub_namespace_handlers.find(prefix);
         if (pub_ns_it != conn_it->second.pub_namespace_handlers.end()) {
-            SPDLOG_LOGGER_INFO(logger_, "Unpublish namespace hash: {}, sending unannounce", prefix_hash);
+            SPDLOG_LOGGER_INFO(logger_, "Sending PublishNamespaceDone (prefix_hash={})", prefix_hash);
 
             SendPublishNamespaceDone(conn_it->second, prefix);
             conn_it->second.pub_namespace_handlers.erase(pub_ns_it);
