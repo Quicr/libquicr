@@ -36,7 +36,7 @@ namespace quicr {
         eflags.use_reliable = true;
 
         if (is_stream_header_needed) {
-            eflags.close_stream = true;
+            eflags.close_stream = false;
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
 
