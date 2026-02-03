@@ -7,7 +7,8 @@
 
 namespace quicr {
     PublishTrackHandler::PublishObjectStatus PublishFetchHandler::PublishObject(const ObjectHeaders& object_headers,
-                                                                                const BytesSpan data)
+                                                                                const BytesSpan data,
+                                                                                bool complete)
     {
         auto transport = GetTransport().lock();
 
@@ -36,7 +37,6 @@ namespace quicr {
         eflags.use_reliable = true;
 
         if (is_stream_header_needed) {
-            eflags.close_stream = true;
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
 
@@ -57,7 +57,6 @@ namespace quicr {
               eflags);
 
             object_msg_buffer_.clear();
-            eflags.close_stream = false;
             eflags.clear_tx_queue = false;
             eflags.use_reset = false;
 
@@ -65,6 +64,9 @@ namespace quicr {
                 throw TransportException(result);
             }
         }
+
+        // Close stream after this object if complete
+        eflags.close_stream = complete;
 
         messages::FetchObject object{};
         object.group_id = group_id;

@@ -112,7 +112,8 @@ namespace quicr {
     }
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
-                                                                                BytesSpan data)
+                                                                                BytesSpan data,
+                                                                                [[maybe_unused]] bool end_of_track)
     {
         auto transport = GetTransport().lock();
 

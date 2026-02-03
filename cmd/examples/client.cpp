@@ -360,7 +360,9 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
         }
     }
 
-    PublishObjectStatus PublishObject(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
+    PublishObjectStatus PublishObject(const quicr::ObjectHeaders& object_headers,
+                                      quicr::BytesSpan data,
+                                      bool end_of_track = false) override
     {
         auto track_alias = GetTrackAlias();
 
@@ -384,9 +386,9 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
         if (qclient_vars::mls_ctx.has_value()) {
             quicr::Bytes ct(data.size() + sframe::Context::max_overhead);
             auto payload = qclient_vars::mls_ctx->protect(0, track_alias.value(), ct, data, {});
-            return quicr::PublishTrackHandler::PublishObject(object_headers, payload);
+            return quicr::PublishTrackHandler::PublishObject(object_headers, payload, end_of_track);
         } else {
-            return quicr::PublishTrackHandler::PublishObject(object_headers, data);
+            return quicr::PublishTrackHandler::PublishObject(object_headers, data, end_of_track);
         }
     }
 };

@@ -126,7 +126,7 @@ namespace quicr_test {
         // Data to respond with when a fetch is received
         struct FetchResponseData
         {
-            quicr::ObjectHeaders headers;
+            quicr::ObjectHeaders headers{};
             std::vector<uint8_t> payload;
         };
 
@@ -151,7 +151,7 @@ namespace quicr_test {
         }
 
         // Set up data to respond with when a fetch is received
-        void SetFetchResponseData(FetchResponseData data) { fetch_response_data_ = std::move(data); }
+        void SetFetchResponseData(std::vector<FetchResponseData> data) { fetch_response_data_ = std::move(data); }
 
         void AddKnownPublishedNamespace(const quicr::TrackNamespace& track_namespace);
         void AddKnownPublishedTrack(const quicr::FullTrackName& track,
@@ -219,7 +219,7 @@ namespace quicr_test {
         std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
         std::unordered_map<quicr::messages::TrackNamespacePrefix, std::vector<quicr::ConnectionHandle>>
           namespace_subscribers_;
-        std::optional<FetchResponseData> fetch_response_data_;
+        std::vector<FetchResponseData> fetch_response_data_;
 
         // Subscriber publish handlers: [track_alias][connection_handle] -> PublishTrackHandler
         std::map<quicr::messages::TrackAlias,

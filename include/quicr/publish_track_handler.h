@@ -271,10 +271,13 @@ namespace quicr {
          *
          * @param object_headers        Object headers, must include group and object Ids
          * @param data                  Full complete payload data for the object
+         * @param end_of_track          If true, marks this object with EndOfTrack status
          *
          * @returns Publish status of the publish
          */
-        virtual PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+        virtual PublishObjectStatus PublishObject(const ObjectHeaders& object_headers,
+                                                  BytesSpan data,
+                                                  bool end_of_track = false);
 
         /**
          * @brief Forward received object data to subscriber/relay/remote client
