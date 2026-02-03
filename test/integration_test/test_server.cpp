@@ -187,7 +187,7 @@ TestServer::StandaloneFetchReceived(const ConnectionHandle connection_handle,
                                     const FullTrackName& track_full_name,
                                     const messages::StandaloneFetchAttributes& attrs)
 {
-    if (!fetch_response_data_.has_value()) {
+    if (fetch_response_data_.empty()) {
         // No response data configured
         ResolveFetch(connection_handle,
                      request_id,
@@ -199,8 +199,8 @@ TestServer::StandaloneFetchReceived(const ConnectionHandle connection_handle,
     }
 
     // Create location for the response
-    const messages::Location largest_location = { .group = fetch_response_data_->headers.group_id,
-                                                  .object = fetch_response_data_->headers.object_id };
+    const messages::Location largest_location = { .group = fetch_response_data_.back().headers.group_id,
+                                                  .object = fetch_response_data_.back().headers.object_id };
 
     // Accept the fetch
     ResolveFetch(connection_handle,
@@ -213,5 +213,7 @@ TestServer::StandaloneFetchReceived(const ConnectionHandle connection_handle,
     auto pub_fetch_handler =
       PublishFetchHandler::Create(track_full_name, attrs.priority, request_id, attrs.group_order, 500);
     BindFetchTrack(connection_handle, pub_fetch_handler);
-    pub_fetch_handler->PublishObject(fetch_response_data_->headers, fetch_response_data_->payload);
+    for (size_t i = 0; i < fetch_response_data_.size(); ++i) {
+        pub_fetch_handler->PublishObject(fetch_response_data_[i].headers, fetch_response_data_[i].payload);
+    }
 }
