@@ -1545,8 +1545,7 @@ PicoQuicTransport::DeleteDataContextInternal(TransportConnId conn_id, DataContex
                         data_ctx_it->second.delete_on_empty,
                         streams.size());
 
-    if (delete_on_empty && !streams.empty() //&&
-        /*std::all_of(streams.begin(), streams.end(), [](auto&& e) { return e.second.tx_data->Empty(); }) */) {
+    if (delete_on_empty && !streams.empty() {
         data_ctx_it->second.delete_on_empty = true;
         SPDLOG_LOGGER_DEBUG(
           logger, "Delete data context {} in conn_id: {} using delete on empty", data_ctx_id, conn_id);
@@ -1833,15 +1832,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
         is_still_active = 1;
 
     uint8_t* buf = nullptr;
-
-    if (!is_still_active) {
-        SPDLOG_LOGGER_DEBUG(logger,
-                            "conn_id: {} data_ctx_id: {} stream_id: {} priority: {} no longer active",
-                            data_ctx->conn_id,
-                            data_ctx->data_ctx_id,
-                            stream_id,
-                            static_cast<int>(stream_ctx.priority));
-    }
 
     buf = picoquic_provide_stream_data_buffer(bytes_ctx, data_len, 0, is_still_active);
 
