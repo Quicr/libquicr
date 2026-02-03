@@ -812,19 +812,26 @@ class TestFetchTrackHandler final : public FetchTrackHandler
 
     void ObjectReceived(const ObjectHeaders& headers, BytesSpan data) override
     {
-        ReceivedObject obj{ .headers = headers, .payload = std::vector<uint8_t>(data.begin(), data.end()) };
-        if (object_received_promise_.has_value()) {
-            object_received_promise_->set_value(std::move(obj));
-        }
+        std::lock_guard lock(mutex_);
+        received_objects_.push_back(
+          ReceivedObject{ .headers = headers, .payload = std::vector<uint8_t>(data.begin(), data.end()) });
     }
 
-    void SetObjectReceivedPromise(std::promise<ReceivedObject> promise)
+    std::vector<ReceivedObject> GetReceivedObjects()
     {
-        object_received_promise_ = std::move(promise);
+        std::lock_guard lock(mutex_);
+        return received_objects_;
+    }
+
+    std::size_t GetReceivedCount()
+    {
+        std::lock_guard lock(mutex_);
+        return received_objects_.size();
     }
 
   private:
-    std::optional<std::promise<ReceivedObject>> object_received_promise_;
+    std::mutex mutex_;
+    std::vector<ReceivedObject> received_objects_;
 };
 
 TEST_CASE("Integration - Fetch object roundtrip")
@@ -838,37 +845,45 @@ TEST_CASE("Integration - Fetch object roundtrip")
         ftn.name = { 1, 2, 3 };
 
         // Set up test data with specific values for all fields
-        TestServer::FetchResponseData response_data;
-        response_data.headers.group_id = 100;
-        response_data.headers.subgroup_id = 42;
-        response_data.headers.object_id = 200;
-        response_data.headers.status = ObjectStatus::kAvailable;
-        response_data.headers.priority = 5;
-        response_data.payload = { 0xDE, 0xAD, 0xBE, 0xEF };
-        response_data.headers.payload_length = response_data.payload.size();
+        std::vector<TestServer::FetchResponseData> cached;
+        constexpr messages::GroupId fetch_group = 100;
+        constexpr messages::ObjectId max_object = 100;
+        for (messages::ObjectId object = 0; object <= max_object; object++) {
+            TestServer::FetchResponseData response_data{};
+            response_data.headers.group_id = fetch_group;
+            response_data.headers.subgroup_id = 0;
+            response_data.headers.object_id = object;
+            response_data.headers.status = ObjectStatus::kAvailable;
+            response_data.headers.priority = 5;
+            response_data.payload = { static_cast<uint8_t>(object) };
+            response_data.headers.payload_length = response_data.payload.size();
+            cached.push_back(response_data);
+        }
 
-        server->SetFetchResponseData(response_data);
+        server->SetFetchResponseData(cached);
 
-        auto fetch_handler = TestFetchTrackHandler::Create(ftn,
-                                                           0,
-                                                           messages::GroupOrder::kOriginalPublisherOrder,
-                                                           { response_data.headers.group_id, 0 },
-                                                           { response_data.headers.group_id + 1, 1000 });
-
-        std::promise<TestFetchTrackHandler::ReceivedObject> object_promise;
-        auto object_future = object_promise.get_future();
-        fetch_handler->SetObjectReceivedPromise(std::move(object_promise));
+        auto fetch_handler = TestFetchTrackHandler::Create(
+          ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, { fetch_group, 0 }, { fetch_group, std::nullopt });
 
         client->FetchTrack(fetch_handler);
 
-        auto status = object_future.wait_for(std::chrono::milliseconds(kDefaultTimeout));
-        REQUIRE(status == std::future_status::ready);
+        // Wait for all objects to be received
+        const auto expected_count = cached.size();
+        const bool all_received =
+          WaitFor([&fetch_handler, expected_count]() { return fetch_handler->GetReceivedCount() >= expected_count; },
+                  std::chrono::milliseconds(3000));
+        REQUIRE_EQ(fetch_handler->GetReceivedCount(), expected_count);
+        REQUIRE(all_received);
 
-        const auto& received = object_future.get();
-        CHECK_EQ(received.headers.group_id, response_data.headers.group_id);
-        CHECK_EQ(received.headers.subgroup_id, response_data.headers.subgroup_id);
-        CHECK_EQ(received.headers.object_id, response_data.headers.object_id);
-        CHECK_EQ(received.payload, response_data.payload);
+        // Verify each object's payload matches its object_id
+        const auto received_objects = fetch_handler->GetReceivedObjects();
+        CHECK_EQ(received_objects.size(), expected_count);
+        for (const auto& received : received_objects) {
+            CHECK_EQ(received.headers.group_id, fetch_group);
+            CHECK_EQ(received.headers.subgroup_id, 0);
+            const std::vector expected_payload = { static_cast<uint8_t>(received.headers.object_id) };
+            CHECK_EQ(received.payload, expected_payload);
+        }
     };
 
     SUBCASE("Raw QUIC")
