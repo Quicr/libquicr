@@ -1410,7 +1410,7 @@ main(int argc, char* argv[])
         ("start_group", "Starting group ID", cxxopts::value<uint64_t>())
         ("end_group", "End Group ID", cxxopts::value<uint64_t>())
         ("start_object", "The starting object ID within the start group", cxxopts::value<uint64_t>())
-        ("end_object", "The final object ID within the end group, or -1 to run to the end of the group", cxxopts::value<int64_t>());
+        ("end_object", "The final object ID within the end group, or -1 to run to the end of the group", cxxopts::value<int64_t>()->default_value("-1"));
 
     // clang-format on
 
