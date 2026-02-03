@@ -1506,8 +1506,10 @@ main(int argc, char* argv[])
 
             const quicr::messages::Location start_location = { result["start_group"].as<uint64_t>(),
                                                                result["start_object"].as<uint64_t>() };
-            const std::int64_t end_object_arg = result["end_object"].as<int64_t>();
-            const auto end_object = end_object_arg >= 0 ? std::optional<std::uint64_t>(end_object_arg) : std::nullopt;
+
+            const auto end_object = result["end_object"].as<int64_t>() >= 0
+                                      ? std::optional(result["end_object"].as<int64_t>())
+                                      : std::nullopt;
             const quicr::messages::FetchEndLocation end_location = { result["end_group"].as<uint64_t>(), end_object };
 
             fetch_thread =
