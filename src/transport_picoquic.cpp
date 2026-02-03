@@ -1536,18 +1536,34 @@ PicoQuicTransport::DeleteDataContextInternal(TransportConnId conn_id, DataContex
     if (data_ctx_it == conn_it->second.active_data_contexts.end())
         return;
 
+    const auto& streams = data_ctx_it->second.streams;
     SPDLOG_LOGGER_DEBUG(logger,
-                        "Delete data context {} in conn_id: {} doe: {} / {}",
+                        "Delete data context {} in conn_id: {} doe: {} / {} stream count: {}",
                         data_ctx_id,
                         conn_id,
                         delete_on_empty,
-                        data_ctx_it->second.delete_on_empty);
+                        data_ctx_it->second.delete_on_empty,
+                        streams.size());
 
-    const auto& streams = data_ctx_it->second.streams;
-
-    if (delete_on_empty && !streams.empty() &&
-        std::all_of(streams.begin(), streams.end(), [](auto&& e) { return e.second.tx_data->Empty(); })) {
+    if (delete_on_empty && !streams.empty()) {
         data_ctx_it->second.delete_on_empty = true;
+        SPDLOG_LOGGER_DEBUG(
+          logger, "Delete data context {} in conn_id: {} using delete on empty", data_ctx_id, conn_id);
+
+        // Delegate removal of stream to SendStreamBytes() to ensure all data is transmitted before closing stream
+        void* stream_ctx = nullptr;
+        for (const auto& stream : streams) {
+
+            if (conn_it->second.transport_mode == TransportMode::kWebTransport) {
+                stream_ctx = stream.second.wt_stream_ctx;
+            } else {
+                // For raw QUIC, pass the DataContext pointer
+                stream_ctx = &data_ctx_it->second;
+            }
+
+            picoquic_mark_active_stream(conn_it->second.pq_cnx, stream.first, 1, stream_ctx);
+        }
+
     } else {
         SPDLOG_LOGGER_DEBUG(logger, "Delete data context {} in conn_id: {}", data_ctx_id, conn_id);
 
