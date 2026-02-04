@@ -44,6 +44,7 @@ class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
         uint64_t group_id;
         uint64_t object_id;
+        uint8_t priority;
         quicr::ObjectStatus status;
         std::optional<quicr::Extensions> extensions;
         std::optional<quicr::Extensions> immutable_extensions;
@@ -64,11 +65,12 @@ class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
     void ObjectStatusReceived(const uint64_t group_id,
                               const uint64_t object_id,
+                              const std::uint8_t priority,
                               const quicr::ObjectStatus status,
                               const std::optional<quicr::Extensions> extensions,
                               const std::optional<quicr::Extensions> immutable_extensions) override
     {
-        last_status = { group_id, object_id, status, extensions, immutable_extensions };
+        last_status = { group_id, object_id, priority, status, extensions, immutable_extensions };
         status_received_count++;
     }
 
@@ -166,8 +168,10 @@ TEST_CASE("Subscribe Track Handler ObjectStatusReceived with extensions")
     quicr::Bytes buffer;
     buffer << status_msg;
 
-    // Verify it's using the WithExtensions type (0x05)
-    CHECK_EQ(buffer.front(), static_cast<uint8_t>(quicr::messages::DatagramStatusType::kWithExtensions));
+    // Verify properties.
+    const auto properties = quicr::messages::DatagramHeaderProperties(buffer.front());
+    CHECK(properties.status);
+    CHECK(properties.extensions);
 
     auto data = std::make_shared<std::vector<uint8_t>>(buffer.begin(), buffer.end());
     handler->DgramDataRecv(data);
