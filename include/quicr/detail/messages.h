@@ -74,30 +74,6 @@ namespace quicr::messages {
     };
 
     /**
-     * Possible datagram object header types.
-     */
-    enum class DatagramHeaderType : uint8_t
-    {
-        kNotEndOfGroupNoExtensionsObjectId = 0x00,
-        kNotEndOfGroupWithExtensionsObjectId = 0x01,
-        kEndOfGroupNoExtensionsObjectId = 0x02,
-        kEndOfGroupWithExtensionsObjectId = 0x03,
-        kNotEndOfGroupNoExtensionsNoObjectId = 0x04,
-        kNotEndOfGroupWithExtensionsNoObjectId = 0x05,
-        kEndOfGroupNoExtensionsNoObjectId = 0x06,
-        kEndOfGroupWithExtensionsNoObjectId = 0x07
-    };
-
-    /**
-     * Possible datagram status types.
-     */
-    enum class DatagramStatusType : uint8_t
-    {
-        kNoExtensions = 0x20,
-        kWithExtensions = 0x21
-    };
-
-    /**
      * Possible fetch header types.
      */
     enum class FetchHeaderType : uint8_t
@@ -272,105 +248,72 @@ namespace quicr::messages {
      */
     struct DatagramHeaderProperties
     {
+        // True if this object has extensions.
+        const bool extensions;
         // True if this object is end of the group.
         const bool end_of_group;
-        // True if this object has extensions.
-        const bool has_extensions;
-        // True if this object encodes an object ID.
-        const bool encodes_object_id;
+        // True if this object ID is 0 and non-serialized.
+        const bool zero_object_id;
+        // True if the object priority is the publisher priority and non-serialized.
+        const bool default_priority;
+        // True if this is an object datagram status, false for payload.
+        const bool status;
 
-        constexpr explicit DatagramHeaderProperties(const DatagramHeaderType type)
-          : end_of_group(static_cast<uint8_t>(type) & 0x02)
-          , has_extensions(static_cast<uint8_t>(type) & 0x01)
-          , encodes_object_id((static_cast<uint8_t>(type) & 0x04) == 0)
+        /**
+         * Parse the properties of a datagram header from its type.
+         */
+        constexpr explicit DatagramHeaderProperties(const std::uint8_t type)
+          : extensions(type & 0x01)
+          , end_of_group(type & 0x02)
+          , zero_object_id(type & 0x04)
+          , default_priority(type & 0x08)
+          , status(type & 0x20)
         {
+            if (type & 0xD0) {
+                throw ProtocolViolationException("Invalid datagram type: must match 0b00X0XXXX");
+            }
+            if (status && end_of_group) {
+                throw ProtocolViolationException("An object status message cannot signal end of group");
+            }
         }
 
-        constexpr DatagramHeaderProperties(const bool end_of_group, const bool has_extensions, const bool has_object_id)
-          : end_of_group(end_of_group)
-          , has_extensions(has_extensions)
-          , encodes_object_id(has_object_id)
+        /// Build the properties of a datagram header.
+        constexpr DatagramHeaderProperties(const bool extensions,
+                                           const bool end_of_group,
+                                           const bool zero_object_id,
+                                           const bool default_priority,
+                                           const bool status)
+          : extensions(extensions)
+          , end_of_group(end_of_group)
+          , zero_object_id(zero_object_id)
+          , default_priority(default_priority)
+          , status(status)
         {
         }
 
         /**
          * Get the type of this datagram header based on its properties.
-         * @return The DatagramHeaderType corresponding to these properties.
          */
-        constexpr DatagramHeaderType GetType() const
+        constexpr std::uint8_t GetType() const
         {
-            uint8_t type = 0;
-            if (has_extensions)
+            std::uint8_t type = 0;
+            if (extensions) {
                 type |= 0x01;
-            if (end_of_group)
-                type |= 0x02;
-            if (!encodes_object_id)
-                type |= 0x04;
-            return static_cast<DatagramHeaderType>(type);
-        }
-    };
-
-    /**
-     * Describes the properties of a datagram status type.
-     */
-    struct DatagramStatusProperties
-    {
-        // True if this datagram status message has extensions.
-        const bool has_extensions;
-
-        explicit constexpr DatagramStatusProperties(const bool has_extensions)
-          : has_extensions(has_extensions)
-        {
-        }
-
-        explicit constexpr DatagramStatusProperties(const DatagramStatusType type)
-          : has_extensions(HasExtensions(type))
-        {
-        }
-
-        /**
-         * Get the datagram status type based on its properties.
-         * @return The DatagramStatusType corresponding to these properties.
-         */
-        constexpr DatagramStatusType GetType() const
-        {
-            return has_extensions ? DatagramStatusType::kWithExtensions : DatagramStatusType::kNoExtensions;
-        }
-
-      private:
-        static constexpr bool HasExtensions(const DatagramStatusType type)
-        {
-            switch (type) {
-                case DatagramStatusType::kNoExtensions:
-                    return false;
-                case DatagramStatusType::kWithExtensions:
-                    return true;
             }
-            throw ProtocolViolationException("Unknown datagram status type");
+            if (end_of_group) {
+                type |= 0x02;
+            }
+            if (zero_object_id) {
+                type |= 0x04;
+            }
+            if (default_priority) {
+                type |= 0x08;
+            }
+            if (status) {
+                type |= 0x20;
+            }
+            return type;
         }
-    };
-
-    /**
-     * The possible message types arriving over datagram transport.
-     */
-    enum class DatagramMessageType : uint8_t
-    {
-        kDatagramNotEndOfGroupNoExtensions =
-          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupNoExtensionsObjectId),
-        kDatagramNotEndOfGroupWithExtensions =
-          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensionsObjectId),
-        kDatagramEndOfGroupNoExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensionsObjectId),
-        kDatagramEndOfGroupWithExtensions = static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensionsObjectId),
-        kDatagramNotEndOfGroupNoExtensionsNoObjectId =
-          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupNoExtensionsNoObjectId),
-        kDatagramNotEndOfGroupWithExtensionsNoObjectId =
-          static_cast<uint8_t>(DatagramHeaderType::kNotEndOfGroupWithExtensionsNoObjectId),
-        kDatagramEndOfGroupNoExtensionsNoObjectId =
-          static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupNoExtensionsNoObjectId),
-        kDatagramEndOfGroupWithExtensionsNoObjectId =
-          static_cast<uint8_t>(DatagramHeaderType::kEndOfGroupWithExtensionsNoObjectId),
-        kDatagramStatusNoExtensions = static_cast<uint8_t>(DatagramStatusType::kNoExtensions),
-        kDatagramStatusWithExtensions = static_cast<uint8_t>(DatagramStatusType::kWithExtensions),
     };
 
     /**
@@ -402,81 +345,6 @@ namespace quicr::messages {
         kSubgroupExplicitEndOfGroupWithExtensions =
           static_cast<uint8_t>(StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions)
     };
-
-    /**
-     * @brief Check if the given type is a datagram message type.
-     * @details This primarily exists to enforce compile time validation of message type handling. The actual message
-     * type can be assumed to be a datagram message if it arrives on a datagram transport.
-     * @param type The type to query.
-     * @return True if this is a datagram message type, false otherwise.
-     */
-    constexpr bool TypeIsDatagram(const DatagramMessageType type)
-    {
-        switch (type) {
-            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
-            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensionsNoObjectId:
-            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensionsNoObjectId:
-            case DatagramMessageType::kDatagramEndOfGroupNoExtensionsNoObjectId:
-            case DatagramMessageType::kDatagramEndOfGroupWithExtensionsNoObjectId:
-            case DatagramMessageType::kDatagramStatusNoExtensions:
-            case DatagramMessageType::kDatagramStatusWithExtensions:
-                return true;
-        }
-        throw ProtocolViolationException("Unknown datagram message type");
-    }
-
-    /**
-     * @brief Check if the given datagram message type is a datagram object header.
-     * @param type The type to query.
-     * @return True if this is a datagram object type, false otherwise.
-     */
-    [[maybe_unused]]
-    static bool TypeIsDatagramHeaderType(const DatagramMessageType type)
-    {
-        switch (type) {
-            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
-            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensionsNoObjectId:
-            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensionsNoObjectId:
-            case DatagramMessageType::kDatagramEndOfGroupNoExtensionsNoObjectId:
-            case DatagramMessageType::kDatagramEndOfGroupWithExtensionsNoObjectId:
-                return true;
-            case DatagramMessageType::kDatagramStatusNoExtensions:
-            case DatagramMessageType::kDatagramStatusWithExtensions:
-                return false;
-        }
-        throw ProtocolViolationException("Unknown datagram message type");
-    }
-
-    /**
-     * @brief Check if the given datagram message type is a datagram status header.
-     * @param type The type to query.
-     * @return True if this is a datagram object status, false otherwise.
-     */
-    [[maybe_unused]]
-    static bool TypeIsDatagramStatusType(const DatagramMessageType type)
-    {
-        switch (type) {
-            case DatagramMessageType::kDatagramStatusNoExtensions:
-            case DatagramMessageType::kDatagramStatusWithExtensions:
-                return true;
-            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupNoExtensions:
-            case DatagramMessageType::kDatagramEndOfGroupWithExtensions:
-            case DatagramMessageType::kDatagramNotEndOfGroupNoExtensionsNoObjectId:
-            case DatagramMessageType::kDatagramNotEndOfGroupWithExtensionsNoObjectId:
-            case DatagramMessageType::kDatagramEndOfGroupNoExtensionsNoObjectId:
-            case DatagramMessageType::kDatagramEndOfGroupWithExtensionsNoObjectId:
-                return false;
-        }
-        throw ProtocolViolationException("Unknown datagram message type");
-    }
 
     /**
      * Check if the given stream message type is a subgroup header.
@@ -555,7 +423,7 @@ namespace quicr::messages {
         messages::TrackAlias track_alias;
         messages::GroupId group_id;
         ObjectId object_id;
-        ObjectPriority priority;
+        std::optional<ObjectPriority> priority;
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
         uint64_t payload_len{ 0 };
@@ -570,7 +438,7 @@ namespace quicr::messages {
          * Determine the type of this datagram header based on its properties.
          * @return The DatagramHeaderType corresponding to this datagram header.
          */
-        DatagramHeaderType GetType() const { return GetProperties().GetType(); }
+        std::uint8_t GetType() const { return GetProperties().GetType(); }
 
         /**
          * Determine the properties of this datagram header based on its fields.
@@ -578,12 +446,15 @@ namespace quicr::messages {
          */
         DatagramHeaderProperties GetProperties() const
         {
-            return DatagramHeaderProperties(
-              end_of_group, extensions.has_value() || immutable_extensions.has_value(), object_id > 0);
+            return DatagramHeaderProperties(extensions.has_value() || immutable_extensions.has_value(),
+                                            end_of_group,
+                                            object_id == 0,
+                                            !priority.has_value(),
+                                            false);
         }
 
       private:
-        std::optional<DatagramHeaderType> type;
+        std::optional<DatagramHeaderProperties> properties;
         std::optional<std::size_t> extension_headers_length;
         std::size_t extension_bytes_left{ 0 };
         std::optional<uint64_t> current_tag{};
@@ -598,7 +469,7 @@ namespace quicr::messages {
         TrackAlias track_alias;
         GroupId group_id;
         ObjectId object_id;
-        ObjectPriority priority;
+        std::optional<ObjectPriority> priority;
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
         ObjectStatus status;
@@ -606,15 +477,18 @@ namespace quicr::messages {
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, ObjectDatagramStatus& msg);
 
-        DatagramStatusType GetType() const
+        std::uint64_t GetType() const
         {
-            const auto properties =
-              DatagramStatusProperties(extensions.has_value() || immutable_extensions.has_value());
+            const auto properties = DatagramHeaderProperties(extensions.has_value() || immutable_extensions.has_value(),
+                                                             false,
+                                                             object_id == 0,
+                                                             !priority.has_value(),
+                                                             true);
             return properties.GetType();
         }
 
       private:
-        std::optional<DatagramStatusType> type;
+        std::optional<DatagramHeaderProperties> properties;
         std::optional<std::size_t> extension_headers_length;
         std::size_t extension_bytes_left{ 0 };
         std::optional<uint64_t> current_tag{};

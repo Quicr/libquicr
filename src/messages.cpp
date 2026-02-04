@@ -393,13 +393,16 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const ObjectDatagram& msg)
     {
         const auto properties = msg.GetProperties();
-        buffer << UintVar(static_cast<uint64_t>(properties.GetType()));
+        buffer << UintVar(properties.GetType());
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
-        if (properties.encodes_object_id) {
+        if (!properties.zero_object_id) {
             buffer << UintVar(msg.object_id);
         }
-        buffer.push_back(msg.priority);
+        if (!properties.default_priority) {
+            assert(msg.priority.has_value()); // Internal invariant.
+            buffer.push_back(*msg.priority);
+        }
         if (msg.extensions.has_value() || msg.immutable_extensions.has_value()) {
             SerializeExtensions(buffer, msg.extensions, msg.immutable_extensions);
         }
@@ -422,10 +425,9 @@ namespace quicr::messages {
                 if (!ParseUintVField(buffer, type)) {
                     return false;
                 }
-                const auto header_type = static_cast<DatagramHeaderType>(type);
-                msg.type = header_type;
-                const auto properties = DatagramHeaderProperties(header_type);
-                msg.end_of_group = properties.end_of_group;
+                msg.properties.emplace(type);
+                assert(!msg.properties->status); // Internal invariant.
+                msg.end_of_group = msg.properties->end_of_group;
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
@@ -444,8 +446,7 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 3: {
-                const auto properties = DatagramHeaderProperties(*msg.type);
-                if (properties.encodes_object_id) {
+                if (!msg.properties->zero_object_id) {
                     if (!ParseUintVField(buffer, msg.object_id)) {
                         return false;
                     }
@@ -456,18 +457,21 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 4: {
-                auto val = buffer.Front();
-                if (!val) {
-                    return false;
+                if (!msg.properties->default_priority) {
+                    auto val = buffer.Front();
+                    if (!val) {
+                        return false;
+                    }
+                    buffer.Pop();
+                    msg.priority = val.value();
+                } else {
+                    msg.priority = std::nullopt;
                 }
-                buffer.Pop();
-                msg.priority = val.value();
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 5: {
-                const auto properties = DatagramHeaderProperties(msg.type.value());
-                if (properties.has_extensions) {
+                if (msg.properties->extensions) {
                     if (!ParseExtensions(buffer,
                                          msg.extension_headers_length,
                                          msg.extensions,
@@ -512,13 +516,22 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const ObjectDatagramStatus& msg)
     {
         const auto properties =
-          DatagramStatusProperties(msg.extensions.has_value() || msg.immutable_extensions.has_value());
-        buffer << UintVar(static_cast<uint64_t>(properties.GetType()));
+          DatagramHeaderProperties(msg.extensions.has_value() || msg.immutable_extensions.has_value(),
+                                   false,
+                                   msg.object_id == 0,
+                                   !msg.priority.has_value(),
+                                   true);
+        buffer << UintVar(properties.GetType());
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
-        buffer << UintVar(msg.object_id);
-        buffer.push_back(msg.priority);
-        if (properties.has_extensions) {
+        if (!properties.zero_object_id) {
+            buffer << UintVar(msg.object_id);
+        }
+        if (!properties.default_priority) {
+            assert(msg.priority.has_value()); // Internal invariant.
+            buffer.push_back(*msg.priority);
+        }
+        if (properties.extensions) {
             SerializeExtensions(buffer, msg.extensions, msg.immutable_extensions);
         }
         buffer << UintVar(static_cast<uint8_t>(msg.status));
@@ -535,7 +548,7 @@ namespace quicr::messages {
                 if (!ParseUintVField(buffer, type)) {
                     return false;
                 }
-                msg.type = static_cast<DatagramStatusType>(type);
+                msg.properties.emplace(type);
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
@@ -554,25 +567,32 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 3: {
-                if (!ParseUintVField(buffer, msg.object_id)) {
-                    return false;
+                if (!msg.properties->zero_object_id) {
+                    if (!ParseUintVField(buffer, msg.object_id)) {
+                        return false;
+                    }
+                } else {
+                    msg.object_id = 0;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 4: {
-                auto val = buffer.Front();
-                if (!val) {
-                    return false;
+                if (!msg.properties->default_priority) {
+                    auto val = buffer.Front();
+                    if (!val) {
+                        return false;
+                    }
+                    buffer.Pop();
+                    msg.priority = val.value();
+                } else {
+                    msg.priority = std::nullopt;
                 }
-                buffer.Pop();
-                msg.priority = val.value();
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 5: {
-                const auto properties = DatagramStatusProperties(msg.type.value());
-                if (properties.has_extensions) {
+                if (msg.properties->extensions) {
                     if (!ParseExtensions(buffer,
                                          msg.extension_headers_length,
                                          msg.extensions,
