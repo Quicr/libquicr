@@ -386,7 +386,7 @@ namespace quicr {
             std::optional<messages::ControlMessageType>
               ctrl_msg_type_received; ///< Indicates the current message type being read
 
-            std::vector<uint8_t> ctrl_msg_buffer; ///< Control message buffer
+            std::map<uint64_t, std::vector<uint8_t>> ctrl_msg_buffer; ///< Control message buffer
 
             /** Next Connection request Id. This value is shifted left when setting Request Id.
              * The least significant bit is used to indicate client (0) vs server (1).
@@ -461,7 +461,7 @@ namespace quicr {
             ConnectionMetrics metrics{};   ///< Connection metrics
             bool is_webtransport{ false }; ///< True if this connection uses WebTransport over HTTP/3
 
-            ConnectionContext() { ctrl_msg_buffer.reserve(kControlMessageBufferSize); }
+            ConnectionContext() {}
 
             /*
              * Get the next request Id to use
@@ -481,7 +481,7 @@ namespace quicr {
 
         void Init();
 
-        void SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data);
+        void SendCtrlMsg(const ConnectionContext& conn_ctx, DataContextId data_ctx_id, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
         void SendPublishNamespace(ConnectionContext& conn_ctx,
@@ -652,7 +652,7 @@ namespace quicr {
         // Private member functions that will be implemented by both Server and Client
         // ------------------------------------------------------------------------------------------------
 
-        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes) = 0;
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, uint64_t data_ctx_id, BytesSpan msg_bytes) = 0;
 
         std::uint64_t CreateStream(ConnectionHandle conn, std::uint64_t data_ctx_id, uint8_t priority);
 

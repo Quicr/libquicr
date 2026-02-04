@@ -156,7 +156,7 @@ namespace quicr {
 
     void Client::PublishNamespaceDone(const TrackNamespace&) {}
 
-    bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
+    bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, uint64_t data_ctx_id, BytesSpan msg_bytes)
     try {
         switch (*conn_ctx.ctrl_msg_type_received) {
             case messages::ControlMessageType::kSubscribe: {

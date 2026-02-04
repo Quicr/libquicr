@@ -212,6 +212,10 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                               conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::kFin);
                         }
                     }
+
+                    if (data_ctx != nullptr) {
+                        transport->DeleteDataContext(conn_id, data_ctx->data_ctx_id, false);
+                    }
                 }
             }
 
@@ -230,17 +234,6 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                     rx_buf_it->second.closed = true;
                     transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::kReset);
                 }
-
-                if (conn_ctx->control_stream_id.has_value() && conn_ctx->control_stream_id == stream_id) {
-                    SPDLOG_LOGGER_INFO(transport->logger,
-                                       "Received RESET for control stream; conn_id: {0} data_ctx_id: {1} stream_id: "
-                                       "{2}, closing connection",
-                                       data_ctx->conn_id,
-                                       data_ctx->data_ctx_id,
-                                       stream_id);
-                    transport->Close(conn_id, 100);
-                    break;
-                }
             }
 
             if (data_ctx != nullptr) {
@@ -249,6 +242,8 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                                     data_ctx->conn_id,
                                     data_ctx->data_ctx_id,
                                     stream_id);
+
+                transport->DeleteDataContext(conn_id, data_ctx->data_ctx_id, false);
             }
 
             break;
@@ -649,7 +644,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             // For bidir streams that are remotely initiated, create data context if needed
             if (data_ctx == nullptr) {
                 // Check if this is a bidir stream (bit 0x2 == 0)
-                if ((stream_id & 0x2) != 2) {
+                if ((stream_id & 0x2) == 0) {
                     // Create bidir stream if it wasn't initiated by this instance (remote initiated it)
                     if (((stream_id & 0x1) == 1 && !transport->is_server_mode) ||
                         ((stream_id & 0x0) == 0 && transport->is_server_mode)) {
@@ -777,16 +772,6 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                 }
 
                 ClearDataCtxStream(conn_ctx, stream_id);
-
-                if (conn_ctx->control_stream_id.has_value() && conn_ctx->control_stream_id == stream_id) {
-                    SPDLOG_LOGGER_INFO(transport->logger,
-                                       "Received RESET for control stream; conn_id: {} stream_id: {} "
-                                       ", closing connection",
-                                       conn_ctx->conn_id,
-                                       stream_id);
-                    transport->DeregisterWebTransport(cnx);
-                    break;
-                }
             }
 
             // Use picowt_reset_stream to properly reset the WebTransport stream
@@ -1095,9 +1080,21 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
     if (flags.use_reliable) {
         auto& streams = data_ctx_it->second.streams;
 
-        auto stream_it = streams.find(stream_id);
-        if (stream_it == streams.end()) {
-            return TransportError::kInvalidStreamId;
+        decltype(streams.begin()) stream_it;
+
+        if (data_ctx_it->second.is_bidir) {
+            if (streams.empty()) {
+                return TransportError::kInvalidStreamId;
+            }
+
+            stream_id = streams.begin()->first;
+            stream_it = streams.begin();
+
+        } else {
+            stream_it = streams.find(stream_id);
+            if (stream_it == streams.end()) {
+                return TransportError::kInvalidStreamId;
+            }
         }
 
         auto& stream = stream_it->second;
@@ -1461,10 +1458,6 @@ PicoQuicTransport::CreateDataContextBiDirRecv(TransportConnId conn_id, uint64_t 
     if (conn_it == conn_context_.end()) {
         SPDLOG_LOGGER_ERROR(logger, "Invalid conn_id: {0}, cannot create data context", conn_id);
         return nullptr;
-    }
-
-    if (!conn_it->second.control_stream_id.has_value()) {
-        conn_it->second.control_stream_id = stream_id;
     }
 
     const auto [data_ctx_it, is_new] =
