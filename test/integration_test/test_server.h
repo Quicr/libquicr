@@ -174,6 +174,7 @@ namespace quicr_test {
         }
 
         void UnsubscribeNamespaceReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                                          [[maybe_unused]] quicr::DataContextId data_ctx_id,
                                           [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override {};
         void UnsubscribeReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
                                  [[maybe_unused]] uint64_t request_id) override
@@ -201,6 +202,7 @@ namespace quicr_test {
         void PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override;
 
         void SubscribeNamespaceReceived(quicr::ConnectionHandle connection_handle,
+                                        quicr::DataContextId data_ctx_id,
                                         const quicr::TrackNamespace& prefix_namespace,
                                         const quicr::SubscribeNamespaceAttributes& attributes) override;
 

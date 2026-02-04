@@ -787,13 +787,18 @@ namespace quicr {
                             rid,
                             th.track_namespace_hash);
 
-        SendCtrlMsg(conn_it->second, conn_it->second.ctrl_data_ctx_id.value(), buffer);
+        auto data_ctx_id = quic_transport_->CreateDataContext(conn_handle, true, 0, true);
+        quic_transport_->CreateStream(conn_handle, data_ctx_id, 0);
+
+        SendCtrlMsg(conn_it->second, data_ctx_id, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, RequestID request_id)
+    void Transport::SendSubscribeNamespaceOk(ConnectionContext& conn_ctx,
+                                             DataContextId data_ctx_id,
+                                             RequestID request_id)
     try {
         auto msg = messages::SubscribeNamespaceOk(request_id);
 
@@ -805,13 +810,14 @@ namespace quicr {
                             conn_ctx.connection_handle,
                             request_id);
 
-        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
+        SendCtrlMsg(conn_ctx, data_ctx_id, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE_OK (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
     void Transport::SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
+                                                DataContextId data_ctx_id,
                                                 RequestID request_id,
                                                 messages::SubscribeNamespaceErrorCode err_code,
                                                 const std::string& reason)
@@ -827,7 +833,7 @@ namespace quicr {
                             conn_ctx.connection_handle,
                             request_id);
 
-        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
+        SendCtrlMsg(conn_ctx, data_ctx_id, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -1559,7 +1565,8 @@ namespace quicr {
                                        "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
 
                     conn_ctx.ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, true);
-                    quic_transport_->CreateStream(conn_id, conn_ctx.ctrl_data_ctx_id.value(), 0);
+                    conn_ctx.ctrl_stream_id =
+                      quic_transport_->CreateStream(conn_id, conn_ctx.ctrl_data_ctx_id.value(), 0);
 
                     SendClientSetup();
 

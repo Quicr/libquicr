@@ -28,7 +28,7 @@ namespace quicr {
 
     void Server::PublishNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&) {}
 
-    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&) {}
+    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, DataContextId, const TrackNamespace&) {}
 
     void Server::ResolvePublishNamespace(ConnectionHandle connection_handle,
                                          uint64_t request_id,
@@ -159,6 +159,7 @@ namespace quicr {
     }
 
     void Server::ResolveSubscribeNamespace(const ConnectionHandle connection_handle,
+                                           const DataContextId data_ctx_id,
                                            const uint64_t request_id,
                                            const messages::TrackNamespacePrefix& prefix,
                                            const SubscribeNamespaceResponse& response)
@@ -171,12 +172,15 @@ namespace quicr {
         auto th = TrackHash({ prefix, {} });
 
         if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
-            SendSubscribeNamespaceError(
-              conn_it->second, request_id, messages::SubscribeNamespaceErrorCode::kInternalError, "Internal error");
+            SendSubscribeNamespaceError(conn_it->second,
+                                        data_ctx_id,
+                                        request_id,
+                                        messages::SubscribeNamespaceErrorCode::kInternalError,
+                                        "Internal error");
             return;
         }
 
-        SendSubscribeNamespaceOk(conn_it->second, request_id);
+        SendSubscribeNamespaceOk(conn_it->second, data_ctx_id, request_id);
 
         // Fan out PUBLISH_NAMESPACE for matching namespaces.
         for (const auto& name_space : response.namespaces) {
@@ -622,15 +626,20 @@ namespace quicr {
                 auto msg = messages::SubscribeNamespace{};
                 msg_bytes >> msg;
 
-                SubscribeNamespaceReceived(
-                  conn_ctx.connection_handle, msg.track_namespace_prefix, { .request_id = msg.request_id });
+                SubscribeNamespaceReceived(conn_ctx.connection_handle,
+                                           data_ctx_id,
+                                           msg.track_namespace_prefix,
+                                           { .request_id = msg.request_id });
                 return true;
             }
             case messages::ControlMessageType::kUnsubscribeNamespace: {
                 auto msg = messages::UnsubscribeNamespace{};
                 msg_bytes >> msg;
 
-                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
+                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, data_ctx_id, msg.track_namespace_prefix);
+
+                quic_transport_->DeleteDataContext(conn_ctx.connection_handle, data_ctx_id);
+
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceError: {

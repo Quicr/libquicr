@@ -148,11 +148,13 @@ namespace quicr {
          * @brief Accept or reject subscribe namespace that was received
          *
          * @param connection_handle source connection ID
+         * @param data_ctx_id       Data context ID for the bidir connection to use
          * @param request_id        Request ID
          * @param prefix            Track namespace prefix
          * @param response          Response for remainder of subscribe namespace flow
          */
         virtual void ResolveSubscribeNamespace(ConnectionHandle connection_handle,
+                                               DataContextId data_ctx_id,
                                                uint64_t request_id,
                                                const messages::TrackNamespacePrefix& prefix,
                                                const SubscribeNamespaceResponse& response);
@@ -291,10 +293,12 @@ namespace quicr {
          * @brief Callback notification for Unsubscribe announces received
          *
          * @param connection_handle         Source connection ID
-         * @param prefix_namespace           Prefix namespace
+         * @param data_ctx_id               Data context ID that the message received on
+         * @param prefix_namespace          Prefix namespace
          *
          */
         virtual void UnsubscribeNamespaceReceived(ConnectionHandle connection_handle,
+                                                  DataContextId data_ctx_id,
                                                   const TrackNamespace& prefix_namespace) = 0;
 
         /**
@@ -303,10 +307,12 @@ namespace quicr {
          * @note The implementor **MUST** call ResolveSubscribeNamespace().
          *
          * @param connection_handle             Source connection ID
+         * @param data_ctx_id                   Data context ID that the message was received on
          * @param prefix_namespace              Track namespace
          * @param attributes                    Attributes received
          */
         virtual void SubscribeNamespaceReceived(ConnectionHandle connection_handle,
+                                                DataContextId data_ctx_id,
                                                 const TrackNamespace& prefix_namespace,
                                                 const SubscribeNamespaceAttributes& attributes) = 0;
 
