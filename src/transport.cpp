@@ -1974,8 +1974,10 @@ namespace quicr {
                 auto msg_type = data->front();
 
                 // Message type needs to be either datagram header types or status types.
-                const auto data_type = static_cast<DatagramMessageType>(msg_type);
-                if (!TypeIsDatagram(data_type)) {
+                try {
+                    const auto _ = DatagramHeaderProperties(msg_type);
+                } catch (const ProtocolViolationException&) {
+                    // TODO: Should this exception bubble up instead?
                     SPDLOG_LOGGER_DEBUG(
                       logger_, "Received datagram that is not a supported datagram type, dropping: {0}", msg_type);
                     auto& conn_ctx = connections_[conn_id];

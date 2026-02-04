@@ -120,8 +120,8 @@ namespace quicr {
         dgram_buffer_.Push(*data);
 
         // Payload or status?
-        const auto msg_type = static_cast<messages::DatagramMessageType>(data->front());
-        if (messages::TypeIsDatagramStatusType(msg_type)) {
+        const auto properties = messages::DatagramHeaderProperties(data->front());
+        if (properties.status) {
             messages::ObjectDatagramStatus status_msg;
             if (dgram_buffer_ >> status_msg) {
                 SPDLOG_TRACE("Received object datagram status track_alias: {} group_id: {} object_id: {} status: {}",
@@ -133,11 +133,13 @@ namespace quicr {
                 subscribe_track_metrics_.objects_received++;
 
                 try {
-                    ObjectStatusReceived(status_msg.group_id,
-                                         status_msg.object_id,
-                                         status_msg.status,
-                                         status_msg.extensions,
-                                         status_msg.immutable_extensions);
+                    ObjectStatusReceived(
+                      status_msg.group_id,
+                      status_msg.object_id,
+                      status_msg.priority.value_or(priority_), // TODO: This should be publisher priority.
+                      status_msg.status,
+                      status_msg.extensions,
+                      status_msg.immutable_extensions);
                 } catch (const std::exception& e) {
                     SPDLOG_ERROR("Caught exception in ObjectStatusReceived. (error={})", e.what());
                 }

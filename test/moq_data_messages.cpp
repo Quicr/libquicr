@@ -114,8 +114,9 @@ ObjectDatagramEncodeDecode(ExtensionTest extensions, bool end_of_group, bool non
     CAPTURE(extensions);
     CAPTURE(end_of_group);
     CAPTURE(non_zero_object_id);
-    DatagramHeaderProperties expected = { end_of_group, extensions != ExtensionTest::kNone, non_zero_object_id };
-    const DatagramHeaderType expected_type = expected.GetType();
+    const auto expected =
+      DatagramHeaderProperties(extensions != ExtensionTest::kNone, end_of_group, !non_zero_object_id, false, false);
+    const std::uint64_t expected_type = expected.GetType();
 
     Bytes buffer;
     auto object_datagram = messages::ObjectDatagram{};
@@ -173,8 +174,8 @@ static void
 ObjectDatagramStatusEncodeDecode(ExtensionTest extensions)
 {
     CAPTURE(extensions);
-    auto expected_type =
-      extensions != ExtensionTest::kNone ? DatagramStatusType::kWithExtensions : DatagramStatusType::kNoExtensions;
+    const auto expected_type =
+      DatagramHeaderProperties(extensions != ExtensionTest::kNone, false, false, false, true).GetType();
 
     Bytes buffer;
     auto object_datagram_status = ObjectDatagramStatus{};
@@ -198,7 +199,9 @@ ObjectDatagramStatusEncodeDecode(ExtensionTest extensions)
     buffer << object_datagram_status;
 
     ObjectDatagramStatus object_datagram_status_out;
-    CHECK(Verify(buffer, object_datagram_status_out));
+    StreamBuffer<uint8_t> sbuf;
+    sbuf.Push(buffer);
+    sbuf >> object_datagram_status_out;
     CHECK_EQ(object_datagram_status.track_alias, object_datagram_status_out.track_alias);
     CHECK_EQ(object_datagram_status.group_id, object_datagram_status_out.group_id);
     CHECK_EQ(object_datagram_status.object_id, object_datagram_status_out.object_id);
@@ -221,109 +224,126 @@ TEST_CASE("ObjectDatagramStatus  Message encode/decode")
 
 TEST_CASE("DatagramHeaderProperties encoding")
 {
-    SUBCASE("Type to properties")
+    // Bit layout per draft-ietf-moq-transport:
+    // bit 0 (0x01): EXTENSIONS - when 1, extensions field present
+    // bit 1 (0x02): END_OF_GROUP - when 1, end of group
+    // bit 2 (0x04): ZERO_OBJECT_ID - when 1, object ID is omitted (assumed 0)
+    // bit 3 (0x08): DEFAULT_PRIORITY - when 1, priority is omitted
+    // bit 5 (0x20): STATUS - when 1, status message (no payload)
+
+    SUBCASE("Type to properties - basic types")
     {
-        // Type 0x00: end_of_group=false, extensions=false, object_id=true
-        auto props0 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupNoExtensionsObjectId);
+        // Type 0x00: all bits clear
+        auto props0 = DatagramHeaderProperties(0x00);
+        CHECK_EQ(props0.extensions, false);
         CHECK_EQ(props0.end_of_group, false);
-        CHECK_EQ(props0.has_extensions, false);
-        CHECK_EQ(props0.encodes_object_id, true);
+        CHECK_EQ(props0.zero_object_id, false);
+        CHECK_EQ(props0.default_priority, false);
+        CHECK_EQ(props0.status, false);
 
-        // Type 0x01: end_of_group=false, extensions=true, object_id=true
-        auto props1 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupWithExtensionsObjectId);
+        // Type 0x01: extensions bit set
+        auto props1 = DatagramHeaderProperties(0x01);
+        CHECK_EQ(props1.extensions, true);
         CHECK_EQ(props1.end_of_group, false);
-        CHECK_EQ(props1.has_extensions, true);
-        CHECK_EQ(props1.encodes_object_id, true);
+        CHECK_EQ(props1.zero_object_id, false);
 
-        // Type 0x02: end_of_group=true, extensions=false, object_id=true
-        auto props2 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupNoExtensionsObjectId);
+        // Type 0x02: end_of_group bit set
+        auto props2 = DatagramHeaderProperties(0x02);
+        CHECK_EQ(props2.extensions, false);
         CHECK_EQ(props2.end_of_group, true);
-        CHECK_EQ(props2.has_extensions, false);
-        CHECK_EQ(props2.encodes_object_id, true);
+        CHECK_EQ(props2.zero_object_id, false);
 
-        // Type 0x03: end_of_group=true, extensions=true, object_id=true
-        auto props3 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupWithExtensionsObjectId);
+        // Type 0x03: extensions and end_of_group
+        auto props3 = DatagramHeaderProperties(0x03);
+        CHECK_EQ(props3.extensions, true);
         CHECK_EQ(props3.end_of_group, true);
-        CHECK_EQ(props3.has_extensions, true);
-        CHECK_EQ(props3.encodes_object_id, true);
+        CHECK_EQ(props3.zero_object_id, false);
 
-        // Type 0x04: end_of_group=false, extensions=false, object_id=false
-        auto props4 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupNoExtensionsNoObjectId);
+        // Type 0x04: zero_object_id bit set (object ID omitted)
+        auto props4 = DatagramHeaderProperties(0x04);
+        CHECK_EQ(props4.extensions, false);
         CHECK_EQ(props4.end_of_group, false);
-        CHECK_EQ(props4.has_extensions, false);
-        CHECK_EQ(props4.encodes_object_id, false);
+        CHECK_EQ(props4.zero_object_id, true);
 
-        // Type 0x05: end_of_group=false, extensions=true, object_id=false
-        auto props5 = DatagramHeaderProperties(DatagramHeaderType::kNotEndOfGroupWithExtensionsNoObjectId);
-        CHECK_EQ(props5.end_of_group, false);
-        CHECK_EQ(props5.has_extensions, true);
-        CHECK_EQ(props5.encodes_object_id, false);
+        // Type 0x08: default_priority bit set
+        auto props8 = DatagramHeaderProperties(0x08);
+        CHECK_EQ(props8.default_priority, true);
 
-        // Type 0x06: end_of_group=true, extensions=false, object_id=false
-        auto props6 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupNoExtensionsNoObjectId);
-        CHECK_EQ(props6.end_of_group, true);
-        CHECK_EQ(props6.has_extensions, false);
-        CHECK_EQ(props6.encodes_object_id, false);
-
-        // Type 0x07: end_of_group=true, extensions=true, object_id=false
-        auto props7 = DatagramHeaderProperties(DatagramHeaderType::kEndOfGroupWithExtensionsNoObjectId);
-        CHECK_EQ(props7.end_of_group, true);
-        CHECK_EQ(props7.has_extensions, true);
-        CHECK_EQ(props7.encodes_object_id, false);
+        // Type 0x20: status bit set
+        auto props_status = DatagramHeaderProperties(0x20);
+        CHECK_EQ(props_status.status, true);
+        CHECK_EQ(props_status.end_of_group, false);
     }
 
     SUBCASE("Properties to type")
     {
-        CHECK_EQ(DatagramHeaderProperties(false, false, true).GetType(),
-                 DatagramHeaderType::kNotEndOfGroupNoExtensionsObjectId);
-        CHECK_EQ(DatagramHeaderProperties(false, true, true).GetType(),
-                 DatagramHeaderType::kNotEndOfGroupWithExtensionsObjectId);
-        CHECK_EQ(DatagramHeaderProperties(true, false, true).GetType(),
-                 DatagramHeaderType::kEndOfGroupNoExtensionsObjectId);
-        CHECK_EQ(DatagramHeaderProperties(true, true, true).GetType(),
-                 DatagramHeaderType::kEndOfGroupWithExtensionsObjectId);
-        CHECK_EQ(DatagramHeaderProperties(false, false, false).GetType(),
-                 DatagramHeaderType::kNotEndOfGroupNoExtensionsNoObjectId);
-        CHECK_EQ(DatagramHeaderProperties(false, true, false).GetType(),
-                 DatagramHeaderType::kNotEndOfGroupWithExtensionsNoObjectId);
-        CHECK_EQ(DatagramHeaderProperties(true, false, false).GetType(),
-                 DatagramHeaderType::kEndOfGroupNoExtensionsNoObjectId);
-        CHECK_EQ(DatagramHeaderProperties(true, true, false).GetType(),
-                 DatagramHeaderType::kEndOfGroupWithExtensionsNoObjectId);
+        // extensions=false, end_of_group=false, zero_object_id=false, default_priority=false, status=false
+        CHECK_EQ(DatagramHeaderProperties(false, false, false, false, false).GetType(), 0x00);
+
+        // extensions=true
+        CHECK_EQ(DatagramHeaderProperties(true, false, false, false, false).GetType(), 0x01);
+
+        // end_of_group=true
+        CHECK_EQ(DatagramHeaderProperties(false, true, false, false, false).GetType(), 0x02);
+
+        // zero_object_id=true (object ID omitted)
+        CHECK_EQ(DatagramHeaderProperties(false, false, true, false, false).GetType(), 0x04);
+
+        // default_priority=true
+        CHECK_EQ(DatagramHeaderProperties(false, false, false, true, false).GetType(), 0x08);
+
+        // status=true
+        CHECK_EQ(DatagramHeaderProperties(false, false, false, false, true).GetType(), 0x20);
+
+        // Combined: extensions + end_of_group + zero_object_id
+        CHECK_EQ(DatagramHeaderProperties(true, true, true, false, false).GetType(), 0x07);
+
+        // Combined: all payload bits
+        CHECK_EQ(DatagramHeaderProperties(true, true, true, true, false).GetType(), 0x0F);
     }
 
-    SUBCASE("Round trip known headers")
+    SUBCASE("Round trip valid types")
     {
-        constexpr uint8_t min_header = 0x00;
-        constexpr uint8_t max_header = 0x07;
-        for (uint8_t i = min_header; i <= max_header; i++) {
-            auto type = static_cast<DatagramHeaderType>(i);
-            auto props = DatagramHeaderProperties(type);
-            CHECK_EQ(props.GetType(), type);
+        // Valid types are 0x00-0x0F (payload) and 0x20-0x2F (status, except those with END_OF_GROUP)
+        // Test payload types (0x00-0x0F)
+        for (uint8_t i = 0x00; i <= 0x0F; i++) {
+            CAPTURE(i);
+            auto props = DatagramHeaderProperties(i);
+            CHECK_EQ(props.GetType(), i);
         }
-    }
 
-    SUBCASE("Type validation for all property combinations")
-    {
-        for (bool end_of_group : { false, true }) {
-            for (bool has_extensions : { false, true }) {
-                for (bool encodes_object_id : { false, true }) {
-                    CAPTURE(end_of_group);
-                    CAPTURE(has_extensions);
-                    CAPTURE(encodes_object_id);
-
-                    auto props = DatagramHeaderProperties(end_of_group, has_extensions, encodes_object_id);
-                    auto type = props.GetType();
-                    auto msg_type = static_cast<DatagramMessageType>(static_cast<uint8_t>(type));
-
-                    CHECK_NOTHROW(TypeIsDatagram(msg_type));
-                    CHECK(TypeIsDatagram(msg_type));
-                    CHECK_NOTHROW(TypeIsDatagramHeaderType(msg_type));
-                    CHECK(TypeIsDatagramHeaderType(msg_type));
-                    CHECK_FALSE(TypeIsDatagramStatusType(msg_type));
-                }
+        // Test status types without END_OF_GROUP (status=1, end_of_group=0)
+        // Valid status types: 0x20, 0x21, 0x24, 0x25, 0x28, 0x29, 0x2C, 0x2D
+        for (uint8_t i = 0x20; i <= 0x2F; i++) {
+            bool has_end_of_group = (i & 0x02) != 0;
+            if (!has_end_of_group) {
+                CAPTURE(i);
+                auto props = DatagramHeaderProperties(i);
+                CHECK_EQ(props.GetType(), i);
             }
         }
+    }
+
+    SUBCASE("Invalid types throw")
+    {
+        // Bit 4 must be 0 (invalid: 0x10-0x1F outside subgroup range)
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x10), ProtocolViolationException);
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x1F), ProtocolViolationException);
+
+        // Bits 6-7 must be 0
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x40), ProtocolViolationException);
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x80), ProtocolViolationException);
+        CHECK_THROWS_AS(DatagramHeaderProperties(0xC0), ProtocolViolationException);
+
+        // STATUS + END_OF_GROUP is invalid (0x22, 0x23, 0x26, 0x27, 0x2A, 0x2B, 0x2E, 0x2F)
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x22), ProtocolViolationException);
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x23), ProtocolViolationException);
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x26), ProtocolViolationException);
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x27), ProtocolViolationException);
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x2A), ProtocolViolationException);
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x2B), ProtocolViolationException);
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x2E), ProtocolViolationException);
+        CHECK_THROWS_AS(DatagramHeaderProperties(0x2F), ProtocolViolationException);
     }
 }
 
