@@ -383,10 +383,15 @@ namespace quicr {
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             bool closed{ false };
             uint64_t client_version{ 0 };
-            std::optional<messages::ControlMessageType>
-              ctrl_msg_type_received; ///< Indicates the current message type being read
 
-            std::map<uint64_t, std::vector<uint8_t>> ctrl_msg_buffer; ///< Control message buffer
+            struct CtrlMsgBuffer
+            {
+                /// Indicates the current message type being read
+                std::optional<messages::ControlMessageType> msg_type;
+
+                std::vector<uint8_t> data; ///< Data buffer to parse control message
+            };
+            std::map<uint64_t, CtrlMsgBuffer> ctrl_msg_buffer; ///< Control message buffer
 
             /** Next Connection request Id. This value is shifted left when setting Request Id.
              * The least significant bit is used to indicate client (0) vs server (1).
@@ -655,7 +660,10 @@ namespace quicr {
         // Private member functions that will be implemented by both Server and Client
         // ------------------------------------------------------------------------------------------------
 
-        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx, uint64_t data_ctx_id, BytesSpan msg_bytes) = 0;
+        virtual bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                        uint64_t data_ctx_id,
+                                        messages::ControlMessageType msg_type,
+                                        BytesSpan msg_bytes) = 0;
 
         std::uint64_t CreateStream(ConnectionHandle conn, std::uint64_t data_ctx_id, uint8_t priority);
 

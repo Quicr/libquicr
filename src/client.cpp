@@ -156,9 +156,12 @@ namespace quicr {
 
     void Client::PublishNamespaceDone(const TrackNamespace&) {}
 
-    bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx, uint64_t data_ctx_id, BytesSpan msg_bytes)
+    bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                    [[maybe_unused]] uint64_t data_ctx_id,
+                                    messages::ControlMessageType msg_type,
+                                    BytesSpan msg_bytes)
     try {
-        switch (*conn_ctx.ctrl_msg_type_received) {
+        switch (msg_type) {
             case messages::ControlMessageType::kSubscribe: {
                 messages::Subscribe msg(
                   [](messages::Subscribe& msg) {
@@ -919,9 +922,8 @@ namespace quicr {
                 return true;
             }
             default: {
-                SPDLOG_LOGGER_ERROR(logger_,
-                                    "Unsupported MOQT message type: {0}, bad stream",
-                                    static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received));
+                SPDLOG_LOGGER_ERROR(
+                  logger_, "Unsupported MOQT message type: {0}, bad stream", static_cast<uint64_t>(msg_type));
                 return false;
             }
         }
@@ -931,7 +933,7 @@ namespace quicr {
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_,
                             "Caught exception trying to process control message. (type={}, error={})",
-                            static_cast<int>(*conn_ctx.ctrl_msg_type_received),
+                            static_cast<int>(msg_type),
                             e.what());
         return false;
     }

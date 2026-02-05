@@ -381,9 +381,12 @@ namespace quicr {
         conn_it->second.pub_fetch_tracks_by_request_id[request_id] = track_handler;
     }
 
-    bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx, uint64_t data_ctx_id, BytesSpan msg_bytes)
+    bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                    uint64_t data_ctx_id,
+                                    messages::ControlMessageType msg_type,
+                                    BytesSpan msg_bytes)
     try {
-        switch (*conn_ctx.ctrl_msg_type_received) {
+        switch (msg_type) {
             case messages::ControlMessageType::kSubscribe: {
                 auto msg = messages::Subscribe(
                   [](messages::Subscribe& msg) {
@@ -1131,19 +1134,16 @@ namespace quicr {
                 return true;
             }
             default: {
-                SPDLOG_LOGGER_ERROR(logger_,
-                                    "Unsupported MOQT message type: {0}, bad stream",
-                                    static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received));
+                SPDLOG_LOGGER_ERROR(
+                  logger_, "Unsupported MOQT message type: {0}, bad stream", static_cast<uint64_t>(msg_type));
                 return false;
             }
 
         } // End of switch(msg type)
 
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_,
-                            "Unable to parse {} control message: {}",
-                            static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received),
-                            e.what());
+        SPDLOG_LOGGER_ERROR(
+          logger_, "Unable to parse {} control message: {}", static_cast<uint64_t>(msg_type), e.what());
         CloseConnection(conn_ctx.connection_handle,
                         messages::TerminationReason::kProtocolViolation,
                         "Control message cannot be parsed");

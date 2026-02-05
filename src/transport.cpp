@@ -1677,14 +1677,14 @@ namespace quicr {
             // CONTROL STREAM
             if (is_bidir) {
                 auto& ctrl_msg_buffer = conn_ctx.ctrl_msg_buffer[stream_id];
-                ctrl_msg_buffer.insert(ctrl_msg_buffer.end(), data.begin(), data.end());
+                ctrl_msg_buffer.data.insert(ctrl_msg_buffer.data.end(), data.begin(), data.end());
 
                 rx_ctx->data_queue.PopFront();
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
                                     conn_id,
                                     stream_id,
-                                    ctrl_msg_buffer.size());
+                                    ctrl_msg_buffer.data.size());
 
                 // Set the default/primary control stream and data context id
                 if (not conn_ctx.ctrl_data_ctx_id) {
@@ -1702,52 +1702,54 @@ namespace quicr {
                     }
                 }
 
-                while (ctrl_msg_buffer.size() > 0) {
-                    if (not conn_ctx.ctrl_msg_type_received.has_value()) {
+                while (ctrl_msg_buffer.data.size() > 0) {
+                    if (not ctrl_msg_buffer.msg_type.has_value()) {
                         // Decode message type
-                        auto uv_sz = UintVar::Size(ctrl_msg_buffer.front());
-                        if (ctrl_msg_buffer.size() < uv_sz) {
+                        auto uv_sz = UintVar::Size(ctrl_msg_buffer.data.front());
+                        if (ctrl_msg_buffer.data.size() < uv_sz) {
                             i = kReadLoopMaxPerStream - 4;
                             break; // Not enough bytes to process control message. Try again once more.
                         }
 
-                        auto msg_type =
-                          uint64_t(quicr::UintVar({ ctrl_msg_buffer.begin(), ctrl_msg_buffer.begin() + uv_sz }));
+                        auto msg_type = uint64_t(
+                          quicr::UintVar({ ctrl_msg_buffer.data.begin(), ctrl_msg_buffer.data.begin() + uv_sz }));
 
-                        ctrl_msg_buffer.erase(ctrl_msg_buffer.begin(), ctrl_msg_buffer.begin() + uv_sz);
+                        ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(), ctrl_msg_buffer.data.begin() + uv_sz);
 
-                        conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(msg_type);
+                        ctrl_msg_buffer.msg_type = static_cast<ControlMessageType>(msg_type);
                     }
 
                     uint16_t payload_len = 0;
 
                     // Decode control payload length in bytes
-                    if (ctrl_msg_buffer.size() < sizeof(payload_len)) {
+                    if (ctrl_msg_buffer.data.size() < sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
-                    std::memcpy(&payload_len, ctrl_msg_buffer.data(), sizeof(payload_len));
+                    std::memcpy(&payload_len, ctrl_msg_buffer.data.data(), sizeof(payload_len));
                     payload_len = SwapBytes(payload_len);
 
-                    if (ctrl_msg_buffer.size() < payload_len + sizeof(payload_len)) {
+                    if (ctrl_msg_buffer.data.size() < payload_len + sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
-                    if (ProcessCtrlMessage(conn_ctx,
-                                           data_ctx_id.value(),
-                                           { ctrl_msg_buffer.begin() + sizeof(payload_len), ctrl_msg_buffer.end() })) {
+                    if (ProcessCtrlMessage(
+                          conn_ctx,
+                          data_ctx_id.value(),
+                          ctrl_msg_buffer.msg_type.value(),
+                          { ctrl_msg_buffer.data.begin() + sizeof(payload_len), ctrl_msg_buffer.data.end() })) {
 
                         // Reset the control message buffer and message type to start a new message.
-                        conn_ctx.ctrl_msg_type_received = std::nullopt;
-                        ctrl_msg_buffer.erase(ctrl_msg_buffer.begin(),
-                                              ctrl_msg_buffer.begin() + sizeof(payload_len) + payload_len);
+                        ctrl_msg_buffer.msg_type = std::nullopt;
+                        ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
+                                                   ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len);
                     } else {
                         conn_ctx.metrics.invalid_ctrl_stream_msg++;
-                        conn_ctx.ctrl_msg_type_received = std::nullopt;
-                        ctrl_msg_buffer.erase(ctrl_msg_buffer.begin(),
-                                              ctrl_msg_buffer.begin() + sizeof(payload_len) + payload_len);
+                        ctrl_msg_buffer.msg_type = std::nullopt;
+                        ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
+                                                   ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len);
                     }
                 }
                 continue;

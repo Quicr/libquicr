@@ -401,7 +401,10 @@ namespace quicr {
         std::optional<ConnectionHandle> GetConnectionHandle() const { return connection_handle_; }
 
       private:
-        bool ProcessCtrlMessage(ConnectionContext& conn_ctx, uint64_t data_ctx_id, BytesSpan stream_buffer) override;
+        bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                uint64_t data_ctx_id,
+                                messages::ControlMessageType msg_type,
+                                BytesSpan stream_buffer) override;
 
         void SetConnectionHandle(ConnectionHandle connection_handle) override
         {

@@ -394,7 +394,10 @@ namespace quicr {
         // --END OF CALLBACKS ----------------------------------------------------------------------------------
 
       private:
-        bool ProcessCtrlMessage(ConnectionContext& conn_ctx, uint64_t data_ctx_id, BytesSpan msg_bytes) override;
+        bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                uint64_t data_ctx_id,
+                                messages::ControlMessageType msg_type,
+                                BytesSpan msg_bytes) override;
 
         bool stop_{ false };
     };
