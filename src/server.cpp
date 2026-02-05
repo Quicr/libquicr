@@ -887,12 +887,6 @@ namespace quicr {
                     return true;
                 }
 
-                SPDLOG_LOGGER_DEBUG(
-                  logger_,
-                  "Received subscribe_update to recv request_id: {} subscribe request_id: {} forward: {}",
-                  msg.request_id,
-                  msg.forward);
-
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                 auto filter_type =
@@ -905,6 +899,9 @@ namespace quicr {
                     new_group_request_id = UintVar(new_group_id_bytes).Get();
                 }
 
+                SPDLOG_LOGGER_DEBUG(
+                  logger_, "Received subscribe_update to recv request_id: {} forward: {}", msg.request_id, forward);
+
                 /*
                  * Unlike client, server supports multi-publisher to the client.
                  *   There is a publish handler per publisher connection
@@ -913,12 +910,11 @@ namespace quicr {
                      conn_ctx.pub_tracks_by_track_alias[sub_ctx_it->second.track_hash.track_fullname_hash]) {
 
                     // TODO: Follow up on https://github.com/moq-wg/moq-transport/issues/1304
-                    if (not msg.forward) {
+                    if (not forward) {
                         pub.second->SetStatus(PublishTrackHandler::Status::kPaused);
 
                     } else {
-                        pub.second->SetStatus(new_group_request ? PublishTrackHandler::Status::kNewGroupRequested
-                                                                : PublishTrackHandler::Status::kSubscriptionUpdated);
+                        pub.second->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
                     }
                 }
                 return true;
