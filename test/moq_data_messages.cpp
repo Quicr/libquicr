@@ -348,27 +348,32 @@ TEST_CASE("DatagramHeaderProperties encoding")
 }
 
 static void
-StreamHeaderEncodeDecode(StreamHeaderType type)
+StreamHeaderEncodeDecode(StreamHeaderProperties type)
 {
-    const auto hdr_properties = StreamHeaderProperties(type);
-
     Bytes buffer;
     auto hdr = StreamHeaderSubGroup{};
-    hdr.type = type;
+    hdr.properties.emplace(type);
     hdr.track_alias = static_cast<uint64_t>(kTrackAliasAliceVideo);
     hdr.group_id = 0x1000;
-    if (hdr_properties.subgroup_id_type == SubgroupIdType::kExplicit) {
+    if (hdr.properties->subgroup_id_mode == SubgroupIdType::kExplicit) {
         hdr.subgroup_id = 0x5000;
     }
     hdr.priority = 0xA;
     buffer << hdr;
+
     StreamHeaderSubGroup hdr_out;
-    CHECK(Verify(buffer, hdr_out));
-    CHECK_EQ(hdr.type, hdr_out.type);
+    StreamBuffer<uint8_t> sbuf;
+    sbuf.Push(buffer);
+    bool parsed = sbuf >> hdr_out;
+    CHECK(parsed);
+
+    CHECK(hdr.properties.has_value());
+    CHECK(hdr_out.properties.has_value());
+    CHECK_EQ(hdr.properties->GetType(), hdr_out.properties->GetType());
     CHECK_EQ(hdr.track_alias, hdr_out.track_alias);
     CHECK_EQ(hdr.group_id, hdr_out.group_id);
 
-    switch (hdr_properties.subgroup_id_type) {
+    switch (hdr.properties->subgroup_id_mode) {
         case SubgroupIdType::kIsZero:
             CHECK_EQ(hdr_out.subgroup_id, 0);
             return;
@@ -378,37 +383,46 @@ StreamHeaderEncodeDecode(StreamHeaderType type)
         case SubgroupIdType::kExplicit:
             CHECK_EQ(hdr_out.subgroup_id, hdr.subgroup_id);
             return;
+        default:
+            break;
     }
     FAIL("Bad subgroup id type in StreamHeader");
 }
 
 TEST_CASE("StreamHeader Message encode/decode")
 {
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroup0EndOfGroupNoExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroup0EndOfGroupWithExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions);
-    StreamHeaderEncodeDecode(StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions);
+    const std::vector stream_headers = {
+        // subgroup_id_mode = kIsZero
+        StreamHeaderProperties(false, SubgroupIdType::kIsZero, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kIsZero, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kIsZero, true, false),
+        StreamHeaderProperties(true, SubgroupIdType::kIsZero, true, false),
+        // subgroup_id_mode = kSetFromFirstObject
+        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, true, false),
+        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, true, false),
+        // subgroup_id_mode = kExplicit
+        StreamHeaderProperties(false, SubgroupIdType::kExplicit, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kExplicit, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kExplicit, true, false),
+        StreamHeaderProperties(true, SubgroupIdType::kExplicit, true, false),
+    };
+    for (const auto& props : stream_headers) {
+        CAPTURE(props.GetType());
+        StreamHeaderEncodeDecode(props);
+    }
 }
 
 static void
-StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensions, bool empty_payload)
+StreamPerSubGroupObjectEncodeDecode(StreamHeaderProperties properties, ExtensionTest extensions, bool empty_payload)
 {
-    const auto properties = StreamHeaderProperties(type);
-
     Bytes buffer;
     auto hdr_grp = messages::StreamHeaderSubGroup{};
-    hdr_grp.type = type;
+    hdr_grp.properties.emplace(properties);
     hdr_grp.track_alias = uint64_t(kTrackAliasAliceVideo);
     hdr_grp.group_id = 0x1000;
-    if (properties.subgroup_id_type == SubgroupIdType::kExplicit) {
+    if (properties.subgroup_id_mode == SubgroupIdType::kExplicit) {
         hdr_grp.subgroup_id = 0x5000;
     }
     hdr_grp.priority = 0xA;
@@ -416,11 +430,17 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
     buffer << hdr_grp;
 
     messages::StreamHeaderSubGroup hdr_group_out;
-    CHECK(Verify(buffer, hdr_group_out, 1));
-    CHECK_EQ(hdr_grp.type, hdr_group_out.type);
+    StreamBuffer<uint8_t> hdr_sbuf;
+    hdr_sbuf.Push(buffer);
+    bool hdr_parsed = hdr_sbuf >> hdr_group_out;
+    CHECK(hdr_parsed);
+
+    CHECK(hdr_grp.properties.has_value());
+    CHECK(hdr_group_out.properties.has_value());
+    CHECK_EQ(hdr_grp.properties->GetType(), hdr_group_out.properties->GetType());
     CHECK_EQ(hdr_grp.track_alias, hdr_group_out.track_alias);
     CHECK_EQ(hdr_grp.group_id, hdr_group_out.group_id);
-    switch (properties.subgroup_id_type) {
+    switch (properties.subgroup_id_mode) {
         case SubgroupIdType::kIsZero:
             CHECK_EQ(hdr_group_out.subgroup_id, 0);
             break;
@@ -430,6 +450,9 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
         case SubgroupIdType::kExplicit:
             CHECK_EQ(hdr_group_out.subgroup_id, hdr_grp.subgroup_id);
             break;
+        default:
+            FAIL("Bad subgroup mode");
+            break;
     }
 
     // stream all the objects
@@ -438,7 +461,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
     // send 10 objects
     for (size_t i = 0; i < 10; i++) {
         auto obj = messages::StreamSubGroupObject{};
-        obj.stream_type = type;
+        obj.properties.emplace(properties);
         obj.object_delta = 0x1234;
 
         if (empty_payload) {
@@ -448,7 +471,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
         }
 
         // Only set extensions if the header type allows it.
-        if (properties.may_contain_extensions) {
+        if (properties.extensions) {
             if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kMutable) {
                 obj.extensions = kOptionalExtensions;
             } else {
@@ -464,11 +487,11 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
         buffer << obj;
     }
 
-    auto obj_out = messages::StreamSubGroupObject{};
     size_t object_count = 0;
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {
-        obj_out.stream_type = type;
+        StreamSubGroupObject obj_out;
+        obj_out.properties.emplace(properties);
         in_buffer.Push(buffer.at(i));
         bool done = in_buffer >> obj_out;
         if (!done) {
@@ -483,7 +506,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
             CHECK_EQ(obj_out.payload, objects[object_count].payload);
         }
 
-        if (properties.may_contain_extensions) {
+        if (properties.extensions) {
             CompareExtensions(objects[object_count].extensions,
                               obj_out.extensions,
                               extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
@@ -494,7 +517,6 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
         }
         // got one object
         object_count++;
-        obj_out = {};
         in_buffer.Pop(in_buffer.Size());
     }
 
@@ -503,26 +525,36 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
 
 TEST_CASE("StreamPerSubGroup Object Message encode/decode")
 {
-    const auto stream_headers = { StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions,
-                                  StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions,
-                                  StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions,
-                                  StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions,
-                                  StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions,
-                                  StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions,
-                                  StreamHeaderType::kSubgroup0EndOfGroupNoExtensions,
-                                  StreamHeaderType::kSubgroup0EndOfGroupWithExtensions,
-                                  StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions,
-                                  StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions,
-                                  StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions,
-                                  StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions };
-    for (const auto& type : stream_headers) {
-        CAPTURE(type);
+    // Test all valid combinations of StreamHeaderProperties:
+    // - extensions: true/false
+    // - subgroup_id_mode: kIsZero, kSetFromFirstObject, kExplicit (not kReserved)
+    // - end_of_group: true/false
+    // - default_priority: false (for now, matching original tests)
+    const std::vector stream_headers = {
+        // subgroup_id_mode = kIsZero
+        StreamHeaderProperties(false, SubgroupIdType::kIsZero, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kIsZero, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kIsZero, true, false),
+        StreamHeaderProperties(true, SubgroupIdType::kIsZero, true, false),
+        // subgroup_id_mode = kSetFromFirstObject
+        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, true, false),
+        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, true, false),
+        // subgroup_id_mode = kExplicit
+        StreamHeaderProperties(false, SubgroupIdType::kExplicit, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kExplicit, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kExplicit, true, false),
+        StreamHeaderProperties(true, SubgroupIdType::kExplicit, true, false),
+    };
+    for (const auto& props : stream_headers) {
+        CAPTURE(props.GetType());
         for (const auto ext :
              { ExtensionTest::kNone, ExtensionTest::kMutable, ExtensionTest::kImmutable, ExtensionTest::kBoth }) {
             CAPTURE(ext);
             for (bool empty_payload : { true, false }) {
                 CAPTURE(empty_payload);
-                StreamPerSubGroupObjectEncodeDecode(type, ext, empty_payload);
+                StreamPerSubGroupObjectEncodeDecode(props, ext, empty_payload);
             }
         }
     }

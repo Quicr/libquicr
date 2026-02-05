@@ -604,7 +604,7 @@ namespace quicr {
 
         uint64_t GetNextRequestId();
 
-        bool OnRecvSubgroup(messages::StreamHeaderType type,
+        bool OnRecvSubgroup(messages::StreamHeaderProperties properties,
                             std::vector<uint8_t>::const_iterator cursor_it,
                             StreamRxContext& rx_ctx,
                             std::uint64_t stream_id,

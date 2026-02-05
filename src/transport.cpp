@@ -1772,19 +1772,23 @@ namespace quicr {
                 SPDLOG_LOGGER_TRACE(logger_, "Received stream message type: 0x{:02x} ({})", msg_type, msg_type);
 
                 bool parsed_header = false;
-                const auto type = static_cast<StreamMessageType>(msg_type);
-                if (TypeIsStreamHeaderType(type)) {
-                    const auto stream_header_type = static_cast<StreamHeaderType>(msg_type);
-                    parsed_header =
-                      OnRecvSubgroup(stream_header_type, cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
-                } else if (type == StreamMessageType::kFetchHeader) {
-                    parsed_header = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
-                } else {
-                    SPDLOG_LOGGER_DEBUG(logger_, "Received start of stream with invalid header type, dropping");
-                    conn_ctx.metrics.rx_stream_invalid_type++;
+                switch (GetStreamMessageType(msg_type)) {
+                    case StreamMessageType::kSubgroupHeader: {
+                        const auto properties = StreamHeaderProperties(msg_type);
+                        parsed_header = OnRecvSubgroup(properties, cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
+                        break;
+                    }
+                    case StreamMessageType::kFetchHeader: {
+                        parsed_header = OnRecvFetch(cursor_it, *rx_ctx, stream_id, conn_ctx, *data_opt);
+                        break;
+                    }
+                    default:
+                        SPDLOG_LOGGER_WARN(
+                          logger_, "Received start of stream with invalid header type {}, dropping", msg_type);
+                        conn_ctx.metrics.rx_stream_invalid_type++;
 
-                    // TODO(tievens): Need to reset this stream as this is invalid.
-                    return;
+                        // TODO(tievens): Need to reset this stream as this is invalid.
+                        return;
                 }
 
                 if (!parsed_header) {
@@ -1877,7 +1881,7 @@ namespace quicr {
         }
     }
 
-    bool Transport::OnRecvSubgroup(StreamHeaderType type,
+    bool Transport::OnRecvSubgroup(StreamHeaderProperties properties,
                                    std::vector<uint8_t>::const_iterator cursor_it,
                                    StreamRxContext& rx_ctx,
                                    std::uint64_t stream_id,
@@ -1885,7 +1889,7 @@ namespace quicr {
                                    std::shared_ptr<const std::vector<uint8_t>> data) const
     {
         uint64_t track_alias = 0;
-        uint8_t priority = 0;
+        std::optional<uint8_t> priority = 0;
 
         try {
             // First header in subgroup starts with track alias
@@ -1896,13 +1900,14 @@ namespace quicr {
             auto group_id_sz = UintVar::Size(*cursor_it);
             cursor_it += group_id_sz;
 
-            const auto properties = StreamHeaderProperties(type);
-            if (properties.subgroup_id_type == SubgroupIdType::kExplicit) {
+            if (properties.subgroup_id_mode == SubgroupIdType::kExplicit) {
                 auto subgroup_id_sz = UintVar::Size(*cursor_it);
                 cursor_it += subgroup_id_sz;
             }
 
-            priority = *cursor_it;
+            if (!properties.default_priority) {
+                priority = *cursor_it;
+            }
 
         } catch (std::invalid_argument&) {
             SPDLOG_LOGGER_WARN(logger_, "Received start of stream without enough bytes to process uintvar");
@@ -1924,7 +1929,9 @@ namespace quicr {
         rx_ctx.is_new = false;
 
         rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
-        sub_it->second->SetPriority(priority);
+        if (priority.has_value()) {
+            sub_it->second->SetPriority(*priority);
+        }
         sub_it->second->StreamDataRecv(true, stream_id, std::move(data));
         return true;
     }
