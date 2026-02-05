@@ -1868,6 +1868,8 @@ namespace quicr {
                         if (conn_ctx.ctrl_stream_id.has_value() && conn_ctx.ctrl_stream_id == stream_id) {
                             CloseConnection(
                               connection_handle, TerminationReason::kProtocolViolation, "Primary control stream FIN");
+                        } else {
+                            conn_ctx.ctrl_msg_buffer.erase(stream_id);
                         }
 
                         break;
@@ -1875,6 +1877,8 @@ namespace quicr {
                         if (conn_ctx.ctrl_stream_id.has_value() && conn_ctx.ctrl_stream_id == stream_id) {
                             CloseConnection(
                               connection_handle, TerminationReason::kProtocolViolation, "Primary control stream RESET");
+                        } else {
+                            conn_ctx.ctrl_msg_buffer.erase(stream_id);
                         }
                         break;
                 }
