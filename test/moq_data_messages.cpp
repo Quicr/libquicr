@@ -487,11 +487,11 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderProperties properties, Extension
         buffer << obj;
     }
 
+    StreamSubGroupObject obj_out;
+    obj_out.properties.emplace(properties);
     size_t object_count = 0;
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {
-        StreamSubGroupObject obj_out;
-        obj_out.properties.emplace(properties);
         in_buffer.Push(buffer.at(i));
         bool done = in_buffer >> obj_out;
         if (!done) {
@@ -517,6 +517,8 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderProperties properties, Extension
         }
         // got one object
         object_count++;
+        std::construct_at(&obj_out);
+        obj_out.properties.emplace(properties);
         in_buffer.Pop(in_buffer.Size());
     }
 
