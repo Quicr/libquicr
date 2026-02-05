@@ -14,24 +14,23 @@ def main(rfc_filename, output_name):
         "Track Namespace": "quicr::TrackNamespace",
         "Track Name": "quicr::messages::TrackName",
         "Track Namespace Prefix": "quicr::TrackNamespace",
-        "Setup Parameters": "quicr::messages::SetupParameter",
+        "Track Namespace Suffix": "quicr::TrackNamespace",
+        "Track Extensions": "quicr::Extensions",
         "New Session URI": "quicr::Bytes",
-        "Parameters": "quicr::messages::Parameter",
+        "Setup Parameters": "quicr::messages::ParameterList<quicr::messages::SetupParameterType>",
+        "Parameters": "quicr::messages::ParameterList<quicr::messages::ParameterType>",
         "Reason Phrase": "quicr::Bytes",
         "Filter Type": "quicr::messages::FilterType",
         "Group Order": "quicr::messages::GroupOrder",
         "Fetch Type": "quicr::messages::FetchType",
         "PublishDone::StatusCode": "quicr::messages::PublishDoneStatusCode",
-        "SubscribeError::ErrorCode": "quicr::messages::SubscribeErrorCode",
-        "TrackStatusError::ErrorCode": "quicr::messages::SubscribeErrorCode",
-        "PublishNamespaceError::ErrorCode": "quicr::messages::PublishNamespaceErrorCode",
-        "SubscribeNamespaceError::ErrorCode": "quicr::messages::SubscribeNamespaceErrorCode",
-        "FetchError::ErrorCode": "quicr::messages::FetchErrorCode",
+        "Error Code": "quicr::messages::ErrorCode",
         "Start Location": "quicr::messages::Location",
         "End Location": "quicr::messages::Location",
         "Largest Location": "quicr::messages::Location",
         "Standalone": "quicr::messages::StandaloneFetch",
         "Joining": "quicr::messages::JoiningFetch",
+        "Subscribe Options": "quicr::messages::SubscribeOptions",
     }
 
     field_discards = ["Type", "Length"]
@@ -60,7 +59,7 @@ def main(rfc_filename, output_name):
                         if group_field.cpp_using_name is not None:
                             using_map[group_field.cpp_using_name] = group_field
                         else:
-                            print("gropu_file.cpp_using_name is None")
+                            print("group_file.cpp_using_name is None")
 
                 # if field.cpp_using_name is not None:
                 if field.spec_name not in field_discards:
@@ -86,7 +85,7 @@ def main(rfc_filename, output_name):
                 )
                 print(output, file=source_file)
         else:
-            print("Protocol parser returned empty parsed messsages list.")
+            print("Protocol parser returned empty parsed messages list.")
 
 
 if __name__ == "__main__":

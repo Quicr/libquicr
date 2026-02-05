@@ -701,10 +701,10 @@ class MyClient : public quicr::Client
 
     void TrackStatusResponseReceived(quicr::ConnectionHandle,
                                      uint64_t request_id,
-                                     const quicr::SubscribeResponse& response) override
+                                     const quicr::RequestResponse& response) override
     {
         switch (response.reason_code) {
-            case quicr::SubscribeResponse::ReasonCode::kOk:
+            case quicr::RequestResponse::ReasonCode::kOk:
                 SPDLOG_INFO("Request track status OK response request_id: {} largest group: {} object: {}",
                             request_id,
                             response.largest_location.has_value() ? response.largest_location->group : 0,

@@ -184,20 +184,37 @@ namespace quicr::messages {
     enum struct SetupParameterType : uint64_t
     {
         kPath = 0x01,
-        kMaxRequestId = 0x02, // version specific, unused
+        kMaxRequestId = 0x02,
         kAuthorizationToken = 0x03,
-        kEndpointId = 0xF1, // Endpoint ID, using temp value for now
-        kInvalid = 0xFF,    // used internally.
+        kMaxAuthTokenCacheSize = 0x04,
+        kAuthority = 0x05,
+        kMoqtImplementation = 0x07,
+
+        /*===================================================================*/
+        // Internal Use
+        /*===================================================================*/
+
+        kEndpointId = 0xF1,
+        kInvalid = 0xFF,
     };
 
     enum struct ParameterType : uint64_t
     {
         kDeliveryTimeout = 0x02,
         kAuthorizationToken = 0x03,
-        kMaxCacheDuration = 0x04,
-        kDynamicGroups = 0x20,
-        kNewGroupRequest = 0x22,
-        kInvalid = 0xFF, // used internally
+        kExpires = 0x08,
+        kLargestObject = 0x09,
+        kForward = 0x10,
+        kSubscriberPriority = 0x20,
+        kSubscriptionFilter = 0x21,
+        kGroupOrder = 0x22,
+        kNewGroupRequest = 0x32,
+
+        /*===================================================================*/
+        // Internal Use
+        /*===================================================================*/
+
+        kInvalid = 0xFF,
     };
 
     using Parameter = KeyValuePair<ParameterType>;
@@ -265,45 +282,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, JoiningFetch value);
     BytesSpan operator>>(BytesSpan buffer, JoiningFetch& value);
 
-    enum class TerminationReason : uint64_t
-    {
-        kNoError = 0x0,
-        kInternalError,
-        kUnauthorized,
-        kProtocolViolation,
-        kDupTrackAlias,
-        kParamLengthMismatch,
-        kGoAwayTimeout = 0x10,
-    };
-
-    enum class FetchErrorCode : uint8_t
-    {
-        kInternalError = 0x0,
-        kUnauthorized = 0x1,
-        kTimeout = 0x2,
-        kNotSupported = 0x3,
-        kTrackDoesNotExist = 0x4,
-        kInvalidRange = 0x5,
-        kNoObjects = 0x6,
-        kInvalidJoiningRequestId = 0x7,
-        kUnknownStatusInRange = 0x8,
-        kMalformedTrack = 0x9,
-        kMalformedAuthToken = 0x10,
-        kExpiredAuthToken = 0x12
-    };
-
-    Bytes& operator<<(Bytes& buffer, FetchErrorCode value);
-    BytesSpan operator>>(BytesSpan buffer, FetchErrorCode& value);
-
-    enum class PublishNamespaceErrorCode : uint64_t
-    {
-        kInternalError = 0x0,
-        kUnauthorized,
-        kTimeout,
-        kNotSupported,
-        kUninterested
-    };
-
     // TODO (Suhas): rename it to StreamMapping
     enum ForwardingPreference : uint8_t
     {
@@ -317,37 +295,204 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, ForwardingPreference value);
     BytesSpan operator>>(BytesSpan buffer, ForwardingPreference& value);
 
-    enum class SubscribeErrorCode : uint64_t
+    enum class TerminationReason : uint64_t
     {
-        kInternalError = 0x0,
-        kUnauthorized,
-        kTimeout,
-        kNotSupported,
-        kTrackDoesNotExist,
-        kInvalidRange,
-        kRetryTrackAlias,
-
-        kTrackNotExist = 0xF0 // Missing in draft
+        kNoError = 0x0,
+        kInternalError = 0x1,
+        kUnauthorized = 0x2,
+        kProtocolViolation = 0x3,
+        kInvalidRequestId = 0x4,
+        kDuplicateTrackAlias = 0x5,
+        kKeyValueFormattingError = 0x6,
+        kTooManyRequests = 0x7,
+        kInvalidPath = 0x8,
+        kMalformedPath = 0x9,
+        kGoawayTimeout = 0x10,
+        kControlMessageTimeout = 0x11,
+        kDataStreamTimeout = 0x12,
+        kAuthTokenCacheOverflow = 0x13,
+        kDuplicateAuthTokenAlias = 0x14,
+        kVersionNegotiationFailed = 0x15,
+        kMalformedAuthToken = 0x16,
+        kUnknownAuthTokenAlias = 0x17,
+        kExpiredAuthToken = 0x18,
+        kInvalidAuthority = 0x19,
+        kMalformedAuthority = 0x1A,
     };
 
-    Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value);
-
-    enum class SubscribeNamespaceErrorCode : uint64_t
+    enum class ErrorCode : uint64_t
     {
         kInternalError = 0x0,
         kUnauthorized = 0x1,
         kTimeout = 0x2,
         kNotSupported = 0x3,
-        kNamespacePrefixUnknown = 0x4,
-        kNamespacePrefixOverlap = 0x5,
-        kMalformedAuthToken = 0x10,
-        kExpiredAuthToken = 0x12
+        kMalformedAuthToken = 0x4,
+        kExpiredAuthToken = 0x5,
+        kDoesNotExist = 0x10,
+        kInvalidRange = 0x11,
+        kMalformedTrack = 0x12,
+        kDuplicateSubscription = 0x19,
+        kUninterested = 0x20,
+        kPrefixOverlap = 0x30,
+        kInvalidJoiningRequestId = 0x32,
     };
 
-    Bytes& operator<<(Bytes& buffer, SubscribeNamespaceErrorCode value);
-    BytesSpan operator>>(BytesSpan buffer, SubscribeNamespaceErrorCode& value);
+    enum class PublishDoneStatus : uint64_t
+    {
+        kInternalError = 0x0,
+        kUnauthorized = 0x1,
+        kTrackEnded = 0x2,
+        kSubscriptionEnded = 0x3,
+        kGoingAway = 0x4,
+        kExpired = 0x5,
+        kTooFarBehind = 0x6,
+        kUpdateFailed = 0x8,
+        kMalformedTrack = 0x12,
+    };
+
+    enum class StreamResetError : uint64_t
+    {
+        kInternalError = 0x0,
+        kCancelled = 0x1,
+        kDeliveryTimeout = 0x2,
+        kSessionClosed = 0x3,
+        kUnknownObjectStatus = 0x4,
+        kMalformedTrack = 0x12,
+    };
+
+    enum class SubscribeOptions : uint64_t
+    {
+        kPublish = 0x00,
+        kNamespace = 0x01,
+        kBoth = 0x02,
+    };
 
     BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
+
+    template<class T>
+    concept HasStreamOperators = requires(T value) {
+        { Bytes{} << value };
+        { BytesSpan{} >> value };
+    };
+
+    template<typename Type = ParameterType>
+    class ParameterList
+    {
+      public:
+        ParameterList() = default;
+        ParameterList(const ParameterList&) = default;
+        ParameterList(ParameterList&&) = default;
+        ParameterList& operator=(const ParameterList&) = default;
+        ParameterList& operator=(ParameterList&&) = default;
+
+        template<typename T>
+            requires(std::is_trivially_copyable_v<T> || std::is_same_v<std::string, T>)
+        ParameterList& Add(Type type, const T& value)
+        {
+            if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
+                if (static_cast<uint64_t>(type) % 2 == 0) {
+                    UintVar u_value(static_cast<uint64_t>(value));
+                    parameters.emplace_back(type, Bytes{ u_value.begin(), u_value.end() });
+                    return *this;
+                }
+            }
+
+            parameters.emplace_back(type, AsOwnedBytes(value));
+            return *this;
+        }
+
+        template<typename T>
+            requires(!std::is_trivially_copyable_v<T> && !std::is_same_v<std::string, T>)
+        ParameterList& Add(Type type, const T& value)
+        {
+            Bytes bytes;
+            bytes << value;
+            parameters.emplace_back(type, std::move(bytes));
+            return *this;
+        }
+
+        template<typename T>
+        ParameterList& AddOptional(Type type, const std::optional<T>& value)
+        {
+            if (value.has_value()) {
+                Add<T>(type, value.value());
+            }
+
+            return *this;
+        }
+
+        operator std::vector<Parameter>&() noexcept { return parameters; }
+        operator const std::vector<Parameter>&() const noexcept { return parameters; }
+
+        auto begin() const noexcept { return parameters.begin(); }
+        auto end() const noexcept { return parameters.end(); }
+        auto at(std::size_t index) { return parameters.at(index); }
+
+        bool Contains(Type type)
+        {
+            auto it = std::find(parameters.begin(), parameters.end(), type);
+            return it == parameters.end();
+        }
+
+        BytesSpan Find(Type type)
+        {
+            auto it = std::find(parameters.begin(), parameters.end(), type);
+            if (it == parameters.end()) {
+                return {};
+            }
+
+            return it->value;
+        }
+
+        template<typename T>
+        T Get(Type type) const noexcept
+        {
+            auto bytes = Find(type);
+            if (bytes.empty()) {
+                return {};
+            }
+
+            if (static_cast<std::uint64_t>(type) % 2 == 0) {
+                return static_cast<T>(UintVar(bytes).Get());
+            }
+
+            if constexpr (HasStreamOperators<T>) {
+                T result;
+                bytes >> result;
+                return result;
+            }
+
+            return FromBytes<T>(bytes);
+        }
+
+        std::vector<KeyValuePair<Type>> parameters;
+    };
+
+    template<typename Type = ParameterType>
+    BytesSpan operator>>(BytesSpan buffer, ParameterList<Type>& msg)
+    {
+        uint64_t size = 0;
+        buffer = buffer >> size;
+
+        for (uint64_t i = 0; i < size; ++i) {
+            KeyValuePair<Type> param;
+            buffer = buffer >> param;
+            msg.parameters.push_back(std::move(param));
+        }
+
+        return buffer;
+    }
+
+    template<typename Type = ParameterType>
+    Bytes& operator<<(Bytes& buffer, const ParameterList<Type>& msg)
+    {
+        buffer << UintVar(msg.parameters.size());
+        for (const auto& param : msg.parameters) {
+            buffer << param;
+        }
+
+        return buffer;
+    }
+
 } // namespace

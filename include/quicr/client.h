@@ -141,7 +141,7 @@ namespace quicr {
          * @brief Accept or reject an subscribe that was received
          *
          * @details Accept or reject an subscribe received via SubscribeReceived(). The MoQ Transport
-         *      will send the protocol message based on the SubscribeResponse
+         *      will send the protocol message based on the RequestResponse
          *
          * @param connection_handle        source connection ID
          * @param request_id               request ID
@@ -151,7 +151,7 @@ namespace quicr {
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
                                       uint64_t request_id,
                                       uint64_t track_alias,
-                                      const SubscribeResponse& subscribe_response);
+                                      const RequestResponse& subscribe_response);
 
         /**
          * @brief Event to run on receiving a Standalone Fetch request.

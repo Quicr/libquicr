@@ -132,7 +132,7 @@ namespace quicr {
          * @brief Accept or reject an subscribe that was received
          *
          * @details Accept or reject an subscribe received via SubscribeReceived(). The MoQ Transport
-         *      will send the protocol message based on the SubscribeResponse
+         *      will send the protocol message based on the RequestResponse
          *
          * @param connection_handle        source connection ID
          * @param request_id               Request ID
@@ -142,7 +142,7 @@ namespace quicr {
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
                                       uint64_t request_id,
                                       uint64_t track_alias,
-                                      const SubscribeResponse& subscribe_response);
+                                      const RequestResponse& subscribe_response);
 
         /**
          * @brief Accept or reject subscribe namespace that was received
@@ -173,7 +173,7 @@ namespace quicr {
          */
         virtual void ResolveFetch(ConnectionHandle connection_handle,
                                   uint64_t request_id,
-                                  messages::SubscriberPriority priority,
+                                  std::uint8_t priority,
                                   messages::GroupOrder group_order,
                                   const FetchResponse& response);
 
@@ -264,17 +264,17 @@ namespace quicr {
          *
          * @details The callback will indicate that publish namespace done has been received. The
          *    app should return a vector of connection handler ids that should receive a
-         *    copy of the pubilsh namespace done message. The returned list is based on subscribe namespace prefix
+         *    copy of the publish namespace done message. The returned list is based on subscribe namespace prefix
          *    matching.
          *
          * @param connection_handle         Source connection ID
-         * @param track_namespace           Track namespace
+         * @param request_id                Request ID for the namespace that is done.
          *
          * @returns vector of subscribe namespace connection handler ids matching prefix to the namespace being
          * marked as done.
          */
         virtual std::vector<ConnectionHandle> PublishNamespaceDoneReceived(ConnectionHandle connection_handle,
-                                                                           const TrackNamespace& track_namespace) = 0;
+                                                                           messages::RequestID request_id) = 0;
 
         /**
          * @brief Finalize the publish done received

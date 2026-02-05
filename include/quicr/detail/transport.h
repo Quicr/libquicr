@@ -281,7 +281,7 @@ namespace quicr {
          * @brief Accept or reject track status that was received
          *
          * @details Accept or reject track status received via TrackStatusReceived(). The MoQ Transport
-         *      will send the protocol message based on the SubscribeResponse. Per MOQT draft-14,
+         *      will send the protocol message based on the RequestResponse. Per MOQT draft-14,
          *      track status request, ok, and error are the same as subscribe
          *
          * @param connection_handle        source connection ID
@@ -293,7 +293,7 @@ namespace quicr {
         virtual void ResolveTrackStatus(ConnectionHandle connection_handle,
                                         uint64_t request_id,
                                         uint64_t track_alias,
-                                        const SubscribeResponse& subscribe_response);
+                                        const RequestResponse& subscribe_response);
 
         /**
          * @brief Get the status of the Client
@@ -323,26 +323,39 @@ namespace quicr {
          * @param connection_handle     Source connection ID
          * @param request_id            Request ID received
          * @param track_full_name       Track full name
-         * @param subscribe_attributes  Subscribe attributes received
          */
         virtual void TrackStatusReceived(ConnectionHandle connection_handle,
                                          uint64_t request_id,
-                                         const FullTrackName& track_full_name,
-                                         const messages::SubscribeAttributes& subscribe_attributes);
-
+                                         const FullTrackName& track_full_name);
         /**
-         * @brief Callback notification for track status OK received
+         * @brief Callback notification for Request Error received
          *
-         * @note The caller is able to state track the OK based on the request Id returned
-         *      from RequestTrackStatus method call
+         * @note The REQUEST_OK message is sent to a response to REQUEST_UPDATE, TRACK_STATUS, SUBSCRIBE_NAMESPACE and
+         *       PUBLISH_NAMESPACE requests. The unique request ID in the REQUEST_OK is used to associate it with the
+         *       correct type of request.
          *
          * @param connection_handle     Source connection ID
          * @param request_id            Request ID received
-         * @param response              Track status (track_status = Subscribe) response
+         * @param response              Response message
          */
-        virtual void TrackStatusResponseReceived(ConnectionHandle connection_handle,
-                                                 uint64_t request_id,
-                                                 const SubscribeResponse& response);
+        virtual void RequestOkReceived(ConnectionHandle connection_handle,
+                                       uint64_t request_id,
+                                       const RequestResponse& response);
+
+        /**
+         * @brief Callback notification for Request Error received
+         *
+         * @note The REQUEST_ERROR message is sent to a response to any request (SUBSCRIBE, FETCH, PUBLISH,
+         *       SUBSCRIBE_NAMESPACE, PUBLISH_NAMESPACE, TRACK_STATUS). The unique request ID in the REQUEST_ERROR is
+         *       used to associate it with the correct type of request.
+         *
+         * @param connection_handle     Source connection ID
+         * @param request_id            Request ID received
+         * @param response              Response message
+         */
+        virtual void RequestErrorReceived(ConnectionHandle connection_handle,
+                                          uint64_t request_id,
+                                          const RequestResponse& response);
 
         ///@}
 
@@ -515,28 +528,49 @@ namespace quicr {
         void SendCtrlMsg(const ConnectionContext& conn_ctx, DataContextId data_ctx_id, BytesSpan data);
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
+
+        /*===================================================================*/
+        // Publish Namespace
+        /*===================================================================*/
+
         void SendPublishNamespace(ConnectionContext& conn_ctx,
                                   messages::RequestID request_id,
                                   const TrackNamespace& track_namespace);
         void SendPublishNamespaceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
-        void SendPublishNamespaceDone(ConnectionContext& conn_ctx, const TrackNamespace& track_namespace);
+        void SendPublishNamespaceDone(ConnectionContext& conn_ctx, messages::RequestID request_id);
+
+        /*===================================================================*/
+        // Subscribe Namespace
+        /*===================================================================*/
+
+        void SendSubscribeNamespace(ConnectionHandle conn_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
+
+        void SendUnsubscribeNamespace(ConnectionHandle conn_handle,
+                                      const std::shared_ptr<SubscribeNamespaceHandler>& handler);
+
+        void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx,
+                                      DataContextId data_ctx_id,
+                                      messages::RequestID request_id);
+
+        void SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
+                                         DataContextId data_ctx_id,
+                                         messages::RequestID request_id,
+                                         messages::ErrorCode err_code,
+                                         std::chrono::milliseconds retry_interval,
+                                         const std::string& reason);
+
+        /*===================================================================*/
+        // Subscribe
+        /*===================================================================*/
+
         void SendSubscribe(ConnectionContext& conn_ctx,
                            messages::RequestID request_id,
                            const FullTrackName& tfn,
                            TrackHash th,
-                           messages::SubscriberPriority priority,
+                           std::uint8_t priority,
                            messages::GroupOrder group_order,
                            messages::FilterType filter_type,
-                           std::chrono::milliseconds delivery_timeout);
-        void SendSubscribeUpdate(const ConnectionContext& conn_ctx,
-                                 messages::RequestID request_id,
-                                 messages::RequestID subscribe_request_id,
-                                 TrackHash th,
-                                 messages::Location start_location,
-                                 messages::GroupId end_group_id,
-                                 messages::SubscriberPriority priority,
-                                 bool forward,
-                                 bool new_group_request = false);
+                           std::optional<std::chrono::milliseconds> delivery_timeout);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
                              messages::RequestID request_id,
@@ -545,26 +579,25 @@ namespace quicr {
                              const std::optional<messages::Location>& largest_location);
         void SendUnsubscribe(ConnectionContext& conn_ctx, messages::RequestID request_id);
 
-        void SendPublishDone(ConnectionContext& conn_ctx,
-                             messages::RequestID request_id,
-                             messages::PublishDoneStatusCode status,
-                             const std::string& reason);
+        void SendSubscribeUpdate(const ConnectionContext& conn_ctx,
+                                 messages::RequestID request_id,
+                                 messages::RequestID subscribe_request_id,
+                                 TrackHash th,
+                                 messages::Location start_location,
+                                 messages::GroupId end_group_id,
+                                 std::uint8_t priority,
+                                 bool forward,
+                                 bool new_group_request = false);
 
         void SendSubscribeError(ConnectionContext& conn_ctx,
                                 messages::RequestID request_id,
-                                messages::SubscribeErrorCode error,
+                                messages::ErrorCode error,
+                                std::chrono::milliseconds retry_interval,
                                 const std::string& reason);
 
-        void SendTrackStatus(ConnectionContext& conn_ctx, messages::RequestID request_id, const FullTrackName& tfn);
-        void SendTrackStatusOk(ConnectionContext& conn_ctx,
-                               messages::RequestID request_id,
-                               uint64_t track_alias,
-                               uint64_t expires,
-                               const std::optional<messages::Location>& largest_location);
-        void SendTrackStatusError(ConnectionContext& conn_ctx,
-                                  messages::RequestID request_id,
-                                  messages::SubscribeErrorErrorCode error,
-                                  const std::string& reason);
+        /*===================================================================*/
+        // Publish
+        /*===================================================================*/
 
         void SendPublish(ConnectionContext& conn_ctx,
                          messages::RequestID request_id,
@@ -575,55 +608,80 @@ namespace quicr {
                          bool forward,
                          bool support_new_group);
 
+        void SendPublishDone(ConnectionContext& conn_ctx,
+                             messages::RequestID request_id,
+                             messages::PublishDoneStatusCode status,
+                             const std::string& reason);
+
         void SendPublishOk(ConnectionContext& conn_ctx,
                            messages::RequestID request_id,
                            bool forward,
-                           messages::SubscriberPriority priority,
+                           std::uint8_t priority,
                            messages::GroupOrder group_order,
                            messages::FilterType filter_type);
 
         void SendPublishError(ConnectionContext& conn_ctx,
                               messages::RequestID request_id,
-                              messages::SubscribeErrorCode error,
+                              messages::ErrorCode error,
+                              std::chrono::milliseconds retry_interval,
                               const std::string& reason);
 
-        void SendSubscribeNamespace(ConnectionHandle conn_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
-        void SendUnsubscribeNamespace(ConnectionHandle conn_handle,
-                                      const std::shared_ptr<SubscribeNamespaceHandler>& handler);
-        void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx,
-                                      DataContextId data_ctx_id,
-                                      messages::RequestID request_id);
-        void SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
-                                         DataContextId data_ctx_id,
-                                         messages::RequestID request_id,
-                                         messages::SubscribeNamespaceErrorCode err_code,
-                                         const std::string& reason);
+        /*===================================================================*/
+        // Track Status
+        /*===================================================================*/
+
+        void SendTrackStatus(ConnectionContext& conn_ctx, messages::RequestID request_id, const FullTrackName& tfn);
+
+        void SendTrackStatusOk(ConnectionContext& conn_ctx,
+                               messages::RequestID request_id,
+                               uint64_t track_alias,
+                               uint64_t expires,
+                               const std::optional<messages::Location>& largest_location);
+
+        void SendTrackStatusError(ConnectionContext& conn_ctx,
+                                  messages::RequestID request_id,
+                                  messages::ErrorCode error,
+                                  std::chrono::milliseconds retry_interval,
+                                  const std::string& reason);
+
+        /*===================================================================*/
+        // Fetch
+        /*===================================================================*/
 
         void SendFetch(ConnectionContext& conn_ctx,
                        messages::RequestID request_id,
                        const FullTrackName& tfn,
-                       messages::SubscriberPriority priority,
+                       std::uint8_t priority,
                        messages::GroupOrder group_order,
                        const messages::Location& start_location,
                        const messages::FetchEndLocation& end_location);
+
         void SendJoiningFetch(ConnectionContext& conn_ctx,
                               messages::RequestID request_id,
-                              messages::SubscriberPriority priority,
+                              std::uint8_t priority,
                               messages::GroupOrder group_order,
                               messages::RequestID joining_request_id,
                               messages::GroupId joining_start,
-                              bool absolute,
-                              const messages::Parameters parameters);
+                              bool absolute);
+
         void SendFetchCancel(ConnectionContext& conn_ctx, messages::RequestID request_id);
+
         void SendFetchOk(ConnectionContext& conn_ctx,
                          messages::RequestID request_id,
                          messages::GroupOrder group_order,
                          bool end_of_track,
                          messages::Location end_location);
+
         void SendFetchError(ConnectionContext& conn_ctx,
                             messages::RequestID request_id,
-                            messages::FetchErrorCode error,
+                            messages::ErrorCode error,
+                            std::chrono::milliseconds retry_interval,
                             const std::string& reason);
+
+        /*===================================================================*/
+        // Other member functions
+        /*===================================================================*/
+
         void CloseConnection(ConnectionHandle connection_handle,
                              messages::TerminationReason reason,
                              const std::string& reason_str);

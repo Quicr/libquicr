@@ -43,7 +43,7 @@ namespace quicr {
     void Client::ResolveSubscribe(ConnectionHandle connection_handle,
                                   uint64_t request_id,
                                   uint64_t track_alias,
-                                  const SubscribeResponse& subscribe_response)
+                                  const RequestResponse& subscribe_response)
     {
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
@@ -51,15 +51,14 @@ namespace quicr {
         }
 
         switch (subscribe_response.reason_code) {
-            case SubscribeResponse::ReasonCode::kOk: {
+            case RequestResponse::ReasonCode::kOk: {
                 SendSubscribeOk(
                   conn_it->second, request_id, track_alias, kSubscribeExpires, subscribe_response.largest_location);
                 break;
             }
 
             default:
-                SendSubscribeError(
-                  conn_it->second, request_id, messages::SubscribeErrorCode::kInternalError, "Internal error");
+                SendSubscribeError(conn_it->second, request_id, messages::ErrorCode::kInternalError, "Internal error");
                 break;
         }
     }
@@ -82,7 +81,7 @@ namespace quicr {
 
     void Client::ResolveFetch(ConnectionHandle connection_handle,
                               uint64_t request_id,
-                              messages::SubscriberPriority priority,
+                              std::uint8_t priority,
                               messages::GroupOrder group_order,
                               const FetchResponse& response)
     {
@@ -195,20 +194,7 @@ namespace quicr {
     try {
         switch (msg_type) {
             case messages::ControlMessageType::kSubscribe: {
-                messages::Subscribe msg(
-                  [](messages::Subscribe& msg) {
-                      if (msg.filter_type == messages::FilterType::kAbsoluteStart ||
-                          msg.filter_type == messages::FilterType::kAbsoluteRange) {
-                          msg.group_0 =
-                            std::make_optional<messages::Subscribe::Group_0>(messages::Subscribe::Group_0{ 0, 0 });
-                      }
-                  },
-                  [](messages::Subscribe& msg) {
-                      if (msg.filter_type == messages::FilterType::kAbsoluteRange) {
-                          msg.group_1 =
-                            std::make_optional<messages::Subscribe::Group_1>(messages::Subscribe::Group_1{ 0 });
-                      }
-                  });
+                messages::Subscribe msg;
 
                 msg_bytes >> msg;
 
@@ -228,17 +214,15 @@ namespace quicr {
                                        th.track_name_hash,
                                        msg.request_id);
 
-                    SendSubscribeError(conn_ctx,
-                                       msg.request_id,
-                                       messages::SubscribeErrorCode::kTrackNotExist,
-                                       "Published track not found");
+                    SendSubscribeError(
+                      conn_ctx, msg.request_id, messages::ErrorCode::kTrackNotExist, "Published track not found");
                     return true;
                 }
 
                 ResolveSubscribe(conn_ctx.connection_handle,
                                  msg.request_id,
                                  ptd->GetTrackAlias().value(),
-                                 { SubscribeResponse::ReasonCode::kOk });
+                                 { RequestResponse::ReasonCode::kOk });
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe to announced track alias: {0} recv request_id: {1}, setting "
@@ -268,7 +252,7 @@ namespace quicr {
                       conn_ctx.connection_handle);
 
                     SendSubscribeError(
-                      conn_ctx, msg.request_id, messages::SubscribeErrorCode::kTrackNotExist, "Subscription not found");
+                      conn_ctx, msg.request_id, messages::ErrorCode::kTrackNotExist, "Subscription not found");
                     return true;
                 }
 
@@ -284,10 +268,8 @@ namespace quicr {
                                        th.track_namespace_hash,
                                        th.track_name_hash);
 
-                    SendSubscribeError(conn_ctx,
-                                       msg.request_id,
-                                       messages::SubscribeErrorCode::kTrackNotExist,
-                                       "Published track not found");
+                    SendSubscribeError(
+                      conn_ctx, msg.request_id, messages::ErrorCode::kTrackNotExist, "Published track not found");
                     return true;
                 }
 
@@ -590,7 +572,7 @@ namespace quicr {
                 attrs.track_alias = msg.track_alias;
                 attrs.forward = msg.forward;
                 attrs.group_order = msg.group_order;
-                attrs.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
+                attrs.expires = std::chrono::milliseconds(delivery_timeout);
                 attrs.is_publisher_initiated = true;
                 attrs.new_group_request_id = new_group_request_id;
                 PublishReceived(conn_ctx.connection_handle, msg.request_id, attrs);
@@ -709,7 +691,7 @@ namespace quicr {
 
                 TrackStatusResponseReceived(conn_ctx.connection_handle,
                                             msg.request_id,
-                                            { .reason_code = SubscribeResponse::ReasonCode::kOk,
+                                            { .reason_code = RequestResponse::ReasonCode::kOk,
                                               .is_publisher_initiated = false,
                                               .error_reason = std::nullopt,
                                               .largest_location = largest_location });
@@ -720,7 +702,7 @@ namespace quicr {
                 auto msg = messages::TrackStatusError{};
                 msg_bytes >> msg;
 
-                SubscribeResponse response;
+                RequestResponse response;
                 response.error_reason = std::string(msg.error_reason.begin(), msg.error_reason.end());
 
                 SPDLOG_LOGGER_DEBUG(logger_,
@@ -730,14 +712,14 @@ namespace quicr {
                                     response.error_reason.value());
 
                 switch (msg.error_code) {
-                    case messages::SubscribeErrorCode::kUnauthorized:
-                        response.reason_code = SubscribeResponse::ReasonCode::kUnauthorized;
+                    case messages::ErrorCode::kUnauthorized:
+                        response.reason_code = RequestResponse::ReasonCode::kUnauthorized;
                         break;
-                    case messages::SubscribeErrorCode::kTrackDoesNotExist:
-                        response.reason_code = SubscribeResponse::ReasonCode::kTrackDoesNotExist;
+                    case messages::ErrorCode::kTrackDoesNotExist:
+                        response.reason_code = RequestResponse::ReasonCode::kTrackDoesNotExist;
                         break;
                     default:
-                        response.reason_code = SubscribeResponse::ReasonCode::kInternalError;
+                        response.reason_code = RequestResponse::ReasonCode::kInternalError;
                         break;
                 }
 

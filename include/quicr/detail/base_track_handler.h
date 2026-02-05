@@ -30,7 +30,7 @@ namespace quicr {
     /**
      * @brief Response to received MOQT Subscribe message
      */
-    struct SubscribeResponse
+    struct RequestResponse
     {
         /**
          * @details **kOK** indicates that the subscribe is accepted and OK should be sent. Any other
@@ -41,15 +41,24 @@ namespace quicr {
         {
             kOk = 0,
             kInternalError,
-            kInvalidRange,
             kUnauthorized,
             kTimeout,
             kNotSupported,
-            kTrackDoesNotExist,
             kMalformedAuthToken,
             kExpiredAuthToken,
+            kDoesNotExist,
+            kInvalidRange,
+            kMalformedTrack,
+            kDuplicateSubscription,
+            kUninterested,
+            kPrefixOverlap,
+            kInvalidJoiningRequestId,
         };
+
+        static ReasonCode FromErrorCode(messages::ErrorCode error_code);
+
         ReasonCode reason_code;
+
         bool is_publisher_initiated = false;
 
         std::optional<std::string> error_reason = std::nullopt;
