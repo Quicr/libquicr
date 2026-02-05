@@ -259,21 +259,25 @@ namespace quicr::messages {
         // True if this is an object datagram status, false for payload.
         const bool status;
 
+        // Bitfield masks.
+        static constexpr std::uint8_t kExtensionsBit = 0x01;
+        static constexpr std::uint8_t kEndOfGroupBit = 0x02;
+        static constexpr std::uint8_t kZeroObjectIdBit = 0x04;
+        static constexpr std::uint8_t kDefaultPriorityBit = 0x08;
+        static constexpr std::uint8_t kStatusBit = 0x20;
+
         /**
          * Parse the properties of a datagram header from its type.
          */
         constexpr explicit DatagramHeaderProperties(const std::uint8_t type)
-          : extensions(type & 0x01)
-          , end_of_group(type & 0x02)
-          , zero_object_id(type & 0x04)
-          , default_priority(type & 0x08)
-          , status(type & 0x20)
+          : extensions(type & kExtensionsBit)
+          , end_of_group(type & kEndOfGroupBit)
+          , zero_object_id(type & kZeroObjectIdBit)
+          , default_priority(type & kDefaultPriorityBit)
+          , status(type & kStatusBit)
         {
-            if (type & 0xD0) {
-                throw ProtocolViolationException("Invalid datagram type: must match 0b00X0XXXX");
-            }
-            if (status && end_of_group) {
-                throw ProtocolViolationException("An object status message cannot signal end of group");
+            if (!IsValid(type)) {
+                throw ProtocolViolationException("Invalid Datagram type");
             }
         }
 
@@ -282,7 +286,7 @@ namespace quicr::messages {
                                            const bool end_of_group,
                                            const bool zero_object_id,
                                            const bool default_priority,
-                                           const bool status)
+                                           const bool status) noexcept
           : extensions(extensions)
           , end_of_group(end_of_group)
           , zero_object_id(zero_object_id)
@@ -294,25 +298,41 @@ namespace quicr::messages {
         /**
          * Get the type of this datagram header based on its properties.
          */
-        constexpr std::uint8_t GetType() const
+        constexpr std::uint8_t GetType() const noexcept
         {
             std::uint8_t type = 0;
             if (extensions) {
-                type |= 0x01;
+                type |= kExtensionsBit;
             }
             if (end_of_group) {
-                type |= 0x02;
+                type |= kEndOfGroupBit;
             }
             if (zero_object_id) {
-                type |= 0x04;
+                type |= kZeroObjectIdBit;
             }
             if (default_priority) {
-                type |= 0x08;
+                type |= kDefaultPriorityBit;
             }
             if (status) {
-                type |= 0x20;
+                type |= kStatusBit;
             }
             return type;
+        }
+
+        /**
+         * Checks if the given datagram type is a valid value.
+         * @param type The type of the datagram message.
+         * @return False if a protocol violation.
+         */
+        static constexpr bool IsValid(const std::uint8_t type) noexcept
+        {
+            if (type & 0xD0) {
+                return false;
+            }
+            if (type & kEndOfGroupBit && type & kStatusBit) {
+                return false;
+            }
+            return true;
         }
     };
 
