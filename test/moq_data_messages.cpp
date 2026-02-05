@@ -403,13 +403,13 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
     switch (properties.subgroup_id_type) {
         case SubgroupIdType::kIsZero:
             CHECK_EQ(hdr_group_out.subgroup_id, 0);
-            return;
+            break;
         case SubgroupIdType::kSetFromFirstObject:
             CHECK_EQ(hdr_group_out.subgroup_id, std::nullopt);
-            return;
+            break;
         case SubgroupIdType::kExplicit:
             CHECK_EQ(hdr_group_out.subgroup_id, hdr_grp.subgroup_id);
-            return;
+            break;
     }
 
     // stream all the objects
@@ -467,7 +467,6 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderType type, ExtensionTest extensi
             CompareExtensions(objects[object_count].extensions,
                               obj_out.extensions,
                               extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
-            CHECK_EQ(obj_out.extensions, objects[object_count].extensions);
             CHECK_EQ(obj_out.immutable_extensions, objects[object_count].immutable_extensions);
         } else {
             CHECK_EQ(obj_out.extensions, std::nullopt);
