@@ -107,6 +107,7 @@ namespace quicr {
         std::optional<Error> error_{};
 
         quicr::ConnectionHandle connection_handle_;
+        DataContextId data_ctx_id_{ 0 };
 
         friend class Transport;
         friend class Client;

@@ -128,6 +128,7 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
 
 void
 TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
+                                       const DataContextId data_ctx_id,
                                        const TrackNamespace& prefix_namespace,
                                        const SubscribeNamespaceAttributes& attributes)
 {
@@ -150,7 +151,7 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
     }
 
     // Blindly accept it.
-    ResolveSubscribeNamespace(connection_handle, attributes.request_id, prefix_namespace, response);
+    ResolveSubscribeNamespace(connection_handle, data_ctx_id, attributes.request_id, prefix_namespace, response);
 }
 
 void

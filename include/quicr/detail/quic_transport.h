@@ -441,10 +441,10 @@ namespace quicr {
          * @details Add data to the transport queue. Data enqueued will be transmitted
          * when available.
          *
-         * @param[in] context_id	Identifying the connection
-         * @param[in] data_ctx_id	stream Id to send data on
-         * @param[in] stream_id     Stream ID to send message on
-         * @param[in] bytes		    Data to send/write
+         * @param[in] context_id    Identifying the connection
+         * @param[in] data_ctx_id   stream Id to send data on
+         * @param[in] stream_id     Stream ID to send message on, Only used for unidir data contexts
+         * @param[in] bytes	    Data to send/write
          * @param[in] priority      Priority of the object, range should be 0 - 255
          * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
          * @param[in] delay_ms      Delay the pop by millisecond value

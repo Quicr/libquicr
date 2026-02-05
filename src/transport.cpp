@@ -309,9 +309,9 @@ namespace quicr {
         }
     }
 
-    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, BytesSpan data)
+    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, DataContextId data_ctx_id, BytesSpan data)
     {
-        if (!conn_ctx.ctrl_data_ctx_id.has_value() || !conn_ctx.ctrl_stream_id.has_value()) {
+        if (!conn_ctx.ctrl_data_ctx_id.has_value()) {
             CloseConnection(conn_ctx.connection_handle,
                             messages::TerminationReason::kProtocolViolation,
                             "Control bidir data context not created");
@@ -319,8 +319,8 @@ namespace quicr {
         }
 
         auto result = quic_transport_->Enqueue(conn_ctx.connection_handle,
-                                               *conn_ctx.ctrl_data_ctx_id,
-                                               *conn_ctx.ctrl_stream_id,
+                                               data_ctx_id,
+                                               0 /* not use for bidir streams */,
                                                std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
                                                0,
                                                2000,
@@ -352,7 +352,7 @@ namespace quicr {
 
         auto& conn_ctx = connections_.begin()->second;
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending ClientSetup (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -374,7 +374,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {0}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending ServerSetup (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -396,7 +396,7 @@ namespace quicr {
                             request_id,
                             th.track_namespace_hash);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PublishNamespace (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -414,7 +414,7 @@ namespace quicr {
                             conn_ctx.connection_handle,
                             request_id);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_NAMESPACE_OK (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -429,7 +429,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending PUBLISH_NAMESPACE_DONE to conn_id: {}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_NAMESPACE_DONE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -456,7 +456,7 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending TRACK_STATUS to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Trac (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -514,7 +514,7 @@ namespace quicr {
           th.track_namespace_hash,
           th.track_name_hash);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Subscribe (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -554,7 +554,7 @@ namespace quicr {
                             request_id,
                             track_alias);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -584,7 +584,7 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending PUBLISH_OK to conn_id: {0} request_id: {1} ", conn_ctx.connection_handle, request_id);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
 
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish Ok (error={})", e.what());
@@ -608,7 +608,7 @@ namespace quicr {
                             static_cast<int>(error),
                             reason);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish Error (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -646,7 +646,7 @@ namespace quicr {
                             th.track_name_hash,
                             forward);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeUpdate (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -673,7 +673,7 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending TRACK_STATUS_OK to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending TrackStatusOk (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -705,7 +705,7 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending SUBSCRIBE OK to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeOk (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -727,7 +727,7 @@ namespace quicr {
                             request_id,
                             static_cast<uint64_t>(status));
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_DONE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -743,7 +743,7 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending UNSUBSCRIBE to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Unsubscribe (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -773,8 +773,7 @@ namespace quicr {
 
         handler->SetTransport(GetSharedPtr());
 
-        const auto& [handler_it, is_new] =
-          conn_it->second.sub_namespace_handlers.try_emplace(prefix, std::move(handler));
+        const auto& [handler_it, is_new] = conn_it->second.sub_namespace_handlers.try_emplace(prefix, handler);
 
         if (!is_new) {
             SPDLOG_LOGGER_WARN(logger_, "Namespace already subscribed to (alias={})", th.track_fullname_hash);
@@ -787,13 +786,18 @@ namespace quicr {
                             rid,
                             th.track_namespace_hash);
 
-        SendCtrlMsg(conn_it->second, buffer);
+        handler->data_ctx_id_ = quic_transport_->CreateDataContext(conn_handle, true, 0, true);
+        quic_transport_->CreateStream(conn_handle, handler->data_ctx_id_, 0);
+
+        SendCtrlMsg(conn_it->second, handler->data_ctx_id_, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, RequestID request_id)
+    void Transport::SendSubscribeNamespaceOk(ConnectionContext& conn_ctx,
+                                             DataContextId data_ctx_id,
+                                             RequestID request_id)
     try {
         auto msg = messages::SubscribeNamespaceOk(request_id);
 
@@ -805,13 +809,14 @@ namespace quicr {
                             conn_ctx.connection_handle,
                             request_id);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, data_ctx_id, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE_OK (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
     void Transport::SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
+                                                DataContextId data_ctx_id,
                                                 RequestID request_id,
                                                 messages::SubscribeNamespaceErrorCode err_code,
                                                 const std::string& reason)
@@ -827,7 +832,7 @@ namespace quicr {
                             conn_ctx.connection_handle,
                             request_id);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, data_ctx_id, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -868,7 +873,7 @@ namespace quicr {
                             conn_handle,
                             th.track_namespace_hash);
 
-        SendCtrlMsg(conn_it->second, buffer);
+        SendCtrlMsg(conn_it->second, handler->data_ctx_id_, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending UNSUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -891,7 +896,7 @@ namespace quicr {
                             static_cast<int>(error),
                             reason);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending TRACK_STATUS_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -914,7 +919,7 @@ namespace quicr {
                             static_cast<int>(error),
                             reason);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -941,7 +946,7 @@ namespace quicr {
         Bytes buffer;
         buffer << fetch;
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Fetch (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -969,7 +974,7 @@ namespace quicr {
         Bytes buffer;
         buffer << fetch;
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending JoiningFetch (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -982,7 +987,7 @@ namespace quicr {
         Bytes buffer;
         buffer << fetch_cancel;
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchCancel (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -999,7 +1004,7 @@ namespace quicr {
         Bytes buffer;
         buffer << fetch_ok;
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchOk (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -1022,7 +1027,7 @@ namespace quicr {
                             static_cast<int>(error),
                             reason);
 
-        SendCtrlMsg(conn_ctx, buffer);
+        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchError (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -1671,15 +1676,17 @@ namespace quicr {
 
             // CONTROL STREAM
             if (is_bidir) {
-                // auto blob = to_hex(data);
-                conn_ctx.ctrl_msg_buffer.insert(conn_ctx.ctrl_msg_buffer.end(), data.begin(), data.end());
+                auto& ctrl_msg_buffer = conn_ctx.ctrl_msg_buffer[stream_id];
+                ctrl_msg_buffer.data.insert(ctrl_msg_buffer.data.end(), data.begin(), data.end());
+
                 rx_ctx->data_queue.PopFront();
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
                                     conn_id,
                                     stream_id,
-                                    conn_ctx.ctrl_msg_buffer.size());
+                                    ctrl_msg_buffer.data.size());
 
+                // Set the default/primary control stream and data context id
                 if (not conn_ctx.ctrl_data_ctx_id) {
                     if (not data_ctx_id) {
                         CloseConnection(conn_id,
@@ -1687,59 +1694,62 @@ namespace quicr {
                                         "Received bidir is missing data context");
                         return;
                     }
+
                     conn_ctx.ctrl_data_ctx_id = data_ctx_id;
-                    conn_ctx.ctrl_stream_id = stream_id;
+
+                    if (!conn_ctx.ctrl_stream_id.has_value()) { // First bidir is the primary control stream
+                        conn_ctx.ctrl_stream_id = stream_id;
+                    }
                 }
 
-                while (conn_ctx.ctrl_msg_buffer.size() > 0) {
-                    if (not conn_ctx.ctrl_msg_type_received.has_value()) {
+                while (ctrl_msg_buffer.data.size() > 0) {
+                    if (not ctrl_msg_buffer.msg_type.has_value()) {
                         // Decode message type
-                        auto uv_sz = UintVar::Size(conn_ctx.ctrl_msg_buffer.front());
-                        if (conn_ctx.ctrl_msg_buffer.size() < uv_sz) {
+                        auto uv_sz = UintVar::Size(ctrl_msg_buffer.data.front());
+                        if (ctrl_msg_buffer.data.size() < uv_sz) {
                             i = kReadLoopMaxPerStream - 4;
                             break; // Not enough bytes to process control message. Try again once more.
                         }
 
-                        auto msg_type = uint64_t(quicr::UintVar(
-                          { conn_ctx.ctrl_msg_buffer.begin(), conn_ctx.ctrl_msg_buffer.begin() + uv_sz }));
+                        auto msg_type = uint64_t(
+                          quicr::UintVar({ ctrl_msg_buffer.data.begin(), ctrl_msg_buffer.data.begin() + uv_sz }));
 
-                        conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
-                                                       conn_ctx.ctrl_msg_buffer.begin() + uv_sz);
+                        ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(), ctrl_msg_buffer.data.begin() + uv_sz);
 
-                        conn_ctx.ctrl_msg_type_received = static_cast<ControlMessageType>(msg_type);
+                        ctrl_msg_buffer.msg_type = static_cast<ControlMessageType>(msg_type);
                     }
 
                     uint16_t payload_len = 0;
 
                     // Decode control payload length in bytes
-                    if (conn_ctx.ctrl_msg_buffer.size() < sizeof(payload_len)) {
+                    if (ctrl_msg_buffer.data.size() < sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
-                    std::memcpy(&payload_len, conn_ctx.ctrl_msg_buffer.data(), sizeof(payload_len));
+                    std::memcpy(&payload_len, ctrl_msg_buffer.data.data(), sizeof(payload_len));
                     payload_len = SwapBytes(payload_len);
 
-                    if (conn_ctx.ctrl_msg_buffer.size() < payload_len + sizeof(payload_len)) {
+                    if (ctrl_msg_buffer.data.size() < payload_len + sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
                     if (ProcessCtrlMessage(
                           conn_ctx,
-                          { conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len), conn_ctx.ctrl_msg_buffer.end() })) {
+                          data_ctx_id.value(),
+                          ctrl_msg_buffer.msg_type.value(),
+                          { ctrl_msg_buffer.data.begin() + sizeof(payload_len), ctrl_msg_buffer.data.end() })) {
 
                         // Reset the control message buffer and message type to start a new message.
-                        conn_ctx.ctrl_msg_type_received = std::nullopt;
-                        conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
-                                                       conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len) +
-                                                         payload_len);
+                        ctrl_msg_buffer.msg_type = std::nullopt;
+                        ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
+                                                   ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len);
                     } else {
                         conn_ctx.metrics.invalid_ctrl_stream_msg++;
-                        conn_ctx.ctrl_msg_type_received = std::nullopt;
-                        conn_ctx.ctrl_msg_buffer.erase(conn_ctx.ctrl_msg_buffer.begin(),
-                                                       conn_ctx.ctrl_msg_buffer.begin() + sizeof(payload_len) +
-                                                         payload_len);
+                        ctrl_msg_buffer.msg_type = std::nullopt;
+                        ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
+                                                   ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len);
                     }
                 }
                 continue;
@@ -1851,6 +1861,33 @@ namespace quicr {
         }
 
         try {
+
+            if ((stream_id & 2) == 0) { // bidir
+                auto& conn_ctx = connections_[connection_handle];
+
+                switch (flag) {
+                    case StreamClosedFlag::kFin:
+                        if (conn_ctx.ctrl_stream_id.has_value() && conn_ctx.ctrl_stream_id == stream_id) {
+                            CloseConnection(
+                              connection_handle, TerminationReason::kProtocolViolation, "Primary control stream FIN");
+                        } else {
+                            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+                        }
+
+                        break;
+                    case StreamClosedFlag::kReset:
+                        if (conn_ctx.ctrl_stream_id.has_value() && conn_ctx.ctrl_stream_id == stream_id) {
+                            CloseConnection(
+                              connection_handle, TerminationReason::kProtocolViolation, "Primary control stream RESET");
+                        } else {
+                            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+                        }
+                        break;
+                }
+
+                return;
+            }
+
             const auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
             if (const auto handler = handler_weak.lock(); handler) {
                 try {
