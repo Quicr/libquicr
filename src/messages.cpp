@@ -155,6 +155,12 @@ namespace quicr::messages {
         return buffer;
     }
 
+    BytesSpan operator>>(BytesSpan buffer, Extensions& extensions)
+    {
+        // TODO: Extract extensions.
+        return buffer;
+    }
+
     void SerializeExtensions(Bytes& buffer,
                              const std::optional<Extensions>& extensions,
                              const std::optional<Extensions>& immutable_extensions)

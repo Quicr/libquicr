@@ -371,7 +371,7 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
 
     template<class T>
-    concept HasStreamOperators = requires(T value) {
+    concept HasByteStreamOperators = requires(T value) {
         { Bytes{} << value };
         { BytesSpan{} >> value };
     };
@@ -386,8 +386,12 @@ namespace quicr::messages {
         ParameterList& operator=(const ParameterList&) = default;
         ParameterList& operator=(ParameterList&&) = default;
 
+        ParameterList(std::initializer_list<KeyValuePair<Type>> values)
+          : parameters(values)
+        {
+        }
+
         template<typename T>
-            requires(std::is_trivially_copyable_v<T> || std::is_same_v<std::string, T>)
         ParameterList& Add(Type type, const T& value)
         {
             if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
@@ -398,17 +402,14 @@ namespace quicr::messages {
                 }
             }
 
-            parameters.emplace_back(type, AsOwnedBytes(value));
-            return *this;
-        }
+            if constexpr (HasByteStreamOperators<T>) {
+                Bytes bytes;
+                bytes << value;
+                parameters.emplace_back(type, std::move(bytes));
+                return *this;
+            }
 
-        template<typename T>
-            requires(!std::is_trivially_copyable_v<T> && !std::is_same_v<std::string, T>)
-        ParameterList& Add(Type type, const T& value)
-        {
-            Bytes bytes;
-            bytes << value;
-            parameters.emplace_back(type, std::move(bytes));
+            parameters.emplace_back(type, AsOwnedBytes(value));
             return *this;
         }
 
@@ -427,17 +428,18 @@ namespace quicr::messages {
 
         auto begin() const noexcept { return parameters.begin(); }
         auto end() const noexcept { return parameters.end(); }
-        auto at(std::size_t index) { return parameters.at(index); }
 
         bool Contains(Type type)
         {
-            auto it = std::find(parameters.begin(), parameters.end(), type);
-            return it == parameters.end();
+            auto it =
+              std::find_if(parameters.begin(), parameters.end(), [type](const auto& kv) { return kv.type == type; });
+            return it != parameters.end();
         }
 
-        BytesSpan Find(Type type)
+        BytesSpan Find(Type type) const
         {
-            auto it = std::find(parameters.begin(), parameters.end(), type);
+            auto it =
+              std::find_if(parameters.begin(), parameters.end(), [type](const auto& kv) { return kv.type == type; });
             if (it == parameters.end()) {
                 return {};
             }
@@ -446,18 +448,20 @@ namespace quicr::messages {
         }
 
         template<typename T>
-        T Get(Type type) const noexcept
+        T Get(Type type) const
         {
             auto bytes = Find(type);
             if (bytes.empty()) {
                 return {};
             }
 
-            if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                return static_cast<T>(UintVar(bytes).Get());
+            if constexpr (std::is_arithmetic_v<T>) {
+                if (static_cast<std::uint64_t>(type) % 2 == 0) {
+                    return static_cast<T>(UintVar(bytes).Get());
+                }
             }
 
-            if constexpr (HasStreamOperators<T>) {
+            if constexpr (HasByteStreamOperators<T>) {
                 T result;
                 bytes >> result;
                 return result;
@@ -465,6 +469,8 @@ namespace quicr::messages {
 
             return FromBytes<T>(bytes);
         }
+
+        auto operator<=>(const ParameterList&) const = default;
 
         std::vector<KeyValuePair<Type>> parameters;
     };

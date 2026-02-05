@@ -230,5 +230,4 @@ namespace quicr::messages {
 
         return buffer;
     }
-
 }

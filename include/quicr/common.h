@@ -49,12 +49,12 @@ namespace quicr {
     template<class T>
     T FromBytes(std::span<const uint8_t> bytes)
     {
-        if (bytes.empty() || bytes.size() < sizeof(T)) {
+        if (bytes.empty()) {
             return {};
         }
 
         if constexpr (std::is_standard_layout_v<T> && std::is_trivially_copyable_v<T>) {
-            return *reinterpret_cast<T*>(bytes.data());
+            return *reinterpret_cast<const T*>(bytes.data());
         } else if constexpr (std::is_same_v<std::string, std::decay_t<T>>) {
             return std::string(bytes.begin(), bytes.end());
         } else {

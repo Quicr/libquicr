@@ -513,6 +513,7 @@ namespace quicr {
          */
         auto params = Parameters{}
                         .Add(ParameterType::kForward, forward)
+                        .Add(ParameterType::kExpires, 0)
                         .AddOptional(ParameterType::kLargestObject, largest_location);
 
         Bytes buffer;
@@ -1353,7 +1354,7 @@ namespace quicr {
         if (pub_ns_it != conn_it->second.pub_namespace_handlers.end()) {
             SPDLOG_LOGGER_INFO(logger_, "Sending PublishNamespaceDone (prefix_hash={})", prefix_hash);
 
-            SendPublishNamespaceDone(conn_it->second, prefix);
+            SendPublishNamespaceDone(conn_it->second, track_handler->GetRequestId().value());
             conn_it->second.pub_namespace_handlers.erase(pub_ns_it);
         }
     }
@@ -2146,6 +2147,9 @@ namespace quicr {
                 break;
             case messages::TerminationReason::kGoawayTimeout:
                 log_msg << " goaway timeout: " << reason_str;
+                break;
+            default:
+                log_msg << " termination reason (" << reason_str << ")";
                 break;
         }
 

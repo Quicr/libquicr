@@ -403,9 +403,8 @@ namespace quicr {
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
 
                 std::optional<uint64_t> new_group_request_id;
-                if (auto new_group_id_bytes = msg.parameters.Find(messages::ParameterType::kNewGroupRequest);
-                    !new_group_id_bytes.empty()) {
-                    new_group_request_id = UintVar(new_group_id_bytes).Get();
+                if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
+                    new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
                 }
 
                 // TODO(tievens): add filter type when caching supports it
@@ -849,9 +848,8 @@ namespace quicr {
                   msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
 
                 std::optional<uint64_t> new_group_request_id;
-                if (auto new_group_id_bytes = msg.parameters.Find(messages::ParameterType::kNewGroupRequest);
-                    !new_group_id_bytes.empty()) {
-                    new_group_request_id = UintVar(new_group_id_bytes).Get();
+                if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
+                    new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
                 }
 
                 messages::SubscribeAttributes attributes = {
@@ -894,9 +892,8 @@ namespace quicr {
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
 
                 std::optional<uint64_t> new_group_request_id;
-                if (auto new_group_id_bytes = msg.parameters.Find(messages::ParameterType::kNewGroupRequest);
-                    !new_group_id_bytes.empty()) {
-                    new_group_request_id = UintVar(new_group_id_bytes).Get();
+                if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
+                    new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
                 }
 
                 SPDLOG_LOGGER_DEBUG(

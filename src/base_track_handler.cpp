@@ -1,5 +1,4 @@
 #include "quicr/detail/base_track_handler.h"
-#include "base_track_handler.h"
 #include "quicr/detail/transport.h"
 
 namespace quicr {

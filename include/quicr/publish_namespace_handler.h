@@ -16,7 +16,7 @@ namespace quicr {
     class PublishNamespaceHandler
     {
       public:
-        using Error = std::pair<messages::PublishNamespaceErrorCode, messages::ReasonPhrase>;
+        using Error = std::pair<messages::ErrorCode, messages::ReasonPhrase>;
 
         /**
          * @brief  Status codes for the Publish track
@@ -108,7 +108,7 @@ namespace quicr {
             if (status == Status::kError && !error_.has_value()) {
                 const std::string reason = "Unknown error";
                 error_ = {
-                    messages::PublishNamespaceErrorCode::kInternalError,
+                    messages::ErrorCode::kInternalError,
                     Bytes{ reason.begin(), reason.end() },
                 };
             }

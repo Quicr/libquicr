@@ -21,6 +21,7 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const std::optional<Extensions>& extensions);
     Bytes& operator<<(Bytes& buffer, const Extensions& extensions);
+    BytesSpan operator>>(BytesSpan buffer, Extensions& extensions);
 
     /**
      * Serialize extensions to MoQ encoding.

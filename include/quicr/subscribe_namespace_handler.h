@@ -87,7 +87,7 @@ namespace quicr {
                 const std::string reason = "Unknown error";
 
                 error_ = {
-                    messages::SubscribeNamespaceErrorCode::kInternalError,
+                    messages::ErrorCode::kInternalError,
                     Bytes{ reason.begin(), reason.end() },
                 };
             }
