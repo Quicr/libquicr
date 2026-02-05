@@ -773,8 +773,7 @@ namespace quicr {
 
         handler->SetTransport(GetSharedPtr());
 
-        const auto& [handler_it, is_new] =
-          conn_it->second.sub_namespace_handlers.try_emplace(prefix, std::move(handler));
+        const auto& [handler_it, is_new] = conn_it->second.sub_namespace_handlers.try_emplace(prefix, handler);
 
         if (!is_new) {
             SPDLOG_LOGGER_WARN(logger_, "Namespace already subscribed to (alias={})", th.track_fullname_hash);
@@ -787,10 +786,10 @@ namespace quicr {
                             rid,
                             th.track_namespace_hash);
 
-        auto data_ctx_id = quic_transport_->CreateDataContext(conn_handle, true, 0, true);
-        quic_transport_->CreateStream(conn_handle, data_ctx_id, 0);
+        handler->data_ctx_id_ = quic_transport_->CreateDataContext(conn_handle, true, 0, true);
+        quic_transport_->CreateStream(conn_handle, handler->data_ctx_id_, 0);
 
-        SendCtrlMsg(conn_it->second, data_ctx_id, buffer);
+        SendCtrlMsg(conn_it->second, handler->data_ctx_id_, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -874,7 +873,7 @@ namespace quicr {
                             conn_handle,
                             th.track_namespace_hash);
 
-        SendCtrlMsg(conn_it->second, conn_it->second.ctrl_data_ctx_id.value(), buffer);
+        SendCtrlMsg(conn_it->second, handler->data_ctx_id_, buffer);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending UNSUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
