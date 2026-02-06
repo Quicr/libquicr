@@ -516,8 +516,15 @@ namespace quicr {
                         .Add(ParameterType::kExpires, 0)
                         .AddOptional(ParameterType::kLargestObject, largest_location);
 
+        auto extensions = TrackExtensions{}
+                            .Add(ExtensionType::kDeliveryTimeout, 0)
+                            .Add(ExtensionType::kMaxCacheDuration, 0)
+                            .Add(ExtensionType::kDefaultPublisherGroupOrder, group_order)
+                            .Add(ExtensionType::kDefaultPublisherPriority, 1)
+                            .Add(ExtensionType::kDynamicGroups, support_new_group);
+
         Bytes buffer;
-        buffer << Publish(request_id, tfn.name_space, tfn.name, track_alias, params, {});
+        buffer << Publish(request_id, tfn.name_space, tfn.name, track_alias, params, extensions);
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending PUBLISH to conn_id: {0} request_id: {1} track alias: {2}",
@@ -663,8 +670,15 @@ namespace quicr {
                         .Add(ParameterType::kExpires, expires)
                         .AddOptional(ParameterType::kLargestObject, largest_location);
 
+        auto extensions = TrackExtensions{}
+                            .Add(ExtensionType::kDeliveryTimeout, 0)
+                            .Add(ExtensionType::kMaxCacheDuration, 0)
+                            .Add(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending)
+                            .Add(ExtensionType::kDefaultPublisherPriority, 1)
+                            .Add(ExtensionType::kDynamicGroups, true);
+
         Bytes buffer;
-        buffer << RequestOk(request_id, params);
+        buffer << SubscribeOk(request_id, track_alias, params, extensions);
 
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending SUBSCRIBE OK to conn_id: {0} request_id: {1}", conn_ctx.connection_handle, request_id);
@@ -973,6 +987,13 @@ namespace quicr {
     try {
         /* Available parameters: None */
         auto params = Parameters{};
+
+        auto extensions = TrackExtensions{}
+                            .Add(ExtensionType::kDeliveryTimeout, 0)
+                            .Add(ExtensionType::kMaxCacheDuration, 0)
+                            .Add(ExtensionType::kDefaultPublisherGroupOrder, group_order)
+                            .Add(ExtensionType::kDefaultPublisherPriority, 1)
+                            .Add(ExtensionType::kDynamicGroups, true);
 
         Bytes buffer;
         buffer << FetchOk(request_id, end_of_track, largest_location, params, {});

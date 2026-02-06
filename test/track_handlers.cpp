@@ -163,7 +163,7 @@ TEST_CASE("Subscribe Track Handler ObjectStatusReceived with extensions")
     status_msg.priority = 2;
     status_msg.status = quicr::ObjectStatus::kDoesNotExist;
     // Add extensions to trigger type 0x05 instead of 0x04
-    status_msg.extensions = quicr::messages::Extensions{ { 0x1, { { 0xAA, 0xBB } } } };
+    status_msg.extensions = quicr::Extensions{ { 0x1, { { 0xAA, 0xBB } } } };
 
     quicr::Bytes buffer;
     buffer << status_msg;

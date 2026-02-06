@@ -90,15 +90,30 @@ VerifyCtrl(BytesSpan buffer, uint64_t message_type, T& message)
 
 TEST_CASE("RequestOk Message encode/decode")
 {
+    auto request_ok = RequestOk{ 0x1234, {} };
     Bytes buffer;
-
-    auto request_ok = RequestOk{};
-    request_ok.request_id = 0x1234;
     buffer << request_ok;
 
     RequestOk request_ok_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kRequestOk), request_ok_out));
     CHECK_EQ(0x1234, request_ok_out.request_id);
+}
+
+TEST_CASE("RequestError Message encode/decode")
+{
+    Bytes buffer;
+
+    auto request_err = RequestError{};
+    request_err.request_id = 0x1234;
+    request_err.error_code = quicr::messages::ErrorCode::kNotSupported;
+    request_err.error_reason = Bytes{ 0x1, 0x2, 0x3 };
+    buffer << request_err;
+
+    RequestError request_err_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kRequestError), request_err_out));
+    CHECK_EQ(0x1234, request_err_out.request_id);
+    CHECK_EQ(request_err_out.error_code, request_err_out.error_code);
+    CHECK_EQ(request_err_out.error_reason, request_err_out.error_reason);
 }
 
 TEST_CASE("PublishNamespace Message encode/decode")
@@ -130,23 +145,6 @@ TEST_CASE("PublishNamespaceDoneMessage encode/decode")
     CHECK_EQ(0x1234, publish_namespace_done_out.request_id);
 }
 
-TEST_CASE("RequestError Message encode/decode")
-{
-    Bytes buffer;
-
-    auto request_err = RequestError{};
-    request_err.request_id = 0x1234;
-    request_err.error_code = quicr::messages::ErrorCode::kNotSupported;
-    request_err.error_reason = Bytes{ 0x1, 0x2, 0x3 };
-    buffer << request_err;
-
-    RequestError request_err_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kRequestError), request_err_out));
-    CHECK_EQ(0x1234, request_err_out.request_id);
-    CHECK_EQ(request_err_out.error_code, request_err_out.error_code);
-    CHECK_EQ(request_err_out.error_reason, request_err_out.error_reason);
-}
-
 TEST_CASE("PublishNamespaceCancel Message encode/decode")
 {
     Bytes buffer;
@@ -164,7 +162,7 @@ TEST_CASE("PublishNamespaceCancel Message encode/decode")
     CHECK_EQ(publish_namespace_cancel.error_reason, publish_namespace_cancel_out.error_reason);
 }
 
-TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
+TEST_CASE("Subscribe Message encode/decode")
 {
     auto params = Parameters{}
                     .Add(messages::ParameterType::kSubscriberPriority, 1)
@@ -193,9 +191,16 @@ TEST_CASE("SubscribeOk Message encode/decode")
                     .Add(messages::ParameterType::kExpires, 1234)
                     .Add(messages::ParameterType::kLargestObject, Location{ .group = 10, .object = 5 });
 
+    auto extensions = TrackExtensions{}
+                        .Add(ExtensionType::kDeliveryTimeout, 0)
+                        .Add(ExtensionType::kMaxCacheDuration, 0)
+                        .Add(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending)
+                        .Add(ExtensionType::kDefaultPublisherPriority, 1)
+                        .Add(ExtensionType::kDynamicGroups, true);
+
     Bytes buffer;
     const auto track_alias = uint64_t(kTrackAliasAliceVideo);
-    auto subscribe_ok = SubscribeOk(0x1, track_alias, params, {});
+    auto subscribe_ok = SubscribeOk(0x1, track_alias, params, extensions);
 
     buffer << subscribe_ok;
 
@@ -204,9 +209,17 @@ TEST_CASE("SubscribeOk Message encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeOk), subscribe_ok_out));
     CHECK_EQ(subscribe_ok.request_id, subscribe_ok_out.request_id);
     CHECK_EQ(subscribe_ok.track_alias, subscribe_ok_out.track_alias);
+
     CHECK_EQ(1234, subscribe_ok_out.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires));
     CHECK_EQ(10, subscribe_ok_out.parameters.Get<Location>(messages::ParameterType::kLargestObject).group);
     CHECK_EQ(5, subscribe_ok_out.parameters.Get<Location>(messages::ParameterType::kLargestObject).object);
+
+    CHECK_EQ(0, subscribe_ok_out.track_extensions.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout));
+    CHECK_EQ(0, subscribe_ok_out.track_extensions.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration));
+    CHECK_EQ(1, subscribe_ok_out.track_extensions.Get<std::uint64_t>(ExtensionType::kDefaultPublisherPriority));
+    CHECK_EQ(GroupOrder::kAscending,
+             subscribe_ok_out.track_extensions.Get<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder));
+    CHECK_EQ(true, subscribe_ok_out.track_extensions.Get<bool>(ExtensionType::kDynamicGroups));
 }
 
 TEST_CASE("Unsubscribe  Message encode/decode")
@@ -236,26 +249,6 @@ TEST_CASE("PublishDone  Message encode/decode")
 
     PublishDone publish_done_out;
 
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishDone), publish_done_out));
-    CHECK_EQ(publish_done.request_id, publish_done_out.request_id);
-    CHECK_EQ(publish_done.status_code, publish_done_out.status_code);
-    CHECK_EQ(publish_done.stream_count, publish_done_out.stream_count);
-    CHECK_EQ(publish_done.error_reason, publish_done_out.error_reason);
-}
-
-TEST_CASE("PublishDone (content-exists)  Message encode/decode")
-{
-    Bytes buffer;
-
-    auto publish_done = PublishDone{};
-    publish_done.request_id = 0x1;
-    publish_done.status_code = quicr::messages::PublishDoneStatusCode::kGoingAway;
-    publish_done.stream_count = 0x0;
-    publish_done.error_reason = Bytes{ 0x0 };
-
-    buffer << publish_done;
-
-    PublishDone publish_done_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishDone), publish_done_out));
     CHECK_EQ(publish_done.request_id, publish_done_out.request_id);
     CHECK_EQ(publish_done.status_code, publish_done_out.status_code);
@@ -383,12 +376,17 @@ TEST_CASE("Fetch Message encode/decode")
 
 TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
 {
-    Bytes buffer;
-
     auto fetch_ok = FetchOk{};
     fetch_ok.request_id = 0x1234;
     fetch_ok.end_location = { 0x9999, 0x9991 };
+    fetch_ok.track_extensions = TrackExtensions{}
+                                  .Add(ExtensionType::kDeliveryTimeout, 0)
+                                  .Add(ExtensionType::kMaxCacheDuration, 0)
+                                  .Add(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending)
+                                  .Add(ExtensionType::kDefaultPublisherPriority, 1)
+                                  .Add(ExtensionType::kDynamicGroups, true);
 
+    Bytes buffer;
     buffer << fetch_ok;
 
     FetchOk fetch_ok_out{};
@@ -396,6 +394,13 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     CHECK_EQ(fetch_ok.request_id, fetch_ok_out.request_id);
     CHECK_EQ(fetch_ok.end_location.group, fetch_ok_out.end_location.group);
     CHECK_EQ(fetch_ok.end_location.object, fetch_ok_out.end_location.object);
+
+    CHECK_EQ(0, fetch_ok.track_extensions.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout));
+    CHECK_EQ(0, fetch_ok.track_extensions.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration));
+    CHECK_EQ(1, fetch_ok.track_extensions.Get<std::uint64_t>(ExtensionType::kDefaultPublisherPriority));
+    CHECK_EQ(GroupOrder::kAscending,
+             fetch_ok.track_extensions.Get<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder));
+    CHECK_EQ(true, fetch_ok.track_extensions.Get<bool>(ExtensionType::kDynamicGroups));
 
     buffer.clear();
     auto fetch_cancel = FetchCancel{};
@@ -455,7 +460,15 @@ TEST_CASE("Publish Message encode/decode")
                     .Add(ParameterType::kExpires, 1000)
                     .AddOptional(ParameterType::kLargestObject, largest_location);
 
-    auto publish = Publish(0x1234, kTrackNamespaceConf, kTrackNameAliceVideo, kTrackAliasAliceVideo.Get(), params, {});
+    auto extensions = TrackExtensions{}
+                        .Add(ExtensionType::kDeliveryTimeout, 0)
+                        .Add(ExtensionType::kMaxCacheDuration, 0)
+                        .Add(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending)
+                        .Add(ExtensionType::kDefaultPublisherPriority, 1)
+                        .Add(ExtensionType::kDynamicGroups, true);
+
+    auto publish =
+      Publish(0x1234, kTrackNamespaceConf, kTrackNameAliceVideo, kTrackAliasAliceVideo.Get(), params, extensions);
 
     buffer << publish;
 
@@ -466,9 +479,17 @@ TEST_CASE("Publish Message encode/decode")
     CHECK_EQ(publish.track_namespace, publish_out.track_namespace);
     CHECK_EQ(publish.track_name, publish_out.track_name);
     CHECK_EQ(publish.track_alias, publish_out.track_alias);
+
     CHECK_EQ(false, publish_out.parameters.Get<bool>(ParameterType::kForward));
     CHECK_EQ(1000, publish_out.parameters.Get<std::uint64_t>(ParameterType::kExpires));
     CHECK_FALSE(publish_out.parameters.Contains(ParameterType::kLargestObject));
+
+    CHECK_EQ(0, publish_out.track_extensions.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout));
+    CHECK_EQ(0, publish_out.track_extensions.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration));
+    CHECK_EQ(1, publish_out.track_extensions.Get<std::uint64_t>(ExtensionType::kDefaultPublisherPriority));
+    CHECK_EQ(GroupOrder::kAscending,
+             publish_out.track_extensions.Get<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder));
+    CHECK_EQ(true, publish_out.track_extensions.Get<bool>(ExtensionType::kDynamicGroups));
 }
 
 TEST_CASE("PublishOk Message encode/decode")

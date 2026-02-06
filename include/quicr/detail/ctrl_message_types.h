@@ -2,7 +2,9 @@
 #include "quicr/common.h"
 #include "quicr/detail/uintvar.h"
 #include "quicr/track_name.h"
+
 #include <stdexcept>
+#include <tuple>
 
 namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const Bytes& bytes);
@@ -367,14 +369,76 @@ namespace quicr::messages {
         kBoth = 0x02,
     };
 
-    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
-    Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
+    enum class ExtensionType : uint64_t
+    {
+        // Track Scope Extensions
+        kDeliveryTimeout = 0x02,
+        kMaxCacheDuration = 0x04,
+        kDefaultPublisherPriority = 0x0E,
+        kDefaultPublisherGroupOrder = 0x22,
+        kDynamicGroups = 0x30,
+
+        // Object Scope Extensions
+        kPriorGroupIdGap = 0x3C,
+        kPriorObjectIdGap = 0x3E,
+
+        // Dual Scope (Track and Object) Extensions
+        kImmutable = 0x0B,
+    };
 
     template<class T>
     concept HasByteStreamOperators = requires(T value) {
         { Bytes{} << value };
         { BytesSpan{} >> value };
     };
+
+    class TrackExtensions
+    {
+      public:
+        TrackExtensions() = default;
+
+        TrackExtensions(const std::map<std::uint64_t, Bytes>& ext)
+          : extensions(ext)
+        {
+        }
+
+        template<typename T>
+        TrackExtensions& Add(ExtensionType type, const T& value)
+        {
+            BytesSpan bytes = AsBytes(value);
+            extensions[static_cast<std::uint64_t>(type)] = { bytes.begin(), bytes.end() };
+            return *this;
+        }
+
+        template<typename T>
+        T Get(ExtensionType type) const
+        {
+            if constexpr (std::is_arithmetic_v<T>) {
+                if (static_cast<std::uint64_t>(type) % 2 == 0) {
+                    return static_cast<T>(UintVar(extensions.at(static_cast<std::uint64_t>(type))).Get());
+                }
+            }
+
+            if constexpr (HasByteStreamOperators<T>) {
+                T result;
+                extensions.at(static_cast<std::uint64_t>(type)) >> result;
+                return result;
+            }
+
+            return FromBytes<T>(extensions.at(static_cast<std::uint64_t>(type)));
+        }
+
+        auto begin() const noexcept { return extensions.begin(); }
+        auto end() const noexcept { return extensions.end(); }
+
+        std::map<std::uint64_t, Bytes> extensions;
+    };
+
+    BytesSpan operator>>(BytesSpan buffer, TrackExtensions& msg);
+    Bytes& operator<<(Bytes& buffer, const TrackExtensions& msg);
+
+    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
+    Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
 
     template<typename Type = ParameterType>
     class ParameterList

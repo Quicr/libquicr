@@ -16,7 +16,6 @@ namespace quicr {
     using Bytes = std::vector<Byte>;
     using BytesSpan = std::span<const Byte>;
     using ConnectionHandle = uint64_t;
-    using Extensions = std::map<uint64_t, std::vector<std::vector<uint8_t>>>;
 
     template<class T>
         requires std::is_standard_layout_v<T>
@@ -53,15 +52,13 @@ namespace quicr {
             return {};
         }
 
-        if constexpr (std::is_standard_layout_v<T> && std::is_trivially_copyable_v<T>) {
-            return *reinterpret_cast<const T*>(bytes.data());
-        } else if constexpr (std::is_same_v<std::string, std::decay_t<T>>) {
+        if constexpr (std::is_same_v<std::string, std::decay_t<T>>) {
             return std::string(bytes.begin(), bytes.end());
-        } else {
-            T value;
-            std::copy(bytes.begin(), bytes.end(), reinterpret_cast<std::uint8_t*>(&value));
-            return value;
         }
+
+        T value{};
+        std::copy(bytes.begin(), bytes.end(), reinterpret_cast<std::uint8_t*>(&value));
+        return value;
     }
 
     constexpr uint64_t kMoqtVersion = 0xff00000E; ///< draft-ietf-moq-transport-14

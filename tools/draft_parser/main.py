@@ -15,7 +15,7 @@ def main(rfc_filename, output_name):
         "Track Name": "quicr::messages::TrackName",
         "Track Namespace Prefix": "quicr::TrackNamespace",
         "Track Namespace Suffix": "quicr::TrackNamespace",
-        "Track Extensions": "quicr::Extensions",
+        "Track Extensions": "quicr::messages::TrackExtensions",
         "New Session URI": "quicr::Bytes",
         "Setup Parameters": "quicr::messages::ParameterList<quicr::messages::SetupParameterType>",
         "Parameters": "quicr::messages::ParameterList<quicr::messages::ParameterType>",

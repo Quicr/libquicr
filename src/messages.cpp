@@ -138,7 +138,7 @@ namespace quicr::messages {
         std::vector<KeyValuePair<std::uint64_t>> kvps;
         for (const auto& [key, values] : extensions) {
             for (const auto& value : values) {
-                const auto kvp = KeyValuePair<std::uint64_t>{ key, value };
+                const auto kvp = KeyValuePair<std::uint64_t>{ static_cast<std::uint64_t>(key), value };
                 const auto size = kvp.Size();
                 total_length += size;
                 kvps.push_back(kvp);
@@ -152,12 +152,23 @@ namespace quicr::messages {
         for (const auto& kvp : kvps) {
             buffer << kvp;
         }
+
         return buffer;
     }
 
     BytesSpan operator>>(BytesSpan buffer, Extensions& extensions)
     {
-        // TODO: Extract extensions.
+        std::uint64_t length = 0;
+        buffer = buffer >> length;
+
+        while (length != 0) {
+            KeyValuePair<std::uint64_t> kvp;
+            buffer = buffer >> kvp;
+            length -= kvp.Size();
+
+            extensions[kvp.type].emplace_back(std::move(kvp.value));
+        }
+
         return buffer;
     }
 
@@ -174,7 +185,7 @@ namespace quicr::messages {
             }
         }
 
-        constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
+        constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionType::kImmutable);
 
         // Serialize immutable extensions in MoQ form, and insert into combined extensions key.
         if (immutable_extensions.has_value() && !immutable_extensions->empty()) {
@@ -211,7 +222,7 @@ namespace quicr::messages {
             return false;
         }
 
-        constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
+        constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionType::kImmutable);
 
         // Extract immutable extensions if present and deserialize.
         if (extensions.has_value()) {
