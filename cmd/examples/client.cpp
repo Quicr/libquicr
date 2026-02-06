@@ -311,13 +311,22 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
  */
 class MyPublishTrackHandler : public quicr::PublishTrackHandler
 {
-  public:
     MyPublishTrackHandler(const quicr::FullTrackName& full_track_name,
                           quicr::TrackMode track_mode,
                           uint8_t default_priority,
                           uint32_t default_ttl)
       : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
     {
+    }
+
+  public:
+    static std::shared_ptr<MyPublishTrackHandler> Create(const quicr::FullTrackName& full_track_name,
+                                                         quicr::TrackMode track_mode,
+                                                         uint8_t default_priority,
+                                                         uint32_t default_ttl)
+    {
+        return std::shared_ptr<MyPublishTrackHandler>(
+          new MyPublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl));
     }
 
     void StatusChanged(Status status) override
@@ -470,6 +479,26 @@ class MySubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
     }
 
   private:
+};
+
+class MyPublisherNamespaceHandler : public quicr::PublishNamespaceHandler
+{
+    using quicr::PublishNamespaceHandler::PublishNamespaceHandler;
+
+  public:
+    static std::shared_ptr<MyPublisherNamespaceHandler> Create(const quicr::TrackNamespace& prefix)
+    {
+        return std::shared_ptr<MyPublisherNamespaceHandler>(new MyPublisherNamespaceHandler(prefix));
+    }
+
+  protected:
+    virtual std::shared_ptr<quicr::PublishTrackHandler> CreateHandler(const quicr::FullTrackName& full_track_name,
+                                                                      quicr::TrackMode track_mode,
+                                                                      uint8_t default_priority,
+                                                                      uint32_t default_ttl) override
+    {
+        return MyPublishTrackHandler::Create(full_track_name, track_mode, default_priority, default_ttl);
+    }
 };
 
 /**
@@ -721,21 +750,13 @@ class MyClient : public quicr::Client
 /*===========================================================================*/
 
 void
-DoPublisher(const quicr::FullTrackName& full_track_name,
-            const std::shared_ptr<quicr::Client>& client,
-            bool use_announce,
-            bool& stop)
+PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
+                   const std::shared_ptr<quicr::PublishTrackHandler> track_handler,
+                   bool& stop)
 {
-    auto track_handler = std::make_shared<MyPublishTrackHandler>(
-      full_track_name, quicr::TrackMode::kStream /*mode*/, 128 /*priority*/, 3000 /*ttl*/);
-
-    track_handler->SetUseAnnounce(use_announce);
-
-    if (qclient_vars::track_alias.has_value()) {
-        track_handler->SetTrackAlias(*qclient_vars::track_alias);
-    }
-
     SPDLOG_INFO("Started publisher track");
+
+    const auto& full_track_name = track_handler->GetFullTrackName();
 
     bool published_track{ false };
     bool sending{ false };
@@ -900,11 +921,68 @@ DoPublisher(const quicr::FullTrackName& full_track_name,
         }
     }
 
-    client->UnpublishTrack(track_handler);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
     SPDLOG_INFO("Publisher done track");
-    moq_example::terminate = true;
+}
+
+void
+DoPublisher(const std::string prefix_str,
+            const std::vector<std::string>& names,
+            const std::shared_ptr<quicr::Client>& client,
+            bool use_announce,
+            bool& stop)
+{
+    using namespace std::chrono_literals;
+
+    defer(moq_example::terminate = true);
+
+    if (!use_announce) {
+        quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, names.front());
+        auto track_handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 128, 3000);
+
+        if (qclient_vars::track_alias.has_value()) {
+            track_handler->SetTrackAlias(*qclient_vars::track_alias);
+        }
+
+        PublishWithHandler(client, track_handler, stop);
+
+        client->UnpublishTrack(track_handler);
+        std::this_thread::sleep_for(100ms);
+        return;
+    }
+
+    const quicr::TrackNamespace prefix = quicr::example::MakeTrackNamespace(prefix_str);
+
+    auto ns_handler = MyPublisherNamespaceHandler::Create(prefix);
+    client->PublishNamespace(ns_handler);
+
+    std::this_thread::sleep_for(1s);
+
+    if (ns_handler->GetStatus() != MyPublisherNamespaceHandler::Status::kOk) {
+        SPDLOG_ERROR("Did not get Publish Namespace OK for prefix, exiting...");
+        return;
+    }
+
+    std::vector<std::weak_ptr<quicr::PublishTrackHandler>> handlers;
+    for (const auto& name : names) {
+        quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, name);
+        handlers.push_back(ns_handler->PublishTrack(full_track_name, quicr::TrackMode::kStream, 128, 3000));
+    }
+
+    std::vector<std::thread> pub_threads;
+    for (const auto& w_handler : handlers) {
+        auto handler = w_handler.lock();
+        if (!handler) {
+            continue;
+        }
+
+        pub_threads.emplace_back(&PublishWithHandler, client, handler, std::ref(stop));
+    }
+
+    for (auto&& thread : pub_threads) {
+        thread.join();
+    }
+
+    client->PublishNamespaceDone(ns_handler);
 }
 
 /*===========================================================================*/
@@ -917,10 +995,8 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                bool use_announce,
                bool& stop)
 {
-    auto track_handler = std::make_shared<MyPublishTrackHandler>(
+    auto track_handler = MyPublishTrackHandler::Create(
       full_track_name, quicr::TrackMode::kStream /*mode*/, 128 /*priority*/, 3000 /*ttl*/);
-
-    track_handler->SetUseAnnounce(use_announce);
 
     if (qclient_vars::track_alias.has_value()) {
         track_handler->SetTrackAlias(*qclient_vars::track_alias);
@@ -1039,7 +1115,9 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
         // Run through phases: close one subgroup per phase (from lowest to highest)
         for (std::size_t phase = 0; phase < num_subgroups && !stop; ++phase) {
             uint64_t subgroup_to_close = phase;
-            bool is_last_subgroup = (phase == num_subgroups - 1);
+
+            // TODO(tievens): See if this is needed or if it is a hangover from a previous iteration.
+            [[maybe_unused]] bool is_last_subgroup = (phase == num_subgroups - 1);
 
             SPDLOG_INFO("=== Iteration {} Phase {} ===", iteration, phase + 1);
             SPDLOG_INFO(
@@ -1216,9 +1294,15 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
 
     if (cli_opts.count("pub_namespace") && cli_opts.count("pub_name")) {
         enable_pub = true;
+        const auto names = cli_opts["pub_name"].as<std::vector<std::string>>();
+        std::string name_str;
+        for (const auto& name : names) {
+            name_str += name + ",";
+        }
+
         SPDLOG_INFO("Publisher enabled using track namespace: {0} name: {1}",
                     cli_opts["pub_namespace"].as<std::string>(),
-                    cli_opts["pub_name"].as<std::string>());
+                    name_str);
     }
 
     if (cli_opts.count("use_announce")) {
@@ -1381,7 +1465,7 @@ main(int argc, char* argv[])
         ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>())
         ("track_alias", "Track alias to use", cxxopts::value<uint64_t>())
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
-        ("pub_name", "Track name", cxxopts::value<std::string>())
+        ("pub_name", "Track name", cxxopts::value<std::vector<std::string>>())
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")
         ("playback", "Playback recorded data from moq and dat files", cxxopts::value<bool>())
         ("playback_speed_ms", "Playback speed in ms", cxxopts::value<std::uint64_t>())
@@ -1467,13 +1551,17 @@ main(int argc, char* argv[])
         }
 
         if (enable_pub) {
-            const auto& pub_track_name = quicr::example::MakeFullTrackName(result["pub_namespace"].as<std::string>(),
-                                                                           result["pub_name"].as<std::string>());
-
             if (qclient_vars::subgroup_test) {
+                const auto& pub_track_name = quicr::example::MakeFullTrackName(
+                  result["pub_namespace"].as<std::string>(), result["pub_name"].as<std::string>());
                 pub_thread = std::thread(DoSubgroupTest, pub_track_name, client, use_announce, std::ref(stop_threads));
             } else {
-                pub_thread = std::thread(DoPublisher, pub_track_name, client, use_announce, std::ref(stop_threads));
+                pub_thread = std::thread(DoPublisher,
+                                         result["pub_namespace"].as<std::string>(),
+                                         result["pub_name"].as<std::vector<std::string>>(),
+                                         client,
+                                         use_announce,
+                                         std::ref(stop_threads));
             }
         }
         if (enable_sub) {

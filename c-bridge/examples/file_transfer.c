@@ -262,7 +262,6 @@ send_file(qbridge_client_t* client,
         return 1;
     }
 
-    pub_config.use_announce = use_announce;
     pub_config.delivery_mode = QBRIDGE_DELIVERY_MODE_DATAGRAM;
     pub_config.default_priority = QBRIDGE_PRIORITY_HIGH;
     pub_config.default_ttl_ms = 10000;

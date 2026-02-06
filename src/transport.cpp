@@ -1224,10 +1224,6 @@ namespace quicr {
         conn_it->second.pub_tracks_ns_by_request_id.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
-        if (not track_handler->UsingAnnounce()) {
-            conn_it->second.recv_req_id.erase(th.track_fullname_hash);
-        }
-
         /*
          * This is a round about way to send subscribe done because of the announce flow. This
          * will go away if we stop using the announce flow. For now, it works for both announce
@@ -1271,14 +1267,6 @@ namespace quicr {
                 pub_ns_it->second.erase(pub_n_it);
             }
 
-            if (pub_ns_it->second.size() == 0 && track_handler->UsingAnnounce()) {
-                SPDLOG_LOGGER_INFO(
-                  logger_, "Unpublish namespace hash: {0}, has no tracks, sending unannounce", th.track_namespace_hash);
-
-                SendPublishNamespaceDone(conn_it->second, tfn.name_space);
-                conn_it->second.pub_tracks_by_name.erase(pub_ns_it);
-            }
-
             quic_transport_->DeleteDataContext(conn_id, track_handler->publish_data_ctx_id_);
         }
     }
@@ -1303,49 +1291,19 @@ namespace quicr {
             track_handler->SetTrackAlias(th.track_fullname_hash);
         }
 
-        if (track_handler->UsingAnnounce()) {
-            // Check if this published track is a new namespace or existing.
-            auto pub_ns_it = conn_it->second.pub_tracks_by_name.find(th.track_namespace_hash);
-            if (pub_ns_it == conn_it->second.pub_tracks_by_name.end()) {
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Publish track has new namespace hash: {0} sending ANNOUNCE message",
-                                   th.track_namespace_hash);
+        // Add state to received request ID since a subscribe will not be received for this request
+        conn_it->second.recv_req_id[*track_handler->GetRequestId()] = { track_handler->GetFullTrackName(), th };
 
-                lock.unlock();
-
-                track_handler->SetStatus(PublishTrackHandler::Status::kPendingAnnounceResponse);
-
-                lock.lock();
-
-                SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
-                conn_it->second.pub_tracks_ns_by_request_id[*track_handler->GetRequestId()] = th.track_namespace_hash;
-            } else {
-                auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
-                if (pub_n_it == pub_ns_it->second.end()) {
-                    track_handler->SetStatus(pub_ns_it->second.begin()->second->GetStatus());
-                    SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), tfn.name_space);
-
-                    SPDLOG_LOGGER_INFO(logger_,
-                                       "Publish track has new track namespace hash: {0} name hash: {1}",
-                                       th.track_namespace_hash,
-                                       th.track_name_hash);
-                }
-            }
-        } else {
-            // Add state to received request ID since a subscribe will not be received for this request
-            conn_it->second.recv_req_id[*track_handler->GetRequestId()] = { track_handler->GetFullTrackName(), th };
-
-            track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
-            SendPublish(conn_it->second,
-                        *track_handler->GetRequestId(),
-                        tfn,
-                        track_handler->GetTrackAlias().value(),
-                        GroupOrder::kAscending,
-                        std::make_optional(
-                          Location{ track_handler->largest_location_.group, track_handler->largest_location_.object }),
-                        true,
-                        track_handler->support_new_group_request_);
-        }
+        track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
+        SendPublish(conn_it->second,
+                    *track_handler->GetRequestId(),
+                    tfn,
+                    track_handler->GetTrackAlias().value(),
+                    GroupOrder::kAscending,
+                    std::make_optional(
+                      Location{ track_handler->largest_location_.group, track_handler->largest_location_.object }),
+                    true,
+                    track_handler->support_new_group_request_);
 
         track_handler->connection_handle_ = conn_id;
         SPDLOG_LOGGER_INFO(
@@ -1368,6 +1326,66 @@ namespace quicr {
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash][conn_id] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+    }
+
+    void Transport::PublishNamespace(ConnectionHandle conn_id, std::shared_ptr<PublishNamespaceHandler> track_handler)
+    {
+        auto prefix_hash = hash(track_handler->GetPrefix());
+        SPDLOG_LOGGER_INFO(logger_, "Publish namespace conn_id: {0} hash: {1}", conn_id, prefix_hash);
+
+        std::unique_lock<std::mutex> lock(state_mutex_);
+
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Publish track conn_id: {0} does not exist.", conn_id);
+            return;
+        }
+
+        track_handler->SetRequestId(conn_it->second.GetNextRequestId());
+
+        SPDLOG_LOGGER_INFO(logger_, "Publishing to namespace hash: {0} sending ANNOUNCE message", prefix_hash);
+
+        lock.unlock();
+
+        track_handler->SetStatus(PublishNamespaceHandler::Status::kPendingResponse);
+
+        lock.lock();
+
+        SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), track_handler->GetPrefix());
+
+        conn_it->second.pub_namespace_prefix_by_request_id[*track_handler->GetRequestId()] = track_handler->GetPrefix();
+        conn_it->second.pub_namespace_handlers[track_handler->GetPrefix()] = track_handler;
+
+        track_handler->connection_handle_ = conn_id;
+        track_handler->SetTransport(GetSharedPtr());
+    }
+
+    void Transport::PublishNamespaceDone(ConnectionHandle conn_id,
+                                         const std::shared_ptr<PublishNamespaceHandler>& track_handler)
+    {
+        const auto& prefix = track_handler->GetPrefix();
+        const auto prefix_hash = hash(prefix);
+
+        SPDLOG_LOGGER_INFO(logger_, "PublishNamespaceDone (conn_id={}, prefix_hash={})", conn_id, prefix_hash);
+
+        std::unique_lock<std::mutex> lock(state_mutex_);
+
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_,
+                                "PublishNamespaceDone failed, namespace does not exist (conn_id={}, prefix_hash={})",
+                                conn_id,
+                                prefix_hash);
+            return;
+        }
+
+        auto pub_ns_it = conn_it->second.pub_namespace_handlers.find(prefix);
+        if (pub_ns_it != conn_it->second.pub_namespace_handlers.end()) {
+            SPDLOG_LOGGER_INFO(logger_, "Sending PublishNamespaceDone (prefix_hash={})", prefix_hash);
+
+            SendPublishNamespaceDone(conn_it->second, prefix);
+            conn_it->second.pub_namespace_handlers.erase(pub_ns_it);
+        }
     }
 
     void Transport::ResolvePublish(const ConnectionHandle connection_handle,

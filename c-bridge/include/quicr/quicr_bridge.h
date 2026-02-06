@@ -57,6 +57,7 @@ extern "C"
     typedef struct qbridge_publish_track_handler qbridge_publish_track_handler_t;
     typedef struct qbridge_subscribe_track_handler qbridge_subscribe_track_handler_t;
     typedef struct qbridge_fetch_track_handler qbridge_fetch_track_handler_t;
+    typedef struct qbridge_publish_namespace_track_handler qbridge_publish_namespace_track_handler_t;
     typedef struct qbridge_subscribe_namespace_track_handler qbridge_subscribe_namespace_track_handler_t;
 
     /** @} */
@@ -265,7 +266,6 @@ extern "C"
         uint32_t default_ttl_ms;                   /**< Default TTL in ms */
         bool default_cacheable;                    /**< Default cacheable flag */
         uint64_t track_alias;                      /**< Track alias */
-        bool use_announce;                         /**< Use announce flow */
     } qbridge_publish_track_config_t;
 
     /**
@@ -431,23 +431,25 @@ extern "C"
     /**
      * @brief Publish a namespace
      * @param client Client handle
-     * @param ns Namespace to publish
+     * @param handler The namespace handler to publish to
      * @return Result code
      */
-    qbridge_result_t qbridge_client_publish_namespace(qbridge_client_t* client, const qbridge_namespace_t* ns);
+    qbridge_result_t qbridge_client_publish_namespace(qbridge_client_t* client,
+                                                      const qbridge_publish_namespace_track_handler_t* handler);
 
     /**
      * @brief Unpublish a namespace
      * @param client Client handle
-     * @param ns Namespace to unpublish
+     * @param handler The namespace handler to unpublish from.
      * @return Result code
      */
-    qbridge_result_t qbridge_client_unpublish_namespace(qbridge_client_t* client, const qbridge_namespace_t* ns);
+    qbridge_result_t qbridge_client_unpublish_namespace(qbridge_client_t* client,
+                                                        const qbridge_publish_namespace_track_handler_t* handler);
 
     /**
      * @brief Subscribe to a namespace
      * @param client Client handle
-     * @param handler Track handler to subscribe to
+     * @param handler Namespace handler to subscribe to
      * @return Result code
      */
     qbridge_result_t qbridge_client_subscribe_namespace(qbridge_client_t* client,
@@ -456,7 +458,7 @@ extern "C"
     /**
      * @brief Unsubscribe from a namespace
      * @param client Client handle
-     * @param handler Track handler to unsubscribe from
+     * @param handler Namespace handler to unsubscribe from
      * @return Result code
      */
     qbridge_result_t qbridge_client_unsubscribe_namespace(qbridge_client_t* client,

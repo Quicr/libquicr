@@ -286,24 +286,17 @@ namespace quicr {
          * @brief Publish a track namespace
          *
          * @details In MoQ, a publish namespace will result in an announce being sent. Announce OK will
-         *      be reflected in the Status() of the PublishTrackHandler passed. This method can be called at any time,
-         *      but normally it would be called before publishing any tracks to the same namespace.
+         *      be reflected in the Status() of the PublishNamespaceHandler passed. This method can be called at any
+         *      time, but normally it would be called before publishing any tracks to the same namespace.
          *
-         *      If this method is called after a publish track with a matching namespace that already exists or if
-         * called more than once, this will result in this track handler being added to the active state of the
-         *      announce, but it will not result in a repeated announce being sent. Adding track handler to
-         *      the announce state ensures that the announce will remain active if the other tracks are
-         *      removed.
+         *      If this method is called after a publish namespace track with a matching namespace that already exists
+         *      or if called more than once, this will result in this track handler being added to the active state of
+         *      the announce, but it will not result in a repeated announce being sent. Adding track handler to the
+         *      announce state ensures that the announce will remain active if the other tracks are removed.
          *
-         * @note
-         *      The PublishTrackHandler with this method only needs to have the FullTrackName::name_space defined.
-         *      Name and track alias is not used.
-         *
-         *
-         * @param track_namespace    Track handler to use for track related functions
-         *                           and callbacks
+         * @param handler The namespace handler to publish on.
          */
-        void PublishNamespace(const TrackNamespace& track_namespace);
+        void PublishNamespace(std::shared_ptr<PublishNamespaceHandler> handler);
 
         /**
          * @brief Unannounce a publish namespace
@@ -311,36 +304,23 @@ namespace quicr {
          * @details Unannounce a publish namespace. **ALL** tracks will be marked unpublish, as if called
          *    by UnpublishTrack()
          *
-         * @param track_namespace         Track namespace to unannounce
+         * @param handler The namespace handler  to publish on.
          */
-        void PublishNamespaceDone(const TrackNamespace& track_namespace);
+        void PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& handler);
 
         /**
          * @brief Subscribe to prefix namespace
          *
          * @param handler The namespace handler to subscribe to.
          */
-        void SubscribeNamespace(std::shared_ptr<SubscribeNamespaceHandler> handler)
-        {
-            if (!connection_handle_) {
-                return;
-            }
-            SendSubscribeNamespace(*connection_handle_, std::move(handler));
-        }
+        void SubscribeNamespace(std::shared_ptr<SubscribeNamespaceHandler> handler);
 
         /**
          * @brief Unsubscribe namespace to prefix namespace
          *
          * @param handler The namespace handler to unsubscribe from.
          */
-        void UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler)
-        {
-            if (!connection_handle_) {
-                return;
-            }
-
-            SendUnsubscribeNamespace(*connection_handle_, handler);
-        }
+        void UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler);
 
         /**
          * @brief Publish to a track

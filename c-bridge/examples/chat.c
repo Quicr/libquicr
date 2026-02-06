@@ -337,7 +337,6 @@ main(int argc, char* argv[])
         return 1;
     }
 
-    pub_config.use_announce = use_announce;
     pub_config.delivery_mode = QBRIDGE_DELIVERY_MODE_DATAGRAM;
     pub_config.default_priority = QBRIDGE_PRIORITY_NORMAL;
     pub_config.default_ttl_ms = 5000;
