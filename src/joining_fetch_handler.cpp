@@ -3,6 +3,8 @@
 
 #include "quicr/detail/joining_fetch_handler.h"
 
+#include "quicr/fetch_track_handler.h"
+
 namespace quicr {
     void JoiningFetchHandler::StreamDataRecv(bool is_start,
                                              std::uint64_t stream_id,
@@ -32,26 +34,26 @@ namespace quicr {
         auto& obj = stream.buffer.GetAnyB<messages::FetchObject>();
 
         if (stream.buffer >> obj) {
+            // Build.
+            ObjectHeaders headers;
+            try {
+                headers = FetchTrackHandler::From(obj, state_);
+                state_.Update(headers);
+            } catch (const std::invalid_argument& e) {
+                throw messages::ProtocolViolationException(e.what());
+            }
+
+            // Deliver.
             SPDLOG_TRACE("Received fetch_object subscribe_id: {} priority: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
                          *GetSubscribeId(),
-                         obj.publisher_priority,
-                         obj.group_id,
-                         obj.subgroup_id,
-                         obj.object_id,
-                         obj.payload.size());
+                         headers.publisher_priority,
+                         headers.group_id,
+                         headers.subgroup_id,
+                         headers.object_id,
+                         headers.payload.size());
             try {
-                joining_subscribe_->ObjectReceived({ obj.group_id,
-                                                     obj.object_id,
-                                                     obj.subgroup_id,
-                                                     obj.payload.size(),
-                                                     obj.object_status,
-                                                     obj.publisher_priority,
-                                                     std::nullopt,
-                                                     TrackMode::kStream,
-                                                     obj.extensions,
-                                                     obj.immutable_extensions },
-                                                   obj.payload);
+                joining_subscribe_->ObjectReceived(headers, obj.payload);
             } catch (const std::exception& e) {
                 SPDLOG_ERROR("Caught exception trying to receive Joining Fetch object. (error={})", e.what());
             }

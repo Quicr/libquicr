@@ -409,12 +409,121 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, FetchHeader& msg);
     Bytes& operator<<(Bytes& buffer, const FetchHeader& msg);
 
+    /**
+     * Describes how a FetchObject is/should be serialized.
+     */
+    struct FetchSerializationProperties
+    {
+        // End of range values.
+        enum class EndOfRange
+        {
+            kEndOfNonExistentRange,
+            kEndOfUnknownRange
+        };
+
+        // Subgroup encoding variants.
+        enum class FetchSubgroupIdType : std::uint8_t
+        {
+            kSubgroupZero = 0x00,
+            kSubgroupPrior = 0x01,
+            kSubgroupNext = 0x02,
+            kSubgroupExplicit = 0x03
+        };
+
+        // Properties.
+        const std::optional<EndOfRange> end_of_range;
+        const std::optional<FetchSubgroupIdType> subgroup_id_mode;
+        const bool object_id_present;
+        const bool group_id_present;
+        const bool priority_present;
+        const bool extensions_present;
+        const bool datagram;
+
+        // Bitmask values.
+        constexpr static std::uint8_t kSubgroupBitmask = 0x03;
+        constexpr static std::uint8_t kObjectIdBitmask = 0x04;
+        constexpr static std::uint8_t kGroupIdBitmask = 0x08;
+        constexpr static std::uint8_t kPriorityBitmask = 0x10;
+        constexpr static std::uint8_t kExtensionsBitmask = 0x20;
+        constexpr static std::uint8_t kDatagramBitmask = 0x40;
+        constexpr static std::uint64_t kEndOfNonExistentRange = 0x8C;
+        constexpr static std::uint64_t kEndOfUnknownRange = 0x10C;
+
+        /**
+         * Parse a FetchObject's serialization value into its properties.
+         * @param wire The wire serialization flags.
+         * @throws ProtocolViolationException if the wire value is invalid.
+         */
+        explicit FetchSerializationProperties(std::uint64_t wire);
+
+        /**
+         * Create serialization for an end of range FETCH object.
+         * @param end_of_range The end of range type
+         */
+        explicit FetchSerializationProperties(EndOfRange end_of_range) noexcept;
+
+        /**
+         * Describe how a FetchObject should be serialized (stream).
+         * @param subgroup_id_mode Subgroup encoding.
+         * @param object_id_present True to encode the field, false for +1 previous.
+         * @param group_id_present True to encode the field, false for same as last.
+         * @param priority_present True to encode the field, false for same as last.
+         * @param extensions_present True if extensions present.
+         * @param datagram True if datagram.
+         */
+        FetchSerializationProperties(FetchSubgroupIdType subgroup_id_mode,
+                                     bool object_id_present,
+                                     bool group_id_present,
+                                     bool priority_present,
+                                     bool extensions_present) noexcept;
+
+        /**
+         * Describe how a FetchObject should be serialized (datagram).
+         * @param object_id_present True to encode the field, false for +1 previous.
+         * @param group_id_present True to encode the field, false for same as last.
+         * @param priority_present True to encode the field, false for same as last.
+         * @param extensions_present True if extensions present.
+         */
+        FetchSerializationProperties(bool object_id_present,
+                                     bool group_id_present,
+                                     bool priority_present,
+                                     bool extensions_present) noexcept;
+
+        /**
+         * Get the serialization flag / type value for this set of properties.
+         * @return The value.
+         */
+        [[nodiscard]] std::uint64_t GetType() const noexcept;
+
+      private:
+        static std::optional<EndOfRange> ParseEndOfRange(std::uint64_t value) noexcept;
+    };
+
+    /**
+     * State wrapper to create/restore FetchObject serialization.
+     */
+    struct FetchObjectSerializationState
+    {
+        // Working state.
+        std::optional<GroupId> prior_group_id;
+        std::optional<ObjectId> prior_object_id;
+        std::optional<SubGroupId> prior_subgroup_id;
+        std::optional<ObjectPriority> prior_priority;
+
+        /// Figure out how to serialize a FetchObject based on its content.
+        [[nodiscard]] FetchSerializationProperties MakeProperties(const ObjectHeaders& object_headers,
+                                                                  ObjectPriority priority) const noexcept;
+
+        void Update(const ObjectHeaders& object_headers) noexcept;
+    };
+
     struct FetchObject
     {
-        messages::GroupId group_id;
-        SubGroupId subgroup_id;
-        ObjectId object_id;
-        ObjectPriority publisher_priority;
+        std::optional<FetchSerializationProperties> properties;
+        std::optional<GroupId> group_id;
+        std::optional<SubGroupId> subgroup_id;
+        std::optional<ObjectId> object_id;
+        std::optional<ObjectPriority> publisher_priority;
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
         uint64_t payload_len{ 0 };

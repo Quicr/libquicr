@@ -39,35 +39,103 @@ namespace quicr {
         auto& obj = stream.buffer.GetAnyB<messages::FetchObject>();
 
         if (stream.buffer >> obj) {
-            SPDLOG_TRACE("Received fetch_object subscribe_id: {} priority: {} "
-                         "group_id: {} subgroup_id: {} object_id: {} data size: {}",
-                         *GetSubscribeId(),
-                         obj.publisher_priority,
-                         obj.group_id,
-                         obj.subgroup_id,
-                         obj.object_id,
-                         obj.payload.size());
-
+            // TODO: What to do with end of range?
             subscribe_track_metrics_.objects_received++;
             subscribe_track_metrics_.bytes_received += obj.payload.size();
 
+            // Build.
+            ObjectHeaders headers;
             try {
-                ObjectReceived({ obj.group_id,
-                                 obj.object_id,
-                                 obj.subgroup_id,
-                                 obj.payload.size(),
-                                 obj.object_status,
-                                 obj.publisher_priority,
-                                 std::nullopt,
-                                 TrackMode::kStream,
-                                 obj.extensions,
-                                 obj.immutable_extensions },
-                               obj.payload);
+                headers = From(obj, state_);
+                state_.Update(headers);
+            } catch (const std::invalid_argument& e) {
+                throw messages::ProtocolViolationException(e.what());
+            }
+
+            // Deliver.
+            SPDLOG_TRACE("Received fetch_object subscribe_id: {} priority: {} "
+                         "group_id: {} subgroup_id: {} object_id: {} data size: {}",
+                         *GetSubscribeId(),
+                         headers.publisher_priority,
+                         headers.group_id,
+                         headers.subgroup_id,
+                         headers.object_id,
+                         headers.payload.size());
+            try {
+                ObjectReceived(headers, obj.payload);
             } catch (const std::exception& e) {
                 SPDLOG_ERROR("Caught exception trying to receive Fetch object. (error={})", e.what());
             }
 
             stream.buffer.ResetAnyB<messages::FetchObject>();
         }
+    }
+
+    /// Parse a FetchObject into a resolved ObjectHeader.
+    ObjectHeaders FetchTrackHandler::From(const messages::FetchObject& message,
+                                          const messages::FetchObjectSerializationState& state)
+    {
+        ObjectHeaders headers{};
+        if (message.group_id.has_value()) {
+            headers.group_id = *message.group_id;
+        } else {
+            if (!state.prior_group_id.has_value()) {
+                throw std::invalid_argument("No prior group ID found");
+            }
+            headers.group_id = *state.prior_group_id;
+        }
+        if (message.object_id.has_value()) {
+            headers.object_id = *message.object_id;
+        } else {
+            if (!state.prior_object_id.has_value()) {
+                throw std::invalid_argument("No prior object ID found");
+            }
+            headers.object_id = *state.prior_object_id + 1;
+        }
+        const auto& properties = *message.properties;
+        if (!properties.datagram) {
+            switch (*properties.subgroup_id_mode) {
+                case messages::FetchSerializationProperties::FetchSubgroupIdType::kSubgroupPrior:
+                    if (!state.prior_subgroup_id.has_value()) {
+                        throw std::invalid_argument("No prior subgroup ID found");
+                    }
+                    headers.subgroup_id = *state.prior_subgroup_id;
+                    break;
+                case messages::FetchSerializationProperties::FetchSubgroupIdType::kSubgroupNext:
+                    if (!state.prior_subgroup_id.has_value()) {
+                        throw std::invalid_argument("No prior subgroup ID found");
+                    }
+                    headers.subgroup_id = *state.prior_subgroup_id + 1;
+                    break;
+                case messages::FetchSerializationProperties::FetchSubgroupIdType::kSubgroupZero:
+                    assert(*message.subgroup_id == 0);
+                    headers.subgroup_id = 0;
+                    break;
+                case messages::FetchSerializationProperties::FetchSubgroupIdType::kSubgroupExplicit:
+                    // TODO: Think about what to do if subgroup_id is not set.
+                    // At this point in the code is this a bug or a protocol violation?
+                    headers.subgroup_id = *message.subgroup_id;
+                    break;
+                default:
+                    throw std::invalid_argument("Unknown subgroup_id_mode");
+            }
+        } else {
+            assert(!message.subgroup_id.has_value());
+        }
+        if (!message.publisher_priority.has_value()) {
+            if (!state.prior_priority.has_value()) {
+                throw std::invalid_argument("No prior priority");
+            }
+            headers.priority = *state.prior_priority;
+        } else {
+            headers.priority = *message.publisher_priority;
+        }
+
+        headers.payload_length = message.payload.size();
+        headers.ttl = std::nullopt; // TODO: TTL?
+        headers.track_mode = properties.datagram ? TrackMode::kDatagram : TrackMode::kStream;
+        headers.extensions = message.extensions;
+        headers.immutable_extensions = message.immutable_extensions;
+        return headers;
     }
 }

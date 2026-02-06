@@ -274,13 +274,183 @@ namespace quicr::messages {
         return buffer;
     }
 
+    FetchSerializationProperties::FetchSerializationProperties(const std::uint64_t wire)
+      : end_of_range(ParseEndOfRange(wire))
+      , subgroup_id_mode(end_of_range.has_value()
+                           ? std::nullopt
+                           : std::make_optional(static_cast<FetchSubgroupIdType>(wire & kSubgroupBitmask)))
+      , object_id_present(end_of_range.has_value() || wire & kObjectIdBitmask)
+      , group_id_present(end_of_range.has_value() || wire & kGroupIdBitmask)
+      , priority_present(!end_of_range.has_value() && wire & kPriorityBitmask)
+      , extensions_present(!end_of_range.has_value() && wire & kExtensionsBitmask)
+      , datagram(wire & kDatagramBitmask)
+    {
+        if (!end_of_range.has_value() && wire >= 128) {
+            throw ProtocolViolationException("Bad serialization flags");
+        }
+    }
+
+    FetchSerializationProperties::FetchSerializationProperties(const EndOfRange end_of_range) noexcept
+      : end_of_range(end_of_range)
+      , subgroup_id_mode(std::nullopt)
+      , object_id_present(true)
+      , group_id_present(true)
+      , priority_present(false)
+      , extensions_present(false)
+      , datagram(false)
+    {
+    }
+
+    // Stream forwarding preference creation.
+    FetchSerializationProperties::FetchSerializationProperties(const FetchSubgroupIdType subgroup_id_mode,
+                                                               const bool object_id_present,
+                                                               const bool group_id_present,
+                                                               const bool priority_present,
+                                                               const bool extensions_present) noexcept
+      : subgroup_id_mode(subgroup_id_mode)
+      , object_id_present(object_id_present)
+      , group_id_present(group_id_present)
+      , priority_present(priority_present)
+      , extensions_present(extensions_present)
+      , datagram(false)
+    {
+    }
+
+    // Datagram forwarding preference.
+    FetchSerializationProperties::FetchSerializationProperties(const bool object_id_present,
+                                                               const bool group_id_present,
+                                                               const bool priority_present,
+                                                               const bool extensions_present) noexcept
+      : subgroup_id_mode(std::nullopt)
+      , object_id_present(object_id_present)
+      , group_id_present(group_id_present)
+      , priority_present(priority_present)
+      , extensions_present(extensions_present)
+      , datagram(true)
+    {
+    }
+
+    std::uint64_t FetchSerializationProperties::GetType() const noexcept
+    {
+        if (end_of_range.has_value()) {
+            switch (*end_of_range) {
+                case EndOfRange::kEndOfNonExistentRange:
+                    return kEndOfNonExistentRange;
+                case EndOfRange::kEndOfUnknownRange:
+                    return kEndOfUnknownRange;
+            }
+        }
+
+        std::uint64_t type = 0;
+        if (subgroup_id_mode.has_value()) {
+            type |= static_cast<std::uint8_t>(*subgroup_id_mode) & kSubgroupBitmask;
+        }
+        if (object_id_present) {
+            type |= kObjectIdBitmask;
+        }
+        if (group_id_present) {
+            type |= kGroupIdBitmask;
+        }
+        if (priority_present) {
+            type |= kPriorityBitmask;
+        }
+        if (extensions_present) {
+            type |= kExtensionsBitmask;
+        }
+        if (datagram) {
+            type |= kDatagramBitmask;
+        }
+        return type;
+    }
+
+    std::optional<FetchSerializationProperties::EndOfRange> FetchSerializationProperties::ParseEndOfRange(
+      const std::uint64_t value) noexcept
+    {
+        switch (value) {
+            case kEndOfNonExistentRange:
+                return EndOfRange::kEndOfNonExistentRange;
+            case kEndOfUnknownRange:
+                return EndOfRange::kEndOfUnknownRange;
+            default:
+                return std::nullopt;
+        }
+    }
+
+    FetchSerializationProperties FetchObjectSerializationState::MakeProperties(
+      const ObjectHeaders& object_headers,
+      const ObjectPriority priority) const noexcept
+    {
+        // Subgroups.
+        std::optional<FetchSerializationProperties::FetchSubgroupIdType> subgroup_type;
+        if (!object_headers.track_mode || object_headers.track_mode == TrackMode::kStream) {
+            subgroup_type = FetchSerializationProperties::FetchSubgroupIdType::kSubgroupExplicit;
+            if (object_headers.subgroup_id == 0) {
+                // Zero has a code point.
+                subgroup_type = FetchSerializationProperties::FetchSubgroupIdType::kSubgroupZero;
+            } else if (prior_subgroup_id.has_value()) {
+                if (object_headers.subgroup_id == *prior_subgroup_id) {
+                    // Same as last.
+                    subgroup_type = FetchSerializationProperties::FetchSubgroupIdType::kSubgroupPrior;
+                } else if (object_headers.subgroup_id == *prior_subgroup_id + 1) {
+                    // +1 from last.
+                    subgroup_type = FetchSerializationProperties::FetchSubgroupIdType::kSubgroupNext;
+                }
+            }
+        }
+
+        // Only serialize when it's not the next one.
+        const bool serialize_object_id =
+          !(prior_object_id.has_value() && object_headers.object_id == *prior_object_id + 1);
+        // Only serialize when it's not the same as the last one.
+        const bool serialize_group_id = !(prior_group_id.has_value() && object_headers.group_id == *prior_group_id);
+        // Only serialize when priority is different.
+        const bool serialize_priority = !(prior_priority.has_value() && *prior_priority == priority);
+        // Only serialize extensions when there are extensions.
+        const bool extensions =
+          object_headers.extensions.has_value() || object_headers.immutable_extensions.has_value();
+
+        // Build.
+        if (object_headers.track_mode == TrackMode::kDatagram) {
+            return { serialize_object_id, serialize_group_id, serialize_priority, extensions };
+        }
+        return { *subgroup_type, serialize_object_id, serialize_group_id, serialize_priority, extensions };
+    }
+
+    void FetchObjectSerializationState::Update(const ObjectHeaders& object_headers) noexcept
+    {
+        prior_group_id = object_headers.group_id;
+        prior_object_id = object_headers.object_id;
+        prior_subgroup_id = object_headers.subgroup_id;
+        prior_priority = object_headers.priority;
+    }
+
     Bytes& operator<<(Bytes& buffer, const FetchObject& msg)
     {
-        buffer << UintVar(msg.group_id);
-        buffer << UintVar(msg.subgroup_id);
-        buffer << UintVar(msg.object_id);
-        buffer.push_back(msg.publisher_priority);
-        SerializeExtensions(buffer, msg.extensions, msg.immutable_extensions);
+        assert(msg.properties.has_value());
+        buffer << UintVar(msg.properties->GetType());
+
+        if (msg.properties->group_id_present) {
+            assert(msg.group_id.has_value());
+            buffer << UintVar(*msg.group_id);
+        }
+        if (!msg.properties->datagram) {
+            if (msg.properties->subgroup_id_mode ==
+                FetchSerializationProperties::FetchSubgroupIdType::kSubgroupExplicit) {
+                assert(msg.subgroup_id.has_value());
+                buffer << UintVar(*msg.subgroup_id);
+            }
+        }
+        if (msg.properties->object_id_present) {
+            assert(msg.object_id.has_value());
+            buffer << UintVar(*msg.object_id);
+        }
+        if (msg.properties->priority_present) {
+            assert(msg.publisher_priority.has_value());
+            buffer.push_back(*msg.publisher_priority);
+        }
+        if (msg.properties->extensions_present) {
+            SerializeExtensions(buffer, msg.extensions, msg.immutable_extensions);
+        }
         if (msg.payload.empty()) {
             // empty payload needs a object status to be set
             auto status = UintVar(static_cast<uint8_t>(msg.object_status));
@@ -298,57 +468,100 @@ namespace quicr::messages {
     {
         switch (msg.current_pos) {
             case 0: {
-                if (!ParseUintVField(buffer, msg.group_id)) {
+                std::uint64_t serialized_flags;
+                if (!ParseUintVField(buffer, serialized_flags)) {
                     return false;
                 }
+                msg.properties.emplace(FetchSerializationProperties(serialized_flags));
                 msg.current_pos += 1;
-                [[fallthrough]];
             }
             case 1: {
-                if (!ParseUintVField(buffer, msg.subgroup_id)) {
-                    return false;
+                if (msg.properties->group_id_present) {
+                    GroupId group_id;
+                    if (!ParseUintVField(buffer, group_id)) {
+                        return false;
+                    }
+                    msg.group_id = group_id;
+                } else {
+                    msg.group_id = std::nullopt;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 2: {
-                if (!ParseUintVField(buffer, msg.object_id)) {
-                    return false;
+                const auto& properties = *msg.properties;
+                if (!properties.datagram) {
+                    switch (*properties.subgroup_id_mode) {
+                        case FetchSerializationProperties::FetchSubgroupIdType::kSubgroupZero:
+                            msg.subgroup_id = 0;
+                            break;
+                        case FetchSerializationProperties::FetchSubgroupIdType::kSubgroupExplicit:
+                            std::uint64_t subgroup_id;
+                            if (!ParseUintVField(buffer, subgroup_id)) {
+                                return false;
+                            }
+                            msg.subgroup_id = subgroup_id;
+                            break;
+                        default:
+                            msg.subgroup_id = std::nullopt;
+                            break;
+                    }
+                } else {
+                    msg.subgroup_id = std::nullopt;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 3: {
-                auto val = buffer.Front();
-                if (!val) {
-                    return false;
+                if (msg.properties->object_id_present) {
+                    ObjectId object_id;
+                    if (!ParseUintVField(buffer, object_id)) {
+                        return false;
+                    }
+                    msg.object_id = object_id;
+                } else {
+                    msg.object_id = std::nullopt;
                 }
-                buffer.Pop();
-                msg.publisher_priority = val.value();
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 4: {
-                if (!ParseExtensions(buffer,
-                                     msg.extension_headers_length,
-                                     msg.extensions,
-                                     msg.immutable_extensions,
-                                     msg.extension_bytes_remaining,
-                                     msg.current_tag)) {
-                    return false;
+                if (msg.properties->priority_present) {
+                    auto val = buffer.Front();
+                    if (!val) {
+                        return false;
+                    }
+                    buffer.Pop();
+                    msg.publisher_priority = val.value();
+                } else {
+                    msg.publisher_priority = std::nullopt;
+                }
+                msg.current_pos += 1;
+                [[fallthrough]];
+            }
+            case 5: {
+                if (msg.properties->extensions_present) {
+                    if (!ParseExtensions(buffer,
+                                         msg.extension_headers_length,
+                                         msg.extensions,
+                                         msg.immutable_extensions,
+                                         msg.extension_bytes_remaining,
+                                         msg.current_tag)) {
+                        return false;
+                    }
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
 
-            case 5: {
+            case 6: {
                 if (!ParseUintVField(buffer, msg.payload_len)) {
                     return false;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
-            case 6: {
+            case 7: {
                 if (msg.payload_len == 0) {
                     uint64_t status = 0;
                     if (!ParseUintVField(buffer, status)) {
@@ -362,7 +575,7 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
 
-            case 7: {
+            case 8: {
                 if (!buffer.Available(msg.payload_len)) {
                     return false;
                 }
