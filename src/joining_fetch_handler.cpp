@@ -47,11 +47,11 @@ namespace quicr {
             SPDLOG_TRACE("Received fetch_object subscribe_id: {} priority: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
                          *GetSubscribeId(),
-                         headers.publisher_priority,
+                         headers.priority.has_value() ? static_cast<int>(*headers.priority) : -1,
                          headers.group_id,
                          headers.subgroup_id,
                          headers.object_id,
-                         headers.payload.size());
+                         headers.payload_length);
             try {
                 joining_subscribe_->ObjectReceived(headers, obj.payload);
             } catch (const std::exception& e) {

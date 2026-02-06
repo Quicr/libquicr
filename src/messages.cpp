@@ -491,20 +491,27 @@ namespace quicr::messages {
             case 2: {
                 const auto& properties = *msg.properties;
                 if (!properties.datagram) {
-                    switch (*properties.subgroup_id_mode) {
-                        case FetchSerializationProperties::FetchSubgroupIdType::kSubgroupZero:
-                            msg.subgroup_id = 0;
-                            break;
-                        case FetchSerializationProperties::FetchSubgroupIdType::kSubgroupExplicit:
-                            std::uint64_t subgroup_id;
-                            if (!ParseUintVField(buffer, subgroup_id)) {
-                                return false;
-                            }
-                            msg.subgroup_id = subgroup_id;
-                            break;
-                        default:
-                            msg.subgroup_id = std::nullopt;
-                            break;
+                    if (properties.end_of_range.has_value()) {
+                        msg.subgroup_id = std::nullopt;
+                    } else {
+                        if (!properties.subgroup_id_mode.has_value()) {
+                            throw new ProtocolViolationException("Unexpectedly missing subgroup mode");
+                        }
+                        switch (*properties.subgroup_id_mode) {
+                            case FetchSerializationProperties::FetchSubgroupIdType::kSubgroupZero:
+                                msg.subgroup_id = 0;
+                                break;
+                            case FetchSerializationProperties::FetchSubgroupIdType::kSubgroupExplicit:
+                                std::uint64_t subgroup_id;
+                                if (!ParseUintVField(buffer, subgroup_id)) {
+                                    return false;
+                                }
+                                msg.subgroup_id = subgroup_id;
+                                break;
+                            default:
+                                msg.subgroup_id = std::nullopt;
+                                break;
+                        }
                     }
                 } else {
                     msg.subgroup_id = std::nullopt;

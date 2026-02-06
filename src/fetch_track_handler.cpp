@@ -56,11 +56,11 @@ namespace quicr {
             SPDLOG_TRACE("Received fetch_object subscribe_id: {} priority: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
                          *GetSubscribeId(),
-                         headers.publisher_priority,
+                         headers.priority.has_value() ? static_cast<int>(*headers.priority) : -1,
                          headers.group_id,
                          headers.subgroup_id,
                          headers.object_id,
-                         headers.payload.size());
+                         headers.payload_length);
             try {
                 ObjectReceived(headers, obj.payload);
             } catch (const std::exception& e) {
@@ -94,6 +94,9 @@ namespace quicr {
         }
         const auto& properties = *message.properties;
         if (!properties.datagram) {
+            if (!properties.subgroup_id_mode.has_value()) {
+                throw std::invalid_argument("Missing subgroup_id_mode");
+            }
             switch (*properties.subgroup_id_mode) {
                 case messages::FetchSerializationProperties::FetchSubgroupIdType::kSubgroupPrior:
                     if (!state.prior_subgroup_id.has_value()) {
@@ -132,6 +135,7 @@ namespace quicr {
         }
 
         headers.payload_length = message.payload.size();
+        headers.status = message.payload.empty() ? message.object_status : ObjectStatus::kAvailable;
         headers.ttl = std::nullopt; // TODO: TTL?
         headers.track_mode = properties.datagram ? TrackMode::kDatagram : TrackMode::kStream;
         headers.extensions = message.extensions;
