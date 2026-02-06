@@ -21,7 +21,7 @@ namespace quicr {
          * @param end_location The ending location of the fetch's range (inclusive).
          */
         FetchTrackHandler(const FullTrackName& full_track_name,
-                          const messages::SubscriberPriority priority,
+                          const std::uint8_t priority,
                           const messages::GroupOrder group_order,
                           const messages::Location& start_location,
                           const messages::FetchEndLocation& end_location)
@@ -45,7 +45,7 @@ namespace quicr {
          * @returns Shared pointer to a Fetch track handler.
          */
         static std::shared_ptr<FetchTrackHandler> Create(const FullTrackName& full_track_name,
-                                                         const messages::SubscriberPriority priority,
+                                                         const std::uint8_t priority,
                                                          const messages::GroupOrder group_order,
                                                          const messages::Location& start_location,
                                                          const messages::FetchEndLocation& end_location)

@@ -547,10 +547,9 @@ class MyClient : public quicr::Client
         SPDLOG_INFO("Received announce for namespace_hash: {}", th.track_namespace_hash);
     }
 
-    void PublishNamespaceDoneReceived(const quicr::TrackNamespace& track_namespace) override
+    void PublishNamespaceDoneReceived(quicr::messages::RequestID rid) override
     {
-        auto th = quicr::TrackHash({ track_namespace, {} });
-        SPDLOG_INFO("Received unannounce for namespace_hash: {}", th.track_namespace_hash);
+        SPDLOG_INFO("Received unannounce for request_id: {}", rid);
     }
 
     std::optional<quicr::messages::Location> GetLargestAvailable(const quicr::FullTrackName& track_full_name)
@@ -573,7 +572,7 @@ class MyClient : public quicr::Client
     void FetchReceived(quicr::ConnectionHandle connection_handle,
                        uint64_t request_id,
                        const quicr::FullTrackName& track_full_name,
-                       quicr::messages::SubscriberPriority priority,
+                       std::uint8_t priority,
                        quicr::messages::GroupOrder group_order,
                        quicr::messages::Location start,
                        quicr::messages::FetchEndLocation end)
@@ -699,24 +698,24 @@ class MyClient : public quicr::Client
                       { joining_start, std::nullopt });
     }
 
-    void TrackStatusResponseReceived(quicr::ConnectionHandle,
-                                     uint64_t request_id,
-                                     const quicr::SubscribeResponse& response) override
+    void RequestOkReceived(quicr::ConnectionHandle,
+                           uint64_t request_id,
+                           std::optional<quicr::messages::Location> largest_location) override
     {
-        switch (response.reason_code) {
-            case quicr::SubscribeResponse::ReasonCode::kOk:
-                SPDLOG_INFO("Request track status OK response request_id: {} largest group: {} object: {}",
-                            request_id,
-                            response.largest_location.has_value() ? response.largest_location->group : 0,
-                            response.largest_location.has_value() ? response.largest_location->object : 0);
-                break;
-            default:
-                SPDLOG_INFO("Request track status response ERROR request_id: {} error: {} reason: {}",
-                            request_id,
-                            static_cast<int>(response.reason_code),
-                            response.error_reason.has_value() ? response.error_reason.value() : "");
-                break;
-        }
+        SPDLOG_INFO("Request track status OK response request_id: {} largest group: {} object: {}",
+                    request_id,
+                    largest_location.has_value() ? largest_location->group : 0,
+                    largest_location.has_value() ? largest_location->object : 0);
+    }
+
+    void RequestErrorReceived(quicr::ConnectionHandle,
+                              uint64_t request_id,
+                              const quicr::RequestResponse& response) override
+    {
+        SPDLOG_INFO("Request track status response ERROR request_id: {} error: {} reason: {}",
+                    request_id,
+                    static_cast<int>(response.reason_code),
+                    response.error_reason.has_value() ? response.error_reason.value() : "");
     }
 
     void PublishReceived(quicr::ConnectionHandle connection_handle,

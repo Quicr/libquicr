@@ -136,7 +136,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     };
 
     static std::shared_ptr<TestSubscribeHandler> Create(const FullTrackName& full_track_name,
-                                                        messages::SubscriberPriority priority,
+                                                        std::uint8_t priority,
                                                         messages::GroupOrder group_order,
                                                         messages::FilterType filter_type)
     {
@@ -175,7 +175,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
 
   protected:
     TestSubscribeHandler(const FullTrackName& full_track_name,
-                         messages::SubscriberPriority priority,
+                         std::uint8_t priority,
                          messages::GroupOrder group_order,
                          messages::FilterType filter_type)
       : SubscribeTrackHandler(full_track_name, priority, group_order, filter_type)
@@ -732,7 +732,7 @@ TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
     }
 }
 
-TEST_CASE("Integration - Annouce Flow")
+TEST_CASE("Integration - Announce Flow")
 {
     auto server = MakeTestServer();
 
@@ -797,7 +797,7 @@ class TestFetchTrackHandler final : public FetchTrackHandler
     };
 
     TestFetchTrackHandler(const FullTrackName& full_track_name,
-                          const messages::SubscriberPriority priority,
+                          const std::uint8_t priority,
                           const messages::GroupOrder group_order,
                           const messages::Location& start_location,
                           const messages::FetchEndLocation& end_location)
@@ -806,7 +806,7 @@ class TestFetchTrackHandler final : public FetchTrackHandler
     }
 
     static std::shared_ptr<TestFetchTrackHandler> Create(const FullTrackName& full_track_name,
-                                                         const messages::SubscriberPriority priority,
+                                                         const std::uint8_t priority,
                                                          const messages::GroupOrder group_order,
                                                          const messages::Location& start_location,
                                                          const messages::FetchEndLocation& end_location)

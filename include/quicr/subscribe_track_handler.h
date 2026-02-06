@@ -56,7 +56,7 @@ namespace quicr {
          */
         struct JoiningFetch
         {
-            const messages::SubscriberPriority priority;
+            const std::uint8_t priority;
             const messages::GroupOrder group_order;
             const messages::Parameters parameters;
             const messages::GroupId joining_start;
@@ -72,7 +72,7 @@ namespace quicr {
          * @param publisher_initiated       True if publisher initiated the subscribe, otherwise False
          */
         SubscribeTrackHandler(const FullTrackName& full_track_name,
-                              messages::SubscriberPriority priority,
+                              std::uint8_t priority,
                               messages::GroupOrder group_order,
                               messages::FilterType filter_type,
                               const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
@@ -97,7 +97,7 @@ namespace quicr {
          */
         static std::shared_ptr<SubscribeTrackHandler> Create(
           const FullTrackName& full_track_name,
-          messages::SubscriberPriority priority,
+          std::uint8_t priority,
           messages::GroupOrder group_order = messages::GroupOrder::kAscending,
           messages::FilterType filter_type = messages::FilterType::kLargestObject)
         {
@@ -124,7 +124,7 @@ namespace quicr {
          *
          * @return Priority value
          */
-        constexpr messages::SubscriberPriority GetPriority() const noexcept { return priority_; }
+        constexpr std::uint8_t GetPriority() const noexcept { return priority_; }
 
         /**
          * @brief Get subscription group order
@@ -231,7 +231,10 @@ namespace quicr {
          */
         bool IsNewGroupRequestSupported() const noexcept { return support_new_group_request_; }
 
-        std::chrono::milliseconds GetDeliveryTimeout() const noexcept { return delivery_timeout_; }
+        const std::optional<std::chrono::milliseconds>& GetDeliveryTimeout() const noexcept
+        {
+            return delivery_timeout_;
+        }
 
         void SetDeliveryTimeout(std::chrono::milliseconds timeout) noexcept { delivery_timeout_ = timeout; }
 
@@ -384,14 +387,14 @@ namespace quicr {
 
       private:
         Status status_{ Status::kNotSubscribed };
-        messages::SubscriberPriority priority_;
+        std::uint8_t priority_;
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;
         std::optional<uint64_t> received_track_alias_; ///< Received track alias from publisher client or relay
-        std::chrono::milliseconds delivery_timeout_{ 0 };
+        std::optional<std::chrono::milliseconds> delivery_timeout_ = std::nullopt;
 
         bool publisher_initiated_{ false };
         bool support_new_group_request_{ false };

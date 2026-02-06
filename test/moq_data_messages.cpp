@@ -94,7 +94,7 @@ CompareExtensions(const std::optional<Extensions>& sent, const std::optional<Ext
     // mutable check 1:1 equality. The blob's content should be ensured
     // by a separate decoded immutable equality check.
     REQUIRE(recv.has_value());
-    constexpr auto key = static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable);
+    constexpr auto key = static_cast<std::uint64_t>(ExtensionType::kImmutable);
     REQUIRE(recv->contains(key));
     auto it = recv->find(key);
     REQUIRE(it != recv->end());
@@ -677,7 +677,7 @@ TEST_CASE("Key Value Pair size")
 TEST_CASE("Immutable Extensions Nesting")
 {
     Extensions nested_immutable = {
-        { static_cast<std::uint64_t>(ExtensionHeaderType::kImmutable),
+        { static_cast<std::uint64_t>(ExtensionType::kImmutable),
           { { 0xAA, 0xBB } } } // This should cause validation to fail
     };
 
@@ -790,7 +790,7 @@ TEST_CASE("Immutable Extensions not length prefixed")
     CHECK_EQ(buffer[idx++], 0x09);
 
     // Next is the key for Immutable Extensions header.
-    CHECK_EQ(buffer[idx++], static_cast<uint8_t>(ExtensionHeaderType::kImmutable));
+    CHECK_EQ(buffer[idx++], static_cast<uint8_t>(ExtensionType::kImmutable));
 
     // Then the total length of all bytes of KVPs (7 bytes).
     CHECK_EQ(buffer[idx++], 0x07);

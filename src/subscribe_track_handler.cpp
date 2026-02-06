@@ -193,15 +193,13 @@ namespace quicr {
 
         status_ = Status::kPaused;
         auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
-        transport->SendSubscribeUpdate(conn_ctx,
-                                       conn_ctx.GetNextRequestId(),
-                                       GetRequestId().value(),
-                                       GetFullTrackName(),
-                                       {},
-                                       0,
-                                       GetPriority(),
-                                       false,
-                                       false);
+        transport->SendRequestUpdate(conn_ctx,
+                                     conn_ctx.GetNextRequestId(),
+                                     GetRequestId().value(),
+                                     GetFullTrackName(),
+                                     std::nullopt,
+                                     GetPriority(),
+                                     false);
     }
 
     void SubscribeTrackHandler::Resume() noexcept
@@ -217,15 +215,13 @@ namespace quicr {
 
         status_ = Status::kOk;
         auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
-        transport->SendSubscribeUpdate(conn_ctx,
-                                       conn_ctx.GetNextRequestId(),
-                                       GetRequestId().value(),
-                                       GetFullTrackName(),
-                                       {},
-                                       0,
-                                       GetPriority(),
-                                       true,
-                                       false);
+        transport->SendRequestUpdate(conn_ctx,
+                                     conn_ctx.GetNextRequestId(),
+                                     GetRequestId().value(),
+                                     GetFullTrackName(),
+                                     std::nullopt,
+                                     GetPriority(),
+                                     true);
     }
 
     void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
@@ -236,15 +232,13 @@ namespace quicr {
         }
 
         auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
-        transport->SendSubscribeUpdate(conn_ctx,
-                                       conn_ctx.GetNextRequestId(),
-                                       GetRequestId().value(),
-                                       GetFullTrackName(),
-                                       {},
-                                       group_id,
-                                       GetPriority(),
-                                       true,
-                                       true);
+        transport->SendRequestUpdate(conn_ctx,
+                                     conn_ctx.GetNextRequestId(),
+                                     GetRequestId().value(),
+                                     GetFullTrackName(),
+                                     group_id,
+                                     GetPriority(),
+                                     true);
     }
 
     void SubscribeTrackHandler::StreamClosed(std::uint64_t stream_id, bool)

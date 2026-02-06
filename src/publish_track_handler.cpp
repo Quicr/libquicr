@@ -252,7 +252,7 @@ namespace quicr {
                     object_extensions = Extensions{};
                 }
 
-                (*object_extensions)[static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorGroupIdGap)].push_back(
+                (*object_extensions)[static_cast<uint64_t>(messages::ExtensionType::kPriorGroupIdGap)].push_back(
                   value_bytes);
             }
 
@@ -264,7 +264,7 @@ namespace quicr {
                     object_extensions = Extensions{};
                 }
 
-                (*object_extensions)[static_cast<uint64_t>(messages::ExtensionHeaderType::kPriorObjectIdGap)].push_back(
+                (*object_extensions)[static_cast<uint64_t>(messages::ExtensionType::kPriorObjectIdGap)].push_back(
                   value_bytes);
             }
         }

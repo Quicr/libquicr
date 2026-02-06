@@ -167,8 +167,9 @@ namespace quicr_test {
             return {};
         };
 
-        std::vector<quicr::ConnectionHandle> PublishNamespaceDoneReceived(quicr::ConnectionHandle,
-                                                                          const quicr::TrackNamespace&) override
+        std::vector<quicr::ConnectionHandle> PublishNamespaceDoneReceived(
+          quicr::ConnectionHandle,
+          quicr::messages::RequestID request_id) override
         {
             return {};
         }

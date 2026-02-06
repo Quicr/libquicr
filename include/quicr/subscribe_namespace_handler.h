@@ -16,7 +16,7 @@ namespace quicr {
     class SubscribeNamespaceHandler
     {
       public:
-        using Error = std::pair<messages::SubscribeNamespaceErrorCode, messages::ReasonPhrase>;
+        using Error = std::pair<messages::ErrorCode, messages::ReasonPhrase>;
 
         /**
          * @brief  Status codes for the subscribe track
@@ -87,7 +87,7 @@ namespace quicr {
                 const std::string reason = "Unknown error";
 
                 error_ = {
-                    messages::SubscribeNamespaceErrorCode::kInternalError,
+                    messages::ErrorCode::kInternalError,
                     Bytes{ reason.begin(), reason.end() },
                 };
             }

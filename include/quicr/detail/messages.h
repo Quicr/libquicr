@@ -17,10 +17,10 @@
 namespace quicr::messages {
     using SubGroupId = quicr::messages::GroupId;
     using ObjectPriority = uint8_t;
-    using Extensions = std::map<uint64_t, std::vector<Bytes>>;
 
     Bytes& operator<<(Bytes& buffer, const std::optional<Extensions>& extensions);
     Bytes& operator<<(Bytes& buffer, const Extensions& extensions);
+    BytesSpan operator>>(BytesSpan buffer, Extensions& extensions);
 
     /**
      * Serialize extensions to MoQ encoding.
@@ -64,13 +64,27 @@ namespace quicr::messages {
     };
 
     /**
-     * Extension Header Types
+     * Possible datagram object header types.
      */
-    enum class ExtensionHeaderType : uint64_t
+    enum class DatagramHeaderType : uint8_t
     {
-        kImmutable = 0xb,
-        kPriorGroupIdGap = 0x3c,
-        kPriorObjectIdGap = 0x3e,
+        kNotEndOfGroupNoExtensionsObjectId = 0x00,
+        kNotEndOfGroupWithExtensionsObjectId = 0x01,
+        kEndOfGroupNoExtensionsObjectId = 0x02,
+        kEndOfGroupWithExtensionsObjectId = 0x03,
+        kNotEndOfGroupNoExtensionsNoObjectId = 0x04,
+        kNotEndOfGroupWithExtensionsNoObjectId = 0x05,
+        kEndOfGroupNoExtensionsNoObjectId = 0x06,
+        kEndOfGroupWithExtensionsNoObjectId = 0x07
+    };
+
+    /**
+     * Possible datagram status types.
+     */
+    enum class DatagramStatusType : uint8_t
+    {
+        kNoExtensions = 0x20,
+        kWithExtensions = 0x21
     };
 
     /**
