@@ -1926,7 +1926,7 @@ namespace quicr {
                                    std::shared_ptr<const std::vector<uint8_t>> data) const
     {
         uint64_t track_alias = 0;
-        std::optional<uint8_t> priority = 0;
+        std::optional<uint8_t> priority;
 
         try {
             // First header in subgroup starts with track alias
