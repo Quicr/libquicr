@@ -203,12 +203,39 @@ namespace quicr {
                 auto largest_location =
                   msg.parameters.GetOptional<messages::Location>(messages::ParameterType::kLargestObject);
 
+                auto track_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                if (track_it == conn_ctx.tracks_by_request_id.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received REQUEST_OK to unknown track conn_id: {} request_id: {}, ignored",
+                                       conn_ctx.connection_handle,
+                                       msg.request_id);
+                    return true;
+                }
+
+                auto& track_handler = track_it->second;
+
+                track_handler->RequestOk(largest_location);
+
                 RequestOkReceived(connection_handle_.value(), msg.request_id, largest_location);
                 return true;
             }
             case messages::ControlMessageType::kRequestError: {
                 messages::RequestError msg;
                 msg_bytes >> msg;
+
+                auto track_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
+                if (track_it == conn_ctx.tracks_by_request_id.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received REQUEST_ERROR to unknown track conn_id: {} request_id: {}, ignored",
+                                       conn_ctx.connection_handle,
+                                       msg.request_id);
+                    return true;
+                }
+
+                auto& track_handler = track_it->second;
+
+                track_handler->RequestError(msg.error_code,
+                                            std::string(msg.error_reason.begin(), msg.error_reason.end()));
 
                 RequestErrorReceived(connection_handle_.value(),
                                      msg.request_id,

@@ -440,8 +440,12 @@ namespace quicr {
 
             std::map<messages::RequestID, SubscribeContext> recv_req_id;
 
+            /// Tracks by request ID
+            std::map<messages::RequestID, std::shared_ptr<BaseTrackHandler>> tracks_by_request_id;
+
             /// Tracks by request ID (Subscribe and Fetch)
-            std::map<messages::RequestID, std::shared_ptr<SubscribeTrackHandler>> sub_tracks_by_request_id;
+            [[deprecated]] std::map<messages::RequestID, std::shared_ptr<SubscribeTrackHandler>>
+              sub_tracks_by_request_id;
 
             /**
              * Data is received with a track alias that is set by the publisher. The map key
@@ -461,18 +465,6 @@ namespace quicr {
             /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
             std::map<messages::TrackAlias, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>>
               pub_tracks_by_track_alias;
-
-            /** MoQT does not send all announce messages with namespace. Instead, they are sent
-             *  with request-id. The namespace is needed. This map is used to map request ID to namespace
-             */
-            std::map<messages::RequestID, TrackNamespaceHash> pub_tracks_ns_by_request_id;
-
-            /**
-             * State to track by request ID PUBLISH_NAMESPACE sent to requestors of SUBSCRIBE_NAMESPACE
-             *    This is used in ResolvePublishNamespaceDone to find the request Id for the publish done message
-             *    to be sent.
-             */
-            std::map<TrackFullNameHash, messages::RequestID> pub_namespaces_by_request_id;
 
             /**
              * Pending outbound publish tracks by request ID, for publish_ok.

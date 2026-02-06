@@ -732,7 +732,7 @@ TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
     }
 }
 
-TEST_CASE("Integration - Annouce Flow")
+TEST_CASE("Integration - Announce Flow")
 {
     auto server = MakeTestServer();
 

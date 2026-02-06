@@ -46,9 +46,9 @@ namespace quicr {
                     continue;
                 }
 
-                auto request_id = it->second.GetNextRequestId();
-                SendPublishNamespace(it->second, request_id, track_namespace);
-                it->second.pub_namespaces_by_request_id[th.track_fullname_hash] = request_id;
+                auto next_request_id = it->second.GetNextRequestId();
+                SendPublishNamespace(it->second, next_request_id, track_namespace);
+                // it->second.tracks_by_request_id[request_id] = next_request_id;
             }
         };
 
@@ -76,7 +76,7 @@ namespace quicr {
     }
 
     void Server::ResolvePublishNamespaceDone(ConnectionHandle connection_handle,
-                                             const TrackNamespace& track_namespace,
+                                             messages::RequestID request_id,
                                              const std::vector<ConnectionHandle>& subscribers)
     {
         for (const auto& sub_conn_handle : subscribers) {
@@ -85,13 +85,10 @@ namespace quicr {
                 continue;
             }
 
-            auto th = TrackHash({ track_namespace, {} });
-
-            // TODO: Actually use RequestID to retrieve namespace.
-            auto req_it = it->second.pub_namespaces_by_request_id.find(th.track_fullname_hash);
-            if (req_it != it->second.pub_namespaces_by_request_id.end()) {
-                SendPublishNamespaceDone(it->second, th.track_fullname_hash);
-                it->second.pub_namespaces_by_request_id.erase(req_it);
+            auto req_it = it->second.tracks_by_request_id.find(request_id);
+            if (req_it != it->second.tracks_by_request_id.end()) {
+                SendPublishNamespaceDone(it->second, request_id);
+                it->second.tracks_by_request_id.erase(req_it);
             }
         }
     }
@@ -262,7 +259,7 @@ namespace quicr {
           th.track_namespace_hash,
           th.track_name_hash);
 
-        conn_it->second.pub_tracks_ns_by_request_id.erase(*track_handler->GetRequestId());
+        conn_it->second.tracks_by_request_id.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
 
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash].erase(src_id);
@@ -314,7 +311,7 @@ namespace quicr {
         }
 
         track_handler->SetRequestId(request_id);
-        conn_it->second.pub_tracks_ns_by_request_id[request_id] = th.track_namespace_hash;
+        // conn_it->second.pub_tracks_ns_by_request_id[request_id] = th.track_namespace_hash;
 
         track_handler->connection_handle_ = conn_id;
 
