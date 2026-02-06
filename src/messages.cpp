@@ -630,19 +630,35 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const StreamHeaderSubGroup& msg)
     {
-        buffer << UintVar(static_cast<uint64_t>(msg.type));
+        assert(msg.properties.has_value());
+        buffer << UintVar(msg.properties->GetType());
         buffer << UintVar(msg.track_alias);
         buffer << UintVar(msg.group_id);
-        const auto properties = StreamHeaderProperties(msg.type);
-        if (properties.subgroup_id_type == SubgroupIdType::kExplicit) {
-            if (!msg.subgroup_id.has_value()) {
-                throw std::invalid_argument("Subgroup ID must be set when type is kExplicit");
+        switch (msg.properties->subgroup_id_mode) {
+            case SubgroupIdType::kExplicit: {
+                if (!msg.subgroup_id.has_value()) {
+                    throw std::invalid_argument("Subgroup ID must be set when type is kExplicit");
+                }
+                buffer << UintVar(*msg.subgroup_id);
+                break;
             }
-            buffer << UintVar(msg.subgroup_id.value());
-        } else if (msg.subgroup_id.has_value()) {
-            throw std::invalid_argument("Subgroup ID must be not set when type is not kExplicit");
+            case SubgroupIdType::kIsZero: {
+                [[fallthrough]];
+            }
+            case SubgroupIdType::kSetFromFirstObject: {
+                if (msg.subgroup_id.has_value()) {
+                    throw std::invalid_argument("Subgroup ID must be not set when type is not kExplicit");
+                }
+                break;
+            }
+            case SubgroupIdType::kReserved: {
+                throw std::invalid_argument("Subgroup mode must not be kReserved");
+            }
         }
-        buffer.push_back(msg.priority);
+        if (!msg.properties->default_priority) {
+            assert(msg.priority.has_value());
+            buffer.push_back(*msg.priority);
+        }
         return buffer;
     }
 
@@ -655,7 +671,7 @@ namespace quicr::messages {
                 if (!ParseUintVField(buffer, subgroup_type)) {
                     return false;
                 }
-                msg.type = static_cast<StreamHeaderType>(subgroup_type);
+                msg.properties.emplace(subgroup_type);
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
@@ -674,8 +690,7 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 3: {
-                const auto properties = StreamHeaderProperties(msg.type);
-                switch (properties.subgroup_id_type) {
+                switch (msg.properties->subgroup_id_mode) {
                     case SubgroupIdType::kIsZero:
                         msg.subgroup_id = 0;
                         break;
@@ -689,17 +704,23 @@ namespace quicr::messages {
                         }
                         msg.subgroup_id = subgroup_id;
                         break;
+                    case SubgroupIdType::kReserved:
+                        throw ProtocolViolationException("Subgroup mode must not be reserved");
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
             case 4: {
-                auto val = buffer.Front();
-                if (!val) {
-                    return false;
+                if (!msg.properties->default_priority) {
+                    auto val = buffer.Front();
+                    if (!val) {
+                        return false;
+                    }
+                    buffer.Pop();
+                    msg.priority = val.value();
+                } else {
+                    msg.priority = std::nullopt;
                 }
-                buffer.Pop();
-                msg.priority = val.value();
                 msg.current_pos += 1;
                 msg.parse_completed = true;
                 [[fallthrough]];
@@ -717,14 +738,12 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const StreamSubGroupObject& msg)
     {
         buffer << UintVar(msg.object_delta);
-        assert(msg.stream_type.has_value()); // Stream type must have been set before serialization.
-        const auto properties = StreamHeaderProperties(*msg.stream_type);
-        if (!properties.may_contain_extensions &&
-            (msg.extensions.has_value() || msg.immutable_extensions.has_value())) {
+        assert(msg.properties.has_value()); // Stream type must have been set before serialization.
+        if (!msg.properties->extensions && (msg.extensions.has_value() || msg.immutable_extensions.has_value())) {
             // This is not allowed.
             assert(false);
         }
-        if (properties.may_contain_extensions) {
+        if (msg.properties->extensions) {
             SerializeExtensions(buffer, msg.extensions, msg.immutable_extensions);
         }
         if (msg.payload.empty()) {
@@ -751,9 +770,8 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 1: {
-                assert(msg.stream_type.has_value());
-                const auto properties = StreamHeaderProperties(*msg.stream_type);
-                if (properties.may_contain_extensions) {
+                assert(msg.properties.has_value());
+                if (msg.properties->extensions) {
                     if (!ParseExtensions(buffer,
                                          msg.extension_headers_length,
                                          msg.extensions,
