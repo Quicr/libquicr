@@ -28,7 +28,7 @@ namespace quicr {
 
     void Server::PublishNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&) {}
 
-    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&) {}
+    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, DataContextId, const TrackNamespace&) {}
 
     void Server::ResolvePublishNamespace(ConnectionHandle connection_handle,
                                          uint64_t request_id,
@@ -159,6 +159,7 @@ namespace quicr {
     }
 
     void Server::ResolveSubscribeNamespace(const ConnectionHandle connection_handle,
+                                           const DataContextId data_ctx_id,
                                            const uint64_t request_id,
                                            const messages::TrackNamespacePrefix& prefix,
                                            const SubscribeNamespaceResponse& response)
@@ -171,12 +172,15 @@ namespace quicr {
         auto th = TrackHash({ prefix, {} });
 
         if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
-            SendSubscribeNamespaceError(
-              conn_it->second, request_id, messages::SubscribeNamespaceErrorCode::kInternalError, "Internal error");
+            SendSubscribeNamespaceError(conn_it->second,
+                                        data_ctx_id,
+                                        request_id,
+                                        messages::SubscribeNamespaceErrorCode::kInternalError,
+                                        "Internal error");
             return;
         }
 
-        SendSubscribeNamespaceOk(conn_it->second, request_id);
+        SendSubscribeNamespaceOk(conn_it->second, data_ctx_id, request_id);
 
         // Fan out PUBLISH_NAMESPACE for matching namespaces.
         for (const auto& name_space : response.namespaces) {
@@ -377,9 +381,12 @@ namespace quicr {
         conn_it->second.pub_fetch_tracks_by_request_id[request_id] = track_handler;
     }
 
-    bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx, BytesSpan msg_bytes)
+    bool Server::ProcessCtrlMessage(ConnectionContext& conn_ctx,
+                                    uint64_t data_ctx_id,
+                                    messages::ControlMessageType msg_type,
+                                    BytesSpan msg_bytes)
     try {
-        switch (*conn_ctx.ctrl_msg_type_received) {
+        switch (msg_type) {
             case messages::ControlMessageType::kSubscribe: {
                 auto msg = messages::Subscribe(
                   [](messages::Subscribe& msg) {
@@ -622,15 +629,20 @@ namespace quicr {
                 auto msg = messages::SubscribeNamespace{};
                 msg_bytes >> msg;
 
-                SubscribeNamespaceReceived(
-                  conn_ctx.connection_handle, msg.track_namespace_prefix, { .request_id = msg.request_id });
+                SubscribeNamespaceReceived(conn_ctx.connection_handle,
+                                           data_ctx_id,
+                                           msg.track_namespace_prefix,
+                                           { .request_id = msg.request_id });
                 return true;
             }
             case messages::ControlMessageType::kUnsubscribeNamespace: {
                 auto msg = messages::UnsubscribeNamespace{};
                 msg_bytes >> msg;
 
-                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_prefix);
+                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, data_ctx_id, msg.track_namespace_prefix);
+
+                quic_transport_->DeleteDataContext(conn_ctx.connection_handle, data_ctx_id);
+
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceError: {
@@ -1122,19 +1134,16 @@ namespace quicr {
                 return true;
             }
             default: {
-                SPDLOG_LOGGER_ERROR(logger_,
-                                    "Unsupported MOQT message type: {0}, bad stream",
-                                    static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received));
+                SPDLOG_LOGGER_ERROR(
+                  logger_, "Unsupported MOQT message type: {0}, bad stream", static_cast<uint64_t>(msg_type));
                 return false;
             }
 
         } // End of switch(msg type)
 
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_,
-                            "Unable to parse {} control message: {}",
-                            static_cast<uint64_t>(*conn_ctx.ctrl_msg_type_received),
-                            e.what());
+        SPDLOG_LOGGER_ERROR(
+          logger_, "Unable to parse {} control message: {}", static_cast<uint64_t>(msg_type), e.what());
         CloseConnection(conn_ctx.connection_handle,
                         messages::TerminationReason::kProtocolViolation,
                         "Control message cannot be parsed");
