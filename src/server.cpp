@@ -64,7 +64,7 @@ namespace quicr {
 
         switch (response.reason_code) {
             case PublishNamespaceResponse::ReasonCode::kOk: {
-                SendPublishNamespaceOk(conn_it->second, request_id);
+                SendRequestOk(conn_it->second, request_id);
 
                 fanout_subscribe_namespace_requestors();
                 break;
@@ -155,7 +155,7 @@ namespace quicr {
             }
             default:
                 if (!subscribe_response.is_publisher_initiated) {
-                    SendSubscribeError(
+                    SendRequestError(
                       conn_it->second, request_id, messages::ErrorCode::kInternalError, 0ms, "Internal error");
                 }
                 break;
@@ -176,12 +176,11 @@ namespace quicr {
         auto th = TrackHash({ prefix, {} });
 
         if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
-            SendSubscribeNamespaceError(
-              conn_it->second, data_ctx_id, request_id, messages::ErrorCode::kInternalError, 0ms, "Internal error");
+            SendRequestError(conn_it->second, request_id, messages::ErrorCode::kInternalError, 0ms, "Internal error");
             return;
         }
 
-        SendSubscribeNamespaceOk(conn_it->second, data_ctx_id, request_id);
+        SendRequestOk(conn_it->second, request_id);
 
         // Fan out PUBLISH_NAMESPACE for matching namespaces.
         for (const auto& name_space : response.namespaces) {
@@ -236,11 +235,11 @@ namespace quicr {
                 break;
         }
 
-        SendFetchError(conn_it->second,
-                       request_id,
-                       error_code,
-                       0ms,
-                       response.error_reason.has_value() ? response.error_reason.value() : "Internal error");
+        SendRequestError(conn_it->second,
+                         request_id,
+                         error_code,
+                         0ms,
+                         response.error_reason.has_value() ? response.error_reason.value() : "Internal error");
     }
 
     void Server::UnbindPublisherTrack(ConnectionHandle connection_handle,
@@ -456,25 +455,10 @@ namespace quicr {
                 auto msg = messages::RequestOk{};
                 msg_bytes >> msg;
 
-                std::optional<messages::Location> largest_location;
-                if (msg.parameters.Contains(messages::ParameterType::kLargestObject)) {
-                    largest_location = msg.parameters.Get<messages::Location>(messages::ParameterType::kLargestObject);
-                }
+                auto largest_location =
+                  msg.parameters.GetOptional<messages::Location>(messages::ParameterType::kLargestObject);
 
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received Request Ok for request_id: {} largest group: {} largest object: {}",
-                                    msg.request_id,
-                                    largest_location.has_value() ? largest_location->group : 0,
-                                    largest_location.has_value() ? largest_location->object : 0);
-
-                RequestOkReceived(conn_ctx.connection_handle,
-                                  msg.request_id,
-                                  {
-                                    .reason_code = RequestResponse::ReasonCode::kOk,
-                                    .is_publisher_initiated = false,
-                                    .error_reason = std::nullopt,
-                                    .largest_location = largest_location,
-                                  });
+                RequestOkReceived(conn_ctx.connection_handle, msg.request_id, largest_location);
 
                 return true;
             }
@@ -733,11 +717,11 @@ namespace quicr {
                         // Joining fetch needs to look up its joining subscribe.
                         const auto subscribe_state = conn_ctx.recv_req_id.find(msg.group_1->joining.request_id);
                         if (subscribe_state == conn_ctx.recv_req_id.end()) {
-                            SendFetchError(conn_ctx,
-                                           msg.request_id,
-                                           messages::ErrorCode::kDoesNotExist,
-                                           0ms,
-                                           "Corresponding subscribe does not exist");
+                            SendRequestError(conn_ctx,
+                                             msg.request_id,
+                                             messages::ErrorCode::kDoesNotExist,
+                                             0ms,
+                                             "Corresponding subscribe does not exist");
                             return true;
                         }
 
@@ -758,7 +742,7 @@ namespace quicr {
                         return true;
                     }
                     default: {
-                        SendFetchError(
+                        SendRequestError(
                           conn_ctx, msg.request_id, messages::ErrorCode::kNotSupported, 0ms, "Unknown fetch type");
                         return true;
                     }
@@ -880,7 +864,7 @@ namespace quicr {
                                        conn_ctx.connection_handle,
                                        msg.request_id);
 
-                    SendSubscribeError(
+                    SendRequestError(
                       conn_ctx, msg.request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Subscription not found");
                     return true;
                 }

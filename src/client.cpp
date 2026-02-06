@@ -59,7 +59,7 @@ namespace quicr {
             }
 
             default:
-                SendSubscribeError(
+                SendRequestError(
                   conn_it->second, request_id, messages::ErrorCode::kInternalError, 0ms, "Internal error");
                 break;
         }
@@ -98,11 +98,11 @@ namespace quicr {
                 break;
             }
             default:
-                SendFetchError(conn_it->second,
-                               request_id,
-                               messages::ErrorCode::kInternalError,
-                               0ms,
-                               response.error_reason.has_value() ? response.error_reason.value() : "Internal error");
+                SendRequestError(conn_it->second,
+                                 request_id,
+                                 messages::ErrorCode::kInternalError,
+                                 0ms,
+                                 response.error_reason.has_value() ? response.error_reason.value() : "Internal error");
                 break;
         }
     }
@@ -196,6 +196,29 @@ namespace quicr {
                                     BytesSpan msg_bytes)
     try {
         switch (msg_type) {
+            case messages::ControlMessageType::kRequestOk: {
+                messages::RequestOk msg;
+                msg_bytes >> msg;
+
+                auto largest_location =
+                  msg.parameters.GetOptional<messages::Location>(messages::ParameterType::kLargestObject);
+
+                RequestOkReceived(connection_handle_.value(), msg.request_id, largest_location);
+                return true;
+            }
+            case messages::ControlMessageType::kRequestError: {
+                messages::RequestError msg;
+                msg_bytes >> msg;
+
+                RequestErrorReceived(connection_handle_.value(),
+                                     msg.request_id,
+                                     {
+                                       .reason_code = RequestResponse::FromErrorCode(msg.error_code),
+                                       .error_reason = std::string(msg.error_reason.begin(), msg.error_reason.end()),
+                                     });
+
+                return true;
+            }
             case messages::ControlMessageType::kSubscribe: {
                 messages::Subscribe msg;
 
@@ -217,7 +240,7 @@ namespace quicr {
                                        th.track_name_hash,
                                        msg.request_id);
 
-                    SendSubscribeError(
+                    SendRequestError(
                       conn_ctx, msg.request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Published track not found");
                     return true;
                 }
@@ -263,7 +286,7 @@ namespace quicr {
                                        msg.request_id,
                                        conn_ctx.connection_handle);
 
-                    SendSubscribeError(
+                    SendRequestError(
                       conn_ctx, msg.request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Subscription not found");
                     return true;
                 }
@@ -280,7 +303,7 @@ namespace quicr {
                                        th.track_namespace_hash,
                                        th.track_name_hash);
 
-                    SendSubscribeError(
+                    SendRequestError(
                       conn_ctx, msg.request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Published track not found");
                     return true;
                 }
@@ -355,43 +378,6 @@ namespace quicr {
 
                 return true;
             }
-            case messages::ControlMessageType::kRequestError: {
-                messages::RequestError msg;
-                msg_bytes >> msg;
-
-                auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
-
-                if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
-                    SPDLOG_LOGGER_WARN(
-                      logger_,
-                      "Received subscribe error to unknown request_id conn_id: {} request_id: {}, ignored",
-                      conn_ctx.connection_handle,
-                      msg.request_id);
-
-                    // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
-                    // condition
-                    return true;
-                }
-
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Received subscribe error conn_id: {} request_id: {} reason: {} code: {}",
-                                   conn_ctx.connection_handle,
-                                   msg.request_id,
-                                   std::string(msg.error_reason.begin(), msg.error_reason.end()),
-                                   static_cast<std::uint64_t>(msg.error_code));
-
-                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kError);
-                RemoveSubscribeTrack(conn_ctx, *sub_it->second);
-
-                RequestErrorReceived(connection_handle_.value(),
-                                     msg.request_id,
-                                     {
-                                       .reason_code = RequestResponse::FromErrorCode(msg.error_code),
-                                       .error_reason = std::string(msg.error_reason.begin(), msg.error_reason.end()),
-                                     });
-
-                return true;
-            }
             case messages::ControlMessageType::kPublishNamespace: {
                 messages::PublishNamespace msg;
                 msg_bytes >> msg;
@@ -406,28 +392,6 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 PublishNamespaceDoneReceived(msg.request_id);
-                return true;
-            }
-            case messages::ControlMessageType::kRequestOk: {
-                messages::RequestOk msg;
-                msg_bytes >> msg;
-
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received publish namespace ok, conn_id: {} request_id: {}",
-                                    conn_ctx.connection_handle,
-                                    msg.request_id);
-
-                auto pub_ns_it = conn_ctx.pub_namespace_prefix_by_request_id.find(msg.request_id);
-                if (pub_ns_it == conn_ctx.pub_namespace_prefix_by_request_id.end()) {
-                    SPDLOG_LOGGER_WARN(
-                      logger_,
-                      "Received publish namespace ok to unknown request_id conn_id: {} request_id: {}, ignored",
-                      conn_ctx.connection_handle,
-                      msg.request_id);
-                    return true;
-                }
-
-                RequestOkReceived(connection_handle_.value(), msg.request_id, {});
                 return true;
             }
             case messages::ControlMessageType::kUnsubscribe: {
@@ -664,11 +628,11 @@ namespace quicr {
                     case messages::FetchType::kAbsoluteJoiningFetch: {
                         const auto subscribe_state = conn_ctx.recv_req_id.find(msg.group_1->joining.request_id);
                         if (subscribe_state == conn_ctx.recv_req_id.end()) {
-                            SendFetchError(conn_ctx,
-                                           msg.request_id,
-                                           messages::ErrorCode::kDoesNotExist,
-                                           0ms,
-                                           "Corresponding subscribe does not exist");
+                            SendRequestError(conn_ctx,
+                                             msg.request_id,
+                                             messages::ErrorCode::kDoesNotExist,
+                                             0ms,
+                                             "Corresponding subscribe does not exist");
                             return true;
                         }
 
@@ -690,7 +654,7 @@ namespace quicr {
                         return true;
                     }
                     default: {
-                        SendFetchError(
+                        SendRequestError(
                           conn_ctx, msg.request_id, messages::ErrorCode::kNotSupported, 0ms, "Unknown fetch type");
                         return true;
                     }

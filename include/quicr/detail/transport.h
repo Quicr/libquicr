@@ -286,13 +286,11 @@ namespace quicr {
          *
          * @param connection_handle        source connection ID
          * @param request_id               Request ID that was provided by TrackStatusReceived
-         * @param track_alias              Track alias for the track
          * @param subscribe_response       Response to the track status request, either Ok or Error.
          *                                 Largest loation should be set if kOk and there is content
          */
         virtual void ResolveTrackStatus(ConnectionHandle connection_handle,
                                         uint64_t request_id,
-                                        uint64_t track_alias,
                                         const RequestResponse& subscribe_response);
 
         /**
@@ -336,11 +334,11 @@ namespace quicr {
          *
          * @param connection_handle     Source connection ID
          * @param request_id            Request ID received
-         * @param response              Response message
+         * @param largest_location      Largest location (only set for responses from TRACK_STATUS and REQUEST_UPDATE)
          */
         virtual void RequestOkReceived(ConnectionHandle connection_handle,
                                        uint64_t request_id,
-                                       const RequestResponse& response);
+                                       std::optional<messages::Location> largest_location = std::nullopt);
 
         /**
          * @brief Callback notification for Request Error received
@@ -530,13 +528,35 @@ namespace quicr {
         void SendServerSetup(ConnectionContext& conn_ctx);
 
         /*===================================================================*/
+        // Requests
+        /*===================================================================*/
+
+        void SendRequestOk(ConnectionContext& conn_ctx,
+                           messages::RequestID request_id,
+                           std::optional<messages::Location> largest_location = std::nullopt);
+
+        void SendRequestUpdate(const ConnectionContext& conn_ctx,
+                               messages::RequestID request_id,
+                               messages::RequestID existing_request_id,
+                               TrackHash th,
+                               std::optional<messages::GroupId> end_group_id,
+                               std::uint8_t priority,
+                               bool forward);
+
+        void SendRequestError(ConnectionContext& conn_ctx,
+                              messages::RequestID request_id,
+                              messages::ErrorCode error,
+                              std::chrono::milliseconds retry_interval,
+                              const std::string& reason);
+
+        /*===================================================================*/
         // Publish Namespace
         /*===================================================================*/
 
         void SendPublishNamespace(ConnectionContext& conn_ctx,
                                   messages::RequestID request_id,
                                   const TrackNamespace& track_namespace);
-        void SendPublishNamespaceOk(ConnectionContext& conn_ctx, messages::RequestID request_id);
+
         void SendPublishNamespaceDone(ConnectionContext& conn_ctx, messages::RequestID request_id);
 
         /*===================================================================*/
@@ -547,17 +567,6 @@ namespace quicr {
 
         void SendUnsubscribeNamespace(ConnectionHandle conn_handle,
                                       const std::shared_ptr<SubscribeNamespaceHandler>& handler);
-
-        void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx,
-                                      DataContextId data_ctx_id,
-                                      messages::RequestID request_id);
-
-        void SendSubscribeNamespaceError(ConnectionContext& conn_ctx,
-                                         DataContextId data_ctx_id,
-                                         messages::RequestID request_id,
-                                         messages::ErrorCode err_code,
-                                         std::chrono::milliseconds retry_interval,
-                                         const std::string& reason);
 
         /*===================================================================*/
         // Subscribe
@@ -578,22 +587,6 @@ namespace quicr {
                              uint64_t expires,
                              const std::optional<messages::Location>& largest_location);
         void SendUnsubscribe(ConnectionContext& conn_ctx, messages::RequestID request_id);
-
-        void SendSubscribeUpdate(const ConnectionContext& conn_ctx,
-                                 messages::RequestID request_id,
-                                 messages::RequestID subscribe_request_id,
-                                 TrackHash th,
-                                 messages::Location start_location,
-                                 messages::GroupId end_group_id,
-                                 std::uint8_t priority,
-                                 bool forward,
-                                 bool new_group_request = false);
-
-        void SendSubscribeError(ConnectionContext& conn_ctx,
-                                messages::RequestID request_id,
-                                messages::ErrorCode error,
-                                std::chrono::milliseconds retry_interval,
-                                const std::string& reason);
 
         /*===================================================================*/
         // Publish
@@ -620,29 +613,11 @@ namespace quicr {
                            messages::GroupOrder group_order,
                            messages::FilterType filter_type);
 
-        void SendPublishError(ConnectionContext& conn_ctx,
-                              messages::RequestID request_id,
-                              messages::ErrorCode error,
-                              std::chrono::milliseconds retry_interval,
-                              const std::string& reason);
-
         /*===================================================================*/
         // Track Status
         /*===================================================================*/
 
         void SendTrackStatus(ConnectionContext& conn_ctx, messages::RequestID request_id, const FullTrackName& tfn);
-
-        void SendTrackStatusOk(ConnectionContext& conn_ctx,
-                               messages::RequestID request_id,
-                               uint64_t track_alias,
-                               uint64_t expires,
-                               const std::optional<messages::Location>& largest_location);
-
-        void SendTrackStatusError(ConnectionContext& conn_ctx,
-                                  messages::RequestID request_id,
-                                  messages::ErrorCode error,
-                                  std::chrono::milliseconds retry_interval,
-                                  const std::string& reason);
 
         /*===================================================================*/
         // Fetch
@@ -671,12 +646,6 @@ namespace quicr {
                          messages::GroupOrder group_order,
                          bool end_of_track,
                          messages::Location end_location);
-
-        void SendFetchError(ConnectionContext& conn_ctx,
-                            messages::RequestID request_id,
-                            messages::ErrorCode error,
-                            std::chrono::milliseconds retry_interval,
-                            const std::string& reason);
 
         /*===================================================================*/
         // Other member functions

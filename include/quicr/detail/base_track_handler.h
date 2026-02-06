@@ -28,7 +28,7 @@ namespace quicr {
     };
 
     /**
-     * @brief Response to received MOQT Subscribe message
+     * @brief Response to received MOQT Request message
      */
     struct RequestResponse
     {

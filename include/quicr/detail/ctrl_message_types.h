@@ -493,7 +493,7 @@ namespace quicr::messages {
         auto begin() const noexcept { return parameters.begin(); }
         auto end() const noexcept { return parameters.end(); }
 
-        bool Contains(Type type)
+        bool Contains(Type type) const
         {
             auto it =
               std::find_if(parameters.begin(), parameters.end(), [type](const auto& kv) { return kv.type == type; });
@@ -532,6 +532,12 @@ namespace quicr::messages {
             }
 
             return FromBytes<T>(bytes);
+        }
+
+        template<typename T>
+        std::optional<T> GetOptional(Type type) const
+        {
+            return Contains(type) ? std::make_optional(Get<T>(type)) : std::nullopt;
         }
 
         auto operator<=>(const ParameterList&) const = default;
