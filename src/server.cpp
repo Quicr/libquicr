@@ -413,7 +413,9 @@ namespace quicr {
                                     .filter_type = filter_type,
                                     .forward = forward,
                                     .new_group_request_id = new_group_request_id,
-                                    false,
+                                    .is_publisher_initiated = false,
+                                    .start_location = {},
+                                    .expires = std::chrono::milliseconds{ delivery_timeout },
                                   });
 
                 // Handle new group request after subscribe callback

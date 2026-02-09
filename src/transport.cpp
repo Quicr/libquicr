@@ -717,11 +717,9 @@ namespace quicr {
 
         handler->SetTransport(GetSharedPtr());
 
-        const auto& [_, is_new] = conn_it->second.tracks_by_request_id.try_emplace(rid, handler);
-
         auto th = TrackHash({ prefix, {} });
 
-        if (!is_new) {
+        if (auto [_, is_new] = conn_it->second.tracks_by_request_id.try_emplace(rid, handler); !is_new) {
             SPDLOG_LOGGER_WARN(logger_, "Namespace already subscribed to (alias={})", th.track_fullname_hash);
             return;
         }

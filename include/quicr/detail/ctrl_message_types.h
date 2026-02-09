@@ -492,11 +492,11 @@ namespace quicr::messages {
             if constexpr (HasByteStreamOperators<T>) {
                 Bytes bytes;
                 bytes << value;
-                parameters.emplace_back(type, std::move(bytes));
+                parameters.push_back({ type, std::move(bytes) });
                 return *this;
             }
 
-            parameters.emplace_back(type, AsOwnedBytes(value));
+            parameters.push_back({ type, AsOwnedBytes(value) });
             return *this;
         }
 
