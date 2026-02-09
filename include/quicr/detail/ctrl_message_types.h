@@ -484,7 +484,7 @@ namespace quicr::messages {
             if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
                 if (static_cast<uint64_t>(type) % 2 == 0) {
                     UintVar u_value(static_cast<uint64_t>(value));
-                    parameters.emplace_back(type, Bytes{ u_value.begin(), u_value.end() });
+                    parameters.push_back({ type, Bytes{ u_value.begin(), u_value.end() } });
                     return *this;
                 }
             }
