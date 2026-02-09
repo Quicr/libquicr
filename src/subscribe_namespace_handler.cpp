@@ -4,7 +4,8 @@
 #include "quicr/subscribe_track_handler.h"
 
 quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix)
-  : prefix_(prefix)
+  : BaseTrackHandler({ prefix, {} })
+  , prefix_(prefix)
 {
 }
 
@@ -84,7 +85,7 @@ quicr::SubscribeNamespaceHandler::AcceptNewTrack(const ConnectionHandle& connect
     track_handler->SetRequestId(request_id);
     track_handler->SetReceivedTrackAlias(attributes.track_alias);
     track_handler->SetPriority(attributes.priority);
-    track_handler->SetDeliveryTimeout(attributes.expires);
+    track_handler->SetDeliveryTimeout(attributes.delivery_timeout);
     track_handler->SupportNewGroupRequest(attributes.dynamic_groups);
 
     transport->SubscribeTrack(connection_handle_, track_handler);

@@ -3,7 +3,8 @@
 #include "quicr/detail/transport.h"
 
 quicr::PublishNamespaceHandler::PublishNamespaceHandler(const TrackNamespace& prefix)
-  : prefix_(prefix)
+  : BaseTrackHandler({ prefix, {} })
+  , prefix_(prefix)
 {
 }
 

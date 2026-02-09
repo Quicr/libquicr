@@ -188,7 +188,6 @@ namespace quicr {
 
             auto request_id = conn_it->second.GetNextRequestId();
             SendPublishNamespace(conn_it->second, request_id, name_space);
-            conn_it->second.pub_namespaces_by_request_id[th.track_fullname_hash] = request_id;
         }
 
         // Fan out PUBLISH for matching tracks.
@@ -827,11 +826,8 @@ namespace quicr {
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
                 auto filter_type =
                   msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
-
-                std::optional<uint64_t> new_group_request_id;
-                if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
-                    new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-                }
+                auto new_group_request_id =
+                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                 messages::SubscribeAttributes attributes = {
                     .priority = priority,
@@ -871,10 +867,11 @@ namespace quicr {
                 auto filter_type =
                   msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
+                auto new_group_request_id =
+                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
-                std::optional<uint64_t> new_group_request_id;
-                if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
-                    new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                if (new_group_request_id.has_value()) {
+                    NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id.value());
                 }
 
                 SPDLOG_LOGGER_DEBUG(

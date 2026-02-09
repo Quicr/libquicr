@@ -13,7 +13,7 @@ namespace quicr {
 
     class Transport;
 
-    class SubscribeNamespaceHandler
+    class SubscribeNamespaceHandler : public BaseTrackHandler
     {
       public:
         using Error = std::pair<messages::ErrorCode, messages::ReasonPhrase>;
@@ -98,6 +98,13 @@ namespace quicr {
         {
             error_ = error;
             SetStatus(Status::kError);
+        }
+
+        virtual void RequestOk(std::optional<messages::Location> largest_location) { SetStatus(Status::kOk); }
+
+        virtual void RequestError(messages::ErrorCode error_code, std::string reason)
+        {
+            SetError(Error{ error_code, Bytes{ reason.begin(), reason.end() } });
         }
 
       private:

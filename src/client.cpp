@@ -306,58 +306,6 @@ namespace quicr {
                     new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
                 }
 
-                if (conn_ctx.recv_req_id.count(msg.request_id) == 0) {
-                    // update for invalid subscription
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received RequestUpdate unkown request_id: {} conn_id: {}",
-                                       msg.request_id,
-                                       conn_ctx.connection_handle);
-
-                    SendRequestError(
-                      conn_ctx, msg.request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Subscription not found");
-                    return true;
-                }
-
-                auto th = conn_ctx.recv_req_id[msg.request_id].track_hash;
-
-                // For client/publisher, notify track that there is a subscriber
-                auto ptd = GetPubTrackHandler(conn_ctx, th);
-                if (ptd == nullptr) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe unknown publish track conn_id: {} namespace hash: {} "
-                                       "name hash: {}",
-                                       conn_ctx.connection_handle,
-                                       th.track_namespace_hash,
-                                       th.track_name_hash);
-
-                    SendRequestError(
-                      conn_ctx, msg.request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Published track not found");
-                    return true;
-                }
-
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe_update to track alias: {} recv request_id: {} forward: {}",
-                                    th.track_fullname_hash,
-                                    msg.request_id,
-                                    forward);
-
-                if (not forward) {
-                    ptd->SetStatus(PublishTrackHandler::Status::kPaused);
-                } else {
-                    if (new_group_request_id.has_value()) {
-
-                        if (!(ptd->pending_new_group_request_id_.has_value() &&
-                              *ptd->pending_new_group_request_id_ == 0 && new_group_request_id.value() == 0) &&
-                            (new_group_request_id.value() == 0 ||
-                             ptd->largest_location_.group < new_group_request_id.value())) {
-
-                            ptd->pending_new_group_request_id_ = new_group_request_id.value();
-                            ptd->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
-                        }
-                        return true;
-                    }
-                }
-
                 return true;
             }
             case messages::ControlMessageType::kSubscribeOk: {

@@ -480,18 +480,6 @@ namespace quicr {
             /// Fetch Publishers by request ID.
             std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
 
-            /// Publish Namespace handlers by namespace.
-            std::map<TrackNamespace, std::shared_ptr<PublishNamespaceHandler>> pub_namespace_handlers;
-
-            /// Subscribe Namespace prefix by request Id
-            std::map<messages::RequestID, TrackNamespace> pub_namespace_prefix_by_request_id;
-
-            /// Subscribe Namespace handlers by namespace.
-            std::map<TrackNamespace, std::shared_ptr<SubscribeNamespaceHandler>> sub_namespace_handlers;
-
-            /// Subscribe Namespace prefix by request Id
-            std::map<messages::RequestID, TrackNamespace> sub_namespace_prefix_by_request_id;
-
             ConnectionMetrics metrics{};   ///< Connection metrics
             bool is_webtransport{ false }; ///< True if this connection uses WebTransport over HTTP/3
 

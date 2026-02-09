@@ -405,8 +405,30 @@ namespace quicr::messages {
         template<typename T>
         TrackExtensions& Add(ExtensionType type, const T& value)
         {
+            if (type == ExtensionType::kImmutable) {
+                throw std::invalid_argument("ExtensionType::kImmutable should not be used directly, use AddImmutable "
+                                            "with the keytype you want to use");
+            }
+
             BytesSpan bytes = AsBytes(value);
             extensions[static_cast<std::uint64_t>(type)] = { bytes.begin(), bytes.end() };
+            return *this;
+        }
+
+        template<typename T>
+        TrackExtensions& AddImmutable(ExtensionType type, const T& value)
+        {
+            KeyValuePair<ExtensionType> pair(type, AsBytes(value));
+
+            Bytes bytes;
+            bytes << pair;
+
+            auto& immutable_bytes = extensions[static_cast<std::uint64_t>(ExtensionType::kImmutable)];
+            auto bytes_it = immutable_bytes.insert(immutable_bytes.end(), bytes.begin(), bytes.end());
+
+            immutable_extensions[static_cast<std::uint64_t>(type)] =
+              std::span{ bytes_it, std::next(bytes_it, bytes.size()) };
+
             return *this;
         }
 
@@ -432,6 +454,7 @@ namespace quicr::messages {
         auto end() const noexcept { return extensions.end(); }
 
         std::map<std::uint64_t, Bytes> extensions;
+        std::map<std::uint64_t, BytesSpan> immutable_extensions;
     };
 
     BytesSpan operator>>(BytesSpan buffer, TrackExtensions& msg);

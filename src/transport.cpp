@@ -704,10 +704,7 @@ namespace quicr {
         }
 
         const auto& prefix = handler->GetPrefix();
-
-        auto rid = conn_it->second.GetNextRequestId();
-
-        conn_it->second.sub_namespace_prefix_by_request_id[rid] = prefix;
+        const auto rid = conn_it->second.GetNextRequestId();
 
         /* Available parameters:
          * - AUTHORIZATION TOKEN (0x03)
@@ -718,11 +715,11 @@ namespace quicr {
         Bytes buffer;
         buffer << messages::SubscribeNamespace(rid, prefix, SubscribeOptions::kBoth, params);
 
-        auto th = TrackHash({ prefix, {} });
-
         handler->SetTransport(GetSharedPtr());
 
-        const auto& [handler_it, is_new] = conn_it->second.sub_namespace_handlers.try_emplace(prefix, handler);
+        const auto& [_, is_new] = conn_it->second.tracks_by_request_id.try_emplace(rid, handler);
+
+        auto th = TrackHash({ prefix, {} });
 
         if (!is_new) {
             SPDLOG_LOGGER_WARN(logger_, "Namespace already subscribed to (alias={})", th.track_fullname_hash);
@@ -754,19 +751,9 @@ namespace quicr {
             return;
         }
 
+        conn_it->second.tracks_by_request_id.erase(handler->GetRequestId().value());
+
         const auto& prefix = handler->GetPrefix();
-
-        for (auto it = conn_it->second.sub_namespace_prefix_by_request_id.begin();
-             it != conn_it->second.sub_namespace_prefix_by_request_id.end();
-             ++it) {
-            if (it->second == prefix) {
-                conn_it->second.sub_namespace_prefix_by_request_id.erase(it);
-                break;
-            }
-        }
-
-        conn_it->second.sub_namespace_handlers.erase(prefix);
-
         Bytes buffer;
         buffer << NamespaceDone(prefix);
 
@@ -1067,8 +1054,8 @@ namespace quicr {
             return;
         }
 
-        conn_it->second.pub_tracks_by_request_id.erase(*track_handler->GetRequestId());
-        conn_it->second.pub_tracks_ns_by_request_id.erase(*track_handler->GetRequestId());
+        conn_it->second.tracks_by_request_id.erase(track_handler->GetRequestId().value());
+        conn_it->second.pub_tracks_by_request_id.erase(track_handler->GetRequestId().value());
         conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
         /*
@@ -1199,8 +1186,7 @@ namespace quicr {
 
         SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), track_handler->GetPrefix());
 
-        conn_it->second.pub_namespace_prefix_by_request_id[*track_handler->GetRequestId()] = track_handler->GetPrefix();
-        conn_it->second.pub_namespace_handlers[track_handler->GetPrefix()] = track_handler;
+        conn_it->second.tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
 
         track_handler->connection_handle_ = conn_id;
         track_handler->SetTransport(GetSharedPtr());
@@ -1214,7 +1200,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_INFO(logger_, "PublishNamespaceDone (conn_id={}, prefix_hash={})", conn_id, prefix_hash);
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+        std::lock_guard<std::mutex> lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
@@ -1225,13 +1211,8 @@ namespace quicr {
             return;
         }
 
-        auto pub_ns_it = conn_it->second.pub_namespace_handlers.find(prefix);
-        if (pub_ns_it != conn_it->second.pub_namespace_handlers.end()) {
-            SPDLOG_LOGGER_INFO(logger_, "Sending PublishNamespaceDone (prefix_hash={})", prefix_hash);
-
-            SendPublishNamespaceDone(conn_it->second, track_handler->GetRequestId().value());
-            conn_it->second.pub_namespace_handlers.erase(pub_ns_it);
-        }
+        SendPublishNamespaceDone(conn_it->second, track_handler->GetRequestId().value());
+        conn_it->second.tracks_by_request_id.erase(track_handler->GetRequestId().value());
     }
 
     void Transport::ResolvePublish(const ConnectionHandle connection_handle,
@@ -1246,20 +1227,12 @@ namespace quicr {
 
         switch (publish_response.reason_code) {
             case PublishResponse::ReasonCode::kOk: {
-                const auto& namespace_handler_it =
-                  std::find_if(conn_it->second.sub_namespace_handlers.begin(),
-                               conn_it->second.sub_namespace_handlers.end(),
-                               [&](auto&& e) {
-                                   // TODO(trigaux,tievens): Would IsPrefixOf be more explicit?
-                                   return e.first.HasSamePrefix(attributes.track_full_name.name_space);
-                               });
-
-                if (namespace_handler_it == conn_it->second.sub_namespace_handlers.end()) {
-                    SPDLOG_LOGGER_INFO(logger_,
-                                       "No subscribe namespace handler available for incoming track with alias = ",
-                                       attributes.track_alias);
-                } else if (namespace_handler_it->second->IsTrackAcceptable(attributes.track_full_name)) {
-                    namespace_handler_it->second->AcceptNewTrack(connection_handle, request_id, attributes);
+                for (const auto& [_, handler] : conn_it->second.tracks_by_request_id) {
+                    if (auto ns_handler = std::dynamic_pointer_cast<SubscribeNamespaceHandler>(handler)) {
+                        if (ns_handler->IsTrackAcceptable(attributes.track_full_name)) {
+                            ns_handler->AcceptNewTrack(connection_handle, request_id, attributes);
+                        }
+                    }
                 }
 
                 SendPublishOk(conn_it->second,

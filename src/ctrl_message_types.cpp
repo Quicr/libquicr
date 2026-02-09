@@ -239,6 +239,8 @@ namespace quicr::messages {
             extensions.extensions[kvp.type] = std::move(kvp.value);
         }
 
+        // TODO: Add to immutable map
+
         return buffer;
     }
 
