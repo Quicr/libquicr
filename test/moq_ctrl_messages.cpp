@@ -194,9 +194,9 @@ TEST_CASE("SubscribeOk Message encode/decode")
     auto extensions = TrackExtensions{}
                         .Add(ExtensionType::kDeliveryTimeout, 0)
                         .Add(ExtensionType::kMaxCacheDuration, 0)
-                        .Add(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending)
+                        .AddImmutable(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending)
                         .Add(ExtensionType::kDefaultPublisherPriority, 1)
-                        .Add(ExtensionType::kDynamicGroups, true);
+                        .AddImmutable(ExtensionType::kDynamicGroups, true);
 
     Bytes buffer;
     const auto track_alias = uint64_t(kTrackAliasAliceVideo);
@@ -218,8 +218,8 @@ TEST_CASE("SubscribeOk Message encode/decode")
     CHECK_EQ(0, subscribe_ok_out.track_extensions.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration));
     CHECK_EQ(1, subscribe_ok_out.track_extensions.Get<std::uint64_t>(ExtensionType::kDefaultPublisherPriority));
     CHECK_EQ(GroupOrder::kAscending,
-             subscribe_ok_out.track_extensions.Get<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder));
-    CHECK_EQ(true, subscribe_ok_out.track_extensions.Get<bool>(ExtensionType::kDynamicGroups));
+             subscribe_ok_out.track_extensions.GetImmutable<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder));
+    CHECK_EQ(true, subscribe_ok_out.track_extensions.GetImmutable<bool>(ExtensionType::kDynamicGroups));
 }
 
 TEST_CASE("Unsubscribe  Message encode/decode")

@@ -209,7 +209,7 @@ namespace quicr::messages {
         std::size_t total_length = 0;
         std::vector<KeyValuePair<std::uint64_t>> kvps;
         for (const auto& [key, value] : extensions) {
-            const auto kvp = KeyValuePair<std::uint64_t>{ static_cast<std::uint64_t>(key), value };
+            const auto kvp = KeyValuePair<std::uint64_t>{ key, value };
             const auto size = kvp.Size();
             total_length += size;
             kvps.push_back(kvp);
@@ -239,7 +239,19 @@ namespace quicr::messages {
             extensions.extensions[kvp.type] = std::move(kvp.value);
         }
 
-        // TODO: Add to immutable map
+        if (extensions.extensions.contains(static_cast<std::uint64_t>(ExtensionType::kImmutable))) {
+            BytesSpan bytes = extensions.extensions.at(static_cast<std::uint64_t>(ExtensionType::kImmutable));
+
+            while (!bytes.empty()) {
+                KeyValuePair<std::uint64_t> kvp;
+                bytes >> kvp;
+                length -= kvp.Size();
+
+                extensions.immutable_extensions[kvp.type] =
+                  bytes.subspan(+UintVar(static_cast<std::uint64_t>(kvp.type)).size(), kvp.Size());
+                bytes = bytes.subspan(kvp.Size());
+            }
+        }
 
         return buffer;
     }

@@ -410,12 +410,12 @@ namespace quicr {
                                     .priority = priority,
                                     .group_order = group_order,
                                     .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
+                                    .expires = std::chrono::milliseconds{ delivery_timeout },
                                     .filter_type = filter_type,
                                     .forward = forward,
                                     .new_group_request_id = new_group_request_id,
                                     .is_publisher_initiated = false,
                                     .start_location = {},
-                                    .expires = std::chrono::milliseconds{ delivery_timeout },
                                   });
 
                 // Handle new group request after subscribe callback
