@@ -760,7 +760,7 @@ TEST_CASE("Integration - Announce Flow")
         CHECK_EQ(ns_handler->GetStatus(), PublishNamespaceHandler::Status::kOk);
 
         const std::string name = "test";
-        const FullTrackName ftn(prefix, std::vector<uint8_t>{ name.begin(), name.end() });
+        const FullTrackName ftn{ prefix, quicr::Bytes{ name.begin(), name.end() } };
 
         std::weak_ptr<PublishTrackHandler> w_pub_handler;
         REQUIRE_NOTHROW(w_pub_handler = ns_handler->PublishTrack(ftn, TrackMode::kStream, 1, 5000));

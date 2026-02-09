@@ -406,7 +406,6 @@ namespace quicr::messages {
         template<typename T>
         Bytes ToBytes(ExtensionType type, const T& value)
         {
-
             if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
                 if (static_cast<uint64_t>(type) % 2 == 0) {
                     UintVar u_value(static_cast<uint64_t>(value));
@@ -440,7 +439,7 @@ namespace quicr::messages {
         template<typename T>
         TrackExtensions& AddImmutable(ExtensionType type, const T& value)
         {
-            KeyValuePair<ExtensionType> pair(type, ToBytes<T>(type, value));
+            KeyValuePair<ExtensionType> pair{ .type = type, .value = ToBytes<T>(type, value) };
 
             Bytes bytes;
             bytes << pair;
