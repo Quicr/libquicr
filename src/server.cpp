@@ -310,7 +310,7 @@ namespace quicr {
         }
 
         track_handler->SetRequestId(request_id);
-        // conn_it->second.pub_tracks_ns_by_request_id[request_id] = th.track_namespace_hash;
+        conn_it->second.tracks_by_request_id[request_id] = track_handler;
 
         track_handler->connection_handle_ = conn_id;
 

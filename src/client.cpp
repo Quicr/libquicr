@@ -424,11 +424,8 @@ namespace quicr {
                 auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
-
-                std::optional<uint64_t> new_group_request_id;
-                if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
-                    new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-                }
+                auto new_group_request_id =
+                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                 messages::PublishAttributes attrs;
                 attrs.track_full_name = tfn;
@@ -437,7 +434,7 @@ namespace quicr {
                 attrs.group_order = group_order;
                 attrs.expires = std::chrono::milliseconds(delivery_timeout);
                 attrs.is_publisher_initiated = true;
-                attrs.new_group_request_id = new_group_request_id.value();
+                attrs.new_group_request_id = new_group_request_id;
                 PublishReceived(conn_ctx.connection_handle, msg.request_id, attrs);
                 return true;
             }
