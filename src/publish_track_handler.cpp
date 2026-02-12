@@ -301,15 +301,17 @@ namespace quicr {
                 // use stream per subgroup, group change
                 eflags.use_reliable = true;
 
+                const auto properties = *GetStreamMode();
                 if (is_stream_header_needed) {
                     messages::StreamHeaderSubGroup subgroup_hdr;
-                    subgroup_hdr.type = GetStreamMode();
+                    subgroup_hdr.properties.emplace(properties);
                     subgroup_hdr.group_id = object_headers.group_id;
-                    auto properties = messages::StreamHeaderProperties(subgroup_hdr.type);
-                    if (properties.subgroup_id_type == messages::SubgroupIdType::kExplicit) {
+                    if (properties.subgroup_id_mode == messages::SubgroupIdType::kExplicit) {
                         subgroup_hdr.subgroup_id = object_headers.subgroup_id;
                     }
-                    subgroup_hdr.priority = priority;
+                    if (!properties.default_priority) {
+                        subgroup_hdr.priority = priority;
+                    }
                     subgroup_hdr.track_alias = GetTrackAlias().value();
                     object_msg_buffer_ << subgroup_hdr;
                 }
@@ -317,7 +319,7 @@ namespace quicr {
                 messages::StreamSubGroupObject object;
                 object.object_delta = object_id_delta;
                 object.object_status = object_headers.status;
-                object.stream_type = GetStreamMode();
+                object.properties.emplace(properties);
                 if (object_extensions) {
                     object.extensions = std::move(*object_extensions);
                 }
@@ -374,7 +376,7 @@ namespace quicr {
         object_msg_buffer_.clear();
         messages::StreamSubGroupObject object;
         object.object_status = ObjectStatus::kEndOfSubGroup;
-        object.stream_type = GetStreamMode();
+        object.properties.emplace(*GetStreamMode());
         object.object_delta = 0;
         object_msg_buffer_ << object;
 

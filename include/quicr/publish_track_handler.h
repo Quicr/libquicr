@@ -92,7 +92,7 @@ namespace quicr {
                             TrackMode track_mode,
                             uint8_t default_priority,
                             uint32_t default_ttl,
-                            std::optional<messages::StreamHeaderType> stream_mode = std::nullopt)
+                            std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt)
           : BaseTrackHandler(full_track_name)
           , default_track_mode_(track_mode)
           , default_priority_(default_priority)
@@ -105,9 +105,11 @@ namespace quicr {
                     }
                     break;
                 case TrackMode::kStream:
-                    stream_mode_ = stream_mode.has_value()
-                                     ? stream_mode.value()
-                                     : messages::StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions;
+                    if (stream_mode.has_value()) {
+                        stream_mode_.emplace(*stream_mode);
+                    } else {
+                        stream_mode_.emplace(true, messages::SubgroupIdType::kExplicit, false, false);
+                    }
                     break;
             }
         }
@@ -189,7 +191,10 @@ namespace quicr {
          * @brief Get the current stream mode.
          * @return The current stream mode.
          */
-        constexpr messages::StreamHeaderType GetStreamMode() const noexcept { return stream_mode_; }
+        constexpr std::optional<messages::StreamHeaderProperties> GetStreamMode() const noexcept
+        {
+            return stream_mode_;
+        }
 
         /**
          * @brief Get the publish status
@@ -363,7 +368,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         Status publish_status_{ Status::kNotAnnounced };
         TrackMode default_track_mode_;
-        messages::StreamHeaderType stream_mode_;
+        std::optional<messages::StreamHeaderProperties> stream_mode_;
         uint8_t default_priority_; // Set by caller and is used when priority is not specified
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 

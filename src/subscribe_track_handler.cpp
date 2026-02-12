@@ -50,8 +50,7 @@ namespace quicr {
         }
 
         auto& obj = stream.buffer.GetAnyB<messages::StreamSubGroupObject>();
-        obj.stream_type = s_hdr.type;
-        const auto subgroup_properties = messages::StreamHeaderProperties(s_hdr.type);
+        obj.properties.emplace(*s_hdr.properties);
         if (stream.buffer >> obj) {
 
             SPDLOG_TRACE("Received stream_subgroup_object priority: {} stream_id: {} track_alias: {} "
@@ -79,7 +78,7 @@ namespace quicr {
             stream.current_subgroup_id = s_hdr.subgroup_id.value();
 
             if (!s_hdr.subgroup_id.has_value()) {
-                if (subgroup_properties.subgroup_id_type != messages::SubgroupIdType::kSetFromFirstObject) {
+                if (obj.properties->subgroup_id_mode != messages::SubgroupIdType::kSetFromFirstObject) {
                     throw messages::ProtocolViolationException("Subgoup ID mismatch");
                 }
                 // Set the subgroup ID from the first object ID.
