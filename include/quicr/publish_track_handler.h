@@ -92,7 +92,7 @@ namespace quicr {
                             TrackMode track_mode,
                             uint8_t default_priority,
                             uint32_t default_ttl,
-                            std::optional<messages::StreamHeaderType> stream_mode = std::nullopt)
+                            std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt)
           : BaseTrackHandler(full_track_name)
           , default_track_mode_(track_mode)
           , default_priority_(default_priority)
@@ -105,9 +105,11 @@ namespace quicr {
                     }
                     break;
                 case TrackMode::kStream:
-                    stream_mode_ = stream_mode.has_value()
-                                     ? stream_mode.value()
-                                     : messages::StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions;
+                    if (stream_mode.has_value()) {
+                        stream_mode_.emplace(*stream_mode);
+                    } else {
+                        stream_mode_.emplace(true, messages::SubgroupIdType::kExplicit, false, false);
+                    }
                     break;
             }
         }
@@ -189,7 +191,10 @@ namespace quicr {
          * @brief Get the current stream mode.
          * @return The current stream mode.
          */
-        constexpr messages::StreamHeaderType GetStreamMode() const noexcept { return stream_mode_; }
+        constexpr std::optional<messages::StreamHeaderProperties> GetStreamMode() const noexcept
+        {
+            return stream_mode_;
+        }
 
         /**
          * @brief Get the publish status
@@ -197,18 +202,6 @@ namespace quicr {
          * @return Status of publish
          */
         constexpr Status GetStatus() const noexcept { return publish_status_; }
-
-        /**
-         * @brief  Get use announce setting.
-         * @return true to indicate announce flow will be used. false to indicate publish flow will be used
-         */
-        constexpr bool UsingAnnounce() const noexcept { return use_announce_; }
-
-        /**
-         * @brief Set use announce
-         * @param use           True to request announce flow to be used. False to use publish flow.
-         */
-        constexpr void SetUseAnnounce(bool use) noexcept { use_announce_ = use; }
 
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
@@ -375,7 +368,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         Status publish_status_{ Status::kNotAnnounced };
         TrackMode default_track_mode_;
-        messages::StreamHeaderType stream_mode_;
+        std::optional<messages::StreamHeaderProperties> stream_mode_;
         uint8_t default_priority_; // Set by caller and is used when priority is not specified
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
@@ -397,7 +390,6 @@ namespace quicr {
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
-        bool use_announce_{ false }; // Indicates to use announce publish flow if true, otherwise use publish flow
         bool support_new_group_request_{ true };
         std::optional<uint64_t> pending_new_group_request_id_;
 

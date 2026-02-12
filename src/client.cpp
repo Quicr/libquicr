@@ -152,9 +152,41 @@ namespace quicr {
         return PublishNamespaceStatus();
     }
 
-    void Client::PublishNamespace(const TrackNamespace&) {}
+    void Client::PublishNamespace(std::shared_ptr<PublishNamespaceHandler> handler)
+    {
+        if (!connection_handle_) {
+            return;
+        }
 
-    void Client::PublishNamespaceDone(const TrackNamespace&) {}
+        Transport::PublishNamespace(connection_handle_.value(), std::move(handler));
+    }
+
+    void Client::PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& handler)
+    {
+        if (!connection_handle_) {
+            return;
+        }
+
+        Transport::PublishNamespaceDone(connection_handle_.value(), handler);
+    }
+
+    void Client::SubscribeNamespace(std::shared_ptr<SubscribeNamespaceHandler> handler)
+    {
+        if (!connection_handle_) {
+            return;
+        }
+
+        SendSubscribeNamespace(*connection_handle_, std::move(handler));
+    }
+
+    void Client::UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler)
+    {
+        if (!connection_handle_) {
+            return;
+        }
+
+        SendUnsubscribeNamespace(*connection_handle_, handler);
+    }
 
     bool Client::ProcessCtrlMessage(ConnectionContext& conn_ctx,
                                     [[maybe_unused]] uint64_t data_ctx_id,
@@ -400,9 +432,8 @@ namespace quicr {
                                     conn_ctx.connection_handle,
                                     msg.request_id);
 
-                // Update each track to indicate status is okay to publish
-                auto pub_ns_it = conn_ctx.pub_tracks_ns_by_request_id.find(msg.request_id);
-                if (pub_ns_it == conn_ctx.pub_tracks_ns_by_request_id.end()) {
+                auto pub_ns_it = conn_ctx.pub_namespace_prefix_by_request_id.find(msg.request_id);
+                if (pub_ns_it == conn_ctx.pub_namespace_prefix_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received publish namespace ok to unknown request_id conn_id: {0} request_id: {1}, ignored",
@@ -411,26 +442,39 @@ namespace quicr {
                     return true;
                 }
 
-                auto pub_it = conn_ctx.pub_tracks_by_name.find(pub_ns_it->second);
-                for (const auto& td : pub_it->second) {
-                    if (td.second.get()->GetStatus() != PublishTrackHandler::Status::kOk)
-                        td.second.get()->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+                auto handler_it = conn_ctx.pub_namespace_handlers.find(pub_ns_it->second);
+                if (handler_it == conn_ctx.pub_namespace_handlers.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received publish namespace ok to unknown namespace (hash={})",
+                                       std::hash<TrackNamespace>{}(pub_ns_it->second));
+                    return true;
                 }
-                conn_ctx.pub_tracks_ns_by_request_id.erase(pub_ns_it);
+
+                auto& handler = handler_it->second;
+                handler->SetStatus(PublishNamespaceHandler::Status::kOk);
+
+                for (const auto& [_, pub_handler] : handler->handlers_) {
+                    if (pub_handler->GetStatus() != PublishTrackHandler::Status::kOk) {
+                        pub_handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+                    }
+                }
+
+                conn_ctx.pub_namespace_prefix_by_request_id.erase(pub_ns_it);
+
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceError: {
                 messages::PublishNamespaceError msg;
                 msg_bytes >> msg;
 
-                std::string reason = "unknown";
-                reason.assign(msg.error_reason.begin(), msg.error_reason.end());
+                const auto it = conn_ctx.pub_namespace_prefix_by_request_id.find(msg.request_id);
+                if (it != conn_ctx.pub_namespace_prefix_by_request_id.end()) {
+                    const auto error_code = static_cast<messages::PublishNamespaceErrorCode>(msg.error_code);
+                    const auto& handler = conn_ctx.pub_namespace_handlers.at(it->second);
+                    handler->SetError({ error_code, msg.error_reason });
+                }
 
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Received publish namespace error for request_id: {} error code: {} reason: {}",
-                                   msg.request_id,
-                                   static_cast<std::uint64_t>(msg.error_code),
-                                   reason);
+                conn_ctx.pub_namespace_prefix_by_request_id.erase(it);
 
                 return true;
             }

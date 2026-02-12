@@ -250,7 +250,6 @@ main(int argc, char* argv[])
     track_config.default_priority = QBRIDGE_PRIORITY_HIGH;
     track_config.default_ttl_ms = 5000;
     track_config.default_cacheable = true;
-    track_config.use_announce = use_announce;
 
     if (use_announce) {
         printf("Using announce flow\n");

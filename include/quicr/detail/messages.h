@@ -82,35 +82,18 @@ namespace quicr::messages {
     };
 
     /**
-     * Possible stream subgroup header types.
-     */
-    enum class StreamHeaderType : uint8_t
-    {
-        kSubgroup0NotEndOfGroupNoExtensions = 0x10,
-        kSubgroup0NotEndOfGroupWithExtensions = 0x11,
-        kSubgroupFirstObjectNotEndOfGroupNoExtensions = 0x12,
-        kSubgroupFirstObjectNotEndOfGroupWithExtensions = 0x13,
-        kSubgroupExplicitNotEndOfGroupNoExtensions = 0x14,
-        kSubgroupExplicitNotEndOfGroupWithExtensions = 0x15,
-        kSubgroup0EndOfGroupNoExtensions = 0x18,
-        kSubgroup0EndOfGroupWithExtensions = 0x19,
-        kSubgroupFirstObjectEndOfGroupNoExtensions = 0x1A,
-        kSubgroupFirstObjectEndOfGroupWithExtensions = 0x1B,
-        kSubgroupExplicitEndOfGroupNoExtensions = 0x1C,
-        kSubgroupExplicitEndOfGroupWithExtensions = 0x1D
-    };
-
-    /**
      * Possible ways of communicating subgroup ID in stream headers.
      */
-    enum class SubgroupIdType
+    enum class SubgroupIdType : std::uint8_t
     {
         // The subgroup ID should be set to zero, and not serialized on the wire.
-        kIsZero,
+        kIsZero = 0b00,
         // The subgroup ID should be set from the first object in the group, and not serialized on the wire.
-        kSetFromFirstObject,
+        kSetFromFirstObject = 0b01,
         // The subgroup ID is explicitly set and serialized on the wire.
-        kExplicit
+        kExplicit = 0b10,
+        // Reserved for future use.
+        kReserved = 0b11
     };
 
     /**
@@ -118,128 +101,72 @@ namespace quicr::messages {
      */
     struct StreamHeaderProperties
     {
-        // The way in which the subgroup ID is serialized & handled.
-        const SubgroupIdType subgroup_id_type;
-        // True if the last object in this subgroup is the end of the group.
-        const bool end_of_group;
         // If true, all objects in this subgroup will have an extension header length serialized (it may be 0).
         // If false, no objects in this subgroup will have extensions, and extension length is not serialized.
-        const bool may_contain_extensions;
+        const bool extensions;
+        // The way in which the subgroup ID is serialized & handled.
+        const SubgroupIdType subgroup_id_mode;
+        // Indicates that this subgroup contains the largest Object in the Group.
+        const bool end_of_group;
+        // If true, the priority field is omitted and the subgroup inherits the publisher priority.
+        // If false, the priority field is present and the subgroup has its own priority.
+        const bool default_priority;
 
-        constexpr StreamHeaderProperties(const SubgroupIdType subgroup_id_type,
+        static constexpr std::uint8_t kExtensionsBit = 0x01;
+        static constexpr std::uint8_t kSubgroupIdBit = 0x06;
+        static constexpr std::uint8_t kEndOfGroupBit = 0x08;
+        static constexpr std::uint8_t kDefaultPriorityBit = 0x20;
+
+        explicit constexpr StreamHeaderProperties(const std::uint64_t type)
+          : extensions(type & kExtensionsBit)
+          , subgroup_id_mode(static_cast<SubgroupIdType>((type & kSubgroupIdBit) >> 1))
+          , end_of_group(type & kEndOfGroupBit)
+          , default_priority(type & kDefaultPriorityBit)
+        {
+            if (!IsValid(type)) {
+                throw ProtocolViolationException("Invalid stream header type");
+            }
+        }
+
+        constexpr StreamHeaderProperties(const bool extensions,
+                                         const SubgroupIdType subgroup_id_mode,
                                          const bool end_of_group,
-                                         const bool may_contain_extensions)
-          : subgroup_id_type(subgroup_id_type)
+                                         const bool default_priority)
+          : extensions(extensions)
+          , subgroup_id_mode(subgroup_id_mode)
           , end_of_group(end_of_group)
-          , may_contain_extensions(may_contain_extensions)
+          , default_priority(default_priority)
         {
-        }
-
-        constexpr StreamHeaderProperties(const StreamHeaderType type)
-          : subgroup_id_type(GetSubgroupIdType(type))
-          , end_of_group(EndOfGroup(type))
-          , may_contain_extensions(MayContainExtensions(type))
-        {
-        }
-
-        /**
-         * Get the type of this stream header based on its properties.
-         * @return The StreamHeaderType corresponding to these properties.
-         */
-        StreamHeaderType GetType() const
-        {
-            switch (subgroup_id_type) {
-                case SubgroupIdType::kIsZero: {
-                    if (end_of_group) {
-                        return may_contain_extensions ? StreamHeaderType::kSubgroup0EndOfGroupWithExtensions
-                                                      : StreamHeaderType::kSubgroup0EndOfGroupNoExtensions;
-                    }
-                    return may_contain_extensions ? StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions
-                                                  : StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions;
-                }
-                case SubgroupIdType::kSetFromFirstObject: {
-                    if (end_of_group) {
-                        return may_contain_extensions ? StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions
-                                                      : StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions;
-                    }
-                    return may_contain_extensions ? StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions
-                                                  : StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions;
-                }
-                case SubgroupIdType::kExplicit: {
-                    if (end_of_group) {
-                        return may_contain_extensions ? StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions
-                                                      : StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions;
-                    }
-                    return may_contain_extensions ? StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions
-                                                  : StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions;
-                }
+            if (subgroup_id_mode == SubgroupIdType::kReserved) {
+                throw ProtocolViolationException("Subgroup ID mode cannot be kReserved");
             }
-            throw ProtocolViolationException("Unknown subgroup header type");
         }
 
-      private:
-        static constexpr bool MayContainExtensions(const StreamHeaderType type)
+        constexpr std::uint64_t GetType() const
         {
-            switch (type) {
-                case StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroup0EndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions:
-                    return false;
-                case StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroup0EndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions:
-                    return true;
+            std::uint64_t type = 0b00010000;
+            if (extensions) {
+                type |= kExtensionsBit;
             }
-            throw ProtocolViolationException("Unknown subgroup header type");
+            type |= static_cast<std::uint64_t>(subgroup_id_mode) << 1;
+            if (end_of_group) {
+                type |= kEndOfGroupBit;
+            }
+            if (default_priority) {
+                type |= kDefaultPriorityBit;
+            }
+            return type;
         }
 
-        static constexpr bool EndOfGroup(const StreamHeaderType type)
+        static constexpr bool IsValid(const std::uint64_t type) noexcept
         {
-            switch (type) {
-                case StreamHeaderType::kSubgroup0EndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroup0EndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions:
-                    return true;
-                case StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions:
-                    return false;
+            if ((type & 0b11010000) != 0b00010000) {
+                return false;
             }
-            throw ProtocolViolationException("Unknown subgroup header type");
-        }
-
-        static constexpr SubgroupIdType GetSubgroupIdType(const StreamHeaderType type)
-        {
-            switch (type) {
-                case StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroup0EndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroup0EndOfGroupWithExtensions:
-                    return SubgroupIdType::kIsZero;
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions:
-                    return SubgroupIdType::kSetFromFirstObject;
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions:
-                case StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions:
-                    return SubgroupIdType::kExplicit;
+            if ((type & 0x06) == 0x06) {
+                return false;
             }
-            throw ProtocolViolationException("Unknown subgroup header type");
+            return true;
         }
     };
 
@@ -339,58 +266,21 @@ namespace quicr::messages {
     /**
      * The possible message types arriving over stream transport.
      */
-    enum class StreamMessageType : uint8_t
+    enum class StreamMessageType
     {
-        kFetchHeader = static_cast<uint8_t>(FetchHeaderType::kFetchHeader),
-        kSubgroup0NotEndOfGroupNoExtensions =
-          static_cast<uint8_t>(StreamHeaderType::kSubgroup0NotEndOfGroupNoExtensions),
-        kSubgroup0NotEndOfGroupWithExtensions =
-          static_cast<uint8_t>(StreamHeaderType::kSubgroup0NotEndOfGroupWithExtensions),
-        kSubgroupFirstObjectNotEndOfGroupNoExtensions =
-          static_cast<uint8_t>(StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupNoExtensions),
-        kSubgroupFirstObjectNotEndOfGroupWithExtensions =
-          static_cast<uint8_t>(StreamHeaderType::kSubgroupFirstObjectNotEndOfGroupWithExtensions),
-        kSubgroupExplicitNotEndOfGroupNoExtensions =
-          static_cast<uint8_t>(StreamHeaderType::kSubgroupExplicitNotEndOfGroupNoExtensions),
-        kSubgroupExplicitNotEndOfGroupWithExtensions =
-          static_cast<uint8_t>(StreamHeaderType::kSubgroupExplicitNotEndOfGroupWithExtensions),
-        kSubgroup0EndOfGroupNoExtensions = static_cast<uint8_t>(StreamHeaderType::kSubgroup0EndOfGroupNoExtensions),
-        kSubgroup0EndOfGroupWithExtensions = static_cast<uint8_t>(StreamHeaderType::kSubgroup0EndOfGroupWithExtensions),
-        kSubgroupFirstObjectEndOfGroupNoExtensions =
-          static_cast<uint8_t>(StreamHeaderType::kSubgroupFirstObjectEndOfGroupNoExtensions),
-        kSubgroupFirstObjectEndOfGroupWithExtensions =
-          static_cast<uint8_t>(StreamHeaderType::kSubgroupFirstObjectEndOfGroupWithExtensions),
-        kSubgroupExplicitEndOfGroupNoExtensions =
-          static_cast<uint8_t>(StreamHeaderType::kSubgroupExplicitEndOfGroupNoExtensions),
-        kSubgroupExplicitEndOfGroupWithExtensions =
-          static_cast<uint8_t>(StreamHeaderType::kSubgroupExplicitEndOfGroupWithExtensions)
+        kFetchHeader,
+        kSubgroupHeader
     };
 
-    /**
-     * Check if the given stream message type is a subgroup header.
-     * @param type The type to query.
-     * @return True if this is a stream subgroup header type, false otherwise.
-     */
-    [[maybe_unused]] static bool TypeIsStreamHeaderType(const StreamMessageType type)
+    [[maybe_unused]] [[nodiscard]] static StreamMessageType GetStreamMessageType(const std::uint64_t type)
     {
-        switch (type) {
-            case StreamMessageType::kSubgroup0NotEndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroup0NotEndOfGroupWithExtensions:
-            case StreamMessageType::kSubgroupFirstObjectNotEndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroupFirstObjectNotEndOfGroupWithExtensions:
-            case StreamMessageType::kSubgroupExplicitNotEndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroupExplicitNotEndOfGroupWithExtensions:
-            case StreamMessageType::kSubgroup0EndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroup0EndOfGroupWithExtensions:
-            case StreamMessageType::kSubgroupFirstObjectEndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroupFirstObjectEndOfGroupWithExtensions:
-            case StreamMessageType::kSubgroupExplicitEndOfGroupNoExtensions:
-            case StreamMessageType::kSubgroupExplicitEndOfGroupWithExtensions:
-                return true;
-            case StreamMessageType::kFetchHeader:
-                return false;
+        if (type == static_cast<std::uint64_t>(FetchHeaderType::kFetchHeader)) {
+            return StreamMessageType::kFetchHeader;
         }
-        throw ProtocolViolationException("Unknown stream header type");
+        if (StreamHeaderProperties::IsValid(type)) {
+            return StreamMessageType::kSubgroupHeader;
+        }
+        throw ProtocolViolationException("Invalid stream header type");
     }
 
     struct FetchHeader
@@ -630,11 +520,11 @@ namespace quicr::messages {
     // SubGroups
     struct StreamHeaderSubGroup
     {
-        StreamHeaderType type;
+        std::optional<StreamHeaderProperties> properties;
         messages::TrackAlias track_alias;
         messages::GroupId group_id;
         std::optional<SubGroupId> subgroup_id;
-        ObjectPriority priority;
+        std::optional<ObjectPriority> priority;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, StreamHeaderSubGroup& msg);
 
@@ -654,7 +544,7 @@ namespace quicr::messages {
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
         Bytes payload;
-        std::optional<StreamHeaderType> stream_type;
+        std::optional<StreamHeaderProperties> properties{};
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, StreamSubGroupObject& msg);
 

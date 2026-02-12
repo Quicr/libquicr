@@ -32,16 +32,7 @@ namespace quicr::example {
         return oss.str();
     }
 
-    /**
-     * @brief Create a full track name using strings for namespace and name
-     *
-     * @param track_namespace           track namespace as a string
-     * @param track_name                track name as a string
-     * @param track_alias               track alias as optional
-     * @return quicr::FullTrackName of the params
-     */
-    static FullTrackName const MakeFullTrackName(const std::string& track_namespace,
-                                                 const std::string& track_name) noexcept
+    static const TrackNamespace MakeTrackNamespace(const std::string& ns)
     {
         const auto split = [](std::string str, const std::string& delimiter) {
             std::vector<std::string> tokens;
@@ -56,8 +47,20 @@ namespace quicr::example {
             return tokens;
         };
 
-        FullTrackName full_track_name{ TrackNamespace{ split(track_namespace, ",") },
-                                       { track_name.begin(), track_name.end() } };
-        return full_track_name;
+        return split(ns, ",");
+    }
+
+    /**
+     * @brief Create a full track name using strings for namespace and name
+     *
+     * @param track_namespace           track namespace as a string
+     * @param track_name                track name as a string
+     * @param track_alias               track alias as optional
+     * @return quicr::FullTrackName of the params
+     */
+    static FullTrackName const MakeFullTrackName(const std::string& track_namespace,
+                                                 const std::string& track_name) noexcept
+    {
+        return { MakeTrackNamespace(track_namespace), { track_name.begin(), track_name.end() } };
     }
 }
