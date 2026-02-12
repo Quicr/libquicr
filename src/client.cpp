@@ -107,6 +107,40 @@ namespace quicr {
         }
     }
 
+    void Client::RequestUpdateReceived(ConnectionHandle connection_handle,
+                                       uint64_t request_id,
+                                       uint64_t existing_request_id,
+                                       std::uint64_t delivery_timeout_ms,
+                                       std::uint8_t priority,
+                                       messages::FilterType filter_type,
+                                       bool forward,
+                                       std::optional<messages::GroupId> end_group_id)
+    {
+        ResolveRequestUpdate(connection_handle, request_id, existing_request_id, std::nullopt);
+    }
+
+    void Client::ResolveRequestUpdate(ConnectionHandle connection_handle,
+                                      uint64_t request_id,
+                                      uint64_t existing_request_id,
+                                      std::optional<messages::Location> largest_location)
+    {
+        auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+        auto track_it = conn_it->second.tracks_by_request_id.find(existing_request_id);
+        if (track_it == conn_it->second.tracks_by_request_id.end()) {
+
+            return SendRequestError(conn_it->second,
+                                    request_id,
+                                    messages::ErrorCode::kDoesNotExist,
+                                    0ms,
+                                    "Found no track for existing request ID");
+        }
+
+        SendRequestOk(conn_it->second, request_id, largest_location);
+    }
+
     void Client::BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler)
     {
         const std::uint64_t request_id = *track_handler->GetRequestId();
@@ -300,11 +334,17 @@ namespace quicr {
                 auto filter_type =
                   msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
+                auto new_group_request_id =
+                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
-                std::optional<uint64_t> new_group_request_id;
-                if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
-                    new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-                }
+                RequestUpdateReceived(conn_ctx.connection_handle,
+                                      msg.request_id,
+                                      msg.existing_request_id,
+                                      delivery_timeout,
+                                      priority,
+                                      filter_type,
+                                      forward,
+                                      new_group_request_id);
 
                 return true;
             }

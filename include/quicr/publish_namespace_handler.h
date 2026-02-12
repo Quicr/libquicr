@@ -106,7 +106,7 @@ namespace quicr {
             SetStatus(Status::kError);
         }
 
-        virtual void RequestOk(std::optional<messages::Location> largest_location) { SetStatus(Status::kOk); }
+        virtual void RequestOk(std::optional<messages::Location>) { SetStatus(Status::kOk); }
 
         virtual void RequestError(messages::ErrorCode error_code, std::string reason)
         {

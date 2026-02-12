@@ -267,6 +267,19 @@ namespace quicr {
 
     void Transport::TrackStatusReceived(ConnectionHandle, uint64_t, const FullTrackName&) {}
 
+    void Transport::RequestUpdateReceived(ConnectionHandle,
+                                          uint64_t,
+                                          uint64_t,
+                                          uint64_t,
+                                          std::uint8_t,
+                                          messages::FilterType,
+                                          bool,
+                                          std::optional<messages::GroupId>)
+    {
+    }
+
+    void Transport::ResolveRequestUpdate(ConnectionHandle, uint64_t, uint64_t, std::optional<messages::Location>) {}
+
     void Transport::ResolveTrackStatus(ConnectionHandle connection_handle,
                                        uint64_t request_id,
                                        const RequestResponse& subscribe_response)
@@ -379,7 +392,7 @@ namespace quicr {
         auto params = Parameters{}.AddOptional(ParameterType::kLargestObject, largest_location);
 
         Bytes buffer;
-        buffer << messages::RequestOk(request_id, {});
+        buffer << messages::RequestOk(request_id, params);
 
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending REQUEST_OK to conn_id: {} request_id: {}", conn_ctx.connection_handle, request_id);

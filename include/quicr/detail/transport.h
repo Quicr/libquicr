@@ -355,6 +355,20 @@ namespace quicr {
                                           uint64_t request_id,
                                           const RequestResponse& response);
 
+        virtual void RequestUpdateReceived(ConnectionHandle connection_handle,
+                                           uint64_t request_id,
+                                           uint64_t existing_request_id,
+                                           std::uint64_t delivery_timeout_ms,
+                                           std::uint8_t priority,
+                                           messages::FilterType filter_type,
+                                           bool forward,
+                                           std::optional<messages::GroupId> end_group_id = std::nullopt);
+
+        virtual void ResolveRequestUpdate(ConnectionHandle connection_handle,
+                                          uint64_t request_id,
+                                          uint64_t existing_request_id,
+                                          std::optional<messages::Location> largest_location = std::nullopt);
+
         ///@}
 
         /// @cond
