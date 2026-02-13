@@ -14,6 +14,7 @@ namespace quicr {
 
         if (is_start) {
             stream.buffer.Clear();
+            state_ = {};
 
             stream.buffer.InitAny<messages::FetchHeader>();
             stream.buffer.Push(*data);

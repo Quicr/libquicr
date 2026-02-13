@@ -17,6 +17,9 @@ namespace quicr {
 
         bool is_stream_header_needed{ !sent_first_header_ };
         sent_first_header_ = true;
+        if (is_stream_header_needed) {
+            serialization_state_ = {};
+        }
 
         const auto request_id = GetRequestId();
         if (!request_id.has_value()) {
