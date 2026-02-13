@@ -474,6 +474,7 @@ namespace quicr::messages {
                 }
                 msg.properties.emplace(FetchSerializationProperties(serialized_flags));
                 msg.current_pos += 1;
+                [[fallthrough]];
             }
             case 1: {
                 if (msg.properties->group_id_present) {
@@ -495,7 +496,7 @@ namespace quicr::messages {
                         msg.subgroup_id = std::nullopt;
                     } else {
                         if (!properties.subgroup_id_mode.has_value()) {
-                            throw new ProtocolViolationException("Unexpectedly missing subgroup mode");
+                            throw ProtocolViolationException("Unexpectedly missing subgroup mode");
                         }
                         switch (*properties.subgroup_id_mode) {
                             case FetchSerializationProperties::FetchSubgroupIdType::kSubgroupZero:

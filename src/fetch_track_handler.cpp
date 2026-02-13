@@ -92,8 +92,9 @@ namespace quicr {
             }
             headers.object_id = *state.prior_object_id + 1;
         }
+        assert(message.properties.has_value());
         const auto& properties = *message.properties;
-        if (!properties.datagram) {
+        if (!properties.datagram && !properties.end_of_range.has_value()) {
             if (!properties.subgroup_id_mode.has_value()) {
                 throw std::invalid_argument("Missing subgroup_id_mode");
             }
@@ -115,8 +116,7 @@ namespace quicr {
                     headers.subgroup_id = 0;
                     break;
                 case messages::FetchSerializationProperties::FetchSubgroupIdType::kSubgroupExplicit:
-                    // TODO: Think about what to do if subgroup_id is not set.
-                    // At this point in the code is this a bug or a protocol violation?
+                    assert(message.subgroup_id.has_value());
                     headers.subgroup_id = *message.subgroup_id;
                     break;
                 default:
