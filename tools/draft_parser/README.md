@@ -124,7 +124,7 @@ Here is the generated header file definition for the SUBSCRIBE message:
         TrackAlias track_alias;
         TrackNamespace track_namespace;
         TrackName track_name;
-        SubscriberPriority subscriber_priority;
+        std::uint8_t subscriber_priority;
         GroupOrder group_order;
         FilterType filter_type;
         std::function<void (Subscribe&)> optional_group_0_cb;

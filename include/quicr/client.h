@@ -83,11 +83,10 @@ namespace quicr {
          *
          * @details Callback notification for a change in publish namespace status
          *
-         * @param track_namespace             Track namespace to publish
+         * @param request_id                  Request ID of the namespace being changed.
          * @param status                      Publish namespace status
          */
-        virtual void PublishNamespaceStatusChanged(const TrackNamespace& track_namespace,
-                                                   const PublishNamespaceStatus status);
+        virtual void PublishNamespaceStatusChanged(messages::RequestID request_id, const PublishNamespaceStatus status);
 
         /**
          * @brief Callback notification for announce received by subscribe announces
@@ -101,9 +100,9 @@ namespace quicr {
         /**
          * @brief Callback notification for publish namespace done received
          *
-         * @param track_namespace       Track namespace
+         * @param request_id Request ID of the track that is done.
          */
-        virtual void PublishNamespaceDoneReceived(const TrackNamespace& track_namespace);
+        virtual void PublishNamespaceDoneReceived(messages::RequestID request_id);
 
         /**
          * Received notification of an interested track. The app must call ResolvePublish()
@@ -141,7 +140,7 @@ namespace quicr {
          * @brief Accept or reject an subscribe that was received
          *
          * @details Accept or reject an subscribe received via SubscribeReceived(). The MoQ Transport
-         *      will send the protocol message based on the SubscribeResponse
+         *      will send the protocol message based on the RequestResponse
          *
          * @param connection_handle        source connection ID
          * @param request_id               request ID
@@ -151,7 +150,7 @@ namespace quicr {
         virtual void ResolveSubscribe(ConnectionHandle connection_handle,
                                       uint64_t request_id,
                                       uint64_t track_alias,
-                                      const SubscribeResponse& subscribe_response);
+                                      const RequestResponse& subscribe_response);
 
         /**
          * @brief Event to run on receiving a Standalone Fetch request.
@@ -201,9 +200,23 @@ namespace quicr {
          */
         virtual void ResolveFetch(ConnectionHandle connection_handle,
                                   uint64_t request_id,
-                                  messages::SubscriberPriority priority,
+                                  std::uint8_t priority,
                                   messages::GroupOrder group_order,
                                   const FetchResponse& response);
+
+        virtual void RequestUpdateReceived(ConnectionHandle connection_handle,
+                                           uint64_t request_id,
+                                           uint64_t existing_request_id,
+                                           std::uint64_t delivery_timeout_ms,
+                                           std::uint8_t priority,
+                                           messages::FilterType filter_type,
+                                           bool forward,
+                                           std::optional<messages::GroupId> end_group_id = std::nullopt) override;
+
+        virtual void ResolveRequestUpdate(ConnectionHandle connection_handle,
+                                          uint64_t request_id,
+                                          uint64_t existing_request_id,
+                                          std::optional<messages::Location> largest_location = std::nullopt) override;
 
         /**
          * @brief Bind a server fetch publisher track handler.

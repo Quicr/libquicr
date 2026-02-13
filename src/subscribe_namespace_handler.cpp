@@ -4,7 +4,8 @@
 #include "quicr/subscribe_track_handler.h"
 
 quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix)
-  : prefix_(prefix)
+  : BaseTrackHandler({ prefix, {} })
+  , prefix_(prefix)
 {
 }
 

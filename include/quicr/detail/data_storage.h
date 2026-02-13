@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "quicr/common.h"
+
 #include <cstdint>
 #include <deque>
 #include <memory>
@@ -11,17 +13,6 @@
 #include <vector>
 
 namespace quicr {
-    template<class T, std::enable_if_t<std::is_standard_layout_v<T>, bool> = true>
-    inline std::span<const uint8_t> AsBytes(const T& value)
-    {
-        return std::span{ reinterpret_cast<const std::uint8_t*>(&value), sizeof(T) };
-    }
-
-    template<>
-    inline std::span<const uint8_t> AsBytes<std::string>(const std::string& value)
-    {
-        return std::span{ reinterpret_cast<const std::uint8_t*>(value.data()), value.size() };
-    }
 
     template<class Allocator = std::allocator<std::uint8_t>>
     class DataStorage : public std::enable_shared_from_this<DataStorage<Allocator>>

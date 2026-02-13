@@ -13,10 +13,10 @@ namespace quicr {
 
     class Transport;
 
-    class SubscribeNamespaceHandler
+    class SubscribeNamespaceHandler : public BaseTrackHandler
     {
       public:
-        using Error = std::pair<messages::SubscribeNamespaceErrorCode, messages::ReasonPhrase>;
+        using Error = std::pair<messages::ErrorCode, messages::ReasonPhrase>;
 
         /**
          * @brief  Status codes for the subscribe track
@@ -87,7 +87,7 @@ namespace quicr {
                 const std::string reason = "Unknown error";
 
                 error_ = {
-                    messages::SubscribeNamespaceErrorCode::kInternalError,
+                    messages::ErrorCode::kInternalError,
                     Bytes{ reason.begin(), reason.end() },
                 };
             }
@@ -98,6 +98,13 @@ namespace quicr {
         {
             error_ = error;
             SetStatus(Status::kError);
+        }
+
+        virtual void RequestOk(std::optional<messages::Location>) { SetStatus(Status::kOk); }
+
+        virtual void RequestError(messages::ErrorCode error_code, std::string reason)
+        {
+            SetError(Error{ error_code, Bytes{ reason.begin(), reason.end() } });
         }
 
       private:

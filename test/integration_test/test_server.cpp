@@ -105,7 +105,7 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
         ResolveSubscribe(connection_handle,
                          request_id,
                          track_alias,
-                         { .reason_code = SubscribeResponse::ReasonCode::kOk,
+                         { .reason_code = RequestResponse::ReasonCode::kOk,
                            .is_publisher_initiated = subscribe_attributes.is_publisher_initiated });
     }
 
