@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 @dataclass
 class Field:
-    """Messgae field class."""
+    """Message field class."""
 
     name: str
     field_type: str
@@ -26,7 +26,7 @@ class Field:
 
 
 class MessageSpec:
-    """Messgae specification class."""
+    """Message specification class."""
 
     def __init__(
         self,

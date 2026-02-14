@@ -39,9 +39,9 @@ TestClient::PublishReceived(quicr::ConnectionHandle connection_handle,
 }
 
 void
-TestClient::PublishNamespaceStatusChanged(const TrackNamespace& track_namespace, const PublishNamespaceStatus status)
+TestClient::PublishNamespaceStatusChanged(quicr::messages::RequestID request_id, const PublishNamespaceStatus status)
 {
     if (publish_namespace_status_changed_ && status == PublishNamespaceStatus::kOK) {
-        publish_namespace_status_changed_->set_value(track_namespace);
+        publish_namespace_status_changed_->set_value(request_id);
     }
 }

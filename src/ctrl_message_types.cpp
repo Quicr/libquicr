@@ -138,20 +138,6 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, FetchErrorCode value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, FetchErrorCode& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<FetchErrorCode>(uvalue);
-        return buffer;
-    }
-
     Bytes& operator<<(Bytes& buffer, PublishDoneStatusCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
@@ -166,31 +152,17 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, SubscribeErrorCode value)
+    Bytes& operator<<(Bytes& buffer, ErrorCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, SubscribeErrorCode& value)
+    BytesSpan operator>>(BytesSpan buffer, ErrorCode& value)
     {
         std::uint64_t uvalue;
         buffer = buffer >> uvalue;
-        value = static_cast<SubscribeErrorCode>(uvalue);
-        return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, SubscribeNamespaceErrorCode value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, SubscribeNamespaceErrorCode& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<SubscribeNamespaceErrorCode>(uvalue);
+        value = static_cast<ErrorCode>(uvalue);
         return buffer;
     }
 
@@ -231,6 +203,59 @@ namespace quicr::messages {
         return buffer;
     }
 
+    Bytes& operator<<(Bytes& buffer, const TrackExtensions& extensions)
+    {
+        // Calculate total length of extension headers
+        std::size_t total_length = 0;
+        std::vector<KeyValuePair<std::uint64_t>> kvps;
+        for (const auto& [key, value] : extensions) {
+            const auto kvp = KeyValuePair<std::uint64_t>{ key, value };
+            const auto size = kvp.Size();
+            total_length += size;
+            kvps.push_back(kvp);
+        }
+
+        // Total length of all extension headers (varint).
+        buffer << static_cast<std::uint64_t>(total_length);
+
+        // Write the KVP extensions.
+        for (const auto& kvp : kvps) {
+            buffer << kvp;
+        }
+
+        return buffer;
+    }
+
+    BytesSpan operator>>(BytesSpan buffer, TrackExtensions& extensions)
+    {
+        std::uint64_t length = 0;
+        buffer = buffer >> length;
+
+        while (length != 0) {
+            KeyValuePair<std::uint64_t> kvp;
+            buffer = buffer >> kvp;
+            length -= kvp.Size();
+
+            extensions.extensions[kvp.type] = std::move(kvp.value);
+        }
+
+        if (extensions.extensions.contains(static_cast<std::uint64_t>(ExtensionType::kImmutable))) {
+            BytesSpan bytes = extensions.extensions.at(static_cast<std::uint64_t>(ExtensionType::kImmutable));
+
+            while (!bytes.empty()) {
+                KeyValuePair<std::uint64_t> kvp;
+                bytes >> kvp;
+                length -= kvp.Size();
+
+                extensions.immutable_extensions[kvp.type] =
+                  bytes.subspan(+UintVar(static_cast<std::uint64_t>(kvp.type)).size(), kvp.Size());
+                bytes = bytes.subspan(kvp.Size());
+            }
+        }
+
+        return buffer;
+    }
+
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& ns)
     {
         const auto& entries = ns.GetEntries();
@@ -258,5 +283,4 @@ namespace quicr::messages {
 
         return buffer;
     }
-
 }

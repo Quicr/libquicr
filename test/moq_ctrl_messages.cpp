@@ -88,17 +88,32 @@ VerifyCtrl(BytesSpan buffer, uint64_t message_type, T& message)
     return true;
 }
 
-TEST_CASE("PublishNamespaceOk Message encode/decode")
+TEST_CASE("RequestOk Message encode/decode")
+{
+    auto request_ok = RequestOk{ 0x1234, {} };
+    Bytes buffer;
+    buffer << request_ok;
+
+    RequestOk request_ok_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kRequestOk), request_ok_out));
+    CHECK_EQ(0x1234, request_ok_out.request_id);
+}
+
+TEST_CASE("RequestError Message encode/decode")
 {
     Bytes buffer;
 
-    auto publish_namespace_ok = PublishNamespaceOk();
-    publish_namespace_ok.request_id = 0x1234;
-    buffer << publish_namespace_ok;
+    auto request_err = RequestError{};
+    request_err.request_id = 0x1234;
+    request_err.error_code = quicr::messages::ErrorCode::kNotSupported;
+    request_err.error_reason = Bytes{ 0x1, 0x2, 0x3 };
+    buffer << request_err;
 
-    PublishNamespaceOk publish_namespace_ok_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceOk), publish_namespace_ok_out));
-    CHECK_EQ(0x1234, publish_namespace_ok_out.request_id);
+    RequestError request_err_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kRequestError), request_err_out));
+    CHECK_EQ(0x1234, request_err_out.request_id);
+    CHECK_EQ(request_err_out.error_code, request_err_out.error_code);
+    CHECK_EQ(request_err_out.error_reason, request_err_out.error_reason);
 }
 
 TEST_CASE("PublishNamespace Message encode/decode")
@@ -121,31 +136,13 @@ TEST_CASE("PublishNamespaceDoneMessage encode/decode")
     Bytes buffer;
 
     auto publish_namespace_done = PublishNamespaceDone{};
-    publish_namespace_done.track_namespace = kTrackNamespaceConf;
+    publish_namespace_done.request_id = 0x1234;
     buffer << publish_namespace_done;
 
     PublishNamespaceDone publish_namespace_done_out;
     CHECK(
       VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceDone), publish_namespace_done_out));
-    CHECK_EQ(kTrackNamespaceConf, publish_namespace_done_out.track_namespace);
-}
-
-TEST_CASE("PublishNamespaceError Message encode/decode")
-{
-    Bytes buffer;
-
-    auto publish_namespace_err = PublishNamespaceError{};
-    publish_namespace_err.request_id = 0x1234;
-    publish_namespace_err.error_code = quicr::messages::PublishNamespaceErrorCode::kNotSupported;
-    publish_namespace_err.error_reason = Bytes{ 0x1, 0x2, 0x3 };
-    buffer << publish_namespace_err;
-
-    PublishNamespaceError publish_namespace_err_out;
-    CHECK(
-      VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceError), publish_namespace_err_out));
-    CHECK_EQ(0x1234, publish_namespace_err_out.request_id);
-    CHECK_EQ(publish_namespace_err_out.error_code, publish_namespace_err_out.error_code);
-    CHECK_EQ(publish_namespace_err_out.error_reason, publish_namespace_err_out.error_reason);
+    CHECK_EQ(0x1234, publish_namespace_done_out.request_id);
 }
 
 TEST_CASE("PublishNamespaceCancel Message encode/decode")
@@ -153,449 +150,76 @@ TEST_CASE("PublishNamespaceCancel Message encode/decode")
     Bytes buffer;
 
     auto publish_namespace_cancel = PublishNamespaceCancel{};
-    publish_namespace_cancel.track_namespace = kTrackNamespaceConf;
+    publish_namespace_cancel.request_id = 0x1234;
+    publish_namespace_cancel.error_code = ErrorCode::kInternalError;
     buffer << publish_namespace_cancel;
 
     PublishNamespaceCancel publish_namespace_cancel_out;
     CHECK(VerifyCtrl(
       buffer, static_cast<uint64_t>(ControlMessageType::kPublishNamespaceCancel), publish_namespace_cancel_out));
-    CHECK_EQ(publish_namespace_cancel.track_namespace, publish_namespace_cancel_out.track_namespace);
+    CHECK_EQ(publish_namespace_cancel.request_id, publish_namespace_cancel_out.request_id);
     CHECK_EQ(publish_namespace_cancel.error_code, publish_namespace_cancel_out.error_code);
     CHECK_EQ(publish_namespace_cancel.error_reason, publish_namespace_cancel_out.error_reason);
 }
 
-TEST_CASE("Subscribe (kLatestObject) Message encode/decode")
+TEST_CASE("Subscribe Message encode/decode")
 {
+    auto params = Parameters{}
+                    .Add(messages::ParameterType::kSubscriberPriority, 1)
+                    .Add(messages::ParameterType::kGroupOrder, GroupOrder::kAscending)
+                    .Add(messages::ParameterType::kSubscriptionFilter, FilterType::kLargestObject);
+
     Bytes buffer;
-    auto subscribe = quicr::messages::Subscribe{
-        0x1, kTrackNamespaceConf,        kTrackNameAliceVideo, 0x10,         GroupOrder::kAscending,
-        1,   FilterType::kLargestObject, std::nullopt,         std::nullopt, {}
-    };
+    auto subscribe = quicr::messages::Subscribe{ 0x1, kTrackNamespaceConf, kTrackNameAliceVideo, params };
 
     buffer << subscribe;
 
-    Subscribe subscribe_out(
-      [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kLargestObject) {
-              // do nothing...
-          }
-      },
-      [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kNextGroupStart) {
-              // again
-          }
-      });
+    Subscribe subscribe_out{};
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
     CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
     CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.subscriber_priority, subscribe_out.subscriber_priority);
-    CHECK_EQ(subscribe.group_order, subscribe_out.group_order);
-    CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-}
-
-TEST_CASE("Subscribe (kLatestGroup) Message encode/decode")
-{
-    Bytes buffer;
-    auto subscribe = quicr::messages::Subscribe(0x1,
-                                                kTrackNamespaceConf,
-                                                kTrackNameAliceVideo,
-                                                0x10,
-                                                GroupOrder::kAscending,
-                                                1,
-                                                FilterType::kLargestObject,
-                                                std::nullopt,
-                                                std::nullopt,
-                                                {});
-
-    buffer << subscribe;
-
-    auto subscribe_out = Subscribe(
-      [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kLargestObject) {
-              // do nothing...
-          }
-      },
-      [](Subscribe& msg) {
-          if (msg.filter_type == FilterType::kNextGroupStart) {
-              // again
-          }
-      });
-
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
-    CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
-    CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-    CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-}
-
-TEST_CASE("Subscribe (kAbsoluteStart) Message encode/decode")
-{
-    Bytes buffer;
-
-    auto group_0 = std::make_optional<Subscribe::Group_0>();
-    group_0->start_location = { 0x1000, 0xFF };
-
-    auto subscribe = quicr::messages::Subscribe(0x1,
-                                                kTrackNamespaceConf,
-                                                kTrackNameAliceVideo,
-                                                0x10,
-                                                GroupOrder::kAscending,
-                                                1,
-                                                FilterType::kAbsoluteStart,
-                                                group_0,
-                                                std::nullopt,
-                                                {});
-
-    buffer << subscribe;
-
-    auto subscribe_out = Subscribe(
-      [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterType::kAbsoluteStart ||
-              subscribe.filter_type == FilterType::kAbsoluteRange) {
-              subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
-          }
-      },
-      [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterType::kAbsoluteRange) {
-              subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
-          }
-      });
-
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
-    CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
-    CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-    CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    CHECK_EQ(subscribe.group_0->start_location.group, subscribe_out.group_0->start_location.group);
-    CHECK_EQ(subscribe.group_0->start_location.object, subscribe_out.group_0->start_location.object);
-}
-
-TEST_CASE("Subscribe (kAbsoluteRange) Message encode/decode")
-{
-    Bytes buffer;
-
-    auto group_0 = std::make_optional<Subscribe::Group_0>();
-    if (group_0.has_value()) {
-        group_0->start_location = { 0x1000, 0x1 };
-    }
-    auto group_1 = std::make_optional<Subscribe::Group_1>();
-    if (group_1.has_value()) {
-        group_1->end_group = 0xFFF;
-    }
-
-    auto subscribe = quicr::messages::Subscribe(0x1,
-                                                kTrackNamespaceConf,
-                                                kTrackNameAliceVideo,
-                                                0x10,
-                                                GroupOrder::kAscending,
-                                                1,
-                                                FilterType::kAbsoluteRange,
-                                                group_0,
-                                                group_1,
-                                                {});
-
-    buffer << subscribe;
-
-    auto subscribe_out = Subscribe(
-      [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterType::kAbsoluteStart ||
-              subscribe.filter_type == FilterType::kAbsoluteRange) {
-              subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
-          }
-      },
-      [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterType::kAbsoluteRange) {
-              subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
-          }
-      });
-
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
-    CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
-    CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-    CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    CHECK_EQ(subscribe.group_0->start_location.group, subscribe_out.group_0->start_location.group);
-    CHECK_EQ(subscribe.group_0->start_location.object, subscribe_out.group_0->start_location.object);
-    CHECK_EQ(subscribe.group_1->end_group, subscribe_out.group_1->end_group);
-}
-
-TEST_CASE("Subscribe (Params) Message encode/decode")
-{
-    Bytes buffer;
-
-    Parameter param1;
-    param1.type = ParameterType::kAuthorizationToken;
-    param1.value = { 0x1, 0x2 };
-
-    Parameter param2;
-    param2.type = ParameterType::kAuthorizationToken;
-    param2.value = { 0x1, 0x2, 0x3 };
-
-    Parameters params = { param1, param2 };
-
-    auto subscribe = quicr::messages::Subscribe(0x1,
-                                                kTrackNamespaceConf,
-                                                kTrackNameAliceVideo,
-                                                0x10,
-                                                GroupOrder::kAscending,
-                                                1,
-                                                FilterType::kLargestObject,
-                                                std::nullopt,
-                                                std::nullopt,
-                                                params);
-
-    buffer << subscribe;
-
-    auto subscribe_out = Subscribe(
-      [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterType::kAbsoluteStart ||
-              subscribe.filter_type == FilterType::kAbsoluteRange) {
-              subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
-          }
-      },
-      [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterType::kAbsoluteRange) {
-              subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
-          }
-      }
-
-    );
-
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
-    CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
-    CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-    CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    REQUIRE_EQ(subscribe.parameters.size(), 2);
-    REQUIRE_EQ(subscribe.parameters.size(), subscribe_out.parameters.size());
-    CHECK_EQ(subscribe.parameters[0], subscribe_out.parameters[0]);
-}
-
-TEST_CASE("Subscribe (Params - 2) Message encode/decode")
-{
-    Bytes buffer;
-    Parameter param1;
-    param1.type = ParameterType::kAuthorizationToken;
-    param1.value = { 0x1, 0x2 };
-
-    Parameter param2;
-    param2.type = ParameterType::kAuthorizationToken;
-    param2.value = { 0x1, 0x2, 0x3 };
-
-    Parameters params = { param1, param2 };
-
-    auto subscribe = quicr::messages::Subscribe(0x1,
-                                                kTrackNamespaceConf,
-                                                kTrackNameAliceVideo,
-                                                0x10,
-                                                GroupOrder::kAscending,
-                                                1,
-                                                FilterType::kLargestObject,
-                                                std::nullopt,
-                                                std::nullopt,
-                                                params);
-
-    buffer << subscribe;
-
-    auto subscribe_out = Subscribe(
-      [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterType::kAbsoluteStart ||
-              subscribe.filter_type == FilterType::kAbsoluteRange) {
-              subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
-          }
-      },
-      [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterType::kAbsoluteRange) {
-              subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
-          }
-      }
-
-    );
-
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
-    CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
-    CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-    CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
-    CHECK_EQ(subscribe.filter_type, subscribe_out.filter_type);
-    REQUIRE_EQ(subscribe.parameters.size(), 2);
-    REQUIRE_EQ(subscribe.parameters.size(), subscribe_out.parameters.size());
-    CHECK_EQ(subscribe.parameters[0], subscribe_out.parameters[0]);
-    CHECK_EQ(subscribe.parameters[1], subscribe_out.parameters[1]);
-}
-
-Subscribe
-GenerateSubscribe(FilterType filter, size_t num_params = 0, uint64_t sg = 0, uint64_t so = 0, uint64_t eg = 0)
-{
-    auto out = Subscribe(
-      [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterType::kAbsoluteStart ||
-              subscribe.filter_type == FilterType::kAbsoluteRange) {
-              subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
-          }
-      },
-      [](Subscribe& subscribe) {
-          if (subscribe.filter_type == FilterType::kAbsoluteRange) {
-              subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
-          }
-      });
-    out.request_id = 0xABCD;
-    out.track_namespace = kTrackNamespaceConf;
-    out.track_name = kTrackNameAliceVideo;
-    out.filter_type = filter;
-    switch (filter) {
-        case FilterType::kLargestObject:
-        case FilterType::kNextGroupStart:
-            break;
-        case FilterType::kAbsoluteStart:
-            out.group_0 = std::make_optional<Subscribe::Group_0>();
-            out.group_0->start_location = { sg, so };
-            break;
-        case FilterType::kAbsoluteRange:
-            out.group_0 = std::make_optional<Subscribe::Group_0>();
-            out.group_0->start_location = { sg, so };
-            out.group_1 = std::make_optional<Subscribe::Group_1>();
-            out.group_1->end_group = eg;
-            break;
-        default:
-            break;
-    }
-
-    while (num_params > 0) {
-        Parameter param1;
-        param1.type = ParameterType::kDeliveryTimeout;
-        param1.value = { 0x1, 0x2 };
-        out.parameters.push_back(param1);
-        num_params--;
-    }
-    return out;
-}
-
-TEST_CASE("Subscribe (Combo) Message encode/decode")
-{
-    auto subscribes = std::vector<Subscribe>{
-        GenerateSubscribe(FilterType::kLargestObject),
-        GenerateSubscribe(FilterType::kNextGroupStart),
-        GenerateSubscribe(FilterType::kLargestObject, 1),
-        GenerateSubscribe(FilterType::kNextGroupStart, 2),
-        GenerateSubscribe(FilterType::kAbsoluteStart, 0, 0x100, 0x2),
-        GenerateSubscribe(FilterType::kAbsoluteStart, 2, 0x100, 0x2),
-        GenerateSubscribe(FilterType::kAbsoluteRange, 0, 0x100, 0x2, 0x500),
-        GenerateSubscribe(FilterType::kAbsoluteRange, 2, 0x100, 0x2, 0x500),
-    };
-
-    for (size_t i = 0; i < subscribes.size(); i++) {
-        Bytes buffer;
-        buffer << subscribes[i];
-        auto subscribe_out = Subscribe(
-          [](Subscribe& subscribe) {
-              if (subscribe.filter_type == FilterType::kAbsoluteStart ||
-                  subscribe.filter_type == FilterType::kAbsoluteRange) {
-                  subscribe.group_0 = std::make_optional<Subscribe::Group_0>();
-              }
-          },
-          [](Subscribe& subscribe) {
-              if (subscribe.filter_type == FilterType::kAbsoluteRange) {
-                  subscribe.group_1 = std::make_optional<Subscribe::Group_1>();
-              }
-          });
-
-        CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribe), subscribe_out));
-        CHECK_EQ(kTrackNamespaceConf, subscribe_out.track_namespace);
-        CHECK_EQ(kTrackNameAliceVideo, subscribe_out.track_name);
-        CHECK_EQ(subscribes[i].request_id, subscribe_out.request_id);
-        CHECK_EQ(subscribes[i].filter_type, subscribe_out.filter_type);
-        CHECK_EQ(subscribes[i].parameters.size(), subscribe_out.parameters.size());
-        for (size_t j = 0; j < subscribes[i].parameters.size(); j++) {
-            CHECK_EQ(subscribes[i].parameters[j], subscribe_out.parameters[j]);
-        }
-    }
-}
-
-TEST_CASE("SubscribeUpdate Message encode/decode")
-{
-    Bytes buffer;
-
-    auto subscribe_update = SubscribeUpdate{};
-    subscribe_update.request_id = 0x1;
-    subscribe_update.start_location = { uint64_t(0x1000), uint64_t(0x100) };
-    subscribe_update.end_group = uint64_t(0x2000);
-    subscribe_update.subscriber_priority = static_cast<SubscriberPriority>(0x10);
-
-    buffer << subscribe_update;
-
-    SubscribeUpdate subscribe_update_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeUpdate), subscribe_update_out));
-    CHECK_EQ(0x1000, subscribe_update_out.start_location.group);
-    CHECK_EQ(0x100, subscribe_update_out.start_location.object);
-    CHECK_EQ(subscribe_update.request_id, subscribe_update_out.request_id);
-    CHECK_EQ(0x2000, subscribe_update_out.end_group);
-    CHECK_EQ(subscribe_update.subscriber_priority, subscribe_update_out.subscriber_priority);
+    CHECK_EQ(1, subscribe_out.parameters.Get<std::uint8_t>(messages::ParameterType::kSubscriberPriority));
+    CHECK_EQ(GroupOrder::kAscending, subscribe_out.parameters.Get<GroupOrder>(messages::ParameterType::kGroupOrder));
+    CHECK_EQ(FilterType::kLargestObject,
+             subscribe_out.parameters.Get<FilterType>(messages::ParameterType::kSubscriptionFilter));
 }
 
 TEST_CASE("SubscribeOk Message encode/decode")
 {
+    auto params = Parameters{}
+                    .Add(messages::ParameterType::kExpires, 1234)
+                    .Add(messages::ParameterType::kLargestObject, Location{ .group = 10, .object = 5 });
+
+    auto extensions = TrackExtensions{}
+                        .Add(ExtensionType::kDeliveryTimeout, 0)
+                        .Add(ExtensionType::kMaxCacheDuration, 0)
+                        .AddImmutable(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending)
+                        .Add(ExtensionType::kDefaultPublisherPriority, 1)
+                        .AddImmutable(ExtensionType::kDynamicGroups, true);
+
     Bytes buffer;
     const auto track_alias = uint64_t(kTrackAliasAliceVideo);
-    auto subscribe_ok = SubscribeOk(0x1, track_alias, 0, GroupOrder::kAscending, false, std::nullopt, {});
+    auto subscribe_ok = SubscribeOk(0x1, track_alias, params, extensions);
 
     buffer << subscribe_ok;
 
-    auto subscribe_ok_out = SubscribeOk([](SubscribeOk& msg) {
-        if (msg.content_exists == 1) {
-            msg.group_0 = std::make_optional<SubscribeOk::Group_0>();
-        }
-    });
+    auto subscribe_ok_out = SubscribeOk{};
 
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeOk), subscribe_ok_out));
     CHECK_EQ(subscribe_ok.request_id, subscribe_ok_out.request_id);
     CHECK_EQ(subscribe_ok.track_alias, subscribe_ok_out.track_alias);
-    CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
-    CHECK_EQ(subscribe_ok.group_order, subscribe_ok_out.group_order);
-    CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
-}
 
-TEST_CASE("SubscribeOk (content-exists) Message encode/decode")
-{
-    Bytes buffer;
+    CHECK_EQ(1234, subscribe_ok_out.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires));
+    CHECK_EQ(10, subscribe_ok_out.parameters.Get<Location>(messages::ParameterType::kLargestObject).group);
+    CHECK_EQ(5, subscribe_ok_out.parameters.Get<Location>(messages::ParameterType::kLargestObject).object);
 
-    auto group_0 = std::make_optional<SubscribeOk::Group_0>();
-    group_0->largest_location = { 100, 200 };
-
-    auto subscribe_ok = SubscribeOk(0x01, 0x1000, 0, GroupOrder::kAscending, 1, group_0, {});
-
-    buffer << subscribe_ok;
-
-    auto subscribe_ok_out = SubscribeOk([](SubscribeOk& msg) {
-        if (msg.content_exists == 1) {
-            msg.group_0 = std::make_optional<SubscribeOk::Group_0>();
-        }
-    });
-
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeOk), subscribe_ok_out));
-    CHECK_EQ(subscribe_ok.request_id, subscribe_ok_out.request_id);
-    CHECK_EQ(subscribe_ok.expires, subscribe_ok_out.expires);
-    CHECK_EQ(subscribe_ok.content_exists, subscribe_ok_out.content_exists);
-    CHECK_EQ(subscribe_ok.group_0.has_value(), subscribe_ok_out.group_0.has_value());
-    CHECK_EQ(subscribe_ok.group_0->largest_location.group, subscribe_ok_out.group_0->largest_location.group);
-    CHECK_EQ(subscribe_ok.group_0->largest_location.object, subscribe_ok_out.group_0->largest_location.object);
-}
-
-TEST_CASE("Error  Message encode/decode")
-{
-    Bytes buffer;
-
-    auto subscribe_err = SubscribeError{};
-    subscribe_err.request_id = 0x1;
-    subscribe_err.error_code = quicr::messages::SubscribeErrorCode::kTrackDoesNotExist;
-    subscribe_err.error_reason = Bytes{ 0x0, 0x1 };
-    buffer << subscribe_err;
-
-    SubscribeError subscribe_err_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeError), subscribe_err_out));
-    CHECK_EQ(subscribe_err.request_id, subscribe_err_out.request_id);
-    CHECK_EQ(subscribe_err.error_code, subscribe_err_out.error_code);
-    CHECK_EQ(subscribe_err.error_reason, subscribe_err_out.error_reason);
+    CHECK_EQ(0, subscribe_ok_out.track_extensions.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout));
+    CHECK_EQ(0, subscribe_ok_out.track_extensions.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration));
+    CHECK_EQ(1, subscribe_ok_out.track_extensions.Get<std::uint64_t>(ExtensionType::kDefaultPublisherPriority));
+    CHECK_EQ(GroupOrder::kAscending,
+             subscribe_ok_out.track_extensions.GetImmutable<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder));
+    CHECK_EQ(true, subscribe_ok_out.track_extensions.GetImmutable<bool>(ExtensionType::kDynamicGroups));
 }
 
 TEST_CASE("Unsubscribe  Message encode/decode")
@@ -632,55 +256,34 @@ TEST_CASE("PublishDone  Message encode/decode")
     CHECK_EQ(publish_done.error_reason, publish_done_out.error_reason);
 }
 
-TEST_CASE("PublishDone (content-exists)  Message encode/decode")
-{
-    Bytes buffer;
-
-    auto publish_done = PublishDone{};
-    publish_done.request_id = 0x1;
-    publish_done.status_code = quicr::messages::PublishDoneStatusCode::kGoingAway;
-    publish_done.stream_count = 0x0;
-    publish_done.error_reason = Bytes{ 0x0 };
-
-    buffer << publish_done;
-
-    PublishDone publish_done_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishDone), publish_done_out));
-    CHECK_EQ(publish_done.request_id, publish_done_out.request_id);
-    CHECK_EQ(publish_done.status_code, publish_done_out.status_code);
-    CHECK_EQ(publish_done.stream_count, publish_done_out.stream_count);
-    CHECK_EQ(publish_done.error_reason, publish_done_out.error_reason);
-}
-
 TEST_CASE("ClientSetup  Message encode/decode")
 {
     Bytes buffer;
 
     const std::string endpoint_id = "client test";
 
-    auto client_setup = ClientSetup(
-      { 0x1000, 0x2000 }, { { SetupParameterType::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
+    auto params = SetupParameters{}.Add(SetupParameterType::kEndpointId, endpoint_id);
+
+    auto client_setup = ClientSetup{ params };
     buffer << client_setup;
 
     ClientSetup client_setup_out = {};
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kClientSetup), client_setup_out));
-    CHECK_EQ(client_setup.supported_versions, client_setup_out.supported_versions);
-    CHECK_EQ(client_setup.setup_parameters[0], client_setup_out.setup_parameters[0]);
+    CHECK_EQ(endpoint_id, client_setup_out.setup_parameters.Get<std::string>(SetupParameterType::kEndpointId));
 }
 
 TEST_CASE("ServerSetup  Message encode/decode")
 {
     const std::string endpoint_id = "server_test";
-    auto server_setup =
-      ServerSetup(0x1000, { { SetupParameterType::kEndpointId, Bytes(endpoint_id.begin(), endpoint_id.end()) } });
+    auto params = SetupParameters{}.Add(SetupParameterType::kEndpointId, endpoint_id);
+    auto server_setup = ServerSetup{ params };
 
     Bytes buffer;
     buffer << server_setup;
 
     ServerSetup server_setup_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kServerSetup), server_setup_out));
-    CHECK_EQ(server_setup.selected_version, server_setup_out.selected_version);
-    CHECK_EQ(server_setup.setup_parameters[0], server_setup.setup_parameters[0]);
+    CHECK_EQ(endpoint_id, server_setup_out.setup_parameters.Get<std::string>(SetupParameterType::kEndpointId));
 }
 
 TEST_CASE("Goaway Message encode/decode")
@@ -709,7 +312,11 @@ TEST_CASE("Fetch Message encode/decode")
         group_0->standalone.end.group = 0x2000;
         group_0->standalone.end.object = 0x100;
     }
-    auto fetch = Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kStandalone, group_0, std::nullopt, {});
+
+    auto params =
+      Parameters{}.Add(ParameterType::kSubscriberPriority, 2).Add(ParameterType::kGroupOrder, GroupOrder::kAscending);
+
+    auto fetch = Fetch(0x10, FetchType::kStandalone, group_0, std::nullopt, params);
 
     buffer << fetch;
     {
@@ -727,8 +334,8 @@ TEST_CASE("Fetch Message encode/decode")
 
         CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetch), fetch_out));
         CHECK_EQ(fetch.request_id, fetch_out.request_id);
-        CHECK_EQ(fetch.subscriber_priority, fetch_out.subscriber_priority);
-        CHECK_EQ(fetch.group_order, fetch_out.group_order);
+        CHECK_EQ(2, fetch_out.parameters.Get<std::uint8_t>(ParameterType::kSubscriberPriority));
+        CHECK_EQ(GroupOrder::kAscending, fetch_out.parameters.Get<GroupOrder>(ParameterType::kGroupOrder));
         CHECK_EQ(fetch.fetch_type, fetch_out.fetch_type);
 
         CHECK_EQ(fetch.group_0->standalone.track_namespace, fetch_out.group_0->standalone.track_namespace);
@@ -745,7 +352,7 @@ TEST_CASE("Fetch Message encode/decode")
         group_1->joining.joining_start = 0x0;
     }
 
-    fetch = Fetch(0x10, 1, GroupOrder::kAscending, FetchType::kRelativeJoiningFetch, std::nullopt, group_1, {});
+    fetch = Fetch(0x10, FetchType::kRelativeJoiningFetch, std::nullopt, group_1, params);
 
     buffer << fetch;
     {
@@ -769,21 +376,31 @@ TEST_CASE("Fetch Message encode/decode")
 
 TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
 {
-    Bytes buffer;
-
     auto fetch_ok = FetchOk{};
     fetch_ok.request_id = 0x1234;
-    fetch_ok.group_order = GroupOrder::kDescending;
     fetch_ok.end_location = { 0x9999, 0x9991 };
+    fetch_ok.track_extensions = TrackExtensions{}
+                                  .Add(ExtensionType::kDeliveryTimeout, 0)
+                                  .Add(ExtensionType::kMaxCacheDuration, 0)
+                                  .Add(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending)
+                                  .Add(ExtensionType::kDefaultPublisherPriority, 1)
+                                  .Add(ExtensionType::kDynamicGroups, true);
 
+    Bytes buffer;
     buffer << fetch_ok;
 
     FetchOk fetch_ok_out{};
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchOk), fetch_ok_out));
     CHECK_EQ(fetch_ok.request_id, fetch_ok_out.request_id);
-    CHECK_EQ(fetch_ok.group_order, fetch_ok_out.group_order);
     CHECK_EQ(fetch_ok.end_location.group, fetch_ok_out.end_location.group);
     CHECK_EQ(fetch_ok.end_location.object, fetch_ok_out.end_location.object);
+
+    CHECK_EQ(0, fetch_ok.track_extensions.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout));
+    CHECK_EQ(0, fetch_ok.track_extensions.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration));
+    CHECK_EQ(1, fetch_ok.track_extensions.Get<std::uint64_t>(ExtensionType::kDefaultPublisherPriority));
+    CHECK_EQ(GroupOrder::kAscending,
+             fetch_ok.track_extensions.Get<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder));
+    CHECK_EQ(true, fetch_ok.track_extensions.Get<bool>(ExtensionType::kDynamicGroups));
 
     buffer.clear();
     auto fetch_cancel = FetchCancel{};
@@ -794,18 +411,6 @@ TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
     FetchCancel fetch_cancel_out;
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchCancel), fetch_cancel_out));
     CHECK_EQ(fetch_cancel.request_id, fetch_cancel_out.request_id);
-
-    buffer.clear();
-    auto fetch_error = FetchError{};
-    fetch_error.request_id = 0x1111;
-    fetch_error.error_code = quicr::messages::FetchErrorCode::kInternalError;
-
-    buffer << fetch_error;
-
-    FetchError fetch_error_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kFetchError), fetch_error_out));
-    CHECK_EQ(fetch_error.request_id, fetch_error_out.request_id);
-    CHECK_EQ(fetch_error.error_code, fetch_error_out.error_code);
 }
 
 TEST_CASE("SubscribesBlocked Message encode/decode")
@@ -833,161 +438,80 @@ TEST_CASE("Subscribe Namespaces encode/decode")
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeNamespace), msg_out));
     CHECK_EQ(msg.track_namespace_prefix, msg_out.track_namespace_prefix);
 }
-
-TEST_CASE("Subscribe Namespace Ok encode/decode")
+TEST_CASE("Namespace Done encode/decode")
 {
     Bytes buffer;
 
-    auto msg = SubscribeNamespaceOk{};
-    msg.request_id = 0x1234;
+    auto msg = NamespaceDone{ TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s } };
     buffer << msg;
 
-    SubscribeNamespaceOk msg_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kSubscribeNamespaceOk), msg_out));
-    CHECK_EQ(msg.request_id, msg_out.request_id);
-}
-
-TEST_CASE("Unsubscribe Namespace encode/decode")
-{
-    Bytes buffer;
-
-    auto msg = UnsubscribeNamespace{};
-    msg.track_namespace_prefix = TrackNamespace{ "cisco"s, "meetings"s, "video"s, "1080p"s };
-    buffer << msg;
-
-    UnsubscribeNamespace msg_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kUnsubscribeNamespace), msg_out));
-    CHECK_EQ(msg.track_namespace_prefix, msg_out.track_namespace_prefix);
-}
-
-TEST_CASE("Subscribe Namespace Error encode/decode")
-{
-    Bytes buffer;
-
-    auto msg = SubscribeNamespaceError{};
-    msg.request_id = 0x1234;
-    msg.error_code = quicr::messages::SubscribeNamespaceErrorCode::kNamespacePrefixUnknown;
-    msg.error_reason = Bytes{ 0x1, 0x2, 0x3 };
-    buffer << msg;
-
-    SubscribeNamespaceError msg_out;
-    CHECK(VerifyCtrl(buffer, static_cast<std::uint64_t>(ControlMessageType::kSubscribeNamespaceError), msg_out));
-    CHECK_EQ(msg.request_id, msg_out.request_id);
-    CHECK_EQ(msg.error_code, msg_out.error_code);
-    CHECK_EQ(msg.error_reason, msg_out.error_reason);
+    NamespaceDone msg_out;
+    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kNamespaceDone), msg_out));
+    CHECK_EQ(msg.track_namespace_suffix, msg_out.track_namespace_suffix);
 }
 
 TEST_CASE("Publish Message encode/decode")
 {
     Bytes buffer;
 
-    auto publish = Publish(0x1234,
-                           kTrackNamespaceConf,
-                           kTrackNameAliceVideo,
-                           kTrackAliasAliceVideo.Get(),
-                           GroupOrder::kAscending,
-                           1,
-                           std::nullopt,
-                           true,
-                           {});
+    std::optional<Location> largest_location = std::nullopt;
+    auto params = Parameters{}
+                    .Add(ParameterType::kForward, false)
+                    .Add(ParameterType::kExpires, 1000)
+                    .AddOptional(ParameterType::kLargestObject, largest_location);
+
+    auto extensions = TrackExtensions{}
+                        .Add(ExtensionType::kDeliveryTimeout, 0)
+                        .Add(ExtensionType::kMaxCacheDuration, 0)
+                        .Add(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending)
+                        .Add(ExtensionType::kDefaultPublisherPriority, 1)
+                        .Add(ExtensionType::kDynamicGroups, true);
+
+    auto publish =
+      Publish(0x1234, kTrackNamespaceConf, kTrackNameAliceVideo, kTrackAliasAliceVideo.Get(), params, extensions);
 
     buffer << publish;
 
-    auto publish_out = Publish(0, TrackNamespace{}, Bytes{}, 0, GroupOrder::kAscending, 0, std::nullopt, false, {});
+    auto publish_out = Publish{};
 
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublish), publish_out));
     CHECK_EQ(publish.request_id, publish_out.request_id);
     CHECK_EQ(publish.track_namespace, publish_out.track_namespace);
     CHECK_EQ(publish.track_name, publish_out.track_name);
     CHECK_EQ(publish.track_alias, publish_out.track_alias);
-    CHECK_EQ(publish.group_order, publish_out.group_order);
-    CHECK_EQ(publish.content_exists, publish_out.content_exists);
-    CHECK_EQ(publish.forward, publish_out.forward);
-    CHECK_EQ(publish.parameters, publish_out.parameters);
+
+    CHECK_EQ(false, publish_out.parameters.Get<bool>(ParameterType::kForward));
+    CHECK_EQ(1000, publish_out.parameters.Get<std::uint64_t>(ParameterType::kExpires));
+    CHECK_FALSE(publish_out.parameters.Contains(ParameterType::kLargestObject));
+
+    CHECK_EQ(0, publish_out.track_extensions.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout));
+    CHECK_EQ(0, publish_out.track_extensions.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration));
+    CHECK_EQ(1, publish_out.track_extensions.Get<std::uint64_t>(ExtensionType::kDefaultPublisherPriority));
+    CHECK_EQ(GroupOrder::kAscending,
+             publish_out.track_extensions.Get<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder));
+    CHECK_EQ(true, publish_out.track_extensions.Get<bool>(ExtensionType::kDynamicGroups));
 }
 
 TEST_CASE("PublishOk Message encode/decode")
 {
-    Bytes buffer;
+    auto params = Parameters{}
+                    .Add(ParameterType::kSubscriberPriority, 2)
+                    .Add(ParameterType::kGroupOrder, GroupOrder::kAscending)
+                    .Add(ParameterType::kSubscriptionFilter, FilterType::kLargestObject)
+                    .Add(ParameterType::kForward, false);
 
-    auto publish_ok =
-      PublishOk(0x1234, true, 0x10, GroupOrder::kAscending, FilterType::kLargestObject, std::nullopt, std::nullopt, {});
+    Bytes buffer;
+    auto publish_ok = PublishOk(0x1234, params);
     buffer << publish_ok;
 
-    auto publish_ok_out = PublishOk(
-      [](PublishOk& msg) {
-          if (msg.filter_type == FilterType::kAbsoluteStart || msg.filter_type == FilterType::kAbsoluteRange) {
-              msg.group_0 = std::make_optional<PublishOk::Group_0>();
-          }
-      },
-      [](PublishOk& msg) {
-          if (msg.filter_type == FilterType::kAbsoluteRange) {
-              msg.group_1 = std::make_optional<PublishOk::Group_1>();
-          }
-      });
+    auto publish_ok_out = PublishOk{};
 
     CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishOk), publish_ok_out));
     CHECK_EQ(publish_ok.request_id, publish_ok_out.request_id);
-    CHECK_EQ(publish_ok.forward, publish_ok_out.forward);
-    CHECK_EQ(publish_ok.subscriber_priority, publish_ok_out.subscriber_priority);
-    CHECK_EQ(publish_ok.group_order, publish_ok_out.group_order);
-    CHECK_EQ(publish_ok.filter_type, publish_ok_out.filter_type);
-    CHECK_EQ(publish_ok.parameters, publish_ok_out.parameters);
-}
-
-TEST_CASE("PublishOk (with optional fields) Message encode/decode")
-{
-    Bytes buffer;
-
-    auto group_0 = std::make_optional<PublishOk::Group_0>();
-    group_0->start_location = { 100, 200 };
-
-    auto group_1 = std::make_optional<PublishOk::Group_1>();
-    group_1->end_group = 300;
-
-    auto publish_ok =
-      PublishOk(0x1234, true, 0x10, GroupOrder::kAscending, FilterType::kAbsoluteRange, group_0, group_1, {});
-
-    buffer << publish_ok;
-
-    auto publish_ok_out = PublishOk(
-      [](PublishOk& msg) {
-          if (msg.filter_type == FilterType::kAbsoluteStart || msg.filter_type == FilterType::kAbsoluteRange) {
-              msg.group_0 = std::make_optional<PublishOk::Group_0>();
-          }
-      },
-      [](PublishOk& msg) {
-          if (msg.filter_type == FilterType::kAbsoluteRange) {
-              msg.group_1 = std::make_optional<PublishOk::Group_1>();
-          }
-      });
-
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishOk), publish_ok_out));
-    CHECK_EQ(publish_ok.request_id, publish_ok_out.request_id);
-    CHECK_EQ(publish_ok.forward, publish_ok_out.forward);
-    CHECK_EQ(publish_ok.subscriber_priority, publish_ok_out.subscriber_priority);
-    CHECK_EQ(publish_ok.group_order, publish_ok_out.group_order);
-    CHECK_EQ(publish_ok.filter_type, publish_ok_out.filter_type);
-    CHECK_EQ(publish_ok.group_0.has_value(), publish_ok_out.group_0.has_value());
-    CHECK_EQ(publish_ok.group_0->start_location.group, publish_ok_out.group_0->start_location.group);
-    CHECK_EQ(publish_ok.group_0->start_location.object, publish_ok_out.group_0->start_location.object);
-    CHECK_EQ(publish_ok.group_1.has_value(), publish_ok_out.group_1.has_value());
-    CHECK_EQ(publish_ok.group_1->end_group, publish_ok_out.group_1->end_group);
-    CHECK_EQ(publish_ok.parameters, publish_ok_out.parameters);
-}
-
-TEST_CASE("PublishError Message encode/decode")
-{
-    Bytes buffer;
-
-    auto publish_error = PublishError(0x1234, 0x01, Bytes{ 0x1, 0x2, 0x3 });
-    buffer << publish_error;
-
-    PublishError publish_error_out;
-    CHECK(VerifyCtrl(buffer, static_cast<uint64_t>(ControlMessageType::kPublishError), publish_error_out));
-    CHECK_EQ(publish_error.request_id, publish_error_out.request_id);
-    CHECK_EQ(publish_error.error_code, publish_error_out.error_code);
-    CHECK_EQ(publish_error.error_reason, publish_error_out.error_reason);
+    CHECK_EQ(2, publish_ok_out.parameters.Get<std::uint8_t>(ParameterType::kSubscriberPriority));
+    CHECK_EQ(GroupOrder::kAscending, publish_ok_out.parameters.Get<GroupOrder>(ParameterType::kGroupOrder));
+    CHECK_EQ(FilterType::kLargestObject, publish_ok_out.parameters.Get<FilterType>(ParameterType::kSubscriptionFilter));
+    CHECK_EQ(false, publish_ok_out.parameters.Get<bool>(ParameterType::kForward));
 }
 
 using TestKVP64 = KeyValuePair<std::uint64_t>;
