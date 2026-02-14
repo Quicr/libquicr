@@ -70,9 +70,14 @@ namespace quicr {
                             uint64_t stream_id,
                             std::shared_ptr<const std::vector<uint8_t>> data) override;
 
+        static ObjectHeaders From(const messages::FetchObject& message,
+                                  const messages::FetchObjectSerializationState& state);
+
       private:
         messages::Location start_location_;
         messages::FetchEndLocation end_location_;
+
+        messages::FetchObjectSerializationState state_;
 
         friend class Transport;
         friend class Client;

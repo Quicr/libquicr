@@ -28,6 +28,7 @@ namespace quicr {
 
       private:
         std::shared_ptr<SubscribeTrackHandler> joining_subscribe_;
+        messages::FetchObjectSerializationState state_;
     };
 
 } // namespace moq

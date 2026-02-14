@@ -904,6 +904,77 @@ TEST_CASE("Integration - Fetch object roundtrip")
     }
 }
 
+TEST_CASE("Integration - Fetch serialization state resets between streams")
+{
+    using namespace quicr::messages;
+
+    auto serialize_objects = [](Bytes& buffer,
+                                FetchObjectSerializationState& state,
+                                GroupId group,
+                                SubGroupId subgroup,
+                                ObjectId object_start,
+                                ObjectPriority priority,
+                                std::size_t count) {
+        for (std::size_t i = 0; i < count; i++) {
+            ObjectHeaders oh{};
+            oh.group_id = group;
+            oh.subgroup_id = subgroup;
+            oh.object_id = object_start + i;
+            oh.priority = priority;
+            oh.track_mode = TrackMode::kStream;
+
+            FetchObject obj{};
+            obj.group_id = oh.group_id;
+            obj.subgroup_id = oh.subgroup_id;
+            obj.object_id = oh.object_id;
+            obj.publisher_priority = priority;
+            obj.payload = { static_cast<uint8_t>(i) };
+
+            obj.properties.emplace(state.MakeProperties(oh, priority));
+            state.Update(oh);
+            buffer << obj;
+        }
+    };
+
+    FullTrackName ftn;
+    ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "fetch-reset" });
+    ftn.name = { 1, 2, 3 };
+
+    constexpr std::size_t objects_per_stream = 5;
+
+    // Stream 1.
+    Bytes stream1_buf;
+    FetchHeader hdr1;
+    hdr1.request_id = 1;
+    stream1_buf << hdr1;
+    FetchObjectSerializationState sender_state;
+    serialize_objects(stream1_buf, sender_state, 100, 10, 0, 5, objects_per_stream);
+
+    // Stream 2 with stale data should fail gracefully
+    Bytes stream2_buf;
+    FetchHeader hdr2;
+    hdr2.request_id = 1;
+    stream2_buf << hdr2;
+    serialize_objects(stream2_buf, sender_state, 100, 10, 5, 5, objects_per_stream);
+
+    auto handler =
+      TestFetchTrackHandler::Create(ftn, 0, GroupOrder::kOriginalPublisherOrder, { 0, 0 }, { 0, std::nullopt });
+    handler->SetRequestId(1);
+
+    // Stream 1 fine.
+    auto s1 = std::make_shared<std::vector<uint8_t>>(stream1_buf.begin(), stream1_buf.end());
+    handler->StreamDataRecv(true, 1, s1);
+    auto empty = std::make_shared<std::vector<uint8_t>>();
+    for (std::size_t i = 1; i < objects_per_stream; i++) {
+        handler->StreamDataRecv(false, 1, empty);
+    }
+    REQUIRE_EQ(handler->GetReceivedCount(), objects_per_stream);
+
+    // Stream 2 is bad and should throw.
+    auto s2 = std::make_shared<std::vector<uint8_t>>(stream2_buf.begin(), stream2_buf.end());
+    CHECK_THROWS_AS(handler->StreamDataRecv(true, 2, s2), ProtocolViolationException);
+}
+
 TEST_CASE("Integration - Subgroup and Stream Testing")
 {
     // Server needs to support 2 connections (subscriber + publisher)

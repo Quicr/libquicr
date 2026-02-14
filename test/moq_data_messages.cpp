@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/detail/messages.h"
+#include "quicr/fetch_track_handler.h"
 
 #include <any>
 #include <doctest/doctest.h>
@@ -583,31 +584,51 @@ FetchStreamEncodeDecode(ExtensionTest extensions, bool empty_payload)
     // stream all the objects
     buffer.clear();
     auto objects = std::vector<messages::FetchObject>{};
+    auto expected_headers = std::vector<ObjectHeaders>{};
+    FetchObjectSerializationState send_state;
+    FetchObjectSerializationState recv_state;
     // send 10 objects
     for (size_t i = 0; i < 10; i++) {
+        ObjectHeaders expected{};
+        expected.group_id = 0x1234;
+        expected.subgroup_id = 0x5678;
+        expected.object_id = 0x9012 + i;
+        expected.priority = 127;
+        expected.track_mode = TrackMode::kStream;
+
         auto obj = messages::FetchObject{};
-        obj.group_id = 0x1234;
-        obj.subgroup_id = 0x5678;
-        obj.object_id = 0x9012;
-        obj.publisher_priority = 127;
+        obj.group_id = expected.group_id;
+        obj.subgroup_id = expected.subgroup_id;
+        obj.object_id = expected.object_id;
+        obj.publisher_priority = expected.priority;
 
         if (empty_payload) {
             obj.object_status = ObjectStatus::kDoesNotExist;
         } else {
             obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
         }
+        expected.payload_length = obj.payload.size();
 
         if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kMutable) {
             obj.extensions = kOptionalExtensions;
+            expected.extensions = kOptionalExtensions;
         } else {
             obj.extensions = std::nullopt;
+            expected.extensions = std::nullopt;
         }
         if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable) {
             obj.immutable_extensions = kOptionalExtensions;
+            expected.immutable_extensions = kOptionalExtensions;
         } else {
             obj.immutable_extensions = std::nullopt;
+            expected.immutable_extensions = std::nullopt;
         }
+
+        obj.properties.emplace(send_state.MakeProperties(expected, *expected.priority));
+        send_state.Update(expected);
+
         objects.push_back(obj);
+        expected_headers.push_back(expected);
         buffer << obj;
     }
 
@@ -620,10 +641,19 @@ FetchStreamEncodeDecode(ExtensionTest extensions, bool empty_payload)
         if (!done) {
             continue;
         }
-        CHECK_EQ(obj_out.group_id, objects[object_count].group_id);
-        CHECK_EQ(obj_out.subgroup_id, objects[object_count].subgroup_id);
-        CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
-        CHECK_EQ(obj_out.publisher_priority, objects[object_count].publisher_priority);
+
+        const auto decoded_headers = FetchTrackHandler::From(obj_out, recv_state);
+        recv_state.Update(decoded_headers);
+        CHECK_EQ(decoded_headers.group_id, expected_headers[object_count].group_id);
+        CHECK_EQ(decoded_headers.subgroup_id, expected_headers[object_count].subgroup_id);
+        CHECK_EQ(decoded_headers.object_id, expected_headers[object_count].object_id);
+        CHECK_EQ(decoded_headers.payload_length, expected_headers[object_count].payload_length);
+        if (obj_out.publisher_priority.has_value()) {
+            CHECK_EQ(*obj_out.publisher_priority, *expected_headers[object_count].priority);
+        } else {
+            REQUIRE(recv_state.prior_priority.has_value());
+            CHECK_EQ(*recv_state.prior_priority, *expected_headers[object_count].priority);
+        }
         if (empty_payload) {
             CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
         } else {
@@ -636,7 +666,7 @@ FetchStreamEncodeDecode(ExtensionTest extensions, bool empty_payload)
         CHECK_EQ(obj_out.immutable_extensions, objects[object_count].immutable_extensions);
         // got one object
         object_count++;
-        obj_out = {};
+        std::construct_at(&obj_out);
         in_buffer.Pop(in_buffer.Size());
     }
 
@@ -723,6 +753,15 @@ TEST_CASE("Immutable Extensions Nesting")
     msg.immutable_extensions = nested_immutable;
     msg.payload_len = 0;
     msg.object_status = ObjectStatus::kAvailable;
+    ObjectHeaders headers{};
+    headers.group_id = *msg.group_id;
+    headers.subgroup_id = *msg.subgroup_id;
+    headers.object_id = *msg.object_id;
+    headers.priority = *msg.publisher_priority;
+    headers.track_mode = TrackMode::kStream;
+    headers.immutable_extensions = msg.immutable_extensions;
+    FetchObjectSerializationState serialization_state{};
+    msg.properties.emplace(serialization_state.MakeProperties(headers, *headers.priority));
 
     // Serialization should throw ProtocolViolationException
     Bytes buffer;
