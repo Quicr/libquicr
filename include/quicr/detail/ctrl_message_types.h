@@ -437,8 +437,9 @@ namespace quicr::messages {
         {
             if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
                 if (static_cast<uint64_t>(type) % 2 == 0) {
-                    UintVar u_value(static_cast<uint64_t>(value));
-                    return Bytes{ u_value.begin(), u_value.end() };
+                    const std::uint64_t val = static_cast<std::uint64_t>(value);
+                    auto* val_bytes = reinterpret_cast<const std::uint8_t*>(&val);
+                    return Bytes{ val_bytes, val_bytes + sizeof(val) };
                 }
             }
 
@@ -477,7 +478,10 @@ namespace quicr::messages {
         {
             if constexpr (std::is_arithmetic_v<T>) {
                 if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    return static_cast<T>(UintVar(extensions.at(static_cast<std::uint64_t>(type))).Get());
+                    std::uint64_t val = 0;
+                    const auto& bytes = extensions.at(static_cast<std::uint64_t>(type));
+                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
+                    return static_cast<T>(val);
                 }
             }
 
@@ -495,7 +499,10 @@ namespace quicr::messages {
         {
             if constexpr (std::is_arithmetic_v<T>) {
                 if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    return static_cast<T>(UintVar(immutable_extensions.at(static_cast<std::uint64_t>(type))).Get());
+                    std::uint64_t val = 0;
+                    const auto& bytes = immutable_extensions.at(static_cast<std::uint64_t>(type));
+                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
+                    return static_cast<T>(val);
                 }
             }
 
