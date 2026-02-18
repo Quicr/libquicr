@@ -450,7 +450,7 @@ namespace quicr {
                 return *this;
             }
 
-            constexpr Type GetType() const noexcept
+            Type GetType() const noexcept
             {
                 if (!handler) {
                     return Type::kInvalid;
