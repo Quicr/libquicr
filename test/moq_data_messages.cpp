@@ -664,7 +664,7 @@ TEST_CASE("Key Value Pair size")
         kvp.type = kvp_type.Get();
         const std::size_t expected_size = kvp_type.size() + UintVar(kvp.value.size()).size() + kvp.value.size();
         REQUIRE_EQ(expected_size, 5); // 1 byte for type, 1 byte for length, 3 bytes for value.
-        CHECK_EQ(kvp.Size(), expected_size);
+        CHECK_EQ(kvp.Size(0), expected_size);
     }
 
     SUBCASE("1 Byte Value")
@@ -674,7 +674,7 @@ TEST_CASE("Key Value Pair size")
         const UintVar kvp_type = 2;
         kvp.type = kvp_type.Get();
         kvp.value = kUint1ByteValue;
-        CHECK_EQ(kvp.Size(), 2); // 1 byte for type, 1 byte for value.
+        CHECK_EQ(kvp.Size(0), 2); // 1 byte for type, 1 byte for value.
     }
 
     SUBCASE("2 Byte Value")
@@ -684,7 +684,7 @@ TEST_CASE("Key Value Pair size")
         const UintVar kvp_type = 2;
         kvp.type = kvp_type.Get();
         kvp.value = kUint2ByteValue;
-        CHECK_EQ(kvp.Size(), 3); // 1 byte for type, 2 bytes for value.
+        CHECK_EQ(kvp.Size(0), 3); // 1 byte for type, 2 bytes for value.
     }
 
     SUBCASE("4 Byte Value")
@@ -694,7 +694,7 @@ TEST_CASE("Key Value Pair size")
         const UintVar kvp_type = 2;
         kvp.type = kvp_type.Get();
         kvp.value = kUint4ByteValue;
-        CHECK_EQ(kvp.Size(), 5); // 1 byte for type, 4 bytes for value.
+        CHECK_EQ(kvp.Size(0), 5); // 1 byte for type, 4 bytes for value.
     }
 
     SUBCASE("8 Byte Value")
@@ -704,7 +704,7 @@ TEST_CASE("Key Value Pair size")
         const UintVar kvp_type = 2;
         kvp.type = kvp_type.Get();
         kvp.value = kUint8ByteValue;
-        CHECK_EQ(kvp.Size(), 9); // 1 byte for type, 8 bytes for value.
+        CHECK_EQ(kvp.Size(0), 9); // 1 byte for type, 8 bytes for value.
     }
 }
 
@@ -750,13 +750,15 @@ TEST_CASE("Extensions with duplicate keys")
     std::optional<Extensions> parsed_immutable_extensions;
     std::size_t extension_bytes_remaining = 0;
     std::optional<std::uint64_t> current_header;
+    std::uint64_t prev_extension_type = 0;
 
     bool success = ParseExtensions(in_buffer,
                                    extension_headers_length,
                                    parsed_extensions,
                                    parsed_immutable_extensions,
                                    extension_bytes_remaining,
-                                   current_header);
+                                   current_header,
+                                   prev_extension_type);
 
     REQUIRE(success);
     REQUIRE(parsed_extensions.has_value());
@@ -809,9 +811,9 @@ TEST_CASE("Immutable Extensions not length prefixed")
     // - Total length of all extensions (varint)
     // - Type 0xB (immutable)
     // - Total length of immutable extension bytes (varint)
-    // - Raw KVPs of immutable extensions:
+    // - Raw KVPs of immutable extensions (delta-encoded types):
     //   - First KVP: even type (varint value)
-    //   - Second KVP: odd type (TLV byte array)
+    //   - Second KVP: delta=1 (odd_type_key - even_type_key), TLV byte array
     // Total inner KVPs: 1 + 2 + 1 + 1 + 2 = 7 bytes
 
     // Overall: 1 byte for total block length + 9 bytes of immutable header blob = 10.
@@ -834,8 +836,8 @@ TEST_CASE("Immutable Extensions not length prefixed")
     CHECK_EQ(buffer[idx++], 0x40); // Varint byte 1.
     CHECK_EQ(buffer[idx++], varint_value);
 
-    // Second KVP: odd type key, byte array value.
-    CHECK_EQ(buffer[idx++], odd_type_key);
+    // Second KVP: odd type key delta-encoded from even_type_key, byte array value.
+    CHECK_EQ(buffer[idx++], odd_type_key - even_type_key);
     CHECK_EQ(buffer[idx++], bytes_value.size());
     CHECK_EQ(buffer[idx++], bytes_value[0]);
     CHECK_EQ(buffer[idx++], bytes_value[1]);
@@ -848,13 +850,15 @@ TEST_CASE("Immutable Extensions not length prefixed")
     std::optional<Extensions> parsed_immutable_extensions;
     std::size_t extension_bytes_remaining = 0;
     std::optional<std::uint64_t> current_header;
+    std::uint64_t prev_extension_type = 0;
 
     bool success = ParseExtensions(in_buffer,
                                    extension_headers_length,
                                    parsed_extensions,
                                    parsed_immutable_extensions,
                                    extension_bytes_remaining,
-                                   current_header);
+                                   current_header,
+                                   prev_extension_type);
 
     REQUIRE(success);
     REQUIRE(parsed_immutable_extensions.has_value());

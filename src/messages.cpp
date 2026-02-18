@@ -3,6 +3,8 @@
 
 #include "quicr/detail/messages.h"
 
+#include <limits>
+
 using namespace quicr::messages;
 
 namespace quicr::messages {
@@ -47,7 +49,8 @@ namespace quicr::messages {
                                 std::optional<std::size_t>& extension_headers_length,
                                 std::optional<Extensions>& extensions,
                                 std::size_t& extension_bytes_remaining,
-                                std::optional<std::uint64_t>& current_header)
+                                std::optional<std::uint64_t>& current_header,
+                                std::uint64_t& prev_extension_type)
     {
         // Read the length of the extension block, if we haven't already.
         if (!extension_headers_length.has_value()) {
@@ -81,7 +84,14 @@ namespace quicr::messages {
                     return false;
                 }
                 extension_bytes_remaining -= tag_field.size();
-                tag = tag_field.Get();
+                const std::uint64_t delta = tag_field.Get();
+
+                // Check for overflow
+                if (delta > std::numeric_limits<std::uint64_t>::max() - prev_extension_type) {
+                    throw ProtocolViolationException("Delta encoding overflow: prev_type + delta exceeds 2^64-1");
+                }
+
+                tag = prev_extension_type + delta;
                 current_header.emplace(tag);
             }
 
@@ -108,6 +118,7 @@ namespace quicr::messages {
                 extension_bytes_remaining -= bytes.size() + UintVar(bytes.size()).size();
                 (*extensions)[tag].push_back(std::move(bytes));
             }
+            prev_extension_type = tag;
             current_header = std::nullopt;
         }
         return true;
@@ -134,13 +145,18 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const Extensions& extensions)
     {
         // Calculate total length of extension headers
+        // std::map is already sorted by key, so deltas will be non-negative.
+        // Duplicate keys get 0 deltas by design.
+        // TODO: maybe static assert std::map because of ordering.
         std::size_t total_length = 0;
         std::vector<KeyValuePair<std::uint64_t>> kvps;
+        std::uint64_t prev_type_for_size = 0;
         for (const auto& [key, values] : extensions) {
             for (const auto& value : values) {
                 const auto kvp = KeyValuePair<std::uint64_t>{ static_cast<std::uint64_t>(key), value };
-                const auto size = kvp.Size();
+                const auto size = kvp.Size(prev_type_for_size);
                 total_length += size;
+                prev_type_for_size = key;
                 kvps.push_back(kvp);
             }
         }
@@ -149,8 +165,10 @@ namespace quicr::messages {
         buffer << static_cast<std::uint64_t>(total_length);
 
         // Write the KVP extensions.
+        std::uint64_t prev_type = 0;
         for (const auto& kvp : kvps) {
-            buffer << kvp;
+            SerializeKvp(buffer, kvp, prev_type);
+            prev_type = kvp.type;
         }
 
         return buffer;
@@ -161,10 +179,14 @@ namespace quicr::messages {
         std::uint64_t length = 0;
         buffer = buffer >> length;
 
-        while (length != 0) {
+        std::uint64_t prev_type = 0;
+        std::uint64_t bytes_consumed = 0;
+        while (bytes_consumed < length) {
+            const auto start_pos = buffer.size();
             KeyValuePair<std::uint64_t> kvp;
-            buffer = buffer >> kvp;
-            length -= kvp.Size();
+            ParseKvp(buffer, kvp, prev_type);
+            prev_type = kvp.type;
+            bytes_consumed += start_pos - buffer.size();
 
             extensions[kvp.type].emplace_back(std::move(kvp.value));
         }
@@ -197,9 +219,12 @@ namespace quicr::messages {
 
             // Serialize immutable extensions.
             Bytes immutable_bytes;
+            std::uint64_t imm_prev_type = 0;
             for (const auto& [key, values] : *immutable_extensions) {
                 for (const auto& value : values) {
-                    immutable_bytes << KeyValuePair<std::uint64_t>{ key, value };
+                    const auto kvp = KeyValuePair<std::uint64_t>{ key, value };
+                    SerializeKvp(immutable_bytes, kvp, imm_prev_type);
+                    imm_prev_type = kvp.type;
                 }
             }
             combined_extensions[immutable_key].push_back(std::move(immutable_bytes));
@@ -215,10 +240,16 @@ namespace quicr::messages {
                          std::optional<Extensions>& extensions,
                          std::optional<Extensions>& immutable_extensions,
                          std::size_t& extension_bytes_remaining,
-                         std::optional<std::uint64_t>& current_header)
+                         std::optional<std::uint64_t>& current_header,
+                         std::uint64_t& prev_extension_type)
     {
         // First, parse all extensions.
-        if (!ParseExtensions(buffer, extension_headers_length, extensions, extension_bytes_remaining, current_header)) {
+        if (!ParseExtensions(buffer,
+                             extension_headers_length,
+                             extensions,
+                             extension_bytes_remaining,
+                             current_header,
+                             prev_extension_type)) {
             return false;
         }
 
@@ -234,11 +265,13 @@ namespace quicr::messages {
                 std::optional<std::size_t> immutable_length = it->second[0].size();
                 std::size_t immutable_bytes_remaining = it->second[0].size();
                 std::optional<std::uint64_t> immutable_current_header;
+                std::uint64_t immutable_prev_type = 0;
                 if (!ParseExtensions(stream_buffer,
                                      immutable_length,
                                      immutable_extensions,
                                      immutable_bytes_remaining,
-                                     immutable_current_header)) {
+                                     immutable_current_header,
+                                     immutable_prev_type)) {
                     return false;
                 }
 
@@ -351,7 +384,8 @@ namespace quicr::messages {
                                      msg.extensions,
                                      msg.immutable_extensions,
                                      msg.extension_bytes_remaining,
-                                     msg.current_tag)) {
+                                     msg.current_tag,
+                                     msg.prev_extension_type)) {
                     return false;
                 }
                 msg.current_pos += 1;
@@ -494,7 +528,8 @@ namespace quicr::messages {
                                          msg.extensions,
                                          msg.immutable_extensions,
                                          msg.extension_bytes_left,
-                                         msg.current_tag)) {
+                                         msg.current_tag,
+                                         msg.prev_extension_type)) {
                         return false;
                     }
                 } else {
@@ -615,7 +650,8 @@ namespace quicr::messages {
                                          msg.extensions,
                                          msg.immutable_extensions,
                                          msg.extension_bytes_left,
-                                         msg.current_tag)) {
+                                         msg.current_tag,
+                                         msg.prev_extension_type)) {
                         return false;
                     }
                 } else {
@@ -794,7 +830,8 @@ namespace quicr::messages {
                                          msg.extensions,
                                          msg.immutable_extensions,
                                          msg.extension_bytes_left,
-                                         msg.current_tag)) {
+                                         msg.current_tag,
+                                         msg.prev_extension_type)) {
                         return false;
                     }
                 } else {

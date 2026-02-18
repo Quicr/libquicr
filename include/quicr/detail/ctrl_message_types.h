@@ -3,6 +3,8 @@
 #include "quicr/detail/uintvar.h"
 #include "quicr/track_name.h"
 
+#include <algorithm>
+#include <limits>
 #include <stdexcept>
 #include <tuple>
 
@@ -67,15 +69,16 @@ namespace quicr::messages {
 
         /**
          * Get the encoded size of this KeyValuePair, in bytes.
+         * @param prev_type The previous type value.
          * @return Encoded size, in bytes.
          */
-        std::size_t Size() const
+        std::size_t Size(const T prev_type) const
         {
             std::size_t size = 0;
-            const auto type_val = static_cast<std::uint64_t>(type);
-            size += UintVar(type_val).size();
+            const auto delta = type - prev_type;
+            size += UintVar(delta).size();
 
-            if (type_val % 2 == 0) {
+            if (type % 2 == 0) {
                 // Even types: single varint of value
                 if (value.size() > sizeof(std::uint64_t)) {
                     throw std::invalid_argument("Value too large to encode as uint64_t.");
@@ -147,40 +150,66 @@ namespace quicr::messages {
         return buffer;
     }
 
+    /**
+     * Serialize KVP.
+     * @param buffer Buffer to write into.
+     * @param kvp The KeyValuePair to write.
+     * @param prev_type The previous type value so we can do the delta.
+     */
     template<KeyType T>
-    Bytes& operator<<(Bytes& buffer, const KeyValuePair<T>& param)
+    void SerializeKvp(Bytes& buffer, const KeyValuePair<T>& kvp, const T prev_type)
     {
-        buffer << param.type;
-        if (static_cast<std::uint64_t>(param.type) % 2 != 0) {
-            // Odd, encode bytes.
-            return buffer << param.value;
-        }
+        // Delta encode the type.
+        const auto type_value = static_cast<std::uint64_t>(kvp.type);
+        const auto prev_type_value = static_cast<std::uint64_t>(prev_type);
+        const auto delta = type_value - prev_type_value;
+        buffer << UintVar(delta);
 
-        // Even, single varint of value.
-        if (param.value.size() > sizeof(std::uint64_t)) {
-            throw std::invalid_argument("Value too large to encode as uint64_t.");
+        if (type_value % 2 != 0) {
+            // Odd, encode bytes.
+            buffer << kvp.value;
+        } else {
+            // Even, single varint of value.
+            if (kvp.value.size() > sizeof(std::uint64_t)) {
+                throw std::invalid_argument("Value too large to encode as uint64_t.");
+            }
+            std::uint64_t val = 0;
+            std::memcpy(&val, kvp.value.data(), kvp.value.size());
+            buffer << UintVar(val);
         }
-        std::uint64_t val = 0;
-        std::memcpy(&val, param.value.data(), param.value.size());
-        return buffer << UintVar(val);
     }
 
+    /**
+     * Deserialize KVP.
+     * @param buffer Buffer to read from.
+     * @param kvp The KeyValuePair to read into.
+     * @param prev_type The previous type value to unwrap the delta.
+     * @throws std::overflow_error if delta causes overflow past 2^64-1.
+     */
     template<KeyType T>
-    BytesSpan operator>>(BytesSpan buffer, KeyValuePair<T>& param)
+    void ParseKvp(BytesSpan& buffer, KeyValuePair<T>& kvp, const T prev_type)
     {
-        buffer = buffer >> param.type;
-        if (static_cast<std::uint64_t>(param.type) % 2 != 0) {
-            // Odd, decode bytes.
-            return buffer >> param.value;
+        // Delta to absolute.
+        const auto prev_type_value = static_cast<std::uint64_t>(prev_type);
+        std::uint64_t delta;
+        buffer = buffer >> delta;
+        if (delta > std::numeric_limits<std::uint64_t>::max() - prev_type_value) {
+            throw std::overflow_error("Delta encoding overflow: prev_type + delta exceeds 2^64-1");
         }
+        const auto type_value = prev_type_value + delta;
+        kvp.type = static_cast<T>(type_value);
 
-        // Even, decode single varint of value.
-        UintVar uvar(buffer);
-        buffer = buffer.subspan(uvar.size());
-        std::uint64_t val(uvar);
-        param.value.resize(uvar.size());
-        std::memcpy(param.value.data(), &val, uvar.size());
-        return buffer;
+        if (type_value % 2 != 0) {
+            // Odd, decode bytes.
+            buffer = buffer >> kvp.value;
+        } else {
+            // Even, decode single varint of value.
+            UintVar uvar(buffer);
+            buffer = buffer.subspan(uvar.size());
+            std::uint64_t val(uvar);
+            kvp.value.resize(uvar.size());
+            std::memcpy(kvp.value.data(), &val, uvar.size());
+        }
     }
 
     enum struct SetupParameterType : uint64_t
@@ -440,18 +469,7 @@ namespace quicr::messages {
         template<typename T>
         TrackExtensions& AddImmutable(ExtensionType type, const T& value)
         {
-            KeyValuePair<ExtensionType> pair{ .type = type, .value = ToBytes<T>(type, value) };
-
-            Bytes bytes;
-            bytes << pair;
-
-            auto& immutable_bytes = extensions[static_cast<std::uint64_t>(ExtensionType::kImmutable)];
-            auto bytes_it = immutable_bytes.insert(immutable_bytes.end(), bytes.begin(), bytes.end());
-
-            immutable_extensions[static_cast<std::uint64_t>(type)] =
-              std::span{ bytes_it,
-                         std::next(bytes_it + UintVar(static_cast<std::uint64_t>(pair.type)).size(), bytes.size()) };
-
+            immutable_extensions[static_cast<std::uint64_t>(type)] = ToBytes<T>(type, value);
             return *this;
         }
 
@@ -501,7 +519,7 @@ namespace quicr::messages {
         auto end() const noexcept { return extensions.end(); }
 
         std::map<std::uint64_t, Bytes> extensions;
-        std::map<std::uint64_t, BytesSpan> immutable_extensions;
+        std::map<std::uint64_t, Bytes> immutable_extensions;
     };
 
     BytesSpan operator>>(BytesSpan buffer, TrackExtensions& msg);
@@ -624,9 +642,11 @@ namespace quicr::messages {
         uint64_t size = 0;
         buffer = buffer >> size;
 
+        Type prev_type{};
         for (uint64_t i = 0; i < size; ++i) {
             KeyValuePair<Type> param;
-            buffer = buffer >> param;
+            ParseKvp(buffer, param, prev_type);
+            prev_type = param.type;
             msg.parameters.push_back(std::move(param));
         }
 
@@ -637,8 +657,17 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const ParameterList<Type>& msg)
     {
         buffer << UintVar(msg.parameters.size());
-        for (const auto& param : msg.parameters) {
-            buffer << param;
+
+        // Sort parameters by type for delta encoding
+        auto sorted = msg.parameters;
+        std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) {
+            return static_cast<std::uint64_t>(a.type) < static_cast<std::uint64_t>(b.type);
+        });
+
+        Type prev_type{};
+        for (const auto& param : sorted) {
+            SerializeKvp(buffer, param, prev_type);
+            prev_type = param.type;
         }
 
         return buffer;
