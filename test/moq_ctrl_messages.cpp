@@ -826,20 +826,24 @@ TEST_CASE("KeyValuePair even-type round-trip preserves values")
     for (const auto value : test_values) {
         CAPTURE(value);
 
-        // Create a ParameterList with the value
         Parameters params;
         params.Add(ParameterType::kDeliveryTimeout, value);
 
-        // Serialize to wire format
         Bytes buffer;
         buffer << params;
 
-        // Deserialize
+        // Should have encoded as uintvar.
+        UintVar expected(value);
+        Bytes expected_bytes{ expected.begin(), expected.end() };
+        REQUIRE(buffer.size() >= expected_bytes.size());
+        Bytes tail(buffer.end() - expected_bytes.size(), buffer.end());
+        CHECK_EQ(tail, expected_bytes);
+
         Parameters out;
         BytesSpan span{ buffer };
         span >> out;
 
-        // Get() should return the original value
+        // Roundtrip.
         CHECK_NOTHROW(out.Get<std::uint64_t>(ParameterType::kDeliveryTimeout));
         CHECK_EQ(out.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), value);
     }
@@ -866,10 +870,18 @@ TEST_CASE("TrackExtensions even-type round-trip preserves values")
         Bytes buffer;
         buffer << ext;
 
+        // Should have been encoded as uintvar.
+        UintVar expected(value);
+        Bytes expected_bytes{ expected.begin(), expected.end() };
+        REQUIRE(buffer.size() >= expected_bytes.size());
+        Bytes tail(buffer.end() - expected_bytes.size(), buffer.end());
+        CHECK_EQ(tail, expected_bytes);
+
         TrackExtensions out;
         BytesSpan span{ buffer };
         span >> out;
 
+        // Roundtrip.
         CHECK_NOTHROW(out.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout));
         CHECK_EQ(out.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout), value);
     }
