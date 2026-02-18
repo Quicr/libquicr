@@ -40,7 +40,8 @@ namespace quicr::messages {
      * @param extensions Parsed mutable extensions, if any.
      * @param immutable_extensions Parsed immutable extensions, if any.
      * @param extension_bytes_remaining Total bytes of extension headers left to parse.
-     * @param current_header Current header key being parsed.
+     * @param current_header Current header key being parsed (absolute type, after delta decoding).
+     * @param prev_extension_type Previous extension type for delta decoding.
      * @return True if parsing completed successfully, false if not.
      */
     template<class StreamBufferType>
@@ -49,7 +50,8 @@ namespace quicr::messages {
                          std::optional<Extensions>& extensions,
                          std::optional<Extensions>& immutable_extensions,
                          std::size_t& extension_bytes_remaining,
-                         std::optional<std::uint64_t>& current_header);
+                         std::optional<std::uint64_t>& current_header,
+                         std::uint64_t& prev_extension_type);
 
     struct ProtocolViolationException : std::runtime_error
     {
@@ -331,6 +333,7 @@ namespace quicr::messages {
         std::optional<std::size_t> extension_headers_length;
         std::size_t extension_bytes_remaining{ 0 };
         std::optional<uint64_t> current_tag{};
+        std::uint64_t prev_extension_type{ 0 };
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
     };
@@ -382,6 +385,7 @@ namespace quicr::messages {
         std::optional<std::size_t> extension_headers_length;
         std::size_t extension_bytes_left{ 0 };
         std::optional<uint64_t> current_tag{};
+        std::uint64_t prev_extension_type{ 0 };
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
     };
@@ -416,6 +420,7 @@ namespace quicr::messages {
         std::optional<std::size_t> extension_headers_length;
         std::size_t extension_bytes_left{ 0 };
         std::optional<uint64_t> current_tag{};
+        std::uint64_t prev_extension_type{ 0 };
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
     };
@@ -457,6 +462,7 @@ namespace quicr::messages {
         std::optional<std::size_t> extension_headers_length;
         std::size_t extension_bytes_left{ 0 };
         std::optional<uint64_t> current_tag{};
+        std::uint64_t prev_extension_type{ 0 };
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
     };

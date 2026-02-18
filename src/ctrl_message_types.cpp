@@ -205,22 +205,51 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const TrackExtensions& extensions)
     {
-        // Calculate total length of extension headers
-        std::size_t total_length = 0;
+        // Serialize immutable blob first.
+        constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionType::kImmutable);
+        Bytes immutable_value_bytes;
+        if (!extensions.immutable_extensions.empty()) {
+            std::uint64_t imm_prev_type = 0;
+            for (const auto& [imm_type, imm_value] : extensions.immutable_extensions) {
+                const auto kvp = KeyValuePair<std::uint64_t>{ imm_type, imm_value };
+                SerializeKvp(immutable_value_bytes, kvp, imm_prev_type);
+                imm_prev_type = kvp.type;
+            }
+        }
+
+        // Build KVPs.
         std::vector<KeyValuePair<std::uint64_t>> kvps;
         for (const auto& [key, value] : extensions) {
-            const auto kvp = KeyValuePair<std::uint64_t>{ key, value };
-            const auto size = kvp.Size();
-            total_length += size;
-            kvps.push_back(kvp);
+            if (key == immutable_key) {
+                continue;
+            }
+            kvps.push_back(KeyValuePair<std::uint64_t>{ key, value });
+        }
+
+        // Add in immutable.
+        if (!immutable_value_bytes.empty()) {
+            kvps.push_back(KeyValuePair<std::uint64_t>{ immutable_key, immutable_value_bytes });
+        }
+
+        // Sort on type for delta encoding.
+        std::ranges::sort(kvps, [](const auto& a, const auto& b) { return a.type < b.type; });
+
+        // Calculate total size.
+        std::size_t total_length = 0;
+        std::uint64_t prev_type_for_size = 0;
+        for (const auto& kvp : kvps) {
+            total_length += kvp.Size(prev_type_for_size);
+            prev_type_for_size = static_cast<std::uint64_t>(kvp.type);
         }
 
         // Total length of all extension headers (varint).
         buffer << static_cast<std::uint64_t>(total_length);
 
         // Write the KVP extensions.
+        std::uint64_t prev_type = 0;
         for (const auto& kvp : kvps) {
-            buffer << kvp;
+            SerializeKvp(buffer, kvp, prev_type);
+            prev_type = kvp.type;
         }
 
         return buffer;
@@ -231,25 +260,28 @@ namespace quicr::messages {
         std::uint64_t length = 0;
         buffer = buffer >> length;
 
-        while (length != 0) {
+        std::uint64_t prev_type = 0;
+        std::uint64_t bytes_consumed = 0;
+        while (bytes_consumed < length) {
+            const auto start_pos = buffer.size();
             KeyValuePair<std::uint64_t> kvp;
-            buffer = buffer >> kvp;
-            length -= kvp.Size();
+            ParseKvp(buffer, kvp, prev_type);
+            prev_type = kvp.type;
+            bytes_consumed += start_pos - buffer.size();
 
             extensions.extensions[kvp.type] = std::move(kvp.value);
         }
 
+        // Immutable extensions.
         if (extensions.extensions.contains(static_cast<std::uint64_t>(ExtensionType::kImmutable))) {
             BytesSpan bytes = extensions.extensions.at(static_cast<std::uint64_t>(ExtensionType::kImmutable));
 
+            std::uint64_t immutable_prev_type = 0;
             while (!bytes.empty()) {
                 KeyValuePair<std::uint64_t> kvp;
-                bytes >> kvp;
-                length -= kvp.Size();
-
-                extensions.immutable_extensions[kvp.type] =
-                  bytes.subspan(+UintVar(static_cast<std::uint64_t>(kvp.type)).size(), kvp.Size());
-                bytes = bytes.subspan(kvp.Size());
+                ParseKvp(bytes, kvp, immutable_prev_type);
+                immutable_prev_type = kvp.type;
+                extensions.immutable_extensions[kvp.type] = std::move(kvp.value);
             }
         }
 

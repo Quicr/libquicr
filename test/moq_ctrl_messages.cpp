@@ -33,9 +33,13 @@ const Bytes kUint2ByteValue = { 0xBD, 0x3B };
 const Bytes kUint4ByteValue = { 0x7D, 0x3E, 0x7F, 0x1D };
 const Bytes kUint8ByteValue = { 0x8C, 0xE8, 0x14, 0xFF, 0x5E, 0x7C, 0x19, 0x02 };
 
+// Note: Parameters must be in sorted order by type for delta encoding.
+// ParameterType::kAuthorizationToken = 0x03
 const Parameters kExampleParameters = {
-    { ParameterType::kAuthorizationToken, kExampleBytes }, { static_cast<ParameterType>(2), kUint1ByteValue },
-    { static_cast<ParameterType>(4), kUint2ByteValue },    { static_cast<ParameterType>(6), kUint4ByteValue },
+    { static_cast<ParameterType>(2), kUint1ByteValue },
+    { ParameterType::kAuthorizationToken, kExampleBytes }, // type 0x03
+    { static_cast<ParameterType>(4), kUint2ByteValue },
+    { static_cast<ParameterType>(6), kUint4ByteValue },
     { static_cast<ParameterType>(8), kUint8ByteValue },
 };
 
@@ -521,26 +525,6 @@ enum class ExampleEnum : std::uint64_t
     kEven = 2,
 };
 using TestKVPEnum = KeyValuePair<ExampleEnum>;
-Bytes
-KVP64(const std::uint64_t type, const Bytes& value)
-{
-    TestKVP64 test;
-    test.type = type;
-    test.value = value;
-    Bytes buffer;
-    buffer << test;
-    return buffer;
-}
-Bytes
-KVPEnum(const ExampleEnum type, const Bytes& value)
-{
-    TestKVPEnum test;
-    test.type = type;
-    test.value = value;
-    Bytes buffer;
-    buffer << test;
-    return buffer;
-}
 
 TEST_CASE("Key Value Pair encode/decode")
 {
@@ -551,11 +535,15 @@ TEST_CASE("Key Value Pair encode/decode")
         CAPTURE("UINT64_T");
         {
             CAPTURE("EVEN");
-            std::size_t type = 2;
-            Bytes serialized = KVP64(type, value);
+            std::uint64_t type = 2;
+            TestKVP64 kvp{ type, value };
+            Bytes serialized;
+            SerializeKvp(serialized, kvp, {});
             CHECK_EQ(serialized.size(), 2); // Minimal size, 1 byte for type and 1 byte for value.
+
             TestKVP64 out;
-            serialized >> out;
+            BytesSpan span = serialized;
+            ParseKvp(span, out, {});
             CHECK_EQ(out.type, type);
             std::uint64_t reconstructed_value = 0;
             std::memcpy(&reconstructed_value, out.value.data(), out.value.size());
@@ -563,12 +551,16 @@ TEST_CASE("Key Value Pair encode/decode")
         }
         {
             CAPTURE("ODD");
-            std::size_t type = 1;
-            Bytes serialized = KVP64(type, value);
+            std::uint64_t type = 1;
+            TestKVP64 kvp{ type, value };
+            Bytes serialized;
+            SerializeKvp(serialized, kvp, {});
             CHECK_EQ(serialized.size(),
                      value.size() + 1 + 1); // 1 byte for type, 1 byte for length, and the value bytes.
+
             TestKVP64 out;
-            serialized >> out;
+            BytesSpan span = serialized;
+            ParseKvp(span, out, {});
             CHECK_EQ(out.type, type);
             CHECK_EQ(out.value, value);
         }
@@ -578,10 +570,14 @@ TEST_CASE("Key Value Pair encode/decode")
         {
             CAPTURE("EVEN");
             auto type = ExampleEnum::kEven;
-            Bytes serialized = KVPEnum(type, value);
+            TestKVPEnum kvp{ type, value };
+            Bytes serialized;
+            SerializeKvp(serialized, kvp, type);
             CHECK_EQ(serialized.size(), 2); // Minimal size, 1 byte for type and 1 byte for value.
+
             TestKVPEnum out;
-            serialized >> out;
+            BytesSpan span = serialized;
+            ParseKvp(span, out, type);
             CHECK_EQ(out.type, type);
             std::uint64_t reconstructed_value = 0;
             std::memcpy(&reconstructed_value, out.value.data(), out.value.size());
@@ -590,11 +586,15 @@ TEST_CASE("Key Value Pair encode/decode")
         {
             CAPTURE("ODD");
             auto type = ExampleEnum::kOdd;
-            Bytes serialized = KVPEnum(type, value);
+            TestKVPEnum kvp{ type, value };
+            Bytes serialized;
+            SerializeKvp(serialized, kvp, type);
             CHECK_EQ(serialized.size(),
                      value.size() + 1 + 1); // 1 byte for type, 1 byte for length, and the value bytes.
+
             TestKVPEnum out;
-            serialized >> out;
+            BytesSpan span = serialized;
+            ParseKvp(span, out, type);
             CHECK_EQ(out.type, type);
             CHECK_EQ(out.value, value);
         }
@@ -704,9 +704,10 @@ TEST_CASE("KVP Value Equality")
         kvp.type = 2;             // Even type
         kvp.value = { 0x1, 0x0 }; // Will be compressed to {0x1}
         Bytes buffer;
-        buffer << kvp;
+        SerializeKvp(buffer, kvp, {});
         KeyValuePair<std::uint64_t> out;
-        buffer >> out;
+        BytesSpan span = buffer;
+        ParseKvp(span, out, {});
         CHECK_EQ(out, kvp);
     }
 
