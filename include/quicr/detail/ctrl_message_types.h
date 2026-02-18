@@ -523,8 +523,9 @@ namespace quicr::messages {
         {
             if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
                 if (static_cast<uint64_t>(type) % 2 == 0) {
-                    UintVar u_value(static_cast<uint64_t>(value));
-                    parameters.push_back({ type, Bytes{ u_value.begin(), u_value.end() } });
+                    const std::uint64_t val = static_cast<std::uint64_t>(value);
+                    auto* val_bytes = reinterpret_cast<const std::uint8_t*>(&val);
+                    parameters.push_back({ type, Bytes{ val_bytes, val_bytes + sizeof(val) } });
                     return *this;
                 }
             }
@@ -584,7 +585,9 @@ namespace quicr::messages {
 
             if constexpr (std::is_arithmetic_v<T>) {
                 if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    return static_cast<T>(UintVar(bytes).Get());
+                    std::uint64_t val = 0;
+                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
+                    return static_cast<T>(val);
                 }
             }
 
