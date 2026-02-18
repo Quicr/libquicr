@@ -367,6 +367,7 @@ namespace quicr {
         virtual void ResolveRequestUpdate(ConnectionHandle connection_handle,
                                           uint64_t request_id,
                                           uint64_t existing_request_id,
+                                          bool forward,
                                           std::optional<messages::Location> largest_location = std::nullopt);
 
         ///@}
@@ -414,6 +415,66 @@ namespace quicr {
         // -------------------------------------------------------------------------------------------------
 
         static constexpr std::size_t kControlMessageBufferSize = 4096;
+
+        struct TrackHandler
+        {
+            std::shared_ptr<BaseTrackHandler> handler;
+
+            enum class Type : std::uint8_t
+            {
+                kInvalid,
+                kSubscribe,
+                kPublish,
+                kFetch,
+                kPubNamespace,
+                kSubNamespace
+            };
+
+            TrackHandler() = default;
+            ~TrackHandler() = default;
+
+            TrackHandler(const std::shared_ptr<BaseTrackHandler>& other_handler)
+              : handler(other_handler)
+            {
+            }
+
+            TrackHandler& operator=(const TrackHandler& other)
+            {
+                handler = other.handler;
+                return *this;
+            }
+
+            TrackHandler& operator=(const std::shared_ptr<BaseTrackHandler>& other_handler)
+            {
+                handler = other_handler;
+                return *this;
+            }
+
+            constexpr Type GetType() const noexcept
+            {
+                if (!handler) {
+                    return Type::kInvalid;
+                }
+                if (dynamic_cast<SubscribeTrackHandler*>(handler.get())) {
+                    return Type::kSubscribe;
+                }
+                if (dynamic_cast<PublishTrackHandler*>(handler.get())) {
+                    return Type::kPublish;
+                }
+                if (dynamic_cast<FetchTrackHandler*>(handler.get())) {
+                    return Type::kFetch;
+                }
+                if (dynamic_cast<PublishNamespaceHandler*>(handler.get())) {
+                    return Type::kPubNamespace;
+                }
+                if (dynamic_cast<SubscribeNamespaceHandler*>(handler.get())) {
+                    return Type::kSubNamespace;
+                }
+
+                return Type::kInvalid;
+            }
+        };
+
         struct ConnectionContext
         {
             ConnectionContext(const ConnectionContext& other)
@@ -455,7 +516,7 @@ namespace quicr {
             std::map<messages::RequestID, SubscribeContext> recv_req_id;
 
             /// Tracks by request ID
-            std::map<messages::RequestID, std::shared_ptr<BaseTrackHandler>> tracks_by_request_id;
+            std::map<messages::RequestID, TrackHandler> tracks_by_request_id;
 
             /// Tracks by request ID (Subscribe and Fetch)
             [[deprecated]] std::map<messages::RequestID, std::shared_ptr<SubscribeTrackHandler>>
@@ -484,9 +545,6 @@ namespace quicr {
              * Pending outbound publish tracks by request ID, for publish_ok.
              */
             std::map<messages::RequestID, FullTrackName> pub_by_request_id;
-
-            /// Publish tracks by request Id. Used in client mode
-            std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_request_id;
 
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;

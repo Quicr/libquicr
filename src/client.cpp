@@ -6,6 +6,8 @@
 #include <optional>
 #include <quicr/client.h>
 
+#include "quicr/detail/transport.h"
+
 namespace quicr {
     using namespace std::chrono_literals;
 
@@ -116,18 +118,20 @@ namespace quicr {
                                        bool forward,
                                        std::optional<messages::GroupId> end_group_id)
     {
-        ResolveRequestUpdate(connection_handle, request_id, existing_request_id, std::nullopt);
+        ResolveRequestUpdate(connection_handle, request_id, existing_request_id, forward, std::nullopt);
     }
 
     void Client::ResolveRequestUpdate(ConnectionHandle connection_handle,
                                       uint64_t request_id,
                                       uint64_t existing_request_id,
+                                      bool forward,
                                       std::optional<messages::Location> largest_location)
     {
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
         }
+
         auto track_it = conn_it->second.tracks_by_request_id.find(existing_request_id);
         if (track_it == conn_it->second.tracks_by_request_id.end()) {
 
@@ -136,6 +140,25 @@ namespace quicr {
                                     messages::ErrorCode::kDoesNotExist,
                                     0ms,
                                     "Found no track for existing request ID");
+        }
+
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Request Updated resolve req_id: {} existing_id: {} track handler type: {} forward: {}",
+                            request_id,
+                            existing_request_id,
+                            static_cast<int>(track_it->second.GetType()),
+                            forward);
+        switch (track_it->second.GetType()) {
+            case TrackHandler::Type::kPublish:
+                static_cast<PublishTrackHandler*>(track_it->second.handler.get())
+                  ->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
+                break;
+            case TrackHandler::Type::kSubscribe:
+                static_cast<SubscribeTrackHandler*>(track_it->second.handler.get())
+                  ->SetStatus(forward ? SubscribeTrackHandler::Status::kOk : SubscribeTrackHandler::Status::kPaused);
+                break;
+            default:
+                break;
         }
 
         SendRequestOk(conn_it->second, request_id, largest_location);
@@ -246,7 +269,7 @@ namespace quicr {
                     return true;
                 }
 
-                auto& track_handler = track_it->second;
+                auto& track_handler = track_it->second.handler;
 
                 track_handler->RequestOk(largest_location);
 
@@ -266,7 +289,7 @@ namespace quicr {
                     return true;
                 }
 
-                auto& track_handler = track_it->second;
+                auto& track_handler = track_it->second.handler;
 
                 track_handler->RequestError(msg.error_code,
                                             std::string(msg.error_reason.begin(), msg.error_reason.end()));
@@ -699,9 +722,9 @@ namespace quicr {
                 messages::PublishOk msg{};
                 msg_bytes >> msg;
 
-                auto pub_it = conn_ctx.pub_tracks_by_request_id.find(msg.request_id);
+                auto pub_it = conn_ctx.tracks_by_request_id.find(msg.request_id);
 
-                if (pub_it == conn_ctx.pub_tracks_by_request_id.end()) {
+                if (pub_it == conn_ctx.tracks_by_request_id.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received publish ok to unknown publish track conn_id: {} request_id: {}, ignored",
@@ -724,8 +747,11 @@ namespace quicr {
                     new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
                 }
 
-                pub_it->second.get()->SetStatus(forward ? PublishTrackHandler::Status::kOk
-                                                        : PublishTrackHandler::Status::kPaused);
+                if (pub_it->second.GetType() == TrackHandler::Type::kPublish) {
+                    static_cast<PublishTrackHandler*>(pub_it->second.handler.get())
+                      ->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
+                }
+
                 return true;
             }
             default: {

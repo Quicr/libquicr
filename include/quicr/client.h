@@ -216,6 +216,7 @@ namespace quicr {
         virtual void ResolveRequestUpdate(ConnectionHandle connection_handle,
                                           uint64_t request_id,
                                           uint64_t existing_request_id,
+                                          bool forward,
                                           std::optional<messages::Location> largest_location = std::nullopt) override;
 
         /**

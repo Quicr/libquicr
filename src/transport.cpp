@@ -278,7 +278,9 @@ namespace quicr {
     {
     }
 
-    void Transport::ResolveRequestUpdate(ConnectionHandle, uint64_t, uint64_t, std::optional<messages::Location>) {}
+    void Transport::ResolveRequestUpdate(ConnectionHandle, uint64_t, uint64_t, bool, std::optional<messages::Location>)
+    {
+    }
 
     void Transport::ResolveTrackStatus(ConnectionHandle connection_handle,
                                        uint64_t request_id,
@@ -419,14 +421,16 @@ namespace quicr {
         Bytes buffer;
         buffer << RequestUpdate(request_id, existing_request_id, params);
 
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending REQUEST_UPDATE to conn_id: {} request_id: {} track namespace hash: {} name "
-                            "hash: {} forward: {}",
-                            conn_ctx.connection_handle,
-                            existing_request_id,
-                            th.track_namespace_hash,
-                            th.track_name_hash,
-                            forward);
+        SPDLOG_LOGGER_DEBUG(
+          logger_,
+          "Sending REQUEST_UPDATE to conn_id: {} request_id: {} existing_id: {} track namespace hash: {} name "
+          "hash: {} forward: {}",
+          conn_ctx.connection_handle,
+          request_id,
+          existing_request_id,
+          th.track_namespace_hash,
+          th.track_name_hash,
+          forward);
 
         SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
@@ -1066,7 +1070,6 @@ namespace quicr {
         }
 
         conn_it->second.tracks_by_request_id.erase(track_handler->GetRequestId().value());
-        conn_it->second.pub_tracks_by_request_id.erase(track_handler->GetRequestId().value());
         conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
         /*
@@ -1166,7 +1169,7 @@ namespace quicr {
         track_handler->SetTransport(GetSharedPtr());
 
         // Hold ref to track handler
-        conn_it->second.pub_tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
+        conn_it->second.tracks_by_request_id[*track_handler->GetRequestId()] = track_handler;
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash][conn_id] = track_handler;
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
@@ -1238,8 +1241,8 @@ namespace quicr {
 
         switch (publish_response.reason_code) {
             case PublishResponse::ReasonCode::kOk: {
-                for (const auto& [_, handler] : conn_it->second.tracks_by_request_id) {
-                    if (auto ns_handler = std::dynamic_pointer_cast<SubscribeNamespaceHandler>(handler)) {
+                for (const auto& [_, track] : conn_it->second.tracks_by_request_id) {
+                    if (auto ns_handler = std::dynamic_pointer_cast<SubscribeNamespaceHandler>(track.handler)) {
                         if (ns_handler->IsTrackAcceptable(attributes.track_full_name)) {
                             ns_handler->AcceptNewTrack(connection_handle, request_id, attributes);
                         }
