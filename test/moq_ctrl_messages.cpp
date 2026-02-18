@@ -844,3 +844,33 @@ TEST_CASE("KeyValuePair even-type round-trip preserves values")
         CHECK_EQ(out.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), value);
     }
 }
+
+TEST_CASE("TrackExtensions even-type round-trip preserves values")
+{
+    const std::vector<std::uint64_t> test_values = {
+        0,      1,
+        63, // Max 1-byte varint
+        64, // Min 2-byte varint
+        127,    128, 255,
+        16383, // Max 2-byte varint
+        16384, // Min 4-byte varint
+        100000,
+    };
+
+    for (const auto value : test_values) {
+        CAPTURE(value);
+
+        TrackExtensions ext;
+        ext.Add(ExtensionType::kDeliveryTimeout, value);
+
+        Bytes buffer;
+        buffer << ext;
+
+        TrackExtensions out;
+        BytesSpan span{ buffer };
+        span >> out;
+
+        CHECK_NOTHROW(out.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout));
+        CHECK_EQ(out.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout), value);
+    }
+}
