@@ -1012,11 +1012,7 @@ namespace quicr {
             case SubscribeTrackHandler::Status::kOk:
                 try {
                     if (not handler.IsPublisherInitiated() && not conn_ctx.closed) {
-                        // SendUnsubscribe(conn_ctx, handler.GetRequestId().value());
-                        SendPublishDone(conn_ctx,
-                                        handler.GetRequestId().value(),
-                                        PublishDoneStatusCode::kSubscribtionEnded,
-                                        "No publishers left");
+                        SendUnsubscribe(conn_ctx, handler.GetRequestId().value());
                     }
                 } catch (const std::exception& e) {
                     SPDLOG_LOGGER_ERROR(logger_, "Failed to send unsubscribe: {}", e.what());
