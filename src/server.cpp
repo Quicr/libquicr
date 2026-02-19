@@ -578,8 +578,8 @@ namespace quicr {
                                    th.track_name_hash,
                                    th.track_fullname_hash);
 
-                if (auto h = pub_it->second.Get<PublishTrackHandler>(); h) {
-                    h->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+                if (auto h = pub_it->second.Get<SubscribeTrackHandler>(); h) {
+                    h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     PublishDoneReceived(conn_ctx.connection_handle, msg.request_id);
                 }
 
