@@ -515,12 +515,8 @@ namespace quicr {
 
             std::map<messages::RequestID, SubscribeContext> recv_req_id;
 
-            /// Tracks by request ID
-            std::map<messages::RequestID, TrackHandler> tracks_by_request_id;
-
-            /// Tracks by request ID (Subscribe and Fetch)
-            [[deprecated]] std::map<messages::RequestID, std::shared_ptr<SubscribeTrackHandler>>
-              sub_tracks_by_request_id;
+            /// Handlers by request ID
+            std::map<messages::RequestID, TrackHandler> request_handlers;
 
             /**
              * Data is received with a track alias that is set by the publisher. The map key
@@ -528,7 +524,7 @@ namespace quicr {
              * is matched to this track alias to find the subscriber handler that matches. The
              * subscribe handler has both received track alias and generated track alias.
              */
-            std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
+            std::map<messages::TrackAlias, std::shared_ptr<BaseTrackHandler>> sub_by_recv_track_alias;
 
             /**
              * Publish tracks by namespace and name. map[track namespace][track name] = track handler
