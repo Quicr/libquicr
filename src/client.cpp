@@ -333,15 +333,21 @@ namespace quicr {
                 messages::RequestUpdate msg;
                 msg_bytes >> msg;
 
-                /*
-                auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
-                auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
-                auto new_group_request_id =
-                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-                */
+                auto track_it = conn_ctx.request_handlers.find(msg.existing_request_id);
+                if (track_it == conn_ctx.request_handlers.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received REQUEST_UPDATE to unknown track conn_id: {} request_id: {}, "
+                                       "existing_request_id: {} ignored",
+                                       conn_ctx.connection_handle,
+                                       msg.request_id,
+                                       msg.existing_request_id);
+                    return true;
+                }
+
+                auto& track_handler = track_it->second.handler;
+
+                track_handler->RequestUpdate(msg.request_id, msg.existing_request_id, msg.parameters);
+
                 RequestUpdateReceived(
                   conn_ctx.connection_handle, msg.request_id, msg.existing_request_id, msg.parameters);
 
