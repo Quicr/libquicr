@@ -245,15 +245,13 @@ namespace quicr {
         streams_.erase(stream_id);
     }
 
-    void SubscribeTrackHandler::RequestOk(uint64_t request_id, const messages::Parameters& params)
+    void SubscribeTrackHandler::RequestOk([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
     {
         auto forward = params.Get<bool>(messages::ParameterType::kForward);
         SetStatus(forward ? Status::kOk : Status::kPaused);
     }
 
-    void SubscribeTrackHandler::RequestUpdate(uint64_t request_id,
-                                              uint64_t existing_request_id,
-                                              const messages::Parameters& params)
+    void SubscribeTrackHandler::RequestUpdate([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
     {
         if (auto delivery_timeout = params.GetOptional<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
             delivery_timeout) {

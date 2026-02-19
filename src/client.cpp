@@ -140,7 +140,7 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Request Updated resolve req_id: {} existing_id: {}", request_id, existing_request_id);
 
-        track_it->second.handler->RequestUpdate(request_id, existing_request_id, params);
+        track_it->second.handler->RequestUpdate(request_id, params);
 
         SendRequestOk(conn_it->second, request_id);
     }
@@ -343,7 +343,7 @@ namespace quicr {
 
                 auto& track_handler = track_it->second.handler;
 
-                track_handler->RequestUpdate(msg.request_id, msg.existing_request_id, msg.parameters);
+                track_handler->RequestUpdate(msg.request_id, msg.parameters);
 
                 RequestUpdateReceived(
                   conn_ctx.connection_handle, msg.request_id, msg.existing_request_id, msg.parameters);

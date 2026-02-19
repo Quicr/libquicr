@@ -1849,9 +1849,9 @@ namespace quicr {
             return false;
         }
 
-        if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+        if (auto h = fetch_it->second.Get<SubscribeTrackHandler>(); h) {
             h->StreamDataRecv(true, stream_id, std::move(data));
-            rx_ctx.caller_any = std::make_any<std::weak_ptr<FetchTrackHandler>>(h);
+            rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(h);
             return true;
         }
 

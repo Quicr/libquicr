@@ -336,9 +336,7 @@ namespace quicr {
          */
         virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
 
-        void RequestUpdate(uint64_t request_id,
-                           uint64_t existing_request_id,
-                           const messages::Parameters& params) override;
+        void RequestUpdate(uint64_t request_id, const messages::Parameters& params) override;
         void RequestOk(uint64_t request_id, const messages::Parameters& params) override;
 
         ///@}
