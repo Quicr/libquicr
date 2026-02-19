@@ -443,11 +443,10 @@ namespace quicr {
                     return true;
                 }
 
-                static_cast<SubscribeTrackHandler*>(sub_it->second.handler.get())
-                  ->SetReceivedTrackAlias(msg.track_alias);
-                conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second.handler;
-                static_cast<SubscribeTrackHandler*>(sub_it->second.handler.get())
-                  ->SetStatus(SubscribeTrackHandler::Status::kOk);
+                if (auto handler = sub_it->second.Get<SubscribeTrackHandler>(); handler) {
+                    handler->SetReceivedTrackAlias(msg.track_alias);
+                    handler->SetStatus(SubscribeTrackHandler::Status::kOk);
+                }
 
                 return true;
             }
@@ -579,7 +578,7 @@ namespace quicr {
                                    th.track_name_hash,
                                    th.track_fullname_hash);
 
-                if (auto h = static_cast<PublishTrackHandler*>(pub_it->second.handler.get()); h) {
+                if (auto h = pub_it->second.Get<PublishTrackHandler>(); h) {
                     h->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                     PublishDoneReceived(conn_ctx.connection_handle, msg.request_id);
                 }
@@ -660,9 +659,10 @@ namespace quicr {
                     return true;
                 }
 
-                static_cast<FetchTrackHandler*>(fetch_it->second.handler.get())->SetLatestLocation(msg.end_location);
-                static_cast<FetchTrackHandler*>(fetch_it->second.handler.get())
-                  ->SetStatus(FetchTrackHandler::Status::kOk);
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+                    h->SetLatestLocation(msg.end_location);
+                    h->SetStatus(FetchTrackHandler::Status::kOk);
+                }
 
                 return true;
             }
@@ -767,8 +767,9 @@ namespace quicr {
                     return true;
                 }
 
-                static_cast<FetchTrackHandler*>(fetch_it->second.handler.get())
-                  ->SetStatus(FetchTrackHandler::Status::kCancelled);
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+                    h->SetStatus(FetchTrackHandler::Status::kCancelled);
+                }
 
                 FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
 

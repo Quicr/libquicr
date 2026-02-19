@@ -415,16 +415,6 @@ namespace quicr {
         {
             std::shared_ptr<BaseTrackHandler> handler;
 
-            enum class Type : std::uint8_t
-            {
-                kInvalid,
-                kSubscribe,
-                kPublish,
-                kFetch,
-                kPubNamespace,
-                kSubNamespace
-            };
-
             TrackHandler() = default;
             ~TrackHandler() = default;
 
@@ -445,28 +435,16 @@ namespace quicr {
                 return *this;
             }
 
-            Type GetType() const noexcept
+            template<typename T>
+            std::shared_ptr<T> Get()
             {
-                if (!handler) {
-                    return Type::kInvalid;
-                }
-                if (dynamic_cast<SubscribeTrackHandler*>(handler.get())) {
-                    return Type::kSubscribe;
-                }
-                if (dynamic_cast<PublishTrackHandler*>(handler.get())) {
-                    return Type::kPublish;
-                }
-                if (dynamic_cast<FetchTrackHandler*>(handler.get())) {
-                    return Type::kFetch;
-                }
-                if (dynamic_cast<PublishNamespaceHandler*>(handler.get())) {
-                    return Type::kPubNamespace;
-                }
-                if (dynamic_cast<SubscribeNamespaceHandler*>(handler.get())) {
-                    return Type::kSubNamespace;
-                }
+                return std::dynamic_pointer_cast<T>(handler);
+            }
 
-                return Type::kInvalid;
+            template<typename T>
+            std::shared_ptr<T> Get() const
+            {
+                return std::dynamic_pointer_cast<T>(handler);
             }
         };
 
@@ -519,7 +497,7 @@ namespace quicr {
              * is matched to this track alias to find the subscriber handler that matches. The
              * subscribe handler has both received track alias and generated track alias.
              */
-            std::map<messages::TrackAlias, std::shared_ptr<BaseTrackHandler>> sub_by_recv_track_alias;
+            std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
 
             /**
              * Publish tracks by namespace and name. map[track namespace][track name] = track handler

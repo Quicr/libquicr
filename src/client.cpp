@@ -137,11 +137,8 @@ namespace quicr {
                                     "Found no track for existing request ID");
         }
 
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Request Updated resolve req_id: {} existing_id: {} track handler type: {}",
-                            request_id,
-                            existing_request_id,
-                            static_cast<int>(track_it->second.GetType()));
+        SPDLOG_LOGGER_DEBUG(
+          logger_, "Request Updated resolve req_id: {} existing_id: {}", request_id, existing_request_id);
 
         track_it->second.handler->RequestUpdate(request_id, existing_request_id, params);
 
@@ -371,30 +368,30 @@ namespace quicr {
                     return true;
                 }
 
-                auto sub_handler = static_cast<SubscribeTrackHandler*>(sub_it->second.handler.get());
+                if (auto sub_handler = sub_it->second.Get<SubscribeTrackHandler>(); sub_handler) {
+                    std::optional<messages::Location> largest_location;
+                    if (msg.parameters.Contains(messages::ParameterType::kLargestObject)) {
+                        largest_location =
+                          msg.parameters.Get<messages::Location>(messages::ParameterType::kLargestObject);
+                    }
 
-                auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
+                    if (largest_location.has_value()) {
+                        SPDLOG_LOGGER_DEBUG(
+                          logger_,
+                          "Received subscribe ok conn_id: {} request_id: {} latest_group: {} latest_object: {}",
+                          conn_ctx.connection_handle,
+                          msg.request_id,
+                          largest_location.value().group,
+                          largest_location.value().object);
 
-                std::optional<messages::Location> largest_location;
-                if (msg.parameters.Contains(messages::ParameterType::kLargestObject)) {
-                    largest_location = msg.parameters.Get<messages::Location>(messages::ParameterType::kLargestObject);
+                        sub_handler->SetLatestLocation(largest_location.value());
+                    }
+
+                    sub_handler->SetReceivedTrackAlias(msg.track_alias);
+                    sub_handler->SetStatus(SubscribeTrackHandler::Status::kOk);
                 }
 
-                if (largest_location.has_value()) {
-                    SPDLOG_LOGGER_DEBUG(
-                      logger_,
-                      "Received subscribe ok conn_id: {} request_id: {} latest_group: {} latest_object: {}",
-                      conn_ctx.connection_handle,
-                      msg.request_id,
-                      largest_location.value().group,
-                      largest_location.value().object);
-
-                    sub_handler->SetLatestLocation(largest_location.value());
-                }
-
-                sub_handler->SetReceivedTrackAlias(msg.track_alias);
-                conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second.handler;
-                sub_handler->SetStatus(SubscribeTrackHandler::Status::kOk);
+                conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second.Get<SubscribeTrackHandler>();
 
                 return true;
             }
@@ -510,8 +507,10 @@ namespace quicr {
                                     TrackHash(tfn).track_name_hash,
                                     TrackHash(tfn).track_fullname_hash);
 
-                static_cast<SubscribeTrackHandler*>(sub_it->second.handler.get())
-                  ->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+                if (auto h = sub_it->second.Get<SubscribeTrackHandler>(); h) {
+                    h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+                }
+
                 return true;
             }
             case messages::ControlMessageType::kRequestsBlocked: {
@@ -594,9 +593,10 @@ namespace quicr {
                     return true;
                 }
 
-                static_cast<FetchTrackHandler*>(fetch_it->second.handler.get())->SetLatestLocation(msg.end_location);
-                static_cast<FetchTrackHandler*>(fetch_it->second.handler.get())
-                  ->SetStatus(FetchTrackHandler::Status::kOk);
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+                    h->SetLatestLocation(msg.end_location);
+                    h->SetStatus(FetchTrackHandler::Status::kOk);
+                }
 
                 return true;
             }
@@ -694,8 +694,9 @@ namespace quicr {
                     return true;
                 }
 
-                static_cast<FetchTrackHandler*>(fetch_it->second.handler.get())
-                  ->SetStatus(FetchTrackHandler::Status::kCancelled);
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+                    h->SetStatus(FetchTrackHandler::Status::kCancelled);
+                }
 
                 FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
 
@@ -733,9 +734,8 @@ namespace quicr {
                     new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
                 }
 
-                if (pub_it->second.GetType() == TrackHandler::Type::kPublish) {
-                    static_cast<PublishTrackHandler*>(pub_it->second.handler.get())
-                      ->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
+                if (auto h = pub_it->second.Get<PublishTrackHandler>(); h) {
+                    h->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
                 }
 
                 return true;

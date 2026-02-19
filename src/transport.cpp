@@ -1230,10 +1230,10 @@ namespace quicr {
 
         switch (publish_response.reason_code) {
             case PublishResponse::ReasonCode::kOk: {
-                for (const auto& [_, track] : conn_it->second.request_handlers) {
-                    if (auto ns_handler = std::dynamic_pointer_cast<SubscribeNamespaceHandler>(track.handler)) {
-                        if (ns_handler->IsTrackAcceptable(attributes.track_full_name)) {
-                            ns_handler->AcceptNewTrack(connection_handle, request_id, attributes);
+                for (auto& [_, track] : conn_it->second.request_handlers) {
+                    if (auto h = track.Get<SubscribeNamespaceHandler>(); h) {
+                        if (h->IsTrackAcceptable(attributes.track_full_name)) {
+                            h->AcceptNewTrack(connection_handle, request_id, attributes);
                         }
                     }
                 }
@@ -1366,22 +1366,17 @@ namespace quicr {
     void Transport::RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx)
     {
         // clean up subscriber handlers on disconnect
-        for (const auto& [req_id, req] : conn_ctx.request_handlers) {
-            switch (req.GetType()) {
-                case TrackHandler::Type::kSubscribe:
-                    RemoveSubscribeTrack(conn_ctx, static_cast<SubscribeTrackHandler&>(*req.handler.get()), false);
-                    if (req.handler->GetConnectionId() == conn_ctx.connection_handle) {
-                        static_cast<SubscribeTrackHandler*>(req.handler.get())
-                          ->SetStatus(SubscribeTrackHandler::Status::kNotConnected);
-                    }
-                    break;
-                case TrackHandler::Type::kPublish:
-                    static_cast<PublishTrackHandler*>(req.handler.get())
-                      ->SetStatus(PublishTrackHandler::Status::kNotConnected);
-                    req.handler->SetRequestId(std::nullopt);
-                    break;
-                default:
-                    break;
+        for (auto& [req_id, req] : conn_ctx.request_handlers) {
+            if (auto h = req.Get<SubscribeTrackHandler>(); h) {
+
+                RemoveSubscribeTrack(conn_ctx, *h, false);
+                if (req.handler->GetConnectionId() == conn_ctx.connection_handle) {
+                    static_cast<SubscribeTrackHandler*>(req.handler.get())
+                      ->SetStatus(SubscribeTrackHandler::Status::kNotConnected);
+                }
+            } else if (auto h = req.Get<PublishTrackHandler>(); h) {
+                h->SetStatus(PublishTrackHandler::Status::kNotConnected);
+                h->SetRequestId(std::nullopt);
             }
         }
 
@@ -1672,11 +1667,10 @@ namespace quicr {
                 rx_ctx->data_queue.PopFront();
 
                 // fast processing for existing stream using weak pointer to subscribe handler
-                auto sub_handler_weak = std::any_cast<std::weak_ptr<BaseTrackHandler>>(rx_ctx->caller_any);
+                auto sub_handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
                 if (auto sub_handler = sub_handler_weak.lock()) {
                     try {
-                        static_cast<SubscribeTrackHandler*>(sub_handler.get())
-                          ->StreamDataRecv(false, stream_id, data_opt.value());
+                        sub_handler->StreamDataRecv(false, stream_id, data_opt.value());
                     } catch (const ProtocolViolationException& e) {
                         SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
                         CloseConnection(conn_id, TerminationReason::kProtocolViolation, e.reason);
@@ -1739,19 +1733,20 @@ namespace quicr {
                 return;
             }
 
-            const auto handler_weak = std::any_cast<std::weak_ptr<BaseTrackHandler>>(rx_ctx->caller_any);
+            const auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
             if (const auto handler_ptr = handler_weak.lock(); handler_ptr) {
                 try {
-                    auto handler = static_cast<SubscribeTrackHandler*>(handler_ptr.get());
-                    switch (flag) {
-                        case StreamClosedFlag::kFin:
-                            handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
-                            handler->StreamClosed(stream_id, false);
-                            break;
-                        case StreamClosedFlag::kReset:
-                            handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
-                            handler->StreamClosed(stream_id, true);
-                            break;
+                    if (auto handler = dynamic_cast<SubscribeTrackHandler*>(handler_ptr.get()); handler) {
+                        switch (flag) {
+                            case StreamClosedFlag::kFin:
+                                handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                                handler->StreamClosed(stream_id, false);
+                                break;
+                            case StreamClosedFlag::kReset:
+                                handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                                handler->StreamClosed(stream_id, true);
+                                break;
+                        }
                     }
                 } catch (const ProtocolViolationException& e) {
                     SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
@@ -1800,7 +1795,7 @@ namespace quicr {
         }
 
         auto sub_it = conn_ctx.sub_by_recv_track_alias.find(track_alias);
-        if (sub_it == conn_ctx.sub_by_recv_track_alias.end()) {
+        if (sub_it == conn_ctx.sub_by_recv_track_alias.end() || sub_it->second == nullptr) {
             conn_ctx.metrics.rx_stream_unknown_track_alias++;
             SPDLOG_LOGGER_WARN(
               logger_,
@@ -1813,11 +1808,12 @@ namespace quicr {
 
         rx_ctx.is_new = false;
 
-        rx_ctx.caller_any = std::make_any<std::weak_ptr<BaseTrackHandler>>(sub_it->second);
+        rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
         if (priority.has_value()) {
-            static_cast<SubscribeTrackHandler*>(sub_it->second.get())->SetPriority(*priority);
+            sub_it->second->SetPriority(*priority);
         }
-        static_cast<SubscribeTrackHandler*>(sub_it->second.get())->StreamDataRecv(true, stream_id, std::move(data));
+
+        sub_it->second->StreamDataRecv(true, stream_id, std::move(data));
         return true;
     }
 
@@ -1853,10 +1849,13 @@ namespace quicr {
             return false;
         }
 
-        rx_ctx.caller_any = std::make_any<std::weak_ptr<BaseTrackHandler>>(fetch_it->second.handler);
-        static_cast<FetchTrackHandler*>(fetch_it->second.handler.get())
-          ->StreamDataRecv(true, stream_id, std::move(data));
-        return true;
+        if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+            h->StreamDataRecv(true, stream_id, std::move(data));
+            rx_ctx.caller_any = std::make_any<std::weak_ptr<FetchTrackHandler>>(h);
+            return true;
+        }
+
+        return false;
     }
 
     void Transport::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
@@ -1981,14 +1980,8 @@ namespace quicr {
         }
 
         for (const auto& [_, req] : conn.request_handlers) {
-            switch (req.GetType()) {
-                case TrackHandler::Type::kSubscribe: {
-                    auto sub_h = static_cast<SubscribeTrackHandler*>(req.handler.get());
-                    sub_h->MetricsSampled(sub_h->subscribe_track_metrics_);
-                    break;
-                }
-                default:
-                    break;
+            if (auto h = req.Get<SubscribeTrackHandler>(); h) {
+                h->MetricsSampled(h->subscribe_track_metrics_);
             }
         }
     }
