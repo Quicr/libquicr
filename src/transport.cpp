@@ -1371,8 +1371,9 @@ namespace quicr {
 
                 RemoveSubscribeTrack(conn_ctx, *h, false);
                 if (req.handler->GetConnectionId() == conn_ctx.connection_handle) {
-                    static_cast<SubscribeTrackHandler*>(req.handler.get())
-                      ->SetStatus(SubscribeTrackHandler::Status::kNotConnected);
+                    if (auto h = req.Get<SubscribeTrackHandler>(); h) {
+                        h->SetStatus(SubscribeTrackHandler::Status::kNotConnected);
+                    }
                 }
             } else if (auto h = req.Get<PublishTrackHandler>(); h) {
                 h->SetStatus(PublishTrackHandler::Status::kNotConnected);
