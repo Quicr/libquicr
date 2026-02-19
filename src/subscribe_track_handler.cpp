@@ -244,4 +244,34 @@ namespace quicr {
     {
         streams_.erase(stream_id);
     }
+
+    void SubscribeTrackHandler::RequestOk(uint64_t request_id, const messages::Parameters& params)
+    {
+        auto forward = params.Get<bool>(messages::ParameterType::kForward);
+        SetStatus(forward ? Status::kOk : Status::kPaused);
+    }
+
+    void SubscribeTrackHandler::RequestUpdate(uint64_t request_id,
+                                              uint64_t existing_request_id,
+                                              const messages::Parameters& params)
+    {
+        if (auto delivery_timeout = params.GetOptional<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
+            delivery_timeout) {
+            SetDeliveryTimeout(std::chrono::milliseconds(*delivery_timeout));
+        }
+
+        if (auto priority = params.GetOptional<uint8_t>(messages::ParameterType::kSubscriberPriority); priority) {
+            SetPriority(*priority);
+        }
+
+        if (auto new_group_request_id = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+            new_group_request_id) {
+            RequestNewGroup(*new_group_request_id);
+        }
+
+        if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
+            SetStatus(*forward ? Status::kOk : Status::kPaused);
+        }
+    }
+
 } // namespace quicr

@@ -267,20 +267,9 @@ namespace quicr {
 
     void Transport::TrackStatusReceived(ConnectionHandle, uint64_t, const FullTrackName&) {}
 
-    void Transport::RequestUpdateReceived(ConnectionHandle,
-                                          uint64_t,
-                                          uint64_t,
-                                          uint64_t,
-                                          std::uint8_t,
-                                          messages::FilterType,
-                                          bool,
-                                          std::optional<messages::GroupId>)
-    {
-    }
+    void Transport::RequestUpdateReceived(ConnectionHandle, uint64_t, uint64_t, const Parameters&) {}
 
-    void Transport::ResolveRequestUpdate(ConnectionHandle, uint64_t, uint64_t, bool, std::optional<messages::Location>)
-    {
-    }
+    void Transport::ResolveRequestUpdate(ConnectionHandle, uint64_t, uint64_t, const Parameters&) {}
 
     void Transport::ResolveTrackStatus(ConnectionHandle connection_handle,
                                        uint64_t request_id,

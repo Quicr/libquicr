@@ -112,20 +112,15 @@ namespace quicr {
     void Client::RequestUpdateReceived(ConnectionHandle connection_handle,
                                        uint64_t request_id,
                                        uint64_t existing_request_id,
-                                       std::uint64_t delivery_timeout_ms,
-                                       std::uint8_t priority,
-                                       messages::FilterType filter_type,
-                                       bool forward,
-                                       std::optional<messages::GroupId> end_group_id)
+                                       const messages::Parameters& params)
     {
-        ResolveRequestUpdate(connection_handle, request_id, existing_request_id, forward, std::nullopt);
+        ResolveRequestUpdate(connection_handle, request_id, existing_request_id, params);
     }
 
     void Client::ResolveRequestUpdate(ConnectionHandle connection_handle,
                                       uint64_t request_id,
                                       uint64_t existing_request_id,
-                                      bool forward,
-                                      std::optional<messages::Location> largest_location)
+                                      const messages::Parameters& params)
     {
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
@@ -143,25 +138,14 @@ namespace quicr {
         }
 
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Request Updated resolve req_id: {} existing_id: {} track handler type: {} forward: {}",
+                            "Request Updated resolve req_id: {} existing_id: {} track handler type: {}",
                             request_id,
                             existing_request_id,
-                            static_cast<int>(track_it->second.GetType()),
-                            forward);
-        switch (track_it->second.GetType()) {
-            case TrackHandler::Type::kPublish:
-                static_cast<PublishTrackHandler*>(track_it->second.handler.get())
-                  ->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
-                break;
-            case TrackHandler::Type::kSubscribe:
-                static_cast<SubscribeTrackHandler*>(track_it->second.handler.get())
-                  ->SetStatus(forward ? SubscribeTrackHandler::Status::kOk : SubscribeTrackHandler::Status::kPaused);
-                break;
-            default:
-                break;
-        }
+                            static_cast<int>(track_it->second.GetType()));
 
-        SendRequestOk(conn_it->second, request_id, largest_location);
+        track_it->second.handler->RequestUpdate(request_id, existing_request_id, params);
+
+        SendRequestOk(conn_it->second, request_id);
     }
 
     void Client::BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler)
@@ -257,9 +241,6 @@ namespace quicr {
                 messages::RequestOk msg;
                 msg_bytes >> msg;
 
-                auto largest_location =
-                  msg.parameters.GetOptional<messages::Location>(messages::ParameterType::kLargestObject);
-
                 auto track_it = conn_ctx.request_handlers.find(msg.request_id);
                 if (track_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
@@ -271,9 +252,9 @@ namespace quicr {
 
                 auto& track_handler = track_it->second.handler;
 
-                track_handler->RequestOk(largest_location);
+                track_handler->RequestOk(msg.request_id, msg.parameters);
 
-                RequestOkReceived(connection_handle_.value(), msg.request_id, largest_location);
+                RequestOkReceived(connection_handle_.value(), msg.request_id);
                 return true;
             }
             case messages::ControlMessageType::kRequestError: {
@@ -352,6 +333,7 @@ namespace quicr {
                 messages::RequestUpdate msg;
                 msg_bytes >> msg;
 
+                /*
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                 auto filter_type =
@@ -359,15 +341,9 @@ namespace quicr {
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
                 auto new_group_request_id =
                   msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-
-                RequestUpdateReceived(conn_ctx.connection_handle,
-                                      msg.request_id,
-                                      msg.existing_request_id,
-                                      delivery_timeout,
-                                      priority,
-                                      filter_type,
-                                      forward,
-                                      new_group_request_id);
+                */
+                RequestUpdateReceived(
+                  conn_ctx.connection_handle, msg.request_id, msg.existing_request_id, msg.parameters);
 
                 return true;
             }

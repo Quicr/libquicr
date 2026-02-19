@@ -221,7 +221,10 @@ namespace quicr {
          */
         uint64_t GetConnectionId() const noexcept { return connection_handle_; };
 
-        virtual void RequestOk(std::optional<messages::Location> largest_location);
+        virtual void RequestOk(uint64_t request_id, const messages::Parameters& params);
+        virtual void RequestUpdate(uint64_t request_id,
+                                   uint64_t existing_request_id,
+                                   const messages::Parameters& params);
 
         virtual void RequestError(messages::ErrorCode error_code, std::string reason);
 

@@ -401,4 +401,19 @@ namespace quicr {
         }
     }
 
+    void PublishTrackHandler::RequestOk(uint64_t request_id, const messages::Parameters& params)
+    {
+        auto forward = params.Get<bool>(messages::ParameterType::kForward);
+        SetStatus(forward ? Status::kOk : Status::kPaused);
+    }
+
+    void PublishTrackHandler::RequestUpdate(uint64_t request_id,
+                                            uint64_t existing_request_id,
+                                            const messages::Parameters& params)
+    {
+        if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
+            SetStatus(*forward ? Status::kOk : Status::kPaused);
+        }
+    }
+
 } // namespace quicr
