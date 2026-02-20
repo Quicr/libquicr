@@ -446,6 +446,7 @@ namespace quicr {
                 if (auto handler = sub_it->second.Get<SubscribeTrackHandler>(); handler) {
                     handler->SetReceivedTrackAlias(msg.track_alias);
                     handler->SetStatus(SubscribeTrackHandler::Status::kOk);
+                    conn_ctx.sub_by_recv_track_alias[msg.track_alias] = handler;
                 }
 
                 return true;
