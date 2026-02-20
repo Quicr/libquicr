@@ -85,10 +85,10 @@ namespace quicr {
                 continue;
             }
 
-            auto req_it = it->second.tracks_by_request_id.find(request_id);
-            if (req_it != it->second.tracks_by_request_id.end()) {
+            auto req_it = it->second.request_handlers.find(request_id);
+            if (req_it != it->second.request_handlers.end()) {
                 SendPublishNamespaceDone(it->second, request_id);
-                it->second.tracks_by_request_id.erase(req_it);
+                it->second.request_handlers.erase(req_it);
             }
         }
     }
@@ -258,7 +258,7 @@ namespace quicr {
           th.track_namespace_hash,
           th.track_name_hash);
 
-        conn_it->second.tracks_by_request_id.erase(*track_handler->GetRequestId());
+        conn_it->second.request_handlers.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
 
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash].erase(src_id);
@@ -310,7 +310,7 @@ namespace quicr {
         }
 
         track_handler->SetRequestId(request_id);
-        conn_it->second.tracks_by_request_id[request_id] = track_handler;
+        conn_it->second.request_handlers[request_id] = track_handler;
 
         track_handler->connection_handle_ = conn_id;
 
@@ -429,9 +429,9 @@ namespace quicr {
                 messages::SubscribeOk msg{};
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
+                auto sub_it = conn_ctx.request_handlers.find(msg.request_id);
 
-                if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                if (sub_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received subscribe ok to unknown subscribe track conn_id: {} request_id: {}, ignored",
@@ -443,9 +443,11 @@ namespace quicr {
                     return true;
                 }
 
-                sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
-                conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second;
-                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
+                if (auto handler = sub_it->second.Get<SubscribeTrackHandler>(); handler) {
+                    handler->SetReceivedTrackAlias(msg.track_alias);
+                    handler->SetStatus(SubscribeTrackHandler::Status::kOk);
+                    conn_ctx.sub_by_recv_track_alias[msg.track_alias] = handler;
+                }
 
                 return true;
             }
@@ -556,8 +558,8 @@ namespace quicr {
                 messages::PublishDone msg;
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
-                if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                auto pub_it = conn_ctx.request_handlers.find(msg.request_id);
+                if (pub_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received publish done to unknown subscribe conn_id: {} request_id: {}",
                                        conn_ctx.connection_handle,
@@ -565,7 +567,7 @@ namespace quicr {
 
                     return true;
                 }
-                auto tfn = sub_it->second->GetFullTrackName();
+                auto tfn = pub_it->second.handler->GetFullTrackName();
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(logger_,
@@ -577,9 +579,11 @@ namespace quicr {
                                    th.track_name_hash,
                                    th.track_fullname_hash);
 
-                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+                if (auto h = pub_it->second.Get<SubscribeTrackHandler>(); h) {
+                    h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+                    PublishDoneReceived(conn_ctx.connection_handle, msg.request_id);
+                }
 
-                PublishDoneReceived(conn_ctx.connection_handle, msg.request_id);
                 conn_ctx.recv_req_id.erase(msg.request_id);
 
                 return true;
@@ -647,8 +651,8 @@ namespace quicr {
                 messages::FetchOk msg;
                 msg_bytes >> msg;
 
-                auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
-                if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                auto fetch_it = conn_ctx.request_handlers.find(msg.request_id);
+                if (fetch_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received fetch ok for unknown fetch track conn_id: {} request_id: {}, ignored",
                                        conn_ctx.connection_handle,
@@ -656,8 +660,10 @@ namespace quicr {
                     return true;
                 }
 
-                fetch_it->second.get()->SetLatestLocation(msg.end_location);
-                fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kOk);
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+                    h->SetLatestLocation(msg.end_location);
+                    h->SetStatus(FetchTrackHandler::Status::kOk);
+                }
 
                 return true;
             }
@@ -756,17 +762,19 @@ namespace quicr {
                     SPDLOG_LOGGER_WARN(logger_, "Received Fetch Cancel for unknown subscribe ID: {}", msg.request_id);
                 }
 
-                const auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
-                if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                const auto fetch_it = conn_ctx.request_handlers.find(msg.request_id);
+                if (fetch_it == conn_ctx.request_handlers.end()) {
                     FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
                     return true;
                 }
 
-                fetch_it->second->SetStatus(FetchTrackHandler::Status::kCancelled);
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+                    h->SetStatus(FetchTrackHandler::Status::kCancelled);
+                }
 
                 FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
 
-                conn_ctx.sub_tracks_by_request_id.erase(fetch_it);
+                conn_ctx.request_handlers.erase(fetch_it);
                 conn_ctx.recv_req_id.erase(msg.request_id);
 
                 return true;
