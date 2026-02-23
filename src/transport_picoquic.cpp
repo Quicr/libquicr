@@ -844,7 +844,7 @@ PqAlpnSelectCb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t count)
     }
 
     // Define supported ALPNs
-    const char* moq_alpn = "moq-00";
+    const char* moq_alpn = moqt_alpn;
     const char* h3_alpn = "h3";
     size_t moq_len = strlen(moq_alpn);
     size_t h3_len = strlen(h3_alpn);
@@ -1337,7 +1337,7 @@ PicoQuicTransport::CreateConnContext(picoquic_cnx_t* pq_cnx)
                 if (auto transport = dynamic_cast<Transport*>(&delegate_)) {
                     transport->SetWebTransportMode(conn_ctx.conn_id, true);
                 }
-            } else if (strcmp(negotiated_alpn, quicr_alpn) == 0) {
+            } else if (strcmp(negotiated_alpn, moqt_alpn) == 0) {
                 conn_ctx.transport_mode = TransportMode::kQuic;
                 SPDLOG_LOGGER_INFO(logger, "Server connection using raw QUIC (ALPN: {})", negotiated_alpn);
             } else {
@@ -2859,7 +2859,7 @@ PicoQuicTransport::GetAlpn() const
             return webtransport_alpn;
         case TransportMode::kQuic:
         default:
-            return quicr_alpn;
+            return moqt_alpn;
     }
 }
 
