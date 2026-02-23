@@ -393,8 +393,8 @@ namespace quicr {
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
+                auto filter = msg.parameters.GetOptional<messages::Filter>(
+                  messages::ParameterType::kTrackFilter); // TODO: Support other filters
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
 
                 std::optional<uint64_t> new_group_request_id;
@@ -411,7 +411,8 @@ namespace quicr {
                                     .group_order = group_order,
                                     .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
                                     .expires = std::chrono::milliseconds{ delivery_timeout },
-                                    .filter_type = filter_type,
+                                    .filter_type = messages::FilterType::kTrackFilter,
+                                    .filter = filter.value(),
                                     .forward = forward,
                                     .new_group_request_id = new_group_request_id,
                                     .is_publisher_initiated = false,
@@ -801,7 +802,7 @@ namespace quicr {
                 attributes.group_order = group_order;
                 attributes.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
                 attributes.expires = std::chrono::milliseconds(expires);
-                attributes.filter_type = messages::FilterType::kLargestObject;
+                attributes.filter_type = messages::FilterType::kTrackFilter;
                 attributes.forward = forward;
                 attributes.new_group_request_id = 1;
                 attributes.is_publisher_initiated = true;
@@ -834,8 +835,8 @@ namespace quicr {
                 auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
+                auto filter = msg.parameters.GetOptional<messages::Filter>(
+                  messages::ParameterType::kTrackFilter); // TODO: Support more filters
                 auto new_group_request_id =
                   msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
@@ -844,7 +845,8 @@ namespace quicr {
                     .group_order = group_order,
                     .delivery_timeout = std::chrono::milliseconds(delivery_timeout),
                     .expires = std::chrono::milliseconds(expires),
-                    .filter_type = filter_type,
+                    .filter_type = messages::FilterType::kTrackFilter,
+                    .filter = filter.value(),
                     .forward = forward,
                     .new_group_request_id = new_group_request_id,
                     .is_publisher_initiated = true,
@@ -874,8 +876,8 @@ namespace quicr {
 
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
+                auto filter = msg.parameters.GetOptional<messages::Filter>(
+                  messages::ParameterType::kTrackFilter); // TODO: Support more filters;
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
                 auto new_group_request_id =
                   msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);

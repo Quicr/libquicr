@@ -208,7 +208,13 @@ namespace quicr::messages {
         kLargestObject = 0x09,
         kForward = 0x10,
         kSubscriberPriority = 0x20,
-        kSubscriptionFilter = 0x21,
+        kLocationFilter = 0x21,
+        kGroupFilter = 0x23,
+        kSubgroupFilter = 0x25,
+        kObjectFilter = 0x27,
+        kPriorityFilter = 0x29,
+        kPropertyFilter = 0x2B,
+        kTrackFilter = 0x2D,
         kGroupOrder = 0x22,
         kNewGroupRequest = 0x32,
 
@@ -234,11 +240,299 @@ namespace quicr::messages {
 
     enum struct FilterType : uint64_t
     {
-        kLargestObject = 0x2,
-        kNextGroupStart = 0x1,
-        kAbsoluteStart = 0x3,
-        kAbsoluteRange = 0x4
+        kLocationFilter,
+        kGroupFilter,
+        kSubgroupFilter,
+        kObjectFilter,
+        kPriorityFilter,
+        kPropertyFilter,
+        kTrackFilter,
     };
+
+    constexpr ParameterType ToParameterFilterType(FilterType type)
+    {
+        switch (type) {
+            case FilterType::kLocationFilter:
+                return ParameterType::kLocationFilter;
+            case FilterType::kGroupFilter:
+                return ParameterType::kGroupFilter;
+            case FilterType::kSubgroupFilter:
+                return ParameterType::kSubgroupFilter;
+            case FilterType::kObjectFilter:
+                return ParameterType::kObjectFilter;
+            case FilterType::kPriorityFilter:
+                return ParameterType::kPriorityFilter;
+            case FilterType::kPropertyFilter:
+                return ParameterType::kPropertyFilter;
+            case FilterType::kTrackFilter:
+                return ParameterType::kTrackFilter;
+        }
+    }
+
+    constexpr FilterType ToFilterType(ParameterType type)
+    {
+        switch (type) {
+            case ParameterType::kLocationFilter:
+                return FilterType::kLocationFilter;
+            case ParameterType::kGroupFilter:
+                return FilterType::kGroupFilter;
+            case ParameterType::kSubgroupFilter:
+                return FilterType::kSubgroupFilter;
+            case ParameterType::kObjectFilter:
+                return FilterType::kObjectFilter;
+            case ParameterType::kPriorityFilter:
+                return FilterType::kPriorityFilter;
+            case ParameterType::kPropertyFilter:
+                return FilterType::kPropertyFilter;
+            case ParameterType::kTrackFilter:
+                return FilterType::kTrackFilter;
+            default:
+                throw std::invalid_argument("parameter type is not a valid filter type");
+        }
+    }
+
+    enum class LocationFilterType
+    {
+        kNextGroupStart,
+        kLargestObject,
+        kAbsoluteStart,
+        kAbsoluteRange,
+    };
+
+    /**
+     * @brief
+     *
+     * @notes: - End Object ID MAY be omitted to indicate no end within End Group.
+     *         - End Group ID and End Object ID MAY be omitted to indicate no end, for an open ended subscription or
+     *           a Joining Fetch which implicitly ends at the associated subscription start Location.
+     *         - All but Start Group ID MAY be omitted to indicate
+     */
+    struct LocationFilter
+    {
+        std::uint64_t start_group;
+        std::optional<std::uint64_t> start_object;
+
+        std::optional<std::uint64_t> end_group;
+        std::optional<std::uint64_t> end_object;
+
+        constexpr auto operator<=>(const LocationFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const LocationFilter& filter)
+    {
+        AppendBytes(bytes, UintVar(filter.start_group));
+
+        if (filter.start_object.has_value()) {
+            AppendBytes(bytes, UintVar(filter.start_object.value()));
+
+            if (filter.end_group.has_value()) {
+                AppendBytes(bytes, UintVar(filter.end_group.value()));
+
+                if (filter.end_object.has_value()) {
+                    AppendBytes(bytes, UintVar(filter.end_object.value()));
+                }
+            }
+        }
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, LocationFilter& filter)
+    {
+        return bytes;
+    }
+
+    struct RangeFilter
+    {
+        std::uint64_t start;
+        std::optional<std::uint64_t> end;
+
+        constexpr auto operator<=>(const RangeFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const RangeFilter& filter)
+    {
+        AppendBytes(bytes, UintVar(filter.start));
+
+        if (filter.end.has_value()) {
+            AppendBytes(bytes, UintVar(filter.end.value()));
+        }
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, RangeFilter& filter)
+    {
+        return bytes;
+    }
+
+    struct PropertyFilter
+    {
+        std::uint64_t property_type;
+        std::uint64_t start;
+        std::optional<std::uint64_t> end;
+
+        constexpr auto operator<=>(const PropertyFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const PropertyFilter& filter)
+    {
+        AppendBytes(bytes, UintVar(filter.property_type));
+        AppendBytes(bytes, UintVar(filter.start));
+
+        if (filter.end.has_value()) {
+            AppendBytes(bytes, UintVar(filter.end.value()));
+        }
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, PropertyFilter& filter)
+    {
+        return bytes;
+    }
+
+    struct TrackFilter
+    {
+        std::uint64_t property_type;
+        std::uint64_t max_tracks_selected;
+        std::uint64_t max_tracks_deselected;
+        std::uint64_t max_time_selected;
+
+        constexpr auto operator<=>(const TrackFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const TrackFilter& filter)
+    {
+        AppendBytes(bytes, UintVar(filter.property_type));
+        AppendBytes(bytes, UintVar(filter.max_tracks_selected));
+        AppendBytes(bytes, UintVar(filter.max_tracks_deselected));
+        AppendBytes(bytes, UintVar(filter.max_time_selected));
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, TrackFilter& filter)
+    {
+        bytes = bytes >> filter.property_type;
+        bytes = bytes >> filter.max_tracks_selected;
+        bytes = bytes >> filter.max_tracks_deselected;
+        bytes = bytes >> filter.max_time_selected;
+
+        return bytes;
+    }
+
+    using Filter =
+      std::variant<std::monostate, LocationFilter, std::vector<RangeFilter>, std::vector<PropertyFilter>, TrackFilter>;
+
+    inline Parameter SerializeFilter(FilterType filter_type, const Filter& filter)
+    {
+        if (std::holds_alternative<std::monostate>(filter)) {
+            return Parameter{ ToParameterFilterType(filter_type), Bytes{} };
+        }
+
+        switch (filter_type) {
+            case FilterType::kLocationFilter: {
+                Bytes bytes;
+                bytes << std::get<LocationFilter>(filter);
+
+                return Parameter{ ParameterType::kLocationFilter, bytes };
+            }
+            case FilterType::kGroupFilter: {
+                Bytes bytes;
+                auto group_filters = std::get<std::vector<RangeFilter>>(filter);
+                for (const auto& group_filter : group_filters) {
+                    bytes << group_filter;
+                }
+
+                return Parameter{ ParameterType::kGroupFilter, bytes };
+            }
+            case FilterType::kSubgroupFilter: {
+                Bytes bytes;
+
+                auto subgroup_filters = std::get<std::vector<RangeFilter>>(filter);
+                for (const auto& subgroup_filter : subgroup_filters) {
+                    bytes << subgroup_filter;
+                }
+
+                return Parameter{ ParameterType::kSubgroupFilter, bytes };
+            }
+            case FilterType::kObjectFilter: {
+                Bytes bytes;
+
+                auto object_filters = std::get<std::vector<RangeFilter>>(filter);
+                for (const auto& object_filter : object_filters) {
+                    bytes << object_filter;
+                }
+
+                return Parameter{ ParameterType::kObjectFilter, bytes };
+            }
+            case FilterType::kPriorityFilter: {
+                Bytes bytes;
+
+                auto priority_filters = std::get<std::vector<RangeFilter>>(filter);
+                for (const auto& priority_filter : priority_filters) {
+                    bytes.push_back(static_cast<uint8_t>(priority_filter.start));
+
+                    if (priority_filter.end.has_value()) {
+                        bytes.push_back(static_cast<uint8_t>(priority_filter.end.value()));
+                    }
+                }
+
+                return Parameter{ ParameterType::kPriorityFilter, bytes };
+            }
+            case FilterType::kPropertyFilter: {
+                Bytes bytes;
+
+                auto property_filters = std::get<std::vector<PropertyFilter>>(filter);
+                for (const auto& property_filter : property_filters) {
+                    bytes << property_filter;
+                }
+
+                return Parameter{ ParameterType::kPropertyFilter, bytes };
+            }
+            case FilterType::kTrackFilter: {
+                Bytes bytes;
+                bytes << std::get<TrackFilter>(filter);
+
+                return Parameter{ ParameterType::kTrackFilter, bytes };
+            }
+        }
+
+        return Parameter{ ToParameterFilterType(filter_type), Bytes{} };
+    }
+
+    inline Filter DeserializeFilter(FilterType filter_type, BytesSpan bytes)
+    {
+        // TODO: Firegue out how to parse the vector filters.
+        switch (filter_type) {
+            case FilterType::kLocationFilter: {
+                return std::monostate{};
+            }
+            case FilterType::kGroupFilter: {
+                return std::monostate{};
+            }
+            case FilterType::kSubgroupFilter: {
+                return std::monostate{};
+            }
+            case FilterType::kObjectFilter: {
+                return std::monostate{};
+            }
+            case FilterType::kPriorityFilter: {
+                return std::monostate{};
+            }
+            case FilterType::kPropertyFilter: {
+                return std::monostate{};
+            }
+            case FilterType::kTrackFilter: {
+                TrackFilter filter{};
+                bytes = bytes >> filter;
+                return filter;
+            }
+        }
+
+        return std::monostate{};
+    }
 
     enum class PublishDoneStatusCode : uint64_t
     {

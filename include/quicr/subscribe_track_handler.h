@@ -75,12 +75,14 @@ namespace quicr {
                               std::uint8_t priority,
                               messages::GroupOrder group_order,
                               messages::FilterType filter_type,
+                              messages::Filter filter = std::monostate{},
                               const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
                               bool publisher_initiated = false)
           : BaseTrackHandler(full_track_name)
           , priority_(priority)
           , group_order_(group_order)
           , filter_type_(filter_type)
+          , filter_(filter)
           , joining_fetch_(publisher_initiated ? std::nullopt : joining_fetch)
           , publisher_initiated_(publisher_initiated)
         {
@@ -99,10 +101,11 @@ namespace quicr {
           const FullTrackName& full_track_name,
           std::uint8_t priority,
           messages::GroupOrder group_order = messages::GroupOrder::kAscending,
-          messages::FilterType filter_type = messages::FilterType::kLargestObject)
+          messages::FilterType filter_type = messages::FilterType::kTrackFilter,
+          messages::Filter filter = std::monostate{})
         {
             return std::shared_ptr<SubscribeTrackHandler>(
-              new SubscribeTrackHandler(full_track_name, priority, group_order, filter_type));
+              new SubscribeTrackHandler(full_track_name, priority, group_order, filter_type, filter));
         }
 
         /**
@@ -141,6 +144,11 @@ namespace quicr {
          */
 
         constexpr messages::FilterType GetFilterType() const noexcept { return filter_type_; }
+
+        constexpr std::pair<messages::FilterType, const messages::Filter&> GetFilter() const noexcept
+        {
+            return std::make_pair(filter_type_, filter_);
+        }
 
         constexpr std::optional<messages::Location> GetLatestLocation() const noexcept { return latest_location_; }
 
@@ -393,6 +401,7 @@ namespace quicr {
         std::uint8_t priority_;
         messages::GroupOrder group_order_;
         messages::FilterType filter_type_;
+        messages::Filter filter_;
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;

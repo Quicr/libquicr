@@ -726,8 +726,8 @@ namespace quicr {
                 auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
+                auto filter = msg.parameters.Get<messages::FilterType>(
+                  messages::ParameterType::kTrackFilter); // TODO: Get other filter types when we support them.
 
                 std::optional<uint64_t> new_group_request_id;
                 if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
