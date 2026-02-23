@@ -423,11 +423,7 @@ namespace quicr {
             {
             }
 
-            TrackHandler& operator=(const TrackHandler& other)
-            {
-                handler = other.handler;
-                return *this;
-            }
+            TrackHandler& operator=(const TrackHandler& other) = default;
 
             TrackHandler& operator=(const std::shared_ptr<BaseTrackHandler>& other_handler)
             {
