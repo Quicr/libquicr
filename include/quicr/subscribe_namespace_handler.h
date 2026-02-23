@@ -100,9 +100,9 @@ namespace quicr {
             SetStatus(Status::kError);
         }
 
-        virtual void RequestOk(std::optional<messages::Location>) { SetStatus(Status::kOk); }
+        virtual void RequestOk(uint64_t, const messages::Parameters&) override { SetStatus(Status::kOk); }
 
-        virtual void RequestError(messages::ErrorCode error_code, std::string reason)
+        virtual void RequestError(messages::ErrorCode error_code, std::string reason) override
         {
             SetError(Error{ error_code, Bytes{ reason.begin(), reason.end() } });
         }
