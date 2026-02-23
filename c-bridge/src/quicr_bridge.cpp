@@ -386,7 +386,12 @@ class BridgeSubscribeTrackHandler : public quicr::SubscribeTrackHandler
                                 const std::optional<quicr::SubscribeTrackHandler::JoiningFetch>& joining_fetch,
                                 qbridge_object_received_callback_t callback,
                                 void* data)
-      : quicr::SubscribeTrackHandler(full_track_name, priority, group_order, filter_type, joining_fetch)
+      : quicr::SubscribeTrackHandler(full_track_name,
+                                     priority,
+                                     group_order,
+                                     filter_type,
+                                     std::monostate{},
+                                     joining_fetch)
       , received_callback(callback)
       , user_data(data)
     {
@@ -440,15 +445,15 @@ struct qbridge_subscribe_track_handler
 
             if (config->start_group_id > 0 && config->end_group_id > 0) {
                 // Both start and end specified -> kAbsoluteRange
-                filter_type = quicr::messages::FilterType::kAbsoluteRange;
+                filter_type = quicr::messages::FilterType::kTrackFilter; // TODO: Build filter more logically
             } else if (config->start_group_id > 0 && !has_end_group) {
                 // Only start group specified -> kAbsoluteStart
-                filter_type = quicr::messages::FilterType::kAbsoluteStart;
+                filter_type = quicr::messages::FilterType::kTrackFilter; // TODO: Build filter more logically
             } else if (config->start_group_id == 0 && !has_end_group) {
-                filter_type = quicr::messages::FilterType::kNextGroupStart;
+                filter_type = quicr::messages::FilterType::kTrackFilter; // TODO: Build filter more logically
             } else {
                 // No start/end specified -> kLargestObject (default)
-                filter_type = quicr::messages::FilterType::kLargestObject;
+                filter_type = quicr::messages::FilterType::kTrackFilter;
             }
 
             // Create without joining fetch for normal subscribe (latest object)

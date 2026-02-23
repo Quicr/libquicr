@@ -153,6 +153,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                               128,
                               quicr::messages::GroupOrder::kAscending,
                               filter_type,
+                              std::monostate{},
                               joining_fetch,
                               publisher_initiated)
     {
@@ -1540,13 +1541,8 @@ main(int argc, char* argv[])
             }
         }
         if (enable_sub) {
-            auto filter_type = quicr::messages::FilterType::kLargestObject;
-            if (result.count("start_point")) {
-                if (result["start_point"].as<uint64_t>() == 0) {
-                    filter_type = quicr::messages::FilterType::kNextGroupStart;
-                    SPDLOG_INFO("Setting subscription filter to Next Group Start");
-                }
-            }
+            auto filter_type = quicr::messages::FilterType::kTrackFilter;
+
             std::optional<std::uint64_t> joining_fetch;
             if (result.count("joining_fetch")) {
                 joining_fetch = result["joining_fetch"].as<uint64_t>();

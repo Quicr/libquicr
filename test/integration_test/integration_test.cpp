@@ -273,7 +273,7 @@ TEST_CASE("Integration - Subscribe")
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
-        constexpr auto filter_type = messages::FilterType::kLargestObject;
+        constexpr auto filter_type = messages::FilterType::kTrackFilter;
         const auto handler =
           SubscribeTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, filter_type);
 
@@ -351,7 +351,7 @@ TEST_CASE("Integration - Handlers with no transport")
     // Subscribe.
     {
         const auto handler = SubscribeTrackHandler::Create(
-          FullTrackName(), 0, messages::GroupOrder::kOriginalPublisherOrder, messages::FilterType::kLargestObject);
+          FullTrackName(), 0, messages::GroupOrder::kOriginalPublisherOrder, messages::FilterType::kTrackFilter);
         handler->Pause();
         handler->Resume();
         handler->RequestNewGroup();
@@ -966,7 +966,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
 
         // Create subscribe handler that tracks received objects
         auto sub_handler = TestSubscribeHandler::Create(
-          ftn, 3, messages::GroupOrder::kOriginalPublisherOrder, messages::FilterType::kLargestObject);
+          ftn, 3, messages::GroupOrder::kOriginalPublisherOrder, messages::FilterType::kTrackFilter);
 
         // Set up promise for subscriber receiving all messages
         std::promise<void> all_received_promise;

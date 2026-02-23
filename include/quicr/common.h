@@ -61,6 +61,12 @@ namespace quicr {
         return value;
     }
 
+    inline void AppendBytes(Bytes& buffer, BytesSpan bytes)
+    {
+        buffer.reserve(buffer.size() + bytes.size());
+        buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+    }
+
     constexpr const char* moqt_alpn = "moqt-16";
     constexpr uint64_t kMoqtVersion = 0xff00010; ///< draft-ietf-moq-transport-16
     constexpr uint64_t kSubscribeExpires = 0;    ///< Never expires
