@@ -368,7 +368,7 @@ namespace quicr {
                     return true;
                 }
 
-                if (auto sub_handler = sub_it->second.Get<SubscribeTrackHandler>(); sub_handler) {
+                if (auto sub_handler = sub_it->second.Get<SubscribeTrackHandler>()) {
                     std::optional<messages::Location> largest_location;
                     if (msg.parameters.Contains(messages::ParameterType::kLargestObject)) {
                         largest_location =
@@ -507,7 +507,7 @@ namespace quicr {
                                     TrackHash(tfn).track_name_hash,
                                     TrackHash(tfn).track_fullname_hash);
 
-                if (auto h = sub_it->second.Get<SubscribeTrackHandler>(); h) {
+                if (auto h = sub_it->second.Get<SubscribeTrackHandler>()) {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                 }
 
@@ -593,7 +593,7 @@ namespace quicr {
                     return true;
                 }
 
-                if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>()) {
                     h->SetLatestLocation(msg.end_location);
                     h->SetStatus(FetchTrackHandler::Status::kOk);
                 }
@@ -694,7 +694,7 @@ namespace quicr {
                     return true;
                 }
 
-                if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>()) {
                     h->SetStatus(FetchTrackHandler::Status::kCancelled);
                 }
 
@@ -734,7 +734,7 @@ namespace quicr {
                     new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
                 }
 
-                if (auto h = pub_it->second.Get<PublishTrackHandler>(); h) {
+                if (auto h = pub_it->second.Get<PublishTrackHandler>()) {
                     h->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
                 }
 

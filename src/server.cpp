@@ -443,7 +443,7 @@ namespace quicr {
                     return true;
                 }
 
-                if (auto handler = sub_it->second.Get<SubscribeTrackHandler>(); handler) {
+                if (auto handler = sub_it->second.Get<SubscribeTrackHandler>()) {
                     handler->SetReceivedTrackAlias(msg.track_alias);
                     handler->SetStatus(SubscribeTrackHandler::Status::kOk);
                     conn_ctx.sub_by_recv_track_alias[msg.track_alias] = handler;
@@ -579,7 +579,7 @@ namespace quicr {
                                    th.track_name_hash,
                                    th.track_fullname_hash);
 
-                if (auto h = pub_it->second.Get<SubscribeTrackHandler>(); h) {
+                if (auto h = pub_it->second.Get<SubscribeTrackHandler>()) {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     PublishDoneReceived(conn_ctx.connection_handle, msg.request_id);
                 }
@@ -660,7 +660,7 @@ namespace quicr {
                     return true;
                 }
 
-                if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>()) {
                     h->SetLatestLocation(msg.end_location);
                     h->SetStatus(FetchTrackHandler::Status::kOk);
                 }
@@ -768,7 +768,7 @@ namespace quicr {
                     return true;
                 }
 
-                if (auto h = fetch_it->second.Get<FetchTrackHandler>(); h) {
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>()) {
                     h->SetStatus(FetchTrackHandler::Status::kCancelled);
                 }
 

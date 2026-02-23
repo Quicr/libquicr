@@ -1227,7 +1227,7 @@ namespace quicr {
         switch (publish_response.reason_code) {
             case PublishResponse::ReasonCode::kOk: {
                 for (auto& [_, track] : conn_it->second.request_handlers) {
-                    if (auto h = track.Get<SubscribeNamespaceHandler>(); h) {
+                    if (auto h = track.Get<SubscribeNamespaceHandler>()) {
                         if (h->IsTrackAcceptable(attributes.track_full_name)) {
                             h->AcceptNewTrack(connection_handle, request_id, attributes);
                         }
@@ -1363,15 +1363,15 @@ namespace quicr {
     {
         // clean up subscriber handlers on disconnect
         for (auto& [req_id, req] : conn_ctx.request_handlers) {
-            if (auto h = req.Get<SubscribeTrackHandler>(); h) {
+            if (auto h = req.Get<SubscribeTrackHandler>()) {
 
                 RemoveSubscribeTrack(conn_ctx, *h, false);
                 if (req.handler->GetConnectionId() == conn_ctx.connection_handle) {
-                    if (auto h = req.Get<SubscribeTrackHandler>(); h) {
+                    if (auto h = req.Get<SubscribeTrackHandler>()) {
                         h->SetStatus(SubscribeTrackHandler::Status::kNotConnected);
                     }
                 }
-            } else if (auto h = req.Get<PublishTrackHandler>(); h) {
+            } else if (auto h = req.Get<PublishTrackHandler>()) {
                 h->SetStatus(PublishTrackHandler::Status::kNotConnected);
                 h->SetRequestId(std::nullopt);
             }
@@ -1731,9 +1731,9 @@ namespace quicr {
             }
 
             const auto handler_weak = std::any_cast<std::weak_ptr<SubscribeTrackHandler>>(rx_ctx->caller_any);
-            if (const auto handler_ptr = handler_weak.lock(); handler_ptr) {
+            if (const auto handler_ptr = handler_weak.lock()) {
                 try {
-                    if (auto handler = dynamic_cast<SubscribeTrackHandler*>(handler_ptr.get()); handler) {
+                    if (auto handler = handler_ptr.get()) {
                         switch (flag) {
                             case StreamClosedFlag::kFin:
                                 handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
@@ -1846,7 +1846,7 @@ namespace quicr {
             return false;
         }
 
-        if (auto h = fetch_it->second.Get<SubscribeTrackHandler>(); h) {
+        if (auto h = fetch_it->second.Get<SubscribeTrackHandler>()) {
             h->StreamDataRecv(true, stream_id, std::move(data));
             rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(h);
             return true;
