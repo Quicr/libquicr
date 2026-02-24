@@ -382,7 +382,7 @@ namespace quicr::messages {
         return bytes;
     }
 
-    inline BytesSpan operator>>(BytesSpan bytes, LocationFilter& filter)
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] LocationFilter& filter)
     {
         return bytes;
     }
@@ -406,7 +406,7 @@ namespace quicr::messages {
         return bytes;
     }
 
-    inline BytesSpan operator>>(BytesSpan bytes, RangeFilter& filter)
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] RangeFilter& filter)
     {
         return bytes;
     }
@@ -432,7 +432,7 @@ namespace quicr::messages {
         return bytes;
     }
 
-    inline BytesSpan operator>>(BytesSpan bytes, PropertyFilter& filter)
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] PropertyFilter& filter)
     {
         return bytes;
     }
@@ -549,7 +549,7 @@ namespace quicr::messages {
 
     inline Filter DeserializeFilter(FilterType filter_type, BytesSpan bytes)
     {
-        // TODO: Firegue out how to parse the vector filters.
+        // TODO: Figure out how to parse the vector filters.
         switch (filter_type) {
             case FilterType::kLocationFilter: {
                 return std::monostate{};
