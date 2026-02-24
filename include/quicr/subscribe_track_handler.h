@@ -150,7 +150,7 @@ namespace quicr {
 
         constexpr std::pair<messages::FilterType, const messages::Filter&> GetFilter() const noexcept
         {
-            return std::make_pair(filter_type_, filter_);
+            return { filter_type_, filter_ };
         }
 
         constexpr std::optional<messages::Location> GetLatestLocation() const noexcept { return latest_location_; }

@@ -924,4 +924,6 @@ TEST_CASE("Filters")
     TrackFilter recv_track_filter = std::get<TrackFilter>(recv_filter);
 
     CHECK_EQ(recv_track_filter, track_filter);
+
+    static_assert(HasByteStreamOperators<Filter>);
 }
