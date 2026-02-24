@@ -221,8 +221,8 @@ namespace quicr::messages {
             UintVar uvar(buffer);
             buffer = buffer.subspan(uvar.size());
             std::uint64_t val(uvar);
-            kvp.value.resize(uvar.size());
-            std::memcpy(kvp.value.data(), &val, uvar.size());
+            const auto* p = reinterpret_cast<const std::uint8_t*>(&val);
+            kvp.value.assign(p, p + uvar.size());
         }
     }
 
