@@ -5,10 +5,24 @@
 
 #include <algorithm>
 #include <limits>
+#include <source_location>
 #include <stdexcept>
+#include <string>
 #include <tuple>
 
 namespace quicr::messages {
+
+    struct ProtocolViolationException : std::runtime_error
+    {
+        const std::string reason;
+        ProtocolViolationException(const std::string& reason,
+                                   const std::source_location location = std::source_location::current())
+          : std::runtime_error("Protocol violation: " + reason + " (line " + std::to_string(location.line()) +
+                               ", file " + location.file_name() + ")")
+          , reason(reason)
+        {
+        }
+    };
     Bytes& operator<<(Bytes& buffer, const Bytes& bytes);
     Bytes& operator<<(Bytes& buffer, const BytesSpan& bytes);
     BytesSpan operator>>(BytesSpan buffer, Bytes& value);
@@ -184,7 +198,7 @@ namespace quicr::messages {
      * @param buffer Buffer to read from.
      * @param kvp The KeyValuePair to read into.
      * @param prev_type The previous type value to unwrap the delta.
-     * @throws std::overflow_error if delta causes overflow past 2^64-1.
+     * @throws ProtocolViolationException if delta causes overflow past 2^64-1.
      */
     template<KeyType T>
     void ParseKvp(BytesSpan& buffer, KeyValuePair<T>& kvp, const T prev_type)
@@ -194,7 +208,7 @@ namespace quicr::messages {
         std::uint64_t delta;
         buffer = buffer >> delta;
         if (delta > std::numeric_limits<std::uint64_t>::max() - prev_type_value) {
-            throw std::overflow_error("Delta encoding overflow: prev_type + delta exceeds 2^64-1");
+            throw ProtocolViolationException("Delta encoding overflow: prev_type + delta exceeds 2^64-1");
         }
         const auto type_value = prev_type_value + delta;
         kvp.type = static_cast<T>(type_value);
