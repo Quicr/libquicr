@@ -362,7 +362,16 @@ namespace quicr::messages {
         return bytes;
     }
 
-    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] RangeFilter& filter)
+    inline Bytes& operator<<(Bytes& bytes, const std::vector<RangeFilter>& filters)
+    {
+        for (const auto& filter : filters) {
+            bytes << filter;
+        }
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] std::vector<RangeFilter>& filter)
     {
         return bytes;
     }
@@ -389,6 +398,20 @@ namespace quicr::messages {
     }
 
     inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] PropertyFilter& filter)
+    {
+        return bytes;
+    }
+
+    inline Bytes& operator<<(Bytes& bytes, const std::vector<PropertyFilter>& filters)
+    {
+        for (const auto& filter : filters) {
+            bytes << filter;
+        }
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] std::vector<PropertyFilter>& filter)
     {
         return bytes;
     }
@@ -425,6 +448,48 @@ namespace quicr::messages {
 
     using Filter =
       std::variant<std::monostate, LocationFilter, std::vector<RangeFilter>, std::vector<PropertyFilter>, TrackFilter>;
+
+    inline Bytes& operator<<(Bytes& bytes, const Filter& filter)
+    {
+        if (std::holds_alternative<LocationFilter>(filter)) {
+            return bytes << std::get<LocationFilter>(filter);
+        }
+
+        if (std::holds_alternative<std::vector<RangeFilter>>(filter)) {
+            return bytes << std::get<std::vector<RangeFilter>>(filter);
+        }
+
+        if (std::holds_alternative<std::vector<PropertyFilter>>(filter)) {
+            return bytes << std::get<std::vector<PropertyFilter>>(filter);
+        }
+
+        if (std::holds_alternative<TrackFilter>(filter)) {
+            return bytes << std::get<TrackFilter>(filter);
+        }
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, Filter& filter)
+    {
+        if (std::holds_alternative<LocationFilter>(filter)) {
+            return bytes >> std::get<LocationFilter>(filter);
+        }
+
+        if (std::holds_alternative<std::vector<RangeFilter>>(filter)) {
+            return bytes >> std::get<std::vector<RangeFilter>>(filter);
+        }
+
+        if (std::holds_alternative<std::vector<PropertyFilter>>(filter)) {
+            return bytes >> std::get<std::vector<PropertyFilter>>(filter);
+        }
+
+        if (std::holds_alternative<TrackFilter>(filter)) {
+            return bytes >> std::get<TrackFilter>(filter);
+        }
+
+        return bytes;
+    }
 
     inline Parameter SerializeFilter(FilterType filter_type, const Filter& filter)
     {
@@ -682,9 +747,9 @@ namespace quicr::messages {
     };
 
     template<class T>
-    concept HasByteStreamOperators = requires(T value) {
-        { Bytes{} << value };
-        { BytesSpan{} >> value };
+    concept HasByteStreamOperators = requires(T& value, Bytes& bytes) {
+        { bytes << value } -> std::same_as<Bytes&>;
+        { BytesSpan{} >> value } -> std::same_as<BytesSpan>;
     };
 
     class TrackExtensions
