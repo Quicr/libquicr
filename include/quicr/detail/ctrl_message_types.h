@@ -89,10 +89,12 @@ namespace quicr::messages {
         std::size_t Size(const T prev_type) const
         {
             std::size_t size = 0;
-            const auto delta = type - prev_type;
+            const auto type_value = static_cast<std::uint64_t>(type);
+            const auto prev_type_value = static_cast<std::uint64_t>(prev_type);
+            const auto delta = type_value - prev_type_value;
             size += UintVar(delta).size();
 
-            if (type % 2 == 0) {
+            if (type_value % 2 == 0) {
                 // Even types: single varint of value
                 if (value.size() > sizeof(std::uint64_t)) {
                     throw std::invalid_argument("Value too large to encode as uint64_t.");
