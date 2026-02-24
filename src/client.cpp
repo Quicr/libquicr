@@ -754,6 +754,7 @@ namespace quicr {
                             "Caught exception trying to process control message. (type={}, error={})",
                             static_cast<int>(msg_type),
                             e.what());
+        CloseConnection(conn_ctx.connection_handle, messages::TerminationReason::kProtocolViolation, e.what());
         return false;
     }
 } // namespace quicr
