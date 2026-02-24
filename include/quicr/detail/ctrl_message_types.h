@@ -5,6 +5,7 @@
 
 #include <stdexcept>
 #include <tuple>
+#include <variant>
 
 namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const Bytes& bytes);
