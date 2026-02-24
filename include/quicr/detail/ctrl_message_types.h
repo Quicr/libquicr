@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <variant>
 
 namespace quicr::messages {
 
