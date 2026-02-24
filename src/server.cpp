@@ -379,7 +379,7 @@ namespace quicr {
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
-                auto filter = msg.parameters.GetOptional<messages::Filter>(
+                auto filter = msg.parameters.Get<messages::Filter>(
                   messages::ParameterType::kTrackFilter); // TODO: Support other filters
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
 
@@ -398,7 +398,7 @@ namespace quicr {
                                     .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
                                     .expires = std::chrono::milliseconds{ delivery_timeout },
                                     .filter_type = messages::FilterType::kTrackFilter,
-                                    .filter = filter.value(),
+                                    .filter = filter,
                                     .forward = forward,
                                     .new_group_request_id = new_group_request_id,
                                     .is_publisher_initiated = false,
@@ -866,8 +866,7 @@ namespace quicr {
 
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto filter = msg.parameters.GetOptional<messages::Filter>(
-                  messages::ParameterType::kTrackFilter); // TODO: Support more filters;
+                auto filter = msg.parameters.Get<messages::Filter>(messages::ParameterType::kTrackFilter);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
                 auto new_group_request_id =
                   msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);

@@ -747,13 +747,11 @@ namespace quicr {
                 auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
-                auto filter = msg.parameters.Get<messages::TrackFilter>(
+                auto filter = msg.parameters.Get<messages::Filter>(
                   messages::ParameterType::kTrackFilter); // TODO: Get other filter types when we support them.
 
-                std::optional<uint64_t> new_group_request_id;
-                if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
-                    new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-                }
+                auto new_group_request_id =
+                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                 if (auto h = pub_it->second.Get<PublishTrackHandler>()) {
                     h->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
