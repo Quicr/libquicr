@@ -29,10 +29,8 @@ namespace quicr {
                                   priority,
                                   group_order,
                                   messages::LocationFilter{
-                                    .start_group = start_location.group,
-                                    .start_object = start_location.object,
-                                    .end_group = end_location.group,
-                                    .end_object = end_location.object,
+                                    start_location.group,
+                                    end_location.group,
                                   })
           , start_location_(start_location)
           , end_location_(end_location)
