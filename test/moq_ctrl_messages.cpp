@@ -967,3 +967,26 @@ TEST_CASE("Filters")
     };
     serialise_filter(FilterType::kLocationFilter, filter);
 }
+
+TEST_CASE("Parameters - Filters")
+{
+    Filter filter = TrackFilter{
+        .property_type = 1,
+        .max_tracks_selected = 2,
+        .max_tracks_deselected = 3,
+        .max_time_selected = 4,
+    };
+
+    auto params = Parameters{}.Add(ParameterType::kTrackFilter, filter);
+
+    Bytes bytes;
+    bytes << params;
+
+    CHECK_FALSE(bytes.empty());
+
+    Parameters recv_params;
+    bytes >> recv_params;
+
+    auto recv_filter = recv_params.GetFilter(FilterType::kTrackFilter);
+    CHECK_EQ(recv_filter, filter);
+}

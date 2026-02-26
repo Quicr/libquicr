@@ -313,7 +313,7 @@ namespace quicr::messages {
                 return ParameterType::kPropertyFilter;
             case FilterType::kTrackFilter:
                 return ParameterType::kTrackFilter;
-            default:
+            case FilterType::kNone:
                 return ParameterType::kInvalid;
         }
     }
@@ -612,23 +612,23 @@ namespace quicr::messages {
     inline FilterType GetFilterType(const Filter& filter)
     {
         return std::visit(
-          [&](auto&& f) {
+          [](auto&& f) {
               using T = std::decay_t<decltype(f)>;
-              if constexpr (!std::is_same_v<std::monostate, T>) {
+              if constexpr (std::is_same_v<std::monostate, T>) {
                   return FilterType::kNone;
-              } else if constexpr (!std::is_same_v<LocationFilter, T>) {
+              } else if constexpr (std::is_same_v<LocationFilter, T>) {
                   return FilterType::kLocationFilter;
-              } else if constexpr (!std::is_same_v<GroupFilter, T>) {
+              } else if constexpr (std::is_same_v<GroupFilter, T>) {
                   return FilterType::kGroupFilter;
-              } else if constexpr (!std::is_same_v<SubgroupFilter, T>) {
+              } else if constexpr (std::is_same_v<SubgroupFilter, T>) {
                   return FilterType::kSubgroupFilter;
-              } else if constexpr (!std::is_same_v<ObjectFilter, T>) {
+              } else if constexpr (std::is_same_v<ObjectFilter, T>) {
                   return FilterType::kObjectFilter;
-              } else if constexpr (!std::is_same_v<PriorityFilter, T>) {
+              } else if constexpr (std::is_same_v<PriorityFilter, T>) {
                   return FilterType::kPriorityFilter;
-              } else if constexpr (!std::is_same_v<std::vector<PropertyFilter>, T>) {
+              } else if constexpr (std::is_same_v<std::vector<PropertyFilter>, T>) {
                   return FilterType::kPropertyFilter;
-              } else if constexpr (!std::is_same_v<TrackFilter, T>) {
+              } else if constexpr (std::is_same_v<TrackFilter, T>) {
                   return FilterType::kTrackFilter;
               }
           },

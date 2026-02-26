@@ -707,8 +707,8 @@ namespace quicr {
          * - AUTHORIZATION TOKEN (0x03)
          * - FORWARD (0x10)
          */
-        const auto [filter_type, filter] = handler->GetFilter();
-        auto params = Parameters{}.Add(ToParameterFilterType(filter_type), filter);
+        const auto& filter = handler->GetFilter();
+        auto params = Parameters{}.Add(GetFilterParameterType(filter), filter);
 
         Bytes buffer;
         buffer << messages::SubscribeNamespace(rid, prefix, SubscribeOptions::kBoth, params);
@@ -910,7 +910,7 @@ namespace quicr {
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
-        auto filter = track_handler->GetFilter();
+        const auto& filter = track_handler->GetFilter();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
 
         track_handler->SetTransport(GetSharedPtr());
