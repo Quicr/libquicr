@@ -908,22 +908,62 @@ TEST_CASE("Parameters")
 
 TEST_CASE("Filters")
 {
-    TrackFilter track_filter{
+    static_assert(HasByteStreamOperators<Filter>);
+
+    const auto serialise_filter = [](FilterType type, const Filter& filter) {
+        auto [param_type, bytes] = SerializeFilter(type, filter);
+        CHECK_EQ(param_type, ToParameterFilterType(type));
+        if (type == FilterType::kNone) {
+            CHECK(bytes.empty());
+        } else {
+            CHECK_FALSE(bytes.empty());
+        }
+
+        auto deserialised_filter = DeserializeFilter(type, bytes);
+        CHECK_EQ(deserialised_filter, filter);
+    };
+
+    Filter filter;
+
+    {
+        Bytes bytes{};
+        CHECK_NOTHROW(bytes << filter);
+        CHECK_THROWS(BytesSpan{} >> filter);
+    }
+
+    serialise_filter(FilterType::kNone, filter);
+
+    filter = TrackFilter{
         .property_type = 1,
         .max_tracks_selected = 2,
         .max_tracks_deselected = 3,
         .max_time_selected = 4,
     };
+    serialise_filter(FilterType::kTrackFilter, filter);
 
-    auto [param_type, bytes] = SerializeFilter(FilterType::kTrackFilter, track_filter);
+    filter = LocationFilter{
+        .start_group = 1,
+    };
+    serialise_filter(FilterType::kLocationFilter, filter);
 
-    CHECK_EQ(param_type, ParameterType::kTrackFilter);
-    CHECK_FALSE(bytes.empty());
+    filter = LocationFilter{
+        .start_group = 1,
+        .start_object = 2,
+    };
+    serialise_filter(FilterType::kLocationFilter, filter);
 
-    auto recv_filter = DeserializeFilter(FilterType::kTrackFilter, bytes);
-    TrackFilter recv_track_filter = std::get<TrackFilter>(recv_filter);
+    filter = LocationFilter{
+        .start_group = 1,
+        .start_object = 2,
+        .end_group = 3,
+    };
+    serialise_filter(FilterType::kLocationFilter, filter);
 
-    CHECK_EQ(recv_track_filter, track_filter);
-
-    static_assert(HasByteStreamOperators<Filter>);
+    filter = LocationFilter{
+        .start_group = 1,
+        .start_object = 2,
+        .end_group = 3,
+        .end_object = 4,
+    };
+    serialise_filter(FilterType::kLocationFilter, filter);
 }

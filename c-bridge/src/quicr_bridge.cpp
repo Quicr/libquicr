@@ -354,25 +354,23 @@ class BridgeSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     static std::shared_ptr<BridgeSubscribeTrackHandler> Create(const quicr::FullTrackName& full_track_name,
                                                                const std::uint8_t priority,
                                                                const quicr::messages::GroupOrder group_order,
-                                                               const quicr::messages::FilterType filter_type,
                                                                qbridge_object_received_callback_t callback,
                                                                void* user_data)
     {
-        return std::shared_ptr<BridgeSubscribeTrackHandler>(new BridgeSubscribeTrackHandler(
-          full_track_name, priority, group_order, filter_type, std::nullopt, callback, user_data));
+        return std::shared_ptr<BridgeSubscribeTrackHandler>(
+          new BridgeSubscribeTrackHandler(full_track_name, priority, group_order, std::nullopt, callback, user_data));
     }
 
     static std::shared_ptr<BridgeSubscribeTrackHandler> Create(
       const quicr::FullTrackName& full_track_name,
       const std::uint8_t priority,
       const quicr::messages::GroupOrder group_order,
-      const quicr::messages::FilterType filter_type,
       const std::optional<quicr::SubscribeTrackHandler::JoiningFetch>& joining_fetch,
       qbridge_object_received_callback_t callback,
       void* user_data)
     {
-        return std::shared_ptr<BridgeSubscribeTrackHandler>(new BridgeSubscribeTrackHandler(
-          full_track_name, priority, group_order, filter_type, joining_fetch, callback, user_data));
+        return std::shared_ptr<BridgeSubscribeTrackHandler>(
+          new BridgeSubscribeTrackHandler(full_track_name, priority, group_order, joining_fetch, callback, user_data));
     }
 
     qbridge_object_received_callback_t received_callback = nullptr;
@@ -382,16 +380,10 @@ class BridgeSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     BridgeSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                                 const std::uint8_t priority,
                                 const quicr::messages::GroupOrder group_order,
-                                const quicr::messages::FilterType filter_type,
                                 const std::optional<quicr::SubscribeTrackHandler::JoiningFetch>& joining_fetch,
                                 qbridge_object_received_callback_t callback,
                                 void* data)
-      : quicr::SubscribeTrackHandler(full_track_name,
-                                     priority,
-                                     group_order,
-                                     filter_type,
-                                     std::monostate{},
-                                     joining_fetch)
+      : quicr::SubscribeTrackHandler(full_track_name, priority, group_order, std::monostate{}, joining_fetch)
       , received_callback(callback)
       , user_data(data)
     {
@@ -461,7 +453,6 @@ struct qbridge_subscribe_track_handler
               BridgeSubscribeTrackHandler::Create(full_track_name,
                                                   static_cast<std::uint8_t>(config->priority),
                                                   static_cast<quicr::messages::GroupOrder>(config->group_order),
-                                                  filter_type,
                                                   callback,
                                                   data);
         }

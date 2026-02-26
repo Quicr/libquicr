@@ -397,7 +397,6 @@ namespace quicr {
                                     .group_order = group_order,
                                     .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
                                     .expires = std::chrono::milliseconds{ delivery_timeout },
-                                    .filter_type = messages::FilterType::kTrackFilter,
                                     .filter = filter,
                                     .forward = forward,
                                     .new_group_request_id = new_group_request_id,
@@ -788,7 +787,6 @@ namespace quicr {
                 attributes.group_order = group_order;
                 attributes.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
                 attributes.expires = std::chrono::milliseconds(expires);
-                attributes.filter_type = messages::FilterType::kTrackFilter;
                 attributes.forward = forward;
                 attributes.is_publisher_initiated = true;
                 attributes.dynamic_groups = dynamic_groups;

@@ -22,7 +22,6 @@ namespace quicr::messages {
         GroupOrder group_order;                       ///< Subscriber group order
         std::chrono::milliseconds delivery_timeout;   ///< Subscriber delivery timeout
         std::chrono::milliseconds expires;            ///< Subscriber expiry in ms
-        FilterType filter_type;                       /// Subscriber filter type
         Filter filter;                                /// Subscriber filter
         std::uint8_t forward;                         ///< True to Resume/forward data, False to pause/stop data
         std::optional<uint64_t> new_group_request_id; ///< Indicates new group id is requested

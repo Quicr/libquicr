@@ -286,6 +286,7 @@ namespace quicr::messages {
 
     enum struct FilterType : uint64_t
     {
+        kNone,
         kLocationFilter,
         kGroupFilter,
         kSubgroupFilter,
@@ -312,6 +313,8 @@ namespace quicr::messages {
                 return ParameterType::kPropertyFilter;
             case FilterType::kTrackFilter:
                 return ParameterType::kTrackFilter;
+            default:
+                return ParameterType::kInvalid;
         }
     }
 
@@ -385,6 +388,28 @@ namespace quicr::messages {
 
     inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] LocationFilter& filter)
     {
+        filter = LocationFilter{};
+
+        bytes = bytes >> filter.start_group;
+
+        if (!bytes.empty()) {
+            std::uint64_t start_object = 0;
+            bytes = bytes >> start_object;
+            filter.start_object = start_object;
+
+            if (!bytes.empty()) {
+                std::uint64_t end_group = 0;
+                bytes = bytes >> end_group;
+                filter.end_group = end_group;
+
+                if (!bytes.empty()) {
+                    std::uint64_t end_object = 0;
+                    bytes = bytes >> end_object;
+                    filter.end_object = end_object;
+                }
+            }
+        }
+
         return bytes;
     }
 
@@ -491,126 +516,164 @@ namespace quicr::messages {
         return bytes;
     }
 
-    using Filter =
-      std::variant<std::monostate, LocationFilter, std::vector<RangeFilter>, std::vector<PropertyFilter>, TrackFilter>;
+    struct GroupFilter
+    {
+        GroupFilter(std::initializer_list<RangeFilter> fs)
+          : ranges(fs)
+        {
+        }
+
+        std::vector<RangeFilter> ranges;
+        auto operator<=>(const GroupFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const GroupFilter& filter)
+    {
+        return bytes << filter.ranges;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, GroupFilter& filter)
+    {
+        return bytes >> filter.ranges;
+    }
+
+    struct SubgroupFilter
+    {
+        SubgroupFilter(std::initializer_list<RangeFilter> fs)
+          : ranges(fs)
+        {
+        }
+
+        std::vector<RangeFilter> ranges;
+        auto operator<=>(const SubgroupFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const SubgroupFilter& filter)
+    {
+        return bytes << filter.ranges;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, SubgroupFilter& filter)
+    {
+        return bytes >> filter.ranges;
+    }
+
+    struct ObjectFilter
+    {
+        ObjectFilter(std::initializer_list<RangeFilter> fs)
+          : ranges(fs)
+        {
+        }
+
+        std::vector<RangeFilter> ranges;
+        auto operator<=>(const ObjectFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const ObjectFilter& filter)
+    {
+        return bytes << filter.ranges;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, ObjectFilter& filter)
+    {
+        return bytes >> filter.ranges;
+    }
+
+    struct PriorityFilter
+    {
+        PriorityFilter(std::initializer_list<RangeFilter> fs)
+          : ranges(fs)
+        {
+        }
+
+        std::vector<RangeFilter> ranges;
+        auto operator<=>(const PriorityFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const PriorityFilter& filter)
+    {
+        return bytes << filter.ranges;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, PriorityFilter& filter)
+    {
+        return bytes >> filter.ranges;
+    }
+
+    using Filter = std::variant<std::monostate,
+                                LocationFilter,
+                                GroupFilter,
+                                SubgroupFilter,
+                                ObjectFilter,
+                                PriorityFilter,
+                                std::vector<PropertyFilter>,
+                                TrackFilter>;
+
+    inline FilterType GetFilterType(const Filter& filter)
+    {
+        return std::visit(
+          [&](auto&& f) {
+              using T = std::decay_t<decltype(f)>;
+              if constexpr (!std::is_same_v<std::monostate, T>) {
+                  return FilterType::kNone;
+              } else if constexpr (!std::is_same_v<LocationFilter, T>) {
+                  return FilterType::kLocationFilter;
+              } else if constexpr (!std::is_same_v<GroupFilter, T>) {
+                  return FilterType::kGroupFilter;
+              } else if constexpr (!std::is_same_v<SubgroupFilter, T>) {
+                  return FilterType::kSubgroupFilter;
+              } else if constexpr (!std::is_same_v<ObjectFilter, T>) {
+                  return FilterType::kObjectFilter;
+              } else if constexpr (!std::is_same_v<PriorityFilter, T>) {
+                  return FilterType::kPriorityFilter;
+              } else if constexpr (!std::is_same_v<std::vector<PropertyFilter>, T>) {
+                  return FilterType::kPropertyFilter;
+              } else if constexpr (!std::is_same_v<TrackFilter, T>) {
+                  return FilterType::kTrackFilter;
+              }
+          },
+          filter);
+    }
+
+    inline ParameterType GetFilterParameterType(const Filter& filter)
+    {
+        return ToParameterFilterType(GetFilterType(filter));
+    }
 
     inline Bytes& operator<<(Bytes& bytes, const Filter& filter)
     {
-        if (std::holds_alternative<LocationFilter>(filter)) {
-            return bytes << std::get<LocationFilter>(filter);
-        }
-
-        if (std::holds_alternative<std::vector<RangeFilter>>(filter)) {
-            return bytes << std::get<std::vector<RangeFilter>>(filter);
-        }
-
-        if (std::holds_alternative<std::vector<PropertyFilter>>(filter)) {
-            return bytes << std::get<std::vector<PropertyFilter>>(filter);
-        }
-
-        if (std::holds_alternative<TrackFilter>(filter)) {
-            return bytes << std::get<TrackFilter>(filter);
-        }
-
+        std::visit(
+          [&](auto&& f) {
+              using T = std::decay_t<decltype(f)>;
+              if constexpr (!std::is_same_v<std::monostate, T>) {
+                  bytes << f;
+              }
+          },
+          filter);
         return bytes;
     }
 
-    inline BytesSpan operator>>(BytesSpan bytes, Filter& filter)
+    inline BytesSpan operator>>(BytesSpan, Filter&)
     {
-        if (std::holds_alternative<LocationFilter>(filter)) {
-            return bytes >> std::get<LocationFilter>(filter);
-        }
-
-        if (std::holds_alternative<std::vector<RangeFilter>>(filter)) {
-            return bytes >> std::get<std::vector<RangeFilter>>(filter);
-        }
-
-        if (std::holds_alternative<std::vector<PropertyFilter>>(filter)) {
-            return bytes >> std::get<std::vector<PropertyFilter>>(filter);
-        }
-
-        if (std::holds_alternative<TrackFilter>(filter)) {
-            return bytes >> std::get<TrackFilter>(filter);
-        }
-
-        return bytes;
+        throw std::runtime_error("parsing a non specific filter is impossible, stream to a more specific filter type");
     }
 
     inline Parameter SerializeFilter(FilterType filter_type, const Filter& filter)
     {
-        if (std::holds_alternative<std::monostate>(filter)) {
-            return Parameter{ ToParameterFilterType(filter_type), Bytes{} };
-        }
+        auto param = std::visit(
+          [&](auto&& f) {
+              using T = std::decay_t<decltype(f)>;
 
-        switch (filter_type) {
-            case FilterType::kLocationFilter: {
-                Bytes bytes;
-                bytes << std::get<LocationFilter>(filter);
+              if constexpr (std::is_same_v<std::monostate, T>) {
+                  return Parameter{ ToParameterFilterType(filter_type), Bytes{} };
+              } else {
+                  Bytes bytes;
+                  return Parameter{ ToParameterFilterType(filter_type), bytes << f };
+              }
+          },
+          filter);
 
-                return Parameter{ ParameterType::kLocationFilter, bytes };
-            }
-            case FilterType::kGroupFilter: {
-                Bytes bytes;
-                auto group_filters = std::get<std::vector<RangeFilter>>(filter);
-                for (const auto& group_filter : group_filters) {
-                    bytes << group_filter;
-                }
-
-                return Parameter{ ParameterType::kGroupFilter, bytes };
-            }
-            case FilterType::kSubgroupFilter: {
-                Bytes bytes;
-
-                auto subgroup_filters = std::get<std::vector<RangeFilter>>(filter);
-                for (const auto& subgroup_filter : subgroup_filters) {
-                    bytes << subgroup_filter;
-                }
-
-                return Parameter{ ParameterType::kSubgroupFilter, bytes };
-            }
-            case FilterType::kObjectFilter: {
-                Bytes bytes;
-
-                auto object_filters = std::get<std::vector<RangeFilter>>(filter);
-                for (const auto& object_filter : object_filters) {
-                    bytes << object_filter;
-                }
-
-                return Parameter{ ParameterType::kObjectFilter, bytes };
-            }
-            case FilterType::kPriorityFilter: {
-                Bytes bytes;
-
-                auto priority_filters = std::get<std::vector<RangeFilter>>(filter);
-                for (const auto& priority_filter : priority_filters) {
-                    bytes.push_back(static_cast<uint8_t>(priority_filter.start));
-
-                    if (priority_filter.end.has_value()) {
-                        bytes.push_back(static_cast<uint8_t>(priority_filter.end.value()));
-                    }
-                }
-
-                return Parameter{ ParameterType::kPriorityFilter, bytes };
-            }
-            case FilterType::kPropertyFilter: {
-                Bytes bytes;
-
-                auto property_filters = std::get<std::vector<PropertyFilter>>(filter);
-                for (const auto& property_filter : property_filters) {
-                    bytes << property_filter;
-                }
-
-                return Parameter{ ParameterType::kPropertyFilter, bytes };
-            }
-            case FilterType::kTrackFilter: {
-                Bytes bytes;
-                bytes << std::get<TrackFilter>(filter);
-
-                return Parameter{ ParameterType::kTrackFilter, bytes };
-            }
-        }
-
-        return Parameter{ ToParameterFilterType(filter_type), Bytes{} };
+        return param;
     }
 
     inline Filter DeserializeFilter(FilterType filter_type, BytesSpan bytes)
@@ -618,7 +681,9 @@ namespace quicr::messages {
         // TODO: Figure out how to parse the vector filters.
         switch (filter_type) {
             case FilterType::kLocationFilter: {
-                return std::monostate{};
+                LocationFilter filter{};
+                bytes = bytes >> filter;
+                return filter;
             }
             case FilterType::kGroupFilter: {
                 return std::monostate{};
@@ -640,6 +705,8 @@ namespace quicr::messages {
                 bytes = bytes >> filter;
                 return filter;
             }
+            default:
+                return std::monostate{};
         }
 
         return std::monostate{};
@@ -999,6 +1066,20 @@ namespace quicr::messages {
             }
 
             return FromBytes<T>(bytes);
+        }
+
+        Filter GetFilter(FilterType type)
+        {
+            if constexpr (!std::is_same_v<ParameterType, Type>) {
+                return std::monostate{};
+            }
+
+            auto bytes = Find(ToParameterFilterType(type));
+            if (bytes.empty()) {
+                return {};
+            }
+
+            return DeserializeFilter(type, bytes);
         }
 
         template<typename T>

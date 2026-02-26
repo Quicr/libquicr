@@ -145,14 +145,12 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
-                            quicr::messages::FilterType filter_type,
                             const std::optional<JoiningFetch>& joining_fetch,
                             bool publisher_initiated = false,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
       : SubscribeTrackHandler(full_track_name,
                               128,
                               quicr::messages::GroupOrder::kAscending,
-                              filter_type,
                               std::monostate{},
                               joining_fetch,
                               publisher_initiated)
@@ -1171,7 +1169,7 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
     const auto joining_fetch = join_fetch.has_value()
                                  ? Fetch{ 128, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
                                  : std::optional<Fetch>(std::nullopt);
-    const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
+    const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, joining_fetch);
     track_handler->SetPriority(128);
 
     SPDLOG_INFO("Started subscriber");
