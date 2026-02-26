@@ -51,10 +51,7 @@ class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     };
 
     TestSubscribeTrackHandler()
-      : SubscribeTrackHandler({ {}, {} },
-                              0,
-                              quicr::messages::GroupOrder::kAscending,
-                              quicr::messages::FilterType::kTrackFilter)
+      : SubscribeTrackHandler({ {}, {} }, 0, quicr::messages::GroupOrder::kAscending)
     {
     }
 

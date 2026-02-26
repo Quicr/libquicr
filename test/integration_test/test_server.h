@@ -20,7 +20,6 @@ namespace quicr_test {
           : SubscribeTrackHandler(full_track_name,
                                   3,
                                   quicr::messages::GroupOrder::kAscending,
-                                  quicr::messages::FilterType::kTrackFilter,
                                   std::monostate{},
                                   std::nullopt,
                                   is_publisher_initiated)

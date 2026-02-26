@@ -25,7 +25,10 @@ namespace quicr {
                           const messages::GroupOrder group_order,
                           const messages::Location& start_location,
                           const messages::FetchEndLocation& end_location)
-          : SubscribeTrackHandler(full_track_name, priority, group_order, messages::FilterType::kGroupFilter)
+          : SubscribeTrackHandler(full_track_name,
+                                  priority,
+                                  group_order,
+                                  messages::GroupFilter{ { .start = start_location.group, .end = end_location.group } })
           , start_location_(start_location)
           , end_location_(end_location)
         {

@@ -595,8 +595,7 @@ namespace quicr {
                            TrackHash th,
                            std::uint8_t priority,
                            messages::GroupOrder group_order,
-                           messages::FilterType filter_type,
-                           messages::Filter filter,
+                           const messages::Filter& filter,
                            std::optional<std::chrono::milliseconds> delivery_timeout);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
@@ -629,8 +628,7 @@ namespace quicr {
                            bool forward,
                            std::uint8_t priority,
                            messages::GroupOrder group_order,
-                           messages::FilterType filter_type,
-                           messages::Filter filter);
+                           const messages::Filter& filter);
 
         /*===================================================================*/
         // Track Status

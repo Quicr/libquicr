@@ -510,8 +510,7 @@ namespace quicr {
                                   TrackHash th, // TODO: This is only for a debug message, should be removed
                                   std::uint8_t priority,
                                   GroupOrder group_order,
-                                  FilterType filter_type,
-                                  Filter filter,
+                                  const Filter& filter,
                                   std::optional<std::chrono::milliseconds> delivery_timeout)
     try {
         /* Available parameters:
@@ -526,7 +525,7 @@ namespace quicr {
         auto params = Parameters{}
                         .Add(ParameterType::kSubscriberPriority, priority)
                         .Add(ParameterType::kGroupOrder, group_order)
-                        .Add(ToParameterFilterType(filter_type), filter)
+                        .Add(GetFilterParameterType(filter), filter)
                         .Add(ParameterType::kForward, 1)
                         .AddOptional(ParameterType::kDeliveryTimeout, delivery_timeout);
 
@@ -593,8 +592,7 @@ namespace quicr {
                                   bool forward,
                                   std::uint8_t priority,
                                   messages::GroupOrder group_order,
-                                  messages::FilterType filter_type,
-                                  messages::Filter filter)
+                                  const messages::Filter& filter)
     try {
         /* Available parameters:
          * - DELIVERY TIMEOUT (0x02): Duration the relay should attempt forwarding objects.
@@ -608,7 +606,7 @@ namespace quicr {
         auto params = Parameters{}
                         .Add(ParameterType::kSubscriberPriority, priority)
                         .Add(ParameterType::kGroupOrder, group_order)
-                        .Add(ToParameterFilterType(filter_type), filter)
+                        .Add(GetFilterParameterType(filter), filter)
                         .Add(ParameterType::kForward, forward);
 
         Bytes buffer;
@@ -910,7 +908,7 @@ namespace quicr {
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
-        auto [filter_type, filter] = track_handler->GetFilter();
+        auto filter = track_handler->GetFilter();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
 
         track_handler->SetTransport(GetSharedPtr());
@@ -925,7 +923,6 @@ namespace quicr {
                           th,
                           priority,
                           group_order,
-                          filter_type,
                           filter,
                           delivery_timeout);
 
@@ -1232,7 +1229,6 @@ namespace quicr {
                               attributes.forward,
                               attributes.priority,
                               attributes.group_order,
-                              attributes.filter_type,
                               attributes.filter);
 
                 // Fan out PUBLISH, if requested.
