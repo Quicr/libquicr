@@ -58,7 +58,7 @@ namespace quicr {
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 
-        constexpr messages::FilterType GetFilterType() const noexcept { return messages::GetFilterType(filter_); }
+        messages::FilterType GetFilterType() const noexcept { return messages::GetFilterType(filter_); }
 
         constexpr const messages::Filter& GetFilter() const noexcept { return filter_; }
 

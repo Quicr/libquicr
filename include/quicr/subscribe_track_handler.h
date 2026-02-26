@@ -140,7 +140,7 @@ namespace quicr {
          * @return FilterType value
          */
 
-        constexpr messages::FilterType GetFilterType() const noexcept { return messages::GetFilterType(filter_); }
+        messages::FilterType GetFilterType() const noexcept { return messages::GetFilterType(filter_); }
 
         constexpr const messages::Filter& GetFilter() const noexcept { return filter_; }
 
