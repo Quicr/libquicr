@@ -74,7 +74,7 @@ namespace quicr {
         SubscribeTrackHandler(const FullTrackName& full_track_name,
                               std::uint8_t priority,
                               messages::GroupOrder group_order,
-                              messages::Filter filter = std::monostate{},
+                              const messages::Filter& filter = std::monostate{},
                               const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
                               bool publisher_initiated = false)
           : BaseTrackHandler(full_track_name)
@@ -99,7 +99,7 @@ namespace quicr {
           const FullTrackName& full_track_name,
           std::uint8_t priority,
           messages::GroupOrder group_order = messages::GroupOrder::kAscending,
-          messages::Filter filter = std::monostate{})
+          const messages::Filter& filter = std::monostate{})
         {
             return std::shared_ptr<SubscribeTrackHandler>(
               new SubscribeTrackHandler(full_track_name, priority, group_order, filter));

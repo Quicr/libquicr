@@ -29,17 +29,12 @@ namespace quicr {
         };
 
       protected:
-        SubscribeNamespaceHandler(const TrackNamespace& prefix,
-                                  messages::FilterType filter_type = messages::FilterType::kTrackFilter,
-                                  messages::Filter filter = std::monostate{});
+        SubscribeNamespaceHandler(const TrackNamespace& prefix, const messages::Filter& filter = std::monostate{});
 
       public:
-        static auto Create(const TrackNamespace& prefix,
-                           messages::FilterType filter_type = messages::FilterType::kTrackFilter,
-                           messages::Filter filter = std::monostate{})
+        static auto Create(const TrackNamespace& prefix, const messages::Filter& filter = std::monostate{})
         {
-            return std::shared_ptr<SubscribeNamespaceHandler>(
-              new SubscribeNamespaceHandler(prefix, filter_type, filter));
+            return std::shared_ptr<SubscribeNamespaceHandler>(new SubscribeNamespaceHandler(prefix, filter));
         }
 
         virtual ~SubscribeNamespaceHandler();
@@ -63,12 +58,9 @@ namespace quicr {
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 
-        constexpr messages::FilterType GetFilterType() const noexcept { return filter_type_; }
+        constexpr messages::FilterType GetFilterType() const noexcept { return messages::GetFilterType(filter_); }
 
-        constexpr std::pair<messages::FilterType, const messages::Filter&> GetFilter() const noexcept
-        {
-            return { filter_type_, filter_ };
-        }
+        constexpr const messages::Filter& GetFilter() const noexcept { return filter_; }
 
         const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
 
@@ -122,9 +114,6 @@ namespace quicr {
       private:
         /// Prefix namespace for contained handlers.
         const TrackNamespace prefix_;
-
-        /// Filter type for namespace subscription.
-        messages::FilterType filter_type_;
 
         /// Filter value for namespace subscription.
         messages::Filter filter_;
