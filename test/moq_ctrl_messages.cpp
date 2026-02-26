@@ -942,28 +942,15 @@ TEST_CASE("Filters")
     serialise_filter(FilterType::kTrackFilter, filter);
 
     filter = LocationFilter{
-        .start_group = 1,
+        { .start = 1 },
     };
     serialise_filter(FilterType::kLocationFilter, filter);
 
     filter = LocationFilter{
-        .start_group = 1,
-        .start_object = 2,
-    };
-    serialise_filter(FilterType::kLocationFilter, filter);
-
-    filter = LocationFilter{
-        .start_group = 1,
-        .start_object = 2,
-        .end_group = 3,
-    };
-    serialise_filter(FilterType::kLocationFilter, filter);
-
-    filter = LocationFilter{
-        .start_group = 1,
-        .start_object = 2,
-        .end_group = 3,
-        .end_object = 4,
+        {
+          .start = 1,
+          .end = 2,
+        },
     };
     serialise_filter(FilterType::kLocationFilter, filter);
 }

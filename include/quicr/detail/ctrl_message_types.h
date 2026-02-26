@@ -348,6 +348,58 @@ namespace quicr::messages {
         kAbsoluteRange,
     };
 
+    struct Range
+    {
+        std::uint64_t start;
+        std::optional<std::uint64_t> end;
+
+        constexpr auto operator<=>(const Range&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const Range& filter)
+    {
+        bytes << UintVar(filter.start);
+
+        if (filter.end.has_value()) {
+            bytes << UintVar(filter.end.value() - filter.start);
+        }
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] Range& filter)
+    {
+        bytes = bytes >> filter.start;
+        if (!bytes.empty()) {
+            std::uint64_t end = 0;
+            bytes = bytes >> end;
+            filter.end = filter.start + end;
+        }
+
+        return bytes;
+    }
+
+    inline Bytes& operator<<(Bytes& bytes, const std::vector<Range>& filters)
+    {
+        std::uint64_t last_end = 0;
+        for (const auto& filter : filters) {
+            AppendBytes(bytes, UintVar(filter.start - last_end));
+
+            if (filter.end.has_value()) {
+                AppendBytes(bytes, UintVar(filter.end.value() - (filter.start - last_end)));
+                last_end = filter.end.value();
+            }
+        }
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] std::vector<Range>& filter)
+    {
+        // TODO: Figure this out.
+        return bytes;
+    }
+
     /**
      * @brief
      *
@@ -358,113 +410,39 @@ namespace quicr::messages {
      */
     struct LocationFilter
     {
-        std::uint64_t start_group;
-        std::optional<std::uint64_t> start_object;
-
-        std::optional<std::uint64_t> end_group;
-        std::optional<std::uint64_t> end_object;
+        Range range;
 
         constexpr auto operator<=>(const LocationFilter&) const noexcept = default;
     };
 
     inline Bytes& operator<<(Bytes& bytes, const LocationFilter& filter)
     {
-        AppendBytes(bytes, UintVar(filter.start_group));
-
-        if (filter.start_object.has_value()) {
-            AppendBytes(bytes, UintVar(filter.start_object.value()));
-
-            if (filter.end_group.has_value()) {
-                AppendBytes(bytes, UintVar(filter.end_group.value()));
-
-                if (filter.end_object.has_value()) {
-                    AppendBytes(bytes, UintVar(filter.end_object.value()));
-                }
-            }
-        }
-
-        return bytes;
+        return bytes << filter.range;
     }
 
     inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] LocationFilter& filter)
     {
         filter = LocationFilter{};
-
-        bytes = bytes >> filter.start_group;
-
-        if (!bytes.empty()) {
-            std::uint64_t start_object = 0;
-            bytes = bytes >> start_object;
-            filter.start_object = start_object;
-
-            if (!bytes.empty()) {
-                std::uint64_t end_group = 0;
-                bytes = bytes >> end_group;
-                filter.end_group = end_group;
-
-                if (!bytes.empty()) {
-                    std::uint64_t end_object = 0;
-                    bytes = bytes >> end_object;
-                    filter.end_object = end_object;
-                }
-            }
-        }
-
-        return bytes;
-    }
-
-    struct RangeFilter
-    {
-        std::uint64_t start;
-        std::optional<std::uint64_t> end;
-
-        constexpr auto operator<=>(const RangeFilter&) const noexcept = default;
-    };
-
-    inline Bytes& operator<<(Bytes& bytes, const std::vector<RangeFilter>& filters)
-    {
-        std::uint64_t last_end = 0;
-        for (const auto& filter : filters) {
-            AppendBytes(bytes, UintVar(filter.start - last_end));
-
-            if (filter.end.has_value()) {
-                AppendBytes(bytes, UintVar(filter.start - last_end - filter.end.value()));
-                last_end = filter.end.value();
-            }
-        }
-
-        return bytes;
-    }
-
-    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] std::vector<RangeFilter>& filter)
-    {
-        return bytes;
+        return bytes >> filter.range;
     }
 
     struct PropertyFilter
     {
         std::uint64_t property_type;
-        std::uint64_t start;
-        std::optional<std::uint64_t> end;
+        std::vector<Range> ranges;
 
         constexpr auto operator<=>(const PropertyFilter&) const noexcept = default;
     };
 
-    inline Bytes& operator<<(Bytes& bytes, const std::vector<PropertyFilter>& filters)
+    inline Bytes& operator<<(Bytes& bytes, const PropertyFilter& filter)
     {
-        for (const auto& filter : filters) {
-            AppendBytes(bytes, UintVar(filter.property_type));
-            AppendBytes(bytes, UintVar(filter.start));
-
-            if (filter.end.has_value()) {
-                AppendBytes(bytes, UintVar(filter.end.value()));
-            }
-        }
+        bytes << UintVar(filter.property_type);
+        bytes << filter.ranges;
 
         return bytes;
     }
 
-    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] std::vector<PropertyFilter>& filter)
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] PropertyFilter& filter)
     {
         return bytes;
     }
@@ -501,12 +479,12 @@ namespace quicr::messages {
 
     struct SubgroupFilter
     {
-        SubgroupFilter(std::initializer_list<RangeFilter> fs)
+        SubgroupFilter(std::initializer_list<Range> fs)
           : ranges(fs)
         {
         }
 
-        std::vector<RangeFilter> ranges;
+        std::vector<Range> ranges;
         auto operator<=>(const SubgroupFilter&) const noexcept = default;
     };
 
@@ -522,12 +500,12 @@ namespace quicr::messages {
 
     struct ObjectFilter
     {
-        ObjectFilter(std::initializer_list<RangeFilter> fs)
+        ObjectFilter(std::initializer_list<Range> fs)
           : ranges(fs)
         {
         }
 
-        std::vector<RangeFilter> ranges;
+        std::vector<Range> ranges;
         auto operator<=>(const ObjectFilter&) const noexcept = default;
     };
 
@@ -543,12 +521,12 @@ namespace quicr::messages {
 
     struct PriorityFilter
     {
-        PriorityFilter(std::initializer_list<RangeFilter> fs)
+        PriorityFilter(std::initializer_list<Range> fs)
           : ranges(fs)
         {
         }
 
-        std::vector<RangeFilter> ranges;
+        std::vector<Range> ranges;
         auto operator<=>(const PriorityFilter&) const noexcept = default;
     };
 
@@ -567,7 +545,7 @@ namespace quicr::messages {
                                 SubgroupFilter,
                                 ObjectFilter,
                                 PriorityFilter,
-                                std::vector<PropertyFilter>,
+                                PropertyFilter,
                                 TrackFilter>;
 
     inline FilterType GetFilterType(const Filter& filter)
@@ -585,7 +563,7 @@ namespace quicr::messages {
                   return FilterType::kObjectFilter;
               } else if constexpr (std::is_same_v<PriorityFilter, T>) {
                   return FilterType::kPriorityFilter;
-              } else if constexpr (std::is_same_v<std::vector<PropertyFilter>, T>) {
+              } else if constexpr (std::is_same_v<PropertyFilter, T>) {
                   return FilterType::kPropertyFilter;
               } else if constexpr (std::is_same_v<TrackFilter, T>) {
                   return FilterType::kTrackFilter;
