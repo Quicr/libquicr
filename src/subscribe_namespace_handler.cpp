@@ -3,9 +3,13 @@
 #include "quicr/detail/transport.h"
 #include "quicr/subscribe_track_handler.h"
 
-quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix)
+quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix,
+                                                            messages::FilterType filter_type,
+                                                            messages::Filter filter)
   : BaseTrackHandler({ prefix, {} })
   , prefix_(prefix)
+  , filter_type_(filter_type)
+  , filter_(std::move(filter))
 {
 }
 

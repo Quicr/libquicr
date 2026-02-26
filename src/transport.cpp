@@ -706,7 +706,8 @@ namespace quicr {
          * - AUTHORIZATION TOKEN (0x03)
          * - FORWARD (0x10)
          */
-        auto params = Parameters{};
+        const auto [filter_type, filter] = handler->GetFilter();
+        auto params = Parameters{}.Add(ToParameterFilterType(filter_type), filter);
 
         Bytes buffer;
         buffer << messages::SubscribeNamespace(rid, prefix, SubscribeOptions::kBoth, params);
