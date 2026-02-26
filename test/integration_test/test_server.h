@@ -120,7 +120,7 @@ namespace quicr_test {
         {
             quicr::ConnectionHandle connection_handle;
             quicr::TrackNamespace prefix_namespace;
-            quicr::SubscribeNamespaceAttributes attributes;
+            quicr::messages::SubscribeNamespaceAttributes attributes;
         };
 
         struct PublishNamespaceDetails
@@ -213,7 +213,7 @@ namespace quicr_test {
         void SubscribeNamespaceReceived(quicr::ConnectionHandle connection_handle,
                                         quicr::DataContextId data_ctx_id,
                                         const quicr::TrackNamespace& prefix_namespace,
-                                        const quicr::SubscribeNamespaceAttributes& attributes) override;
+                                        const quicr::messages::SubscribeNamespaceAttributes& attributes) override;
 
         void PublishNamespaceReceived(quicr::ConnectionHandle connection_handle,
                                       const quicr::TrackNamespace& track_namespace,

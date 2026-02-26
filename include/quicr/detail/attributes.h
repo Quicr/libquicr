@@ -60,4 +60,12 @@ namespace quicr::messages {
         bool relative{ false };       ///< True indicates relative to largest, False indicates absolute
         std::uint64_t joining_start;  ///< Fetch joining start
     };
+
+    struct SubscribeNamespaceAttributes
+    {
+        uint64_t request_id{ 0 };
+        FilterType filter_type{ FilterType::kTrackFilter };
+        Filter filter{ std::monostate{} };
+    };
+
 }
