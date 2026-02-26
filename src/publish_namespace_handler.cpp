@@ -65,14 +65,15 @@ std::weak_ptr<quicr::PublishTrackHandler>
 quicr::PublishNamespaceHandler::PublishTrack(const FullTrackName& full_track_name,
                                              TrackMode track_mode,
                                              uint8_t default_priority,
-                                             uint32_t default_ttl)
+                                             uint32_t default_ttl,
+                                             messages::Location largest_location)
 {
     if (!full_track_name.name_space.HasSamePrefix(GetPrefix())) {
         throw std::invalid_argument("New Publish track MUST have the same prefix as owning Namespace Handler");
     }
 
     auto& handler = handlers_[TrackHash(full_track_name).track_fullname_hash] =
-      CreateHandler(full_track_name, track_mode, default_priority, default_ttl);
+      CreateHandler(full_track_name, track_mode, default_priority, default_ttl, largest_location);
 
     const auto& transport = transport_.lock();
     if (!transport) {
@@ -88,7 +89,8 @@ std::shared_ptr<quicr::PublishTrackHandler>
 quicr::PublishNamespaceHandler::CreateHandler(const FullTrackName& full_track_name,
                                               TrackMode track_mode,
                                               uint8_t default_priority,
-                                              uint32_t default_ttl)
+                                              uint32_t default_ttl,
+                                              messages::Location largest_location)
 {
-    return PublishTrackHandler::Create(full_track_name, track_mode, default_priority, default_ttl);
+    return PublishTrackHandler::Create(full_track_name, track_mode, default_priority, default_ttl, largest_location);
 }

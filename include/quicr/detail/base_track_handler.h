@@ -106,23 +106,6 @@ namespace quicr {
         };
         ReasonCode reason_code;
 
-        // Matched tracks that will be advertised in response via PUBLISH.
-        struct AvailableTrack
-        {
-            const FullTrackName track_full_name;
-            const std::optional<messages::Location> largest_location;
-            const messages::PublishAttributes attributes;
-            AvailableTrack(const FullTrackName& track_full_name,
-                           const std::optional<messages::Location>& largest_location,
-                           const messages::PublishAttributes& attributes)
-              : track_full_name(track_full_name)
-              , largest_location(largest_location)
-              , attributes(attributes)
-            {
-            }
-        };
-        std::vector<AvailableTrack> tracks;
-
         // Matched tracks that will be advertised in response via PUBLISH_NAMESPACE.
         std::vector<TrackNamespace> namespaces;
 

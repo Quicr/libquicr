@@ -1249,7 +1249,6 @@ namespace quicr {
                         continue;
                     }
                     const auto outgoing_request = conn_it->second.GetNextRequestId();
-                    conn_it->second.pub_by_request_id[outgoing_request] = attributes.track_full_name;
                     SendPublish(conn_it->second,
                                 outgoing_request,
                                 attributes.track_full_name,

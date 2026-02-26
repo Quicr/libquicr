@@ -506,11 +506,6 @@ namespace quicr {
             std::map<messages::TrackAlias, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>>
               pub_tracks_by_track_alias;
 
-            /**
-             * Pending outbound publish tracks by request ID, for publish_ok.
-             */
-            std::map<messages::RequestID, FullTrackName> pub_by_request_id;
-
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 

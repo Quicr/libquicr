@@ -55,7 +55,8 @@ namespace quicr {
         virtual std::weak_ptr<PublishTrackHandler> PublishTrack(const FullTrackName& full_track_name,
                                                                 TrackMode track_mode,
                                                                 uint8_t default_priority,
-                                                                uint32_t default_ttl);
+                                                                uint32_t default_ttl,
+                                                                messages::Location largest_location);
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 
@@ -80,7 +81,8 @@ namespace quicr {
         virtual std::shared_ptr<PublishTrackHandler> CreateHandler(const FullTrackName& full_track_name,
                                                                    TrackMode track_mode,
                                                                    uint8_t default_priority,
-                                                                   uint32_t default_ttl);
+                                                                   uint32_t default_ttl,
+                                                                   messages::Location largest_location);
 
         /**
          * @brief Set the Publish status
