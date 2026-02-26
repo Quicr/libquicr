@@ -508,10 +508,15 @@ namespace quicr {
                 auto msg = messages::SubscribeNamespace{};
                 msg_bytes >> msg;
 
+                auto filter = msg.parameters.Get<messages::Filter>(
+                  messages::ParameterType::kTrackFilter); // TODO: Support other filters
+
                 SubscribeNamespaceReceived(conn_ctx.connection_handle,
                                            data_ctx_id,
                                            msg.track_namespace_prefix,
-                                           { .request_id = msg.request_id });
+                                           { .request_id = msg.request_id,
+                                             .filter_type = messages::FilterType::kTrackFilter,
+                                             .filter = filter });
                 return true;
             }
             case messages::ControlMessageType::kNamespaceDone: {
