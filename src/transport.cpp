@@ -1054,8 +1054,13 @@ namespace quicr {
             return;
         }
 
-        conn_it->second.request_handlers.erase(track_handler->GetRequestId().value());
         conn_it->second.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
+
+        if (!track_handler->GetRequestId().has_value()) {
+            return;
+        }
+
+        conn_it->second.request_handlers.erase(track_handler->GetRequestId().value());
 
         /*
          * This is a round about way to send subscribe done because of the announce flow. This
@@ -1160,7 +1165,9 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
-    void Transport::PublishNamespace(ConnectionHandle conn_id, std::shared_ptr<PublishNamespaceHandler> track_handler)
+    void Transport::PublishNamespace(ConnectionHandle conn_id,
+                                     std::shared_ptr<PublishNamespaceHandler> track_handler,
+                                     bool passive)
     {
         auto prefix_hash = hash(track_handler->GetPrefix());
         SPDLOG_LOGGER_INFO(logger_, "Publish namespace conn_id: {0} hash: {1}", conn_id, prefix_hash);
@@ -1173,17 +1180,19 @@ namespace quicr {
             return;
         }
 
-        track_handler->SetRequestId(conn_it->second.GetNextRequestId());
+        if (!passive) {
+            track_handler->SetRequestId(conn_it->second.GetNextRequestId());
 
-        SPDLOG_LOGGER_INFO(logger_, "Publishing to namespace hash: {0} sending ANNOUNCE message", prefix_hash);
+            SPDLOG_LOGGER_INFO(logger_, "Publishing to namespace hash: {0} sending ANNOUNCE message", prefix_hash);
 
-        lock.unlock();
+            lock.unlock();
 
-        track_handler->SetStatus(PublishNamespaceHandler::Status::kPendingResponse);
+            track_handler->SetStatus(PublishNamespaceHandler::Status::kPendingResponse);
 
-        lock.lock();
+            lock.lock();
 
-        SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), track_handler->GetPrefix());
+            SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), track_handler->GetPrefix());
+        }
 
         conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
 
@@ -1241,23 +1250,6 @@ namespace quicr {
                               attributes.group_order,
                               attributes.filter_type);
 
-                // Fan out PUBLISH, if requested.
-                for (const auto& handle : publish_response.namespace_subscribers) {
-                    const auto& conn_it = connections_.find(handle);
-                    if (conn_it == connections_.end()) {
-                        SPDLOG_LOGGER_WARN(logger_, "Bad connection handle on SUBSCRIBE_NAMESPACE fan out");
-                        continue;
-                    }
-                    const auto outgoing_request = conn_it->second.GetNextRequestId();
-                    SendPublish(conn_it->second,
-                                outgoing_request,
-                                attributes.track_full_name,
-                                attributes.track_alias,
-                                attributes.group_order,
-                                publish_response.largest_location,
-                                attributes.forward,
-                                attributes.dynamic_groups);
-                }
                 break;
             }
             default:

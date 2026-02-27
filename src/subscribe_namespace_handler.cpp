@@ -28,11 +28,11 @@ quicr::SubscribeNamespaceHandler::StatusChanged(Status status)
 
     switch (status) {
         case Status::kOk:
-            SPDLOG_INFO("Subscription to namespace with hash: {} status changed to OK", th.track_namespace_hash);
+            SPDLOG_TRACE("Subscription to namespace with hash: {} status changed to OK", th.track_namespace_hash);
             break;
         case Status::kNotSubscribed:
-            SPDLOG_WARN("Subscription to namespace with hash: {} status changed to NOT_SUBSCRIBED",
-                        th.track_namespace_hash);
+            SPDLOG_TRACE("Subscription to namespace with hash: {} status changed to NOT_SUBSCRIBED",
+                         th.track_namespace_hash);
             break;
         case Status::kError:
             if (error_ != std::nullopt) {

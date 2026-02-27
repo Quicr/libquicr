@@ -1,6 +1,7 @@
 #include "quicr/publish_namespace_handler.h"
-
 #include "quicr/detail/transport.h"
+
+#include <ranges>
 
 quicr::PublishNamespaceHandler::PublishNamespaceHandler(const TrackNamespace& prefix)
   : BaseTrackHandler({ prefix, {} })
@@ -15,8 +16,10 @@ quicr::PublishNamespaceHandler::~PublishNamespaceHandler()
         return;
     }
 
-    for (const auto& [_, handler] : handlers_) {
-        transport->UnpublishTrack(connection_handle_, handler);
+    for (const auto& handler : handlers_ | std::views::values) {
+        if (handler) {
+            transport->UnpublishTrack(connection_handle_, handler);
+        }
     }
 }
 
@@ -61,36 +64,19 @@ quicr::PublishNamespaceHandler::StatusChanged(Status status)
     }
 }
 
-std::weak_ptr<quicr::PublishTrackHandler>
-quicr::PublishNamespaceHandler::PublishTrack(const FullTrackName& full_track_name,
-                                             TrackMode track_mode,
-                                             uint8_t default_priority,
-                                             uint32_t default_ttl,
-                                             messages::Location largest_location)
+void
+quicr::PublishNamespaceHandler::PublishTrack(std::shared_ptr<PublishTrackHandler> handler)
 {
-    if (!full_track_name.name_space.HasSamePrefix(GetPrefix())) {
+    if (!handler->GetFullTrackName().name_space.HasSamePrefix(GetPrefix())) {
         throw std::invalid_argument("New Publish track MUST have the same prefix as owning Namespace Handler");
     }
 
-    auto& handler = handlers_[TrackHash(full_track_name).track_fullname_hash] =
-      CreateHandler(full_track_name, track_mode, default_priority, default_ttl, largest_location);
+    handlers_.emplace(TrackHash(handler->GetFullTrackName()).track_fullname_hash, handler);
 
     const auto& transport = transport_.lock();
     if (!transport) {
         throw std::runtime_error("Cannot create publish track when transport is null");
     }
 
-    transport->PublishTrack(connection_handle_, handler);
-
-    return handler;
-}
-
-std::shared_ptr<quicr::PublishTrackHandler>
-quicr::PublishNamespaceHandler::CreateHandler(const FullTrackName& full_track_name,
-                                              TrackMode track_mode,
-                                              uint8_t default_priority,
-                                              uint32_t default_ttl,
-                                              messages::Location largest_location)
-{
-    return PublishTrackHandler::Create(full_track_name, track_mode, default_priority, default_ttl, largest_location);
+    transport->PublishTrack(connection_handle_, std::move(handler));
 }

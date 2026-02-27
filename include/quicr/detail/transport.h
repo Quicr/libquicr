@@ -171,9 +171,11 @@ namespace quicr {
          * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param track_handler               Track handler to use for track related functions
          *                                    and callbacks
+         * @param passive                     True indicates that PUBLISH_NAMESPACE will not be sent
          */
         void PublishNamespace(ConnectionHandle connection_handle,
-                              std::shared_ptr<PublishNamespaceHandler> track_handler);
+                              std::shared_ptr<PublishNamespaceHandler> track_handler,
+                              bool passive = false);
 
         /**
          * @brief Unpublish track

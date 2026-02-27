@@ -52,11 +52,7 @@ namespace quicr {
 
         virtual ~PublishNamespaceHandler();
 
-        virtual std::weak_ptr<PublishTrackHandler> PublishTrack(const FullTrackName& full_track_name,
-                                                                TrackMode track_mode,
-                                                                uint8_t default_priority,
-                                                                uint32_t default_ttl,
-                                                                messages::Location largest_location);
+        void PublishTrack(std::shared_ptr<PublishTrackHandler> handler);
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 
@@ -78,12 +74,6 @@ namespace quicr {
         std::optional<Error> GetError() const noexcept { return error_; }
 
       protected:
-        virtual std::shared_ptr<PublishTrackHandler> CreateHandler(const FullTrackName& full_track_name,
-                                                                   TrackMode track_mode,
-                                                                   uint8_t default_priority,
-                                                                   uint32_t default_ttl,
-                                                                   messages::Location largest_location);
-
         /**
          * @brief Set the Publish status
          * @param status                Status of the Publish
@@ -108,9 +98,9 @@ namespace quicr {
             SetStatus(Status::kError);
         }
 
-        virtual void RequestOk(uint64_t, const messages::Parameters&) override { SetStatus(Status::kOk); }
+        void RequestOk(uint64_t, const messages::Parameters&) override { SetStatus(Status::kOk); }
 
-        virtual void RequestError(messages::ErrorCode error_code, std::string reason) override
+        void RequestError(messages::ErrorCode error_code, std::string reason) override
         {
             SetError(Error{ error_code, Bytes{ reason.begin(), reason.end() } });
         }
@@ -128,7 +118,7 @@ namespace quicr {
 
         std::optional<Error> error_{};
 
-        quicr::ConnectionHandle connection_handle_{};
+        ConnectionHandle connection_handle_{};
 
         friend class Transport;
         friend class Client;

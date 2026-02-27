@@ -3,12 +3,13 @@
 #include <future>
 #include <map>
 #include <optional>
-#include <quicr/publish_fetch_handler.h>
+
 #include <quicr/publish_track_handler.h>
 #include <quicr/server.h>
 #include <quicr/subscribe_track_handler.h>
 
 namespace quicr_test {
+    class TestServer;
 
     /**
      * @brief Subscribe track handler for receiving objects from publishers
@@ -89,18 +90,24 @@ namespace quicr_test {
         TestPublishTrackHandler(const quicr::FullTrackName& full_track_name,
                                 quicr::TrackMode track_mode,
                                 uint8_t default_priority,
-                                uint32_t default_ttl)
+                                uint32_t default_ttl,
+                                const std::weak_ptr<TestServer> server = {})
           : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
+          , server_(server)
         {
         }
 
-        void StatusChanged([[maybe_unused]] Status status) override {}
+        void StatusChanged(Status status) override;
+
+      private:
+        std::weak_ptr<TestServer> server_;
     };
 
     class TestServer final : public quicr::Server
     {
       public:
         explicit TestServer(const quicr::ServerConfig& config);
+
         struct SubscribeDetails
         {
             quicr::ConnectionHandle connection_handle;
@@ -211,6 +218,9 @@ namespace quicr_test {
                                       const quicr::TrackNamespace& track_namespace,
                                       const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
 
+      public:
+        std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
+
       private:
         mutable std::mutex state_mutex_;
 
@@ -218,9 +228,17 @@ namespace quicr_test {
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
         std::vector<quicr::TrackNamespace> known_published_namespaces_;
-        std::vector<quicr::SubscribeNamespaceResponse::AvailableTrack> known_published_tracks_;
-        std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
-        std::unordered_map<quicr::messages::TrackNamespacePrefix, std::vector<quicr::ConnectionHandle>>
+        std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;
+        struct AvailableTrack
+        {
+            quicr::FullTrackName full_track_name;
+            quicr::messages::Location start_location;
+            quicr::messages::PublishAttributes attributes;
+        };
+
+        std::vector<AvailableTrack> known_published_tracks_;
+        std::unordered_map<quicr::messages::TrackNamespacePrefix,
+                           std::map<quicr::ConnectionHandle, std::shared_ptr<quicr::PublishNamespaceHandler>>>
           namespace_subscribers_;
         std::vector<FetchResponseData> fetch_response_data_;
 
@@ -234,4 +252,5 @@ namespace quicr_test {
                  std::map<quicr::ConnectionHandle, std::shared_ptr<TestSubscribeTrackHandler>>>
           pub_subscribes_;
     };
+
 }
