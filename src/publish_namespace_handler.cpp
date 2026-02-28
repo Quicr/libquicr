@@ -16,7 +16,7 @@ quicr::PublishNamespaceHandler::~PublishNamespaceHandler()
         return;
     }
 
-    for (const auto& handler : handlers_ | std::views::values) {
+    for (const auto& handler : std::views::values(handlers_)) {
         if (handler) {
             transport->UnpublishTrack(connection_handle_, handler);
         }

@@ -490,15 +490,6 @@ class MyPublisherNamespaceHandler : public quicr::PublishNamespaceHandler
     {
         return std::shared_ptr<MyPublisherNamespaceHandler>(new MyPublisherNamespaceHandler(prefix));
     }
-
-  protected:
-    virtual std::shared_ptr<quicr::PublishTrackHandler> CreateHandler(const quicr::FullTrackName& full_track_name,
-                                                                      quicr::TrackMode track_mode,
-                                                                      uint8_t default_priority,
-                                                                      uint32_t default_ttl) override
-    {
-        return MyPublishTrackHandler::Create(full_track_name, track_mode, default_priority, default_ttl);
-    }
 };
 
 /**
@@ -964,7 +955,9 @@ DoPublisher(const std::string prefix_str,
     std::vector<std::weak_ptr<quicr::PublishTrackHandler>> handlers;
     for (const auto& name : names) {
         quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, name);
-        handlers.push_back(ns_handler->PublishTrack(full_track_name, quicr::TrackMode::kStream, 128, 3000));
+        auto handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 128, 3000);
+        handlers.push_back(handler);
+        ns_handler->PublishTrack(handler);
     }
 
     std::vector<std::thread> pub_threads;

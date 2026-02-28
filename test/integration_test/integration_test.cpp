@@ -764,6 +764,8 @@ TEST_CASE("Integration - Announce Flow")
         auto pub_h = TestPublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 5000, { 0, 0 });
         REQUIRE_NOTHROW(w_pub_handler = pub_h);
 
+        client->PublishTrack(pub_h);
+
         auto pub_handler = w_pub_handler.lock();
         REQUIRE_NE(pub_handler, nullptr);
 
