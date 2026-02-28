@@ -1192,9 +1192,11 @@ namespace quicr {
             lock.lock();
 
             SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), track_handler->GetPrefix());
-        }
+            conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
 
-        conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
+        } else {
+            track_handler->SetStatus(PublishNamespaceHandler::Status::kOk);
+        }
 
         track_handler->connection_handle_ = conn_id;
         track_handler->SetTransport(GetSharedPtr());
