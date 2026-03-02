@@ -1145,3 +1145,92 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         test_subgroups("https");
     }
 }
+
+TEST_CASE("Integration - New subgroup preserves object IDs")
+{
+    auto server = MakeTestServer(std::nullopt, 2);
+
+    auto test_subgroup_roll = [&](const std::string& protocol_scheme) {
+        auto subscriber_client = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto publisher_client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "subgroup_roll" });
+        ftn.name = { 0x01 };
+
+        // Publisher.
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000);
+        publisher_client->PublishTrack(pub_handler);
+        const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
+        REQUIRE(pub_ready);
+
+        // Subscriber.
+        auto sub_handler = TestSubscribeHandler::Create(
+          ftn, 3, messages::GroupOrder::kOriginalPublisherOrder, messages::FilterType::kLargestObject);
+        std::promise<void> all_received_promise;
+        auto all_received_future = all_received_promise.get_future();
+        constexpr std::size_t total_objects = 6;
+        sub_handler->SetObjectCountPromise(total_objects, std::move(all_received_promise));
+        subscriber_client->SubscribeTrack(sub_handler);
+        const bool sub_ready =
+          WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        REQUIRE(sub_ready);
+
+        // Publishes objects with headers in payload.
+        auto publish_object = [&](uint64_t group_id, uint64_t subgroup_id, uint64_t object_id) {
+            std::vector payload = { static_cast<uint8_t>(group_id),
+                                    static_cast<uint8_t>(subgroup_id),
+                                    static_cast<uint8_t>(object_id) };
+            ObjectHeaders headers = { .group_id = group_id,
+                                      .object_id = object_id,
+                                      .subgroup_id = subgroup_id,
+                                      .payload_length = payload.size(),
+                                      .status = ObjectStatus::kAvailable,
+                                      .priority = 3,
+                                      .ttl = 1000,
+                                      .track_mode = TrackMode::kStream,
+                                      .extensions = std::nullopt,
+                                      .immutable_extensions = std::nullopt };
+            auto status = pub_handler->PublishObject(headers, payload);
+            REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
+        };
+
+        // Subgroup 0.
+        publish_object(0, 0, 0);
+        publish_object(0, 0, 1);
+        pub_handler->EndSubgroup(0, 0, true);
+        // Subgroup 1.
+        publish_object(0, 1, 2);
+        pub_handler->EndSubgroup(0, 1, true);
+        // Subgroup 2.
+        publish_object(0, 2, 3);
+        publish_object(0, 2, 4);
+        // Let's end on a new group.
+        publish_object(1, 0, 0);
+
+        // Make sure we got everything.
+        auto receive_status = all_received_future.wait_for(std::chrono::milliseconds(3000));
+        REQUIRE(receive_status == std::future_status::ready);
+        const auto received = sub_handler->GetReceivedObjects();
+        REQUIRE_EQ(received.size(), total_objects);
+
+        // Headers should match payloads.
+        for (const auto& obj : received) {
+            CHECK_EQ(obj.group_id, obj.data[0]);
+            CHECK_EQ(obj.subgroup_id, obj.data[1]);
+            CHECK_EQ(obj.object_id, obj.data[2]);
+        }
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_subgroup_roll("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_subgroup_roll("https");
+    }
+}
