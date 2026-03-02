@@ -16,6 +16,7 @@ quicr::PublishNamespaceHandler::~PublishNamespaceHandler()
         return;
     }
 
+    // NOLINTNEXTLINE(clang-diagnostic-error)
     for (const auto& handler : std::views::values(handlers_)) {
         if (handler) {
             transport->UnpublishTrack(connection_handle_, handler);
