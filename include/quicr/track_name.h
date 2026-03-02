@@ -71,7 +71,7 @@ namespace quicr {
             (add_entry(entries), ...);
         }
 
-        TrackNamespace(const std::vector<std::span<const uint8_t>>& entries)
+        TrackNamespace(std::span<const std::span<const uint8_t>> entries)
           : entries_(entries.size())
         {
             if (entries.size() > 32 || entries.size() == 0) {
@@ -196,6 +196,16 @@ namespace quicr {
 
         const std::vector<std::span<const uint8_t>>& GetEntries() const noexcept { return entries_; }
         const auto& GetHashes() const noexcept { return hashes_; }
+
+        TrackNamespace GetPrefix(std::size_t length) const noexcept
+        {
+            return TrackNamespace(std::span{ entries_ }.subspan(0, length));
+        }
+
+        TrackNamespace GetSuffix(std::size_t length) const noexcept
+        {
+            return TrackNamespace(std::span{ entries_ }.subspan(entries_.size() - length));
+        }
 
         // NOLINTBEGIN(readability-identifier-naming)
         auto begin() noexcept { return bytes_.begin(); }
