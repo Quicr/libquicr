@@ -956,7 +956,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         REQUIRE(sub_ready);
 
         // Create publisher with stream mode (explicit subgroup ID)
-        auto pub_handler = TestPublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
         publisher_client->PublishTrack(pub_handler);
 
         // Wait for publisher to be ready
@@ -1160,7 +1160,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         ftn.name = { 0x01 };
 
         // Publisher.
-        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000);
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
         publisher_client->PublishTrack(pub_handler);
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
