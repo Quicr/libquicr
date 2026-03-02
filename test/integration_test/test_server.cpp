@@ -197,7 +197,8 @@ TestServer::AddKnownPublishedTrack(const FullTrackName& track,
                                    const std::optional<messages::Location>& largest_location,
                                    const messages::PublishAttributes& attributes)
 {
-    known_published_tracks_.emplace_back(AvailableTrack{track, largest_location.value_or(messages::Location{ 0, 0 }), attributes});
+    known_published_tracks_.emplace_back(
+      AvailableTrack{ track, largest_location.value_or(messages::Location{ 0, 0 }), attributes });
 }
 
 void
