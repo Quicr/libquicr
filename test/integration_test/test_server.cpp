@@ -48,8 +48,7 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
     // Is anyone interested in this prefix?
     std::vector<ConnectionHandle> namespace_subscribers;
 
-    // NOLINTNEXTLINE(clang-diagnostic-error)
-    for (const auto& interested : namespace_subscribers_ | std::views::values) {
+    for (const auto& [_, interested] : namespace_subscribers_) {
         for (const auto& [conn_id, ns_handler] : interested) {
             if (ns_handler->GetFullTrackName().name_space.HasSamePrefix(
                   publish_attributes.track_full_name.name_space)) {
