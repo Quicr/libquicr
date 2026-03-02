@@ -84,7 +84,7 @@ namespace quicr {
                 if (is_new_stream) {
                     auto stream_id =
                       transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, GetDefaultPriority());
-                    stream_info_by_group_[group_id][subgroup_id] = { stream_id, group_id, subgroup_id, 0 };
+                    stream_info_by_group_[group_id][subgroup_id] = { stream_id, group_id, subgroup_id };
                 }
 
                 auto group_it = stream_info_by_group_.find(group_id);
