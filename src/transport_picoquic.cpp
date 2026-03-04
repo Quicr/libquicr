@@ -1730,7 +1730,15 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
         stream_ctx.mark_active = false;
     }
 
+    bool should_reset = false;
     defer({
+        if (should_reset) {
+            CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, true);
+            if (data_ctx->delete_on_empty && data_ctx->streams.empty()) {
+                DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
+            }
+            return;
+        }
         const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
         if (data_ctx->delete_on_empty && empty) {
             DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
@@ -1769,7 +1777,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
                                 obj.expired_count,
                                 stream_ctx.tx_data->Size());
 
-            CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, true);
+            should_reset = true;
             return;
         }
 

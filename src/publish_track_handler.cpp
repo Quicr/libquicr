@@ -84,7 +84,7 @@ namespace quicr {
                 if (is_new_stream) {
                     auto stream_id =
                       transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, GetDefaultPriority());
-                    stream_info_by_group_[group_id][subgroup_id] = { stream_id, group_id, subgroup_id, 0 };
+                    stream_info_by_group_[group_id][subgroup_id] = { stream_id, group_id, subgroup_id };
                 }
 
                 auto group_it = stream_info_by_group_.find(group_id);
@@ -146,10 +146,9 @@ namespace quicr {
 
                 auto stream_id = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
-                auto [it, _] = subgroup_map.emplace(
-                  object_headers.subgroup_id,
-                  StreamInfo{
-                    stream_id, object_headers.group_id, object_headers.subgroup_id, object_headers.object_id });
+                auto [it, _] =
+                  subgroup_map.emplace(object_headers.subgroup_id,
+                                       StreamInfo{ stream_id, object_headers.group_id, object_headers.subgroup_id });
                 subgroup_it = std::move(it);
             } else {
                 subgroup_it = group_it->second.find(object_headers.subgroup_id);
@@ -159,8 +158,7 @@ namespace quicr {
                     auto stream_id = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
                     auto [it, _] = group_it->second.emplace(
                       object_headers.subgroup_id,
-                      StreamInfo{
-                        stream_id, object_headers.group_id, object_headers.subgroup_id, object_headers.object_id });
+                      StreamInfo{ stream_id, object_headers.group_id, object_headers.subgroup_id });
                     subgroup_it = std::move(it);
                 }
             }
