@@ -393,13 +393,15 @@ namespace quicr {
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
+                auto new_group_request_id =
+                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
-                std::optional<uint64_t> new_group_request_id;
-                if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
-                    new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                messages::Filter filter; // TODO: Support more filters.
+                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
 
                 // TODO(tievens): add filter type when caching supports it
@@ -411,7 +413,7 @@ namespace quicr {
                                     .group_order = group_order,
                                     .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
                                     .expires = std::chrono::milliseconds{ delivery_timeout },
-                                    .filter_type = filter_type,
+                                    .filter = filter,
                                     .forward = forward,
                                     .new_group_request_id = new_group_request_id,
                                     .is_publisher_initiated = false,
@@ -507,10 +509,19 @@ namespace quicr {
                 auto msg = messages::SubscribeNamespace{};
                 msg_bytes >> msg;
 
+                messages::Filter filter; // TODO: Support more filters.
+                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
+                }
+
                 SubscribeNamespaceReceived(conn_ctx.connection_handle,
                                            data_ctx_id,
                                            msg.track_namespace_prefix,
-                                           { .request_id = msg.request_id });
+                                           { .request_id = msg.request_id,
+                                             .filter_type = messages::FilterType::kTrackFilter,
+                                             .filter = filter });
                 return true;
             }
             case messages::ControlMessageType::kNamespaceDone: {
@@ -801,7 +812,6 @@ namespace quicr {
                 attributes.group_order = group_order;
                 attributes.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
                 attributes.expires = std::chrono::milliseconds(expires);
-                attributes.filter_type = messages::FilterType::kLargestObject;
                 attributes.forward = forward;
                 attributes.new_group_request_id = 1;
                 attributes.is_publisher_initiated = true;
@@ -834,17 +844,22 @@ namespace quicr {
                 auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
                 auto new_group_request_id =
                   msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+
+                messages::Filter filter; // TODO: Support more filters.
+                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
+                }
 
                 messages::SubscribeAttributes attributes = {
                     .priority = priority,
                     .group_order = group_order,
                     .delivery_timeout = std::chrono::milliseconds(delivery_timeout),
                     .expires = std::chrono::milliseconds(expires),
-                    .filter_type = filter_type,
+                    .filter = filter,
                     .forward = forward,
                     .new_group_request_id = new_group_request_id,
                     .is_publisher_initiated = true,
@@ -874,11 +889,16 @@ namespace quicr {
 
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
                 auto new_group_request_id =
                   msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+
+                messages::Filter filter; // TODO: Support more filters.
+                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
+                }
 
                 if (new_group_request_id.has_value()) {
                     NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id.value());
