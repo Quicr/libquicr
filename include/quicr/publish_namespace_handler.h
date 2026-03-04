@@ -52,7 +52,60 @@ namespace quicr {
 
         virtual ~PublishNamespaceHandler();
 
-        void PublishTrack(std::shared_ptr<PublishTrackHandler> handler);
+        /**
+         * @brief Publish a new track
+         *
+         * @details Creates a new publish track handler that will be used to send data for a track.
+         *      Selection and filters may be applied here.
+         *
+         * @param handler           Publish Track Handler for the publish
+         */
+        virtual void PublishTrack(std::shared_ptr<PublishTrackHandler> handler);
+
+        /**
+         * @brief Remove a publish track
+         */
+        virtual void UnPublishTrack(std::shared_ptr<PublishTrackHandler> handler);
+
+        /**
+         * @brief Passthrough PublishObject to Publish Track matching full name hash
+         *
+         * @details Passthrough to send to the publish handler. Selection and filters maybe applied.
+         *
+         * @param track_full_name_hash  Hash of track namespace and name
+         * @param object_headers        Object headers, must include group and object Ids
+         * @param data                  Full complete payload data for the object
+         *
+         * @returns PublishObjectStatus from publish handler
+         */
+        virtual PublishTrackHandler::PublishObjectStatus PublishObject(TrackFullNameHash track_full_name_hash,
+                                                                       const ObjectHeaders& object_headers,
+                                                                       BytesSpan data);
+
+        /**
+         * @brief Passthrough to Forward received object data to each publish handler
+         *
+         * @details Passthrough to send to the publish handlers. Selection and filters can be applied.
+         *
+         * @note This method must be overwritten to be used. Default does not forward any data.
+         *
+         * @param track_full_name_hash  Hash of track namespace and name
+         * @param is_new_stream         Indicates if this data starts a new stream
+         * @param group_id              Group ID for stream
+         * @param subgroup_id           Subgroup ID for stream
+         * @param data                  MoQ data to send
+         *
+         * @returns PublishObjectStatus from publish handler
+         */
+        virtual PublishTrackHandler::PublishObjectStatus ForwardPublishedData(
+          [[maybe_unused]] TrackFullNameHash track_full_name_hash,
+          [[maybe_unused]] bool is_new_stream,
+          [[maybe_unused]] uint64_t group_id,
+          [[maybe_unused]] uint64_t subgroup_id,
+          [[maybe_unused]] std::shared_ptr<const std::vector<uint8_t>> data)
+        {
+            return PublishTrackHandler::PublishObjectStatus::kInternalError;
+        }
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 
@@ -105,6 +158,9 @@ namespace quicr {
             SetError(Error{ error_code, Bytes{ reason.begin(), reason.end() } });
         }
 
+        // Publish handlers used to transmit track data
+        std::map<TrackFullNameHash, std::shared_ptr<PublishTrackHandler>> handlers_;
+
       private:
         /// Prefix namespace for contained handlers.
         const TrackNamespace prefix_;
@@ -112,13 +168,11 @@ namespace quicr {
         /// Weak reference to the transport.
         std::weak_ptr<Transport> transport_;
 
-        std::map<TrackFullNameHash, std::shared_ptr<PublishTrackHandler>> handlers_;
-
         Status status_{ Status::kNotPublished };
 
         std::optional<Error> error_{};
 
-        ConnectionHandle connection_handle_{};
+        ConnectionHandle connection_handle_{ 0 };
 
         friend class Transport;
         friend class Client;

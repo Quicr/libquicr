@@ -1239,12 +1239,18 @@ namespace quicr {
             case PublishResponse::ReasonCode::kOk: {
                 for (auto& [_, track] : conn_it->second.request_handlers) {
                     if (auto h = track.Get<SubscribeNamespaceHandler>()) {
+                        /*
+                         * TODO: Track being acceptable does not correctly reprot if track is a match to prefix but not
+                         *      acceptable. This is important to know so that PublishError can be sent to reject the
+                         *      track/publish instead of sending PublishOk
+                         */
                         if (h->IsTrackAcceptable(attributes.track_full_name)) {
                             h->AcceptNewTrack(connection_handle, request_id, attributes);
                         }
                     }
                 }
 
+                // TODO: See todo above, this should only be sent if subscribe namespace does not have a prefix match
                 SendPublishOk(conn_it->second,
                               request_id,
                               attributes.forward,

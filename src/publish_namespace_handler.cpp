@@ -16,7 +16,6 @@ quicr::PublishNamespaceHandler::~PublishNamespaceHandler()
         return;
     }
 
-    // NOLINTNEXTLINE(clang-diagnostic-error)
     for (const auto& [_, handler] : handlers_) {
         if (handler) {
             transport->UnpublishTrack(connection_handle_, handler);
@@ -80,4 +79,22 @@ quicr::PublishNamespaceHandler::PublishTrack(std::shared_ptr<PublishTrackHandler
     }
 
     transport->PublishTrack(connection_handle_, std::move(handler));
+}
+
+void
+quicr::PublishNamespaceHandler::UnPublishTrack(std::shared_ptr<PublishTrackHandler> handler)
+{
+    handlers_.erase(TrackHash(handler->GetFullTrackName()).track_fullname_hash);
+}
+
+quicr::PublishTrackHandler::PublishObjectStatus
+quicr::PublishNamespaceHandler::PublishObject(TrackFullNameHash track_full_name_hash,
+                                              const ObjectHeaders& object_headers,
+                                              BytesSpan data)
+{
+    if (const auto pub_it = handlers_.find(track_full_name_hash); pub_it != handlers_.end()) {
+        return pub_it->second->PublishObject(object_headers, data);
+    }
+
+    return PublishTrackHandler::PublishObjectStatus::kPendingPublishOk;
 }

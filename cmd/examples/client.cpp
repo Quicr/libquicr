@@ -726,9 +726,6 @@ class MyClient : public quicr::Client
                        request_id,
                        publish_attributes,
                        { .reason_code = quicr::PublishResponse::ReasonCode::kOk });
-
-        SPDLOG_INFO(
-          "Accepted PUBLISH and subscribed to track_hash: {} request_id: {}", th.track_fullname_hash, request_id);
     }
 
   private:

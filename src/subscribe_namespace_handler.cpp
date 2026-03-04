@@ -62,31 +62,8 @@ quicr::SubscribeNamespaceHandler::CreateHandler(const quicr::messages::PublishAt
 }
 
 void
-quicr::SubscribeNamespaceHandler::AcceptNewTrack(const ConnectionHandle& connection_handle,
-                                                 quicr::messages::RequestID request_id,
-                                                 const messages::PublishAttributes& attributes)
+quicr::SubscribeNamespaceHandler::AcceptNewTrack([[maybe_unused]] const ConnectionHandle& connection_handle,
+                                                 [[maybe_unused]] quicr::messages::RequestID request_id,
+                                                 [[maybe_unused]] const messages::PublishAttributes& attributes)
 {
-    const auto& transport = transport_.lock();
-    if (!transport) {
-        return;
-    }
-
-    const auto& [track_handler_it, is_new] = handlers_.try_emplace(attributes.track_alias, CreateHandler(attributes));
-
-    if (!is_new) {
-        SPDLOG_WARN("Track already handled by existing by namespace handler"); // TODO: Specify which
-        return;
-    }
-
-    connection_handle_ = connection_handle;
-
-    const auto& [_, track_handler] = *track_handler_it;
-
-    track_handler->SetRequestId(request_id);
-    track_handler->SetReceivedTrackAlias(attributes.track_alias);
-    track_handler->SetPriority(attributes.priority);
-    track_handler->SetDeliveryTimeout(attributes.delivery_timeout);
-    track_handler->SupportNewGroupRequest(attributes.dynamic_groups);
-
-    transport->SubscribeTrack(connection_handle_, track_handler);
 }
