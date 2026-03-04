@@ -62,7 +62,7 @@ quicr::SubscribeNamespaceHandler::CreateHandler(const quicr::messages::PublishAt
 }
 
 void
-quicr::SubscribeNamespaceHandler::AcceptNewTrack([[maybe_unused]] const ConnectionHandle& connection_handle,
+quicr::SubscribeNamespaceHandler::AcceptNewTrack([[maybe_unused]] ConnectionHandle connection_handle,
                                                  [[maybe_unused]] quicr::messages::RequestID request_id,
                                                  [[maybe_unused]] const messages::PublishAttributes& attributes)
 {

@@ -453,45 +453,6 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
     }
 };
 
-class MySubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
-{
-    MySubscribeNamespaceHandler(const quicr::TrackNamespace& prefix)
-      : quicr::SubscribeNamespaceHandler(prefix)
-    {
-    }
-
-  public:
-    static auto Create(const quicr::TrackNamespace& prefix)
-    {
-        return std::shared_ptr<MySubscribeNamespaceHandler>(new MySubscribeNamespaceHandler(prefix));
-    }
-
-    virtual bool IsTrackAcceptable(const quicr::FullTrackName& name) const override
-    {
-        return GetPrefix().HasSamePrefix(name.name_space);
-    }
-
-    virtual std::shared_ptr<quicr::SubscribeTrackHandler> CreateHandler(
-      const quicr::messages::PublishAttributes& attrs) override
-    {
-        return std::make_shared<MySubscribeTrackHandler>(
-          attrs.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
-    }
-
-  private:
-};
-
-class MyPublisherNamespaceHandler : public quicr::PublishNamespaceHandler
-{
-    using quicr::PublishNamespaceHandler::PublishNamespaceHandler;
-
-  public:
-    static std::shared_ptr<MyPublisherNamespaceHandler> Create(const quicr::TrackNamespace& prefix)
-    {
-        return std::shared_ptr<MyPublisherNamespaceHandler>(new MyPublisherNamespaceHandler(prefix));
-    }
-};
-
 /**
  * @brief MoQ client
  * @details Implementation of the MoQ Client
@@ -730,6 +691,62 @@ class MyClient : public quicr::Client
 
   private:
     bool& stop_threads_;
+};
+
+class MySubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
+{
+    MySubscribeNamespaceHandler(const quicr::TrackNamespace& prefix, std::shared_ptr<MyClient> client)
+      : quicr::SubscribeNamespaceHandler(prefix)
+      , client_(std::move(client))
+    {
+    }
+
+  public:
+    static auto Create(const quicr::TrackNamespace& prefix, std::shared_ptr<MyClient> client)
+    {
+        return std::shared_ptr<MySubscribeNamespaceHandler>(new MySubscribeNamespaceHandler(prefix, std::move(client)));
+    }
+
+    bool IsTrackAcceptable(const quicr::FullTrackName& name) const override
+    {
+        return GetPrefix().HasSamePrefix(name.name_space);
+    }
+
+    std::shared_ptr<quicr::SubscribeTrackHandler> CreateHandler(
+      const quicr::messages::PublishAttributes& attrs) override
+    {
+        return std::make_shared<MySubscribeTrackHandler>(
+          attrs.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
+    }
+
+    void AcceptNewTrack([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+                        const quicr::messages::RequestID request_id,
+                        const quicr::messages::PublishAttributes& attributes) override
+    {
+        // passively create the subscribe handler towards the publisher
+        auto sub_track_handler = std::make_shared<MySubscribeTrackHandler>(
+          attributes.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
+
+        sub_track_handler->SetRequestId(request_id);
+        sub_track_handler->SetReceivedTrackAlias(attributes.track_alias);
+        sub_track_handler->SetPriority(attributes.priority);
+
+        client_->SubscribeTrack(sub_track_handler);
+    }
+
+  private:
+    std::shared_ptr<MyClient> client_;
+};
+
+class MyPublisherNamespaceHandler : public quicr::PublishNamespaceHandler
+{
+    using quicr::PublishNamespaceHandler::PublishNamespaceHandler;
+
+  public:
+    static std::shared_ptr<MyPublisherNamespaceHandler> Create(const quicr::TrackNamespace& prefix)
+    {
+        return std::shared_ptr<MyPublisherNamespaceHandler>(new MyPublisherNamespaceHandler(prefix));
+    }
 };
 
 /*===========================================================================*/
@@ -1536,7 +1553,8 @@ main(int argc, char* argv[])
                         result["sub_announces"].as<std::string>(),
                         th.track_namespace_hash);
 
-            client->SubscribeNamespace(MySubscribeNamespaceHandler::Create(prefix_ns.name_space));
+            client->SubscribeNamespace(MySubscribeNamespaceHandler::Create(
+              prefix_ns.name_space, std::static_pointer_cast<MyClient>(client->shared_from_this())));
         }
 
         if (enable_pub) {

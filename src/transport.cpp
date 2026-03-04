@@ -1791,7 +1791,7 @@ namespace quicr {
         }
 
         auto sub_it = conn_ctx.sub_by_recv_track_alias.find(track_alias);
-        if (sub_it == conn_ctx.sub_by_recv_track_alias.end() || sub_it->second == nullptr) {
+        if ((sub_it == conn_ctx.sub_by_recv_track_alias.end() || sub_it->second == nullptr)) {
             conn_ctx.metrics.rx_stream_unknown_track_alias++;
             SPDLOG_LOGGER_WARN(
               logger_,

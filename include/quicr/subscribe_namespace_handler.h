@@ -52,9 +52,9 @@ namespace quicr {
 
         virtual std::shared_ptr<SubscribeTrackHandler> CreateHandler(const messages::PublishAttributes& attributes);
 
-        void AcceptNewTrack(const ConnectionHandle& connection_handle,
-                            const messages::RequestID request_id,
-                            const messages::PublishAttributes& attributes);
+        virtual void AcceptNewTrack(ConnectionHandle connection_handle,
+                                    const messages::RequestID request_id,
+                                    const messages::PublishAttributes& attributes);
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 
