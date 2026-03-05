@@ -16,9 +16,15 @@ quicr::SubscribeNamespaceHandler::~SubscribeNamespaceHandler()
         return;
     }
 
+#if 0
+    /**
+     * TODO: Need to revist this as the draft suggests subscribe namespace done should not result
+     *       in unsubscribe of tracks
+     */
     for (const auto& [_, handler] : handlers_) {
         transport->UnsubscribeTrack(connection_handle_, handler);
     }
+#endif
 }
 
 void
@@ -48,22 +54,12 @@ quicr::SubscribeNamespaceHandler::StatusChanged(Status status)
     }
 }
 
-bool
-quicr::SubscribeNamespaceHandler::IsTrackAcceptable(const FullTrackName&) const
-{
-    return false;
-}
-
 std::shared_ptr<quicr::SubscribeTrackHandler>
-quicr::SubscribeNamespaceHandler::CreateHandler(const quicr::messages::PublishAttributes& attributes)
-
+quicr::SubscribeNamespaceHandler::NewTrackReceived(const messages::PublishAttributes& attributes) const
 {
-    return SubscribeTrackHandler::Create(attributes.track_full_name, attributes.priority);
-}
-
-void
-quicr::SubscribeNamespaceHandler::AcceptNewTrack([[maybe_unused]] ConnectionHandle connection_handle,
-                                                 [[maybe_unused]] quicr::messages::RequestID request_id,
-                                                 [[maybe_unused]] const messages::PublishAttributes& attributes)
-{
+    return SubscribeTrackHandler::Create(attributes.track_full_name,
+                                         attributes.priority,
+                                         messages::GroupOrder::kAscending,
+                                         messages::FilterType::kLargestObject,
+                                         true);
 }

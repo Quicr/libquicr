@@ -1244,8 +1244,18 @@ namespace quicr {
                          *      acceptable. This is important to know so that PublishError can be sent to reject the
                          *      track/publish instead of sending PublishOk
                          */
-                        if (h->IsTrackAcceptable(attributes.track_full_name)) {
-                            h->AcceptNewTrack(connection_handle, request_id, attributes);
+                        if (auto handler = h->NewTrackReceived(attributes)) {
+
+                            // Update the handler to correctly work with namespace publisher initiated subscribe
+                            handler->SetPublishInitiated();
+                            handler->SetConnectionId(connection_handle);
+                            handler->SetRequestId(request_id);
+                            handler->SetReceivedTrackAlias(attributes.track_alias);
+                            handler->SetPriority(attributes.priority);
+                            handler->SetDeliveryTimeout(attributes.delivery_timeout);
+                            handler->SupportNewGroupRequest(attributes.dynamic_groups);
+
+                            SubscribeTrack(connection_handle, handler);
                         }
                     }
                 }

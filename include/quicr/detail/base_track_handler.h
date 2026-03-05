@@ -230,8 +230,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
-
-        ConnectionHandle connection_handle_; // QUIC transport connection ID
+        ConnectionHandle connection_handle_{ 0 }; // QUIC transport connection ID
 
         /**
          * request_id_ is the primary index/key for subscribe context/delegate storage.

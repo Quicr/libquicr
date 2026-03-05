@@ -707,31 +707,11 @@ class MySubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
         return std::shared_ptr<MySubscribeNamespaceHandler>(new MySubscribeNamespaceHandler(prefix, std::move(client)));
     }
 
-    bool IsTrackAcceptable(const quicr::FullTrackName& name) const override
-    {
-        return GetPrefix().HasSamePrefix(name.name_space);
-    }
-
-    std::shared_ptr<quicr::SubscribeTrackHandler> CreateHandler(
-      const quicr::messages::PublishAttributes& attrs) override
+    std::shared_ptr<quicr::SubscribeTrackHandler> NewTrackReceived(
+      const quicr::messages::PublishAttributes& attributes) const override
     {
         return std::make_shared<MySubscribeTrackHandler>(
-          attrs.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
-    }
-
-    void AcceptNewTrack([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                        const quicr::messages::RequestID request_id,
-                        const quicr::messages::PublishAttributes& attributes) override
-    {
-        // passively create the subscribe handler towards the publisher
-        auto sub_track_handler = std::make_shared<MySubscribeTrackHandler>(
           attributes.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
-
-        sub_track_handler->SetRequestId(request_id);
-        sub_track_handler->SetReceivedTrackAlias(attributes.track_alias);
-        sub_track_handler->SetPriority(attributes.priority);
-
-        client_->SubscribeTrack(sub_track_handler);
     }
 
   private:
