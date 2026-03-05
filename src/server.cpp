@@ -30,7 +30,7 @@ namespace quicr {
 
     void Server::PublishNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&) {}
 
-    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, DataContextId, const TrackNamespace&) {}
+    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&) {}
 
     void Server::ResolvePublishNamespace(ConnectionHandle connection_handle,
                                          uint64_t request_id,
@@ -503,7 +503,7 @@ namespace quicr {
                 auto msg = messages::NamespaceDone{};
                 msg_bytes >> msg;
 
-                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, data_ctx_id, msg.track_namespace_suffix);
+                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_suffix);
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceDone: {
