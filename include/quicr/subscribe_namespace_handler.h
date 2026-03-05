@@ -48,18 +48,29 @@ namespace quicr {
          */
         virtual void StatusChanged(Status status);
 
-        virtual bool IsTrackAcceptable(const FullTrackName& name) const;
-
-        virtual std::shared_ptr<SubscribeTrackHandler> CreateHandler(const messages::PublishAttributes& attributes);
-
-        virtual void AcceptNewTrack(ConnectionHandle connection_handle,
-                                    const messages::RequestID request_id,
-                                    const messages::PublishAttributes& attributes);
+        /**
+         * @brief Callback for the app to inspect and accept or deny a new track
+         *
+         * @details The application implements the callback to accept a track. The
+         *      application accepts the track by creating a subscribe track handler
+         *      and returning that as a shared pointer. The application and
+         *      set various subscribe track parameters as needed.
+         *      If a subscribe track handler is returned, the handler will
+         *      be updated to support PUBLISH initiated flow and
+         *      will issue a libquicr SubscribeTrack(). The application does not
+         *      call SubscribeTrack() for accepted tracks via the namespace.
+         *      The application is responsible for UnsubscribeTrack() and
+         *      other subscribe track related uses.
+         *
+         * @param attributes        Publish attributes, which includes the track fullname
+         * @return
+         */
+        virtual std::shared_ptr<SubscribeTrackHandler> NewTrackReceived(
+          const messages::PublishAttributes& attributes) const;
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 
         const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
-
         void SetTransport(const std::shared_ptr<Transport>& new_transport) noexcept { transport_ = new_transport; }
 
         /**
@@ -100,9 +111,9 @@ namespace quicr {
             SetStatus(Status::kError);
         }
 
-        virtual void RequestOk(uint64_t, const messages::Parameters&) override { SetStatus(Status::kOk); }
+        void RequestOk(uint64_t, const messages::Parameters&) override { SetStatus(Status::kOk); }
 
-        virtual void RequestError(messages::ErrorCode error_code, std::string reason) override
+        void RequestError(messages::ErrorCode error_code, std::string reason) override
         {
             SetError(Error{ error_code, Bytes{ reason.begin(), reason.end() } });
         }
@@ -114,14 +125,10 @@ namespace quicr {
         /// Weak reference to the transport.
         std::weak_ptr<Transport> transport_;
 
-        /// Subscribe track handlers for handling multiple tracks.
-        std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> handlers_;
-
         Status status_{ Status::kNotSubscribed };
 
         std::optional<Error> error_{};
 
-        quicr::ConnectionHandle connection_handle_;
         DataContextId data_ctx_id_{ 0 };
 
         friend class Transport;

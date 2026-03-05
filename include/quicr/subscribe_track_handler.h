@@ -99,10 +99,11 @@ namespace quicr {
           const FullTrackName& full_track_name,
           std::uint8_t priority,
           messages::GroupOrder group_order = messages::GroupOrder::kAscending,
-          messages::FilterType filter_type = messages::FilterType::kLargestObject)
+          messages::FilterType filter_type = messages::FilterType::kLargestObject,
+          bool publisher_initiated = false)
         {
-            return std::shared_ptr<SubscribeTrackHandler>(
-              new SubscribeTrackHandler(full_track_name, priority, group_order, filter_type));
+            return std::shared_ptr<SubscribeTrackHandler>(new SubscribeTrackHandler(
+              full_track_name, priority, group_order, filter_type, std::nullopt, publisher_initiated));
         }
 
         /**
@@ -198,6 +199,11 @@ namespace quicr {
          * @return Track alias if set, otherwise std::nullopt.
          */
         std::optional<uint64_t> GetReceivedTrackAlias() const noexcept { return received_track_alias_; }
+
+        /**
+         * @brief Set if subscribe handler is publisher initiated
+         */
+        void SetPublishInitiated() noexcept { publisher_initiated_ = true; }
 
         /**
          * @brief Pause receiving data
