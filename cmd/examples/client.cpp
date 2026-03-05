@@ -34,18 +34,6 @@ struct CacheObject
     bool operator<(const CacheObject& other) const noexcept { return headers.object_id < other.headers.object_id; }
 };
 
-/**
- * @brief Specialization of std::less for sorting CacheObjects by object ID.
- */
-template<>
-struct std::less<CacheObject>
-{
-    constexpr bool operator()(const CacheObject& lhs, const CacheObject& rhs) const noexcept
-    {
-        return lhs.headers.object_id < rhs.headers.object_id;
-    }
-};
-
 namespace qclient_vars {
     bool publish_clock{ false };
     std::optional<uint64_t> track_alias; /// Track alias to use for subscribe
