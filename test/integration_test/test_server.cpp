@@ -15,12 +15,9 @@ TestPublishTrackHandler::StatusChanged(Status status)
     switch (status) {
         case Status::kOk: {
             if (auto svr = server_.lock()) {
-                const TestServer::SubscribeDetails details = {
-                    GetConnectionId(), GetRequestId().value(), GetFullTrackName(), {}
-                };
-
                 if (svr->publish_accepted_promise_.has_value()) {
-                    svr->publish_accepted_promise_->set_value(details);
+                    svr->publish_accepted_promise_->set_value(
+                      { GetConnectionId(), GetRequestId().value(), GetFullTrackName(), {} });
                 }
             }
             break;

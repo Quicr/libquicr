@@ -84,13 +84,17 @@ quicr::PublishNamespaceHandler::PublishTrack(std::shared_ptr<PublishTrackHandler
 void
 quicr::PublishNamespaceHandler::UnPublishTrack(std::shared_ptr<PublishTrackHandler> handler)
 {
+    const auto& transport = transport_.lock();
+    if (!transport) {
+        throw std::runtime_error("Cannot create publish track when transport is null");
+    }
+
+    transport->UnpublishTrack(GetConnectionId(), handler);
     handlers_.erase(TrackHash(handler->GetFullTrackName()).track_fullname_hash);
 }
 
 quicr::PublishTrackHandler::PublishObjectStatus
-quicr::PublishNamespaceHandler::PublishObject(uint64_t track_alias,
-                                              const ObjectHeaders& object_headers,
-                                              BytesSpan data)
+quicr::PublishNamespaceHandler::PublishObject(uint64_t track_alias, const ObjectHeaders& object_headers, BytesSpan data)
 {
     if (const auto pub_it = handlers_.find(track_alias); pub_it != handlers_.end()) {
         return pub_it->second->PublishObject(object_headers, data);
