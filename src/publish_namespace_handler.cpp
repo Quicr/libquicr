@@ -18,7 +18,7 @@ quicr::PublishNamespaceHandler::~PublishNamespaceHandler()
 
     for (const auto& [_, handler] : handlers_) {
         if (handler) {
-            transport->UnpublishTrack(connection_handle_, handler);
+            transport->UnpublishTrack(GetConnectionId(), handler);
         }
     }
 }
@@ -78,7 +78,7 @@ quicr::PublishNamespaceHandler::PublishTrack(std::shared_ptr<PublishTrackHandler
         throw std::runtime_error("Cannot create publish track when transport is null");
     }
 
-    transport->PublishTrack(connection_handle_, std::move(handler));
+    transport->PublishTrack(GetConnectionId(), std::move(handler));
 }
 
 void

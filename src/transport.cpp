@@ -1166,10 +1166,10 @@ namespace quicr {
     }
 
     void Transport::PublishNamespace(ConnectionHandle conn_id,
-                                     std::shared_ptr<PublishNamespaceHandler> track_handler,
+                                     std::shared_ptr<PublishNamespaceHandler> ns_handler,
                                      bool passive)
     {
-        auto prefix_hash = hash(track_handler->GetPrefix());
+        auto prefix_hash = hash(ns_handler->GetPrefix());
         SPDLOG_LOGGER_INFO(logger_, "Publish namespace conn_id: {0} hash: {1}", conn_id, prefix_hash);
 
         std::unique_lock<std::mutex> lock(state_mutex_);
@@ -1181,25 +1181,25 @@ namespace quicr {
         }
 
         if (!passive) {
-            track_handler->SetRequestId(conn_it->second.GetNextRequestId());
+            ns_handler->SetRequestId(conn_it->second.GetNextRequestId());
 
             SPDLOG_LOGGER_INFO(logger_, "Publishing to namespace hash: {0} sending ANNOUNCE message", prefix_hash);
 
             lock.unlock();
 
-            track_handler->SetStatus(PublishNamespaceHandler::Status::kPendingResponse);
+            ns_handler->SetStatus(PublishNamespaceHandler::Status::kPendingResponse);
 
             lock.lock();
 
-            SendPublishNamespace(conn_it->second, *track_handler->GetRequestId(), track_handler->GetPrefix());
-            conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
+            SendPublishNamespace(conn_it->second, *ns_handler->GetRequestId(), ns_handler->GetPrefix());
+            conn_it->second.request_handlers[*ns_handler->GetRequestId()] = ns_handler;
 
         } else {
-            track_handler->SetStatus(PublishNamespaceHandler::Status::kOk);
+            ns_handler->SetStatus(PublishNamespaceHandler::Status::kOk);
         }
 
-        track_handler->connection_handle_ = conn_id;
-        track_handler->SetTransport(GetSharedPtr());
+        ns_handler->SetConnectionId(conn_id);
+        ns_handler->SetTransport(GetSharedPtr());
     }
 
     void Transport::PublishNamespaceDone(ConnectionHandle conn_id,

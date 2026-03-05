@@ -172,7 +172,7 @@ namespace quicr {
 
         std::optional<Error> error_{};
 
-        ConnectionHandle connection_handle_{ 0 };
+        // ConnectionHandle connection_handle_{ 0 };
 
         friend class Transport;
         friend class Client;
