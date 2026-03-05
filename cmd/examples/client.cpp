@@ -30,6 +30,8 @@ struct CacheObject
 {
     quicr::ObjectHeaders headers;
     quicr::Bytes data;
+
+    bool operator<(const CacheObject& other) const noexcept { return headers.object_id < other.headers.object_id; }
 };
 
 /**
