@@ -94,5 +94,5 @@ quicr::PublishNamespaceHandler::PublishObject(uint64_t track_alias, const Object
         return pub_it->second->PublishObject(object_headers, data);
     }
 
-    return PublishTrackHandler::PublishObjectStatus::kPendingPublishOk;
+    return PublishTrackHandler::PublishObjectStatus::kInternalError;
 }
