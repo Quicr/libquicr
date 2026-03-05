@@ -88,11 +88,11 @@ quicr::PublishNamespaceHandler::UnPublishTrack(std::shared_ptr<PublishTrackHandl
 }
 
 quicr::PublishTrackHandler::PublishObjectStatus
-quicr::PublishNamespaceHandler::PublishObject(TrackFullNameHash track_full_name_hash,
+quicr::PublishNamespaceHandler::PublishObject(uint64_t track_alias,
                                               const ObjectHeaders& object_headers,
                                               BytesSpan data)
 {
-    if (const auto pub_it = handlers_.find(track_full_name_hash); pub_it != handlers_.end()) {
+    if (const auto pub_it = handlers_.find(track_alias); pub_it != handlers_.end()) {
         return pub_it->second->PublishObject(object_headers, data);
     }
 

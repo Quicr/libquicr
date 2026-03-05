@@ -72,13 +72,13 @@ namespace quicr {
          *
          * @details Passthrough to send to the publish handler. Selection and filters maybe applied.
          *
-         * @param track_full_name_hash  Hash of track namespace and name
+         * @param track_alias           Track alias
          * @param object_headers        Object headers, must include group and object Ids
          * @param data                  Full complete payload data for the object
          *
          * @returns PublishObjectStatus from publish handler
          */
-        virtual PublishTrackHandler::PublishObjectStatus PublishObject(TrackFullNameHash track_full_name_hash,
+        virtual PublishTrackHandler::PublishObjectStatus PublishObject(uint64_t track_alias,
                                                                        const ObjectHeaders& object_headers,
                                                                        BytesSpan data);
 
@@ -89,7 +89,7 @@ namespace quicr {
          *
          * @note This method must be overwritten to be used. Default does not forward any data.
          *
-         * @param track_full_name_hash  Hash of track namespace and name
+         * @param track_alias           Track alias
          * @param is_new_stream         Indicates if this data starts a new stream
          * @param group_id              Group ID for stream
          * @param subgroup_id           Subgroup ID for stream
@@ -98,7 +98,7 @@ namespace quicr {
          * @returns PublishObjectStatus from publish handler
          */
         virtual PublishTrackHandler::PublishObjectStatus ForwardPublishedData(
-          [[maybe_unused]] TrackFullNameHash track_full_name_hash,
+          [[maybe_unused]] uint64_t track_alias,
           [[maybe_unused]] bool is_new_stream,
           [[maybe_unused]] uint64_t group_id,
           [[maybe_unused]] uint64_t subgroup_id,
