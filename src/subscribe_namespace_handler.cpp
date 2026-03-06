@@ -3,9 +3,11 @@
 #include "quicr/detail/transport.h"
 #include "quicr/subscribe_track_handler.h"
 
-quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix)
+quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix,
+                                                            const messages::Filter& filter)
   : BaseTrackHandler({ prefix, {} })
   , prefix_(prefix)
+  , filter_(std::move(filter))
 {
 }
 
@@ -57,9 +59,6 @@ quicr::SubscribeNamespaceHandler::StatusChanged(Status status)
 std::shared_ptr<quicr::SubscribeTrackHandler>
 quicr::SubscribeNamespaceHandler::NewTrackReceived(const messages::PublishAttributes& attributes) const
 {
-    return SubscribeTrackHandler::Create(attributes.track_full_name,
-                                         attributes.priority,
-                                         messages::GroupOrder::kAscending,
-                                         messages::FilterType::kLargestObject,
-                                         true);
+    return SubscribeTrackHandler::Create(
+      attributes.track_full_name, attributes.priority, messages::GroupOrder::kAscending, std::monostate{}, true);
 }

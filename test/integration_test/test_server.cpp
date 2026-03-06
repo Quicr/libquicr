@@ -153,7 +153,7 @@ void
 TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
                                        const DataContextId data_ctx_id,
                                        const TrackNamespace& prefix_namespace,
-                                       const SubscribeNamespaceAttributes& attributes)
+                                       const messages::SubscribeNamespaceAttributes& attributes)
 {
     if (subscribe_namespace_promise_.has_value()) {
         subscribe_namespace_promise_->set_value({ connection_handle, prefix_namespace, attributes });
