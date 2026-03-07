@@ -333,7 +333,7 @@ TEST_CASE("Integration - Handlers with no transport")
 
     // Publish.
     {
-        const auto handler = PublishTrackHandler::Create(FullTrackName(), TrackMode::kStream, 0, 0);
+        const auto handler = PublishTrackHandler::Create(FullTrackName(), TrackMode::kStream, 0, 0, { 0, 0 });
         ObjectHeaders headers = { .group_id = 0,
                                   .object_id = 0,
                                   .payload_length = 1,
@@ -368,7 +368,7 @@ TEST_CASE("Group ID Gap")
         ftn.name = { 1, 2, 3 };
 
         // Pub.
-        const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500);
+        const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500, { 0, 0 });
         client->PublishTrack(pub);
 
         // Wait for publisher to be ready
@@ -571,9 +571,9 @@ TEST_CASE("Integration - Subscribe Namespace with matching namespace")
 
 TEST_CASE("Integration - Subscribe Namespace with matching track")
 {
-    auto server = MakeTestServer();
-
     auto test_matching_track = [&](const std::string& protocol_scheme) {
+        auto server = MakeTestServer();
+
         auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
 
         // Track.
@@ -615,8 +615,6 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
         const auto& received_publish_ok = publish_ok_future.get();
         CHECK_EQ(received_publish_ok.track_full_name.name_space, existing_track.name_space);
         CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
-
-        // TODO: Test the Error / reject path.
     };
 
     SUBCASE("Raw QUIC")
@@ -634,7 +632,7 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
 
 TEST_CASE("Integration - Subscribe Namespace with ongoing match")
 {
-    auto server = MakeTestServer(std::nullopt, 2);
+    auto server = MakeTestServer(std::nullopt, 4);
 
     auto test_ongoing_match = [&](const std::string& protocol_scheme) {
         auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
@@ -663,7 +661,7 @@ TEST_CASE("Integration - Subscribe Namespace with ongoing match")
 
         // In the future, a PUBLISH arrives.
         std::this_thread::sleep_for(kDefaultTimeout);
-        const auto publish = PublishTrackHandler::Create(existing_track, TrackMode::kStream, 10, 5000);
+        const auto publish = PublishTrackHandler::Create(existing_track, TrackMode::kStream, 10, 5000, { 0, 0 });
         publisher->PublishTrack(publish);
 
         // Client should receive matched PUBLISH for existing track.
@@ -763,7 +761,10 @@ TEST_CASE("Integration - Announce Flow")
         const FullTrackName ftn{ prefix, quicr::Bytes{ name.begin(), name.end() } };
 
         std::weak_ptr<PublishTrackHandler> w_pub_handler;
-        REQUIRE_NOTHROW(w_pub_handler = ns_handler->PublishTrack(ftn, TrackMode::kStream, 1, 5000));
+        auto pub_h = TestPublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 5000, { 0, 0 });
+        REQUIRE_NOTHROW(w_pub_handler = pub_h);
+
+        client->PublishTrack(pub_h);
 
         auto pub_handler = w_pub_handler.lock();
         REQUIRE_NE(pub_handler, nullptr);
@@ -955,7 +956,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         REQUIRE(sub_ready);
 
         // Create publisher with stream mode (explicit subgroup ID)
-        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000);
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
         publisher_client->PublishTrack(pub_handler);
 
         // Wait for publisher to be ready
@@ -1159,7 +1160,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         ftn.name = { 0x01 };
 
         // Publisher.
-        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000);
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
         publisher_client->PublishTrack(pub_handler);
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);

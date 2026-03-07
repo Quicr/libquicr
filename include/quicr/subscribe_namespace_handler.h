@@ -48,19 +48,7 @@ namespace quicr {
          */
         virtual void StatusChanged(Status status);
 
-        virtual bool IsTrackAcceptable(const FullTrackName& name) const;
-
-        virtual std::shared_ptr<SubscribeTrackHandler> CreateHandler(const messages::PublishAttributes& attributes);
-
-        void AcceptNewTrack(const ConnectionHandle& connection_handle,
-                            const messages::RequestID request_id,
-                            const messages::PublishAttributes& attributes);
-
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
-
-        const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
-
-        void SetTransport(const std::shared_ptr<Transport>& new_transport) noexcept { transport_ = new_transport; }
 
         /**
          * @brief Get the status of the subscribe
@@ -76,6 +64,9 @@ namespace quicr {
         std::optional<Error> GetError() const noexcept { return error_; }
 
       protected:
+        const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
+        void SetTransport(const std::shared_ptr<Transport>& new_transport) noexcept { transport_ = new_transport; }
+
         /**
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
@@ -100,9 +91,9 @@ namespace quicr {
             SetStatus(Status::kError);
         }
 
-        virtual void RequestOk(uint64_t, const messages::Parameters&) override { SetStatus(Status::kOk); }
+        void RequestOk(uint64_t, const messages::Parameters&) override { SetStatus(Status::kOk); }
 
-        virtual void RequestError(messages::ErrorCode error_code, std::string reason) override
+        void RequestError(messages::ErrorCode error_code, std::string reason) override
         {
             SetError(Error{ error_code, Bytes{ reason.begin(), reason.end() } });
         }
@@ -114,14 +105,10 @@ namespace quicr {
         /// Weak reference to the transport.
         std::weak_ptr<Transport> transport_;
 
-        /// Subscribe track handlers for handling multiple tracks.
-        std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> handlers_;
-
         Status status_{ Status::kNotSubscribed };
 
         std::optional<Error> error_{};
 
-        quicr::ConnectionHandle connection_handle_;
         DataContextId data_ctx_id_{ 0 };
 
         friend class Transport;
