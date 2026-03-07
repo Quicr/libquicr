@@ -1228,39 +1228,35 @@ namespace quicr {
     void Transport::ResolvePublish(const ConnectionHandle connection_handle,
                                    const uint64_t request_id,
                                    const PublishAttributes& attributes,
-                                   const PublishResponse& publish_response)
+                                   const PublishResponse& publish_response,
+                                   std::shared_ptr<SubscribeTrackHandler> handler)
     {
         const auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
         }
 
+        auto error_code = ErrorCode::kInternalError;
+        auto reason = std::string("Internal error");
+
         switch (publish_response.reason_code) {
             case PublishResponse::ReasonCode::kOk: {
-                for (auto& [_, track] : conn_it->second.request_handlers) {
-                    if (auto h = track.Get<SubscribeNamespaceHandler>()) {
-                        /*
-                         * TODO: Track being acceptable does not correctly reprot if track is a match to prefix but not
-                         *      acceptable. This is important to know so that PublishError can be sent to reject the
-                         *      track/publish instead of sending PublishOk
-                         */
-                        if (auto handler = h->NewTrackReceived(attributes)) {
-
-                            // Update the handler to correctly work with namespace publisher initiated subscribe
-                            handler->SetPublishInitiated();
-                            handler->SetConnectionId(connection_handle);
-                            handler->SetRequestId(request_id);
-                            handler->SetReceivedTrackAlias(attributes.track_alias);
-                            handler->SetPriority(attributes.priority);
-                            handler->SetDeliveryTimeout(attributes.delivery_timeout);
-                            handler->SupportNewGroupRequest(attributes.dynamic_groups);
-
-                            SubscribeTrack(connection_handle, handler);
-                        }
+                // Update the handler to correctly work with publisher initiated subscribe
+                if (handler) {
+                    if (attributes.is_publisher_initiated) {
+                        handler->SetPublishInitiated();
                     }
+
+                    handler->SetConnectionId(connection_handle);
+                    handler->SetRequestId(request_id);
+                    handler->SetReceivedTrackAlias(attributes.track_alias);
+                    handler->SetPriority(attributes.priority);
+                    handler->SetDeliveryTimeout(attributes.delivery_timeout);
+                    handler->SupportNewGroupRequest(attributes.dynamic_groups);
+
+                    SubscribeTrack(connection_handle, std::move(handler));
                 }
 
-                // TODO: See todo above, this should only be sent if subscribe namespace does not have a prefix match
                 SendPublishOk(conn_it->second,
                               request_id,
                               attributes.forward,
@@ -1268,12 +1264,24 @@ namespace quicr {
                               attributes.group_order,
                               attributes.filter_type);
 
-                break;
+                return;
             }
+
+            case PublishResponse::ReasonCode::kRejected:
+                error_code = ErrorCode::kUninterested;
+                reason = "Rejected; not interested";
+                break;
+
+            case PublishResponse::ReasonCode::kNotAuthorized:
+                error_code = ErrorCode::kUnauthorized;
+                reason = "Not authorized";
+                break;
+
             default:
-                SendRequestError(conn_it->second, request_id, ErrorCode::kInternalError, 0ms, "Internal error");
                 break;
         }
+
+        SendRequestError(conn_it->second, request_id, error_code, 0ms, reason);
     }
 
     void Transport::StandaloneFetchReceived(

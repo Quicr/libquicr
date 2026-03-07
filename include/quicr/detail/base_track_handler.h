@@ -81,6 +81,8 @@ namespace quicr {
             kOk = 0,
             kInternalError,
             kNotSupported,
+            kNotAuthorized,
+            kRejected,
         };
         ReasonCode reason_code;
 

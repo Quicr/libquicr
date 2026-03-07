@@ -662,21 +662,26 @@ class MyClient : public quicr::Client
 
     void PublishReceived(quicr::ConnectionHandle connection_handle,
                          uint64_t request_id,
-                         const quicr::messages::PublishAttributes& publish_attributes) override
+                         const quicr::messages::PublishAttributes& publish_attributes,
+                         [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override
     {
         auto th = quicr::TrackHash(publish_attributes.track_full_name);
         SPDLOG_INFO(
-          "Received PUBLISH from relay for track namespace_hash: {} name_hash: {} track_hash: {} request_id: {}",
+          "Received PUBLISH from relay for track namespace_hash: {} name_hash: {} track_hash: {} request_id: {} ns: {}",
           th.track_namespace_hash,
           th.track_name_hash,
           th.track_fullname_hash,
-          request_id);
+          request_id,
+          ns_handler.lock() ? true : false);
 
         // Accept the PUBLISH.
-        ResolvePublish(connection_handle,
+        auto handler = std::make_shared<MySubscribeTrackHandler>(
+          publish_attributes.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
+        ResolvePublish(*GetConnectionHandle(),
                        request_id,
                        publish_attributes,
-                       { .reason_code = quicr::PublishResponse::ReasonCode::kOk });
+                       { .reason_code = quicr::PublishResponse::ReasonCode::kOk },
+                       std::move(handler));
     }
 
   private:
@@ -695,13 +700,6 @@ class MySubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
     static auto Create(const quicr::TrackNamespace& prefix, std::shared_ptr<MyClient> client)
     {
         return std::shared_ptr<MySubscribeNamespaceHandler>(new MySubscribeNamespaceHandler(prefix, std::move(client)));
-    }
-
-    std::shared_ptr<quicr::SubscribeTrackHandler> NewTrackReceived(
-      const quicr::messages::PublishAttributes& attributes) const override
-    {
-        return std::make_shared<MySubscribeTrackHandler>(
-          attributes.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
     }
 
   private:

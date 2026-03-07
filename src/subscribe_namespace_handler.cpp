@@ -53,13 +53,3 @@ quicr::SubscribeNamespaceHandler::StatusChanged(Status status)
             break;
     }
 }
-
-std::shared_ptr<quicr::SubscribeTrackHandler>
-quicr::SubscribeNamespaceHandler::NewTrackReceived(const messages::PublishAttributes& attributes) const
-{
-    return SubscribeTrackHandler::Create(attributes.track_full_name,
-                                         attributes.priority,
-                                         messages::GroupOrder::kAscending,
-                                         messages::FilterType::kLargestObject,
-                                         true);
-}

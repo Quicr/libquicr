@@ -790,10 +790,10 @@ namespace quicr {
                 attributes.filter_type = messages::FilterType::kLargestObject;
                 attributes.forward = forward;
                 attributes.new_group_request_id = 1;
-                attributes.is_publisher_initiated = true;
+                attributes.is_publisher_initiated = false;
                 attributes.dynamic_groups = dynamic_groups;
 
-                PublishReceived(conn_ctx.connection_handle, msg.request_id, attributes);
+                PublishReceived(conn_ctx.connection_handle, msg.request_id, attributes, {});
 
                 return true;
             }

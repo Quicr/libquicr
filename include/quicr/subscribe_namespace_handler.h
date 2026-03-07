@@ -48,30 +48,7 @@ namespace quicr {
          */
         virtual void StatusChanged(Status status);
 
-        /**
-         * @brief Callback for the app to inspect and accept or deny a new track
-         *
-         * @details The application implements the callback to accept a track. The
-         *      application accepts the track by creating a subscribe track handler
-         *      and returning that as a shared pointer. The application and
-         *      set various subscribe track parameters as needed.
-         *      If a subscribe track handler is returned, the handler will
-         *      be updated to support PUBLISH initiated flow and
-         *      will issue a libquicr SubscribeTrack(). The application does not
-         *      call SubscribeTrack() for accepted tracks via the namespace.
-         *      The application is responsible for UnsubscribeTrack() and
-         *      other subscribe track related uses.
-         *
-         * @param attributes        Publish attributes, which includes the track fullname
-         * @return
-         */
-        virtual std::shared_ptr<SubscribeTrackHandler> NewTrackReceived(
-          const messages::PublishAttributes& attributes) const;
-
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
-
-        const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
-        void SetTransport(const std::shared_ptr<Transport>& new_transport) noexcept { transport_ = new_transport; }
 
         /**
          * @brief Get the status of the subscribe
@@ -87,6 +64,9 @@ namespace quicr {
         std::optional<Error> GetError() const noexcept { return error_; }
 
       protected:
+        const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
+        void SetTransport(const std::shared_ptr<Transport>& new_transport) noexcept { transport_ = new_transport; }
+
         /**
          * @brief Set the subscribe status
          * @param status                Status of the subscribe

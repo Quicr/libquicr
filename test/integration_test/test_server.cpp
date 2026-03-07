@@ -35,7 +35,8 @@ TestServer::TestServer(const ServerConfig& config)
 void
 TestServer::PublishReceived(const ConnectionHandle connection_handle,
                             const uint64_t request_id,
-                            const messages::PublishAttributes& publish_attributes)
+                            const messages::PublishAttributes& publish_attributes,
+                            [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler)
 {
     std::lock_guard lock(state_mutex_);
 
@@ -61,11 +62,7 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
     }
 
     // Create a subscribe handler to receive objects from the publisher
-    auto sub_track_handler = std::make_shared<TestSubscribeTrackHandler>(publish_attributes.track_full_name, true);
-
-    sub_track_handler->SetRequestId(request_id);
-    sub_track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);
-    sub_track_handler->SetPriority(publish_attributes.priority);
+    auto sub_track_handler = std::make_shared<TestSubscribeTrackHandler>(publish_attributes.track_full_name);
 
     // If there are subscribers for this track, link the subscribe handler to forward to them
     auto sub_it = subscribes_.find(track_alias);
@@ -77,11 +74,13 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
         }
     }
 
-    SubscribeTrack(connection_handle, sub_track_handler);
     pub_subscribes_[track_alias][connection_handle] = sub_track_handler;
 
-    ResolvePublish(
-      connection_handle, request_id, publish_attributes, { .reason_code = PublishResponse::ReasonCode::kOk });
+    ResolvePublish(connection_handle,
+                   request_id,
+                   publish_attributes,
+                   { .reason_code = PublishResponse::ReasonCode::kOk },
+                   sub_track_handler);
 }
 
 void

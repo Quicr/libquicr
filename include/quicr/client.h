@@ -114,7 +114,8 @@ namespace quicr {
          */
         void PublishReceived(ConnectionHandle connection_handle,
                              uint64_t request_id,
-                             const messages::PublishAttributes& publish_attributes) override;
+                             const messages::PublishAttributes& publish_attributes,
+                             std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler) override;
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
