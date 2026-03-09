@@ -30,15 +30,8 @@ struct CacheObject
 {
     quicr::ObjectHeaders headers;
     quicr::Bytes data;
-};
 
-/**
- * @brief Specialization of std::less for sorting CacheObjects by object ID.
- */
-template<>
-struct std::less<CacheObject>
-{
-    constexpr bool operator()(const CacheObject& lhs, const CacheObject& rhs) const noexcept
+    friend constexpr bool operator<(const CacheObject& lhs, const CacheObject& rhs) noexcept
     {
         return lhs.headers.object_id < rhs.headers.object_id;
     }
