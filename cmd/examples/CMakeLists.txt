@@ -11,6 +11,7 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/cisco/sframe.git
         GIT_TAG 9af3e9942180a754fc953d7205e26355ad9fe31e
 )
+set(CRYPTO "BORINGSSL" CACHE STRING "Crypto backend for sframe" FORCE)
 FetchContent_MakeAvailable(sframe)
 
 add_executable(qclient client.cpp)
