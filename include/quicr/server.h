@@ -293,12 +293,10 @@ namespace quicr {
          * @brief Callback notification for Unsubscribe announces received
          *
          * @param connection_handle         Source connection ID
-         * @param data_ctx_id               Data context ID that the message received on
          * @param prefix_namespace          Prefix namespace
          *
          */
         virtual void UnsubscribeNamespaceReceived(ConnectionHandle connection_handle,
-                                                  DataContextId data_ctx_id,
                                                   const TrackNamespace& prefix_namespace) = 0;
 
         /**

@@ -2,9 +2,30 @@
 
 #include "quicr/detail/base_track_handler.h"
 #include "quicr/publish_fetch_handler.h"
+#include "quicr/publish_namespace_handler.h"
+
+#include <ranges>
 
 using namespace quicr;
 using namespace quicr_test;
+
+void
+TestPublishTrackHandler::StatusChanged(Status status)
+{
+    switch (status) {
+        case Status::kOk: {
+            if (auto svr = server_.lock()) {
+                if (svr->publish_accepted_promise_.has_value()) {
+                    svr->publish_accepted_promise_->set_value(
+                      { GetConnectionId(), GetRequestId().value(), GetFullTrackName(), {} });
+                }
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
 
 TestServer::TestServer(const ServerConfig& config)
   : Server(config)
@@ -14,7 +35,8 @@ TestServer::TestServer(const ServerConfig& config)
 void
 TestServer::PublishReceived(const ConnectionHandle connection_handle,
                             const uint64_t request_id,
-                            const messages::PublishAttributes& publish_attributes)
+                            const messages::PublishAttributes& publish_attributes,
+                            [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler)
 {
     std::lock_guard lock(state_mutex_);
 
@@ -23,20 +45,24 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
 
     // Is anyone interested in this prefix?
     std::vector<ConnectionHandle> namespace_subscribers;
-    for (const auto& interested : namespace_subscribers_) {
-        if (interested.first.IsPrefixOf(publish_attributes.track_full_name.name_space)) {
-            for (const auto& handle : interested.second) {
-                namespace_subscribers.push_back(handle);
+
+    for (const auto& [_, interested] : namespace_subscribers_) {
+        for (const auto& [conn_id, ns_handler] : interested) {
+            if (ns_handler->GetFullTrackName().name_space.HasSamePrefix(
+                  publish_attributes.track_full_name.name_space)) {
+                auto handler =
+                  std::make_shared<TestPublishTrackHandler>(publish_attributes.track_full_name,
+                                                            quicr::TrackMode::kStream,
+                                                            publish_attributes.priority,
+                                                            publish_attributes.delivery_timeout.count(),
+                                                            std::static_pointer_cast<TestServer>(shared_from_this()));
+                ns_handler->PublishTrack(handler);
             }
         }
     }
 
     // Create a subscribe handler to receive objects from the publisher
-    auto sub_track_handler = std::make_shared<TestSubscribeTrackHandler>(publish_attributes.track_full_name, true);
-
-    sub_track_handler->SetRequestId(request_id);
-    sub_track_handler->SetReceivedTrackAlias(publish_attributes.track_alias);
-    sub_track_handler->SetPriority(publish_attributes.priority);
+    auto sub_track_handler = std::make_shared<TestSubscribeTrackHandler>(publish_attributes.track_full_name);
 
     // If there are subscribers for this track, link the subscribe handler to forward to them
     auto sub_it = subscribes_.find(track_alias);
@@ -48,13 +74,13 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
         }
     }
 
-    SubscribeTrack(connection_handle, sub_track_handler);
     pub_subscribes_[track_alias][connection_handle] = sub_track_handler;
 
     ResolvePublish(connection_handle,
                    request_id,
                    publish_attributes,
-                   { .reason_code = PublishResponse::ReasonCode::kOk, .namespace_subscribers = namespace_subscribers });
+                   { .reason_code = PublishResponse::ReasonCode::kOk },
+                   sub_track_handler);
 }
 
 void
@@ -83,10 +109,6 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
     const SubscribeDetails details = { connection_handle, request_id, track_full_name, subscribe_attributes };
     if (subscribe_promise_.has_value()) {
         subscribe_promise_->set_value(details);
-    }
-
-    if (publish_accepted_promise_.has_value()) {
-        publish_accepted_promise_->set_value(details);
     }
 
     const auto th = TrackHash(track_full_name);
@@ -139,19 +161,25 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
     // Deliberately not prefix matching to allow testing bad case. Tests should only add tracks
     // with this in mind.
     const SubscribeNamespaceResponse response = { .reason_code = SubscribeNamespaceResponse::ReasonCode::kOk,
-                                                  .tracks = known_published_tracks_,
                                                   .namespaces = known_published_namespaces_ };
-
-    // Store this subscriber's interest in the prefix.
-    const auto it = namespace_subscribers_.find(prefix_namespace);
-    if (it == namespace_subscribers_.end()) {
-        namespace_subscribers_[prefix_namespace].push_back(connection_handle);
-    } else {
-        it->second.push_back(connection_handle);
-    }
 
     // Blindly accept it.
     ResolveSubscribeNamespace(connection_handle, data_ctx_id, attributes.request_id, prefix_namespace, response);
+
+    auto ns_handler = PublishNamespaceHandler::Create(prefix_namespace);
+    PublishNamespace(connection_handle, ns_handler, true);
+
+    for (const auto track : known_published_tracks_) {
+        auto handler =
+          std::make_shared<TestPublishTrackHandler>(track.full_track_name,
+                                                    quicr::TrackMode::kStream,
+                                                    track.attributes.priority,
+                                                    track.attributes.delivery_timeout.count(),
+                                                    std::static_pointer_cast<TestServer>(shared_from_this()));
+        ns_handler->PublishTrack(handler);
+    }
+
+    namespace_subscribers_[prefix_namespace][connection_handle] = ns_handler;
 }
 
 void
@@ -165,7 +193,8 @@ TestServer::AddKnownPublishedTrack(const FullTrackName& track,
                                    const std::optional<messages::Location>& largest_location,
                                    const messages::PublishAttributes& attributes)
 {
-    known_published_tracks_.emplace_back(track, largest_location, attributes);
+    known_published_tracks_.emplace_back(
+      AvailableTrack{ track, largest_location.value_or(messages::Location{ 0, 0 }), attributes });
 }
 
 void
