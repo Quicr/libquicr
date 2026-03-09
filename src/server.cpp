@@ -30,7 +30,7 @@ namespace quicr {
 
     void Server::PublishNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&) {}
 
-    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, DataContextId, const TrackNamespace&) {}
+    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&) {}
 
     void Server::ResolvePublishNamespace(ConnectionHandle connection_handle,
                                          uint64_t request_id,
@@ -188,20 +188,6 @@ namespace quicr {
 
             auto request_id = conn_it->second.GetNextRequestId();
             SendPublishNamespace(conn_it->second, request_id, name_space);
-        }
-
-        // Fan out PUBLISH for matching tracks.
-        for (const auto& track : response.tracks) {
-            const auto pub_request_id = conn_it->second.GetNextRequestId();
-            conn_it->second.pub_by_request_id[pub_request_id] = track.track_full_name;
-            SendPublish(conn_it->second,
-                        pub_request_id,
-                        track.track_full_name,
-                        track.attributes.track_alias,
-                        track.attributes.group_order,
-                        track.largest_location,
-                        track.attributes.forward,
-                        track.attributes.new_group_request_id.has_value());
         }
     }
 
@@ -517,7 +503,7 @@ namespace quicr {
                 auto msg = messages::NamespaceDone{};
                 msg_bytes >> msg;
 
-                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, data_ctx_id, msg.track_namespace_suffix);
+                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_suffix);
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceDone: {
@@ -804,10 +790,10 @@ namespace quicr {
                 attributes.filter_type = messages::FilterType::kLargestObject;
                 attributes.forward = forward;
                 attributes.new_group_request_id = 1;
-                attributes.is_publisher_initiated = true;
+                attributes.is_publisher_initiated = false;
                 attributes.dynamic_groups = dynamic_groups;
 
-                PublishReceived(conn_ctx.connection_handle, msg.request_id, attributes);
+                PublishReceived(conn_ctx.connection_handle, msg.request_id, attributes, {});
 
                 return true;
             }
@@ -817,41 +803,47 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 // Consume originating request.
-                const auto& originating_publish = conn_ctx.pub_by_request_id.find(msg.request_id);
-                if (originating_publish == conn_ctx.pub_by_request_id.end()) {
+                auto pub_it = conn_ctx.request_handlers.find(msg.request_id);
+                if (pub_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(logger_, "Received publish ok for unknown publish: {}", msg.request_id);
                     return true;
                 }
-                const FullTrackName tfn = originating_publish->second;
-                conn_ctx.pub_by_request_id.erase(originating_publish);
 
                 // Continue with subscribe flow.
-                auto th = TrackHash(tfn);
-                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
+                if (auto pub_h = pub_it->second.Get<PublishTrackHandler>()) {
+                    auto th = TrackHash(pub_h->GetFullTrackName());
+                    conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = pub_h->GetFullTrackName(),
+                                                             .track_hash = th };
 
-                auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
-                auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
-                auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
-                auto new_group_request_id =
-                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                    auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                    auto delivery_timeout =
+                      msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
+                    auto forward = msg.parameters.GetOptional<bool>(messages::ParameterType::kForward);
+                    auto filter_type =
+                      msg.parameters.GetOptional<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
+                    auto new_group_request_id =
+                      msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
-                messages::SubscribeAttributes attributes = {
-                    .priority = priority,
-                    .group_order = group_order,
-                    .delivery_timeout = std::chrono::milliseconds(delivery_timeout),
-                    .expires = std::chrono::milliseconds(expires),
-                    .filter_type = filter_type,
-                    .forward = forward,
-                    .new_group_request_id = new_group_request_id,
-                    .is_publisher_initiated = true,
-                    .start_location = { 0, 0 },
-                };
+                    if (pub_h->GetDefaultPriority() < priority) {
+                        pub_h->SetDefaultPriority(priority);
+                    }
 
-                SubscribeReceived(conn_ctx.connection_handle, msg.request_id, tfn, attributes);
+                    if (delivery_timeout.has_value() && *delivery_timeout) {
+                        pub_h->SetDefaultTTL(*delivery_timeout);
+                    }
+
+                    if (forward.has_value()) {
+                        pub_h->SetStatus(*forward ? PublishTrackHandler::Status::kOk
+                                                  : PublishTrackHandler::Status::kPaused);
+                    }
+
+                    if (new_group_request_id.has_value()) {
+                        pub_h->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
+                    }
+
+                    // TODO: Apply filters for publisher, such as location range filters
+                }
+
                 return true;
             }
 

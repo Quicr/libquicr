@@ -30,12 +30,16 @@ namespace quicr {
 
     void Client::PublishReceived(const ConnectionHandle connection_handle,
                                  const uint64_t request_id,
-                                 const messages::PublishAttributes& publish_attributes)
+                                 const messages::PublishAttributes& publish_attributes,
+                                 [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler)
     {
+        auto handler = SubscribeTrackHandler::Create(publish_attributes.track_full_name, publish_attributes.priority);
+
         ResolvePublish(connection_handle,
                        request_id,
                        publish_attributes,
-                       { .reason_code = PublishResponse::ReasonCode::kNotSupported });
+                       { .reason_code = PublishResponse::ReasonCode::kNotSupported },
+                       handler);
     }
 
     void Client::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&)
@@ -474,10 +478,26 @@ namespace quicr {
                 attrs.track_alias = msg.track_alias;
                 attrs.forward = forward;
                 attrs.group_order = group_order;
-                attrs.expires = std::chrono::milliseconds(delivery_timeout);
+                attrs.expires = std::chrono::milliseconds(expires);
                 attrs.is_publisher_initiated = true;
                 attrs.new_group_request_id = new_group_request_id;
-                PublishReceived(conn_ctx.connection_handle, msg.request_id, attrs);
+                attrs.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
+
+                std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
+
+                // Include subscribe namespace if exists
+                for (auto& [_, track] : conn_ctx.request_handlers) {
+                    if (auto h = track.Get<SubscribeNamespaceHandler>()) {
+                        if (h->GetPrefix().HasSamePrefix(msg.track_namespace)) {
+                            sub_ns_handler = h;
+
+                            // MOQT states no overlaps, so only one can match
+                            break;
+                        }
+                    }
+                }
+
+                PublishReceived(conn_ctx.connection_handle, msg.request_id, attrs, sub_ns_handler);
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {
