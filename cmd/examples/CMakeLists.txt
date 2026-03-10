@@ -9,7 +9,7 @@ FetchContent_MakeAvailable(json)
 FetchContent_Declare(
         sframe
         GIT_REPOSITORY https://github.com/cisco/sframe.git
-        GIT_TAG main
+        GIT_TAG 9af3e9942180a754fc953d7205e26355ad9fe31e
 )
 FetchContent_MakeAvailable(sframe)
 
