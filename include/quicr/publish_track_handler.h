@@ -353,6 +353,20 @@ namespace quicr {
          */
         void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true);
 
+        /**
+         * @brief Set the publish status
+         * @param status                Status of publishing (aka publish objects)
+         */
+        void SetStatus(Status status) noexcept
+        {
+            if (publish_status_ == status) {
+                return;
+            }
+
+            publish_status_ = status;
+            StatusChanged(status);
+        }
+
         // --------------------------------------------------------------------------
         // Metrics
         // --------------------------------------------------------------------------
@@ -369,20 +383,6 @@ namespace quicr {
         // Internals
         // --------------------------------------------------------------------------
       protected:
-        /**
-         * @brief Set the publish status
-         * @param status                Status of publishing (aka publish objects)
-         */
-        void SetStatus(Status status) noexcept
-        {
-            if (publish_status_ == status) {
-                return;
-            }
-
-            publish_status_ = status;
-            StatusChanged(status);
-        }
-
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
