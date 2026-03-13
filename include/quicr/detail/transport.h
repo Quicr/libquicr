@@ -724,7 +724,6 @@ namespace quicr {
 
       protected:
         std::shared_ptr<Transport> GetSharedPtr();
-        std::weak_ptr<TickService> GetTickService() { return tick_service_; }
 
         ConnectionContext& GetConnectionContext(ConnectionHandle conn);
 
