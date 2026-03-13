@@ -1689,7 +1689,9 @@ namespace quicr {
                       "Received data on existing stream_id: {} with no handler anymore, resetting stream",
                       stream_id);
 
-                    quic_transport_->CloseStream(conn_id, data_ctx_id.value(), stream_id, true);
+                    if (data_ctx_id.has_value()) {
+                        quic_transport_->CloseStream(conn_id, data_ctx_id.value(), stream_id, true);
+                    }
                 }
             }
         } // end of for loop rx data queue
