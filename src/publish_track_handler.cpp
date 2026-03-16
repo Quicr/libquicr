@@ -409,6 +409,10 @@ namespace quicr {
         if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
             SetStatus(*forward ? Status::kOk : Status::kPaused);
         }
+
+        if (auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
+            SetStatus(Status::kNewGroupRequested);
+        }
     }
 
 } // namespace quicr

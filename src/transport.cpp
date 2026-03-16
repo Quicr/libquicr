@@ -413,13 +413,14 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_,
           "Sending REQUEST_UPDATE to conn_id: {} request_id: {} existing_id: {} track namespace hash: {} name "
-          "hash: {} forward: {}",
+          "hash: {} forward: {} ngr: {}",
           conn_ctx.connection_handle,
           request_id,
           existing_request_id,
           th.track_namespace_hash,
           th.track_name_hash,
-          forward);
+          forward,
+          end_group_id.has_value());
 
         SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
