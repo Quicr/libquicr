@@ -1246,7 +1246,6 @@ namespace quicr {
                 if (handler) {
                     if (attributes.is_publisher_initiated) {
                         handler->SetPublishInitiated();
-                        handler->SetStatus(SubscribeTrackHandler::Status::kOk);
                     }
 
                     handler->SetConnectionId(connection_handle);
