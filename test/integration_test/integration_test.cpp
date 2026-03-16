@@ -65,6 +65,32 @@ WaitFor(Predicate predicate,
     return predicate(); // Final check
 }
 
+class CallbackPublishTrackHandler final : public PublishTrackHandler
+{
+  public:
+    using StatusCallback = std::function<void(Status)>;
+
+    CallbackPublishTrackHandler(const FullTrackName& ftn,
+                                const uint8_t priority,
+                                const uint32_t ttl,
+                                const StatusCallback on_status,
+                                const bool support_dynamic_groups = true)
+      : PublishTrackHandler(ftn, TrackMode::kStream, priority, ttl, std::nullopt, { 0, 0 }, support_dynamic_groups)
+      , on_status_(std::move(on_status))
+    {
+    }
+
+    void StatusChanged(const Status status) override
+    {
+        if (on_status_) {
+            on_status_(status);
+        }
+    }
+
+  private:
+    const StatusCallback on_status_;
+};
+
 static std::shared_ptr<TestServer>
 MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
                std::optional<std::size_t> max_connections = std::nullopt)
@@ -1248,9 +1274,19 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
 
-        // Publish a track.
-        const auto pub_handler =
-          PublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 5000, { 0, 0 }, dynamic_groups);
+        // Publish the track, watching for a new group request.
+        std::atomic new_group_was_requested{ false };
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(
+          ftn,
+          1,
+          5000,
+          [&new_group_was_requested](const PublishTrackHandler::Status status) {
+              // Ensure we get the status callback.
+              if (status == PublishTrackHandler::Status::kNewGroupRequested) {
+                  new_group_was_requested = true;
+              }
+          },
+          dynamic_groups);
         publisher->PublishTrack(pub_handler);
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
@@ -1266,6 +1302,13 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
 
         // The subscriber's handler should reflect the publisher's declared dynamic group support.
         CHECK_EQ(sub_handler->IsNewGroupRequestSupported(), dynamic_groups);
+
+        // If there is support, check a request will make it back to the publisher.
+        if (dynamic_groups) {
+            sub_handler->RequestNewGroup();
+            const bool received = WaitFor([&new_group_was_requested]() { return new_group_was_requested.load(); });
+            CHECK(received);
+        }
     };
 
     SUBCASE("Raw QUIC")

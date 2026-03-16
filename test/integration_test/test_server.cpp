@@ -247,3 +247,21 @@ TestServer::StandaloneFetchReceived(const ConnectionHandle connection_handle,
         pub_fetch_handler->PublishObject(fetch_response_data_[i].headers, fetch_response_data_[i].payload);
     }
 }
+
+void
+TestServer::NewGroupRequested(const quicr::FullTrackName& track_full_name, quicr::messages::GroupId group_id)
+{
+    std::lock_guard lock(state_mutex_);
+    const auto th = quicr::TrackHash(track_full_name);
+
+    auto it = pub_subscribes_.find(th.track_fullname_hash);
+    if (it == pub_subscribes_.end()) {
+        return;
+    }
+
+    for (auto& [conn_id, sub_handler] : it->second) {
+        if (sub_handler) {
+            sub_handler->RequestNewGroup(group_id);
+        }
+    }
+}

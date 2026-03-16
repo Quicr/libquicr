@@ -334,8 +334,21 @@ namespace quicr {
                 messages::RequestUpdate msg;
                 msg_bytes >> msg;
 
-                auto track_it = conn_ctx.request_handlers.find(msg.existing_request_id);
-                if (track_it == conn_ctx.request_handlers.end()) {
+                // Find the handler to route to.
+                std::shared_ptr<BaseTrackHandler> track_handler;
+                const auto track_it = conn_ctx.request_handlers.find(msg.existing_request_id);
+                if (track_it != conn_ctx.request_handlers.end()) {
+                    // Our local handler lookup.
+                    track_handler = track_it->second.handler;
+                } else {
+                    // Resolve remote request to local handler.
+                    const auto req_it = conn_ctx.recv_req_id.find(msg.existing_request_id);
+                    if (req_it != conn_ctx.recv_req_id.end()) {
+                        track_handler = GetPubTrackHandler(conn_ctx, req_it->second.track_hash);
+                    }
+                }
+
+                if (!track_handler) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received REQUEST_UPDATE to unknown track conn_id: {} request_id: {}, "
                                        "existing_request_id: {} ignored",
@@ -344,8 +357,6 @@ namespace quicr {
                                        msg.existing_request_id);
                     return true;
                 }
-
-                auto& track_handler = track_it->second.handler;
 
                 track_handler->RequestUpdate(msg.request_id, msg.parameters);
 

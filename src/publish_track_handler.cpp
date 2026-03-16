@@ -407,6 +407,13 @@ namespace quicr {
 
     void PublishTrackHandler::RequestUpdate([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
     {
+        if (const auto new_group_request_id =
+              params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+            new_group_request_id) {
+            pending_new_group_request_id_ = *new_group_request_id;
+            SetStatus(Status::kNewGroupRequested);
+        }
+
         if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
             SetStatus(*forward ? Status::kOk : Status::kPaused);
         }

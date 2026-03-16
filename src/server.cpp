@@ -774,7 +774,11 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                bool dynamic_groups = false; // TODO: Figure this out
+                bool dynamic_groups = false;
+                try {
+                    dynamic_groups = msg.track_extensions.Get<std::uint64_t>(messages::ExtensionType::kDynamicGroups);
+                } catch (const std::out_of_range&) {
+                }
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
@@ -851,13 +855,15 @@ namespace quicr {
                 messages::RequestUpdate msg;
                 msg_bytes >> msg;
 
-                auto sub_ctx_it = conn_ctx.recv_req_id.find(msg.request_id);
+                auto sub_ctx_it = conn_ctx.recv_req_id.find(msg.existing_request_id);
                 if (sub_ctx_it == conn_ctx.recv_req_id.end()) {
                     // update for invalid subscription
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe_update for unknown subscription conn_id: {} request_id: {}",
+                                       "Received subscribe_update for unknown subscription conn_id: {} request_id: {} "
+                                       "existing_request_id: {}",
                                        conn_ctx.connection_handle,
-                                       msg.request_id);
+                                       msg.request_id,
+                                       msg.existing_request_id);
 
                     SendRequestError(
                       conn_ctx, msg.request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Subscription not found");
