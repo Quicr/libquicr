@@ -62,7 +62,7 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
     }
 
     // Create a subscribe handler to receive objects from the publisher
-    auto sub_track_handler = std::make_shared<TestSubscribeTrackHandler>(publish_attributes.track_full_name);
+    auto sub_track_handler = std::make_shared<TestSubscribeTrackHandler>(publish_attributes.track_full_name, true);
 
     // If there are subscribers for this track, link the subscribe handler to forward to them
     auto sub_it = subscribes_.find(track_alias);
@@ -71,7 +71,7 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
         auto& pub_handler = sub_it->second.begin()->second;
         if (pub_handler) {
             sub_track_handler->SetPublishHandler(pub_handler);
-            sub_track_handler->StatusChanged(SubscribeTrackHandler::Status::kOk);
+            sub_track_handler->Resume();
         }
     }
 
@@ -144,6 +144,7 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
         for (auto& [pub_conn, sub_handler] : pub_sub_it->second) {
             if (sub_handler) {
                 sub_handler->SetPublishHandler(pub_track_handler);
+                sub_handler->Resume();
             }
         }
     }

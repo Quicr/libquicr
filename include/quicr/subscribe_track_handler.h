@@ -84,6 +84,10 @@ namespace quicr {
           , joining_fetch_(publisher_initiated ? std::nullopt : joining_fetch)
           , publisher_initiated_(publisher_initiated)
         {
+            if (publisher_initiated) {
+                // Initially set to paused state
+                status_ = Status::kPaused;
+            }
         }
 
       public:
