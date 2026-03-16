@@ -393,6 +393,7 @@ namespace quicr {
 
                     sub_handler->SetReceivedTrackAlias(msg.track_alias);
                     sub_handler->SetStatus(SubscribeTrackHandler::Status::kOk);
+                    sub_handler->SupportNewGroupRequest(true); // TODO: Change this to track extension post draft-16
                 }
 
                 conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second.Get<SubscribeTrackHandler>();
