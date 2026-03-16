@@ -219,6 +219,8 @@ namespace quicr_test {
                                       const quicr::TrackNamespace& track_namespace,
                                       const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
 
+        void NewGroupRequested(const quicr::FullTrackName& track_full_name, quicr::messages::GroupId group_id) override;
+
       public:
         std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
 
