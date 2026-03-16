@@ -391,6 +391,19 @@ namespace quicr {
                         sub_handler->SetLatestLocation(largest_location.value());
                     }
 
+                    // Dynamic group support?
+                    bool dynamic_groups = false;
+                    try {
+                        const auto value =
+                          msg.track_extensions.Get<std::uint64_t>(messages::ExtensionType::kDynamicGroups);
+                        if (value > 1) {
+                            throw messages::ProtocolViolationException("Dynamic Groups value must be 0 or 1");
+                        }
+                        dynamic_groups = value;
+                    } catch (const std::out_of_range&) {
+                    }
+
+                    sub_handler->SupportNewGroupRequest(dynamic_groups);
                     sub_handler->SetReceivedTrackAlias(msg.track_alias);
                     sub_handler->SetStatus(SubscribeTrackHandler::Status::kOk);
                 }
@@ -482,6 +495,16 @@ namespace quicr {
                 attrs.is_publisher_initiated = true;
                 attrs.new_group_request_id = new_group_request_id;
                 attrs.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
+
+                // Dynamic group support?
+                try {
+                    const auto value = msg.track_extensions.Get<std::uint64_t>(messages::ExtensionType::kDynamicGroups);
+                    if (value > 1) {
+                        throw messages::ProtocolViolationException("Dynamic Groups value must be 0 or 1");
+                    }
+                    attrs.dynamic_groups = value;
+                } catch (const std::out_of_range&) {
+                }
 
                 std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
 

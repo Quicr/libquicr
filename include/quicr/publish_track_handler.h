@@ -88,18 +88,21 @@ namespace quicr {
          * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
          * @param stream_mode           Stream to use when track mode is kStream.
          * @param largest_location      Largest location to start the handler
+         * @param dynamic_groups        Whether this track supports dynamic groups
          */
         PublishTrackHandler(const FullTrackName& full_track_name,
                             TrackMode track_mode,
                             uint8_t default_priority,
                             uint32_t default_ttl,
                             std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt,
-                            messages::Location largest_location = { 0, 0 })
+                            messages::Location largest_location = { 0, 0 },
+                            const bool dynamic_groups = true)
           : BaseTrackHandler(full_track_name)
           , default_track_mode_(track_mode)
           , default_priority_(default_priority)
           , default_ttl_(default_ttl)
           , largest_location_(largest_location)
+          , support_new_group_request_(dynamic_groups)
         {
             switch (track_mode) {
                 case TrackMode::kDatagram:
@@ -126,15 +129,22 @@ namespace quicr {
          * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
          * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
          * @param largest_location      Largest location to start handler at
+         * @param dynamic_groups        Whether this track supports dynamic groups
          */
         static std::shared_ptr<PublishTrackHandler> Create(const FullTrackName& full_track_name,
                                                            TrackMode track_mode,
                                                            uint8_t default_priority,
                                                            uint32_t default_ttl,
-                                                           messages::Location largest_location)
+                                                           messages::Location largest_location,
+                                                           const bool dynamic_groups = true)
         {
-            return std::shared_ptr<PublishTrackHandler>(new PublishTrackHandler(
-              full_track_name, track_mode, default_priority, default_ttl, std::nullopt, largest_location));
+            return std::shared_ptr<PublishTrackHandler>(new PublishTrackHandler(full_track_name,
+                                                                                track_mode,
+                                                                                default_priority,
+                                                                                default_ttl,
+                                                                                std::nullopt,
+                                                                                largest_location,
+                                                                                dynamic_groups));
         }
 
         // TODO: Is this all the info needed for an alias calculation?
@@ -409,7 +419,7 @@ namespace quicr {
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
-        bool support_new_group_request_{ true };
+        const bool support_new_group_request_;
         std::optional<uint64_t> pending_new_group_request_id_;
 
         friend class Transport;

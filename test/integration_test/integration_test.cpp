@@ -1235,3 +1235,46 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         test_subgroup_roll("https");
     }
 }
+
+TEST_CASE("Integration - Dynamic groups support roundtrip")
+{
+    auto server = MakeTestServer(std::nullopt, 4);
+
+    auto test_dynamic_groups = [&](const std::string& protocol_scheme, bool dynamic_groups) {
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace({ "namespace" });
+        ftn.name = { 1, 2, 3 };
+
+        // Publish a track.
+        const auto pub_handler =
+          PublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 5000, { 0, 0 }, dynamic_groups);
+        publisher->PublishTrack(pub_handler);
+        const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
+        REQUIRE(pub_ready);
+
+        // Subscribe to the track and wait for setup.
+        constexpr auto filter_type = messages::FilterType::kLargestObject;
+        const auto sub_handler =
+          SubscribeTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, filter_type);
+        CHECK_NOTHROW(subscriber->SubscribeTrack(sub_handler));
+        const bool sub_ready =
+          WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        REQUIRE(sub_ready);
+
+        // The subscriber's handler should reflect the publisher's declared dynamic group support.
+        CHECK_EQ(sub_handler->IsNewGroupRequestSupported(), dynamic_groups);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_dynamic_groups("moq", true);
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_dynamic_groups("https", true);
+    }
+}
