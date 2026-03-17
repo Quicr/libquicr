@@ -84,6 +84,9 @@ namespace quicr {
           , joining_fetch_(publisher_initiated ? std::nullopt : joining_fetch)
           , publisher_initiated_(publisher_initiated)
         {
+            if (publisher_initiated) {
+                status_ = Status::kOk; // Initially set to kOk
+            }
         }
 
       public:
@@ -203,7 +206,13 @@ namespace quicr {
         /**
          * @brief Set if subscribe handler is publisher initiated
          */
-        void SetPublishInitiated() noexcept { publisher_initiated_ = true; }
+        void SetPublishInitiated() noexcept
+        {
+            publisher_initiated_ = true;
+            if (status_ == Status::kNotSubscribed) {
+                status_ = Status::kOk; // Initially set to kOk
+            }
+        }
 
         /**
          * @brief Pause receiving data

@@ -62,7 +62,7 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
     }
 
     // Create a subscribe handler to receive objects from the publisher
-    auto sub_track_handler = std::make_shared<TestSubscribeTrackHandler>(publish_attributes.track_full_name);
+    auto sub_track_handler = std::make_shared<TestSubscribeTrackHandler>(publish_attributes.track_full_name, true);
 
     // If there are subscribers for this track, link the subscribe handler to forward to them
     auto sub_it = subscribes_.find(track_alias);
@@ -71,6 +71,7 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
         auto& pub_handler = sub_it->second.begin()->second;
         if (pub_handler) {
             sub_track_handler->SetPublishHandler(pub_handler);
+            sub_track_handler->Resume();
         }
     }
 
@@ -143,6 +144,7 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
         for (auto& [pub_conn, sub_handler] : pub_sub_it->second) {
             if (sub_handler) {
                 sub_handler->SetPublishHandler(pub_track_handler);
+                sub_handler->Resume();
             }
         }
     }
@@ -245,5 +247,23 @@ TestServer::StandaloneFetchReceived(const ConnectionHandle connection_handle,
     BindFetchTrack(connection_handle, pub_fetch_handler);
     for (size_t i = 0; i < fetch_response_data_.size(); ++i) {
         pub_fetch_handler->PublishObject(fetch_response_data_[i].headers, fetch_response_data_[i].payload);
+    }
+}
+
+void
+TestServer::NewGroupRequested(const quicr::FullTrackName& track_full_name, quicr::messages::GroupId group_id)
+{
+    std::lock_guard lock(state_mutex_);
+    const auto th = quicr::TrackHash(track_full_name);
+
+    auto it = pub_subscribes_.find(th.track_fullname_hash);
+    if (it == pub_subscribes_.end()) {
+        return;
+    }
+
+    for (auto& [conn_id, sub_handler] : it->second) {
+        if (sub_handler) {
+            sub_handler->RequestNewGroup(group_id);
+        }
     }
 }

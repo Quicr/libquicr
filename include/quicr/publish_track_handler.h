@@ -409,7 +409,7 @@ namespace quicr {
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
-        bool support_new_group_request_{ true };
+        bool support_new_group_request_{ true }; /// TODO: For now, always support dynamic groups
         std::optional<uint64_t> pending_new_group_request_id_;
 
         friend class Transport;
