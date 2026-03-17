@@ -1191,8 +1191,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         REQUIRE(pub_ready);
 
         // Subscriber.
-        auto sub_handler = TestSubscribeHandler::Create(
-          ftn, 3, messages::GroupOrder::kOriginalPublisherOrder, messages::FilterType::kLargestObject);
+        auto sub_handler = TestSubscribeHandler::Create(ftn, 3, messages::GroupOrder::kOriginalPublisherOrder);
         std::promise<void> all_received_promise;
         auto all_received_future = all_received_promise.get_future();
         constexpr std::size_t total_objects = 6;
