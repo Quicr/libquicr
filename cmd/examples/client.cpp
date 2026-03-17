@@ -674,8 +674,8 @@ class MyClient : public quicr::Client
           ns_handler.lock() ? true : false);
 
         // Accept the PUBLISH.
-        auto handler = std::make_shared<MySubscribeTrackHandler>(
-          publish_attributes.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
+        auto handler =
+          std::make_shared<MySubscribeTrackHandler>(publish_attributes.track_full_name, std::nullopt, true);
         ResolvePublish(*GetConnectionHandle(),
                        request_id,
                        publish_attributes,

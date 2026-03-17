@@ -1290,9 +1290,7 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         REQUIRE(pub_ready);
 
         // Subscribe to the track and wait for setup.
-        constexpr auto filter_type = messages::FilterType::kLargestObject;
-        const auto sub_handler =
-          SubscribeTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, filter_type);
+        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder);
         CHECK_NOTHROW(subscriber->SubscribeTrack(sub_handler));
         const bool sub_ready =
           WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
