@@ -1755,11 +1755,15 @@ namespace quicr {
                     if (auto handler = handler_ptr.get()) {
                         switch (flag) {
                             case StreamClosedFlag::kFin:
-                                handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                                if (handler->is_fetch_handler_) {
+                                    handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                                }
                                 handler->StreamClosed(stream_id, false);
                                 break;
                             case StreamClosedFlag::kReset:
-                                handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                                if (handler->is_fetch_handler_) {
+                                    handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                                }
                                 handler->StreamClosed(stream_id, true);
                                 break;
                         }
