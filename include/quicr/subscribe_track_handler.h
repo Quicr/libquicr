@@ -85,8 +85,7 @@ namespace quicr {
           , publisher_initiated_(publisher_initiated)
         {
             if (publisher_initiated) {
-                // Initially set to paused state
-                status_ = Status::kPaused;
+                status_ = Status::kOk; // Initially set to kOk
             }
         }
 
@@ -207,7 +206,13 @@ namespace quicr {
         /**
          * @brief Set if subscribe handler is publisher initiated
          */
-        void SetPublishInitiated() noexcept { publisher_initiated_ = true; }
+        void SetPublishInitiated() noexcept
+        {
+            publisher_initiated_ = true;
+            if (status_ == Status::kNotSubscribed) {
+                status_ = Status::kOk; // Initially set to kOk
+            }
+        }
 
         /**
          * @brief Pause receiving data
