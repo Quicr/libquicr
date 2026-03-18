@@ -6,7 +6,7 @@
 	url = https://github.com/quicr/picotls
 [submodule "dependencies/picoquic"]
 	path = dependencies/picoquic
-	url = https://github.com/quicr/picoquic
+	url = https://github.com/private-octopus/picoquic
 [submodule "dependencies/mbedtls"]
 	path = dependencies/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
