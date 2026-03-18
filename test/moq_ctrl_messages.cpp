@@ -171,7 +171,7 @@ TEST_CASE("Subscribe Message encode/decode")
     auto params = Parameters{}
                     .Add(messages::ParameterType::kSubscriberPriority, 1)
                     .Add(messages::ParameterType::kGroupOrder, GroupOrder::kAscending)
-                    .Add(messages::ParameterType::kSubscriptionFilter, FilterType::kLargestObject);
+                    .Add(messages::ParameterType::kTrackFilter, TrackFilter{ 1, 2, 3, 4 });
 
     Bytes buffer;
     auto subscribe = quicr::messages::Subscribe{ 0x1, kTrackNamespaceConf, kTrackNameAliceVideo, params };
@@ -185,8 +185,8 @@ TEST_CASE("Subscribe Message encode/decode")
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(1, subscribe_out.parameters.Get<std::uint8_t>(messages::ParameterType::kSubscriberPriority));
     CHECK_EQ(GroupOrder::kAscending, subscribe_out.parameters.Get<GroupOrder>(messages::ParameterType::kGroupOrder));
-    CHECK_EQ(FilterType::kLargestObject,
-             subscribe_out.parameters.Get<FilterType>(messages::ParameterType::kSubscriptionFilter));
+    CHECK_EQ(TrackFilter{ 1, 2, 3, 4 },
+             subscribe_out.parameters.Get<TrackFilter>(messages::ParameterType::kTrackFilter));
 }
 
 TEST_CASE("SubscribeOk Message encode/decode")
@@ -501,7 +501,7 @@ TEST_CASE("PublishOk Message encode/decode")
     auto params = Parameters{}
                     .Add(ParameterType::kSubscriberPriority, 2)
                     .Add(ParameterType::kGroupOrder, GroupOrder::kAscending)
-                    .Add(ParameterType::kSubscriptionFilter, FilterType::kLargestObject)
+                    .Add(ParameterType::kTrackFilter, TrackFilter{ 1, 2, 3, 4 })
                     .Add(ParameterType::kForward, false);
 
     Bytes buffer;
@@ -514,7 +514,7 @@ TEST_CASE("PublishOk Message encode/decode")
     CHECK_EQ(publish_ok.request_id, publish_ok_out.request_id);
     CHECK_EQ(2, publish_ok_out.parameters.Get<std::uint8_t>(ParameterType::kSubscriberPriority));
     CHECK_EQ(GroupOrder::kAscending, publish_ok_out.parameters.Get<GroupOrder>(ParameterType::kGroupOrder));
-    CHECK_EQ(FilterType::kLargestObject, publish_ok_out.parameters.Get<FilterType>(ParameterType::kSubscriptionFilter));
+    CHECK_EQ(TrackFilter{ 1, 2, 3, 4 }, publish_ok_out.parameters.Get<TrackFilter>(ParameterType::kTrackFilter));
     CHECK_EQ(false, publish_ok_out.parameters.Get<bool>(ParameterType::kForward));
 }
 
@@ -886,4 +886,94 @@ TEST_CASE("TrackExtensions even-type round-trip preserves values")
         CHECK_NOTHROW(out.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout));
         CHECK_EQ(out.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout), value);
     }
+}
+
+TEST_CASE("Parameters")
+{
+    Parameters params;
+
+    params.Add(ParameterType::kDeliveryTimeout, std::uint64_t(5000));
+    CHECK(params.Contains(ParameterType::kDeliveryTimeout));
+
+    std::optional<Location> location;
+    params.AddOptional(ParameterType::kLargestObject, location);
+    CHECK_FALSE(params.Contains(ParameterType::kLargestObject));
+
+    location = { 1, 2 };
+    params.AddOptional(ParameterType::kLargestObject, location);
+    CHECK(params.Contains(ParameterType::kLargestObject));
+
+    CHECK_EQ(params.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), std::uint64_t(5000));
+}
+
+TEST_CASE("Filters")
+{
+    static_assert(HasByteStreamOperators<Filter>);
+
+    const auto serialise_filter = [](FilterType type, const Filter& filter) {
+        auto [param_type, bytes] = SerializeFilter(type, filter);
+        CHECK_EQ(param_type, ToParameterFilterType(type));
+        if (type == FilterType::kNone) {
+            CHECK(bytes.empty());
+        } else {
+            CHECK_FALSE(bytes.empty());
+        }
+
+        auto deserialised_filter = DeserializeFilter(type, bytes);
+        CHECK_EQ(deserialised_filter, filter);
+    };
+
+    Filter filter;
+
+    {
+        Bytes bytes{};
+        CHECK_NOTHROW(bytes << filter);
+        CHECK_THROWS(BytesSpan{} >> filter);
+    }
+
+    serialise_filter(FilterType::kNone, filter);
+
+    filter = TrackFilter{
+        .property_type = 1,
+        .max_tracks_selected = 2,
+        .max_tracks_deselected = 3,
+        .max_time_selected = 4,
+    };
+    serialise_filter(FilterType::kTrackFilter, filter);
+
+    filter = LocationFilter{
+        { .start = 1 },
+    };
+    serialise_filter(FilterType::kLocationFilter, filter);
+
+    filter = LocationFilter{
+        {
+          .start = 1,
+          .end = 2,
+        },
+    };
+    serialise_filter(FilterType::kLocationFilter, filter);
+}
+
+TEST_CASE("Parameters - Filters")
+{
+    Filter filter = TrackFilter{
+        .property_type = 1,
+        .max_tracks_selected = 2,
+        .max_tracks_deselected = 3,
+        .max_time_selected = 4,
+    };
+
+    auto params = Parameters{}.Add(ParameterType::kTrackFilter, filter);
+
+    Bytes bytes;
+    bytes << params;
+
+    CHECK_FALSE(bytes.empty());
+
+    Parameters recv_params;
+    bytes >> recv_params;
+
+    auto recv_filter = recv_params.GetFilter(FilterType::kTrackFilter);
+    CHECK_EQ(recv_filter, filter);
 }
