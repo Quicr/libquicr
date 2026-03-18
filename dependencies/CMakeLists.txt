@@ -120,20 +120,19 @@ if (${USE_MBEDTLS})
     add_subdirectory(picoquic)
     add_dependencies(picoquic-core picotls-core mbedtls)
 else ()
-    option(WITH_FUSION OFF)
-    OPTION(ENABLE_TESTING OFF)
-
-    # picoTLS
+    set(WITH_FUSION OFF)
     set(WITH_OPENSSL ON)
-    set(PICOTLS_USE_BROTLI OFF)
-    set(picotls_BUILD_TESTS OFF)
-    add_subdirectory(picotls)
+    set(ENABLE_TESTING OFF)
+    set(BUILD_DEMO OFF)
 
-    # picoQUIC
-    set(PICOQUIC_PTLS_SUBMODULE ON)
-    option(WITH_OPENSSL ON)
+    include(FetchContent)
+    FetchContent_Declare(picotls
+        GIT_REPOSITORY      https://github.com/quicr/picotls.git
+        GIT_TAG             3927c48be674d97ca8242580fab3b4af4eb6df2a)
+    FetchContent_MakeAvailable(picotls)
+
+    set(PICOQUIC_FETCH_PTLS ON)
     set(picoquic_BUILD_TESTS OFF)
     add_subdirectory(picoquic)
     add_dependencies(picoquic-core picotls-core)
-
 endif ()

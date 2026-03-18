@@ -1,9 +1,6 @@
 [submodule "dependencies/doctest"]
 	path = dependencies/doctest
 	url = https://github.com/doctest/doctest.git
-[submodule "dependencies/picotls"]
-	path = dependencies/picotls
-	url = https://github.com/quicr/picotls
 [submodule "dependencies/picoquic"]
 	path = dependencies/picoquic
 	url = https://github.com/private-octopus/picoquic
