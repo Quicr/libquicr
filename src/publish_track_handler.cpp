@@ -375,7 +375,7 @@ namespace quicr {
         messages::StreamSubGroupObject object;
         object.object_status = ObjectStatus::kEndOfSubGroup;
         object.properties.emplace(*GetStreamMode());
-        object.object_delta = 0;
+        object.object_delta = 1;
         object_msg_buffer_ << object;
 
         ITransport::EnqueueFlags eflags;
