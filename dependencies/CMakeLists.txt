@@ -73,50 +73,57 @@ if (${USE_MBEDTLS})
         add_subdirectory(mbedtls)
 
         set(MBEDTLS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
-        set(MBEDTLS_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/include)
+        set(MBEDTLS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/include)
 
-    elseif(PLATFORM_ESP_IDF)
+    elseif(DEFINED ENV{IDF_PATH})
         set(MBEDTLS_ROOT_DIR ${IDF_PATH}/components/mbedtls/mbedtls)
-        set(MBEDTLS_INCLUDE_DIRS ${IDF_PATH}/components/mbedtls/mbedtls ${IDF_PATH}/components/mbedtls/mbedtls/include ${IDF_PATH}/components/mbedtls/port/include)
+        set(MBEDTLS_INCLUDE_DIR ${IDF_PATH}/components/mbedtls/mbedtls ${IDF_PATH}/components/mbedtls/mbedtls/include ${IDF_PATH}/components/mbedtls/port/include)
     endif()
 
-    set(MBEDTLS_LIBRARIES mbedtls mbedcrypto mbedx509)
     set(MBEDTLS_LIBRARY mbedtls)
     set(MBEDTLS_CRYPTO mbedcrypto)
     set(MBEDTLS_X509 mbedx509)
 
+    set(MBEDTLS_INCLUDE_DIRS ${MBEDTLS_INCLUDE_DIR})
+    set(MBEDTLS_LIBRARIES mbedtls mbedcrypto mbedx509)
 
     # picoTLS
     # picoTLS uses its own find mbedtls, which works with the above settings.
     set(WITH_MBEDTLS ON)
-    option(WITH_FUSION OFF)
-    set(PICOTLS_USE_BROTLI OFF)
+    set(WITH_FUSION OFF)
     set(picotls_BUILD_TESTS OFF)
-    add_subdirectory(picotls)
+
+    include(FetchContent)
+    FetchContent_Declare(picotls
+        GIT_REPOSITORY      https://github.com/quicr/picotls.git
+        GIT_TAG             3927c48be674d97ca8242580fab3b4af4eb6df2a)
+    FetchContent_MakeAvailable(picotls)
+
     add_dependencies(picotls-mbedtls mbedtls)
 
-    # picoQUIC
-    # Picoquic uses its own find mbedtls, which works with a prefix and will not work if mbedtls include dirs is set
-    if(NOT PLATFORM_ESP_IDF)
-        unset(MBEDTLS_INCLUDE_DIRS)
-    endif()
-    set(MbedTLS_FOUND ON)
-    if (PLATFORM_ESP_IDF)
-     set(MBEDTLS_PREFIX ${IDF_PATH}/components/mbedtls/mbedtls)
+    if (DEFINED ENV{IDF_PATH})
+        set(MBEDTLS_PREFIX ${IDF_PATH}/components/mbedtls/mbedtls)
+        set(WITH_SELECT ON)
     else()
-     set(MBEDTLS_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
+        set(MBEDTLS_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
     endif()
-    option(WITH_MBEDTLS ON)
+
+    set(WITH_MBEDTLS ON)
 
     set(OPENSSL_INCLUDE_DIR "") # Picoquic will still error if this is not set
-    set(PICOQUIC_PTLS_SUBMODULE ON)
-    option(WITH_OPENSSL OFF)
-    option(BUILD_DEMO OFF)
-    option(BUILD_HTTP ON)
-    option(BUILD_LOGREADER OFF) # Disable picolog_t build
-    set(picoquic_BUILD_TESTS OFF)
+    set(WITH_OPENSSL OFF)
+    set(BUILD_HTTP ON)
+    set(BUILD_DEMO OFF)
+    set(BUILD_PQBENCH OFF)
+    set(BUILD_LOGREADER OFF) # Disable picolog_t build
+
     set(PICOQUIC_ADDITIONAL_C_FLAGS -Wno-error=format)
     set(PICOQUIC_ADDITIONAL_CXX_FLAGS -Wno-error=format)
+
+    set(PTLS_INCLUDE_DIR ${picotls_SOURCE_DIR}/include)
+    set(picoquic_BUILD_TESTS OFF)
+    set(PICOQUIC_FETCH_PTLS ON)
+
     add_subdirectory(picoquic)
     add_dependencies(picoquic-core picotls-core mbedtls)
 else ()

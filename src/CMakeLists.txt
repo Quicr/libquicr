@@ -68,7 +68,7 @@ target_link_libraries(quicr
 
 add_dependencies(quicr ${ctrl_messages_TARGET})
 
-if (PLATFORM_ESP_IDF)
+if (DEFINED ENV{IDF_PATH})
     add_compile_definitions(${LIB_NAME} PLATFORM_ESP)
 endif()
 
