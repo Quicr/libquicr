@@ -921,9 +921,6 @@ PicoQuicTransport::Start()
         (void)picoquic_config_set_option(&config_, picoquic_option_ALPN, GetAlpn());
     }
 
-    // TODO(snandaku): Figure out if this is needed.
-    // (void)picoquic_config_set_option(
-    //   &config_, picoquic_option_CWIN_MIN, std::to_string(tconfig_.quic_cwin_minimum).c_str());
     (void)picoquic_config_set_option(
       &config_, picoquic_option_MAX_CONNECTIONS, std::to_string(tconfig_.max_connections).c_str());
 
@@ -2426,7 +2423,7 @@ PicoQuicTransport::StartClient()
                                  wt_config_->path.c_str(),
                                  DefaultWebTransportCallback,
                                  this,
-                                 "h3"); // TODO(snandaku): Insert the correct ALPN value here.
+                                 moqt_alpn;
             if (ret != 0) {
                 SPDLOG_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
                 notify_caller(1);
@@ -2954,7 +2951,7 @@ PicoQuicTransport::SetupWebTransportConnection(picoquic_cnx_t* cnx)
                              wt_config_->path.c_str(),
                              DefaultWebTransportCallback,
                              this,
-                             "h3"); // TODO(snandaku): Insert the correct ALPN value here.
+                             moqt_alpn);
         if (ret != 0) {
             SPDLOG_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
             return ret;
