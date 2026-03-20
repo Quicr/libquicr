@@ -313,7 +313,7 @@ namespace quicr::messages {
                 return ParameterType::kPropertyFilter;
             case FilterType::kTrackFilter:
                 return ParameterType::kTrackFilter;
-            case FilterType::kNone:
+            default:
                 return ParameterType::kInvalid;
         }
     }
