@@ -2423,7 +2423,7 @@ PicoQuicTransport::StartClient()
                                  wt_config_->path.c_str(),
                                  DefaultWebTransportCallback,
                                  this,
-                                 moqt_alpn;
+                                 moqt_alpn);
             if (ret != 0) {
                 SPDLOG_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
                 notify_caller(1);
