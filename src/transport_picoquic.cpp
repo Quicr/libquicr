@@ -922,8 +922,6 @@ PicoQuicTransport::Start()
     }
 
     (void)picoquic_config_set_option(
-      &config_, picoquic_option_CWIN_MIN, std::to_string(tconfig_.quic_cwin_minimum).c_str());
-    (void)picoquic_config_set_option(
       &config_, picoquic_option_MAX_CONNECTIONS, std::to_string(tconfig_.max_connections).c_str());
 
     if (is_server_mode) {
@@ -2424,7 +2422,8 @@ PicoQuicTransport::StartClient()
                                  conn_ctx.wt_authority.c_str(),
                                  wt_config_->path.c_str(),
                                  DefaultWebTransportCallback,
-                                 this);
+                                 this,
+                                 moqt_alpn);
             if (ret != 0) {
                 SPDLOG_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
                 notify_caller(1);
@@ -2951,7 +2950,8 @@ PicoQuicTransport::SetupWebTransportConnection(picoquic_cnx_t* cnx)
                              conn_ctx->wt_authority.c_str(),
                              wt_config_->path.c_str(),
                              DefaultWebTransportCallback,
-                             this);
+                             this,
+                             moqt_alpn);
         if (ret != 0) {
             SPDLOG_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
             return ret;

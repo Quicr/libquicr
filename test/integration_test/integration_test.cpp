@@ -473,10 +473,9 @@ TEST_CASE("Qlog Generation")
         // Check that above directory now has the two (server + client) qlog files.
         int qlogs = 0;
         for (const auto& entry : std::filesystem::directory_iterator(temp_dir)) {
-            if (entry.path().extension() == ".log") {
+            CHECK_EQ(entry.path().extension(), ".qlog");
+            if (entry.path().extension() == ".qlog") {
                 ++qlogs;
-            } else {
-                FAIL("Unexpected file in qlog directory: {}", entry.path().string());
             }
         }
         CHECK_EQ(qlogs, 2);
