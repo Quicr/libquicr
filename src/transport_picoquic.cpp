@@ -223,7 +223,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
         }
 
         case picoquic_callback_stream_reset: {
-            SPDLOG_LOGGER_TRACE(
+            SPDLOG_LOGGER_DEBUG(
               transport->logger, "Received RESET stream conn_id: {0} stream_id: {1}", conn_id, stream_id);
 
             picoquic_reset_stream_ctx(pq_cnx, stream_id);
@@ -844,7 +844,7 @@ PqAlpnSelectCb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t count)
     }
 
     // Define supported ALPNs
-    const char* moq_alpn = "moq-00";
+    const char* moq_alpn = moqt_alpn;
     const char* h3_alpn = "h3";
     size_t moq_len = strlen(moq_alpn);
     size_t h3_len = strlen(h3_alpn);
@@ -1337,7 +1337,7 @@ PicoQuicTransport::CreateConnContext(picoquic_cnx_t* pq_cnx)
                 if (auto transport = dynamic_cast<Transport*>(&delegate_)) {
                     transport->SetWebTransportMode(conn_ctx.conn_id, true);
                 }
-            } else if (strcmp(negotiated_alpn, quicr_alpn) == 0) {
+            } else if (strcmp(negotiated_alpn, moqt_alpn) == 0) {
                 conn_ctx.transport_mode = TransportMode::kQuic;
                 SPDLOG_LOGGER_INFO(logger, "Server connection using raw QUIC (ALPN: {})", negotiated_alpn);
             } else {
@@ -1730,8 +1730,18 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
         stream_ctx.mark_active = false;
     }
 
+    bool should_reset = false;
     defer({
         const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
+
+        if (should_reset) {
+            CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, true);
+            if (data_ctx->delete_on_empty && empty) {
+                DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
+            }
+            return;
+        }
+
         if (data_ctx->delete_on_empty && empty) {
             DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
         } else if (stream_ctx.close_on_empty && empty) {
@@ -1752,8 +1762,9 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
                 stream_ctx.close_on_empty = true;
                 break;
             case StreamAction::kCloseStreamUseReset:
-                stream_ctx.close_on_empty = true;
+                stream_ctx.close_on_empty = false;
                 stream_ctx.close_using_reset = true;
+                should_reset = true;
                 break;
             case StreamAction::kNoAction:
                 break;
@@ -1769,7 +1780,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
                                 obj.expired_count,
                                 stream_ctx.tx_data->Size());
 
-            CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, true);
+            should_reset = true;
             return;
         }
 
@@ -2859,7 +2870,7 @@ PicoQuicTransport::GetAlpn() const
             return webtransport_alpn;
         case TransportMode::kQuic:
         default:
-            return quicr_alpn;
+            return moqt_alpn;
     }
 }
 

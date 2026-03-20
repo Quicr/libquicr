@@ -169,11 +169,13 @@ namespace quicr {
          * @brief Publish to a track
          *
          * @param connection_handle           Connection ID from transport for the QUIC connection context
-         * @param track_handler               Track handler to use for track related functions
+         * @param ns_handler                  Namespace handler to use for track related functions
          *                                    and callbacks
+         * @param passive                     True indicates that PUBLISH_NAMESPACE will not be sent
          */
         void PublishNamespace(ConnectionHandle connection_handle,
-                              std::shared_ptr<PublishNamespaceHandler> track_handler);
+                              std::shared_ptr<PublishNamespaceHandler> ns_handler,
+                              bool passive = false);
 
         /**
          * @brief Unpublish track
@@ -192,27 +194,34 @@ namespace quicr {
          *
          * @param connection_handle     Source connection ID
          * @param request_id            Request ID received
+         * @param sub_ns_handler        Subscribe namespace handler if matched
          * @param publish_attributes    Publish attributes received
          */
         virtual void PublishReceived(ConnectionHandle connection_handle,
                                      uint64_t request_id,
-                                     const messages::PublishAttributes& publish_attributes) = 0;
+                                     const messages::PublishAttributes& publish_attributes,
+                                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler) = 0;
 
         /**
          * @brief Accept or reject publish that was received
          *
          * @details Accept or reject publish received via PublishReceived(). The MoQ Transport
          *      will send the protocol message based on the PublishResponse
+         *      This method will SubscribeTrack() using the handler passed and the
+         *      attributes provided.
          *
-         * @param connection_handle        source connection ID
-         * @param request_id               Request ID
-         * @param attributes               Attributes for the accepted publish
-         * @param publish_response         response for the publish
+         * @param connection_handle         source connection ID
+         * @param request_id                Request ID
+         * @param attributes                Attributes for the accepted publish
+         * @param publish_response          response for the publish
+         * @param handler                   Constructed SubscribeTrackHandler to subscribe track using
+         *                                  Clients set this, relay/server does not need to.
          */
         void ResolvePublish(ConnectionHandle connection_handle,
                             uint64_t request_id,
                             const messages::PublishAttributes& attributes,
-                            const PublishResponse& publish_response);
+                            const PublishResponse& publish_response,
+                            std::shared_ptr<SubscribeTrackHandler> handler);
 
         /**
          * @brief Event to run on receiving a Standalone Fetch request.
@@ -358,16 +367,12 @@ namespace quicr {
         virtual void RequestUpdateReceived(ConnectionHandle connection_handle,
                                            uint64_t request_id,
                                            uint64_t existing_request_id,
-                                           std::uint64_t delivery_timeout_ms,
-                                           std::uint8_t priority,
-                                           messages::FilterType filter_type,
-                                           bool forward,
-                                           std::optional<messages::GroupId> end_group_id = std::nullopt);
+                                           const messages::Parameters& params);
 
         virtual void ResolveRequestUpdate(ConnectionHandle connection_handle,
                                           uint64_t request_id,
                                           uint64_t existing_request_id,
-                                          std::optional<messages::Location> largest_location = std::nullopt);
+                                          const messages::Parameters& params);
 
         ///@}
 
@@ -414,6 +419,40 @@ namespace quicr {
         // -------------------------------------------------------------------------------------------------
 
         static constexpr std::size_t kControlMessageBufferSize = 4096;
+
+        struct TrackHandler
+        {
+            std::shared_ptr<BaseTrackHandler> handler;
+
+            TrackHandler() = default;
+            ~TrackHandler() = default;
+
+            TrackHandler(const std::shared_ptr<BaseTrackHandler>& other_handler)
+              : handler(other_handler)
+            {
+            }
+
+            TrackHandler& operator=(const TrackHandler& other) = default;
+
+            TrackHandler& operator=(const std::shared_ptr<BaseTrackHandler>& other_handler)
+            {
+                handler = other_handler;
+                return *this;
+            }
+
+            template<typename T>
+            std::shared_ptr<T> Get()
+            {
+                return std::dynamic_pointer_cast<T>(handler);
+            }
+
+            template<typename T>
+            std::shared_ptr<T> Get() const
+            {
+                return std::dynamic_pointer_cast<T>(handler);
+            }
+        };
+
         struct ConnectionContext
         {
             ConnectionContext(const ConnectionContext& other)
@@ -454,12 +493,8 @@ namespace quicr {
 
             std::map<messages::RequestID, SubscribeContext> recv_req_id;
 
-            /// Tracks by request ID
-            std::map<messages::RequestID, std::shared_ptr<BaseTrackHandler>> tracks_by_request_id;
-
-            /// Tracks by request ID (Subscribe and Fetch)
-            [[deprecated]] std::map<messages::RequestID, std::shared_ptr<SubscribeTrackHandler>>
-              sub_tracks_by_request_id;
+            /// Handlers by request ID
+            std::map<messages::RequestID, TrackHandler> request_handlers;
 
             /**
              * Data is received with a track alias that is set by the publisher. The map key
@@ -479,14 +514,6 @@ namespace quicr {
             /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
             std::map<messages::TrackAlias, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>>
               pub_tracks_by_track_alias;
-
-            /**
-             * Pending outbound publish tracks by request ID, for publish_ok.
-             */
-            std::map<messages::RequestID, FullTrackName> pub_by_request_id;
-
-            /// Publish tracks by request Id. Used in client mode
-            std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_request_id;
 
             /// Published tracks by quic transport data context ID.
             std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
@@ -572,7 +599,7 @@ namespace quicr {
                            TrackHash th,
                            std::uint8_t priority,
                            messages::GroupOrder group_order,
-                           messages::FilterType filter_type,
+                           const messages::Filter& filter,
                            std::optional<std::chrono::milliseconds> delivery_timeout);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
@@ -605,7 +632,7 @@ namespace quicr {
                            bool forward,
                            std::uint8_t priority,
                            messages::GroupOrder group_order,
-                           messages::FilterType filter_type);
+                           const messages::Filter& filter);
 
         /*===================================================================*/
         // Track Status

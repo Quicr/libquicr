@@ -70,13 +70,15 @@ ExtensionsDeserialize(benchmark::State& state)
         std::optional<Extensions> immutable_extensions;
         std::size_t extension_bytes_remaining = 0;
         std::optional<std::uint64_t> current_header;
+        std::uint64_t prev_extension_type = 0;
 
         bool success = ParseExtensions(stream_buffer,
                                        extension_headers_length,
                                        extensions,
                                        immutable_extensions,
                                        extension_bytes_remaining,
-                                       current_header);
+                                       current_header,
+                                       prev_extension_type);
 
         benchmark::DoNotOptimize(success);
         benchmark::DoNotOptimize(extensions);
@@ -116,13 +118,15 @@ ExtensionsRoundTrip(benchmark::State& state)
         std::optional<Extensions> immutable_extensions;
         std::size_t extension_bytes_remaining = 0;
         std::optional<std::uint64_t> current_header;
+        std::uint64_t prev_extension_type = 0;
 
         bool success = ParseExtensions(stream_buffer,
                                        extension_headers_length,
                                        extensions,
                                        immutable_extensions,
                                        extension_bytes_remaining,
-                                       current_header);
+                                       current_header,
+                                       prev_extension_type);
 
         benchmark::DoNotOptimize(success);
         benchmark::DoNotOptimize(extensions);

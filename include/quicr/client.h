@@ -114,7 +114,8 @@ namespace quicr {
          */
         void PublishReceived(ConnectionHandle connection_handle,
                              uint64_t request_id,
-                             const messages::PublishAttributes& publish_attributes) override;
+                             const messages::PublishAttributes& publish_attributes,
+                             std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler) override;
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -204,19 +205,15 @@ namespace quicr {
                                   messages::GroupOrder group_order,
                                   const FetchResponse& response);
 
-        virtual void RequestUpdateReceived(ConnectionHandle connection_handle,
-                                           uint64_t request_id,
-                                           uint64_t existing_request_id,
-                                           std::uint64_t delivery_timeout_ms,
-                                           std::uint8_t priority,
-                                           messages::FilterType filter_type,
-                                           bool forward,
-                                           std::optional<messages::GroupId> end_group_id = std::nullopt) override;
+        void RequestUpdateReceived(ConnectionHandle connection_handle,
+                                   uint64_t request_id,
+                                   uint64_t existing_request_id,
+                                   const messages::Parameters& params) override;
 
-        virtual void ResolveRequestUpdate(ConnectionHandle connection_handle,
-                                          uint64_t request_id,
-                                          uint64_t existing_request_id,
-                                          std::optional<messages::Location> largest_location = std::nullopt) override;
+        void ResolveRequestUpdate(ConnectionHandle connection_handle,
+                                  uint64_t request_id,
+                                  uint64_t existing_request_id,
+                                  const messages::Parameters& params) override;
 
         /**
          * @brief Bind a server fetch publisher track handler.

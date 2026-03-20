@@ -65,6 +65,32 @@ WaitFor(Predicate predicate,
     return predicate(); // Final check
 }
 
+class CallbackPublishTrackHandler final : public PublishTrackHandler
+{
+  public:
+    using StatusCallback = std::function<void(Status)>;
+
+    CallbackPublishTrackHandler(const FullTrackName& ftn,
+                                const uint8_t priority,
+                                const uint32_t ttl,
+                                const StatusCallback on_status,
+                                const bool support_dynamic_groups = true)
+      : PublishTrackHandler(ftn, TrackMode::kStream, priority, ttl, std::nullopt, { 0, 0 })
+      , on_status_(std::move(on_status))
+    {
+    }
+
+    void StatusChanged(const Status status) override
+    {
+        if (on_status_) {
+            on_status_(status);
+        }
+    }
+
+  private:
+    const StatusCallback on_status_;
+};
+
 static std::shared_ptr<TestServer>
 MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
                std::optional<std::size_t> max_connections = std::nullopt)
@@ -138,10 +164,10 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     static std::shared_ptr<TestSubscribeHandler> Create(const FullTrackName& full_track_name,
                                                         std::uint8_t priority,
                                                         messages::GroupOrder group_order,
-                                                        messages::FilterType filter_type)
+                                                        const messages::Filter& filter = std::monostate{})
     {
         return std::shared_ptr<TestSubscribeHandler>(
-          new TestSubscribeHandler(full_track_name, priority, group_order, filter_type));
+          new TestSubscribeHandler(full_track_name, priority, group_order, filter));
     }
 
     /// @brief Get all received objects
@@ -177,8 +203,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     TestSubscribeHandler(const FullTrackName& full_track_name,
                          std::uint8_t priority,
                          messages::GroupOrder group_order,
-                         messages::FilterType filter_type)
-      : SubscribeTrackHandler(full_track_name, priority, group_order, filter_type)
+                         const messages::Filter& filter)
+      : SubscribeTrackHandler(full_track_name, priority, group_order, filter)
     {
     }
 
@@ -247,9 +273,9 @@ TEST_CASE("Integration - Subscribe")
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
-        constexpr auto filter_type = messages::FilterType::kLargestObject;
+        const messages::Filter filter = messages::TrackFilter{ 1, 2, 3, 4 };
         const auto handler =
-          SubscribeTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, filter_type);
+          SubscribeTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, filter);
 
         // When we subscribe, server should receive a subscribe.
         std::promise<TestServer::SubscribeDetails> promise;
@@ -265,7 +291,7 @@ TEST_CASE("Integration - Subscribe")
         const auto& details = future.get();
         CHECK_EQ(details.track_full_name.name, ftn.name);
         CHECK_EQ(details.track_full_name.name_space, ftn.name_space);
-        CHECK_EQ(details.subscribe_attributes.filter_type, filter_type);
+        CHECK_EQ(details.subscribe_attributes.filter, filter);
 
         // Server should respond, track should go live.
         const bool track_live =
@@ -324,8 +350,8 @@ TEST_CASE("Integration - Handlers with no transport")
 {
     // Subscribe.
     {
-        const auto handler = SubscribeTrackHandler::Create(
-          FullTrackName(), 0, messages::GroupOrder::kOriginalPublisherOrder, messages::FilterType::kLargestObject);
+        const auto handler =
+          SubscribeTrackHandler::Create(FullTrackName(), 0, messages::GroupOrder::kOriginalPublisherOrder);
         handler->Pause();
         handler->Resume();
         handler->RequestNewGroup();
@@ -333,7 +359,7 @@ TEST_CASE("Integration - Handlers with no transport")
 
     // Publish.
     {
-        const auto handler = PublishTrackHandler::Create(FullTrackName(), TrackMode::kStream, 0, 0);
+        const auto handler = PublishTrackHandler::Create(FullTrackName(), TrackMode::kStream, 0, 0, { 0, 0 });
         ObjectHeaders headers = { .group_id = 0,
                                   .object_id = 0,
                                   .payload_length = 1,
@@ -368,7 +394,7 @@ TEST_CASE("Group ID Gap")
         ftn.name = { 1, 2, 3 };
 
         // Pub.
-        const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500);
+        const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500, { 0, 0 });
         client->PublishTrack(pub);
 
         // Wait for publisher to be ready
@@ -571,9 +597,9 @@ TEST_CASE("Integration - Subscribe Namespace with matching namespace")
 
 TEST_CASE("Integration - Subscribe Namespace with matching track")
 {
-    auto server = MakeTestServer();
-
     auto test_matching_track = [&](const std::string& protocol_scheme) {
+        auto server = MakeTestServer();
+
         auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
 
         // Track.
@@ -615,8 +641,6 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
         const auto& received_publish_ok = publish_ok_future.get();
         CHECK_EQ(received_publish_ok.track_full_name.name_space, existing_track.name_space);
         CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
-
-        // TODO: Test the Error / reject path.
     };
 
     SUBCASE("Raw QUIC")
@@ -634,7 +658,7 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
 
 TEST_CASE("Integration - Subscribe Namespace with ongoing match")
 {
-    auto server = MakeTestServer(std::nullopt, 2);
+    auto server = MakeTestServer(std::nullopt, 4);
 
     auto test_ongoing_match = [&](const std::string& protocol_scheme) {
         auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
@@ -663,7 +687,7 @@ TEST_CASE("Integration - Subscribe Namespace with ongoing match")
 
         // In the future, a PUBLISH arrives.
         std::this_thread::sleep_for(kDefaultTimeout);
-        const auto publish = PublishTrackHandler::Create(existing_track, TrackMode::kStream, 10, 5000);
+        const auto publish = PublishTrackHandler::Create(existing_track, TrackMode::kStream, 10, 5000, { 0, 0 });
         publisher->PublishTrack(publish);
 
         // Client should receive matched PUBLISH for existing track.
@@ -763,7 +787,10 @@ TEST_CASE("Integration - Announce Flow")
         const FullTrackName ftn{ prefix, quicr::Bytes{ name.begin(), name.end() } };
 
         std::weak_ptr<PublishTrackHandler> w_pub_handler;
-        REQUIRE_NOTHROW(w_pub_handler = ns_handler->PublishTrack(ftn, TrackMode::kStream, 1, 5000));
+        auto pub_h = TestPublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 5000, { 0, 0 });
+        REQUIRE_NOTHROW(w_pub_handler = pub_h);
+
+        client->PublishTrack(pub_h);
 
         auto pub_handler = w_pub_handler.lock();
         REQUIRE_NE(pub_handler, nullptr);
@@ -1009,8 +1036,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         constexpr std::size_t total_messages = num_groups * messages_per_group; // 120
 
         // Create subscribe handler that tracks received objects
-        auto sub_handler = TestSubscribeHandler::Create(
-          ftn, 3, messages::GroupOrder::kOriginalPublisherOrder, messages::FilterType::kLargestObject);
+        auto sub_handler = TestSubscribeHandler::Create(ftn, 3, messages::GroupOrder::kOriginalPublisherOrder);
 
         // Set up promise for subscriber receiving all messages
         std::promise<void> all_received_promise;
@@ -1026,7 +1052,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         REQUIRE(sub_ready);
 
         // Create publisher with stream mode (explicit subgroup ID)
-        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000);
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
         publisher_client->PublishTrack(pub_handler);
 
         // Wait for publisher to be ready
@@ -1214,5 +1240,151 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
     {
         CAPTURE("WebTransport");
         test_subgroups("https");
+    }
+}
+
+TEST_CASE("Integration - New subgroup preserves object IDs")
+{
+    auto server = MakeTestServer(std::nullopt, 2);
+
+    auto test_subgroup_roll = [&](const std::string& protocol_scheme) {
+        auto subscriber_client = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto publisher_client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "subgroup_roll" });
+        ftn.name = { 0x01 };
+
+        // Publisher.
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+        publisher_client->PublishTrack(pub_handler);
+        const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
+        REQUIRE(pub_ready);
+
+        // Subscriber.
+        auto sub_handler = TestSubscribeHandler::Create(ftn, 3, messages::GroupOrder::kOriginalPublisherOrder);
+        std::promise<void> all_received_promise;
+        auto all_received_future = all_received_promise.get_future();
+        constexpr std::size_t total_objects = 6;
+        sub_handler->SetObjectCountPromise(total_objects, std::move(all_received_promise));
+        subscriber_client->SubscribeTrack(sub_handler);
+        const bool sub_ready =
+          WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        REQUIRE(sub_ready);
+
+        // Publishes objects with headers in payload.
+        auto publish_object = [&](uint64_t group_id, uint64_t subgroup_id, uint64_t object_id) {
+            std::vector payload = { static_cast<uint8_t>(group_id),
+                                    static_cast<uint8_t>(subgroup_id),
+                                    static_cast<uint8_t>(object_id) };
+            ObjectHeaders headers = { .group_id = group_id,
+                                      .object_id = object_id,
+                                      .subgroup_id = subgroup_id,
+                                      .payload_length = payload.size(),
+                                      .status = ObjectStatus::kAvailable,
+                                      .priority = 3,
+                                      .ttl = 1000,
+                                      .track_mode = TrackMode::kStream,
+                                      .extensions = std::nullopt,
+                                      .immutable_extensions = std::nullopt };
+            auto status = pub_handler->PublishObject(headers, payload);
+            REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
+        };
+
+        // Subgroup 0.
+        publish_object(0, 0, 0);
+        publish_object(0, 0, 1);
+        pub_handler->EndSubgroup(0, 0, true);
+        // Subgroup 1.
+        publish_object(0, 1, 2);
+        pub_handler->EndSubgroup(0, 1, true);
+        // Subgroup 2.
+        publish_object(0, 2, 3);
+        publish_object(0, 2, 4);
+        // Let's end on a new group.
+        publish_object(1, 0, 0);
+
+        // Make sure we got everything.
+        auto receive_status = all_received_future.wait_for(std::chrono::milliseconds(3000));
+        REQUIRE(receive_status == std::future_status::ready);
+        const auto received = sub_handler->GetReceivedObjects();
+        REQUIRE_EQ(received.size(), total_objects);
+
+        // Headers should match payloads.
+        for (const auto& obj : received) {
+            CHECK_EQ(obj.group_id, obj.data[0]);
+            CHECK_EQ(obj.subgroup_id, obj.data[1]);
+            CHECK_EQ(obj.object_id, obj.data[2]);
+        }
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_subgroup_roll("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_subgroup_roll("https");
+    }
+}
+
+TEST_CASE("Integration - Dynamic groups support roundtrip")
+{
+    auto server = MakeTestServer(std::nullopt, 4);
+
+    auto test_dynamic_groups = [&](const std::string& protocol_scheme, bool dynamic_groups) {
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace({ "namespace" });
+        ftn.name = { 1, 2, 3 };
+
+        // Publish the track, watching for a new group request.
+        std::atomic new_group_was_requested{ false };
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(
+          ftn,
+          1,
+          5000,
+          [&new_group_was_requested](const PublishTrackHandler::Status status) {
+              // Ensure we get the status callback.
+              if (status == PublishTrackHandler::Status::kNewGroupRequested) {
+                  new_group_was_requested = true;
+              }
+          },
+          dynamic_groups);
+        publisher->PublishTrack(pub_handler);
+        const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
+        REQUIRE(pub_ready);
+
+        // Subscribe to the track and wait for setup.
+        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder);
+        CHECK_NOTHROW(subscriber->SubscribeTrack(sub_handler));
+        const bool sub_ready =
+          WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        REQUIRE(sub_ready);
+
+        // The subscriber's handler should reflect the publisher's declared dynamic group support.
+        CHECK_EQ(sub_handler->IsNewGroupRequestSupported(), dynamic_groups);
+
+        // If there is support, check a request will make it back to the publisher.
+        if (dynamic_groups) {
+            sub_handler->RequestNewGroup();
+            const bool received = WaitFor([&new_group_was_requested]() { return new_group_was_requested.load(); });
+            CHECK(received);
+        }
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_dynamic_groups("moq", true);
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_dynamic_groups("https", true);
     }
 }

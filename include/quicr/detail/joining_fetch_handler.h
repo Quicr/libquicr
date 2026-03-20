@@ -18,7 +18,7 @@ namespace quicr {
           : SubscribeTrackHandler(joining_subscribe->GetFullTrackName(),
                                   joining_subscribe->GetPriority(),
                                   joining_subscribe->GetGroupOrder(),
-                                  joining_subscribe->GetFilterType())
+                                  joining_subscribe->GetFilter())
           , joining_subscribe_(std::move(joining_subscribe))
         {
         }

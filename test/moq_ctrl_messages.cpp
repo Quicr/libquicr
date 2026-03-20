@@ -33,9 +33,13 @@ const Bytes kUint2ByteValue = { 0xBD, 0x3B };
 const Bytes kUint4ByteValue = { 0x7D, 0x3E, 0x7F, 0x1D };
 const Bytes kUint8ByteValue = { 0x8C, 0xE8, 0x14, 0xFF, 0x5E, 0x7C, 0x19, 0x02 };
 
+// Note: Parameters must be in sorted order by type for delta encoding.
+// ParameterType::kAuthorizationToken = 0x03
 const Parameters kExampleParameters = {
-    { ParameterType::kAuthorizationToken, kExampleBytes }, { static_cast<ParameterType>(2), kUint1ByteValue },
-    { static_cast<ParameterType>(4), kUint2ByteValue },    { static_cast<ParameterType>(6), kUint4ByteValue },
+    { static_cast<ParameterType>(2), kUint1ByteValue },
+    { ParameterType::kAuthorizationToken, kExampleBytes }, // type 0x03
+    { static_cast<ParameterType>(4), kUint2ByteValue },
+    { static_cast<ParameterType>(6), kUint4ByteValue },
     { static_cast<ParameterType>(8), kUint8ByteValue },
 };
 
@@ -167,7 +171,7 @@ TEST_CASE("Subscribe Message encode/decode")
     auto params = Parameters{}
                     .Add(messages::ParameterType::kSubscriberPriority, 1)
                     .Add(messages::ParameterType::kGroupOrder, GroupOrder::kAscending)
-                    .Add(messages::ParameterType::kSubscriptionFilter, FilterType::kLargestObject);
+                    .Add(messages::ParameterType::kTrackFilter, TrackFilter{ 1, 2, 3, 4 });
 
     Bytes buffer;
     auto subscribe = quicr::messages::Subscribe{ 0x1, kTrackNamespaceConf, kTrackNameAliceVideo, params };
@@ -181,8 +185,8 @@ TEST_CASE("Subscribe Message encode/decode")
     CHECK_EQ(subscribe.request_id, subscribe_out.request_id);
     CHECK_EQ(1, subscribe_out.parameters.Get<std::uint8_t>(messages::ParameterType::kSubscriberPriority));
     CHECK_EQ(GroupOrder::kAscending, subscribe_out.parameters.Get<GroupOrder>(messages::ParameterType::kGroupOrder));
-    CHECK_EQ(FilterType::kLargestObject,
-             subscribe_out.parameters.Get<FilterType>(messages::ParameterType::kSubscriptionFilter));
+    CHECK_EQ(TrackFilter{ 1, 2, 3, 4 },
+             subscribe_out.parameters.Get<TrackFilter>(messages::ParameterType::kTrackFilter));
 }
 
 TEST_CASE("SubscribeOk Message encode/decode")
@@ -497,7 +501,7 @@ TEST_CASE("PublishOk Message encode/decode")
     auto params = Parameters{}
                     .Add(ParameterType::kSubscriberPriority, 2)
                     .Add(ParameterType::kGroupOrder, GroupOrder::kAscending)
-                    .Add(ParameterType::kSubscriptionFilter, FilterType::kLargestObject)
+                    .Add(ParameterType::kTrackFilter, TrackFilter{ 1, 2, 3, 4 })
                     .Add(ParameterType::kForward, false);
 
     Bytes buffer;
@@ -510,7 +514,7 @@ TEST_CASE("PublishOk Message encode/decode")
     CHECK_EQ(publish_ok.request_id, publish_ok_out.request_id);
     CHECK_EQ(2, publish_ok_out.parameters.Get<std::uint8_t>(ParameterType::kSubscriberPriority));
     CHECK_EQ(GroupOrder::kAscending, publish_ok_out.parameters.Get<GroupOrder>(ParameterType::kGroupOrder));
-    CHECK_EQ(FilterType::kLargestObject, publish_ok_out.parameters.Get<FilterType>(ParameterType::kSubscriptionFilter));
+    CHECK_EQ(TrackFilter{ 1, 2, 3, 4 }, publish_ok_out.parameters.Get<TrackFilter>(ParameterType::kTrackFilter));
     CHECK_EQ(false, publish_ok_out.parameters.Get<bool>(ParameterType::kForward));
 }
 
@@ -521,26 +525,6 @@ enum class ExampleEnum : std::uint64_t
     kEven = 2,
 };
 using TestKVPEnum = KeyValuePair<ExampleEnum>;
-Bytes
-KVP64(const std::uint64_t type, const Bytes& value)
-{
-    TestKVP64 test;
-    test.type = type;
-    test.value = value;
-    Bytes buffer;
-    buffer << test;
-    return buffer;
-}
-Bytes
-KVPEnum(const ExampleEnum type, const Bytes& value)
-{
-    TestKVPEnum test;
-    test.type = type;
-    test.value = value;
-    Bytes buffer;
-    buffer << test;
-    return buffer;
-}
 
 TEST_CASE("Key Value Pair encode/decode")
 {
@@ -551,11 +535,15 @@ TEST_CASE("Key Value Pair encode/decode")
         CAPTURE("UINT64_T");
         {
             CAPTURE("EVEN");
-            std::size_t type = 2;
-            Bytes serialized = KVP64(type, value);
+            std::uint64_t type = 2;
+            TestKVP64 kvp{ type, value };
+            Bytes serialized;
+            SerializeKvp(serialized, kvp, {});
             CHECK_EQ(serialized.size(), 2); // Minimal size, 1 byte for type and 1 byte for value.
+
             TestKVP64 out;
-            serialized >> out;
+            BytesSpan span = serialized;
+            ParseKvp(span, out, {});
             CHECK_EQ(out.type, type);
             std::uint64_t reconstructed_value = 0;
             std::memcpy(&reconstructed_value, out.value.data(), out.value.size());
@@ -563,12 +551,16 @@ TEST_CASE("Key Value Pair encode/decode")
         }
         {
             CAPTURE("ODD");
-            std::size_t type = 1;
-            Bytes serialized = KVP64(type, value);
+            std::uint64_t type = 1;
+            TestKVP64 kvp{ type, value };
+            Bytes serialized;
+            SerializeKvp(serialized, kvp, {});
             CHECK_EQ(serialized.size(),
                      value.size() + 1 + 1); // 1 byte for type, 1 byte for length, and the value bytes.
+
             TestKVP64 out;
-            serialized >> out;
+            BytesSpan span = serialized;
+            ParseKvp(span, out, {});
             CHECK_EQ(out.type, type);
             CHECK_EQ(out.value, value);
         }
@@ -578,10 +570,14 @@ TEST_CASE("Key Value Pair encode/decode")
         {
             CAPTURE("EVEN");
             auto type = ExampleEnum::kEven;
-            Bytes serialized = KVPEnum(type, value);
+            TestKVPEnum kvp{ type, value };
+            Bytes serialized;
+            SerializeKvp(serialized, kvp, type);
             CHECK_EQ(serialized.size(), 2); // Minimal size, 1 byte for type and 1 byte for value.
+
             TestKVPEnum out;
-            serialized >> out;
+            BytesSpan span = serialized;
+            ParseKvp(span, out, type);
             CHECK_EQ(out.type, type);
             std::uint64_t reconstructed_value = 0;
             std::memcpy(&reconstructed_value, out.value.data(), out.value.size());
@@ -590,11 +586,15 @@ TEST_CASE("Key Value Pair encode/decode")
         {
             CAPTURE("ODD");
             auto type = ExampleEnum::kOdd;
-            Bytes serialized = KVPEnum(type, value);
+            TestKVPEnum kvp{ type, value };
+            Bytes serialized;
+            SerializeKvp(serialized, kvp, type);
             CHECK_EQ(serialized.size(),
                      value.size() + 1 + 1); // 1 byte for type, 1 byte for length, and the value bytes.
+
             TestKVPEnum out;
-            serialized >> out;
+            BytesSpan span = serialized;
+            ParseKvp(span, out, type);
             CHECK_EQ(out.type, type);
             CHECK_EQ(out.value, value);
         }
@@ -704,9 +704,10 @@ TEST_CASE("KVP Value Equality")
         kvp.type = 2;             // Even type
         kvp.value = { 0x1, 0x0 }; // Will be compressed to {0x1}
         Bytes buffer;
-        buffer << kvp;
+        SerializeKvp(buffer, kvp, {});
         KeyValuePair<std::uint64_t> out;
-        buffer >> out;
+        BytesSpan span = buffer;
+        ParseKvp(span, out, {});
         CHECK_EQ(out, kvp);
     }
 
@@ -809,4 +810,170 @@ TEST_CASE("uint8_t encode/decode")
 TEST_CASE("uint16_t encode/decode")
 {
     IntegerEncodeDecode<std::uint16_t>(true);
+}
+
+TEST_CASE("KeyValuePair even-type round-trip preserves values")
+{
+    const std::vector<std::uint64_t> test_values = {
+        0,      1,
+        63, // Max 1-byte varint
+        64, // Min 2-byte varint
+        127,    128, 255,
+        16383, // Max 2-byte varint
+        16384, // Min 4-byte varint
+        100000,
+    };
+
+    for (const auto value : test_values) {
+        CAPTURE(value);
+
+        Parameters params;
+        params.Add(ParameterType::kDeliveryTimeout, value);
+
+        Bytes buffer;
+        buffer << params;
+
+        // Should have encoded as uintvar.
+        UintVar expected(value);
+        Bytes expected_bytes{ expected.begin(), expected.end() };
+        REQUIRE(buffer.size() >= expected_bytes.size());
+        Bytes tail(buffer.end() - expected_bytes.size(), buffer.end());
+        CHECK_EQ(tail, expected_bytes);
+
+        Parameters out;
+        BytesSpan span{ buffer };
+        span >> out;
+
+        // Roundtrip.
+        CHECK_NOTHROW(out.Get<std::uint64_t>(ParameterType::kDeliveryTimeout));
+        CHECK_EQ(out.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), value);
+    }
+}
+
+TEST_CASE("TrackExtensions even-type round-trip preserves values")
+{
+    const std::vector<std::uint64_t> test_values = {
+        0,      1,
+        63, // Max 1-byte varint
+        64, // Min 2-byte varint
+        127,    128, 255,
+        16383, // Max 2-byte varint
+        16384, // Min 4-byte varint
+        100000,
+    };
+
+    for (const auto value : test_values) {
+        CAPTURE(value);
+
+        TrackExtensions ext;
+        ext.Add(ExtensionType::kDeliveryTimeout, value);
+
+        Bytes buffer;
+        buffer << ext;
+
+        // Should have been encoded as uintvar.
+        UintVar expected(value);
+        Bytes expected_bytes{ expected.begin(), expected.end() };
+        REQUIRE(buffer.size() >= expected_bytes.size());
+        Bytes tail(buffer.end() - expected_bytes.size(), buffer.end());
+        CHECK_EQ(tail, expected_bytes);
+
+        TrackExtensions out;
+        BytesSpan span{ buffer };
+        span >> out;
+
+        // Roundtrip.
+        CHECK_NOTHROW(out.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout));
+        CHECK_EQ(out.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout), value);
+    }
+}
+
+TEST_CASE("Parameters")
+{
+    Parameters params;
+
+    params.Add(ParameterType::kDeliveryTimeout, std::uint64_t(5000));
+    CHECK(params.Contains(ParameterType::kDeliveryTimeout));
+
+    std::optional<Location> location;
+    params.AddOptional(ParameterType::kLargestObject, location);
+    CHECK_FALSE(params.Contains(ParameterType::kLargestObject));
+
+    location = { 1, 2 };
+    params.AddOptional(ParameterType::kLargestObject, location);
+    CHECK(params.Contains(ParameterType::kLargestObject));
+
+    CHECK_EQ(params.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), std::uint64_t(5000));
+}
+
+TEST_CASE("Filters")
+{
+    static_assert(HasByteStreamOperators<Filter>);
+
+    const auto serialise_filter = [](FilterType type, const Filter& filter) {
+        auto [param_type, bytes] = SerializeFilter(type, filter);
+        CHECK_EQ(param_type, ToParameterFilterType(type));
+        if (type == FilterType::kNone) {
+            CHECK(bytes.empty());
+        } else {
+            CHECK_FALSE(bytes.empty());
+        }
+
+        auto deserialised_filter = DeserializeFilter(type, bytes);
+        CHECK_EQ(deserialised_filter, filter);
+    };
+
+    Filter filter;
+
+    {
+        Bytes bytes{};
+        CHECK_NOTHROW(bytes << filter);
+        CHECK_THROWS(BytesSpan{} >> filter);
+    }
+
+    serialise_filter(FilterType::kNone, filter);
+
+    filter = TrackFilter{
+        .property_type = 1,
+        .max_tracks_selected = 2,
+        .max_tracks_deselected = 3,
+        .max_time_selected = 4,
+    };
+    serialise_filter(FilterType::kTrackFilter, filter);
+
+    filter = LocationFilter{
+        { .start = 1 },
+    };
+    serialise_filter(FilterType::kLocationFilter, filter);
+
+    filter = LocationFilter{
+        {
+          .start = 1,
+          .end = 2,
+        },
+    };
+    serialise_filter(FilterType::kLocationFilter, filter);
+}
+
+TEST_CASE("Parameters - Filters")
+{
+    Filter filter = TrackFilter{
+        .property_type = 1,
+        .max_tracks_selected = 2,
+        .max_tracks_deselected = 3,
+        .max_time_selected = 4,
+    };
+
+    auto params = Parameters{}.Add(ParameterType::kTrackFilter, filter);
+
+    Bytes bytes;
+    bytes << params;
+
+    CHECK_FALSE(bytes.empty());
+
+    Parameters recv_params;
+    bytes >> recv_params;
+
+    auto recv_filter = recv_params.GetFilter(FilterType::kTrackFilter);
+    CHECK_EQ(recv_filter, filter);
 }

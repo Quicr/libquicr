@@ -87,16 +87,19 @@ namespace quicr {
          * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
          * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
          * @param stream_mode           Stream to use when track mode is kStream.
+         * @param largest_location      Largest location to start the handler
          */
         PublishTrackHandler(const FullTrackName& full_track_name,
                             TrackMode track_mode,
                             uint8_t default_priority,
                             uint32_t default_ttl,
-                            std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt)
+                            std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt,
+                            messages::Location largest_location = { 0, 0 })
           : BaseTrackHandler(full_track_name)
           , default_track_mode_(track_mode)
           , default_priority_(default_priority)
           , default_ttl_(default_ttl)
+          , largest_location_(largest_location)
         {
             switch (track_mode) {
                 case TrackMode::kDatagram:
@@ -122,14 +125,16 @@ namespace quicr {
          * @param track_mode            The track mode to operate using
          * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
          * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
+         * @param largest_location      Largest location to start handler at
          */
         static std::shared_ptr<PublishTrackHandler> Create(const FullTrackName& full_track_name,
                                                            TrackMode track_mode,
                                                            uint8_t default_priority,
-                                                           uint32_t default_ttl)
+                                                           uint32_t default_ttl,
+                                                           messages::Location largest_location)
         {
-            return std::shared_ptr<PublishTrackHandler>(
-              new PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl));
+            return std::shared_ptr<PublishTrackHandler>(new PublishTrackHandler(
+              full_track_name, track_mode, default_priority, default_ttl, std::nullopt, largest_location));
         }
 
         // TODO: Is this all the info needed for an alias calculation?
@@ -161,6 +166,9 @@ namespace quicr {
          */
         virtual void MetricsSampled(const PublishTrackMetrics& metrics);
 
+        void RequestUpdate(uint64_t request_id, const messages::Parameters& params) override;
+        void RequestOk(uint64_t request_id, const messages::Parameters& params) override;
+
         ///@}
 
         // --------------------------------------------------------------------------
@@ -183,6 +191,11 @@ namespace quicr {
         void SetDefaultTTL(const uint32_t ttl) noexcept { default_ttl_ = ttl; }
 
         /**
+         * @brief Get the default TTL/expiry for published objects
+         */
+        uint32_t GetDefaultTTL() const noexcept { return default_ttl_; }
+
+        /**
          * @brief set/update the default track mode for objects
          */
         void SetDefaultTrackMode(const TrackMode track_mode) noexcept { default_track_mode_ = track_mode; }
@@ -202,6 +215,13 @@ namespace quicr {
          * @return Status of publish
          */
         constexpr Status GetStatus() const noexcept { return publish_status_; }
+
+        /**
+         * Get the largest location
+         *
+         * @return the largest/current location
+         */
+        constexpr messages::Location GetLargestLocation() const noexcept { return largest_location_; }
 
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
@@ -333,6 +353,20 @@ namespace quicr {
          */
         void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true);
 
+        /**
+         * @brief Set the publish status
+         * @param status                Status of publishing (aka publish objects)
+         */
+        void SetStatus(Status status) noexcept
+        {
+            if (publish_status_ == status) {
+                return;
+            }
+
+            publish_status_ = status;
+            StatusChanged(status);
+        }
+
         // --------------------------------------------------------------------------
         // Metrics
         // --------------------------------------------------------------------------
@@ -349,20 +383,6 @@ namespace quicr {
         // Internals
         // --------------------------------------------------------------------------
       protected:
-        /**
-         * @brief Set the publish status
-         * @param status                Status of publishing (aka publish objects)
-         */
-        void SetStatus(Status status) noexcept
-        {
-            if (publish_status_ == status) {
-                return;
-            }
-
-            publish_status_ = status;
-            StatusChanged(status);
-        }
-
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
@@ -385,12 +405,11 @@ namespace quicr {
         std::map<std::uint64_t, std::map<std::uint64_t, StreamInfo>> stream_info_by_group_;
 
         std::optional<uint64_t> track_alias_;
-
-        messages::Location largest_location_{ 0, 0 };
+        messages::Location largest_location_;
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
-        bool support_new_group_request_{ true };
+        bool support_new_group_request_{ true }; /// TODO: For now, always support dynamic groups
         std::optional<uint64_t> pending_new_group_request_id_;
 
         friend class Transport;

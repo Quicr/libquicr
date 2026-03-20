@@ -29,12 +29,12 @@ namespace quicr {
         };
 
       protected:
-        SubscribeNamespaceHandler(const TrackNamespace& prefix);
+        SubscribeNamespaceHandler(const TrackNamespace& prefix, const messages::Filter& filter = std::monostate{});
 
       public:
-        static auto Create(const TrackNamespace& prefix)
+        static auto Create(const TrackNamespace& prefix, const messages::Filter& filter = std::monostate{})
         {
-            return std::shared_ptr<SubscribeNamespaceHandler>(new SubscribeNamespaceHandler(prefix));
+            return std::shared_ptr<SubscribeNamespaceHandler>(new SubscribeNamespaceHandler(prefix, filter));
         }
 
         virtual ~SubscribeNamespaceHandler();
@@ -48,19 +48,11 @@ namespace quicr {
          */
         virtual void StatusChanged(Status status);
 
-        virtual bool IsTrackAcceptable(const FullTrackName& name) const;
-
-        virtual std::shared_ptr<SubscribeTrackHandler> CreateHandler(const messages::PublishAttributes& attributes);
-
-        void AcceptNewTrack(const ConnectionHandle& connection_handle,
-                            const messages::RequestID request_id,
-                            const messages::PublishAttributes& attributes);
-
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 
-        const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
+        messages::FilterType GetFilterType() const noexcept { return messages::GetFilterType(filter_); }
 
-        void SetTransport(const std::shared_ptr<Transport>& new_transport) noexcept { transport_ = new_transport; }
+        constexpr const messages::Filter& GetFilter() const noexcept { return filter_; }
 
         /**
          * @brief Get the status of the subscribe
@@ -76,6 +68,9 @@ namespace quicr {
         std::optional<Error> GetError() const noexcept { return error_; }
 
       protected:
+        const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
+        void SetTransport(const std::shared_ptr<Transport>& new_transport) noexcept { transport_ = new_transport; }
+
         /**
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
@@ -100,9 +95,9 @@ namespace quicr {
             SetStatus(Status::kError);
         }
 
-        virtual void RequestOk(std::optional<messages::Location>) { SetStatus(Status::kOk); }
+        void RequestOk(uint64_t, const messages::Parameters&) override { SetStatus(Status::kOk); }
 
-        virtual void RequestError(messages::ErrorCode error_code, std::string reason)
+        void RequestError(messages::ErrorCode error_code, std::string reason) override
         {
             SetError(Error{ error_code, Bytes{ reason.begin(), reason.end() } });
         }
@@ -111,17 +106,16 @@ namespace quicr {
         /// Prefix namespace for contained handlers.
         const TrackNamespace prefix_;
 
+        /// Filter value for namespace subscription.
+        messages::Filter filter_;
+
         /// Weak reference to the transport.
         std::weak_ptr<Transport> transport_;
-
-        /// Subscribe track handlers for handling multiple tracks.
-        std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> handlers_;
 
         Status status_{ Status::kNotSubscribed };
 
         std::optional<Error> error_{};
 
-        quicr::ConnectionHandle connection_handle_;
         DataContextId data_ctx_id_{ 0 };
 
         friend class Transport;

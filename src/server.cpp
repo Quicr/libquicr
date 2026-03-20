@@ -30,7 +30,7 @@ namespace quicr {
 
     void Server::PublishNamespaceReceived(ConnectionHandle, const TrackNamespace&, const PublishNamespaceAttributes&) {}
 
-    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, DataContextId, const TrackNamespace&) {}
+    void Server::UnsubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&) {}
 
     void Server::ResolvePublishNamespace(ConnectionHandle connection_handle,
                                          uint64_t request_id,
@@ -85,10 +85,10 @@ namespace quicr {
                 continue;
             }
 
-            auto req_it = it->second.tracks_by_request_id.find(request_id);
-            if (req_it != it->second.tracks_by_request_id.end()) {
+            auto req_it = it->second.request_handlers.find(request_id);
+            if (req_it != it->second.request_handlers.end()) {
                 SendPublishNamespaceDone(it->second, request_id);
-                it->second.tracks_by_request_id.erase(req_it);
+                it->second.request_handlers.erase(req_it);
             }
         }
     }
@@ -189,20 +189,6 @@ namespace quicr {
             auto request_id = conn_it->second.GetNextRequestId();
             SendPublishNamespace(conn_it->second, request_id, name_space);
         }
-
-        // Fan out PUBLISH for matching tracks.
-        for (const auto& track : response.tracks) {
-            const auto pub_request_id = conn_it->second.GetNextRequestId();
-            conn_it->second.pub_by_request_id[pub_request_id] = track.track_full_name;
-            SendPublish(conn_it->second,
-                        pub_request_id,
-                        track.track_full_name,
-                        track.attributes.track_alias,
-                        track.attributes.group_order,
-                        track.largest_location,
-                        track.attributes.forward,
-                        track.attributes.new_group_request_id.has_value());
-        }
     }
 
     void Server::ResolveFetch(ConnectionHandle connection_handle,
@@ -258,7 +244,7 @@ namespace quicr {
           th.track_namespace_hash,
           th.track_name_hash);
 
-        conn_it->second.tracks_by_request_id.erase(*track_handler->GetRequestId());
+        conn_it->second.request_handlers.erase(*track_handler->GetRequestId());
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
 
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash].erase(src_id);
@@ -310,7 +296,7 @@ namespace quicr {
         }
 
         track_handler->SetRequestId(request_id);
-        conn_it->second.tracks_by_request_id[request_id] = track_handler;
+        conn_it->second.request_handlers[request_id] = track_handler;
 
         track_handler->connection_handle_ = conn_id;
 
@@ -393,13 +379,15 @@ namespace quicr {
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
+                auto new_group_request_id =
+                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
-                std::optional<uint64_t> new_group_request_id;
-                if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
-                    new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                messages::Filter filter; // TODO: Support more filters.
+                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
 
                 // TODO(tievens): add filter type when caching supports it
@@ -411,7 +399,7 @@ namespace quicr {
                                     .group_order = group_order,
                                     .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
                                     .expires = std::chrono::milliseconds{ delivery_timeout },
-                                    .filter_type = filter_type,
+                                    .filter = filter,
                                     .forward = forward,
                                     .new_group_request_id = new_group_request_id,
                                     .is_publisher_initiated = false,
@@ -429,9 +417,9 @@ namespace quicr {
                 messages::SubscribeOk msg{};
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
+                auto sub_it = conn_ctx.request_handlers.find(msg.request_id);
 
-                if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                if (sub_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received subscribe ok to unknown subscribe track conn_id: {} request_id: {}, ignored",
@@ -443,9 +431,11 @@ namespace quicr {
                     return true;
                 }
 
-                sub_it->second.get()->SetReceivedTrackAlias(msg.track_alias);
-                conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second;
-                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kOk);
+                if (auto handler = sub_it->second.Get<SubscribeTrackHandler>()) {
+                    handler->SetReceivedTrackAlias(msg.track_alias);
+                    handler->SetStatus(SubscribeTrackHandler::Status::kOk);
+                    conn_ctx.sub_by_recv_track_alias[msg.track_alias] = handler;
+                }
 
                 return true;
             }
@@ -505,17 +495,26 @@ namespace quicr {
                 auto msg = messages::SubscribeNamespace{};
                 msg_bytes >> msg;
 
+                messages::Filter filter; // TODO: Support more filters.
+                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
+                }
+
                 SubscribeNamespaceReceived(conn_ctx.connection_handle,
                                            data_ctx_id,
                                            msg.track_namespace_prefix,
-                                           { .request_id = msg.request_id });
+                                           { .request_id = msg.request_id,
+                                             .filter_type = messages::FilterType::kTrackFilter,
+                                             .filter = filter });
                 return true;
             }
             case messages::ControlMessageType::kNamespaceDone: {
                 auto msg = messages::NamespaceDone{};
                 msg_bytes >> msg;
 
-                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, data_ctx_id, msg.track_namespace_suffix);
+                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_suffix);
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceDone: {
@@ -556,8 +555,8 @@ namespace quicr {
                 messages::PublishDone msg;
                 msg_bytes >> msg;
 
-                auto sub_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
-                if (sub_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                auto pub_it = conn_ctx.request_handlers.find(msg.request_id);
+                if (pub_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received publish done to unknown subscribe conn_id: {} request_id: {}",
                                        conn_ctx.connection_handle,
@@ -565,7 +564,7 @@ namespace quicr {
 
                     return true;
                 }
-                auto tfn = sub_it->second->GetFullTrackName();
+                auto tfn = pub_it->second.handler->GetFullTrackName();
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_INFO(logger_,
@@ -577,9 +576,11 @@ namespace quicr {
                                    th.track_name_hash,
                                    th.track_fullname_hash);
 
-                sub_it->second.get()->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+                if (auto h = pub_it->second.Get<SubscribeTrackHandler>()) {
+                    h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+                    PublishDoneReceived(conn_ctx.connection_handle, msg.request_id);
+                }
 
-                PublishDoneReceived(conn_ctx.connection_handle, msg.request_id);
                 conn_ctx.recv_req_id.erase(msg.request_id);
 
                 return true;
@@ -647,8 +648,8 @@ namespace quicr {
                 messages::FetchOk msg;
                 msg_bytes >> msg;
 
-                auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
-                if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                auto fetch_it = conn_ctx.request_handlers.find(msg.request_id);
+                if (fetch_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received fetch ok for unknown fetch track conn_id: {} request_id: {}, ignored",
                                        conn_ctx.connection_handle,
@@ -656,8 +657,10 @@ namespace quicr {
                     return true;
                 }
 
-                fetch_it->second.get()->SetLatestLocation(msg.end_location);
-                fetch_it->second.get()->SetStatus(FetchTrackHandler::Status::kOk);
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>()) {
+                    h->SetLatestLocation(msg.end_location);
+                    h->SetStatus(FetchTrackHandler::Status::kOk);
+                }
 
                 return true;
             }
@@ -756,17 +759,19 @@ namespace quicr {
                     SPDLOG_LOGGER_WARN(logger_, "Received Fetch Cancel for unknown subscribe ID: {}", msg.request_id);
                 }
 
-                const auto fetch_it = conn_ctx.sub_tracks_by_request_id.find(msg.request_id);
-                if (fetch_it == conn_ctx.sub_tracks_by_request_id.end()) {
+                const auto fetch_it = conn_ctx.request_handlers.find(msg.request_id);
+                if (fetch_it == conn_ctx.request_handlers.end()) {
                     FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
                     return true;
                 }
 
-                fetch_it->second->SetStatus(FetchTrackHandler::Status::kCancelled);
+                if (auto h = fetch_it->second.Get<FetchTrackHandler>()) {
+                    h->SetStatus(FetchTrackHandler::Status::kCancelled);
+                }
 
                 FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
 
-                conn_ctx.sub_tracks_by_request_id.erase(fetch_it);
+                conn_ctx.request_handlers.erase(fetch_it);
                 conn_ctx.recv_req_id.erase(msg.request_id);
 
                 return true;
@@ -780,7 +785,7 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                bool dynamic_groups = false; // TODO: Figure this out
+                bool dynamic_groups = true; // TODO: This has moved to extensions/properties get from there
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
@@ -793,13 +798,11 @@ namespace quicr {
                 attributes.group_order = group_order;
                 attributes.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
                 attributes.expires = std::chrono::milliseconds(expires);
-                attributes.filter_type = messages::FilterType::kLargestObject;
                 attributes.forward = forward;
-                attributes.new_group_request_id = 1;
                 attributes.is_publisher_initiated = true;
                 attributes.dynamic_groups = dynamic_groups;
 
-                PublishReceived(conn_ctx.connection_handle, msg.request_id, attributes);
+                PublishReceived(conn_ctx.connection_handle, msg.request_id, attributes, {});
 
                 return true;
             }
@@ -809,41 +812,47 @@ namespace quicr {
                 msg_bytes >> msg;
 
                 // Consume originating request.
-                const auto& originating_publish = conn_ctx.pub_by_request_id.find(msg.request_id);
-                if (originating_publish == conn_ctx.pub_by_request_id.end()) {
+                auto pub_it = conn_ctx.request_handlers.find(msg.request_id);
+                if (pub_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(logger_, "Received publish ok for unknown publish: {}", msg.request_id);
                     return true;
                 }
-                const FullTrackName tfn = originating_publish->second;
-                conn_ctx.pub_by_request_id.erase(originating_publish);
 
                 // Continue with subscribe flow.
-                auto th = TrackHash(tfn);
-                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
+                if (auto pub_h = pub_it->second.Get<PublishTrackHandler>()) {
+                    auto th = TrackHash(pub_h->GetFullTrackName());
+                    conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = pub_h->GetFullTrackName(),
+                                                             .track_hash = th };
 
-                auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
-                auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
-                auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
-                auto new_group_request_id =
-                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                    auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                    auto delivery_timeout =
+                      msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
+                    auto forward = msg.parameters.GetOptional<bool>(messages::ParameterType::kForward);
+                    auto filter = msg.parameters.GetOptional<messages::Filter>(
+                      messages::ParameterType::kTrackFilter); // TODO: Support more filters
+                    auto new_group_request_id =
+                      msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
-                messages::SubscribeAttributes attributes = {
-                    .priority = priority,
-                    .group_order = group_order,
-                    .delivery_timeout = std::chrono::milliseconds(delivery_timeout),
-                    .expires = std::chrono::milliseconds(expires),
-                    .filter_type = filter_type,
-                    .forward = forward,
-                    .new_group_request_id = new_group_request_id,
-                    .is_publisher_initiated = true,
-                    .start_location = { 0, 0 },
-                };
+                    if (pub_h->GetDefaultPriority() < priority) {
+                        pub_h->SetDefaultPriority(priority);
+                    }
 
-                SubscribeReceived(conn_ctx.connection_handle, msg.request_id, tfn, attributes);
+                    if (delivery_timeout.has_value() && *delivery_timeout) {
+                        pub_h->SetDefaultTTL(*delivery_timeout);
+                    }
+
+                    if (forward.has_value()) {
+                        pub_h->SetStatus(*forward ? PublishTrackHandler::Status::kOk
+                                                  : PublishTrackHandler::Status::kPaused);
+                    }
+
+                    if (new_group_request_id.has_value()) {
+                        pub_h->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
+                    }
+
+                    // TODO: Apply filters for publisher, such as location range filters
+                }
+
                 return true;
             }
 
@@ -851,7 +860,7 @@ namespace quicr {
                 messages::RequestUpdate msg;
                 msg_bytes >> msg;
 
-                auto sub_ctx_it = conn_ctx.recv_req_id.find(msg.request_id);
+                auto sub_ctx_it = conn_ctx.recv_req_id.find(msg.existing_request_id);
                 if (sub_ctx_it == conn_ctx.recv_req_id.end()) {
                     // update for invalid subscription
                     SPDLOG_LOGGER_WARN(logger_,
@@ -866,18 +875,26 @@ namespace quicr {
 
                 auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
                 auto new_group_request_id =
                   msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+
+                messages::Filter filter; // TODO: Support more filters.
+                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
+                }
 
                 if (new_group_request_id.has_value()) {
                     NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id.value());
                 }
 
-                SPDLOG_LOGGER_DEBUG(
-                  logger_, "Received subscribe_update to recv request_id: {} forward: {}", msg.request_id, forward);
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "Received subscribe_update to recv request_id: {} forward: {} ngr: {}",
+                                    msg.request_id,
+                                    forward,
+                                    new_group_request_id.has_value());
 
                 /*
                  * Unlike client, server supports multi-publisher to the client.

@@ -59,7 +59,6 @@ namespace quicr {
     class PicoQuicTransport : public ITransport
     {
       public:
-        const char* quicr_alpn = "moq-00";
         const char* webtransport_alpn = "h3";
 
         using BytesT = std::vector<uint8_t>;

@@ -7,7 +7,7 @@
 
 #define DEFER_CONCAT(a, b) DEFER_CONCAT_INNER(a, b)
 #define DEFER_CONCAT_INNER(a, b) a##b
-#define defer(n) quicr::DeferType DEFER_CONCAT(defer_, __COUNTER__)([&] { n; })
+#define defer(n) quicr::DeferType DEFER_CONCAT(defer_, __LINE__)([&] { n; })
 
 namespace quicr {
     class DeferType

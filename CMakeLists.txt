@@ -50,7 +50,7 @@ option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 
 # Which MOQ draft to use.
 # Addendum is added automatically
-set(DEFAULT_DRAFT "${CMAKE_CURRENT_SOURCE_DIR}/tools/draft_parser/drafts/draft-ietf-moq-transport-16_edited.txt")
+set(DEFAULT_DRAFT "${CMAKE_CURRENT_SOURCE_DIR}/tools/draft_parser/drafts/draft-ietf-moq-transport-16_filters_edited.txt")
 set(DRAFT "" CACHE FILEPATH "MOQ Draft to build against")
 if (DRAFT STREQUAL "")
     set(DRAFT_INTERNAL ${DEFAULT_DRAFT})
@@ -110,7 +110,7 @@ if(BUILD_TESTING AND QUICR_BUILD_TESTS)
 endif()
 
 if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
-   add_subdirectory(benchmark)
+    add_subdirectory(benchmark)
 endif()
 
 ###

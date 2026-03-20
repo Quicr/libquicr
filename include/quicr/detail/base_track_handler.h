@@ -81,14 +81,14 @@ namespace quicr {
             kOk = 0,
             kInternalError,
             kNotSupported,
+            kNotAuthorized,
+            kRejected,
         };
         ReasonCode reason_code;
 
         std::optional<std::string> error_reason = std::nullopt;
 
         std::optional<messages::Location> largest_location = std::nullopt;
-
-        std::vector<ConnectionHandle> namespace_subscribers{};
     };
 
     struct SubscribeNamespaceResponse
@@ -105,23 +105,6 @@ namespace quicr {
             kNotSupported,
         };
         ReasonCode reason_code;
-
-        // Matched tracks that will be advertised in response via PUBLISH.
-        struct AvailableTrack
-        {
-            const FullTrackName track_full_name;
-            const std::optional<messages::Location> largest_location;
-            const messages::PublishAttributes attributes;
-            AvailableTrack(const FullTrackName& track_full_name,
-                           const std::optional<messages::Location>& largest_location,
-                           const messages::PublishAttributes& attributes)
-              : track_full_name(track_full_name)
-              , largest_location(largest_location)
-              , attributes(attributes)
-            {
-            }
-        };
-        std::vector<AvailableTrack> tracks;
 
         // Matched tracks that will be advertised in response via PUBLISH_NAMESPACE.
         std::vector<TrackNamespace> namespaces;
@@ -221,7 +204,8 @@ namespace quicr {
          */
         uint64_t GetConnectionId() const noexcept { return connection_handle_; };
 
-        virtual void RequestOk(std::optional<messages::Location> largest_location);
+        virtual void RequestOk(uint64_t request_id, const messages::Parameters& params);
+        virtual void RequestUpdate(uint64_t request_id, const messages::Parameters& params);
 
         virtual void RequestError(messages::ErrorCode error_code, std::string reason);
 
@@ -248,8 +232,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
-
-        ConnectionHandle connection_handle_; // QUIC transport connection ID
+        ConnectionHandle connection_handle_{ 0 }; // QUIC transport connection ID
 
         /**
          * request_id_ is the primary index/key for subscribe context/delegate storage.

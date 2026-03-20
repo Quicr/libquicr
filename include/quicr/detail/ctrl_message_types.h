@@ -3,10 +3,27 @@
 #include "quicr/detail/uintvar.h"
 #include "quicr/track_name.h"
 
+#include <algorithm>
+#include <limits>
+#include <source_location>
 #include <stdexcept>
+#include <string>
 #include <tuple>
+#include <variant>
 
 namespace quicr::messages {
+
+    struct ProtocolViolationException : std::runtime_error
+    {
+        const std::string reason;
+        ProtocolViolationException(const std::string& reason,
+                                   const std::source_location location = std::source_location::current())
+          : std::runtime_error("Protocol violation: " + reason + " (line " + std::to_string(location.line()) +
+                               ", file " + location.file_name() + ")")
+          , reason(reason)
+        {
+        }
+    };
     Bytes& operator<<(Bytes& buffer, const Bytes& bytes);
     Bytes& operator<<(Bytes& buffer, const BytesSpan& bytes);
     BytesSpan operator>>(BytesSpan buffer, Bytes& value);
@@ -67,15 +84,18 @@ namespace quicr::messages {
 
         /**
          * Get the encoded size of this KeyValuePair, in bytes.
+         * @param prev_type The previous type value.
          * @return Encoded size, in bytes.
          */
-        std::size_t Size() const
+        std::size_t Size(const T prev_type) const
         {
             std::size_t size = 0;
-            const auto type_val = static_cast<std::uint64_t>(type);
-            size += UintVar(type_val).size();
+            const auto type_value = static_cast<std::uint64_t>(type);
+            const auto prev_type_value = static_cast<std::uint64_t>(prev_type);
+            const auto delta = type_value - prev_type_value;
+            size += UintVar(delta).size();
 
-            if (type_val % 2 == 0) {
+            if (type_value % 2 == 0) {
                 // Even types: single varint of value
                 if (value.size() > sizeof(std::uint64_t)) {
                     throw std::invalid_argument("Value too large to encode as uint64_t.");
@@ -147,40 +167,66 @@ namespace quicr::messages {
         return buffer;
     }
 
+    /**
+     * Serialize KVP.
+     * @param buffer Buffer to write into.
+     * @param kvp The KeyValuePair to write.
+     * @param prev_type The previous type value so we can do the delta.
+     */
     template<KeyType T>
-    Bytes& operator<<(Bytes& buffer, const KeyValuePair<T>& param)
+    void SerializeKvp(Bytes& buffer, const KeyValuePair<T>& kvp, const T prev_type)
     {
-        buffer << param.type;
-        if (static_cast<std::uint64_t>(param.type) % 2 != 0) {
-            // Odd, encode bytes.
-            return buffer << param.value;
-        }
+        // Delta encode the type.
+        const auto type_value = static_cast<std::uint64_t>(kvp.type);
+        const auto prev_type_value = static_cast<std::uint64_t>(prev_type);
+        const auto delta = type_value - prev_type_value;
+        buffer << UintVar(delta);
 
-        // Even, single varint of value.
-        if (param.value.size() > sizeof(std::uint64_t)) {
-            throw std::invalid_argument("Value too large to encode as uint64_t.");
+        if (type_value % 2 != 0) {
+            // Odd, encode bytes.
+            buffer << kvp.value;
+        } else {
+            // Even, single varint of value.
+            if (kvp.value.size() > sizeof(std::uint64_t)) {
+                throw std::invalid_argument("Value too large to encode as uint64_t.");
+            }
+            std::uint64_t val = 0;
+            std::memcpy(&val, kvp.value.data(), kvp.value.size());
+            buffer << UintVar(val);
         }
-        std::uint64_t val = 0;
-        std::memcpy(&val, param.value.data(), param.value.size());
-        return buffer << UintVar(val);
     }
 
+    /**
+     * Deserialize KVP.
+     * @param buffer Buffer to read from.
+     * @param kvp The KeyValuePair to read into.
+     * @param prev_type The previous type value to unwrap the delta.
+     * @throws ProtocolViolationException if delta causes overflow past 2^64-1.
+     */
     template<KeyType T>
-    BytesSpan operator>>(BytesSpan buffer, KeyValuePair<T>& param)
+    void ParseKvp(BytesSpan& buffer, KeyValuePair<T>& kvp, const T prev_type)
     {
-        buffer = buffer >> param.type;
-        if (static_cast<std::uint64_t>(param.type) % 2 != 0) {
-            // Odd, decode bytes.
-            return buffer >> param.value;
+        // Delta to absolute.
+        const auto prev_type_value = static_cast<std::uint64_t>(prev_type);
+        std::uint64_t delta;
+        buffer = buffer >> delta;
+        if (delta > std::numeric_limits<std::uint64_t>::max() - prev_type_value) {
+            throw ProtocolViolationException("Delta encoding overflow: prev_type + delta exceeds 2^64-1");
         }
+        const auto type_value = prev_type_value + delta;
+        kvp.type = static_cast<T>(type_value);
 
-        // Even, decode single varint of value.
-        UintVar uvar(buffer);
-        buffer = buffer.subspan(uvar.size());
-        std::uint64_t val(uvar);
-        param.value.resize(uvar.size());
-        std::memcpy(param.value.data(), &val, uvar.size());
-        return buffer;
+        if (type_value % 2 != 0) {
+            // Odd, decode bytes.
+            buffer = buffer >> kvp.value;
+        } else {
+            // Even, decode single varint of value.
+            UintVar uvar(buffer);
+            buffer = buffer.subspan(uvar.size());
+            std::uint64_t val(uvar);
+            const auto* p = reinterpret_cast<const std::uint8_t*>(&val);
+            kvp.value.assign(p, p + uvar.size());
+        }
     }
 
     enum struct SetupParameterType : uint64_t
@@ -208,7 +254,13 @@ namespace quicr::messages {
         kLargestObject = 0x09,
         kForward = 0x10,
         kSubscriberPriority = 0x20,
-        kSubscriptionFilter = 0x21,
+        kLocationFilter = 0x21,
+        kGroupFilter = 0x23,
+        kSubgroupFilter = 0x25,
+        kObjectFilter = 0x27,
+        kPriorityFilter = 0x29,
+        kPropertyFilter = 0x2B,
+        kTrackFilter = 0x2D,
         kGroupOrder = 0x22,
         kNewGroupRequest = 0x32,
 
@@ -234,11 +286,368 @@ namespace quicr::messages {
 
     enum struct FilterType : uint64_t
     {
-        kLargestObject = 0x2,
-        kNextGroupStart = 0x1,
-        kAbsoluteStart = 0x3,
-        kAbsoluteRange = 0x4
+        kNone,
+        kLocationFilter,
+        kGroupFilter,
+        kSubgroupFilter,
+        kObjectFilter,
+        kPriorityFilter,
+        kPropertyFilter,
+        kTrackFilter,
     };
+
+    constexpr ParameterType ToParameterFilterType(FilterType type)
+    {
+        switch (type) {
+            case FilterType::kLocationFilter:
+                return ParameterType::kLocationFilter;
+            case FilterType::kGroupFilter:
+                return ParameterType::kGroupFilter;
+            case FilterType::kSubgroupFilter:
+                return ParameterType::kSubgroupFilter;
+            case FilterType::kObjectFilter:
+                return ParameterType::kObjectFilter;
+            case FilterType::kPriorityFilter:
+                return ParameterType::kPriorityFilter;
+            case FilterType::kPropertyFilter:
+                return ParameterType::kPropertyFilter;
+            case FilterType::kTrackFilter:
+                return ParameterType::kTrackFilter;
+            case FilterType::kNone:
+                return ParameterType::kInvalid;
+        }
+    }
+
+    constexpr FilterType ToFilterType(ParameterType type)
+    {
+        switch (type) {
+            case ParameterType::kLocationFilter:
+                return FilterType::kLocationFilter;
+            case ParameterType::kGroupFilter:
+                return FilterType::kGroupFilter;
+            case ParameterType::kSubgroupFilter:
+                return FilterType::kSubgroupFilter;
+            case ParameterType::kObjectFilter:
+                return FilterType::kObjectFilter;
+            case ParameterType::kPriorityFilter:
+                return FilterType::kPriorityFilter;
+            case ParameterType::kPropertyFilter:
+                return FilterType::kPropertyFilter;
+            case ParameterType::kTrackFilter:
+                return FilterType::kTrackFilter;
+            default:
+                throw std::invalid_argument("parameter type is not a valid filter type");
+        }
+    }
+
+    enum class LocationFilterType
+    {
+        kNextGroupStart,
+        kLargestObject,
+        kAbsoluteStart,
+        kAbsoluteRange,
+    };
+
+    struct Range
+    {
+        std::uint64_t start;
+        std::optional<std::uint64_t> end;
+
+        constexpr auto operator<=>(const Range&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const Range& filter)
+    {
+        bytes << UintVar(filter.start);
+
+        if (filter.end.has_value()) {
+            bytes << UintVar(filter.end.value() - filter.start);
+        }
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] Range& filter)
+    {
+        bytes = bytes >> filter.start;
+        if (!bytes.empty()) {
+            std::uint64_t end = 0;
+            bytes = bytes >> end;
+            filter.end = filter.start + end;
+        }
+
+        return bytes;
+    }
+
+    inline Bytes& operator<<(Bytes& bytes, const std::vector<Range>& filters)
+    {
+        std::uint64_t last_end = 0;
+        for (const auto& filter : filters) {
+            AppendBytes(bytes, UintVar(filter.start - last_end));
+
+            if (filter.end.has_value()) {
+                AppendBytes(bytes, UintVar(filter.end.value() - (filter.start - last_end)));
+                last_end = filter.end.value();
+            }
+        }
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] std::vector<Range>& filter)
+    {
+        // TODO: Figure this out.
+        return bytes;
+    }
+
+    /**
+     * @brief
+     *
+     * @notes: - End Object ID MAY be omitted to indicate no end within End Group.
+     *         - End Group ID and End Object ID MAY be omitted to indicate no end, for an open ended subscription or
+     *           a Joining Fetch which implicitly ends at the associated subscription start Location.
+     *         - All but Start Group ID MAY be omitted to indicate
+     */
+    struct LocationFilter
+    {
+        Range range;
+
+        constexpr auto operator<=>(const LocationFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const LocationFilter& filter)
+    {
+        return bytes << filter.range;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] LocationFilter& filter)
+    {
+        filter = LocationFilter{};
+        return bytes >> filter.range;
+    }
+
+    struct PropertyFilter
+    {
+        std::uint64_t property_type;
+        std::vector<Range> ranges;
+
+        constexpr auto operator<=>(const PropertyFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const PropertyFilter& filter)
+    {
+        bytes << UintVar(filter.property_type);
+        bytes << filter.ranges;
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] PropertyFilter& filter)
+    {
+        return bytes;
+    }
+
+    struct TrackFilter
+    {
+        std::uint64_t property_type;
+        std::uint64_t max_tracks_selected;
+        std::uint64_t max_tracks_deselected;
+        std::uint64_t max_time_selected;
+
+        constexpr auto operator<=>(const TrackFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const TrackFilter& filter)
+    {
+        AppendBytes(bytes, UintVar(filter.property_type));
+        AppendBytes(bytes, UintVar(filter.max_tracks_selected));
+        AppendBytes(bytes, UintVar(filter.max_tracks_deselected));
+        AppendBytes(bytes, UintVar(filter.max_time_selected));
+
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, TrackFilter& filter)
+    {
+        bytes = bytes >> filter.property_type;
+        bytes = bytes >> filter.max_tracks_selected;
+        bytes = bytes >> filter.max_tracks_deselected;
+        bytes = bytes >> filter.max_time_selected;
+
+        return bytes;
+    }
+
+    struct SubgroupFilter
+    {
+        SubgroupFilter(std::initializer_list<Range> fs)
+          : ranges(fs)
+        {
+        }
+
+        std::vector<Range> ranges;
+        auto operator<=>(const SubgroupFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const SubgroupFilter& filter)
+    {
+        return bytes << filter.ranges;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, SubgroupFilter& filter)
+    {
+        return bytes >> filter.ranges;
+    }
+
+    struct ObjectFilter
+    {
+        ObjectFilter(std::initializer_list<Range> fs)
+          : ranges(fs)
+        {
+        }
+
+        std::vector<Range> ranges;
+        auto operator<=>(const ObjectFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const ObjectFilter& filter)
+    {
+        return bytes << filter.ranges;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, ObjectFilter& filter)
+    {
+        return bytes >> filter.ranges;
+    }
+
+    struct PriorityFilter
+    {
+        PriorityFilter(std::initializer_list<Range> fs)
+          : ranges(fs)
+        {
+        }
+
+        std::vector<Range> ranges;
+        auto operator<=>(const PriorityFilter&) const noexcept = default;
+    };
+
+    inline Bytes& operator<<(Bytes& bytes, const PriorityFilter& filter)
+    {
+        return bytes << filter.ranges;
+    }
+
+    inline BytesSpan operator>>(BytesSpan bytes, PriorityFilter& filter)
+    {
+        return bytes >> filter.ranges;
+    }
+
+    using Filter = std::variant<std::monostate,
+                                LocationFilter,
+                                SubgroupFilter,
+                                ObjectFilter,
+                                PriorityFilter,
+                                PropertyFilter,
+                                TrackFilter>;
+
+    inline FilterType GetFilterType(const Filter& filter)
+    {
+        return std::visit(
+          [](auto&& f) {
+              using T = std::decay_t<decltype(f)>;
+              if constexpr (std::is_same_v<std::monostate, T>) {
+                  return FilterType::kNone;
+              } else if constexpr (std::is_same_v<LocationFilter, T>) {
+                  return FilterType::kLocationFilter;
+              } else if constexpr (std::is_same_v<SubgroupFilter, T>) {
+                  return FilterType::kSubgroupFilter;
+              } else if constexpr (std::is_same_v<ObjectFilter, T>) {
+                  return FilterType::kObjectFilter;
+              } else if constexpr (std::is_same_v<PriorityFilter, T>) {
+                  return FilterType::kPriorityFilter;
+              } else if constexpr (std::is_same_v<PropertyFilter, T>) {
+                  return FilterType::kPropertyFilter;
+              } else if constexpr (std::is_same_v<TrackFilter, T>) {
+                  return FilterType::kTrackFilter;
+              }
+          },
+          filter);
+    }
+
+    inline ParameterType GetFilterParameterType(const Filter& filter)
+    {
+        return ToParameterFilterType(GetFilterType(filter));
+    }
+
+    inline Bytes& operator<<(Bytes& bytes, const Filter& filter)
+    {
+        std::visit(
+          [&](auto&& f) {
+              using T = std::decay_t<decltype(f)>;
+              if constexpr (!std::is_same_v<std::monostate, T>) {
+                  bytes << f;
+              }
+          },
+          filter);
+        return bytes;
+    }
+
+    inline BytesSpan operator>>(BytesSpan, Filter&)
+    {
+        throw std::runtime_error("parsing a non specific filter is impossible, stream to a more specific filter type");
+    }
+
+    inline Parameter SerializeFilter(FilterType filter_type, const Filter& filter)
+    {
+        auto param = std::visit(
+          [&](auto&& f) {
+              using T = std::decay_t<decltype(f)>;
+
+              if constexpr (std::is_same_v<std::monostate, T>) {
+                  return Parameter{ ToParameterFilterType(filter_type), Bytes{} };
+              } else {
+                  Bytes bytes;
+                  return Parameter{ ToParameterFilterType(filter_type), bytes << f };
+              }
+          },
+          filter);
+
+        return param;
+    }
+
+    inline Filter DeserializeFilter(FilterType filter_type, BytesSpan bytes)
+    {
+        // TODO: Figure out how to parse the vector filters.
+        switch (filter_type) {
+            case FilterType::kLocationFilter: {
+                LocationFilter filter{};
+                bytes = bytes >> filter;
+                return filter;
+            }
+            case FilterType::kGroupFilter: {
+                return std::monostate{};
+            }
+            case FilterType::kSubgroupFilter: {
+                return std::monostate{};
+            }
+            case FilterType::kObjectFilter: {
+                return std::monostate{};
+            }
+            case FilterType::kPriorityFilter: {
+                return std::monostate{};
+            }
+            case FilterType::kPropertyFilter: {
+                return std::monostate{};
+            }
+            case FilterType::kTrackFilter: {
+                TrackFilter filter{};
+                bytes = bytes >> filter;
+                return filter;
+            }
+            default:
+                return std::monostate{};
+        }
+
+        return std::monostate{};
+    }
 
     enum class PublishDoneStatusCode : uint64_t
     {
@@ -387,9 +796,9 @@ namespace quicr::messages {
     };
 
     template<class T>
-    concept HasByteStreamOperators = requires(T value) {
-        { Bytes{} << value };
-        { BytesSpan{} >> value };
+    concept HasByteStreamOperators = requires(T& value, Bytes& bytes) {
+        { bytes << value } -> std::same_as<Bytes&>;
+        { BytesSpan{} >> value } -> std::same_as<BytesSpan>;
     };
 
     class TrackExtensions
@@ -408,8 +817,9 @@ namespace quicr::messages {
         {
             if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
                 if (static_cast<uint64_t>(type) % 2 == 0) {
-                    UintVar u_value(static_cast<uint64_t>(value));
-                    return Bytes{ u_value.begin(), u_value.end() };
+                    const std::uint64_t val = static_cast<std::uint64_t>(value);
+                    auto* val_bytes = reinterpret_cast<const std::uint8_t*>(&val);
+                    return Bytes{ val_bytes, val_bytes + sizeof(val) };
                 }
             }
 
@@ -439,18 +849,7 @@ namespace quicr::messages {
         template<typename T>
         TrackExtensions& AddImmutable(ExtensionType type, const T& value)
         {
-            KeyValuePair<ExtensionType> pair{ .type = type, .value = ToBytes<T>(type, value) };
-
-            Bytes bytes;
-            bytes << pair;
-
-            auto& immutable_bytes = extensions[static_cast<std::uint64_t>(ExtensionType::kImmutable)];
-            auto bytes_it = immutable_bytes.insert(immutable_bytes.end(), bytes.begin(), bytes.end());
-
-            immutable_extensions[static_cast<std::uint64_t>(type)] =
-              std::span{ bytes_it,
-                         std::next(bytes_it + UintVar(static_cast<std::uint64_t>(pair.type)).size(), bytes.size()) };
-
+            immutable_extensions[static_cast<std::uint64_t>(type)] = ToBytes<T>(type, value);
             return *this;
         }
 
@@ -459,7 +858,10 @@ namespace quicr::messages {
         {
             if constexpr (std::is_arithmetic_v<T>) {
                 if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    return static_cast<T>(UintVar(extensions.at(static_cast<std::uint64_t>(type))).Get());
+                    std::uint64_t val = 0;
+                    const auto& bytes = extensions.at(static_cast<std::uint64_t>(type));
+                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
+                    return static_cast<T>(val);
                 }
             }
 
@@ -477,7 +879,10 @@ namespace quicr::messages {
         {
             if constexpr (std::is_arithmetic_v<T>) {
                 if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    return static_cast<T>(UintVar(immutable_extensions.at(static_cast<std::uint64_t>(type))).Get());
+                    std::uint64_t val = 0;
+                    const auto& bytes = immutable_extensions.at(static_cast<std::uint64_t>(type));
+                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
+                    return static_cast<T>(val);
                 }
             }
 
@@ -494,7 +899,7 @@ namespace quicr::messages {
         auto end() const noexcept { return extensions.end(); }
 
         std::map<std::uint64_t, Bytes> extensions;
-        std::map<std::uint64_t, BytesSpan> immutable_extensions;
+        std::map<std::uint64_t, Bytes> immutable_extensions;
     };
 
     BytesSpan operator>>(BytesSpan buffer, TrackExtensions& msg);
@@ -523,8 +928,9 @@ namespace quicr::messages {
         {
             if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
                 if (static_cast<uint64_t>(type) % 2 == 0) {
-                    UintVar u_value(static_cast<uint64_t>(value));
-                    parameters.push_back({ type, Bytes{ u_value.begin(), u_value.end() } });
+                    const std::uint64_t val = static_cast<std::uint64_t>(value);
+                    auto* val_bytes = reinterpret_cast<const std::uint8_t*>(&val);
+                    parameters.push_back({ type, Bytes{ val_bytes, val_bytes + sizeof(val) } });
                     return *this;
                 }
             }
@@ -584,7 +990,9 @@ namespace quicr::messages {
 
             if constexpr (std::is_arithmetic_v<T>) {
                 if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    return static_cast<T>(UintVar(bytes).Get());
+                    std::uint64_t val = 0;
+                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
+                    return static_cast<T>(val);
                 }
             }
 
@@ -595,6 +1003,20 @@ namespace quicr::messages {
             }
 
             return FromBytes<T>(bytes);
+        }
+
+        Filter GetFilter(FilterType type)
+        {
+            if constexpr (!std::is_same_v<ParameterType, Type>) {
+                return std::monostate{};
+            }
+
+            auto bytes = Find(ToParameterFilterType(type));
+            if (bytes.empty()) {
+                return {};
+            }
+
+            return DeserializeFilter(type, bytes);
         }
 
         template<typename T>
@@ -614,9 +1036,11 @@ namespace quicr::messages {
         uint64_t size = 0;
         buffer = buffer >> size;
 
+        Type prev_type{};
         for (uint64_t i = 0; i < size; ++i) {
             KeyValuePair<Type> param;
-            buffer = buffer >> param;
+            ParseKvp(buffer, param, prev_type);
+            prev_type = param.type;
             msg.parameters.push_back(std::move(param));
         }
 
@@ -627,8 +1051,17 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const ParameterList<Type>& msg)
     {
         buffer << UintVar(msg.parameters.size());
-        for (const auto& param : msg.parameters) {
-            buffer << param;
+
+        // Sort parameters by type for delta encoding
+        auto sorted = msg.parameters;
+        std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) {
+            return static_cast<std::uint64_t>(a.type) < static_cast<std::uint64_t>(b.type);
+        });
+
+        Type prev_type{};
+        for (const auto& param : sorted) {
+            SerializeKvp(buffer, param, prev_type);
+            prev_type = param.type;
         }
 
         return buffer;

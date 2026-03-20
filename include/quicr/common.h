@@ -61,6 +61,13 @@ namespace quicr {
         return value;
     }
 
+    inline void AppendBytes(Bytes& buffer, BytesSpan bytes)
+    {
+        buffer.reserve(buffer.size() + bytes.size());
+        buffer.insert(buffer.end(), bytes.begin(), bytes.end());
+    }
+
+    constexpr const char* moqt_alpn = "moqt-16";
     constexpr uint64_t kMoqtVersion = 0xff00010; ///< draft-ietf-moq-transport-16
     constexpr uint64_t kSubscribeExpires = 0;    ///< Never expires
     constexpr int kReadLoopMaxPerStream = 100; ///< Support packet/frame bursts, but do not allow starving other streams
@@ -71,11 +78,6 @@ namespace quicr {
      * @details Various attributes relative to the publish namespace
      */
     struct PublishNamespaceAttributes
-    {
-        uint64_t request_id{ 0 };
-    };
-
-    struct SubscribeNamespaceAttributes
     {
         uint64_t request_id{ 0 };
     };

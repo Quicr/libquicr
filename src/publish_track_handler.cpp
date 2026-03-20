@@ -84,7 +84,7 @@ namespace quicr {
                 if (is_new_stream) {
                     auto stream_id =
                       transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, GetDefaultPriority());
-                    stream_info_by_group_[group_id][subgroup_id] = { stream_id, group_id, subgroup_id, 0 };
+                    stream_info_by_group_[group_id][subgroup_id] = { stream_id, group_id, subgroup_id };
                 }
 
                 auto group_it = stream_info_by_group_.find(group_id);
@@ -146,10 +146,9 @@ namespace quicr {
 
                 auto stream_id = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
-                auto [it, _] = subgroup_map.emplace(
-                  object_headers.subgroup_id,
-                  StreamInfo{
-                    stream_id, object_headers.group_id, object_headers.subgroup_id, object_headers.object_id });
+                auto [it, _] =
+                  subgroup_map.emplace(object_headers.subgroup_id,
+                                       StreamInfo{ stream_id, object_headers.group_id, object_headers.subgroup_id });
                 subgroup_it = std::move(it);
             } else {
                 subgroup_it = group_it->second.find(object_headers.subgroup_id);
@@ -159,8 +158,7 @@ namespace quicr {
                     auto stream_id = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
                     auto [it, _] = group_it->second.emplace(
                       object_headers.subgroup_id,
-                      StreamInfo{
-                        stream_id, object_headers.group_id, object_headers.subgroup_id, object_headers.object_id });
+                      StreamInfo{ stream_id, object_headers.group_id, object_headers.subgroup_id });
                     subgroup_it = std::move(it);
                 }
             }
@@ -363,12 +361,12 @@ namespace quicr {
             return;
         }
 
-        const auto group_it = stream_info_by_group_.find(group_id);
+        auto group_it = stream_info_by_group_.find(group_id);
         if (group_it == stream_info_by_group_.end()) {
             return;
         }
 
-        const auto subgroup_it = group_it->second.find(subgroup_id);
+        auto subgroup_it = group_it->second.find(subgroup_id);
         if (subgroup_it == group_it->second.end()) {
             return;
         }
@@ -394,10 +392,26 @@ namespace quicr {
                            0,
                            eflags);
 
-        auto& subgroup_map = stream_info_by_group_[group_id];
-        subgroup_map.erase(subgroup_id);
-        if (subgroup_map.empty()) {
-            stream_info_by_group_.erase(group_id);
+        group_it->second.erase(subgroup_it);
+        if (group_it->second.empty()) {
+            stream_info_by_group_.erase(group_it);
+        }
+    }
+
+    void PublishTrackHandler::RequestOk([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
+    {
+        auto forward = params.Get<bool>(messages::ParameterType::kForward);
+        SetStatus(forward ? Status::kOk : Status::kPaused);
+    }
+
+    void PublishTrackHandler::RequestUpdate([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
+    {
+        if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
+            SetStatus(*forward ? Status::kOk : Status::kPaused);
+        }
+
+        if (auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
+            SetStatus(Status::kNewGroupRequested);
         }
     }
 
