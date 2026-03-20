@@ -1192,11 +1192,10 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
     std::unique_lock lock(state_mutex_);
 
     if (priority > 127) {
-        auto new_priority = priority >> 1;
-        SPDLOG_LOGGER_DEBUG(
-          logger, "Priority is greater than allowed by picoquic, adjusting from {} to {}", priority, new_priority);
-        priority = new_priority;
+        priority += 32;
     }
+
+    priority <<= 1;
 
     const auto conn_it = conn_context_.find(conn_id);
     if (conn_it == conn_context_.end()) {
