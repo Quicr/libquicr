@@ -21,7 +21,7 @@ namespace quicr_test {
           : SubscribeTrackHandler(full_track_name,
                                   3,
                                   quicr::messages::GroupOrder::kAscending,
-                                  quicr::messages::FilterType::kLargestObject,
+                                  std::monostate{},
                                   std::nullopt,
                                   is_publisher_initiated)
         {
@@ -120,7 +120,7 @@ namespace quicr_test {
         {
             quicr::ConnectionHandle connection_handle;
             quicr::TrackNamespace prefix_namespace;
-            quicr::SubscribeNamespaceAttributes attributes;
+            quicr::messages::SubscribeNamespaceAttributes attributes;
         };
 
         struct PublishNamespaceDetails
@@ -213,11 +213,13 @@ namespace quicr_test {
         void SubscribeNamespaceReceived(quicr::ConnectionHandle connection_handle,
                                         quicr::DataContextId data_ctx_id,
                                         const quicr::TrackNamespace& prefix_namespace,
-                                        const quicr::SubscribeNamespaceAttributes& attributes) override;
+                                        const quicr::messages::SubscribeNamespaceAttributes& attributes) override;
 
         void PublishNamespaceReceived(quicr::ConnectionHandle connection_handle,
                                       const quicr::TrackNamespace& track_namespace,
                                       const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
+
+        void NewGroupRequested(const quicr::FullTrackName& track_full_name, quicr::messages::GroupId group_id) override;
 
       public:
         std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;

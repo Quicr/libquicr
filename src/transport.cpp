@@ -413,13 +413,14 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_,
           "Sending REQUEST_UPDATE to conn_id: {} request_id: {} existing_id: {} track namespace hash: {} name "
-          "hash: {} forward: {}",
+          "hash: {} forward: {} ngr: {}",
           conn_ctx.connection_handle,
           request_id,
           existing_request_id,
           th.track_namespace_hash,
           th.track_name_hash,
-          forward);
+          forward,
+          end_group_id.has_value());
 
         SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
@@ -510,14 +511,9 @@ namespace quicr {
                                   TrackHash th, // TODO: This is only for a debug message, should be removed
                                   std::uint8_t priority,
                                   GroupOrder group_order,
-                                  FilterType filter_type,
+                                  const Filter& filter,
                                   std::optional<std::chrono::milliseconds> delivery_timeout)
     try {
-        // TODO: Add support for these filter types.
-        if (filter_type == FilterType::kAbsoluteStart || filter_type == FilterType::kAbsoluteRange) {
-            throw std::runtime_error("Absolute filtering not yet supported for Subscribe");
-        }
-
         /* Available parameters:
          * - AUTHORIZATION TOKEN (0x03): Conveys information to authorize the subscription.
          * - DELIVERY TIMEOUT (0x02): Duration the relay should attempt forwarding objects.
@@ -530,7 +526,7 @@ namespace quicr {
         auto params = Parameters{}
                         .Add(ParameterType::kSubscriberPriority, priority)
                         .Add(ParameterType::kGroupOrder, group_order)
-                        .Add(ParameterType::kSubscriptionFilter, filter_type)
+                        .Add(GetFilterParameterType(filter), filter)
                         .Add(ParameterType::kForward, 1)
                         .AddOptional(ParameterType::kDeliveryTimeout, delivery_timeout);
 
@@ -597,13 +593,8 @@ namespace quicr {
                                   bool forward,
                                   std::uint8_t priority,
                                   messages::GroupOrder group_order,
-                                  messages::FilterType filter_type)
+                                  const messages::Filter& filter)
     try {
-        // TODO: Add support for these filter types.
-        if (filter_type == FilterType::kAbsoluteStart || filter_type == FilterType::kAbsoluteRange) {
-            throw std::runtime_error("Absolute filtering not yet supported for Subscribe");
-        }
-
         /* Available parameters:
          * - DELIVERY TIMEOUT (0x02): Duration the relay should attempt forwarding objects.
          * - SUBSCRIBER PRIORITY (0x20): Priority of the subscription relative to others.
@@ -616,7 +607,7 @@ namespace quicr {
         auto params = Parameters{}
                         .Add(ParameterType::kSubscriberPriority, priority)
                         .Add(ParameterType::kGroupOrder, group_order)
-                        .Add(ParameterType::kSubscriptionFilter, filter_type)
+                        .Add(GetFilterParameterType(filter), filter)
                         .Add(ParameterType::kForward, forward);
 
         Bytes buffer;
@@ -716,7 +707,8 @@ namespace quicr {
          * - AUTHORIZATION TOKEN (0x03)
          * - FORWARD (0x10)
          */
-        auto params = Parameters{};
+        const auto& filter = handler->GetFilter();
+        auto params = Parameters{}.Add(GetFilterParameterType(filter), filter);
 
         Bytes buffer;
         buffer << messages::SubscribeNamespace(rid, prefix, SubscribeOptions::kBoth, params);
@@ -918,7 +910,7 @@ namespace quicr {
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
-        auto filter_type = track_handler->GetFilterType();
+        const auto& filter = track_handler->GetFilter();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
 
         track_handler->SetTransport(GetSharedPtr());
@@ -933,7 +925,7 @@ namespace quicr {
                           th,
                           priority,
                           group_order,
-                          filter_type,
+                          filter,
                           delivery_timeout);
 
             // Handle joining fetch, if requested.
@@ -1262,7 +1254,7 @@ namespace quicr {
                               attributes.forward,
                               attributes.priority,
                               attributes.group_order,
-                              attributes.filter_type);
+                              attributes.filter);
 
                 return;
             }
@@ -1755,11 +1747,15 @@ namespace quicr {
                     if (auto handler = handler_ptr.get()) {
                         switch (flag) {
                             case StreamClosedFlag::kFin:
-                                handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                                if (handler->is_fetch_handler_) {
+                                    handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
+                                }
                                 handler->StreamClosed(stream_id, false);
                                 break;
                             case StreamClosedFlag::kReset:
-                                handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                                if (handler->is_fetch_handler_) {
+                                    handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
+                                }
                                 handler->StreamClosed(stream_id, true);
                                 break;
                         }

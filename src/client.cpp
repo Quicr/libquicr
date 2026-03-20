@@ -393,6 +393,7 @@ namespace quicr {
 
                     sub_handler->SetReceivedTrackAlias(msg.track_alias);
                     sub_handler->SetStatus(SubscribeTrackHandler::Status::kOk);
+                    sub_handler->SupportNewGroupRequest(true); // TODO: Change this to track extension post draft-16
                 }
 
                 conn_ctx.sub_by_recv_track_alias[msg.track_alias] = sub_it->second.Get<SubscribeTrackHandler>();
@@ -746,13 +747,16 @@ namespace quicr {
                 auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
                 auto group_order = msg.parameters.Get<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
-                auto filter_type =
-                  msg.parameters.Get<messages::FilterType>(messages::ParameterType::kSubscriptionFilter);
 
-                std::optional<uint64_t> new_group_request_id;
-                if (msg.parameters.Contains(messages::ParameterType::kNewGroupRequest)) {
-                    new_group_request_id = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                messages::Filter filter; // TODO: Support more filters.
+                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
+
+                auto new_group_request_id =
+                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                 if (auto h = pub_it->second.Get<PublishTrackHandler>()) {
                     h->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);

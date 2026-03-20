@@ -353,6 +353,20 @@ namespace quicr {
          */
         void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true);
 
+        /**
+         * @brief Set the publish status
+         * @param status                Status of publishing (aka publish objects)
+         */
+        void SetStatus(Status status) noexcept
+        {
+            if (publish_status_ == status) {
+                return;
+            }
+
+            publish_status_ = status;
+            StatusChanged(status);
+        }
+
         // --------------------------------------------------------------------------
         // Metrics
         // --------------------------------------------------------------------------
@@ -369,20 +383,6 @@ namespace quicr {
         // Internals
         // --------------------------------------------------------------------------
       protected:
-        /**
-         * @brief Set the publish status
-         * @param status                Status of publishing (aka publish objects)
-         */
-        void SetStatus(Status status) noexcept
-        {
-            if (publish_status_ == status) {
-                return;
-            }
-
-            publish_status_ = status;
-            StatusChanged(status);
-        }
-
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
@@ -409,7 +409,7 @@ namespace quicr {
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
-        bool support_new_group_request_{ true };
+        bool support_new_group_request_{ true }; /// TODO: For now, always support dynamic groups
         std::optional<uint64_t> pending_new_group_request_id_;
 
         friend class Transport;

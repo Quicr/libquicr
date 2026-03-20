@@ -74,16 +74,19 @@ namespace quicr {
         SubscribeTrackHandler(const FullTrackName& full_track_name,
                               std::uint8_t priority,
                               messages::GroupOrder group_order,
-                              messages::FilterType filter_type,
+                              const messages::Filter& filter = std::monostate{},
                               const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
                               bool publisher_initiated = false)
           : BaseTrackHandler(full_track_name)
           , priority_(priority)
           , group_order_(group_order)
-          , filter_type_(filter_type)
+          , filter_(filter)
           , joining_fetch_(publisher_initiated ? std::nullopt : joining_fetch)
           , publisher_initiated_(publisher_initiated)
         {
+            if (publisher_initiated) {
+                status_ = Status::kOk; // Initially set to kOk
+            }
         }
 
       public:
@@ -99,11 +102,11 @@ namespace quicr {
           const FullTrackName& full_track_name,
           std::uint8_t priority,
           messages::GroupOrder group_order = messages::GroupOrder::kAscending,
-          messages::FilterType filter_type = messages::FilterType::kLargestObject,
+          const messages::Filter& filter = std::monostate{},
           bool publisher_initiated = false)
         {
             return std::shared_ptr<SubscribeTrackHandler>(new SubscribeTrackHandler(
-              full_track_name, priority, group_order, filter_type, std::nullopt, publisher_initiated));
+              full_track_name, priority, group_order, filter, std::nullopt, publisher_initiated));
         }
 
         /**
@@ -141,7 +144,9 @@ namespace quicr {
          * @return FilterType value
          */
 
-        constexpr messages::FilterType GetFilterType() const noexcept { return filter_type_; }
+        messages::FilterType GetFilterType() const noexcept { return messages::GetFilterType(filter_); }
+
+        constexpr const messages::Filter& GetFilter() const noexcept { return filter_; }
 
         constexpr std::optional<messages::Location> GetLatestLocation() const noexcept { return latest_location_; }
 
@@ -203,7 +208,13 @@ namespace quicr {
         /**
          * @brief Set if subscribe handler is publisher initiated
          */
-        void SetPublishInitiated() noexcept { publisher_initiated_ = true; }
+        void SetPublishInitiated() noexcept
+        {
+            publisher_initiated_ = true;
+            if (status_ == Status::kNotSubscribed) {
+                status_ = Status::kOk; // Initially set to kOk
+            }
+        }
 
         /**
          * @brief Pause receiving data
@@ -398,7 +409,7 @@ namespace quicr {
         Status status_{ Status::kNotSubscribed };
         std::uint8_t priority_;
         messages::GroupOrder group_order_;
-        messages::FilterType filter_type_;
+        messages::Filter filter_;
         std::optional<messages::Location> latest_location_;
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;

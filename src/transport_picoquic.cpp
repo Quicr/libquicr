@@ -223,7 +223,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
         }
 
         case picoquic_callback_stream_reset: {
-            SPDLOG_LOGGER_TRACE(
+            SPDLOG_LOGGER_DEBUG(
               transport->logger, "Received RESET stream conn_id: {0} stream_id: {1}", conn_id, stream_id);
 
             picoquic_reset_stream_ctx(pq_cnx, stream_id);
@@ -1732,14 +1732,16 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
 
     bool should_reset = false;
     defer({
+        const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
+
         if (should_reset) {
             CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, true);
-            if (data_ctx->delete_on_empty && data_ctx->streams.empty()) {
+            if (data_ctx->delete_on_empty && empty) {
                 DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
             }
             return;
         }
-        const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
+
         if (data_ctx->delete_on_empty && empty) {
             DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
         } else if (stream_ctx.close_on_empty && empty) {
@@ -1760,8 +1762,9 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
                 stream_ctx.close_on_empty = true;
                 break;
             case StreamAction::kCloseStreamUseReset:
-                stream_ctx.close_on_empty = true;
+                stream_ctx.close_on_empty = false;
                 stream_ctx.close_using_reset = true;
+                should_reset = true;
                 break;
             case StreamAction::kNoAction:
                 break;

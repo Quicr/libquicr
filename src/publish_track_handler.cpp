@@ -361,12 +361,12 @@ namespace quicr {
             return;
         }
 
-        const auto group_it = stream_info_by_group_.find(group_id);
+        auto group_it = stream_info_by_group_.find(group_id);
         if (group_it == stream_info_by_group_.end()) {
             return;
         }
 
-        const auto subgroup_it = group_it->second.find(subgroup_id);
+        auto subgroup_it = group_it->second.find(subgroup_id);
         if (subgroup_it == group_it->second.end()) {
             return;
         }
@@ -392,10 +392,9 @@ namespace quicr {
                            0,
                            eflags);
 
-        auto& subgroup_map = stream_info_by_group_[group_id];
-        subgroup_map.erase(subgroup_id);
-        if (subgroup_map.empty()) {
-            stream_info_by_group_.erase(group_id);
+        group_it->second.erase(subgroup_it);
+        if (group_it->second.empty()) {
+            stream_info_by_group_.erase(group_it);
         }
     }
 
@@ -409,6 +408,10 @@ namespace quicr {
     {
         if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
             SetStatus(*forward ? Status::kOk : Status::kPaused);
+        }
+
+        if (auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
+            SetStatus(Status::kNewGroupRequested);
         }
     }
 

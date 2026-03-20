@@ -29,12 +29,12 @@ namespace quicr {
         };
 
       protected:
-        SubscribeNamespaceHandler(const TrackNamespace& prefix);
+        SubscribeNamespaceHandler(const TrackNamespace& prefix, const messages::Filter& filter = std::monostate{});
 
       public:
-        static auto Create(const TrackNamespace& prefix)
+        static auto Create(const TrackNamespace& prefix, const messages::Filter& filter = std::monostate{})
         {
-            return std::shared_ptr<SubscribeNamespaceHandler>(new SubscribeNamespaceHandler(prefix));
+            return std::shared_ptr<SubscribeNamespaceHandler>(new SubscribeNamespaceHandler(prefix, filter));
         }
 
         virtual ~SubscribeNamespaceHandler();
@@ -49,6 +49,10 @@ namespace quicr {
         virtual void StatusChanged(Status status);
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
+
+        messages::FilterType GetFilterType() const noexcept { return messages::GetFilterType(filter_); }
+
+        constexpr const messages::Filter& GetFilter() const noexcept { return filter_; }
 
         /**
          * @brief Get the status of the subscribe
@@ -101,6 +105,9 @@ namespace quicr {
       private:
         /// Prefix namespace for contained handlers.
         const TrackNamespace prefix_;
+
+        /// Filter value for namespace subscription.
+        messages::Filter filter_;
 
         /// Weak reference to the transport.
         std::weak_ptr<Transport> transport_;

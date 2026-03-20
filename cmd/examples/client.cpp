@@ -145,14 +145,13 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
-                            quicr::messages::FilterType filter_type,
                             const std::optional<JoiningFetch>& joining_fetch,
                             bool publisher_initiated = false,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
       : SubscribeTrackHandler(full_track_name,
                               128,
                               quicr::messages::GroupOrder::kAscending,
-                              filter_type,
+                              std::monostate{},
                               joining_fetch,
                               publisher_initiated)
     {
@@ -675,8 +674,8 @@ class MyClient : public quicr::Client
           ns_handler.lock() ? true : false);
 
         // Accept the PUBLISH.
-        auto handler = std::make_shared<MySubscribeTrackHandler>(
-          publish_attributes.track_full_name, quicr::messages::FilterType::kLargestObject, std::nullopt, true);
+        auto handler =
+          std::make_shared<MySubscribeTrackHandler>(publish_attributes.track_full_name, std::nullopt, true);
         ResolvePublish(*GetConnectionHandle(),
                        request_id,
                        publish_attributes,
@@ -1170,7 +1169,7 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
     const auto joining_fetch = join_fetch.has_value()
                                  ? Fetch{ 128, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
                                  : std::optional<Fetch>(std::nullopt);
-    const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, filter_type, joining_fetch);
+    const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, joining_fetch);
     track_handler->SetPriority(128);
 
     SPDLOG_INFO("Started subscriber");
@@ -1540,13 +1539,8 @@ main(int argc, char* argv[])
             }
         }
         if (enable_sub) {
-            auto filter_type = quicr::messages::FilterType::kLargestObject;
-            if (result.count("start_point")) {
-                if (result["start_point"].as<uint64_t>() == 0) {
-                    filter_type = quicr::messages::FilterType::kNextGroupStart;
-                    SPDLOG_INFO("Setting subscription filter to Next Group Start");
-                }
-            }
+            auto filter_type = quicr::messages::FilterType::kTrackFilter;
+
             std::optional<std::uint64_t> joining_fetch;
             if (result.count("joining_fetch")) {
                 joining_fetch = result["joining_fetch"].as<uint64_t>();
