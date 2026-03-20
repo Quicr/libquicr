@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <optional>
 #include <source_location>
 #include <stdexcept>
 #include <string>
@@ -875,6 +876,13 @@ namespace quicr::messages {
         }
 
         template<typename T>
+        std::optional<T> GetOptional(ExtensionType type) const
+        {
+            return extensions.contains(static_cast<std::uint64_t>(type)) ? std::make_optional(Get<T>(type))
+                                                                         : std::nullopt;
+        }
+
+        template<typename T>
         T GetImmutable(ExtensionType type) const
         {
             if constexpr (std::is_arithmetic_v<T>) {
@@ -893,6 +901,14 @@ namespace quicr::messages {
             }
 
             return FromBytes<T>(immutable_extensions.at(static_cast<std::uint64_t>(type)));
+        }
+
+        template<typename T>
+        std::optional<T> GetImmutableOptional(ExtensionType type) const
+        {
+            return immutable_extensions.contains(static_cast<std::uint64_t>(type))
+                     ? std::make_optional(GetImmutable<T>(type))
+                     : std::nullopt;
         }
 
         auto begin() const noexcept { return extensions.begin(); }
