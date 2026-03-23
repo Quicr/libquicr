@@ -1191,11 +1191,13 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
 {
     std::unique_lock lock(state_mutex_);
 
-    if (priority > 127) {
-        priority += 32;
+    auto pri_initial = priority;
+    priority <<= 1;
+
+    if (pri_initial > 127) {
+        priority += 64;
     }
 
-    priority <<= 1;
 
     const auto conn_it = conn_context_.find(conn_id);
     if (conn_it == conn_context_.end()) {
