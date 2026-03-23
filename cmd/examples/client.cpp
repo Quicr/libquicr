@@ -864,7 +864,9 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
             msg = quicr::example::GetTimeStr();
             SPDLOG_INFO("Group:{0} Object:{1}, Msg:{2}", group_id, object_id, msg);
         } else { // stdin
-            getline(std::cin, msg);
+            if (!getline(std::cin, msg)) {
+                break;
+            }
             SPDLOG_INFO("Send message: {0}", msg);
         }
 
