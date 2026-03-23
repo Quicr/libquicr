@@ -7,6 +7,7 @@
 #include <csignal>
 #include <iostream>
 #include <mutex>
+#include <unistd.h>
 
 namespace moq_example {
     std::mutex main_mutex;                     // Main's mutex
@@ -65,6 +66,9 @@ signalHandler(int signal_number)
             moq_example::termination_reason = "Unknown signal received";
             break;
     }
+
+    // Unblock any getline() waiting on stdin.
+    close(STDIN_FILENO);
 
     // Notify the main execution thread to terminate
     moq_example::cv.notify_all();
