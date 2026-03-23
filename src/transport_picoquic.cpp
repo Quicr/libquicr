@@ -1198,7 +1198,6 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
         priority += 64;
     }
 
-
     const auto conn_it = conn_context_.find(conn_id);
     if (conn_it == conn_context_.end()) {
         SPDLOG_LOGGER_ERROR(logger, "Invalid conn_id: {0}, cannot create data context", conn_id);
