@@ -906,7 +906,10 @@ DoPublisher(const std::string prefix_str,
 {
     using namespace std::chrono_literals;
 
-    defer(moq_example::terminate = true);
+    defer({
+        moq_example::terminate = true;
+        moq_example::cv.notify_all();
+    });
 
     if (!use_announce) {
         quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, names.front());
