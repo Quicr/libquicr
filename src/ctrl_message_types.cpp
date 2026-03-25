@@ -234,17 +234,6 @@ namespace quicr::messages {
         // Sort on type for delta encoding.
         std::ranges::sort(kvps, [](const auto& a, const auto& b) { return a.type < b.type; });
 
-        // Calculate total size.
-        std::size_t total_length = 0;
-        std::uint64_t prev_type_for_size = 0;
-        for (const auto& kvp : kvps) {
-            total_length += kvp.Size(prev_type_for_size);
-            prev_type_for_size = static_cast<std::uint64_t>(kvp.type);
-        }
-
-        // Total length of all extension headers (varint).
-        buffer << static_cast<std::uint64_t>(total_length);
-
         // Write the KVP extensions.
         std::uint64_t prev_type = 0;
         for (const auto& kvp : kvps) {
@@ -257,8 +246,7 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, TrackExtensions& extensions)
     {
-        std::uint64_t length = 0;
-        buffer = buffer >> length;
+        auto length = buffer.size(); // Track extensions use the remaining bytes of the message
 
         std::uint64_t prev_type = 0;
         std::uint64_t bytes_consumed = 0;
