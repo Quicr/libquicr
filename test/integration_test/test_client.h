@@ -27,6 +27,11 @@ namespace quicr_test {
             publish_received_ = std::move(promise);
         }
 
+        std::shared_ptr<quicr::SubscribeTrackHandler> GetLastPublishReceivedSubHandler() const
+        {
+            return last_publish_received_sub_handler_;
+        }
+
         void PublishReceived(quicr::ConnectionHandle connection_handle,
                              uint64_t request_id,
                              const quicr::messages::PublishAttributes& publish_attributes,
@@ -45,5 +50,6 @@ namespace quicr_test {
         std::optional<std::promise<quicr::TrackNamespace>> publish_namespace_received_;
         std::optional<std::promise<quicr::FullTrackName>> publish_received_;
         std::optional<std::promise<quicr::messages::RequestID>> publish_namespace_status_changed_;
+        std::shared_ptr<quicr::SubscribeTrackHandler> last_publish_received_sub_handler_;
     };
 }
