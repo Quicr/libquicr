@@ -223,7 +223,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
         }
 
         case picoquic_callback_stop_sending:
-            // TODO: Treat
+            // Stop sending is basically a reset initiated by the other side. MOQT suggests to RESET on this
             picoquic_reset_stream(pq_cnx, stream_id, 0);
             [[fallthrough]];
 
