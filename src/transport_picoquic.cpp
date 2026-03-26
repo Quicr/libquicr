@@ -907,9 +907,11 @@ PicoQuicTransport::Start()
 {
     uint64_t current_time = picoquic_current_time();
 
+#if 0
     if (debug) {
         debug_set_stream(stderr);
     }
+#endif
 
     if (tconfig_.use_reset_wait_strategy) {
         SPDLOG_LOGGER_INFO(logger, "Using Reset and Wait congestion control strategy");

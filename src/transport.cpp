@@ -3,7 +3,6 @@
 
 #include "quicr/detail/transport.h"
 
-#include "../c-bridge/include/quicr/quicr_bridge.h"
 #include "quicr/detail/ctrl_messages.h"
 #include "quicr/detail/messages.h"
 

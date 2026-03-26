@@ -359,7 +359,7 @@ namespace quicr {
          * @param subgroup_id
          * @param completed
          */
-        void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true);
+        virtual void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true);
 
         /**
          * @brief Set the publish status
