@@ -415,4 +415,18 @@ namespace quicr {
         }
     }
 
+    void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, bool reset)
+    {
+        for (auto& [group_id, subgroups] : stream_info_by_group_) {
+            for (auto& [subgroup_id, stream_info] : subgroups) {
+                if (stream_info.stream_id == stream_id) {
+                    subgroups.erase(subgroup_id);
+                    if (subgroups.empty()) {
+                        stream_info_by_group_.erase(group_id);
+                    }
+                    return;
+                }
+            }
+        }
+    }
 } // namespace quicr

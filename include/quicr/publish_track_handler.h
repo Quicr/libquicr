@@ -223,6 +223,14 @@ namespace quicr {
          */
         constexpr messages::Location GetLargestLocation() const noexcept { return largest_location_; }
 
+        /**
+         * @brief Notification that a stream has been closed.
+         * @param stream_id The ID of the stream being closed.
+         * @param reset     True if stream closed by reset
+         *
+         */
+        virtual void StreamClosed(std::uint64_t stream_id, bool reset = false);
+
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
         // --------------------------------------------------------------------------

@@ -209,7 +209,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                         if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                             rx_buf_it->second.closed = true;
                             transport->OnStreamClosed(
-                              conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::kFin);
+                              conn_id, stream_id, rx_buf_it->second.rx_ctx, std::nullopt, StreamClosedFlag::kFin);
                         }
                     }
 
@@ -222,6 +222,11 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             break;
         }
 
+        case picoquic_callback_stop_sending:
+            // TODO: Treat
+            picoquic_reset_stream(pq_cnx, stream_id, 0);
+            [[fallthrough]];
+
         case picoquic_callback_stream_reset: {
             SPDLOG_LOGGER_DEBUG(
               transport->logger, "Received RESET stream conn_id: {0} stream_id: {1}", conn_id, stream_id);
@@ -232,17 +237,20 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                 const auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
                 if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                     rx_buf_it->second.closed = true;
-                    transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::kReset);
+                    transport->OnStreamClosed(
+                      conn_id, stream_id, rx_buf_it->second.rx_ctx, std::nullopt, StreamClosedFlag::kReset);
                 }
             }
 
             if (data_ctx != nullptr) {
-                SPDLOG_LOGGER_DEBUG(transport->logger,
-                                    "Received RESET stream; conn_id: {} data_ctx_id: {} stream_id: {}",
-                                    data_ctx->conn_id,
-                                    data_ctx->data_ctx_id,
-                                    stream_id);
+                SPDLOG_LOGGER_DEBUG(
+                  transport->logger,
+                  "Received RESET stream with data context; conn_id: {} data_ctx_id: {} stream_id: {}",
+                  data_ctx->conn_id,
+                  data_ctx->data_ctx_id,
+                  stream_id);
 
+                transport->OnStreamClosed(conn_id, stream_id, nullptr, data_ctx->request_id, StreamClosedFlag::kReset);
                 transport->DeleteDataContext(conn_id, data_ctx->data_ctx_id, false);
             }
 
@@ -681,7 +689,8 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                 auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
                 if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                     rx_buf_it->second.closed = true;
-                    transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::kFin);
+                    transport->OnStreamClosed(
+                      conn_id, stream_id, rx_buf_it->second.rx_ctx, std::nullopt, StreamClosedFlag::kFin);
                 }
             }
 
@@ -768,7 +777,8 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                 auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
                 if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                     rx_buf_it->second.closed = true;
-                    transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::kReset);
+                    transport->OnStreamClosed(
+                      conn_id, stream_id, rx_buf_it->second.rx_ctx, std::nullopt, StreamClosedFlag::kReset);
                 }
 
                 ClearDataCtxStream(conn_ctx, stream_id);
@@ -796,7 +806,8 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                 auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
                 if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                     rx_buf_it->second.closed = true;
-                    transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, StreamClosedFlag::kReset);
+                    transport->OnStreamClosed(
+                      conn_id, stream_id, rx_buf_it->second.rx_ctx, std::nullopt, StreamClosedFlag::kReset);
                 }
 
                 ClearDataCtxStream(conn_ctx, stream_id);
@@ -1187,7 +1198,8 @@ DataContextId
 PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
                                      bool use_reliable_transport,
                                      uint8_t priority,
-                                     bool bidir)
+                                     bool bidir,
+                                     std::optional<uint64_t> request_id)
 {
     std::unique_lock lock(state_mutex_);
 
@@ -1214,6 +1226,7 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
         data_ctx_it->second.conn_id = conn_id;
         data_ctx_it->second.is_bidir = bidir;
         data_ctx_it->second.data_ctx_id = conn_it->second.next_data_ctx_id++; // Set and bump next data_ctx_id
+        data_ctx_it->second.request_id = request_id;
 
         data_ctx_it->second.uses_reset_wait = tconfig_.use_reset_wait_strategy;
 
@@ -2084,11 +2097,12 @@ void
 PicoQuicTransport::OnStreamClosed(TransportConnId conn_id,
                                   uint64_t stream_id,
                                   std::shared_ptr<StreamRxContext> rx_ctx,
+                                  std::optional<uint64_t> request_id,
                                   StreamClosedFlag flag)
 {
     SPDLOG_DEBUG("Stream {} closed for connection {}", stream_id, conn_id);
     cbNotifyQueue_.Push([=, rx_ctx = std::move(rx_ctx), this]() {
-        delegate_.OnStreamClosed(conn_id, stream_id, std::move(rx_ctx), flag);
+        delegate_.OnStreamClosed(conn_id, stream_id, std::move(rx_ctx), request_id, flag);
     });
 }
 

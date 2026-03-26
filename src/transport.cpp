@@ -3,6 +3,7 @@
 
 #include "quicr/detail/transport.h"
 
+#include "../c-bridge/include/quicr/quicr_bridge.h"
 #include "quicr/detail/ctrl_messages.h"
 #include "quicr/detail/messages.h"
 
@@ -526,9 +527,12 @@ namespace quicr {
         auto params = Parameters{}
                         .Add(ParameterType::kSubscriberPriority, priority)
                         .Add(ParameterType::kGroupOrder, group_order)
-                        .Add(GetFilterParameterType(filter), filter)
                         .Add(ParameterType::kForward, 1)
                         .AddOptional(ParameterType::kDeliveryTimeout, delivery_timeout);
+
+        if (auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
+            params.Add(filter_type, filter);
+        }
 
         Bytes buffer;
         buffer << Subscribe(request_id, tfn.name_space, tfn.name, params);
@@ -1145,7 +1149,8 @@ namespace quicr {
           quic_transport_->CreateDataContext(conn_id,
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
                                              track_handler->default_priority_,
-                                             false);
+                                             false,
+                                             track_handler->GetRequestId());
 
         // Set this transport as the one for the publisher to use.
         track_handler->SetTransport(GetSharedPtr());
@@ -1706,10 +1711,23 @@ namespace quicr {
     void Transport::OnStreamClosed(const ConnectionHandle& connection_handle,
                                    [[maybe_unused]] std::uint64_t stream_id,
                                    std::shared_ptr<StreamRxContext> rx_ctx,
+                                   std::optional<uint64_t> request_id,
                                    StreamClosedFlag flag)
     {
-        if (!rx_ctx->caller_any.has_value()) {
-            SPDLOG_LOGGER_DEBUG(logger_, "Received stream closed with null handler");
+        SPDLOG_LOGGER_DEBUG(logger_, "Stream {} closed", stream_id);
+
+        if (rx_ctx == nullptr) { // If not RX, it's for TX/publisher
+            if (request_id.has_value()) {
+                const auto& conn_ctx = connections_[connection_handle];
+                const auto& handler_it = conn_ctx.request_handlers.find(*request_id);
+                if (handler_it != conn_ctx.request_handlers.end()) {
+                    if (auto pub_handler = handler_it->second.Get<PublishTrackHandler>()) {
+                        SPDLOG_LOGGER_DEBUG(
+                          logger_, "Stream {} closed, calling publish handler stream close", stream_id);
+                        pub_handler->StreamClosed(stream_id, flag == StreamClosedFlag::kReset);
+                    }
+                }
+            }
             return;
         }
 
