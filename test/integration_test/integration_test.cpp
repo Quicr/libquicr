@@ -1306,6 +1306,63 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         }
     };
 
+    auto test_dynamic_groups_publisher_initiated = [&](const std::string& protocol_scheme) {
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        TrackNamespace prefix_namespace({ "dyngrp" });
+
+        FullTrackName ftn;
+        ftn.name_space = prefix_namespace;
+        ftn.name = { 1, 2, 3 };
+
+        // Subscriber sets up SubscribeNamespace first, then publisher publishes.
+        std::promise<FullTrackName> publish_promise;
+        auto publish_future = publish_promise.get_future();
+        subscriber->SetPublishReceivedPromise(std::move(publish_promise));
+
+        CHECK_NOTHROW(subscriber->SubscribeNamespace(SubscribeNamespaceHandler::Create(prefix_namespace)));
+
+        // Give the namespace subscription time to settle.
+        std::this_thread::sleep_for(kDefaultTimeout);
+
+        // Publish the track, watching for a new group request.
+        std::atomic new_group_was_requested{ false };
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(
+          ftn, 1, 5000, [&new_group_was_requested](const PublishTrackHandler::Status status) {
+              if (status == PublishTrackHandler::Status::kNewGroupRequested) {
+                  new_group_was_requested = true;
+              }
+          });
+        publisher->PublishTrack(pub_handler);
+        const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
+        REQUIRE(pub_ready);
+
+        // Subscriber should receive the PUBLISH for this track via namespace match.
+        auto publish_status = publish_future.wait_for(std::chrono::milliseconds(3000));
+        REQUIRE(publish_status == std::future_status::ready);
+        const auto& received_name = publish_future.get();
+        CHECK_EQ(received_name.name_space, ftn.name_space);
+        CHECK_EQ(received_name.name, ftn.name);
+
+        // Get the subscribe handler created by PublishReceived.
+        auto sub_handler = subscriber->GetLastPublishReceivedSubHandler();
+        REQUIRE(sub_handler);
+
+        // Wait for the subscribe to be set up.
+        const bool sub_ready =
+          WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        REQUIRE(sub_ready);
+
+        // Should reflect dynamic group support from the publisher.
+        CHECK(sub_handler->IsNewGroupRequestSupported());
+
+        // Request a new group; it should make it back to the publisher.
+        sub_handler->RequestNewGroup();
+        const bool received = WaitFor([&new_group_was_requested]() { return new_group_was_requested.load(); });
+        CHECK(received);
+    };
+
     SUBCASE("Raw QUIC")
     {
         test_dynamic_groups("moq", true);
@@ -1314,5 +1371,15 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
     SUBCASE("WebTransport")
     {
         test_dynamic_groups("https", true);
+    }
+
+    SUBCASE("Raw QUIC - Publisher initiated")
+    {
+        test_dynamic_groups_publisher_initiated("moq");
+    }
+
+    SUBCASE("WebTransport - Publisher initiated")
+    {
+        test_dynamic_groups_publisher_initiated("https");
     }
 }
