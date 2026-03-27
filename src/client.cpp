@@ -474,6 +474,8 @@ namespace quicr {
                 auto new_group_request_id =
                   msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
+                auto dynamic_groups = msg.track_extensions.GetOptional<bool>(messages::ExtensionType::kDynamicGroups);
+
                 messages::PublishAttributes attrs;
                 attrs.track_full_name = tfn;
                 attrs.track_alias = msg.track_alias;
@@ -483,6 +485,7 @@ namespace quicr {
                 attrs.is_publisher_initiated = true;
                 attrs.new_group_request_id = new_group_request_id;
                 attrs.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
+                attrs.dynamic_groups = dynamic_groups.value_or(false);
 
                 std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
 
