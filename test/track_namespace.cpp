@@ -16,7 +16,8 @@ FindTracks(std::span<const TrackNamespace> tracks, const TrackNamespace& track)
     std::vector<TrackNamespace> matching_tracks;
 
     std::for_each(tracks.begin(), tracks.end(), [&](const auto& t) {
-        if (track.IsPrefixOf(t))
+        const auto match = track.IsPrefixOf(t);
+        if (match == std::partial_ordering::equivalent || match == std::partial_ordering::less)
             matching_tracks.emplace_back(t);
     });
 
@@ -82,8 +83,9 @@ TEST_CASE("IsPrefix vs HasPrefix")
     TrackNamespace long_ns{ "example"s, "chat555"s, "user2"s, "dev1"s, "time4"s };
     TrackNamespace short_ns{ "example"s, "chat555"s, "user2"s };
 
-    CHECK(short_ns.IsPrefixOf(long_ns));
-    CHECK_FALSE(long_ns.IsPrefixOf(short_ns));
+    auto matched = long_ns.IsPrefixOf(short_ns);
+    CHECK(short_ns.IsPrefixOf(long_ns) == std::partial_ordering::less);
+    CHECK_FALSE(long_ns.IsPrefixOf(short_ns) != std::partial_ordering::greater);
 
     CHECK(long_ns.HasSamePrefix(short_ns));
     CHECK(short_ns.HasSamePrefix(long_ns));

@@ -181,7 +181,8 @@ namespace quicr {
 
         // Fan out PUBLISH_NAMESPACE for matching namespaces.
         for (const auto& name_space : response.namespaces) {
-            if (!prefix.IsPrefixOf(name_space)) {
+            const auto match = prefix.IsPrefixOf(name_space);
+            if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
                 SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
                 continue;
             }
