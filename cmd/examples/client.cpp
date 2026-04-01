@@ -796,6 +796,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
             case MyPublishTrackHandler::Status::kNoSubscribers:
                 // Start a new group when a subscriber joins
                 if (object_id) {
+                    track_handler->EndSubgroup(group_id, subgroup_id);
                     group_id++;
                     object_id = 0;
                     subgroup_id = 0;

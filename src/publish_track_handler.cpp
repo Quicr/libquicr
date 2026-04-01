@@ -82,9 +82,16 @@ namespace quicr {
                 eflags.use_reliable = true;
 
                 if (is_new_stream) {
+                    // Disable creating stream and doing pipeline on new stream considering delta and subgroups needs
+                    // first object parsed
+#if 0
                     auto stream_id =
                       transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, GetDefaultPriority());
                     stream_info_by_group_[group_id][subgroup_id] = { stream_id, group_id, subgroup_id };
+#endif
+
+                    // Do not pipeline on new stream till PublishObject() is called once
+                    return PublishObjectStatus::kObjectDataIncomplete;
                 }
 
                 auto group_it = stream_info_by_group_.find(group_id);
@@ -131,6 +138,7 @@ namespace quicr {
             largest_location_.object = object_headers.object_id;
         }
 
+        std::map<std::uint64_t, StreamInfo> subgroup_it;
         bool is_stream_header_needed{ false };
         uint64_t group_id_delta{ 0 };
         uint64_t object_id_delta{ 0 };
@@ -142,25 +150,20 @@ namespace quicr {
             decltype(group_it->second.begin()) subgroup_it;
 
             if (group_it == stream_info_by_group_.end()) {
-                is_stream_header_needed = true;
+                auto [it, _] = stream_info_by_group_.try_emplace(object_headers.group_id);
+                group_it = std::move(it);
+            }
 
-                auto stream_id = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
+            subgroup_it = group_it->second.find(object_headers.subgroup_id);
+            if (subgroup_it == group_it->second.end()) {
+                is_stream_header_needed = true;
+                stream_id = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
+
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =
                   subgroup_map.emplace(object_headers.subgroup_id,
                                        StreamInfo{ stream_id, object_headers.group_id, object_headers.subgroup_id });
                 subgroup_it = std::move(it);
-            } else {
-                subgroup_it = group_it->second.find(object_headers.subgroup_id);
-                if (subgroup_it == group_it->second.end()) {
-                    is_stream_header_needed = true;
-
-                    auto stream_id = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
-                    auto [it, _] = group_it->second.emplace(
-                      object_headers.subgroup_id,
-                      StreamInfo{ stream_id, object_headers.group_id, object_headers.subgroup_id });
-                    subgroup_it = std::move(it);
-                }
             }
 
             if (subgroup_it->second.last_object_id.has_value()) {
@@ -214,9 +217,6 @@ namespace quicr {
                 return PublishObjectStatus::kNotAuthorized;
             case Status::kNewGroupRequested:
                 // reset the status to ok to imply change
-                if (!is_stream_header_needed) {
-                    break;
-                }
                 publish_status_ = Status::kOk;
                 break;
             case Status::kSubscriptionUpdated:
@@ -225,7 +225,6 @@ namespace quicr {
                  * TODO: Need to revisit the below since subgroups doesn't really support this
                  * Always start a new stream on subscription update to support peering/pipelining
                  */
-                // is_stream_header_needed = true;
 
                 publish_status_ = Status::kOk;
                 break;
@@ -417,16 +416,21 @@ namespace quicr {
 
     void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, bool reset)
     {
-        for (auto& [group_id, subgroups] : stream_info_by_group_) {
-            for (auto& [subgroup_id, stream_info] : subgroups) {
-                if (stream_info.stream_id == stream_id) {
-                    subgroups.erase(subgroup_id);
-                    if (subgroups.empty()) {
-                        stream_info_by_group_.erase(group_id);
+        for (auto group_it = stream_info_by_group_.begin(); group_it != stream_info_by_group_.end();) {
+            for (auto subgroup_it = group_it->second.begin(); subgroup_it != group_it->second.end();) {
+                if (subgroup_it->second.stream_id == stream_id) {
+                    subgroup_it = group_it->second.erase(subgroup_it);
+
+                    if (group_it->second.empty()) {
+                        group_it = stream_info_by_group_.erase(group_it);
                     }
+
                     return;
                 }
+
+                ++subgroup_it;
             }
+            ++group_it;
         }
     }
 } // namespace quicr

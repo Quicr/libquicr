@@ -2734,7 +2734,6 @@ PicoQuicTransport::CreateStreamInternal(TransportConnId conn_id, DataContextId d
 
     data_ctx_it->second.streams[stream_id] = std::move(stream);
 
-    picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 1, cb_stream_ctx);
     picoquic_set_stream_priority(conn_it->second.pq_cnx, stream_id, (priority << 1));
 
     return stream_id;
