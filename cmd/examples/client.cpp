@@ -783,6 +783,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
                 break;
             case MyPublishTrackHandler::Status::kNewGroupRequested:
                 if (object_id) {
+                    track_handler->EndSubgroup(group_id, subgroup_id);
                     group_id++;
                     object_id = 0;
                     subgroup_id = 0;
@@ -846,6 +847,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
         }
 
         if (object_id && object_id % 15 == 0) { // Set new group
+            track_handler->EndSubgroup(group_id, subgroup_id);
             object_id = 0;
             subgroup_id = 0;
             group_id++;

@@ -371,11 +371,6 @@ namespace quicr {
         }
 
         object_msg_buffer_.clear();
-        messages::StreamSubGroupObject object;
-        object.object_status = ObjectStatus::kEndOfSubGroup;
-        object.properties.emplace(*GetStreamMode());
-        object.object_delta = 0;
-        object_msg_buffer_ << object;
 
         ITransport::EnqueueFlags eflags;
         eflags.use_reliable = true;
@@ -385,7 +380,7 @@ namespace quicr {
         transport->Enqueue(GetConnectionId(),
                            publish_data_ctx_id_,
                            subgroup_it->second.stream_id,
-                           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
+                           {},
                            default_priority_,
                            default_ttl_,
                            0,
