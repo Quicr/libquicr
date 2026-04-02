@@ -1241,55 +1241,59 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
 void
 PicoQuicTransport::Close(const TransportConnId& conn_id, uint64_t app_reason_code)
 {
-    std::lock_guard<std::mutex> _(state_mutex_);
+    RunPqFunction([=, this]() {
+        std::lock_guard<std::mutex> _(state_mutex_);
 
-    const auto conn_it = conn_context_.find(conn_id);
+        const auto conn_it = conn_context_.find(conn_id);
 
-    if (conn_it == conn_context_.end())
-        return;
+        if (conn_it == conn_context_.end())
+            return 1;
 
-    // Remove pointer references in picoquic for active streams
-    for (const auto& [stream_id, rx_buf] : conn_it->second.rx_stream_buffer) {
-        picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 0, NULL);
-        picoquic_unlink_app_stream_ctx(conn_it->second.pq_cnx, stream_id);
+        // Remove pointer references in picoquic for active streams
+        for (const auto& [stream_id, rx_buf] : conn_it->second.rx_stream_buffer) {
+            picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 0, NULL);
+            picoquic_unlink_app_stream_ctx(conn_it->second.pq_cnx, stream_id);
 
-        if (!rx_buf.closed) {
-            picoquic_reset_stream(conn_it->second.pq_cnx, stream_id, 0);
+            if (!rx_buf.closed) {
+                picoquic_reset_stream(conn_it->second.pq_cnx, stream_id, 0);
+            }
         }
-    }
 
-    // Only one datagram context is per connection, if it's deleted, then the connection is to be terminated
-    switch (app_reason_code) {
-        case 1: // idle timeout
-            OnConnectionStatus(conn_id, TransportStatus::kIdleTimeout);
-            break;
+        // Only one datagram context is per connection, if it's deleted, then the connection is to be terminated
+        switch (app_reason_code) {
+            case 1: // idle timeout
+                OnConnectionStatus(conn_id, TransportStatus::kIdleTimeout);
+                break;
 
-        case 100: // Client shutting down connection
-            OnConnectionStatus(conn_id, TransportStatus::kRemoteRequestClose);
-            break;
+            case 100: // Client shutting down connection
+                OnConnectionStatus(conn_id, TransportStatus::kRemoteRequestClose);
+                break;
 
-        default:
-            OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
-            break;
-    }
+            default:
+                OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
+                break;
+        }
 
-    if (not is_server_mode) {
-        SetStatus(TransportStatus::kShutdown);
-    }
+        if (not is_server_mode) {
+            SetStatus(TransportStatus::kShutdown);
+        }
 
-    // Cleanup client-owned WebTransport h3_ctx before closing connection
-    // Server-side h3_ctx is managed by h3zero library and shared across connections
-    if (conn_it->second.wt_h3_ctx_owned && conn_it->second.wt_h3_ctx) {
-        SPDLOG_LOGGER_DEBUG(logger, "Cleaning up client-owned h3_ctx for connection {}", conn_id);
-        // Note: h3zero_callback_delete_context may not exist in all versions
-        // The h3zero library typically cleans this up automatically on connection close
-        // So we just mark it as null here
-        conn_it->second.wt_h3_ctx = nullptr;
-    }
+        // Cleanup client-owned WebTransport h3_ctx before closing connection
+        // Server-side h3_ctx is managed by h3zero library and shared across connections
+        if (conn_it->second.wt_h3_ctx_owned && conn_it->second.wt_h3_ctx) {
+            SPDLOG_LOGGER_DEBUG(logger, "Cleaning up client-owned h3_ctx for connection {}", conn_id);
+            // Note: h3zero_callback_delete_context may not exist in all versions
+            // The h3zero library typically cleans this up automatically on connection close
+            // So we just mark it as null here
+            conn_it->second.wt_h3_ctx = nullptr;
+        }
 
-    picoquic_close(conn_it->second.pq_cnx, app_reason_code);
+        picoquic_close(conn_it->second.pq_cnx, app_reason_code);
 
-    conn_context_.erase(conn_it);
+        conn_context_.erase(conn_it);
+
+        return 0;
+    });
 }
 
 void
