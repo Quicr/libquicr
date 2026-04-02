@@ -195,6 +195,10 @@ namespace quicr {
 
         const std::vector<std::span<const uint8_t>>& GetEntries() const noexcept { return entries_; }
         const auto& GetHashes() const noexcept { return hashes_; }
+        auto Str() const noexcept
+        {
+            return std::string_view(reinterpret_cast<const char*>(bytes_.data()), bytes_.size());
+        }
 
         // NOLINTBEGIN(readability-identifier-naming)
         auto begin() noexcept { return bytes_.begin(); }
@@ -284,6 +288,13 @@ namespace quicr {
     {
         TrackNamespace name_space;
         std::vector<uint8_t> name;
+
+        auto NameStr() const noexcept
+        {
+            return std::string_view(reinterpret_cast<const char*>(name.data()), name.size());
+        }
+
+        auto NamespaceStr() const noexcept { return name_space.Str(); }
     };
 }
 

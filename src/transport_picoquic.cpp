@@ -2736,17 +2736,20 @@ PicoQuicTransport::CreateStreamInternal(TransportConnId conn_id, DataContextId d
 void
 PicoQuicTransport::CloseStream(TransportConnId conn_id, uint64_t data_ctx_id, uint64_t stream_id, bool use_reset)
 {
-    auto conn_ctx = GetConnContext(conn_id);
-    if (!conn_ctx) {
-        return;
-    }
+    RunPqFunction([this, conn_id = conn_id, data_ctx_id = data_ctx_id, stream_id, use_reset]() {
+        auto conn_ctx = GetConnContext(conn_id);
+        if (!conn_ctx) {
+            return 1;
+        }
 
-    auto data_ctx = conn_ctx->active_data_contexts.find(data_ctx_id);
-    if (data_ctx == conn_ctx->active_data_contexts.end()) {
-        CloseStream(*conn_ctx, nullptr, stream_id, use_reset);
-    } else {
-        CloseStream(*conn_ctx, std::addressof(data_ctx->second), stream_id, use_reset);
-    }
+        auto data_ctx = conn_ctx->active_data_contexts.find(data_ctx_id);
+        if (data_ctx == conn_ctx->active_data_contexts.end()) {
+            CloseStream(*conn_ctx, nullptr, stream_id, use_reset);
+        } else {
+            CloseStream(*conn_ctx, std::addressof(data_ctx->second), stream_id, use_reset);
+        }
+        return 0;
+    });
 }
 
 void
