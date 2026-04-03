@@ -304,6 +304,7 @@ namespace quicr {
         TransportStatus Status() const override;
         TransportConnId Start() override;
         void Close(const TransportConnId& conn_id, uint64_t app_reason_code = 100) override;
+        void CloseInternal(const TransportConnId& conn_id, uint64_t app_reason_code = 100);
 
         virtual bool GetPeerAddrInfo(const TransportConnId& conn_id, sockaddr_storage* addr) override;
 
