@@ -1978,19 +1978,21 @@ try {
 
         // Parse the capsule data using picowt_receive_capsule
         // This accumulates partial capsule data across multiple calls
-        int ret = picowt_receive_capsule(conn_ctx->pq_cnx,
-                                         conn_ctx->wt_control_stream_ctx,
-                                         bytes.data(),
-                                         bytes.data() + bytes.size(),
-                                         &conn_ctx->wt_capsule);
+        if (!is_fin) {
+            int ret = picowt_receive_capsule(conn_ctx->pq_cnx,
+                                             conn_ctx->wt_control_stream_ctx,
+                                             bytes.data(),
+                                             bytes.data() + bytes.size(),
+                                             &conn_ctx->wt_capsule);
 
-        if (ret != 0) {
-            SPDLOG_LOGGER_ERROR(logger,
-                                "OnRecvStreamBytes: Failed to parse capsule on control stream {} for conn_id={}",
-                                stream_id,
-                                conn_ctx->conn_id);
-            picowt_release_capsule(&conn_ctx->wt_capsule);
-            return;
+            if (ret != 0) {
+                SPDLOG_LOGGER_ERROR(logger,
+                                    "OnRecvStreamBytes: Failed to parse capsule on control stream {} for conn_id={}",
+                                    stream_id,
+                                    conn_ctx->conn_id);
+                picowt_release_capsule(&conn_ctx->wt_capsule);
+                return;
+            }
         }
 
         // Check if capsule is fully received and stored

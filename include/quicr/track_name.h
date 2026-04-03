@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -197,7 +198,19 @@ namespace quicr {
         const auto& GetHashes() const noexcept { return hashes_; }
         auto Str() const noexcept
         {
-            return std::string_view(reinterpret_cast<const char*>(bytes_.data()), bytes_.size());
+            std::stringstream out;
+            bool add_delimiter{ false };
+            for (auto& entry : entries_) {
+                if (add_delimiter) {
+                    out << '/';
+                }
+
+                out << std::string_view(reinterpret_cast<const char*>(entry.data()), entry.size());
+
+                add_delimiter = true;
+            }
+
+            return out.str();
         }
 
         // NOLINTBEGIN(readability-identifier-naming)
