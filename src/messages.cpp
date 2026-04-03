@@ -696,7 +696,8 @@ namespace quicr::messages {
                 break;
             }
             case SubgroupIdType::kIsZero: {
-                [[fallthrough]];
+                // Subgroup id is not included, skip for serialization
+                break;
             }
             case SubgroupIdType::kSetFromFirstObject: {
                 if (msg.subgroup_id.has_value()) {
