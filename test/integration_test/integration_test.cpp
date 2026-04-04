@@ -208,7 +208,9 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     {
     }
 
-    void ObjectReceived(const ObjectHeaders& object_headers, BytesSpan data) override
+    void ObjectReceived(const ObjectHeaders& object_headers,
+                        BytesSpan data,
+                        std::optional<messages::StreamHeaderProperties>) override
     {
         std::lock_guard lock(mutex_);
         if (!data.empty()) {
@@ -841,7 +843,9 @@ class TestFetchTrackHandler final : public FetchTrackHandler
           full_track_name, priority, group_order, start_location, end_location);
     }
 
-    void ObjectReceived(const ObjectHeaders& headers, BytesSpan data) override
+    void ObjectReceived(const ObjectHeaders& headers,
+                        BytesSpan data,
+                        std::optional<messages::StreamHeaderProperties>) override
     {
         std::lock_guard lock(mutex_);
         received_objects_.push_back(

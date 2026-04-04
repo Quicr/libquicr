@@ -393,7 +393,9 @@ class BridgeSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     /**
      * @brief Handle received objects and notify C callback
      */
-    void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders& object_headers,
+                        quicr::BytesSpan data,
+                        std::optional<quicr::messages::StreamHeaderProperties> stream_mode) override
     {
         if (received_callback) {
             // Convert C++ object to C object
@@ -580,7 +582,9 @@ class BridgeFetchTrackHandler : public quicr::FetchTrackHandler
     /**
      * @brief Handle received objects and notify C callback
      */
-    void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders& object_headers,
+                        quicr::BytesSpan data,
+                        std::optional<quicr::messages::StreamHeaderProperties>) override
     {
         if (received_callback) {
             // Convert C++ object to C object
