@@ -118,9 +118,10 @@ namespace quicr {
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
 
-    PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
-                                                                                BytesSpan data,
-                                                                                std::optional<messages::StreamHeaderProperties> stream_mode)
+    PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(
+      const ObjectHeaders& object_headers,
+      BytesSpan data,
+      std::optional<messages::StreamHeaderProperties> stream_mode)
     {
         auto transport = GetTransport().lock();
 

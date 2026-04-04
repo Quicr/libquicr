@@ -79,10 +79,11 @@ namespace quicr {
          *
          * @returns PublishObjectStatus from publish handler
          */
-        virtual PublishTrackHandler::PublishObjectStatus PublishObject(uint64_t track_alias,
-                                                                       const ObjectHeaders& object_headers,
-                                                                       BytesSpan data,
-                                                                       std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt);
+        virtual PublishTrackHandler::PublishObjectStatus PublishObject(
+          uint64_t track_alias,
+          const ObjectHeaders& object_headers,
+          BytesSpan data,
+          std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt);
 
         /**
          * @brief Passthrough to Forward received object data to each publish handler
