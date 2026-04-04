@@ -6,8 +6,10 @@
 #include "quicr/detail/transport.h"
 
 namespace quicr {
-    PublishTrackHandler::PublishObjectStatus PublishFetchHandler::PublishObject(const ObjectHeaders& object_headers,
-                                                                                const BytesSpan data)
+    PublishTrackHandler::PublishObjectStatus PublishFetchHandler::PublishObject(
+      const ObjectHeaders& object_headers,
+      const BytesSpan data,
+      [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
         auto transport = GetTransport().lock();
 

@@ -119,7 +119,8 @@ namespace quicr {
     }
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(const ObjectHeaders& object_headers,
-                                                                                BytesSpan data)
+                                                                                BytesSpan data,
+                                                                                std::optional<messages::StreamHeaderProperties> stream_mode)
     {
         auto transport = GetTransport().lock();
 
@@ -298,7 +299,7 @@ namespace quicr {
                 // use stream per subgroup, group change
                 eflags.use_reliable = true;
 
-                const auto properties = *GetStreamMode();
+                const auto properties = stream_mode.value_or(*GetStreamMode());
                 if (is_stream_header_needed) {
                     messages::StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.properties.emplace(properties);

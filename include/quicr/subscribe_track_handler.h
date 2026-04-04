@@ -271,9 +271,11 @@ namespace quicr {
          *
          * @param object_headers    Object headers, must include group and object Ids
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
+         * @param stream_mode       Subgroup header type
          */
         virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                    [[maybe_unused]] BytesSpan data);
+                                    [[maybe_unused]] BytesSpan data,
+                                    std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt);
 
         /**
          * @brief Notification of received object status

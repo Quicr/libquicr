@@ -31,7 +31,10 @@ namespace quicr {
             return std::shared_ptr<PublishFetchHandler>(
               new PublishFetchHandler(full_track_name, priority, subscribe_id, group_order, ttl));
         }
-        PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data) override;
+        PublishObjectStatus PublishObject(
+          const ObjectHeaders& object_headers,
+          BytesSpan data,
+          std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt) override;
         constexpr messages::GroupOrder GetGroupOrder() const noexcept { return group_order_; }
 
       private:

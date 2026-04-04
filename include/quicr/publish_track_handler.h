@@ -292,10 +292,14 @@ namespace quicr {
          *
          * @param object_headers        Object headers, must include group and object Ids
          * @param data                  Full complete payload data for the object
+         * @param stream_mode           Subgroup header properties
          *
          * @returns Publish status of the publish
          */
-        virtual PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+        virtual PublishObjectStatus PublishObject(
+          const ObjectHeaders& object_headers,
+          BytesSpan data,
+          std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt);
 
         /**
          * @brief Forward received object data to subscriber/relay/remote client

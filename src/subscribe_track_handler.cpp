@@ -15,7 +15,8 @@ namespace quicr {
     }
 
     void SubscribeTrackHandler::ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                               [[maybe_unused]] BytesSpan data)
+                                               [[maybe_unused]] BytesSpan data,
+                                               [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
     }
 
