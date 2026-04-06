@@ -250,11 +250,13 @@ namespace quicr {
              * @param connection_handle Transport context identifier mapped to the connection
              * @param stream_id         Transport stream id.
              * @param rx_ctx            Stream Rx context with the handler info.
+             * @param request_id        Optional request ID of the handler
              * @param flag              Flag value for how the stream was closed. Values are FIN or RST
              */
             virtual void OnStreamClosed(const TransportConnId& connection_handle,
                                         std::uint64_t stream_id,
                                         std::shared_ptr<StreamRxContext> rx_ctx,
+                                        std::optional<uint64_t> request_id,
                                         StreamClosedFlag flag) = 0;
 
             /**
@@ -365,13 +367,15 @@ namespace quicr {
          *                                 	preferred for transporting data
          * @param[in] priority                Priority for stream (default is 1)
          * @param[in] bidir                   Set context to be bi-directional or unidirectional
+         * @param[in] request_id              optional request ID to lookup request handler if needed
          *
          * @return DataContextId identifying the data context via the connection
          */
         virtual DataContextId CreateDataContext(TransportConnId conn_id,
                                                 bool use_reliable_transport,
                                                 uint8_t priority = 1,
-                                                bool bidir = false) = 0;
+                                                bool bidir = false,
+                                                std::optional<uint64_t> request_id = std::nullopt) = 0;
 
         /**
          * @brief Close a transport context

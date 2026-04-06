@@ -85,6 +85,7 @@ namespace quicr {
               : data_ctx_id(other.data_ctx_id)
               , conn_id(other.conn_id)
               , is_bidir(other.is_bidir)
+              , request_id(other.request_id)
               , uses_reset_wait(other.uses_reset_wait)
               , delete_on_empty(other.delete_on_empty)
               , metrics(std::move(other.metrics))
@@ -99,6 +100,7 @@ namespace quicr {
           public:
             DataContextId data_ctx_id{ 0 };     /// The ID of this context
             TransportConnId conn_id{ 0 };       /// The connection ID this context is under
+            std::optional<uint64_t> request_id; /// Request ID of handler
             bool is_bidir : 1 { false };        /// Indicates if the stream is bidir (true) or unidir (false)
             bool uses_reset_wait : 1 { false }; /// Indicates if data context can/uses reset wait strategy
             bool delete_on_empty{ false };      /// Instructs TX objects to be discarded on POP instead
@@ -302,13 +304,15 @@ namespace quicr {
         TransportStatus Status() const override;
         TransportConnId Start() override;
         void Close(const TransportConnId& conn_id, uint64_t app_reason_code = 100) override;
+        void CloseInternal(const TransportConnId& conn_id, uint64_t app_reason_code = 100);
 
         virtual bool GetPeerAddrInfo(const TransportConnId& conn_id, sockaddr_storage* addr) override;
 
         DataContextId CreateDataContext(TransportConnId conn_id,
                                         bool use_reliable_transport,
                                         uint8_t priority,
-                                        bool bidir) override;
+                                        bool bidir,
+                                        std::optional<uint64_t> request_id = std::nullopt) override;
 
         void DeleteDataContext(const TransportConnId& conn_id,
                                DataContextId data_ctx_id,
@@ -390,6 +394,7 @@ namespace quicr {
         void OnStreamClosed(TransportConnId conn_id,
                             uint64_t stream_id,
                             std::shared_ptr<StreamRxContext> rx_ctx,
+                            std::optional<uint64_t> request_id,
                             StreamClosedFlag flag);
 
         void CheckConnsForCongestion();

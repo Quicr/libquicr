@@ -33,7 +33,9 @@ namespace quicr_test {
             pub_handler_ = pub_handler;
         }
 
-        void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
+        void ObjectReceived(const quicr::ObjectHeaders& object_headers,
+                            quicr::BytesSpan data,
+                            std::optional<quicr::messages::StreamHeaderProperties> stream_mode = std::nullopt) override
         {
             std::lock_guard lock(mutex_);
             // Forward to subscriber if we have a publish handler bound
@@ -44,7 +46,7 @@ namespace quicr_test {
                          object_headers.object_id,
                          data.size());
             if (pub_handler_) {
-                pub_handler_->PublishObject(object_headers, data);
+                pub_handler_->PublishObject(object_headers, data, stream_mode);
             }
         }
 

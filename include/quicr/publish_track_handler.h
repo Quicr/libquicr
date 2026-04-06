@@ -223,6 +223,14 @@ namespace quicr {
          */
         constexpr messages::Location GetLargestLocation() const noexcept { return largest_location_; }
 
+        /**
+         * @brief Notification that a stream has been closed.
+         * @param stream_id The ID of the stream being closed.
+         * @param reset     True if stream closed by reset
+         *
+         */
+        virtual void StreamClosed(std::uint64_t stream_id, bool reset = false);
+
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
         // --------------------------------------------------------------------------
@@ -284,10 +292,14 @@ namespace quicr {
          *
          * @param object_headers        Object headers, must include group and object Ids
          * @param data                  Full complete payload data for the object
+         * @param stream_mode           Subgroup header properties
          *
          * @returns Publish status of the publish
          */
-        virtual PublishObjectStatus PublishObject(const ObjectHeaders& object_headers, BytesSpan data);
+        virtual PublishObjectStatus PublishObject(
+          const ObjectHeaders& object_headers,
+          BytesSpan data,
+          std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt);
 
         /**
          * @brief Forward received object data to subscriber/relay/remote client
@@ -351,7 +363,7 @@ namespace quicr {
          * @param subgroup_id
          * @param completed
          */
-        void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true);
+        virtual void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true);
 
         /**
          * @brief Set the publish status
@@ -402,6 +414,7 @@ namespace quicr {
             std::optional<uint64_t> last_object_id;
         };
 
+        // Key is group and subgroup id
         std::map<std::uint64_t, std::map<std::uint64_t, StreamInfo>> stream_info_by_group_;
 
         std::optional<uint64_t> track_alias_;

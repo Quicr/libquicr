@@ -14,8 +14,10 @@ namespace quicr {
         support_new_group_request_ = is_supported;
     }
 
-    void SubscribeTrackHandler::ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
-                                               [[maybe_unused]] BytesSpan data)
+    void SubscribeTrackHandler::ObjectReceived(
+      [[maybe_unused]] const ObjectHeaders& object_headers,
+      [[maybe_unused]] BytesSpan data,
+      [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
     }
 

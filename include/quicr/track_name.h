@@ -9,9 +9,9 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <sstream>
 #include <stdexcept>
 #include <string>
-#include <tuple>
 #include <vector>
 
 namespace quicr {
@@ -196,6 +196,22 @@ namespace quicr {
 
         const std::vector<std::span<const uint8_t>>& GetEntries() const noexcept { return entries_; }
         const auto& GetHashes() const noexcept { return hashes_; }
+        auto Str() const noexcept
+        {
+            std::stringstream out;
+            bool add_delimiter{ false };
+            for (auto& entry : entries_) {
+                if (add_delimiter) {
+                    out << '/';
+                }
+
+                out << std::string_view(reinterpret_cast<const char*>(entry.data()), entry.size());
+
+                add_delimiter = true;
+            }
+
+            return out.str();
+        }
 
         // NOLINTBEGIN(readability-identifier-naming)
         auto begin() noexcept { return bytes_.begin(); }
@@ -228,19 +244,21 @@ namespace quicr {
 
         friend bool operator>=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs < rhs); }
 
-        bool IsPrefixOf(const TrackNamespace& other) const noexcept
+        std::partial_ordering IsPrefixOf(const TrackNamespace& rhs) const noexcept
         {
-            if (this->hashes_.size() > other.hashes_.size()) {
-                return false;
+            if (!HasSamePrefix(rhs)) {
+                return std::partial_ordering::unordered;
             }
 
-            for (size_t i = 0; i < this->hashes_.size(); i++) {
-                if (this->hashes_[i] != other.hashes_[i]) {
-                    return false;
-                }
+            if (entries_.size() < rhs.entries_.size()) {
+                return std::partial_ordering::less;
             }
 
-            return true;
+            if (entries_.size() > rhs.entries_.size()) {
+                return std::partial_ordering::greater;
+            }
+
+            return std::partial_ordering::equivalent;
         }
 
         bool HasSamePrefix(const TrackNamespace& other) const noexcept
@@ -283,6 +301,13 @@ namespace quicr {
     {
         TrackNamespace name_space;
         std::vector<uint8_t> name;
+
+        auto NameStr() const noexcept
+        {
+            return std::string_view(reinterpret_cast<const char*>(name.data()), name.size());
+        }
+
+        auto NamespaceStr() const noexcept { return name_space.Str(); }
     };
 }
 

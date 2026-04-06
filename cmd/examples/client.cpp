@@ -181,7 +181,9 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         moq_fs_.close();
     }
 
-    void ObjectReceived(const quicr::ObjectHeaders& hdr, quicr::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders& hdr,
+                        quicr::BytesSpan data,
+                        std::optional<quicr::messages::StreamHeaderProperties>) override
     {
         quicr::Bytes pt(data.size());
         if (qclient_vars::mls_ctx.has_value()) {
@@ -358,7 +360,10 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
         }
     }
 
-    PublishObjectStatus PublishObject(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override
+    PublishObjectStatus PublishObject(
+      const quicr::ObjectHeaders& object_headers,
+      quicr::BytesSpan data,
+      std::optional<quicr::messages::StreamHeaderProperties> stream_mode = std::nullopt) override
     {
         auto track_alias = GetTrackAlias();
 
@@ -407,7 +412,9 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
           new MyFetchTrackHandler(full_track_name, start_location, end_location));
     }
 
-    void ObjectReceived(const quicr::ObjectHeaders& headers, quicr::BytesSpan data) override
+    void ObjectReceived(const quicr::ObjectHeaders& headers,
+                        quicr::BytesSpan data,
+                        std::optional<quicr::messages::StreamHeaderProperties>) override
     {
         std::string msg(data.begin(), data.end());
         SPDLOG_INFO(
@@ -783,6 +790,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
                 break;
             case MyPublishTrackHandler::Status::kNewGroupRequested:
                 if (object_id) {
+                    track_handler->EndSubgroup(group_id, subgroup_id);
                     group_id++;
                     object_id = 0;
                     subgroup_id = 0;
@@ -796,6 +804,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
             case MyPublishTrackHandler::Status::kNoSubscribers:
                 // Start a new group when a subscriber joins
                 if (object_id) {
+                    track_handler->EndSubgroup(group_id, subgroup_id);
                     group_id++;
                     object_id = 0;
                     subgroup_id = 0;
@@ -845,6 +854,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
         }
 
         if (object_id && object_id % 15 == 0) { // Set new group
+            track_handler->EndSubgroup(group_id, subgroup_id);
             object_id = 0;
             subgroup_id = 0;
             group_id++;
