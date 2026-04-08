@@ -350,10 +350,10 @@ namespace quicr {
                                   .Add(SetupParameterType::kEndpointId, client_config_.endpoint_id)
                                   .Add(SetupParameterType::kMaxRequestId, 0x1000);
 
-        if (protocol == TransportProtocol::kQuic) {
-            auto parsed = ParseConnectUri(client_config_.connect_uri);
-            if (parsed) {
-                auto [address, port, protocol, path] = parsed.value();
+        auto parsed = ParseConnectUri(client_config_.connect_uri);
+        if (parsed) {
+            auto [address, port, protocol, path] = parsed.value();
+            if (protocol == TransportProtocol::kQuic) {
                 std::string authority = address + ":" + std::to_string(port);
                 setup_parameters.Add(SetupParameterType::kAuthority, authority);
                 setup_parameters.Add(SetupParameterType::kPath, path.empty() ? "/" : path);
