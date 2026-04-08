@@ -159,10 +159,10 @@ else ()
     set(WITH_OPENSSL ON)
     set(PICOTLS_USE_BROTLI OFF)
     set(picotls_BUILD_TESTS OFF)
-    add_subdirectory(picotls)
-    add_dependencies(picotls-openssl ssl decrepit crypto)
-    add_dependencies(picotls-core decrepit crypto ssl)
-    add_dependencies(test-openssl.t decrepit crypto ssl)
+    # add_subdirectory(picotls)  # Patched - FetchContent handles this
+    # add_dependencies(picotls-openssl ssl decrepit crypto)  # Moved after FetchContent
+    # add_dependencies(picotls-core decrepit crypto ssl)  # Moved after FetchContent
+    # add_dependencies(test-openssl.t decrepit crypto ssl)  # Moved after FetchContent
 
 
     include(FetchContent)
@@ -170,6 +170,13 @@ else ()
         GIT_REPOSITORY      https://github.com/quicr/picotls.git
         GIT_TAG             3927c48be674d97ca8242580fab3b4af4eb6df2a)
     FetchContent_MakeAvailable(picotls)
+
+    # Add dependencies after FetchContent makes targets available
+    add_dependencies(picotls-openssl ssl decrepit crypto)
+    add_dependencies(picotls-core decrepit crypto ssl)
+    if(TARGET test-openssl.t)
+        add_dependencies(test-openssl.t decrepit crypto ssl)
+    endif()
 
     set(PICOQUIC_FETCH_PTLS ON)
     set(picoquic_BUILD_TESTS OFF)
