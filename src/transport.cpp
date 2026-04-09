@@ -1586,11 +1586,11 @@ namespace quicr {
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
-                    if (ProcessCtrlMessage(
-                          conn_ctx,
-                          data_ctx_id.value(),
-                          ctrl_msg_buffer.msg_type.value(),
-                          { ctrl_msg_buffer.data.begin() + sizeof(payload_len), ctrl_msg_buffer.data.end() })) {
+                    if (ProcessCtrlMessage(conn_ctx,
+                                           data_ctx_id.value(),
+                                           ctrl_msg_buffer.msg_type.value(),
+                                           { ctrl_msg_buffer.data.begin() + sizeof(payload_len),
+                                             ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len })) {
 
                         // Reset the control message buffer and message type to start a new message.
                         ctrl_msg_buffer.msg_type = std::nullopt;
