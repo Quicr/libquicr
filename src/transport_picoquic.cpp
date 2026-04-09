@@ -2437,6 +2437,7 @@ PicoQuicTransport::StartClient()
                                wt_config_->path);
 
             // Initiate the WebTransport connect
+            const std::string wt_available_protocols = std::string("\"") + moqt_alpn + "\"";
             ret = picowt_connect(cnx,
                                  h3_ctx,
                                  control_stream_ctx,
@@ -2444,7 +2445,7 @@ PicoQuicTransport::StartClient()
                                  wt_config_->path.c_str(),
                                  DefaultWebTransportCallback,
                                  this,
-                                 moqt_alpn);
+                                 wt_available_protocols.c_str());
             if (ret != 0) {
                 SPDLOG_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
                 notify_caller(1);
@@ -2965,6 +2966,7 @@ PicoQuicTransport::SetupWebTransportConnection(picoquic_cnx_t* cnx)
         conn_ctx->wt_authority = serverInfo_.host_or_ip + ":" + std::to_string(serverInfo_.port);
 
         // Initiate the WebTransport connect
+        const std::string wt_available_protocols = std::string("\"") + moqt_alpn + "\"";
         ret = picowt_connect(cnx,
                              conn_ctx->wt_h3_ctx,
                              conn_ctx->wt_control_stream_ctx,
@@ -2972,7 +2974,7 @@ PicoQuicTransport::SetupWebTransportConnection(picoquic_cnx_t* cnx)
                              wt_config_->path.c_str(),
                              DefaultWebTransportCallback,
                              this,
-                             moqt_alpn);
+                             wt_available_protocols.c_str());
         if (ret != 0) {
             SPDLOG_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
             return ret;
