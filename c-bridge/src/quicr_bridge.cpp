@@ -351,11 +351,12 @@ struct qbridge_publish_track_handler
 class BridgeSubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
-    static std::shared_ptr<BridgeSubscribeTrackHandler> Create(const quicr::FullTrackName& full_track_name,
-                                                               const std::uint8_t priority,
-                                                               const quicr::messages::GroupOrder group_order,
-                                                               qbridge_object_received_callback_t callback,
-                                                               void* user_data)
+    static std::shared_ptr<BridgeSubscribeTrackHandler> Create(
+      const quicr::FullTrackName& full_track_name,
+      const std::uint8_t priority,
+      const std::optional<quicr::messages::GroupOrder>& group_order,
+      qbridge_object_received_callback_t callback,
+      void* user_data)
     {
         return std::shared_ptr<BridgeSubscribeTrackHandler>(
           new BridgeSubscribeTrackHandler(full_track_name, priority, group_order, std::nullopt, callback, user_data));
@@ -364,7 +365,7 @@ class BridgeSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     static std::shared_ptr<BridgeSubscribeTrackHandler> Create(
       const quicr::FullTrackName& full_track_name,
       const std::uint8_t priority,
-      const quicr::messages::GroupOrder group_order,
+      const std::optional<quicr::messages::GroupOrder>& group_order,
       const std::optional<quicr::SubscribeTrackHandler::JoiningFetch>& joining_fetch,
       qbridge_object_received_callback_t callback,
       void* user_data)
@@ -379,7 +380,7 @@ class BridgeSubscribeTrackHandler : public quicr::SubscribeTrackHandler
   protected:
     BridgeSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                                 const std::uint8_t priority,
-                                const quicr::messages::GroupOrder group_order,
+                                const std::optional<quicr::messages::GroupOrder>& group_order,
                                 const std::optional<quicr::SubscribeTrackHandler::JoiningFetch>& joining_fetch,
                                 qbridge_object_received_callback_t callback,
                                 void* data)
@@ -549,13 +550,14 @@ struct qbridge_subscribe_namespace_track_handler
 class BridgeFetchTrackHandler : public quicr::FetchTrackHandler
 {
   public:
-    static std::shared_ptr<BridgeFetchTrackHandler> Create(const quicr::FullTrackName& full_track_name,
-                                                           const std::uint8_t priority,
-                                                           const quicr::messages::GroupOrder group_order,
-                                                           const quicr::messages::Location& start_location,
-                                                           const quicr::messages::FetchEndLocation& end_location,
-                                                           qbridge_object_received_callback_t callback,
-                                                           void* user_data)
+    static std::shared_ptr<BridgeFetchTrackHandler> Create(
+      const quicr::FullTrackName& full_track_name,
+      const std::uint8_t priority,
+      const std::optional<quicr::messages::GroupOrder>& group_order,
+      const quicr::messages::Location& start_location,
+      const quicr::messages::FetchEndLocation& end_location,
+      qbridge_object_received_callback_t callback,
+      void* user_data)
     {
         return std::shared_ptr<BridgeFetchTrackHandler>(new BridgeFetchTrackHandler(
           full_track_name, priority, group_order, start_location, end_location, callback, user_data));
@@ -567,7 +569,7 @@ class BridgeFetchTrackHandler : public quicr::FetchTrackHandler
   protected:
     BridgeFetchTrackHandler(const quicr::FullTrackName& full_track_name,
                             const std::uint8_t priority,
-                            const quicr::messages::GroupOrder group_order,
+                            const std::optional<quicr::messages::GroupOrder>& group_order,
                             const quicr::messages::Location& start_location,
                             const quicr::messages::FetchEndLocation& end_location,
                             qbridge_object_received_callback_t callback,

@@ -18,11 +18,12 @@ namespace quicr::messages {
      */
     struct SubscribeAttributes
     {
-        std::uint8_t priority;                        ///< Subscriber priority
-        GroupOrder group_order;                       ///< Subscriber group order
-        std::chrono::milliseconds delivery_timeout;   ///< Subscriber delivery timeout
-        std::chrono::milliseconds expires;            ///< Subscriber expiry in ms
-        Filter filter;                                /// Subscriber filter
+        std::uint8_t priority;                                              ///< Subscriber priority
+        std::optional<GroupOrder> group_order;                              ///< Subscriber group order
+        GroupOrder publisher_default_group_order{ GroupOrder::kAscending }; ///< Publisher track default group order
+        std::chrono::milliseconds delivery_timeout;                         ///< Subscriber delivery timeout
+        std::chrono::milliseconds expires;                                  ///< Subscriber expiry in ms
+        Filter filter;                                                      /// Subscriber filter
         std::uint8_t forward;                         ///< True to Resume/forward data, False to pause/stop data
         std::optional<uint64_t> new_group_request_id; ///< Indicates new group id is requested
         bool is_publisher_initiated;                  ///< True will not send SUBSCRIBE_OK.
@@ -46,19 +47,21 @@ namespace quicr::messages {
 
     struct StandaloneFetchAttributes
     {
-        std::uint8_t priority;         ///< Fetch priority
-        GroupOrder group_order;        ///< Fetch group order
-        Location start_location;       ///< Fetch starting location in range
-        FetchEndLocation end_location; ///< Fetch final location.
+        std::uint8_t priority;                                              ///< Fetch priority
+        std::optional<GroupOrder> group_order;                              ///< Fetch group order
+        GroupOrder publisher_default_group_order{ GroupOrder::kAscending }; ///< Publisher track default group order
+        Location start_location;                                            ///< Fetch starting location in range
+        FetchEndLocation end_location;                                      ///< Fetch final location.
     };
 
     struct JoiningFetchAttributes
     {
-        std::uint8_t priority;        ///< Fetch priority
-        GroupOrder group_order;       ///< Fetch group order
-        RequestID joining_request_id; ///< Fetch joining request_id
-        bool relative{ false };       ///< True indicates relative to largest, False indicates absolute
-        std::uint64_t joining_start;  ///< Fetch joining start
+        std::uint8_t priority;                                              ///< Fetch priority
+        std::optional<GroupOrder> group_order;                              ///< Fetch group order
+        GroupOrder publisher_default_group_order{ GroupOrder::kAscending }; ///< Publisher track default group order
+        RequestID joining_request_id;                                       ///< Fetch joining request_id
+        bool relative{ false };      ///< True indicates relative to largest, False indicates absolute
+        std::uint64_t joining_start; ///< Fetch joining start
     };
 
     struct SubscribeNamespaceAttributes

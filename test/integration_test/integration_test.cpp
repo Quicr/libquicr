@@ -163,7 +163,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
 
     static std::shared_ptr<TestSubscribeHandler> Create(const FullTrackName& full_track_name,
                                                         std::uint8_t priority,
-                                                        messages::GroupOrder group_order,
+                                                        std::optional<messages::GroupOrder> group_order,
                                                         const messages::Filter& filter = std::monostate{})
     {
         return std::shared_ptr<TestSubscribeHandler>(
@@ -202,7 +202,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
   protected:
     TestSubscribeHandler(const FullTrackName& full_track_name,
                          std::uint8_t priority,
-                         messages::GroupOrder group_order,
+                         std::optional<messages::GroupOrder> group_order,
                          const messages::Filter& filter)
       : SubscribeTrackHandler(full_track_name, priority, group_order, filter)
     {
@@ -276,8 +276,7 @@ TEST_CASE("Integration - Subscribe")
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
         const messages::Filter filter = messages::TrackFilter{ 1, 2, 3, 4 };
-        const auto handler =
-          SubscribeTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, filter);
+        const auto handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt, filter);
 
         // When we subscribe, server should receive a subscribe.
         std::promise<TestServer::SubscribeDetails> promise;
@@ -330,8 +329,7 @@ TEST_CASE("Integration - Fetch")
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
-        const auto handler = FetchTrackHandler::Create(
-          ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, { 0, 0 }, { 0, std::nullopt });
+        const auto handler = FetchTrackHandler::Create(ftn, 0, std::nullopt, { 0, 0 }, { 0, std::nullopt });
         client->FetchTrack(handler);
     };
 
@@ -352,8 +350,7 @@ TEST_CASE("Integration - Handlers with no transport")
 {
     // Subscribe.
     {
-        const auto handler =
-          SubscribeTrackHandler::Create(FullTrackName(), 0, messages::GroupOrder::kOriginalPublisherOrder);
+        const auto handler = SubscribeTrackHandler::Create(FullTrackName(), 0, std::nullopt);
         handler->Pause();
         handler->Resume();
         handler->RequestNewGroup();
@@ -377,8 +374,7 @@ TEST_CASE("Integration - Handlers with no transport")
 
     // Fetch.
     {
-        const auto handler = FetchTrackHandler::Create(
-          FullTrackName(), 0, messages::GroupOrder::kOriginalPublisherOrder, { 0, 0 }, { 0, std::nullopt });
+        const auto handler = FetchTrackHandler::Create(FullTrackName(), 0, std::nullopt, { 0, 0 }, { 0, std::nullopt });
         handler->Pause();
         handler->Resume();
         handler->RequestNewGroup();
@@ -614,7 +610,7 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
         std::promise<FullTrackName> publish_promise;
         auto publish_future = publish_promise.get_future();
         messages::PublishAttributes publish_attributes;
-        publish_attributes.group_order = quicr::messages::GroupOrder::kOriginalPublisherOrder;
+        publish_attributes.group_order = std::nullopt;
         publish_attributes.track_alias = existing_track_hash.track_fullname_hash;
 
         // TODO: Validate full attribute round-trip.
@@ -826,7 +822,7 @@ class TestFetchTrackHandler final : public FetchTrackHandler
 
     TestFetchTrackHandler(const FullTrackName& full_track_name,
                           const std::uint8_t priority,
-                          const messages::GroupOrder group_order,
+                          const std::optional<messages::GroupOrder> group_order,
                           const messages::Location& start_location,
                           const messages::FetchEndLocation& end_location)
       : FetchTrackHandler(full_track_name, priority, group_order, start_location, end_location)
@@ -835,7 +831,7 @@ class TestFetchTrackHandler final : public FetchTrackHandler
 
     static std::shared_ptr<TestFetchTrackHandler> Create(const FullTrackName& full_track_name,
                                                          const std::uint8_t priority,
-                                                         const messages::GroupOrder group_order,
+                                                         const std::optional<messages::GroupOrder> group_order,
                                                          const messages::Location& start_location,
                                                          const messages::FetchEndLocation& end_location)
     {
@@ -897,8 +893,8 @@ TEST_CASE("Integration - Fetch object roundtrip")
 
         server->SetFetchResponseData(cached);
 
-        auto fetch_handler = TestFetchTrackHandler::Create(
-          ftn, 0, messages::GroupOrder::kOriginalPublisherOrder, { fetch_group, 0 }, { fetch_group, std::nullopt });
+        auto fetch_handler =
+          TestFetchTrackHandler::Create(ftn, 0, std::nullopt, { fetch_group, 0 }, { fetch_group, std::nullopt });
 
         client->FetchTrack(fetch_handler);
 
@@ -968,7 +964,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         constexpr std::size_t total_messages = num_groups * messages_per_group; // 120
 
         // Create subscribe handler that tracks received objects
-        auto sub_handler = TestSubscribeHandler::Create(ftn, 3, messages::GroupOrder::kOriginalPublisherOrder);
+        auto sub_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
 
         // Set up promise for subscriber receiving all messages
         std::promise<void> all_received_promise;
@@ -1194,7 +1190,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         REQUIRE(pub_ready);
 
         // Subscriber.
-        auto sub_handler = TestSubscribeHandler::Create(ftn, 3, messages::GroupOrder::kOriginalPublisherOrder);
+        auto sub_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
         std::promise<void> all_received_promise;
         auto all_received_future = all_received_promise.get_future();
         constexpr std::size_t total_objects = 6;
@@ -1293,7 +1289,7 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         REQUIRE(pub_ready);
 
         // Subscribe to the track and wait for setup.
-        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, messages::GroupOrder::kOriginalPublisherOrder);
+        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
         CHECK_NOTHROW(subscriber->SubscribeTrack(sub_handler));
         const bool sub_ready =
           WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
