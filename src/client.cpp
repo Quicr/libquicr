@@ -667,6 +667,7 @@ namespace quicr {
                         return true;
                     }
                     case messages::FetchType::kRelativeJoiningFetch: {
+                        relative_joining = true;
                         [[fallthrough]];
                     }
                     case messages::FetchType::kAbsoluteJoiningFetch: {

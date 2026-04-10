@@ -1,11 +1,20 @@
 #include <future>
 #include <quicr/client.h>
+#include <quicr/detail/attributes.h>
 
 namespace quicr_test {
     class TestClient final : public quicr::Client
     {
       public:
         explicit TestClient(const quicr::ClientConfig& cfg);
+
+        struct JoiningFetchDetails
+        {
+            quicr::ConnectionHandle connection_handle;
+            uint64_t request_id;
+            quicr::FullTrackName track_full_name;
+            quicr::messages::JoiningFetchAttributes attributes;
+        };
 
         // Connection.
         void SetConnectedPromise(std::promise<quicr::ServerSetupAttributes> promise)
@@ -45,11 +54,22 @@ namespace quicr_test {
         void PublishNamespaceStatusChanged(quicr::messages::RequestID request_id,
                                            const quicr::PublishNamespaceStatus status) override;
 
+        // Joining fetch received.
+        void SetJoiningFetchPromise(std::promise<JoiningFetchDetails> promise)
+        {
+            joining_fetch_received_ = std::move(promise);
+        }
+        void JoiningFetchReceived(quicr::ConnectionHandle connection_handle,
+                                  uint64_t request_id,
+                                  const quicr::FullTrackName& track_full_name,
+                                  const quicr::messages::JoiningFetchAttributes& attributes) override;
+
       private:
         std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;
         std::optional<std::promise<quicr::TrackNamespace>> publish_namespace_received_;
         std::optional<std::promise<quicr::FullTrackName>> publish_received_;
         std::optional<std::promise<quicr::messages::RequestID>> publish_namespace_status_changed_;
         std::shared_ptr<quicr::SubscribeTrackHandler> last_publish_received_sub_handler_;
+        std::optional<std::promise<JoiningFetchDetails>> joining_fetch_received_;
     };
 }

@@ -17,12 +17,15 @@ namespace quicr_test {
     class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
       public:
-        TestSubscribeTrackHandler(const quicr::FullTrackName& full_track_name, bool is_publisher_initiated = false)
+        TestSubscribeTrackHandler(
+          const quicr::FullTrackName& full_track_name,
+          bool is_publisher_initiated = false,
+          const std::optional<quicr::SubscribeTrackHandler::JoiningFetch>& joining_fetch = std::nullopt)
           : SubscribeTrackHandler(full_track_name,
                                   3,
                                   quicr::messages::GroupOrder::kAscending,
                                   std::monostate{},
-                                  std::nullopt,
+                                  joining_fetch,
                                   is_publisher_initiated)
         {
         }
@@ -139,6 +142,20 @@ namespace quicr_test {
             std::vector<uint8_t> payload;
         };
 
+        struct JoiningFetchDetails
+        {
+            quicr::ConnectionHandle connection_handle;
+            uint64_t request_id;
+            quicr::FullTrackName track_full_name;
+            quicr::messages::JoiningFetchAttributes attributes;
+        };
+
+        // Set up promise for when a publish is received from a client
+        void SetPublishReceivedPromise(std::promise<SubscribeDetails> promise)
+        {
+            publish_received_promise_ = std::move(promise);
+        }
+
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
@@ -161,6 +178,12 @@ namespace quicr_test {
 
         // Set up data to respond with when a fetch is received
         void SetFetchResponseData(std::vector<FetchResponseData> data) { fetch_response_data_ = std::move(data); }
+
+        // Set up promise for joining fetch event
+        void SetJoiningFetchPromise(std::promise<JoiningFetchDetails> promise)
+        {
+            joining_fetch_promise_ = std::move(promise);
+        }
 
         void AddKnownPublishedNamespace(const quicr::TrackNamespace& track_namespace);
         void AddKnownPublishedTrack(const quicr::FullTrackName& track,
@@ -221,6 +244,11 @@ namespace quicr_test {
                                       const quicr::TrackNamespace& track_namespace,
                                       const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
 
+        void JoiningFetchReceived(quicr::ConnectionHandle connection_handle,
+                                  uint64_t request_id,
+                                  const quicr::FullTrackName& track_full_name,
+                                  const quicr::messages::JoiningFetchAttributes& attributes) override;
+
         void NewGroupRequested(const quicr::FullTrackName& track_full_name, quicr::messages::GroupId group_id) override;
 
       public:
@@ -229,9 +257,11 @@ namespace quicr_test {
       private:
         mutable std::mutex state_mutex_;
 
+        std::optional<std::promise<SubscribeDetails>> publish_received_promise_;
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
+        std::optional<std::promise<JoiningFetchDetails>> joining_fetch_promise_;
         std::vector<quicr::TrackNamespace> known_published_namespaces_;
         std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;
         struct AvailableTrack
