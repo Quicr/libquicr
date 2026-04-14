@@ -54,6 +54,9 @@
                 {% endif %}
             {% endif %}
         {% endfor %}
+        if (!msg.Validate()) {
+            throw ProtocolViolationException("Invalid message");
+        }
         return buffer;
     }
 
@@ -62,6 +65,9 @@
      */
     Bytes& operator<<(Bytes& buffer, const {{message.name}}& msg)
     {
+        if (!msg.Validate()) {
+            throw std::invalid_argument("Invalid message");
+        }
         Bytes payload;
         // fill out payload
         {% for field in message.fields %}
