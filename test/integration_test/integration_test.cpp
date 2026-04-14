@@ -1440,6 +1440,13 @@ TEST_CASE("Integration - Joining Fetch handling")
         const auto& details = future.get();
         CHECK_EQ(details.attributes.relative, expect_relative);
         CHECK_EQ(details.attributes.joining_start, joining_start);
+
+        // Done.
+        REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; },
+                        kDefaultTimeout));
+        client->Disconnect();
+        REQUIRE(
+          WaitFor([&client]() { return client->GetStatus() == Transport::Status::kNotConnected; }, kDefaultTimeout));
     };
 
     // Client publishes, server subscribes, client receives.
@@ -1482,6 +1489,10 @@ TEST_CASE("Integration - Joining Fetch handling")
         const auto& details = jf_future.get();
         CHECK_EQ(details.attributes.relative, expect_relative);
         CHECK_EQ(details.attributes.joining_start, joining_start);
+
+        client->Disconnect();
+        REQUIRE(
+          WaitFor([&client]() { return client->GetStatus() == Transport::Status::kNotConnected; }, kDefaultTimeout));
     };
 
     SUBCASE("Server receives relative joining fetch")
