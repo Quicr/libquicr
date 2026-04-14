@@ -80,6 +80,9 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, GroupOrder value)
     {
+        if (value != GroupOrder::kAscending && value != GroupOrder::kDescending) {
+            throw ProtocolViolationException("Invalid group order");
+        }
         buffer << static_cast<std::uint64_t>(value);
         return buffer;
     }

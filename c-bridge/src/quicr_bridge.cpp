@@ -23,12 +23,27 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <unordered_map>
 #include <vector>
 
 namespace {
+
+    std::optional<quicr::messages::GroupOrder> cpp_group_order_from_c(const uint64_t group_order)
+    {
+        switch (group_order) {
+            case 0:
+                return std::nullopt;
+            case static_cast<uint64_t>(quicr::messages::GroupOrder::kAscending):
+                return quicr::messages::GroupOrder::kAscending;
+            case static_cast<uint64_t>(quicr::messages::GroupOrder::kDescending):
+                return quicr::messages::GroupOrder::kDescending;
+            default:
+                throw std::invalid_argument("Invalid group order");
+        }
+    }
 
     /**
      * @brief Convert C namespace structure to C++ TrackNamespace
@@ -452,12 +467,11 @@ struct qbridge_subscribe_track_handler
             }
 
             // Create without joining fetch for normal subscribe (latest object)
-            cpp_handler =
-              BridgeSubscribeTrackHandler::Create(full_track_name,
-                                                  static_cast<std::uint8_t>(config->priority),
-                                                  static_cast<quicr::messages::GroupOrder>(config->group_order),
-                                                  callback,
-                                                  data);
+            cpp_handler = BridgeSubscribeTrackHandler::Create(full_track_name,
+                                                              static_cast<std::uint8_t>(config->priority),
+                                                              cpp_group_order_from_c(config->group_order),
+                                                              callback,
+                                                              data);
         }
     }
 };
@@ -631,7 +645,7 @@ struct qbridge_fetch_track_handler
 
             cpp_handler = BridgeFetchTrackHandler::Create(full_track_name,
                                                           static_cast<std::uint8_t>(config->priority),
-                                                          static_cast<quicr::messages::GroupOrder>(config->group_order),
+                                                          cpp_group_order_from_c(config->group_order),
                                                           start_location,
                                                           end_location,
                                                           callback,

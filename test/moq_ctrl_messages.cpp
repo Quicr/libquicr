@@ -378,6 +378,14 @@ TEST_CASE("Fetch Message encode/decode")
     }
 }
 
+TEST_CASE("GroupOrder encode rejects invalid values")
+{
+    Bytes buffer;
+
+    CHECK_THROWS_AS(buffer << static_cast<GroupOrder>(0), ProtocolViolationException);
+    CHECK_THROWS_AS(buffer << static_cast<GroupOrder>(3), ProtocolViolationException);
+}
+
 TEST_CASE("FetchOk/Error/Cancel Message encode/decode")
 {
     auto fetch_ok = FetchOk{};
