@@ -174,7 +174,7 @@ namespace quicr {
         virtual void ResolveFetch(ConnectionHandle connection_handle,
                                   uint64_t request_id,
                                   std::uint8_t priority,
-                                  messages::GroupOrder group_order,
+                                  std::optional<messages::GroupOrder> group_order,
                                   const FetchResponse& response);
 
         // --BEGIN CALLBACKS ----------------------------------------------------------------------------------

@@ -243,7 +243,11 @@ TestServer::StandaloneFetchReceived(const ConnectionHandle connection_handle,
 
     // Publish the response
     auto pub_fetch_handler =
-      PublishFetchHandler::Create(track_full_name, attrs.priority, request_id, attrs.group_order, 500);
+      PublishFetchHandler::Create(track_full_name,
+                                  attrs.priority,
+                                  request_id,
+                                  attrs.group_order.value_or(attrs.publisher_default_group_order),
+                                  500);
     BindFetchTrack(connection_handle, pub_fetch_handler);
     for (size_t i = 0; i < fetch_response_data_.size(); ++i) {
         pub_fetch_handler->PublishObject(fetch_response_data_[i].headers, fetch_response_data_[i].payload);

@@ -277,9 +277,8 @@ namespace quicr::messages {
 
     enum struct GroupOrder : uint8_t
     {
-        kOriginalPublisherOrder = 0x0,
-        kAscending,
-        kDescending
+        kAscending = 0x1,
+        kDescending = 0x2
     };
 
     Bytes& operator<<(Bytes& buffer, GroupOrder value);

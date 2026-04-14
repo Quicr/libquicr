@@ -599,7 +599,7 @@ namespace quicr {
                            const FullTrackName& tfn,
                            TrackHash th,
                            std::uint8_t priority,
-                           messages::GroupOrder group_order,
+                           std::optional<messages::GroupOrder> group_order,
                            const messages::Filter& filter,
                            std::optional<std::chrono::milliseconds> delivery_timeout);
 
@@ -607,7 +607,8 @@ namespace quicr {
                              messages::RequestID request_id,
                              uint64_t track_alias,
                              uint64_t expires,
-                             const std::optional<messages::Location>& largest_location);
+                             const std::optional<messages::Location>& largest_location,
+                             messages::GroupOrder publisher_default_group_order);
         void SendUnsubscribe(ConnectionContext& conn_ctx, messages::RequestID request_id);
 
         /*===================================================================*/
@@ -632,7 +633,7 @@ namespace quicr {
                            messages::RequestID request_id,
                            bool forward,
                            std::uint8_t priority,
-                           messages::GroupOrder group_order,
+                           std::optional<messages::GroupOrder> group_order,
                            const messages::Filter& filter);
 
         /*===================================================================*/
@@ -649,14 +650,14 @@ namespace quicr {
                        messages::RequestID request_id,
                        const FullTrackName& tfn,
                        std::uint8_t priority,
-                       messages::GroupOrder group_order,
+                       std::optional<messages::GroupOrder> group_order,
                        const messages::Location& start_location,
                        const messages::FetchEndLocation& end_location);
 
         void SendJoiningFetch(ConnectionContext& conn_ctx,
                               messages::RequestID request_id,
                               std::uint8_t priority,
-                              messages::GroupOrder group_order,
+                              std::optional<messages::GroupOrder> group_order,
                               messages::RequestID joining_request_id,
                               messages::GroupId joining_start,
                               bool absolute);
@@ -665,7 +666,7 @@ namespace quicr {
 
         void SendFetchOk(ConnectionContext& conn_ctx,
                          messages::RequestID request_id,
-                         messages::GroupOrder group_order,
+                         messages::GroupOrder publisher_default_group_order,
                          bool end_of_track,
                          messages::Location end_location);
 

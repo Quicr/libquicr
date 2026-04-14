@@ -523,7 +523,7 @@ class MyClient : public quicr::Client
                        uint64_t request_id,
                        const quicr::FullTrackName& track_full_name,
                        std::uint8_t priority,
-                       quicr::messages::GroupOrder group_order,
+                       std::optional<quicr::messages::GroupOrder> group_order,
                        quicr::messages::Location start,
                        quicr::messages::FetchEndLocation end)
     {
@@ -577,8 +577,8 @@ class MyClient : public quicr::Client
         }
 
         // TODO: Adjust the TTL
-        auto pub_fetch_h =
-          quicr::PublishFetchHandler::Create(track_full_name, priority, request_id, group_order, 50000);
+        auto pub_fetch_h = quicr::PublishFetchHandler::Create(
+          track_full_name, priority, request_id, group_order.value_or(quicr::messages::GroupOrder::kAscending), 50000);
         BindFetchTrack(connection_handle, pub_fetch_h);
 
         std::thread retrieve_cache_thread([=, cache_entries = std::move(cache_entries), this] {
