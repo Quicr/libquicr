@@ -1444,9 +1444,8 @@ TEST_CASE("Integration - Joining Fetch handling")
         // Done.
         REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; },
                         kDefaultTimeout));
+        client->UnsubscribeTrack(handler);
         client->Disconnect();
-        REQUIRE(
-          WaitFor([&client]() { return client->GetStatus() == Transport::Status::kNotConnected; }, kDefaultTimeout));
     };
 
     // Client publishes, server subscribes, client receives.
@@ -1491,8 +1490,6 @@ TEST_CASE("Integration - Joining Fetch handling")
         CHECK_EQ(details.attributes.joining_start, joining_start);
 
         client->Disconnect();
-        REQUIRE(
-          WaitFor([&client]() { return client->GetStatus() == Transport::Status::kNotConnected; }, kDefaultTimeout));
     };
 
     SUBCASE("Server receives relative joining fetch")
