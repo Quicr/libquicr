@@ -355,7 +355,9 @@ namespace quicr {
         const auto [authority, _, protocol, path] = *ParseConnectUri(client_config_.connect_uri);
         if (protocol != TransportProtocol::kWebTransport) {
             setup_parameters.Add(SetupParameterType::kAuthority, authority);
-            setup_parameters.Add(SetupParameterType::kPath, path);
+            if (!path.empty()) {
+                setup_parameters.Add(SetupParameterType::kPath, path);
+            }
         }
 
         Bytes buffer;
