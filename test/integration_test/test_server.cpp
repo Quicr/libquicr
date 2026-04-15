@@ -40,6 +40,11 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
 {
     std::lock_guard lock(state_mutex_);
 
+    if (publish_received_promise_.has_value()) {
+        publish_received_promise_->set_value({ connection_handle, request_id, publish_attributes.track_full_name, {} });
+        publish_received_promise_.reset();
+    }
+
     const auto th = TrackHash(publish_attributes.track_full_name);
     const auto track_alias = th.track_fullname_hash;
 
@@ -211,6 +216,18 @@ TestServer::PublishNamespaceReceived(const ConnectionHandle connection_handle,
     // Accept the publish namespace by responding with OK
     const PublishNamespaceResponse response = { .reason_code = PublishNamespaceResponse::ReasonCode::kOk };
     ResolvePublishNamespace(connection_handle, publish_announce_attributes.request_id, track_namespace, {}, response);
+}
+
+void
+TestServer::JoiningFetchReceived(const ConnectionHandle connection_handle,
+                                 const uint64_t request_id,
+                                 const FullTrackName& track_full_name,
+                                 const messages::JoiningFetchAttributes& attributes)
+{
+    std::lock_guard lock(state_mutex_);
+    if (joining_fetch_promise_.has_value()) {
+        joining_fetch_promise_->set_value({ connection_handle, request_id, track_full_name, attributes });
+    }
 }
 
 void

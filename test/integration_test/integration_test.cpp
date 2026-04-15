@@ -1383,3 +1383,128 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         test_dynamic_groups_publisher_initiated("https");
     }
 }
+
+/// Subscribe handler for JoiningFetch testing.
+class JoiningFetchSubscribeHandler final : public SubscribeTrackHandler
+{
+  public:
+    JoiningFetchSubscribeHandler(const FullTrackName& full_track_name, const JoiningFetch& jf)
+      : SubscribeTrackHandler(full_track_name, 0, messages::GroupOrder::kAscending, std::monostate{}, jf)
+    {
+    }
+
+    static std::shared_ptr<JoiningFetchSubscribeHandler> Create(const FullTrackName& full_track_name,
+                                                                const JoiningFetch& jf)
+    {
+        return std::make_shared<JoiningFetchSubscribeHandler>(full_track_name, jf);
+    }
+
+    void ObjectReceived(const ObjectHeaders&, BytesSpan, std::optional<messages::StreamHeaderProperties>) override {}
+    void StatusChanged(Status) override {}
+};
+
+TEST_CASE("Integration - Joining Fetch handling")
+{
+    const auto server = MakeTestServer();
+    constexpr std::uint64_t joining_start = 50;
+
+    // Client subscribes, server receives.
+    auto test_server_receives_joining_fetch = [&](bool expect_relative) {
+        auto client = MakeTestClient();
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "fetch" });
+        ftn.name = { 1, 2, 3 };
+
+        // Subscribe with a joining fetch
+        const SubscribeTrackHandler::JoiningFetch jf = {
+            .priority = 128,
+            .group_order = messages::GroupOrder::kAscending,
+            .parameters = {},
+            .joining_start = joining_start,
+            .absolute = !expect_relative,
+        };
+        const auto handler = JoiningFetchSubscribeHandler::Create(ftn, jf);
+        std::promise<TestServer::JoiningFetchDetails> promise;
+        auto future = promise.get_future();
+        server->SetJoiningFetchPromise(std::move(promise));
+        client->SubscribeTrack(handler);
+
+        // Validate correct joining fetch received.
+        auto status = future.wait_for(kDefaultTimeout);
+        REQUIRE(status == std::future_status::ready);
+        const auto& details = future.get();
+        CHECK_EQ(details.attributes.relative, expect_relative);
+        CHECK_EQ(details.attributes.joining_start, joining_start);
+
+        // Done.
+        REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; },
+                        kDefaultTimeout));
+        client->UnsubscribeTrack(handler);
+        client->Disconnect();
+    };
+
+    // Client publishes, server subscribes, client receives.
+    auto test_client_receives_joining_fetch = [&](bool expect_relative) {
+        auto client = MakeTestClient();
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "fetch" });
+        ftn.name = { 4, 5, 6 };
+
+        // Publish track.
+        std::promise<TestServer::SubscribeDetails> pub_received_promise;
+        auto pub_accepted_future = pub_received_promise.get_future();
+        server->SetPublishReceivedPromise(std::move(pub_received_promise));
+        const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500, { 0, 0 });
+        client->PublishTrack(pub);
+        auto pub_status = pub_accepted_future.wait_for(kDefaultTimeout);
+        REQUIRE(pub_status == std::future_status::ready);
+        const auto pub_details = pub_accepted_future.get();
+
+        // Watch for the joining fetch callback.
+        std::promise<TestClient::JoiningFetchDetails> jf_promise;
+        auto jf_future = jf_promise.get_future();
+        client->SetJoiningFetchPromise(std::move(jf_promise));
+
+        // Server subscribes.
+        const SubscribeTrackHandler::JoiningFetch jf = {
+            .priority = 128,
+            .group_order = messages::GroupOrder::kAscending,
+            .parameters = {},
+            .joining_start = joining_start,
+            .absolute = !expect_relative,
+        };
+        auto sub_handler = JoiningFetchSubscribeHandler::Create(ftn, jf);
+        server->SubscribeTrack(pub_details.connection_handle, sub_handler);
+
+        // Validate correct joining fetch received.
+        auto jf_status = jf_future.wait_for(kDefaultTimeout);
+        REQUIRE(jf_status == std::future_status::ready);
+        const auto& details = jf_future.get();
+        CHECK_EQ(details.attributes.relative, expect_relative);
+        CHECK_EQ(details.attributes.joining_start, joining_start);
+
+        client->Disconnect();
+    };
+
+    SUBCASE("Server receives relative joining fetch")
+    {
+        test_server_receives_joining_fetch(true);
+    }
+
+    SUBCASE("Server receives absolute joining fetch")
+    {
+        test_server_receives_joining_fetch(false);
+    }
+
+    SUBCASE("Client receives relative joining fetch")
+    {
+        test_client_receives_joining_fetch(true);
+    }
+
+    SUBCASE("Client receives absolute joining fetch")
+    {
+        test_client_receives_joining_fetch(false);
+    }
+}

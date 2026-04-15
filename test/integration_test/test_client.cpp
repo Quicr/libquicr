@@ -52,3 +52,14 @@ TestClient::PublishNamespaceStatusChanged(quicr::messages::RequestID request_id,
         publish_namespace_status_changed_->set_value(request_id);
     }
 }
+
+void
+TestClient::JoiningFetchReceived(quicr::ConnectionHandle connection_handle,
+                                 uint64_t request_id,
+                                 const FullTrackName& track_full_name,
+                                 const quicr::messages::JoiningFetchAttributes& attributes)
+{
+    if (joining_fetch_received_) {
+        joining_fetch_received_->set_value({ connection_handle, request_id, track_full_name, attributes });
+    }
+}
