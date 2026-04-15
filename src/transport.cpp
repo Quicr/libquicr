@@ -350,6 +350,17 @@ namespace quicr {
                                   .Add(SetupParameterType::kEndpointId, client_config_.endpoint_id)
                                   .Add(SetupParameterType::kMaxRequestId, 0x1000);
 
+        // Set PATH and AUTHORITY for native QUIC connections.
+        // Start() has already validated parse of connect URI succeeds.
+        const auto [host, port, protocol, path] = *ParseConnectUri(client_config_.connect_uri);
+        if (protocol != TransportProtocol::kWebTransport) {
+            const auto authority = port > 0 ? host + ":" + std::to_string(port) : host;
+            setup_parameters.Add(SetupParameterType::kAuthority, authority);
+            if (!path.empty()) {
+                setup_parameters.Add(SetupParameterType::kPath, path);
+            }
+        }
+
         Bytes buffer;
         buffer << ClientSetup(setup_parameters);
 
