@@ -275,7 +275,7 @@ TEST_CASE("Integration - Subscribe")
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
-        const messages::Filter filter = messages::TrackFilter{ 1, 2, 3, 4 };
+        const messages::Filter filter = messages::TrackFilter{ 1, 2, 3 };
         const auto handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt, filter);
 
         // When we subscribe, server should receive a subscribe.
