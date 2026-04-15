@@ -352,8 +352,9 @@ namespace quicr {
 
         // Set PATH and AUTHORITY for native QUIC connections.
         // Start() has already validated parse of connect URI succeeds.
-        const auto [authority, _, protocol, path] = *ParseConnectUri(client_config_.connect_uri);
+        const auto [host, port, protocol, path] = *ParseConnectUri(client_config_.connect_uri);
         if (protocol != TransportProtocol::kWebTransport) {
+            const auto authority = port > 0 ? host + ":" + std::to_string(port) : host;
             setup_parameters.Add(SetupParameterType::kAuthority, authority);
             if (!path.empty()) {
                 setup_parameters.Add(SetupParameterType::kPath, path);
