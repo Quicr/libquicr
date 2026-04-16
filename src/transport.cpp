@@ -621,8 +621,11 @@ namespace quicr {
         auto params = Parameters{}
                         .Add(ParameterType::kSubscriberPriority, priority)
                         .AddOptional(ParameterType::kGroupOrder, group_order)
-                        .Add(GetFilterParameterType(filter), filter)
                         .Add(ParameterType::kForward, forward);
+
+        if (const auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
+            params.Add(filter_type, filter);
+        }
 
         Bytes buffer;
         buffer << PublishOk(request_id, params);
