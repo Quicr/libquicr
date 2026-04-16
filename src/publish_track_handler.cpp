@@ -282,6 +282,9 @@ namespace quicr {
         switch (default_track_mode_) {
             case TrackMode::kDatagram: {
                 messages::ObjectDatagram object;
+                if (stream_mode.has_value()) {
+                    object.end_of_group = stream_mode->end_of_group;
+                }
                 object.group_id = object_headers.group_id;
                 object.object_id = object_headers.object_id;
                 object.priority = priority;
