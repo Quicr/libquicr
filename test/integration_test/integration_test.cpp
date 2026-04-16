@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <future>
 #include <iostream>
@@ -159,6 +160,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         uint64_t object_id;
         ObjectStatus status;
         std::vector<uint8_t> data;
+        std::optional<Extensions> extensions;
     };
 
     static std::shared_ptr<TestSubscribeHandler> Create(const FullTrackName& full_track_name,
@@ -218,7 +220,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
                                           .subgroup_id = object_headers.subgroup_id,
                                           .object_id = object_headers.object_id,
                                           .status = object_headers.status,
-                                          .data = std::vector<uint8_t>(data.begin(), data.end()) });
+                                          .data = std::vector<uint8_t>(data.begin(), data.end()),
+                                          .extensions = object_headers.extensions });
 
             // Check if we've reached the target count
             if (object_count_promise_.has_value() && received_objects_.size() >= target_object_count_) {
@@ -1381,5 +1384,136 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
     SUBCASE("WebTransport - Publisher initiated")
     {
         test_dynamic_groups_publisher_initiated("https");
+    }
+}
+
+TEST_CASE("Integration - Prior Object ID Gap")
+{
+    auto server = MakeTestServer(std::nullopt, 2);
+
+    auto test_prior_object_id_gap = [&](const std::string& protocol_scheme, const TrackMode mode) {
+        auto subscriber_client = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto publisher_client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "prior_object_gap" });
+        ftn.name = { 0x01 };
+
+        // Publisher.
+        auto pub_handler = PublishTrackHandler::Create(ftn, mode, 3, 1000, { 0, 0 });
+        publisher_client->PublishTrack(pub_handler);
+        const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
+        REQUIRE(pub_ready);
+
+        // Subscriber.
+        auto sub_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+        std::promise<void> all_received_promise;
+        auto all_received_future = all_received_promise.get_future();
+        constexpr std::size_t total_objects = 5;
+        sub_handler->SetObjectCountPromise(total_objects, std::move(all_received_promise));
+        subscriber_client->SubscribeTrack(sub_handler);
+        const bool sub_ready =
+          WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        REQUIRE(sub_ready);
+
+        auto publish_object = [&](uint64_t group_id, uint64_t subgroup_id, uint64_t object_id) {
+            std::vector<uint8_t> payload = { static_cast<uint8_t>(object_id) };
+            ObjectHeaders headers = { .group_id = group_id,
+                                      .object_id = object_id,
+                                      .subgroup_id = subgroup_id,
+                                      .payload_length = payload.size(),
+                                      .status = ObjectStatus::kAvailable,
+                                      .priority = 3,
+                                      .ttl = 1000,
+                                      .track_mode = mode,
+                                      .extensions = std::nullopt,
+                                      .immutable_extensions = std::nullopt };
+            auto status = pub_handler->PublishObject(headers, payload);
+            REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
+        };
+
+        // Subgroup 0: objects 0, 1. No gap.
+        publish_object(0, 0, 0);
+        publish_object(0, 0, 1);
+        pub_handler->EndSubgroup(0, 0, true);
+
+        // Subgroup 1: object 2. No gap.
+        publish_object(0, 1, 2);
+
+        // Subgroup 1: object 5. Gap 2.
+        publish_object(0, 1, 5);
+        pub_handler->EndSubgroup(0, 1, true);
+
+        // Subgroup 2: object 7. Gap 1.
+        publish_object(0, 2, 7);
+        pub_handler->EndSubgroup(0, 2, true);
+
+        auto receive_status = all_received_future.wait_for(std::chrono::milliseconds(3000));
+        REQUIRE(receive_status == std::future_status::ready);
+        const auto received = sub_handler->GetReceivedObjects();
+        REQUIRE_EQ(received.size(), total_objects);
+
+        constexpr auto gap_key = static_cast<std::uint64_t>(messages::ExtensionType::kPriorObjectIdGap);
+
+        auto get_gap = [&](const TestSubscribeHandler::ReceivedObject& obj) -> std::optional<std::uint64_t> {
+            if (!obj.extensions.has_value() || !obj.extensions->contains(gap_key)) {
+                return std::nullopt;
+            }
+            const auto& values = obj.extensions->at(gap_key);
+            if (values.empty()) {
+                return std::nullopt;
+            }
+            std::uint64_t gap = 0;
+            std::memcpy(&gap, values[0].data(), std::min(values[0].size(), sizeof(gap)));
+            return gap;
+        };
+
+        // Object 0: no gap.
+        CHECK_EQ(received[0].object_id, 0);
+        CHECK_MESSAGE(!get_gap(received[0]).has_value(), "Object 0 should have no gap");
+
+        // Object 1: no gap.
+        CHECK_EQ(received[1].object_id, 1);
+        CHECK_MESSAGE(!get_gap(received[1]).has_value(), "Object 1 should have no gap");
+
+        // Object 2: no gap.
+        CHECK_EQ(received[2].object_id, 2);
+        CHECK_MESSAGE(!get_gap(received[2]).has_value(), "Object 2 should have no gap (group already has 0 and 1)");
+
+        // Object 5: gap = 2 (intra-subgroup).
+        CHECK_EQ(received[3].object_id, 5);
+        auto gap_5 = get_gap(received[3]);
+        REQUIRE_MESSAGE(gap_5.has_value(), "Object 5 should have a gap (objects 3-4 missing)");
+        CHECK_EQ(*gap_5, 2);
+
+        // Object 7: gap = 1 (inter-subgroup).
+        CHECK_EQ(received[4].object_id, 7);
+        auto gap_7 = get_gap(received[4]);
+        REQUIRE_MESSAGE(gap_7.has_value(), "Object 7 should have a gap (object 6 missing)");
+        CHECK_EQ(*gap_7, 1);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        SUBCASE("Stream")
+        {
+            test_prior_object_id_gap("moq", TrackMode::kStream);
+        }
+        SUBCASE("Datagram")
+        {
+            test_prior_object_id_gap("moq", TrackMode::kDatagram);
+        }
+    }
+
+    SUBCASE("WebTransport")
+    {
+        SUBCASE("Stream")
+        {
+            test_prior_object_id_gap("https", TrackMode::kStream);
+        }
+        SUBCASE("Datagram")
+        {
+            test_prior_object_id_gap("https", TrackMode::kDatagram);
+        }
     }
 }
