@@ -1391,7 +1391,7 @@ TEST_CASE("Integration - Prior Object ID Gap")
 {
     auto server = MakeTestServer(std::nullopt, 2);
 
-    auto test_prior_object_id_gap = [&](const std::string& protocol_scheme) {
+    auto test_prior_object_id_gap = [&](const std::string& protocol_scheme, const TrackMode mode) {
         auto subscriber_client = MakeTestClient(true, std::nullopt, protocol_scheme);
         auto publisher_client = MakeTestClient(true, std::nullopt, protocol_scheme);
 
@@ -1400,7 +1400,7 @@ TEST_CASE("Integration - Prior Object ID Gap")
         ftn.name = { 0x01 };
 
         // Publisher.
-        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+        auto pub_handler = PublishTrackHandler::Create(ftn, mode, 3, 1000, { 0, 0 });
         publisher_client->PublishTrack(pub_handler);
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
@@ -1425,7 +1425,7 @@ TEST_CASE("Integration - Prior Object ID Gap")
                                       .status = ObjectStatus::kAvailable,
                                       .priority = 3,
                                       .ttl = 1000,
-                                      .track_mode = TrackMode::kStream,
+                                      .track_mode = mode,
                                       .extensions = std::nullopt,
                                       .immutable_extensions = std::nullopt };
             auto status = pub_handler->PublishObject(headers, payload);
@@ -1495,13 +1495,25 @@ TEST_CASE("Integration - Prior Object ID Gap")
 
     SUBCASE("Raw QUIC")
     {
-        CAPTURE("Raw QUIC");
-        test_prior_object_id_gap("moq");
+        SUBCASE("Stream")
+        {
+            test_prior_object_id_gap("moq", TrackMode::kStream);
+        }
+        SUBCASE("Datagram")
+        {
+            test_prior_object_id_gap("moq", TrackMode::kDatagram);
+        }
     }
 
     SUBCASE("WebTransport")
     {
-        CAPTURE("WebTransport");
-        test_prior_object_id_gap("https");
+        SUBCASE("Stream")
+        {
+            test_prior_object_id_gap("https", TrackMode::kStream);
+        }
+        SUBCASE("Datagram")
+        {
+            test_prior_object_id_gap("https", TrackMode::kDatagram);
+        }
     }
 }

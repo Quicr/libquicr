@@ -184,21 +184,6 @@ namespace quicr {
             if (object_id_delta)
                 object_id_delta--; // Adjust for delta in missing objects
 
-            // Prior Object ID Gap.
-            const auto group_last_it = last_object_id_by_group_.find(object_headers.group_id);
-            if (group_last_it != last_object_id_by_group_.end()) {
-                prior_object_id_gap = object_headers.object_id > group_last_it->second
-                                        ? object_headers.object_id - group_last_it->second
-                                        : 0;
-                if (prior_object_id_gap) {
-                    prior_object_id_gap--;
-                }
-                group_last_it->second = object_headers.object_id;
-            } else {
-                prior_object_id_gap = object_headers.object_id;
-                last_object_id_by_group_.emplace(object_headers.group_id, object_headers.object_id);
-            }
-
             if (group_id_delta) {
                 // Group change, reset pending new group request
                 pending_new_group_request_id_ = std::nullopt;
@@ -253,6 +238,20 @@ namespace quicr {
 
         if (object_headers.track_mode.has_value() && object_headers.track_mode != default_track_mode_) {
             SetDefaultTrackMode(*object_headers.track_mode);
+        }
+
+        // Prior Object ID Gap.
+        const auto group_last_it = last_object_id_by_group_.find(object_headers.group_id);
+        if (group_last_it != last_object_id_by_group_.end()) {
+            prior_object_id_gap =
+              object_headers.object_id > group_last_it->second ? object_headers.object_id - group_last_it->second : 0;
+            if (prior_object_id_gap) {
+                prior_object_id_gap--;
+            }
+            group_last_it->second = object_headers.object_id;
+        } else {
+            prior_object_id_gap = object_headers.object_id;
+            last_object_id_by_group_.emplace(object_headers.group_id, object_headers.object_id);
         }
 
         auto object_extensions = object_headers.extensions;
