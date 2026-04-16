@@ -723,7 +723,10 @@ namespace quicr {
          * - FORWARD (0x10)
          */
         const auto& filter = handler->GetFilter();
-        auto params = Parameters{}.Add(GetFilterParameterType(filter), filter);
+        Parameters params;
+        if (const auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
+            params.Add(filter_type, filter);
+        }
 
         Bytes buffer;
         buffer << messages::SubscribeNamespace(rid, prefix, SubscribeOptions::kBoth, params);
