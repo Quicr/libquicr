@@ -144,6 +144,7 @@ namespace quicr {
         bool is_stream_header_needed{ false };
         uint64_t group_id_delta{ 0 };
         uint64_t object_id_delta{ 0 };
+        uint64_t prior_object_id_gap{ 0 };
         uint64_t stream_id{ 0 };
 
         if (default_track_mode_ == TrackMode::kStream) {
@@ -239,6 +240,20 @@ namespace quicr {
             SetDefaultTrackMode(*object_headers.track_mode);
         }
 
+        // Prior Object ID Gap.
+        const auto group_last_it = last_object_id_by_group_.find(object_headers.group_id);
+        if (group_last_it != last_object_id_by_group_.end()) {
+            prior_object_id_gap =
+              object_headers.object_id > group_last_it->second ? object_headers.object_id - group_last_it->second : 0;
+            if (prior_object_id_gap) {
+                prior_object_id_gap--;
+            }
+            group_last_it->second = object_headers.object_id;
+        } else {
+            prior_object_id_gap = object_headers.object_id;
+            last_object_id_by_group_.emplace(object_headers.group_id, object_headers.object_id);
+        }
+
         auto object_extensions = object_headers.extensions;
 
         // Only client (publishers) can add these extensions. Per moqt, relays do not add these extensions
@@ -255,8 +270,8 @@ namespace quicr {
                   value_bytes);
             }
 
-            if (object_id_delta > 0) {
-                const std::uint64_t value = object_id_delta;
+            if (prior_object_id_gap > 0) {
+                const std::uint64_t value = prior_object_id_gap;
                 std::vector<std::uint8_t> value_bytes(sizeof(value));
                 memcpy(value_bytes.data(), &value, sizeof(value));
                 if (not object_extensions.has_value()) {
