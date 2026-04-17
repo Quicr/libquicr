@@ -457,6 +457,17 @@ namespace quicr {
          */
         std::uint64_t CreateStream(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority) override;
 
+        /**
+         * @brief Erase local state for the given stream.
+         *
+         * @param conn_ctx Connection context for the stream
+         * @param data_ctx Data context for the stream
+         * @param stream_id ID of the stream to erase
+         *
+         * @warning This method must be called within the picoquic thread.
+         */
+        void EraseStreamState(ConnectionContext& conn_ctx, DataContext* data_ctx, std::uint64_t stream_id);
+
       public:
         std::shared_ptr<spdlog::logger> logger;
         bool is_server_mode;
