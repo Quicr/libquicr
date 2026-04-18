@@ -22,7 +22,7 @@ namespace quicr {
          */
         FetchTrackHandler(const FullTrackName& full_track_name,
                           const std::uint8_t priority,
-                          const messages::GroupOrder group_order,
+                          const std::optional<messages::GroupOrder> group_order,
                           const messages::Location& start_location,
                           const messages::FetchEndLocation& end_location)
           : SubscribeTrackHandler(full_track_name,
@@ -52,7 +52,7 @@ namespace quicr {
          */
         static std::shared_ptr<FetchTrackHandler> Create(const FullTrackName& full_track_name,
                                                          const std::uint8_t priority,
-                                                         const messages::GroupOrder group_order,
+                                                         const std::optional<messages::GroupOrder> group_order,
                                                          const messages::Location& start_location,
                                                          const messages::FetchEndLocation& end_location)
         {

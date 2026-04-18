@@ -256,12 +256,11 @@ namespace quicr::messages {
         kForward = 0x10,
         kSubscriberPriority = 0x20,
         kLocationFilter = 0x21,
-        kGroupFilter = 0x23,
         kSubgroupFilter = 0x25,
-        kObjectFilter = 0x27,
-        kPriorityFilter = 0x29,
-        kPropertyFilter = 0x2B,
-        kTrackFilter = 0x2D,
+        kObjectFilter = 0x26,
+        kPriorityFilter = 0x27,
+        kPropertyFilter = 0x28,
+        kTrackFilter = 0x29,
         kGroupOrder = 0x22,
         kNewGroupRequest = 0x32,
 
@@ -277,9 +276,8 @@ namespace quicr::messages {
 
     enum struct GroupOrder : uint8_t
     {
-        kOriginalPublisherOrder = 0x0,
-        kAscending,
-        kDescending
+        kAscending = 0x1,
+        kDescending = 0x2
     };
 
     Bytes& operator<<(Bytes& buffer, GroupOrder value);
@@ -289,7 +287,6 @@ namespace quicr::messages {
     {
         kNone,
         kLocationFilter,
-        kGroupFilter,
         kSubgroupFilter,
         kObjectFilter,
         kPriorityFilter,
@@ -302,8 +299,6 @@ namespace quicr::messages {
         switch (type) {
             case FilterType::kLocationFilter:
                 return ParameterType::kLocationFilter;
-            case FilterType::kGroupFilter:
-                return ParameterType::kGroupFilter;
             case FilterType::kSubgroupFilter:
                 return ParameterType::kSubgroupFilter;
             case FilterType::kObjectFilter:
@@ -324,8 +319,6 @@ namespace quicr::messages {
         switch (type) {
             case ParameterType::kLocationFilter:
                 return FilterType::kLocationFilter;
-            case ParameterType::kGroupFilter:
-                return FilterType::kGroupFilter;
             case ParameterType::kSubgroupFilter:
                 return FilterType::kSubgroupFilter;
             case ParameterType::kObjectFilter:
@@ -336,6 +329,7 @@ namespace quicr::messages {
                 return FilterType::kPropertyFilter;
             case ParameterType::kTrackFilter:
                 return FilterType::kTrackFilter;
+
             default:
                 throw std::invalid_argument("parameter type is not a valid filter type");
         }
@@ -452,8 +446,7 @@ namespace quicr::messages {
     {
         std::uint64_t property_type;
         std::uint64_t max_tracks_selected;
-        std::uint64_t max_tracks_deselected;
-        std::uint64_t max_time_selected;
+        std::uint64_t timeout;
 
         constexpr auto operator<=>(const TrackFilter&) const noexcept = default;
     };
@@ -462,8 +455,7 @@ namespace quicr::messages {
     {
         AppendBytes(bytes, UintVar(filter.property_type));
         AppendBytes(bytes, UintVar(filter.max_tracks_selected));
-        AppendBytes(bytes, UintVar(filter.max_tracks_deselected));
-        AppendBytes(bytes, UintVar(filter.max_time_selected));
+        AppendBytes(bytes, UintVar(filter.timeout));
 
         return bytes;
     }
@@ -472,8 +464,7 @@ namespace quicr::messages {
     {
         bytes = bytes >> filter.property_type;
         bytes = bytes >> filter.max_tracks_selected;
-        bytes = bytes >> filter.max_tracks_deselected;
-        bytes = bytes >> filter.max_time_selected;
+        bytes = bytes >> filter.timeout;
 
         return bytes;
     }
@@ -622,9 +613,6 @@ namespace quicr::messages {
                 LocationFilter filter{};
                 bytes = bytes >> filter;
                 return filter;
-            }
-            case FilterType::kGroupFilter: {
-                return std::monostate{};
             }
             case FilterType::kSubgroupFilter: {
                 return std::monostate{};

@@ -350,6 +350,17 @@ namespace quicr {
                                   .Add(SetupParameterType::kEndpointId, client_config_.endpoint_id)
                                   .Add(SetupParameterType::kMaxRequestId, 0x1000);
 
+        // Set PATH and AUTHORITY for native QUIC connections.
+        // Start() has already validated parse of connect URI succeeds.
+        const auto [host, port, protocol, path] = *ParseConnectUri(client_config_.connect_uri);
+        if (protocol != TransportProtocol::kWebTransport) {
+            const auto authority = port > 0 ? host + ":" + std::to_string(port) : host;
+            setup_parameters.Add(SetupParameterType::kAuthority, authority);
+            if (!path.empty()) {
+                setup_parameters.Add(SetupParameterType::kPath, path);
+            }
+        }
+
         Bytes buffer;
         buffer << ClientSetup(setup_parameters);
 
@@ -510,7 +521,7 @@ namespace quicr {
                                   const FullTrackName& tfn,
                                   TrackHash th, // TODO: This is only for a debug message, should be removed
                                   std::uint8_t priority,
-                                  GroupOrder group_order,
+                                  std::optional<GroupOrder> group_order,
                                   const Filter& filter,
                                   std::optional<std::chrono::milliseconds> delivery_timeout)
     try {
@@ -525,7 +536,7 @@ namespace quicr {
          */
         auto params = Parameters{}
                         .Add(ParameterType::kSubscriberPriority, priority)
-                        .Add(ParameterType::kGroupOrder, group_order)
+                        .AddOptional(ParameterType::kGroupOrder, group_order)
                         .Add(ParameterType::kForward, 1)
                         .AddOptional(ParameterType::kDeliveryTimeout, delivery_timeout);
 
@@ -595,7 +606,7 @@ namespace quicr {
                                   messages::RequestID request_id,
                                   bool forward,
                                   std::uint8_t priority,
-                                  messages::GroupOrder group_order,
+                                  std::optional<messages::GroupOrder> group_order,
                                   const messages::Filter& filter)
     try {
         /* Available parameters:
@@ -609,9 +620,12 @@ namespace quicr {
          */
         auto params = Parameters{}
                         .Add(ParameterType::kSubscriberPriority, priority)
-                        .Add(ParameterType::kGroupOrder, group_order)
-                        .Add(GetFilterParameterType(filter), filter)
+                        .AddOptional(ParameterType::kGroupOrder, group_order)
                         .Add(ParameterType::kForward, forward);
+
+        if (const auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
+            params.Add(filter_type, filter);
+        }
 
         Bytes buffer;
         buffer << PublishOk(request_id, params);
@@ -630,7 +644,8 @@ namespace quicr {
                                     uint64_t request_id,
                                     uint64_t track_alias,
                                     uint64_t expires,
-                                    const std::optional<Location>& largest_location)
+                                    const std::optional<Location>& largest_location,
+                                    messages::GroupOrder publisher_default_group_order)
     try {
         auto params = Parameters{}
                         .Add(ParameterType::kExpires, expires)
@@ -639,7 +654,7 @@ namespace quicr {
         auto extensions = TrackExtensions{}
                             .Add(ExtensionType::kDeliveryTimeout, 0)
                             .Add(ExtensionType::kMaxCacheDuration, 0)
-                            .Add(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending)
+                            .Add(ExtensionType::kDefaultPublisherGroupOrder, publisher_default_group_order)
                             .Add(ExtensionType::kDefaultPublisherPriority, 1)
                             .Add(ExtensionType::kDynamicGroups, true);
 
@@ -711,7 +726,10 @@ namespace quicr {
          * - FORWARD (0x10)
          */
         const auto& filter = handler->GetFilter();
-        auto params = Parameters{}.Add(GetFilterParameterType(filter), filter);
+        Parameters params;
+        if (const auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
+            params.Add(filter_type, filter);
+        }
 
         Bytes buffer;
         buffer << messages::SubscribeNamespace(rid, prefix, SubscribeOptions::kBoth, params);
@@ -773,7 +791,7 @@ namespace quicr {
                               uint64_t request_id,
                               const FullTrackName& tfn,
                               std::uint8_t priority,
-                              messages::GroupOrder group_order,
+                              std::optional<messages::GroupOrder> group_order,
                               const messages::Location& start_location,
                               const messages::FetchEndLocation& end_location)
     try {
@@ -789,8 +807,9 @@ namespace quicr {
          * - SUBSCRIBER PRIORITY (0x20): Priority of the fetch response relative to other data.
          * - GROUP ORDER (0x22): Preference for the order of groups in the fetch response.
          */
-        auto params =
-          Parameters{}.Add(ParameterType::kSubscriberPriority, priority).Add(ParameterType::kGroupOrder, group_order);
+        auto params = Parameters{}
+                        .Add(ParameterType::kSubscriberPriority, priority)
+                        .AddOptional(ParameterType::kGroupOrder, group_order);
 
         Bytes buffer;
         buffer << Fetch(request_id, messages::FetchType::kStandalone, group_0, std::nullopt, params);
@@ -804,7 +823,7 @@ namespace quicr {
     void Transport::SendJoiningFetch(ConnectionContext& conn_ctx,
                                      uint64_t request_id,
                                      std::uint8_t priority,
-                                     messages::GroupOrder group_order,
+                                     std::optional<messages::GroupOrder> group_order,
                                      uint64_t joining_request_id,
                                      messages::GroupId joining_start,
                                      bool absolute)
@@ -816,8 +835,9 @@ namespace quicr {
          * - SUBSCRIBER PRIORITY (0x20): Priority of the fetch response relative to other data.
          * - GROUP ORDER (0x22): Preference for the order of groups in the fetch response.
          */
-        auto params =
-          Parameters{}.Add(ParameterType::kSubscriberPriority, priority).Add(ParameterType::kGroupOrder, group_order);
+        auto params = Parameters{}
+                        .Add(ParameterType::kSubscriberPriority, priority)
+                        .AddOptional(ParameterType::kGroupOrder, group_order);
 
         Bytes buffer;
         buffer << Fetch(request_id,
@@ -847,7 +867,7 @@ namespace quicr {
 
     void Transport::SendFetchOk(ConnectionContext& conn_ctx,
                                 uint64_t request_id,
-                                GroupOrder group_order,
+                                GroupOrder publisher_default_group_order,
                                 bool end_of_track,
                                 Location largest_location)
     try {
@@ -857,12 +877,12 @@ namespace quicr {
         auto extensions = TrackExtensions{}
                             .Add(ExtensionType::kDeliveryTimeout, 0)
                             .Add(ExtensionType::kMaxCacheDuration, 0)
-                            .Add(ExtensionType::kDefaultPublisherGroupOrder, group_order)
+                            .Add(ExtensionType::kDefaultPublisherGroupOrder, publisher_default_group_order)
                             .Add(ExtensionType::kDefaultPublisherPriority, 1)
                             .Add(ExtensionType::kDynamicGroups, true);
 
         Bytes buffer;
-        buffer << FetchOk(request_id, end_of_track, largest_location, params, {});
+        buffer << FetchOk(request_id, end_of_track, largest_location, params, extensions);
 
         SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), buffer);
     } catch (const std::exception& e) {
@@ -1248,6 +1268,7 @@ namespace quicr {
                     handler->SetReceivedTrackAlias(attributes.track_alias);
                     handler->SetPriority(attributes.priority);
                     handler->SetDeliveryTimeout(attributes.delivery_timeout);
+                    handler->SetPublisherDefaultGroupOrder(attributes.publisher_default_group_order);
                     handler->SupportNewGroupRequest(attributes.dynamic_groups);
 
                     SubscribeTrack(connection_handle, std::move(handler));
@@ -1586,11 +1607,11 @@ namespace quicr {
                         break; // Not enough bytes to process control message. Try again once more.
                     }
 
-                    if (ProcessCtrlMessage(
-                          conn_ctx,
-                          data_ctx_id.value(),
-                          ctrl_msg_buffer.msg_type.value(),
-                          { ctrl_msg_buffer.data.begin() + sizeof(payload_len), ctrl_msg_buffer.data.end() })) {
+                    if (ProcessCtrlMessage(conn_ctx,
+                                           data_ctx_id.value(),
+                                           ctrl_msg_buffer.msg_type.value(),
+                                           { ctrl_msg_buffer.data.begin() + sizeof(payload_len),
+                                             ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len })) {
 
                         // Reset the control message buffer and message type to start a new message.
                         ctrl_msg_buffer.msg_type = std::nullopt;

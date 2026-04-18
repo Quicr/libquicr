@@ -53,6 +53,8 @@ namespace qclient_vars {
       cache;
     std::shared_ptr<quicr::ThreadedTickService> tick_service = std::make_shared<quicr::ThreadedTickService>();
     std::optional<sframe::MLSContext> mls_ctx = sframe::MLSContext(sframe::CipherSuite::AES_GCM_128_SHA256, 1);
+    std::optional<std::filesystem::path> watch_path;
+    std::chrono::milliseconds watch_interval_ms(5000);
 
 }
 
@@ -521,7 +523,7 @@ class MyClient : public quicr::Client
                        uint64_t request_id,
                        const quicr::FullTrackName& track_full_name,
                        std::uint8_t priority,
-                       quicr::messages::GroupOrder group_order,
+                       std::optional<quicr::messages::GroupOrder> group_order,
                        quicr::messages::Location start,
                        quicr::messages::FetchEndLocation end)
     {
@@ -575,8 +577,8 @@ class MyClient : public quicr::Client
         }
 
         // TODO: Adjust the TTL
-        auto pub_fetch_h =
-          quicr::PublishFetchHandler::Create(track_full_name, priority, request_id, group_order, 50000);
+        auto pub_fetch_h = quicr::PublishFetchHandler::Create(
+          track_full_name, priority, request_id, group_order.value_or(quicr::messages::GroupOrder::kAscending), 50000);
         BindFetchTrack(connection_handle, pub_fetch_h);
 
         std::thread retrieve_cache_thread([=, cache_entries = std::move(cache_entries), this] {
@@ -826,6 +828,78 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
 
             SPDLOG_INFO("--------------------------------------------------------------------------");
             sending = true;
+        }
+
+        if (qclient_vars::watch_path.has_value()) {
+            const auto& watch_path = *qclient_vars::watch_path;
+            const auto interval = qclient_vars::watch_interval_ms;
+            constexpr auto poll_tick = std::chrono::milliseconds(100);
+
+            auto last_write = std::filesystem::last_write_time(watch_path);
+            auto last_publish = std::chrono::steady_clock::time_point{};
+
+            while (not stop) {
+                if (track_handler->GetStatus() != MyPublishTrackHandler::Status::kOk &&
+                    track_handler->GetStatus() != MyPublishTrackHandler::Status::kNoSubscribers) {
+                    std::this_thread::sleep_for(poll_tick);
+                    continue;
+                }
+
+                bool should_publish = false;
+                auto now = std::chrono::steady_clock::now();
+
+                auto current_write = std::filesystem::last_write_time(watch_path);
+                if (current_write != last_write) {
+                    last_write = current_write;
+                    should_publish = true;
+                }
+
+                if (now - last_publish >= interval) {
+                    should_publish = true;
+                }
+
+                if (!should_publish) {
+                    std::this_thread::sleep_for(poll_tick);
+                    continue;
+                }
+
+                std::ifstream file(watch_path, std::ios::binary);
+                if (!file) {
+                    SPDLOG_WARN("Failed to read watch file: {}", watch_path.string());
+                    std::this_thread::sleep_for(poll_tick);
+                    continue;
+                }
+                std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+                group_id = static_cast<uint64_t>(
+                  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch())
+                    .count());
+                object_id = 0;
+                subgroup_id = 0;
+
+                SPDLOG_INFO("Publishing file {} ({} bytes) group_id: {}", watch_path.string(), data.size(), group_id);
+
+                quicr::ObjectHeaders obj_headers = {
+                    group_id,         object_id,      subgroup_id,  data.size(),  quicr::ObjectStatus::kAvailable,
+                    128 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
+                };
+
+                try {
+                    if (track_handler->CanPublish()) {
+                        auto status = track_handler->PublishObject(
+                          obj_headers, { reinterpret_cast<uint8_t*>(data.data()), data.size() });
+                        if (status != decltype(status)::kOk) {
+                            SPDLOG_WARN("PublishObject returned status={}", static_cast<int>(status));
+                        }
+                    }
+                } catch (const std::exception& e) {
+                    SPDLOG_ERROR("Exception publishing watch file: {}", e.what());
+                }
+
+                last_publish = now;
+            }
+
+            break;
         }
 
         if (qclient_vars::playback) {
@@ -1374,6 +1448,15 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         qclient_vars::cache_duration_ms = std::chrono::milliseconds(cli_opts["cache_duration_ms"].as<uint64_t>());
     }
 
+    if (cli_opts.count("watch")) {
+        qclient_vars::watch_path = cli_opts["watch"].as<std::string>();
+        SPDLOG_INFO("Watch mode enabled for file: {}", qclient_vars::watch_path->string());
+    }
+
+    if (cli_opts.count("watch_interval_ms")) {
+        qclient_vars::watch_interval_ms = std::chrono::milliseconds(cli_opts["watch_interval_ms"].as<uint64_t>());
+    }
+
     if (cli_opts.count("ssl_keylog") && cli_opts["ssl_keylog"].as<bool>() == true) {
         SPDLOG_INFO("SSL Keylog enabled");
     }
@@ -1463,7 +1546,9 @@ main(int argc, char* argv[])
         ("subgroup_num_groups", "Number of groups for subgroup test", cxxopts::value<std::uint64_t>()->default_value("2"))
         ("subgroup_num_subgroups", "Number of subgroups per group for subgroup test", cxxopts::value<std::uint64_t>()->default_value("3"))
         ("subgroup_messages_per_phase", "Messages per phase for subgroup test", cxxopts::value<std::uint64_t>()->default_value("10"))
-        ("subgroup_interval_ms", "Interval between messages in subgroup test (ms)", cxxopts::value<std::uint64_t>()->default_value("100"));
+        ("subgroup_interval_ms", "Interval between messages in subgroup test (ms)", cxxopts::value<std::uint64_t>()->default_value("100"))
+        ("watch", "Watch a file and publish contents as objects", cxxopts::value<std::string>())
+        ("watch_interval_ms", "Republish interval in ms for watch mode", cxxopts::value<std::uint64_t>()->default_value("5000"));
 
     options.add_options("Subscriber")
         ("sub_namespace", "Track namespace", cxxopts::value<std::string>())

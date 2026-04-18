@@ -64,6 +64,7 @@ namespace quicr {
         std::optional<std::string> error_reason = std::nullopt;
 
         std::optional<messages::Location> largest_location = std::nullopt;
+        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
     };
 
     /**
@@ -89,6 +90,7 @@ namespace quicr {
         std::optional<std::string> error_reason = std::nullopt;
 
         std::optional<messages::Location> largest_location = std::nullopt;
+        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
     };
 
     struct SubscribeNamespaceResponse
@@ -135,6 +137,7 @@ namespace quicr {
         std::optional<std::string> error_reason = std::nullopt;
 
         std::optional<messages::Location> largest_location = std::nullopt;
+        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
     };
 
     /**
