@@ -208,7 +208,7 @@ namespace quicr {
 
         TrackNamespace GetSuffix(std::size_t length) const noexcept
         {
-            if (length > entries_.size()) {
+            if (length == 0 || length > entries_.size()) {
                 return TrackNamespace(std::span{ entries_ });
             }
 
