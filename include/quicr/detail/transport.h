@@ -4,6 +4,7 @@
 #pragma once
 
 #include "attributes.h"
+#include "message.h"
 #include "messages.h"
 #include "quic_transport.h"
 #include "quicr/common.h"
@@ -546,6 +547,20 @@ namespace quicr {
         void Init();
 
         void SendCtrlMsg(const ConnectionContext& conn_ctx, DataContextId data_ctx_id, BytesSpan data);
+
+        template<typename... Fields>
+        void SendCtrlMsg(const ConnectionContext& conn_ctx,
+                         DataContextId data_ctx_id,
+                         messages::ControlMessageType type,
+                         Fields&&... args)
+        {
+            auto msg = messages::Message{ type }.ReserveLength();
+
+            (msg.Add(args), ...);
+
+            SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes());
+        }
+
         void SendClientSetup();
         void SendServerSetup(ConnectionContext& conn_ctx);
 
