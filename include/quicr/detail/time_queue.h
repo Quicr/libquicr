@@ -22,8 +22,8 @@
 
 #include <atomic>
 #include <memory>
-#include <unordered_set>
 #include <stdexcept>
+#include <unordered_set>
 #include <vector>
 
 #include "tick_service.h"
