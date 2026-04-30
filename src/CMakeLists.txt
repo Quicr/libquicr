@@ -12,6 +12,7 @@ target_sources (quicr PRIVATE
     ctrl_message_types.cpp
     ${ctrl_messages_SOURCE}
     messages.cpp
+    parse_params.cpp
     publish_fetch_handler.cpp
     publish_track_handler.cpp
     publish_namespace_handler.cpp

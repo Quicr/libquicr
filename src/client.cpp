@@ -6,6 +6,7 @@
 #include <optional>
 #include <quicr/client.h>
 
+#include "quicr/detail/parse_params.h"
 #include "quicr/detail/transport.h"
 
 namespace quicr {
@@ -381,15 +382,12 @@ namespace quicr {
                 }
 
                 if (auto sub_handler = sub_it->second.Get<SubscribeTrackHandler>()) {
-                    std::optional<messages::Location> largest_location;
+                    const messages::SubscribeOkParameters params(msg.parameters);
+                    const auto& largest_location = params.largest_object;
                     const auto publisher_default_group_order =
                       msg.track_extensions
                         .GetOptional<messages::GroupOrder>(messages::ExtensionType::kDefaultPublisherGroupOrder)
                         .value_or(messages::GroupOrder::kAscending);
-                    if (msg.parameters.Contains(messages::ParameterType::kLargestObject)) {
-                        largest_location =
-                          msg.parameters.Get<messages::Location>(messages::ParameterType::kLargestObject);
-                    }
 
                     if (largest_location.has_value()) {
                         SPDLOG_LOGGER_DEBUG(
@@ -480,29 +478,15 @@ namespace quicr {
                                     th.track_name_hash,
                                     msg.track_alias);
 
-                auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
-                auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
-                auto new_group_request_id =
-                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-
                 const auto publisher_default_group_order =
                   msg.track_extensions
                     .GetOptional<messages::GroupOrder>(messages::ExtensionType::kDefaultPublisherGroupOrder)
                     .value_or(messages::GroupOrder::kAscending);
-                auto dynamic_groups = msg.track_extensions.GetOptional<bool>(messages::ExtensionType::kDynamicGroups);
+                const bool dynamic_groups =
+                  msg.track_extensions.GetOptional<bool>(messages::ExtensionType::kDynamicGroups).value_or(false);
 
-                messages::PublishAttributes attrs;
-                attrs.track_full_name = tfn;
-                attrs.track_alias = msg.track_alias;
-                attrs.forward = forward;
-                attrs.group_order = std::nullopt;
-                attrs.publisher_default_group_order = publisher_default_group_order;
-                attrs.expires = std::chrono::milliseconds(expires);
-                attrs.is_publisher_initiated = true;
-                attrs.new_group_request_id = new_group_request_id;
-                attrs.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
-                attrs.dynamic_groups = dynamic_groups.value_or(false);
+                auto attrs = messages::ParsePublishParams(
+                  msg.parameters, tfn, msg.track_alias, publisher_default_group_order, dynamic_groups);
 
                 std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
 
@@ -677,16 +661,8 @@ namespace quicr {
                             end_location.object = msg.group_0->standalone.end.object - 1;
                         }
 
-                        auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                        auto group_order =
-                          msg.parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
-
-                        messages::StandaloneFetchAttributes attrs = { .priority = priority,
-                                                                      .group_order = group_order,
-                                                                      .publisher_default_group_order =
-                                                                        messages::GroupOrder::kAscending,
-                                                                      .start_location = msg.group_0->standalone.start,
-                                                                      .end_location = end_location };
+                        auto attrs = messages::ParseStandaloneFetchParams(
+                          msg.parameters, msg.group_0->standalone.start, end_location);
                         StandaloneFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
                         return true;
                     }
@@ -706,18 +682,10 @@ namespace quicr {
 
                         FullTrackName tfn = subscribe_state->second.track_full_name;
 
-                        auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                        auto group_order =
-                          msg.parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
-
-                        messages::JoiningFetchAttributes attrs = {
-                            .priority = priority,
-                            .group_order = group_order,
-                            .publisher_default_group_order = messages::GroupOrder::kAscending,
-                            .joining_request_id = msg.group_1->joining.request_id,
-                            .relative = relative_joining,
-                            .joining_start = msg.group_1->joining.joining_start,
-                        };
+                        auto attrs = messages::ParseJoiningFetchParams(msg.parameters,
+                                                                       msg.group_1->joining.request_id,
+                                                                       relative_joining,
+                                                                       msg.group_1->joining.joining_start);
 
                         JoiningFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
                         return true;
@@ -770,22 +738,8 @@ namespace quicr {
                     return true;
                 }
 
-                auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
-                auto group_order =
-                  msg.parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
-                auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
-
-                messages::Filter filter; // TODO: Support more filters.
-                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
-                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
-                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
-                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
-                }
-
-                auto new_group_request_id =
-                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                auto params = messages::PublishOkParameters(msg.parameters);
+                const bool forward = params.forward.value_or(false); // preserve existing Get<bool> behaviour
 
                 if (auto h = pub_it->second.Get<PublishTrackHandler>()) {
                     h->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
