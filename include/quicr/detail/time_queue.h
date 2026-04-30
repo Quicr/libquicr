@@ -22,8 +22,8 @@
 
 #include <atomic>
 #include <memory>
-#include <set>
 #include <stdexcept>
+#include <unordered_set>
 #include <vector>
 
 #include "tick_service.h"
@@ -269,15 +269,18 @@ namespace quicr {
          */
         void ClearRange(std::size_t start, std::size_t end) noexcept
         {
-            auto in_use = bucket_inuse_indexes_;
-            bucket_inuse_indexes_.clear();
+            std::vector<std::size_t> remove_in_use;
+            remove_in_use.reserve(10);
 
-            for (const auto idx : in_use) {
+            for (const auto idx : bucket_inuse_indexes_) {
                 if (idx >= start && idx <= end) {
                     buckets_[idx].clear();
-                } else {
-                    bucket_inuse_indexes_.insert(idx);
+                    remove_in_use.push_back(idx);
                 }
+            }
+
+            for (const auto& idx : remove_in_use) {
+                bucket_inuse_indexes_.erase(idx);
             }
         }
 
@@ -380,7 +383,7 @@ namespace quicr {
         std::vector<BucketType> buckets_;
 
         /// Set of bucket indexes that are in uses.
-        std::set<uint32_t> bucket_inuse_indexes_;
+        std::unordered_set<uint32_t> bucket_inuse_indexes_;
 
         /// The FIFO ordered queue of values as they were inserted.
         QueueType queue_;
