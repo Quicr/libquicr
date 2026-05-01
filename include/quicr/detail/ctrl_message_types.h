@@ -12,6 +12,11 @@
 #include <tuple>
 #include <variant>
 
+namespace quicr {
+    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
+    Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
+}
+
 namespace quicr::messages {
 
     struct ProtocolViolationException : std::runtime_error
@@ -908,9 +913,6 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, TrackExtensions& msg);
     Bytes& operator<<(Bytes& buffer, const TrackExtensions& msg);
-
-    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
-    Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
 
     template<typename Type = ParameterType>
     class ParameterList

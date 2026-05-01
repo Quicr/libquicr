@@ -282,6 +282,9 @@ namespace quicr::messages {
 
         return buffer;
     }
+}
+namespace quicr {
+    using namespace quicr::messages;
 
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& ns)
     {
