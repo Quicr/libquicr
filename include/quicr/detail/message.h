@@ -57,8 +57,9 @@ namespace quicr::messages {
         {
             if (_length_reserved) {
                 const std::size_t type_size = UintVar(_bytes.front()).size();
-                auto* size_ptr = reinterpret_cast<std::uint16_t*>(_bytes.data() + type_size);
-                *size_ptr = SwapBytes(static_cast<std::uint16_t>(_bytes.size() - type_size - sizeof(std::uint16_t)));
+                const std::uint16_t payload_size =
+                  SwapBytes(static_cast<std::uint16_t>(_bytes.size() - type_size - sizeof(std::uint16_t)));
+                std::memcpy(_bytes.data() + type_size, &payload_size, sizeof(std::uint16_t));
             }
 
             return _bytes;
