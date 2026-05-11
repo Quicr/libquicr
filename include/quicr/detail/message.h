@@ -74,15 +74,15 @@ namespace quicr::messages {
       public:
         MessageReader() = default;
 
-        template<typename... Fields>
-        auto ParseFields(std::span<const std::uint8_t>& buffer)
-        {
-            return std::make_tuple([](std::span<const std::uint8_t>& b) {
-                Fields field{};
-                b = b >> field;
-                return field;
-            }(buffer)...);
-        }
+        // template<typename... Fields>
+        // auto ParseFields(std::span<const std::uint8_t>& buffer)
+        // {
+        //     return std::make_tuple([](std::span<const std::uint8_t>& b) {
+        //         Fields field{};
+        //         b = b >> field;
+        //         return field;
+        //     }(buffer)...);
+        // }
 
         template<typename Field>
         Field ParseField(std::span<const std::uint8_t>& buffer)
