@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include <quicr/detail/message.h>
 #include <quicr/detail/messages.h>
 #include <quicr/server.h>
 
@@ -375,35 +376,37 @@ namespace quicr {
                                     messages::ControlMessageType msg_type,
                                     BytesSpan msg_bytes)
     try {
+        messages::MessageReader reader;
         switch (msg_type) {
             case messages::ControlMessageType::kSubscribe: {
-                messages::Subscribe msg{};
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto track_namespace = reader.ParseField<TrackNamespace>(msg_bytes);
+                const auto track_name = reader.ParseField<Bytes>(msg_bytes);
+                const auto parameters = reader.ParseField<messages::Parameters>(msg_bytes);
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
+                auto tfn = FullTrackName{ track_namespace, track_name };
                 auto th = TrackHash(tfn);
 
-                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
+                conn_ctx.recv_req_id[request_id] = { .track_full_name = tfn, .track_hash = th };
 
-                auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto group_order =
-                  msg.parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
+                auto delivery_timeout = parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
+                auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                auto group_order = parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 const auto publisher_default_group_order = messages::GroupOrder::kAscending;
-                auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
+                auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
                 auto new_group_request_id =
-                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                 messages::Filter filter; // TODO: Support more filters.
-                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
-                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
-                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
-                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
+                if (parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
 
                 // TODO(tievens): add filter type when caching supports it
                 SubscribeReceived(conn_ctx.connection_handle,
-                                  msg.request_id,
+                                  request_id,
                                   tfn,
                                   {
                                     .priority = priority,
@@ -420,23 +423,25 @@ namespace quicr {
 
                 // Handle new group request after subscribe callback
                 if (new_group_request_id.has_value()) {
-                    NewGroupRequested({ msg.track_namespace, msg.track_name }, *new_group_request_id);
+                    NewGroupRequested({ track_namespace, track_name }, *new_group_request_id);
                 }
 
                 return true;
             }
             case messages::ControlMessageType::kSubscribeOk: {
-                messages::SubscribeOk msg{};
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto track_alias = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto parameters = reader.ParseField<messages::Parameters>(msg_bytes);
+                const auto track_extensions = reader.ParseField<messages::TrackExtensions>(msg_bytes);
 
-                auto sub_it = conn_ctx.request_handlers.find(msg.request_id);
+                auto sub_it = conn_ctx.request_handlers.find(request_id);
 
                 if (sub_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(
                       logger_,
                       "Received subscribe ok to unknown subscribe track conn_id: {} request_id: {}, ignored",
                       conn_ctx.connection_handle,
-                      msg.request_id);
+                      request_id);
 
                     // TODO(tievens): Draft doesn't indicate what to do in this case, which can happen due to race
                     // condition
@@ -445,102 +450,105 @@ namespace quicr {
 
                 if (auto handler = sub_it->second.Get<SubscribeTrackHandler>()) {
                     const auto publisher_default_group_order =
-                      msg.track_extensions
+                      track_extensions
                         .GetOptional<messages::GroupOrder>(messages::ExtensionType::kDefaultPublisherGroupOrder)
                         .value_or(messages::GroupOrder::kAscending);
-                    handler->SetReceivedTrackAlias(msg.track_alias);
+                    handler->SetReceivedTrackAlias(track_alias);
                     handler->SetPublisherDefaultGroupOrder(publisher_default_group_order);
                     handler->SetStatus(SubscribeTrackHandler::Status::kOk);
-                    conn_ctx.sub_by_recv_track_alias[msg.track_alias] = handler;
+                    conn_ctx.sub_by_recv_track_alias[track_alias] = handler;
                 }
 
                 return true;
             }
             case messages::ControlMessageType::kRequestOk: {
-                auto msg = messages::RequestOk{};
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto parameters = reader.ParseField<messages::Parameters>(msg_bytes);
 
                 auto largest_location =
-                  msg.parameters.GetOptional<messages::Location>(messages::ParameterType::kLargestObject);
+                  parameters.GetOptional<messages::Location>(messages::ParameterType::kLargestObject);
 
-                RequestOkReceived(conn_ctx.connection_handle, msg.request_id, largest_location);
+                RequestOkReceived(conn_ctx.connection_handle, request_id, largest_location);
 
                 return true;
             }
             case messages::ControlMessageType::kRequestError: {
-                auto msg = messages::RequestError{};
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto error_code = reader.ParseField<messages::ErrorCode>(msg_bytes);
+                [[maybe_unused]] const auto retry_interval = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto error_reason = reader.ParseField<Bytes>(msg_bytes);
 
                 RequestResponse response{};
-                response.reason_code = RequestResponse::FromErrorCode(msg.error_code);
-                response.error_reason = std::string(msg.error_reason.begin(), msg.error_reason.end());
+                response.reason_code = RequestResponse::FromErrorCode(error_code);
+                response.error_reason = std::string(error_reason.begin(), error_reason.end());
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received track status error request_id: {} error code: {} reason: {}",
-                                    msg.request_id,
-                                    static_cast<std::uint64_t>(msg.error_code),
+                                    request_id,
+                                    static_cast<std::uint64_t>(error_code),
                                     response.error_reason.value());
 
-                RequestErrorReceived(conn_ctx.connection_handle, msg.request_id, response);
+                RequestErrorReceived(conn_ctx.connection_handle, request_id, response);
                 return true;
             }
             case messages::ControlMessageType::kTrackStatus: {
-                auto msg = messages::TrackStatus{};
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto track_namespace = reader.ParseField<TrackNamespace>(msg_bytes);
+                const auto track_name = reader.ParseField<Bytes>(msg_bytes);
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
+                auto tfn = FullTrackName{ track_namespace, track_name };
                 auto th = TrackHash(tfn);
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received track status request_id: {} for full name hash: {}",
-                                    msg.request_id,
+                                    request_id,
                                     th.track_fullname_hash);
 
-                TrackStatusReceived(conn_ctx.connection_handle, msg.request_id, tfn);
+                TrackStatusReceived(conn_ctx.connection_handle, request_id, tfn);
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespace: {
-                auto msg = messages::PublishNamespace{};
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto track_namespace = reader.ParseField<TrackNamespace>(msg_bytes);
+                [[maybe_unused]] const auto parameters = reader.ParseField<messages::Parameters>(msg_bytes);
 
-                auto tfn = FullTrackName{ msg.track_namespace, {} };
+                auto tfn = FullTrackName{ track_namespace, {} };
 
-                PublishNamespaceReceived(conn_ctx.connection_handle, tfn.name_space, { msg.request_id });
+                PublishNamespaceReceived(conn_ctx.connection_handle, tfn.name_space, { request_id });
                 return true;
             }
             case messages::ControlMessageType::kSubscribeNamespace: {
-                auto msg = messages::SubscribeNamespace{};
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto track_namespace_prefix = reader.ParseField<TrackNamespace>(msg_bytes);
+                const auto subscribe_options = reader.ParseField<messages::SubscribeOptions>(msg_bytes);
+                const auto parameters = reader.ParseField<messages::Parameters>(msg_bytes);
 
                 messages::Filter filter; // TODO: Support more filters.
-                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
-                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
-                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
-                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
+                if (parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
 
-                SubscribeNamespaceReceived(conn_ctx.connection_handle,
-                                           data_ctx_id,
-                                           msg.track_namespace_prefix,
-                                           { .request_id = msg.request_id,
-                                             .filter_type = messages::FilterType::kTrackFilter,
-                                             .filter = filter });
+                SubscribeNamespaceReceived(
+                  conn_ctx.connection_handle,
+                  data_ctx_id,
+                  track_namespace_prefix,
+                  { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
                 return true;
             }
             case messages::ControlMessageType::kNamespaceDone: {
-                auto msg = messages::NamespaceDone{};
-                msg_bytes >> msg;
+                const auto track_namespace_suffix = reader.ParseField<TrackNamespace>(msg_bytes);
 
-                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, msg.track_namespace_suffix);
+                UnsubscribeNamespaceReceived(conn_ctx.connection_handle, track_namespace_suffix);
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceDone: {
-                messages::PublishNamespaceDone msg;
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
 
-                SPDLOG_LOGGER_INFO(logger_, "Received publish namespace done for request_id: {}", msg.request_id);
+                SPDLOG_LOGGER_INFO(logger_, "Received publish namespace done for request_id: {}", request_id);
 
-                auto sub_namespace_conns = PublishNamespaceDoneReceived(conn_ctx.connection_handle, msg.request_id);
+                auto sub_namespace_conns = PublishNamespaceDoneReceived(conn_ctx.connection_handle, request_id);
 
                 std::lock_guard<std::mutex> _(state_mutex_);
                 for (auto conn_id : sub_namespace_conns) {
@@ -549,35 +557,36 @@ namespace quicr {
                         continue;
                     }
 
-                    SendPublishNamespaceDone(conn_it->second, msg.request_id);
+                    SendPublishNamespaceDone(conn_it->second, request_id);
                 }
 
                 return true;
             }
             case messages::ControlMessageType::kUnsubscribe: {
-                messages::Unsubscribe msg;
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
 
-                auto& th = conn_ctx.recv_req_id[msg.request_id].track_hash;
+                auto& th = conn_ctx.recv_req_id[request_id].track_hash;
                 if (auto pdt = GetPubTrackHandler(conn_ctx, th)) {
                     pdt->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
                 }
 
-                UnsubscribeReceived(conn_ctx.connection_handle, msg.request_id);
-                conn_ctx.recv_req_id.erase(msg.request_id);
+                UnsubscribeReceived(conn_ctx.connection_handle, request_id);
+                conn_ctx.recv_req_id.erase(request_id);
 
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {
-                messages::PublishDone msg;
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto status_code = reader.ParseField<messages::PublishDoneStatusCode>(msg_bytes);
+                const auto stream_count = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto error_reason = reader.ParseField<Bytes>(msg_bytes);
 
-                auto pub_it = conn_ctx.request_handlers.find(msg.request_id);
+                auto pub_it = conn_ctx.request_handlers.find(request_id);
                 if (pub_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received publish done to unknown subscribe conn_id: {} request_id: {}",
                                        conn_ctx.connection_handle,
-                                       msg.request_id);
+                                       request_id);
 
                     return true;
                 }
@@ -588,25 +597,24 @@ namespace quicr {
                                    "Received publish done conn_id: {} request_id: {} track namespace hash: {} "
                                    "name hash: {} track alias: {}",
                                    conn_ctx.connection_handle,
-                                   msg.request_id,
+                                   request_id,
                                    th.track_namespace_hash,
                                    th.track_name_hash,
                                    th.track_fullname_hash);
 
                 if (auto h = pub_it->second.Get<SubscribeTrackHandler>()) {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
-                    PublishDoneReceived(conn_ctx.connection_handle, msg.request_id);
+                    PublishDoneReceived(conn_ctx.connection_handle, request_id);
                 }
 
-                conn_ctx.recv_req_id.erase(msg.request_id);
+                conn_ctx.recv_req_id.erase(request_id);
 
                 return true;
             }
             case messages::ControlMessageType::kRequestsBlocked: {
-                messages::RequestsBlocked msg;
-                msg_bytes >> msg;
+                const auto maximum_request_id = reader.ParseField<std::uint64_t>(msg_bytes);
 
-                SPDLOG_LOGGER_WARN(logger_, "Subscribe was blocked, maximum_request_id: {}", msg.maximum_request_id);
+                SPDLOG_LOGGER_WARN(logger_, "Subscribe was blocked, maximum_request_id: {}", maximum_request_id);
 
                 // TODO: React to this somehow.
                 // See https://www.ietf.org/archive/id/draft-ietf-moq-transport-08.html#section-7.21
@@ -617,33 +625,31 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceCancel: {
-                messages::PublishNamespaceCancel msg;
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto error_code = reader.ParseField<messages::ErrorCode>(msg_bytes);
+                const auto error_reason = reader.ParseField<Bytes>(msg_bytes);
 
-                std::string reason(msg.error_reason.begin(), msg.error_reason.end());
+                std::string reason(error_reason.begin(), error_reason.end());
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Received announce cancel for request_id: {} (error_code={}, reason={})",
-                                   msg.request_id,
-                                   static_cast<int>(msg.error_code),
+                                   request_id,
+                                   static_cast<int>(error_code),
                                    reason);
 
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {
-                messages::Goaway msg;
-                msg_bytes >> msg;
+                const auto new_session_uri = reader.ParseField<Bytes>(msg_bytes);
 
-                std::string new_sess_uri(msg.new_session_uri.begin(), msg.new_session_uri.end());
+                std::string new_sess_uri(new_session_uri.begin(), new_session_uri.end());
                 SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {}", new_sess_uri);
                 return true;
             }
             case messages::ControlMessageType::kClientSetup: {
-                messages::ClientSetup msg;
-
-                msg_bytes >> msg;
+                const auto setup_parameters = reader.ParseField<messages::SetupParameters>(msg_bytes);
 
                 std::string endpoint_id = "Unknown Endpoint ID";
-                for (const auto& param : msg.setup_parameters) {
+                for (const auto& param : setup_parameters) {
                     if (param.type == messages::SetupParameterType::kEndpointId) {
                         endpoint_id = std::string(param.value.begin(), param.value.end());
                     }
@@ -662,24 +668,27 @@ namespace quicr {
             }
 
             case messages::ControlMessageType::kFetchOk: {
-                messages::FetchOk msg;
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto end_of_track = reader.ParseField<std::uint8_t>(msg_bytes);
+                const auto end_location = reader.ParseField<messages::Location>(msg_bytes);
+                const auto parameters = reader.ParseField<messages::Parameters>(msg_bytes);
+                const auto track_extensions = reader.ParseField<messages::TrackExtensions>(msg_bytes);
 
-                auto fetch_it = conn_ctx.request_handlers.find(msg.request_id);
+                auto fetch_it = conn_ctx.request_handlers.find(request_id);
                 if (fetch_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received fetch ok for unknown fetch track conn_id: {} request_id: {}, ignored",
                                        conn_ctx.connection_handle,
-                                       msg.request_id);
+                                       request_id);
                     return true;
                 }
 
                 if (auto h = fetch_it->second.Get<FetchTrackHandler>()) {
                     const auto publisher_default_group_order =
-                      msg.track_extensions
+                      track_extensions
                         .GetOptional<messages::GroupOrder>(messages::ExtensionType::kDefaultPublisherGroupOrder)
                         .value_or(messages::GroupOrder::kAscending);
-                    h->SetLatestLocation(msg.end_location);
+                    h->SetLatestLocation(end_location);
                     h->SetPublisherDefaultGroupOrder(publisher_default_group_order);
                     h->SetStatus(FetchTrackHandler::Status::kOk);
                 }
@@ -687,49 +696,42 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kFetch: {
-                auto msg = messages::Fetch(
-                  [](messages::Fetch& msg) {
-                      if (msg.fetch_type == messages::FetchType::kStandalone) {
-                          msg.group_0 = std::make_optional<messages::Fetch::Group_0>();
-                      }
-                  },
-                  [](messages::Fetch& msg) {
-                      if (msg.fetch_type == messages::FetchType::kRelativeJoiningFetch ||
-                          msg.fetch_type == messages::FetchType::kAbsoluteJoiningFetch) {
-                          msg.group_1 = std::make_optional<messages::Fetch::Group_1>();
-                      }
-                  });
-
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto fetch_type = reader.ParseField<messages::FetchType>(msg_bytes);
 
                 bool relative_joining{ false };
-                switch (msg.fetch_type) {
+                switch (fetch_type) {
                     case messages::FetchType::kStandalone: {
-                        FullTrackName tfn{ msg.group_0->standalone.track_namespace,
-                                           msg.group_0->standalone.track_name };
+                        const auto track_namespace = reader.ParseField<TrackNamespace>(msg_bytes);
+                        const auto track_name = reader.ParseField<Bytes>(msg_bytes);
+                        const auto start = reader.ParseField<messages::Location>(msg_bytes);
+                        const auto end = reader.ParseField<messages::Location>(msg_bytes);
+                        const auto parameters = reader.ParseField<messages::Parameters>(msg_bytes);
+
+                        FullTrackName tfn{ track_namespace, track_name };
 
                         // Unwrap with the end location wire format.
                         messages::FetchEndLocation end_location;
-                        end_location.group = msg.group_0->standalone.end.group;
-                        if (msg.group_0->standalone.end.object == 0) {
+                        end_location.group = end.group;
+                        if (end.object == 0) {
                             end_location.object = std::nullopt;
                         } else {
-                            end_location.object = msg.group_0->standalone.end.object - 1;
+                            end_location.object = end.object - 1;
                         }
 
-                        auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                        auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                         auto group_order =
-                          msg.parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
+                          parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
 
                         messages::StandaloneFetchAttributes attrs = {
                             .priority = priority,
                             .group_order = group_order,
                             .publisher_default_group_order = messages::GroupOrder::kAscending,
-                            .start_location = msg.group_0->standalone.start,
+                            .start_location = start,
                             .end_location = end_location,
                         };
 
-                        StandaloneFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
+                        StandaloneFetchReceived(conn_ctx.connection_handle, request_id, tfn, attrs);
                         return true;
                     }
                     case messages::FetchType::kRelativeJoiningFetch: {
@@ -737,12 +739,15 @@ namespace quicr {
                         [[fallthrough]];
                     }
                     case messages::FetchType::kAbsoluteJoiningFetch: {
+                        const auto joining_request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                        const auto joining_start = reader.ParseField<std::uint64_t>(msg_bytes);
+                        const auto parameters = reader.ParseField<messages::Parameters>(msg_bytes);
 
                         // Joining fetch needs to look up its joining subscribe.
-                        const auto subscribe_state = conn_ctx.recv_req_id.find(msg.group_1->joining.request_id);
+                        const auto subscribe_state = conn_ctx.recv_req_id.find(joining_request_id);
                         if (subscribe_state == conn_ctx.recv_req_id.end()) {
                             SendRequestError(conn_ctx,
-                                             msg.request_id,
+                                             request_id,
                                              messages::ErrorCode::kDoesNotExist,
                                              0ms,
                                              "Corresponding subscribe does not exist");
@@ -750,25 +755,25 @@ namespace quicr {
                         }
 
                         FullTrackName tfn = subscribe_state->second.track_full_name;
-                        auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                        auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                         auto group_order =
-                          msg.parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
+                          parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
 
                         messages::JoiningFetchAttributes attrs = {
                             .priority = priority,
                             .group_order = group_order,
                             .publisher_default_group_order = messages::GroupOrder::kAscending,
-                            .joining_request_id = msg.group_1->joining.request_id,
+                            .joining_request_id = joining_request_id,
                             .relative = relative_joining,
-                            .joining_start = msg.group_1->joining.joining_start,
+                            .joining_start = joining_start,
                         };
 
-                        JoiningFetchReceived(conn_ctx.connection_handle, msg.request_id, tfn, attrs);
+                        JoiningFetchReceived(conn_ctx.connection_handle, request_id, tfn, attrs);
                         return true;
                     }
                     default: {
                         SendRequestError(
-                          conn_ctx, msg.request_id, messages::ErrorCode::kNotSupported, 0ms, "Unknown fetch type");
+                          conn_ctx, request_id, messages::ErrorCode::kNotSupported, 0ms, "Unknown fetch type");
                         return true;
                     }
                 }
@@ -776,16 +781,15 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kFetchCancel: {
-                messages::FetchCancel msg;
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
 
-                if (conn_ctx.recv_req_id.find(msg.request_id) == conn_ctx.recv_req_id.end()) {
-                    SPDLOG_LOGGER_WARN(logger_, "Received Fetch Cancel for unknown subscribe ID: {}", msg.request_id);
+                if (conn_ctx.recv_req_id.find(request_id) == conn_ctx.recv_req_id.end()) {
+                    SPDLOG_LOGGER_WARN(logger_, "Received Fetch Cancel for unknown subscribe ID: {}", request_id);
                 }
 
-                const auto fetch_it = conn_ctx.request_handlers.find(msg.request_id);
+                const auto fetch_it = conn_ctx.request_handlers.find(request_id);
                 if (fetch_it == conn_ctx.request_handlers.end()) {
-                    FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
+                    FetchCancelReceived(conn_ctx.connection_handle, request_id);
                     return true;
                 }
 
@@ -793,34 +797,38 @@ namespace quicr {
                     h->SetStatus(FetchTrackHandler::Status::kCancelled);
                 }
 
-                FetchCancelReceived(conn_ctx.connection_handle, msg.request_id);
+                FetchCancelReceived(conn_ctx.connection_handle, request_id);
 
                 conn_ctx.request_handlers.erase(fetch_it);
-                conn_ctx.recv_req_id.erase(msg.request_id);
+                conn_ctx.recv_req_id.erase(request_id);
 
                 return true;
             }
             case messages::ControlMessageType::kPublish: {
-                auto msg = messages::Publish{};
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto track_namespace = reader.ParseField<TrackNamespace>(msg_bytes);
+                const auto track_name = reader.ParseField<Bytes>(msg_bytes);
+                const auto track_alias = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto parameters = reader.ParseField<messages::Parameters>(msg_bytes);
+                const auto track_extensions = reader.ParseField<messages::TrackExtensions>(msg_bytes);
 
-                auto tfn = FullTrackName{ msg.track_namespace, msg.track_name };
+                auto tfn = FullTrackName{ track_namespace, track_name };
                 auto th = TrackHash(tfn);
 
-                conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = tfn, .track_hash = th };
+                conn_ctx.recv_req_id[request_id] = { .track_full_name = tfn, .track_hash = th };
 
                 bool dynamic_groups = true; // TODO: This has moved to extensions/properties get from there
-                auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                auto expires = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
+                auto delivery_timeout = parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
+                auto expires = parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
                 const auto publisher_default_group_order =
-                  msg.track_extensions
+                  track_extensions
                     .GetOptional<messages::GroupOrder>(messages::ExtensionType::kDefaultPublisherGroupOrder)
                     .value_or(messages::GroupOrder::kAscending);
-                auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
+                auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
 
                 messages::PublishAttributes attributes;
                 attributes.track_full_name = tfn;
-                attributes.track_alias = msg.track_alias;
+                attributes.track_alias = track_alias;
                 attributes.priority = 0;
                 attributes.group_order = std::nullopt;
                 attributes.publisher_default_group_order = publisher_default_group_order;
@@ -830,36 +838,36 @@ namespace quicr {
                 attributes.is_publisher_initiated = true;
                 attributes.dynamic_groups = dynamic_groups;
 
-                PublishReceived(conn_ctx.connection_handle, msg.request_id, attributes, {});
+                PublishReceived(conn_ctx.connection_handle, request_id, attributes, {});
 
                 return true;
             }
 
             case messages::ControlMessageType::kPublishOk: {
-                messages::PublishOk msg{};
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto parameters = reader.ParseField<messages::Parameters>(msg_bytes);
 
                 // Consume originating request.
-                auto pub_it = conn_ctx.request_handlers.find(msg.request_id);
+                auto pub_it = conn_ctx.request_handlers.find(request_id);
                 if (pub_it == conn_ctx.request_handlers.end()) {
-                    SPDLOG_LOGGER_WARN(logger_, "Received publish ok for unknown publish: {}", msg.request_id);
+                    SPDLOG_LOGGER_WARN(logger_, "Received publish ok for unknown publish: {}", request_id);
                     return true;
                 }
 
                 // Continue with subscribe flow.
                 if (auto pub_h = pub_it->second.Get<PublishTrackHandler>()) {
                     auto th = TrackHash(pub_h->GetFullTrackName());
-                    conn_ctx.recv_req_id[msg.request_id] = { .track_full_name = pub_h->GetFullTrackName(),
-                                                             .track_hash = th };
+                    conn_ctx.recv_req_id[request_id] = { .track_full_name = pub_h->GetFullTrackName(),
+                                                         .track_hash = th };
 
-                    auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                    auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                     auto delivery_timeout =
-                      msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                    auto forward = msg.parameters.GetOptional<bool>(messages::ParameterType::kForward);
-                    auto filter = msg.parameters.GetOptional<messages::Filter>(
+                      parameters.GetOptional<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
+                    auto forward = parameters.GetOptional<bool>(messages::ParameterType::kForward);
+                    auto filter = parameters.GetOptional<messages::Filter>(
                       messages::ParameterType::kTrackFilter); // TODO: Support more filters
                     auto new_group_request_id =
-                      msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                      parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                     if (pub_h->GetDefaultPriority() < priority) {
                         pub_h->SetDefaultPriority(priority);
@@ -885,33 +893,35 @@ namespace quicr {
             }
 
             case messages::ControlMessageType::kRequestUpdate: {
-                messages::RequestUpdate msg;
-                msg_bytes >> msg;
+                const auto request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto existing_request_id = reader.ParseField<std::uint64_t>(msg_bytes);
+                const auto parameters = reader.ParseField<messages::Parameters>(msg_bytes);
 
-                auto sub_ctx_it = conn_ctx.recv_req_id.find(msg.existing_request_id);
+                auto sub_ctx_it = conn_ctx.recv_req_id.find(existing_request_id);
                 if (sub_ctx_it == conn_ctx.recv_req_id.end()) {
                     // update for invalid subscription
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received subscribe_update for unknown subscription conn_id: {} request_id: {}",
                                        conn_ctx.connection_handle,
-                                       msg.request_id);
+                                       request_id);
 
                     SendRequestError(
-                      conn_ctx, msg.request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Subscription not found");
+                      conn_ctx, request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Subscription not found");
                     return true;
                 }
 
-                auto delivery_timeout = msg.parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                auto priority = msg.parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto forward = msg.parameters.Get<bool>(messages::ParameterType::kForward);
+                [[maybe_unused]] auto delivery_timeout =
+                  parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
+                [[maybe_unused]] auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
                 auto new_group_request_id =
-                  msg.parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                 messages::Filter filter; // TODO: Support more filters.
-                if (msg.parameters.Contains(messages::ParameterType::kLocationFilter)) {
-                    filter = msg.parameters.GetFilter(messages::FilterType::kLocationFilter);
-                } else if (msg.parameters.Contains(messages::ParameterType::kTrackFilter)) {
-                    filter = msg.parameters.GetFilter(messages::FilterType::kTrackFilter);
+                if (parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
 
                 if (new_group_request_id.has_value()) {
@@ -920,7 +930,7 @@ namespace quicr {
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe_update to recv request_id: {} forward: {} ngr: {}",
-                                    msg.request_id,
+                                    request_id,
                                     forward,
                                     new_group_request_id.has_value());
 

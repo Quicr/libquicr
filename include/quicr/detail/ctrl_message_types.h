@@ -1011,7 +1011,7 @@ namespace quicr::messages {
             return FromBytes<T>(bytes);
         }
 
-        Filter GetFilter(FilterType type)
+        Filter GetFilter(FilterType type) const
         {
             if constexpr (!std::is_same_v<ParameterType, Type>) {
                 return std::monostate{};

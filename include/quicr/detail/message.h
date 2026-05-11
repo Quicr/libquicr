@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ctrl_message_types.h"
 #include "uintvar.h"
 #include "utilities.h"
 
@@ -66,5 +67,29 @@ namespace quicr::messages {
       private:
         bool _length_reserved = false;
         mutable std::vector<std::uint8_t> _bytes;
+    };
+
+    class MessageReader
+    {
+      public:
+        MessageReader() = default;
+
+        template<typename... Fields>
+        auto ParseFields(std::span<const std::uint8_t>& buffer)
+        {
+            return std::make_tuple([](std::span<const std::uint8_t>& b) {
+                Fields field{};
+                b = b >> field;
+                return field;
+            }(buffer)...);
+        }
+
+        template<typename Field>
+        Field ParseField(std::span<const std::uint8_t>& buffer)
+        {
+            Field field{};
+            buffer = buffer >> field;
+            return field;
+        }
     };
 }
