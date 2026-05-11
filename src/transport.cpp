@@ -812,7 +812,10 @@ namespace quicr {
                     ControlMessageType::kFetch,
                     UintVar(request_id),
                     messages::FetchType::kStandalone,
-                    StandaloneFetch{ tfn.name_space, tfn.name, start_location, wire_end_location },
+                    tfn.name_space,
+                    tfn.name,
+                    start_location,
+                    wire_end_location,
                     params);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Fetch (error={})", e.what());
@@ -841,7 +844,8 @@ namespace quicr {
                     ControlMessageType::kFetch,
                     UintVar(request_id),
                     absolute ? FetchType::kAbsoluteJoiningFetch : FetchType::kRelativeJoiningFetch,
-                    JoiningFetch{ joining_request_id, joining_start },
+                    joining_request_id,
+                    joining_start,
                     params);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending JoiningFetch (error={})", e.what());
