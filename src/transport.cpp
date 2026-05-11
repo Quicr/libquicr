@@ -3,7 +3,7 @@
 
 #include "quicr/detail/transport.h"
 
-#include "quicr/detail/ctrl_messages.h"
+#include "quicr/detail/ctrl_message_types.h"
 #include "quicr/detail/message.h"
 #include "quicr/detail/messages.h"
 

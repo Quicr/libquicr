@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "quicr/detail/ctrl_messages.h"
+#include "ctrl_message_types.h"
 
 #include <chrono>
 #include <optional>
@@ -33,7 +33,7 @@ namespace quicr::messages {
     struct PublishAttributes : SubscribeAttributes
     {
         FullTrackName track_full_name;
-        TrackAlias track_alias;
+        std::uint64_t track_alias;
         bool dynamic_groups = false;
     };
 

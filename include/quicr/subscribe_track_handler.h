@@ -4,6 +4,7 @@
 #pragma once
 
 #include <quicr/detail/base_track_handler.h>
+#include <quicr/detail/ctrl_message_types.h>
 #include <quicr/detail/messages.h>
 #include <quicr/detail/stream_buffer.h>
 #include <quicr/metrics.h>

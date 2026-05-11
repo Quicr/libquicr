@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <quicr/detail/message.h>
-#include <quicr/detail/messages.h>
-#include <quicr/server.h>
+#include "quicr/server.h"
+#include "quicr/detail/ctrl_message_types.h"
+#include "quicr/detail/message.h"
+#include "quicr/detail/messages.h"
 
 namespace quicr {
     using namespace std::chrono_literals;
@@ -167,7 +168,7 @@ namespace quicr {
     void Server::ResolveSubscribeNamespace(const ConnectionHandle connection_handle,
                                            const DataContextId data_ctx_id,
                                            const uint64_t request_id,
-                                           const messages::TrackNamespacePrefix& prefix,
+                                           const TrackNamespace& prefix,
                                            const SubscribeNamespaceResponse& response)
     {
         const auto conn_it = connections_.find(connection_handle);

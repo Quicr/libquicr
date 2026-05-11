@@ -6,6 +6,7 @@
 #include <optional>
 #include <quicr/client.h>
 
+#include "quicr/detail/ctrl_message_types.h"
 #include "quicr/detail/transport.h"
 
 namespace quicr {

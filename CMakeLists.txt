@@ -88,13 +88,13 @@ add_subdirectory(dependencies)
 ###
 ### Draft Parser Integration
 ###
-include(tools/draft_parser/cmake/ParseDraft.cmake)
-parse_draft(
-    RFC_FILE ${DRAFT_INTERNAL}
-    OUTPUT_NAME "ctrl_messages"
-    OUTPUT_DIR "${CMAKE_BINARY_DIR}/include/quicr/detail"
-    SETUP_VENV ${DRAFT_PARSER_SETUP_VENV}
-)
+# include(tools/draft_parser/cmake/ParseDraft.cmake)
+# parse_draft(
+#     RFC_FILE ${DRAFT_INTERNAL}
+#     OUTPUT_NAME "ctrl_messages"
+#     OUTPUT_DIR "${CMAKE_BINARY_DIR}/include/quicr/detail"
+#     SETUP_VENV ${DRAFT_PARSER_SETUP_VENV}
+# )
 
 ###
 ### Build the quicr library

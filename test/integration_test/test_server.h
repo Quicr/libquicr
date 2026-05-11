@@ -242,7 +242,7 @@ namespace quicr_test {
         };
 
         std::vector<AvailableTrack> known_published_tracks_;
-        std::unordered_map<quicr::messages::TrackNamespacePrefix,
+        std::unordered_map<quicr::TrackNamespace,
                            std::map<quicr::ConnectionHandle, std::shared_ptr<quicr::PublishNamespaceHandler>>>
           namespace_subscribers_;
         std::vector<FetchResponseData> fetch_response_data_;

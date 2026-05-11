@@ -19,6 +19,36 @@ namespace quicr {
 
 namespace quicr::messages {
 
+    enum class ControlMessageType : uint64_t
+    {
+        kRequestUpdate = 0x2,
+        kSubscribe = 0x3,
+        kSubscribeOk = 0x4,
+        kRequestError = 0x5,
+        kPublishNamespace = 0x6,
+        kRequestOk = 0x7,
+        kNamespace = 0x8,
+        kPublishNamespaceDone = 0x9,
+        kUnsubscribe = 0xa,
+        kPublishDone = 0xb,
+        kPublishNamespaceCancel = 0xc,
+        kTrackStatus = 0xd,
+        kNamespaceDone = 0xe,
+        kGoaway = 0x10,
+        kSubscribeNamespace = 0x11,
+        kMaxRequestId = 0x15,
+        kFetch = 0x16,
+        kFetchCancel = 0x17,
+        kFetchOk = 0x18,
+        kRequestsBlocked = 0x1a,
+        kPublish = 0x1d,
+        kPublishOk = 0x1e,
+        kClientSetup = 0x20,
+        kServerSetup = 0x21,
+    };
+
+    using TrackAlias = std::uint64_t;
+
     struct ProtocolViolationException : std::runtime_error
     {
         const std::string reason;
@@ -1072,5 +1102,8 @@ namespace quicr::messages {
 
         return buffer;
     }
+
+    using SetupParameters = quicr::messages::ParameterList<quicr::messages::SetupParameterType>;
+    using Parameters = quicr::messages::ParameterList<quicr::messages::ParameterType>;
 
 } // namespace
