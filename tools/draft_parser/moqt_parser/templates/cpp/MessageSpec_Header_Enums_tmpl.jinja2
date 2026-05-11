@@ -1,9 +1,0 @@
-
-    // enums
-    enum class ControlMessageType : uint64_t
-    {
-        {% for message in messages %}
-        k{{message.message_type}} = 0x{{'%0x' % message.message_enum}},
-        {% endfor %}
-    };
-
