@@ -631,7 +631,7 @@ namespace quicr {
 
                 std::string reason(error_reason.begin(), error_reason.end());
                 SPDLOG_LOGGER_INFO(logger_,
-                                   "Received announce cancel for request_id: {} (error_code={}, reason={})",
+                                   "Received publish namespace cancel for request_id: {} (error_code={}, reason={})",
                                    request_id,
                                    static_cast<int>(error_code),
                                    reason);
