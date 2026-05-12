@@ -70,27 +70,11 @@ namespace quicr::messages {
         mutable std::vector<std::uint8_t> _bytes;
     };
 
-    class MessageReader
+    template<typename Field>
+    static Field ParseMessageField(std::span<const std::uint8_t>& buffer)
     {
-      public:
-        MessageReader() = default;
-
-        // template<typename... Fields>
-        // auto ParseFields(std::span<const std::uint8_t>& buffer)
-        // {
-        //     return std::make_tuple([](std::span<const std::uint8_t>& b) {
-        //         Fields field{};
-        //         b = b >> field;
-        //         return field;
-        //     }(buffer)...);
-        // }
-
-        template<typename Field>
-        Field ParseField(std::span<const std::uint8_t>& buffer)
-        {
-            Field field{};
-            buffer = buffer >> field;
-            return field;
-        }
-    };
+        Field field{};
+        buffer = buffer >> field;
+        return field;
+    }
 }

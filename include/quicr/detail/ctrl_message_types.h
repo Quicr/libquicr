@@ -82,14 +82,6 @@ namespace quicr::messages {
     using RequestID = uint64_t;
     using TrackName = Bytes;
 
-    struct ControlMessage
-    {
-        std::uint64_t type{ 0 };
-        Bytes payload{};
-    };
-    Bytes& operator<<(Bytes& buffer, const ControlMessage& message);
-    BytesSpan operator>>(BytesSpan buffer, ControlMessage& message);
-
     struct Location
     {
         GroupId group{ 0 };
@@ -696,26 +688,6 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, FetchType value);
     BytesSpan operator>>(BytesSpan buffer, FetchType& value);
-
-    struct StandaloneFetch
-    {
-        TrackNamespace track_namespace;
-        TrackName track_name;
-        Location start;
-        Location end;
-    };
-
-    Bytes& operator<<(Bytes& buffer, StandaloneFetch value);
-    BytesSpan operator>>(BytesSpan buffer, StandaloneFetch& value);
-
-    struct JoiningFetch
-    {
-        RequestID request_id;
-        uint64_t joining_start;
-    };
-
-    Bytes& operator<<(Bytes& buffer, JoiningFetch value);
-    BytesSpan operator>>(BytesSpan buffer, JoiningFetch& value);
 
     // TODO (Suhas): rename it to StreamMapping
     enum ForwardingPreference : uint8_t

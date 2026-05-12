@@ -79,20 +79,6 @@ Verify(std::vector<uint8_t>& buffer, uint64_t message_type, T& message, [[maybe_
     return done;
 }
 
-template<typename T>
-bool
-VerifyCtrl(BytesSpan buffer, uint64_t message_type, T& message)
-{
-    ControlMessage ctrl_message;
-    buffer = buffer >> ctrl_message;
-
-    CHECK_EQ(ctrl_message.type, message_type);
-
-    ctrl_message.payload >> message;
-
-    return true;
-}
-
 TEST_CASE("GroupOrder encode rejects invalid values")
 {
     Bytes buffer;
@@ -192,19 +178,6 @@ TEST_CASE("UInt16 Encode/decode")
     std::uint16_t reconstructed_value = 0;
     buffer >> reconstructed_value;
     CHECK_EQ(reconstructed_value, value);
-}
-
-TEST_CASE("ControlMessage encode/decode")
-{
-    ControlMessage msg;
-    msg.type = 1234;
-    msg.payload = Bytes{ 1, 2, 3, 4 };
-    Bytes buffer;
-    buffer << msg;
-    ControlMessage out;
-    buffer >> out;
-    CHECK_EQ(out.type, msg.type);
-    CHECK_EQ(out.payload, msg.payload);
 }
 
 TEST_CASE("Location Equality / Comparison")
