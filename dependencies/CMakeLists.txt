@@ -28,10 +28,6 @@ if (NOT TARGET spdlog)
     add_subdirectory(spdlog)
 endif()
 
-if(BUILD_TESTING AND QUICR_BUILD_TESTS AND NOT TARGET doctest)
-    add_subdirectory(doctest)
-endif()
-
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
@@ -115,7 +111,7 @@ if (${USE_MBEDTLS})
     set(BUILD_HTTP ON)
     set(BUILD_DEMO OFF)
     set(BUILD_PQBENCH OFF)
-    set(BUILD_LOGREADER OFF) # Disable picolog_t build
+    set(BUILD_LOGREADER OFF)
 
     set(PICOQUIC_ADDITIONAL_C_FLAGS -Wno-error=format)
     set(PICOQUIC_ADDITIONAL_CXX_FLAGS -Wno-error=format)
@@ -131,12 +127,12 @@ else ()
     set(WITH_OPENSSL ON)
     set(ENABLE_TESTING OFF)
     set(BUILD_DEMO OFF)
+    set(BUILD_PQBENCH OFF)
+    set(BUILD_LOGREADER OFF)
 
-    include(FetchContent)
-    FetchContent_Declare(picotls
-        GIT_REPOSITORY      https://github.com/quicr/picotls.git
-        GIT_TAG             3927c48be674d97ca8242580fab3b4af4eb6df2a)
-    FetchContent_MakeAvailable(picotls)
+    include(${CMAKE_SOURCE_DIR}/cmake/CPM.cmake)
+
+    CPMAddPackage("gh:quicr/picotls#3927c48be674d97ca8242580fab3b4af4eb6df2a")
 
     set(PICOQUIC_FETCH_PTLS ON)
     set(picoquic_BUILD_TESTS OFF)
