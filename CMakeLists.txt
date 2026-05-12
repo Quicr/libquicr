@@ -44,18 +44,8 @@ message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
 option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(USE_MBEDTLS OFF)
-option(DRAFT_PARSER_SETUP_VENV "Set up Python virtual environment for draft parser" ON)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 
-# Which MOQ draft to use.
-# Addendum is added automatically
-set(DEFAULT_DRAFT "${CMAKE_CURRENT_SOURCE_DIR}/tools/draft_parser/drafts/draft-ietf-moq-transport-16_filters_edited.txt")
-set(DRAFT "" CACHE FILEPATH "MOQ Draft to build against")
-if (DRAFT STREQUAL "")
-    set(DRAFT_INTERNAL ${DEFAULT_DRAFT})
-else()
-    set(DRAFT_INTERNAL ${DRAFT})
-endif()
 
 if (NOT DEFINED ENV{IDF_PATH})
   find_package(Threads REQUIRED)
