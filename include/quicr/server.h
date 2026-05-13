@@ -156,7 +156,7 @@ namespace quicr {
         virtual void ResolveSubscribeNamespace(ConnectionHandle connection_handle,
                                                DataContextId data_ctx_id,
                                                uint64_t request_id,
-                                               const messages::TrackNamespacePrefix& prefix,
+                                               const TrackNamespace& prefix,
                                                const SubscribeNamespaceResponse& response);
 
         /**

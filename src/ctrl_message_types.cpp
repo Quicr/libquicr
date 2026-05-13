@@ -113,38 +113,6 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, StandaloneFetch value)
-    {
-        buffer << value.track_namespace;
-        buffer << value.track_name;
-        buffer << value.start;
-        buffer << value.end;
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, StandaloneFetch& value)
-    {
-        buffer = buffer >> value.track_namespace;
-        buffer = buffer >> value.track_name;
-        buffer = buffer >> value.start;
-        buffer = buffer >> value.end;
-        return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, JoiningFetch value)
-    {
-        buffer << value.request_id;
-        buffer << value.joining_start;
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, JoiningFetch& value)
-    {
-        buffer = buffer >> value.request_id;
-        buffer = buffer >> value.joining_start;
-        return buffer;
-    }
-
     Bytes& operator<<(Bytes& buffer, PublishDoneStatusCode value)
     {
         buffer << static_cast<std::uint64_t>(value);
@@ -171,29 +139,6 @@ namespace quicr::messages {
         buffer = buffer >> uvalue;
         value = static_cast<ErrorCode>(uvalue);
         return buffer;
-    }
-
-    Bytes& operator<<(Bytes& buffer, const ControlMessage& message)
-    {
-        buffer << message.type;
-        buffer << static_cast<std::uint16_t>(message.payload.size());
-        buffer.insert(buffer.end(), message.payload.begin(), message.payload.end());
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, ControlMessage& message)
-    {
-        buffer = buffer >> message.type;
-        if (buffer.size() < sizeof(std::uint16_t)) {
-            throw std::invalid_argument("Buffer too small");
-        }
-        std::uint16_t payload_length;
-        buffer = buffer >> payload_length;
-        if (buffer.size() < payload_length) {
-            throw std::invalid_argument("Buffer too small");
-        }
-        message.payload.assign(buffer.begin(), std::next(buffer.begin(), payload_length));
-        return buffer.subspan(payload_length);
     }
 
     Bytes& operator<<(Bytes& buffer, const Location& location)
@@ -282,6 +227,9 @@ namespace quicr::messages {
 
         return buffer;
     }
+}
+namespace quicr {
+    using namespace quicr::messages;
 
     Bytes& operator<<(Bytes& buffer, const TrackNamespace& ns)
     {

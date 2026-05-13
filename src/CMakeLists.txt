@@ -10,7 +10,6 @@ target_sources (quicr PRIVATE
     base_track_handler.cpp
     client.cpp
     ctrl_message_types.cpp
-    ${ctrl_messages_SOURCE}
     messages.cpp
     publish_fetch_handler.cpp
     publish_track_handler.cpp
@@ -25,7 +24,6 @@ target_sources (quicr PRIVATE
     joining_fetch_handler.cpp
 )
 
-set_source_files_properties(${ctrl_messages_SOURCE} PROPERTIES GENERATED TRUE)
 
 target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include )
 
@@ -65,8 +63,6 @@ target_link_libraries(quicr
 target_link_libraries(quicr
     PUBLIC
         picoquic-core picoquic-log picohttp-core)
-
-add_dependencies(quicr ${ctrl_messages_TARGET})
 
 if (DEFINED ENV{IDF_PATH})
     add_compile_definitions(${LIB_NAME} PLATFORM_ESP)

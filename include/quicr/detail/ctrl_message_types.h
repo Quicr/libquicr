@@ -12,7 +12,42 @@
 #include <tuple>
 #include <variant>
 
+namespace quicr {
+    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
+    Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
+}
+
 namespace quicr::messages {
+
+    enum class ControlMessageType : uint64_t
+    {
+        kRequestUpdate = 0x2,
+        kSubscribe = 0x3,
+        kSubscribeOk = 0x4,
+        kRequestError = 0x5,
+        kPublishNamespace = 0x6,
+        kRequestOk = 0x7,
+        kNamespace = 0x8,
+        kPublishNamespaceDone = 0x9,
+        kUnsubscribe = 0xa,
+        kPublishDone = 0xb,
+        kPublishNamespaceCancel = 0xc,
+        kTrackStatus = 0xd,
+        kNamespaceDone = 0xe,
+        kGoaway = 0x10,
+        kSubscribeNamespace = 0x11,
+        kMaxRequestId = 0x15,
+        kFetch = 0x16,
+        kFetchCancel = 0x17,
+        kFetchOk = 0x18,
+        kRequestsBlocked = 0x1a,
+        kPublish = 0x1d,
+        kPublishOk = 0x1e,
+        kClientSetup = 0x20,
+        kServerSetup = 0x21,
+    };
+
+    using TrackAlias = std::uint64_t;
 
     struct ProtocolViolationException : std::runtime_error
     {
@@ -46,14 +81,6 @@ namespace quicr::messages {
     using ReasonPhrase = Bytes;
     using RequestID = uint64_t;
     using TrackName = Bytes;
-
-    struct ControlMessage
-    {
-        std::uint64_t type{ 0 };
-        Bytes payload{};
-    };
-    Bytes& operator<<(Bytes& buffer, const ControlMessage& message);
-    BytesSpan operator>>(BytesSpan buffer, ControlMessage& message);
 
     struct Location
     {
@@ -662,26 +689,6 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, FetchType value);
     BytesSpan operator>>(BytesSpan buffer, FetchType& value);
 
-    struct StandaloneFetch
-    {
-        TrackNamespace track_namespace;
-        TrackName track_name;
-        Location start;
-        Location end;
-    };
-
-    Bytes& operator<<(Bytes& buffer, StandaloneFetch value);
-    BytesSpan operator>>(BytesSpan buffer, StandaloneFetch& value);
-
-    struct JoiningFetch
-    {
-        RequestID request_id;
-        uint64_t joining_start;
-    };
-
-    Bytes& operator<<(Bytes& buffer, JoiningFetch value);
-    BytesSpan operator>>(BytesSpan buffer, JoiningFetch& value);
-
     // TODO (Suhas): rename it to StreamMapping
     enum ForwardingPreference : uint8_t
     {
@@ -909,9 +916,6 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, TrackExtensions& msg);
     Bytes& operator<<(Bytes& buffer, const TrackExtensions& msg);
 
-    BytesSpan operator>>(BytesSpan buffer, TrackNamespace& msg);
-    Bytes& operator<<(Bytes& buffer, const TrackNamespace& msg);
-
     template<typename Type = ParameterType>
     class ParameterList
     {
@@ -1009,7 +1013,7 @@ namespace quicr::messages {
             return FromBytes<T>(bytes);
         }
 
-        Filter GetFilter(FilterType type)
+        Filter GetFilter(FilterType type) const
         {
             if constexpr (!std::is_same_v<ParameterType, Type>) {
                 return std::monostate{};
@@ -1070,5 +1074,8 @@ namespace quicr::messages {
 
         return buffer;
     }
+
+    using SetupParameters = quicr::messages::ParameterList<quicr::messages::SetupParameterType>;
+    using Parameters = quicr::messages::ParameterList<quicr::messages::ParameterType>;
 
 } // namespace

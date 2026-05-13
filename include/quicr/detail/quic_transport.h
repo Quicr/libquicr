@@ -8,7 +8,6 @@
 #include "quicr/detail/tick_service.h"
 #include "safe_queue.h"
 #include "stream_buffer.h"
-#include "uintvar.h"
 #include <span>
 
 #include <spdlog/spdlog.h>
