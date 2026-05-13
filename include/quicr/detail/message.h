@@ -13,16 +13,20 @@ namespace quicr::messages {
     class Message
     {
       public:
-        template<typename T>
-            requires std::is_enum_v<T>
-        Message(T type,
-                std::shared_ptr<std::vector<std::uint8_t>> buffer = std::make_shared<std::vector<std::uint8_t>>())
+        Message(std::shared_ptr<std::vector<std::uint8_t>> buffer = std::make_shared<std::vector<std::uint8_t>>())
           : _bytes(std::move(buffer))
         {
             if (_bytes == nullptr) {
                 throw std::invalid_argument("messages::Message buffer cannot be nullptr");
             }
+        }
 
+        template<typename T>
+            requires std::is_enum_v<T>
+        Message(T type,
+                std::shared_ptr<std::vector<std::uint8_t>> buffer = std::make_shared<std::vector<std::uint8_t>>())
+          : Message(std::move(buffer))
+        {
             auto type_bytes = UintVar(static_cast<std::uint64_t>(type));
             _bytes->insert(_bytes->end(), type_bytes.begin(), type_bytes.end());
         }
