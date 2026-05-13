@@ -556,7 +556,7 @@ namespace quicr {
                          messages::ControlMessageType type,
                          Fields&&... args)
         {
-            messages::Message msg = messages::Message{ type }.ReserveLength();
+            messages::Message msg = messages::Message{}.PrependType(type).ReserveLength();
 
             (msg.Append(args), ...);
 
