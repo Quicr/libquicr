@@ -309,7 +309,9 @@ namespace quicr {
         }
     }
 
-    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx, DataContextId data_ctx_id, BytesSpan data)
+    void Transport::SendCtrlMsg(const ConnectionContext& conn_ctx,
+                                DataContextId data_ctx_id,
+                                std::shared_ptr<const std::vector<uint8_t>> data)
     {
         if (!conn_ctx.ctrl_data_ctx_id.has_value()) {
             CloseConnection(conn_ctx.connection_handle,
@@ -321,7 +323,7 @@ namespace quicr {
         auto result = quic_transport_->Enqueue(conn_ctx.connection_handle,
                                                data_ctx_id,
                                                0 /* not use for bidir streams */,
-                                               std::make_shared<const std::vector<uint8_t>>(data.begin(), data.end()),
+                                               std::move(data),
                                                0,
                                                2000,
                                                0,

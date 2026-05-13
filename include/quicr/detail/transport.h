@@ -546,7 +546,9 @@ namespace quicr {
 
         void Init();
 
-        void SendCtrlMsg(const ConnectionContext& conn_ctx, DataContextId data_ctx_id, BytesSpan data);
+        void SendCtrlMsg(const ConnectionContext& conn_ctx,
+                         DataContextId data_ctx_id,
+                         std::shared_ptr<const std::vector<uint8_t>> data);
 
         template<typename... Fields>
         void SendCtrlMsg(const ConnectionContext& conn_ctx,
