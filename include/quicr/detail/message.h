@@ -20,7 +20,9 @@ namespace quicr::messages {
             _bytes.insert(_bytes.end(), type_bytes.begin(), type_bytes.end());
         }
 
-        Message& ReserveLength()
+        constexpr bool IncludesLength() const noexcept { return _length_reserved; }
+
+        inline Message& ReserveLength()
         {
             if (_length_reserved) {
                 return *this;
@@ -33,13 +35,13 @@ namespace quicr::messages {
             return *this;
         }
 
-        Message& Add(std::uint8_t byte) noexcept
+        inline Message& Append(std::uint8_t byte) noexcept
         {
             _bytes.push_back(byte);
             return *this;
         }
 
-        Message& Add(std::span<const std::uint8_t> bytes) noexcept
+        inline Message& Append(std::span<const std::uint8_t> bytes) noexcept
         {
             _bytes.insert(_bytes.end(), bytes.begin(), bytes.end());
             return *this;
@@ -47,13 +49,13 @@ namespace quicr::messages {
 
         template<typename T>
             requires requires(std::vector<std::uint8_t>& buffer, const T& value) { buffer << value; }
-        Message& Add(const T& value) noexcept(noexcept(_bytes << value))
+        inline Message& Append(const T& value) noexcept(noexcept(_bytes << value))
         {
             _bytes << value;
             return *this;
         }
 
-        const std::vector<std::uint8_t>& ToBytes() const noexcept
+        inline std::span<const std::uint8_t> ToBytes() const noexcept
         {
             if (_length_reserved) {
                 const std::size_t type_size = UintVar(_bytes.front()).size();
@@ -65,16 +67,16 @@ namespace quicr::messages {
             return _bytes;
         }
 
+        template<typename Field>
+        [[nodiscard]] static inline Field ParseField(std::span<const std::uint8_t>& buffer)
+        {
+            Field field{};
+            buffer = buffer >> field;
+            return field;
+        }
+
       private:
         bool _length_reserved = false;
         mutable std::vector<std::uint8_t> _bytes;
     };
-
-    template<typename Field>
-    static Field ParseMessageField(std::span<const std::uint8_t>& buffer)
-    {
-        Field field{};
-        buffer = buffer >> field;
-        return field;
-    }
 }

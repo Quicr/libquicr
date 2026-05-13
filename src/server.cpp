@@ -379,10 +379,10 @@ namespace quicr {
     try {
         switch (msg_type) {
             case messages::ControlMessageType::kSubscribe: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto track_namespace = messages::ParseMessageField<TrackNamespace>(msg_bytes);
-                const auto track_name = messages::ParseMessageField<Bytes>(msg_bytes);
-                const auto parameters = messages::ParseMessageField<messages::Parameters>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto track_namespace = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+                const auto track_name = messages::Message::ParseField<Bytes>(msg_bytes);
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 auto tfn = FullTrackName{ track_namespace, track_name };
                 auto th = TrackHash(tfn);
@@ -429,10 +429,10 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kSubscribeOk: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto track_alias = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto parameters = messages::ParseMessageField<messages::Parameters>(msg_bytes);
-                const auto track_extensions = messages::ParseMessageField<messages::TrackExtensions>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto track_alias = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
+                const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
 
                 auto sub_it = conn_ctx.request_handlers.find(request_id);
 
@@ -462,8 +462,8 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kRequestOk: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto parameters = messages::ParseMessageField<messages::Parameters>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 auto largest_location =
                   parameters.GetOptional<messages::Location>(messages::ParameterType::kLargestObject);
@@ -473,10 +473,10 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kRequestError: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto error_code = messages::ParseMessageField<messages::ErrorCode>(msg_bytes);
-                [[maybe_unused]] const auto retry_interval = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto error_reason = messages::ParseMessageField<Bytes>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto error_code = messages::Message::ParseField<messages::ErrorCode>(msg_bytes);
+                [[maybe_unused]] const auto retry_interval = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
 
                 RequestResponse response{};
                 response.reason_code = RequestResponse::FromErrorCode(error_code);
@@ -492,9 +492,9 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kTrackStatus: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto track_namespace = messages::ParseMessageField<TrackNamespace>(msg_bytes);
-                const auto track_name = messages::ParseMessageField<Bytes>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto track_namespace = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+                const auto track_name = messages::Message::ParseField<Bytes>(msg_bytes);
 
                 auto tfn = FullTrackName{ track_namespace, track_name };
                 auto th = TrackHash(tfn);
@@ -508,9 +508,9 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespace: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto track_namespace = messages::ParseMessageField<TrackNamespace>(msg_bytes);
-                [[maybe_unused]] const auto parameters = messages::ParseMessageField<messages::Parameters>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto track_namespace = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+                [[maybe_unused]] const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 auto tfn = FullTrackName{ track_namespace, {} };
 
@@ -518,10 +518,10 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kSubscribeNamespace: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto track_namespace_prefix = messages::ParseMessageField<TrackNamespace>(msg_bytes);
-                const auto subscribe_options = messages::ParseMessageField<messages::SubscribeOptions>(msg_bytes);
-                const auto parameters = messages::ParseMessageField<messages::Parameters>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto track_namespace_prefix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+                const auto subscribe_options = messages::Message::ParseField<messages::SubscribeOptions>(msg_bytes);
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 messages::Filter filter; // TODO: Support more filters.
                 if (parameters.Contains(messages::ParameterType::kLocationFilter)) {
@@ -538,13 +538,13 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kNamespaceDone: {
-                const auto track_namespace_suffix = messages::ParseMessageField<TrackNamespace>(msg_bytes);
+                const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
 
                 UnsubscribeNamespaceReceived(conn_ctx.connection_handle, track_namespace_suffix);
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceDone: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
 
                 SPDLOG_LOGGER_INFO(logger_, "Received publish namespace done for request_id: {}", request_id);
 
@@ -563,7 +563,7 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kUnsubscribe: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
 
                 auto& th = conn_ctx.recv_req_id[request_id].track_hash;
                 if (auto pdt = GetPubTrackHandler(conn_ctx, th)) {
@@ -576,10 +576,10 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto status_code = messages::ParseMessageField<messages::PublishDoneStatusCode>(msg_bytes);
-                const auto stream_count = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto error_reason = messages::ParseMessageField<Bytes>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto status_code = messages::Message::ParseField<messages::PublishDoneStatusCode>(msg_bytes);
+                const auto stream_count = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
 
                 auto pub_it = conn_ctx.request_handlers.find(request_id);
                 if (pub_it == conn_ctx.request_handlers.end()) {
@@ -612,7 +612,7 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kRequestsBlocked: {
-                const auto maximum_request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
+                const auto maximum_request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
 
                 SPDLOG_LOGGER_WARN(logger_, "Subscribe was blocked, maximum_request_id: {}", maximum_request_id);
 
@@ -625,9 +625,9 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceCancel: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto error_code = messages::ParseMessageField<messages::ErrorCode>(msg_bytes);
-                const auto error_reason = messages::ParseMessageField<Bytes>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto error_code = messages::Message::ParseField<messages::ErrorCode>(msg_bytes);
+                const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
 
                 std::string reason(error_reason.begin(), error_reason.end());
                 SPDLOG_LOGGER_INFO(logger_,
@@ -639,14 +639,14 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {
-                const auto new_session_uri = messages::ParseMessageField<Bytes>(msg_bytes);
+                const auto new_session_uri = messages::Message::ParseField<Bytes>(msg_bytes);
 
                 std::string new_sess_uri(new_session_uri.begin(), new_session_uri.end());
                 SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {}", new_sess_uri);
                 return true;
             }
             case messages::ControlMessageType::kClientSetup: {
-                const auto setup_parameters = messages::ParseMessageField<messages::SetupParameters>(msg_bytes);
+                const auto setup_parameters = messages::Message::ParseField<messages::SetupParameters>(msg_bytes);
 
                 std::string endpoint_id = "Unknown Endpoint ID";
                 for (const auto& param : setup_parameters) {
@@ -668,11 +668,11 @@ namespace quicr {
             }
 
             case messages::ControlMessageType::kFetchOk: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto end_of_track = messages::ParseMessageField<std::uint8_t>(msg_bytes);
-                const auto end_location = messages::ParseMessageField<messages::Location>(msg_bytes);
-                const auto parameters = messages::ParseMessageField<messages::Parameters>(msg_bytes);
-                const auto track_extensions = messages::ParseMessageField<messages::TrackExtensions>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto end_of_track = messages::Message::ParseField<std::uint8_t>(msg_bytes);
+                const auto end_location = messages::Message::ParseField<messages::Location>(msg_bytes);
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
+                const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
 
                 auto fetch_it = conn_ctx.request_handlers.find(request_id);
                 if (fetch_it == conn_ctx.request_handlers.end()) {
@@ -696,17 +696,17 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kFetch: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto fetch_type = messages::ParseMessageField<messages::FetchType>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto fetch_type = messages::Message::ParseField<messages::FetchType>(msg_bytes);
 
                 bool relative_joining{ false };
                 switch (fetch_type) {
                     case messages::FetchType::kStandalone: {
-                        const auto track_namespace = messages::ParseMessageField<TrackNamespace>(msg_bytes);
-                        const auto track_name = messages::ParseMessageField<Bytes>(msg_bytes);
-                        const auto start = messages::ParseMessageField<messages::Location>(msg_bytes);
-                        const auto end = messages::ParseMessageField<messages::Location>(msg_bytes);
-                        const auto parameters = messages::ParseMessageField<messages::Parameters>(msg_bytes);
+                        const auto track_namespace = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+                        const auto track_name = messages::Message::ParseField<Bytes>(msg_bytes);
+                        const auto start = messages::Message::ParseField<messages::Location>(msg_bytes);
+                        const auto end = messages::Message::ParseField<messages::Location>(msg_bytes);
+                        const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                         FullTrackName tfn{ track_namespace, track_name };
 
@@ -739,9 +739,9 @@ namespace quicr {
                         [[fallthrough]];
                     }
                     case messages::FetchType::kAbsoluteJoiningFetch: {
-                        const auto joining_request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                        const auto joining_start = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                        const auto parameters = messages::ParseMessageField<messages::Parameters>(msg_bytes);
+                        const auto joining_request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                        const auto joining_start = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                        const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                         // Joining fetch needs to look up its joining subscribe.
                         const auto subscribe_state = conn_ctx.recv_req_id.find(joining_request_id);
@@ -781,7 +781,7 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kFetchCancel: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
 
                 if (conn_ctx.recv_req_id.find(request_id) == conn_ctx.recv_req_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_, "Received Fetch Cancel for unknown subscribe ID: {}", request_id);
@@ -805,12 +805,12 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kPublish: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto track_namespace = messages::ParseMessageField<TrackNamespace>(msg_bytes);
-                const auto track_name = messages::ParseMessageField<Bytes>(msg_bytes);
-                const auto track_alias = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto parameters = messages::ParseMessageField<messages::Parameters>(msg_bytes);
-                const auto track_extensions = messages::ParseMessageField<messages::TrackExtensions>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto track_namespace = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+                const auto track_name = messages::Message::ParseField<Bytes>(msg_bytes);
+                const auto track_alias = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
+                const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
 
                 auto tfn = FullTrackName{ track_namespace, track_name };
                 auto th = TrackHash(tfn);
@@ -844,8 +844,8 @@ namespace quicr {
             }
 
             case messages::ControlMessageType::kPublishOk: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto parameters = messages::ParseMessageField<messages::Parameters>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 // Consume originating request.
                 auto pub_it = conn_ctx.request_handlers.find(request_id);
@@ -893,9 +893,9 @@ namespace quicr {
             }
 
             case messages::ControlMessageType::kRequestUpdate: {
-                const auto request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto existing_request_id = messages::ParseMessageField<std::uint64_t>(msg_bytes);
-                const auto parameters = messages::ParseMessageField<messages::Parameters>(msg_bytes);
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto existing_request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 auto sub_ctx_it = conn_ctx.recv_req_id.find(existing_request_id);
                 if (sub_ctx_it == conn_ctx.recv_req_id.end()) {

@@ -556,7 +556,7 @@ namespace quicr {
         {
             auto msg = messages::Message{ type }.ReserveLength();
 
-            (msg.Add(args), ...);
+            (msg.Append(args), ...);
 
             SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes());
         }
