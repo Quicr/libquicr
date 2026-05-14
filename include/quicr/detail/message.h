@@ -96,10 +96,9 @@ namespace quicr::messages {
         inline const std::shared_ptr<std::vector<uint8_t>>& ToBytes() const noexcept
         {
             if (_length_bytes_offset.has_value()) {
-                const std::size_t type_size = UintVar::Size(_bytes->front());
-                const std::uint16_t payload_size =
-                  SwapBytes(static_cast<std::uint16_t>(_bytes->size() - type_size - sizeof(std::uint16_t)));
-                std::memcpy(_bytes->data() + type_size, &payload_size, sizeof(std::uint16_t));
+                const std::uint16_t payload_size = SwapBytes(
+                  static_cast<std::uint16_t>(_bytes->size() - _length_bytes_offset.value() - sizeof(std::uint16_t)));
+                std::memcpy(_bytes->data() + _length_bytes_offset.value(), &payload_size, sizeof(std::uint16_t));
             }
 
             return _bytes;
