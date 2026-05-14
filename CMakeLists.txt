@@ -87,9 +87,11 @@ add_subdirectory(src)
 # Testing
 #=============================================================================#
 
-if(BUILD_TESTING)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     include(CTest)
+endif()
 
+if(BUILD_TESTING)
     if(QUICR_BUILD_TESTS)
         add_subdirectory(test)
     endif()
