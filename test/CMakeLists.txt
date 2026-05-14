@@ -1,10 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-include(${CMAKE_SOURCE_DIR}/cmake/CPM.cmake)
-
-set(CPM_USE_LOCAL_PACKAGES ON)
-
 CPMAddPackage("gh:doctest/doctest@2.5.2")
 
 add_executable(quicr_test

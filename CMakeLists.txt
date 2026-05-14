@@ -5,16 +5,11 @@ cmake_minimum_required(VERSION 3.13)
 
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
-include(CMakeDependentOption)
-
-cmake_dependent_option(QUICR_BUILD_TESTS "Build tests for quicr" OFF DEFINED PROJECT_NAME ON)
-cmake_dependent_option(QUICR_BUILD_BENCHMARKS "Build benchmarks for quicr" OFF DEFINED PROJECT_NAME ON)
-cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" OFF DEFINED PROJECT_NAME ON)
-
 project(quicr
-        VERSION 1.14.0
-        DESCRIPTION "QuicR, a Media over QUIC Library"
-        LANGUAGES C CXX)
+    VERSION 1.14.0
+    DESCRIPTION "QuicR, a Media over QUIC Library"
+    LANGUAGES C CXX
+)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
     message(FATAL_ERROR
@@ -43,6 +38,12 @@ message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
 # Options
 #=============================================================================#
 
+include(CMakeDependentOption)
+
+cmake_dependent_option(QUICR_BUILD_TESTS "Build tests for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
+cmake_dependent_option(QUICR_BUILD_BENCHMARKS "Build benchmarks for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
+cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
+
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
@@ -69,6 +70,10 @@ endif()
 #=============================================================================#
 # Dependencies
 #=============================================================================#
+
+include(cmake/CPM.cmake)
+
+set(CPM_USE_LOCAL_PACKAGES ON)
 
 add_subdirectory(dependencies)
 

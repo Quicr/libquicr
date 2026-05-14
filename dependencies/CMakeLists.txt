@@ -24,9 +24,7 @@ endif()
 # Submodules
 # --------------------------------------------------------
 
-if (NOT TARGET spdlog)
-    add_subdirectory(spdlog)
-endif()
+CPMAddPackage("gh:gabime/spdlog@1.17.0")
 
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
@@ -89,11 +87,7 @@ if (${USE_MBEDTLS})
     set(WITH_FUSION OFF)
     set(picotls_BUILD_TESTS OFF)
 
-    include(FetchContent)
-    FetchContent_Declare(picotls
-        GIT_REPOSITORY      https://github.com/quicr/picotls.git
-        GIT_TAG             3927c48be674d97ca8242580fab3b4af4eb6df2a)
-    FetchContent_MakeAvailable(picotls)
+    CPMAddPackage("gh:quicr/picotls#3927c48be674d97ca8242580fab3b4af4eb6df2a")
 
     add_dependencies(picotls-mbedtls mbedtls)
 
@@ -129,8 +123,6 @@ else ()
     set(BUILD_DEMO OFF)
     set(BUILD_PQBENCH OFF)
     set(BUILD_LOGREADER OFF)
-
-    include(${CMAKE_SOURCE_DIR}/cmake/CPM.cmake)
 
     CPMAddPackage("gh:quicr/picotls#3927c48be674d97ca8242580fab3b4af4eb6df2a")
 
