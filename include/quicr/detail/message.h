@@ -49,6 +49,11 @@ namespace quicr::messages {
         {
             UintVar type_bytes(static_cast<std::uint64_t>(type));
             _bytes->insert(_bytes->begin(), type_bytes.begin(), type_bytes.end());
+
+            if (_length_bytes_offset.has_value()) {
+                _length_bytes_offset = type_bytes.size();
+            }
+
             return *this;
         }
 
