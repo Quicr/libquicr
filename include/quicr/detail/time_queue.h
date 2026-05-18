@@ -322,8 +322,7 @@ namespace quicr {
          *
          * @throws std::invalid_argument If ttl is greater than duration.
          */
-        template<typename Value>
-        inline void InternalPush(Value value, std::size_t ttl, std::size_t delay_ttl)
+        inline void InternalPush(auto&& value, std::size_t ttl, std::size_t delay_ttl)
         {
             if (ttl > duration_) {
                 throw std::invalid_argument("TTL is greater than max duration");
