@@ -124,7 +124,7 @@ namespace quicr {
          * is null.
          */
         TimeQueue(std::size_t duration, std::size_t interval, std::shared_ptr<TickService> tick_service)
-          : TimeQueue(duration, interval, std::move(tick_service), total_buckets_)
+          : TimeQueue(duration, interval, std::move(tick_service), duration / interval)
         {
         }
 
@@ -176,7 +176,7 @@ namespace quicr {
             if (queue_.empty() || ++queue_index_ < queue_.size())
                 return;
 
-            // Clear();
+            Clear();
         }
 
         /**
@@ -243,7 +243,7 @@ namespace quicr {
                 return;
             }
 
-            // Clear();
+            Clear();
         }
 
         FORCE_INLINE constexpr std::size_t Size() const noexcept { return queue_.size() - queue_index_; }

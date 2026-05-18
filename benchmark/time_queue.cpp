@@ -4,7 +4,7 @@
 
 static auto service = std::make_shared<quicr::ThreadedTickService>();
 
-constexpr size_t kIterations = 1'000'000;
+constexpr size_t kIterations = 100'000'000;
 
 static void
 TimeQueue_Construct(benchmark::State& state)
