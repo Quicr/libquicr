@@ -87,6 +87,7 @@ if (${USE_MBEDTLS})
     set(WITH_FUSION OFF)
     set(picotls_BUILD_TESTS OFF)
 
+    # TODO: Change this to point to h2o/picotls#master once we identify why it isn't working.
     CPMAddPackage("gh:quicr/picotls#3927c48be674d97ca8242580fab3b4af4eb6df2a")
 
     add_dependencies(picotls-mbedtls mbedtls)
@@ -124,7 +125,7 @@ else ()
     set(BUILD_PQBENCH OFF)
     set(BUILD_LOGREADER OFF)
 
-    CPMAddPackage("gh:quicr/picotls#3927c48be674d97ca8242580fab3b4af4eb6df2a")
+    CPMAddPackage("gh:h2o/picotls#master")
 
     set(PICOQUIC_FETCH_PTLS ON)
     set(picoquic_BUILD_TESTS OFF)
