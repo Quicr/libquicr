@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <quicr/detail/base_track_handler.h>
 #include <quicr/detail/messages.h>
@@ -214,7 +215,7 @@ namespace quicr {
          *
          * @return Status of publish
          */
-        constexpr Status GetStatus() const noexcept { return publish_status_; }
+        Status GetStatus() const noexcept { return publish_status_.load(std::memory_order_acquire); }
 
         /**
          * Get the largest location
@@ -240,9 +241,9 @@ namespace quicr {
          *
          * @return true to indicate that the publisher can publish, false if the publisher cannot
          */
-        constexpr bool CanPublish() const noexcept
+        bool CanPublish() const noexcept
         {
-            switch (publish_status_) {
+            switch (GetStatus()) {
                 case Status::kOk:
                 case Status::kNewGroupRequested:
                 case Status::kSubscriptionUpdated:
@@ -371,11 +372,10 @@ namespace quicr {
          */
         void SetStatus(Status status) noexcept
         {
-            if (publish_status_ == status) {
+            const auto previous = publish_status_.exchange(status, std::memory_order_acq_rel);
+            if (previous == status) {
                 return;
             }
-
-            publish_status_ = status;
             StatusChanged(status);
         }
 
@@ -398,7 +398,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
-        Status publish_status_{ Status::kNotAnnounced };
+        std::atomic<Status> publish_status_{ Status::kNotAnnounced };
         TrackMode default_track_mode_;
         std::optional<messages::StreamHeaderProperties> stream_mode_;
         uint8_t default_priority_; // Set by caller and is used when priority is not specified
