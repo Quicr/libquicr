@@ -98,8 +98,7 @@ namespace quicr {
                   std::size_t initial_queue_size)
           : duration_{ duration }
           , interval_{ (duration / interval > kMaxBuckets ? duration / kMaxBuckets : interval) }
-          , total_buckets_{ static_cast<std::size_t>(duration_ / interval_) }
-          , buckets_(total_buckets_)
+          , buckets_(duration / interval)
           , tick_service_(std::move(tick_service))
         {
             if (duration == 0 || duration % interval != 0 || duration == interval) {
@@ -302,7 +301,12 @@ namespace quicr {
 
             bucket_index_ = GetFutureBucketIndex(delta);
 
-            return new_tick_count;
+            if (last_tick_queue_cleared_ > duration_) {
+                queue_.clear();
+                last_tick_queue_cleared_ = current_ticks_;
+            }
+
+            return current_ticks_;
         }
 
         /**
@@ -350,9 +354,6 @@ namespace quicr {
         /// The interval at which buckets are cleared in ticks.
         const std::size_t interval_;
 
-        /// The total amount of buckets. Value is calculated by duration / interval.
-        const std::size_t total_buckets_;
-
         /// The index in time of the current bucket.
         IndexType bucket_index_{ 0 };
 
@@ -361,6 +362,9 @@ namespace quicr {
 
         /// Last calculated tick value.
         TickType current_ticks_{ 0 };
+
+        /// Last calculated tick value when queue was cleared.
+        TickType last_tick_queue_cleared_{ 0 };
 
         /// The memory storage for all elements to be managed.
         std::vector<BucketType> buckets_;
