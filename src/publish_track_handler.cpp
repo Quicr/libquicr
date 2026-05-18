@@ -21,7 +21,7 @@ namespace quicr {
             return PublishObjectStatus::kInternalError;
         }
 
-        switch (publish_status_) {
+        switch (GetStatus()) {
             case Status::kOk:
                 break;
 
@@ -50,7 +50,7 @@ namespace quicr {
                 if (!is_new_stream) {
                     break;
                 }
-                publish_status_ = Status::kOk;
+                publish_status_.store(Status::kOk, std::memory_order_release);
                 break;
             case Status::kPendingPublishOk:
                 publish_track_metrics_.objects_dropped_not_ok++;
@@ -196,7 +196,7 @@ namespace quicr {
             stream_id = subgroup_it->second.stream_id;
         }
 
-        switch (publish_status_) {
+        switch (GetStatus()) {
             case Status::kOk:
                 break;
 
@@ -220,7 +220,7 @@ namespace quicr {
                 return PublishObjectStatus::kNotAuthorized;
             case Status::kNewGroupRequested:
                 // reset the status to ok to imply change
-                publish_status_ = Status::kOk;
+                publish_status_.store(Status::kOk, std::memory_order_release);
                 break;
             case Status::kSubscriptionUpdated:
 
@@ -229,7 +229,7 @@ namespace quicr {
                  * Always start a new stream on subscription update to support peering/pipelining
                  */
 
-                publish_status_ = Status::kOk;
+                publish_status_.store(Status::kOk, std::memory_order_release);
                 break;
             default:
                 publish_track_metrics_.objects_dropped_not_ok++;
