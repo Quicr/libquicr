@@ -21,7 +21,8 @@ namespace quicr {
             return PublishObjectStatus::kInternalError;
         }
 
-        switch (GetStatus()) {
+        const auto status = GetStatus();
+        switch (status) {
             case Status::kOk:
                 break;
 
@@ -50,7 +51,9 @@ namespace quicr {
                 if (!is_new_stream) {
                     break;
                 }
-                publish_status_.store(Status::kOk, std::memory_order_release);
+                auto current = status;
+                publish_status_.compare_exchange_strong(
+                  current, Status::kOk, std::memory_order_acq_rel, std::memory_order_acquire);
                 break;
             case Status::kPendingPublishOk:
                 publish_track_metrics_.objects_dropped_not_ok++;
@@ -196,7 +199,8 @@ namespace quicr {
             stream_id = subgroup_it->second.stream_id;
         }
 
-        switch (GetStatus()) {
+        const auto status = GetStatus();
+        switch (status) {
             case Status::kOk:
                 break;
 
@@ -218,10 +222,13 @@ namespace quicr {
             case Status::kAnnounceNotAuthorized:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAuthorized;
-            case Status::kNewGroupRequested:
+            case Status::kNewGroupRequested: {
                 // reset the status to ok to imply change
-                publish_status_.store(Status::kOk, std::memory_order_release);
+                auto current = status;
+                publish_status_.compare_exchange_strong(
+                  current, Status::kOk, std::memory_order_acq_rel, std::memory_order_acquire);
                 break;
+            }
             case Status::kSubscriptionUpdated:
 
                 /*
@@ -229,7 +236,9 @@ namespace quicr {
                  * Always start a new stream on subscription update to support peering/pipelining
                  */
 
-                publish_status_.store(Status::kOk, std::memory_order_release);
+                auto current = status;
+                publish_status_.compare_exchange_strong(
+                  current, Status::kOk, std::memory_order_acq_rel, std::memory_order_acquire);
                 break;
             default:
                 publish_track_metrics_.objects_dropped_not_ok++;
