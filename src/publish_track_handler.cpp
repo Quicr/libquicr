@@ -46,7 +46,7 @@ namespace quicr {
                 return PublishObjectStatus::kNotAuthorized;
             case Status::kNewGroupRequested:
                 [[fallthrough]];
-            case Status::kSubscriptionUpdated:
+            case Status::kSubscriptionUpdated: {
                 // reset the status to ok to imply change
                 if (!is_new_stream) {
                     break;
@@ -55,6 +55,7 @@ namespace quicr {
                 publish_status_.compare_exchange_strong(
                   current, Status::kOk, std::memory_order_acq_rel, std::memory_order_acquire);
                 break;
+            }
             case Status::kPendingPublishOk:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kPendingPublishOk;
@@ -229,7 +230,7 @@ namespace quicr {
                   current, Status::kOk, std::memory_order_acq_rel, std::memory_order_acquire);
                 break;
             }
-            case Status::kSubscriptionUpdated:
+            case Status::kSubscriptionUpdated: {
 
                 /*
                  * TODO: Need to revisit the below since subgroups doesn't really support this
@@ -240,6 +241,7 @@ namespace quicr {
                 publish_status_.compare_exchange_strong(
                   current, Status::kOk, std::memory_order_acq_rel, std::memory_order_acquire);
                 break;
+            }
             default:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kInternalError;
