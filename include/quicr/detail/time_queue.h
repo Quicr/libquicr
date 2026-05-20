@@ -267,6 +267,7 @@ namespace quicr {
             }
 
             queue_index_ = bucket_index_ = 0;
+            last_tick_queue_cleared_ = current_ticks_;
         }
 
       protected:
