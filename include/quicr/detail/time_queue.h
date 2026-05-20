@@ -64,14 +64,17 @@ namespace quicr {
         struct QueueValueType
         {
             QueueValueType(BucketType& bucket, IndexType value_index, TickType expiry_tick, TickType wait_for_tick)
-              : bucket(bucket)
+              : bucket(&bucket)
               , value_index(value_index)
               , expiry_tick(expiry_tick)
               , wait_for_tick(wait_for_tick)
             {
             }
 
-            BucketType& bucket;
+            QueueValueType(const QueueValueType&) = default;
+            QueueValueType& operator=(const QueueValueType&) = default;
+
+            const BucketType* bucket;
             IndexType value_index;
             TickType expiry_tick;
             TickType wait_for_tick;
@@ -227,7 +230,7 @@ namespace quicr {
             while (queue_index_ < queue_.size()) {
                 auto& [bucket, value_index, expiry_tick, pop_wait_ttl] = queue_.at(queue_index_);
 
-                if (value_index >= bucket.size() || ticks > expiry_tick) {
+                if (value_index >= bucket->size() || ticks > expiry_tick) {
                     elem.expired_count++;
                     queue_index_++;
                     continue;
@@ -238,7 +241,7 @@ namespace quicr {
                 }
 
                 elem.has_value = true;
-                elem.value = bucket.at(value_index);
+                elem.value = bucket->at(value_index);
                 return;
             }
 
@@ -302,7 +305,7 @@ namespace quicr {
             bucket_index_ = GetFutureBucketIndex(delta);
 
             if (last_tick_queue_cleared_ > duration_) {
-                queue_.clear();
+                queue_.erase(queue_.begin(), std::next(queue_.begin(), queue_index_));
                 last_tick_queue_cleared_ = current_ticks_;
             }
 
