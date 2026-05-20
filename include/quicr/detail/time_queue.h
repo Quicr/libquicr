@@ -49,9 +49,6 @@ namespace quicr {
     template<typename T>
     class TimeQueue
     {
-        /// Maximum number of buckets allowed
-        static constexpr uint32_t kMaxBuckets = 1000;
-
       protected:
         /*=======================================================================*/
         // Internal type definitions
@@ -100,7 +97,7 @@ namespace quicr {
                   std::shared_ptr<TickService> tick_service,
                   std::size_t initial_queue_size)
           : duration_{ duration }
-          , interval_{ (duration / interval > kMaxBuckets ? duration / kMaxBuckets : interval) }
+          , interval_{ interval }
           , buckets_(duration / interval)
           , tick_service_(std::move(tick_service))
         {
