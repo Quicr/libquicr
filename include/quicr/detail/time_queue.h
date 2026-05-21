@@ -21,6 +21,7 @@
 #pragma once
 
 #include <atomic>
+#include <map>
 #include <memory>
 #include <stdexcept>
 #include <unordered_set>
@@ -98,7 +99,6 @@ namespace quicr {
                   std::size_t initial_queue_size)
           : duration_{ duration }
           , interval_{ interval }
-          , buckets_(duration / interval)
           , tick_service_(std::move(tick_service))
         {
             if (duration == 0 || duration % interval != 0 || duration == interval) {
@@ -259,9 +259,7 @@ namespace quicr {
 
             queue_.clear();
 
-            for (auto& bucket : buckets_) {
-                bucket.clear();
-            }
+            buckets_.clear();
 
             queue_index_ = bucket_index_ = 0;
             last_tick_queue_cleared_ = current_ticks_;
@@ -297,7 +295,7 @@ namespace quicr {
             }
 
             for (std::size_t i = 0; i < delta; ++i) {
-                buckets_[GetFutureBucketIndex(i)].clear();
+                buckets_.erase(GetFutureBucketIndex(i));
             }
 
             bucket_index_ = GetFutureBucketIndex(delta);
@@ -323,7 +321,7 @@ namespace quicr {
          *
          * @throws std::invalid_argument If ttl is greater than duration.
          */
-        inline void InternalPush(auto&& value, std::size_t ttl, std::size_t delay_ttl)
+        FORCE_INLINE void InternalPush(auto&& value, std::size_t ttl, std::size_t delay_ttl)
         {
             if (ttl > duration_) {
                 throw std::invalid_argument("TTL is greater than max duration");
@@ -367,7 +365,7 @@ namespace quicr {
         TickType last_tick_queue_cleared_{ 0 };
 
         /// The memory storage for all elements to be managed.
-        std::vector<BucketType> buckets_;
+        std::map<std::uint64_t, BucketType> buckets_;
 
         /// The FIFO ordered queue of values as they were inserted.
         QueueType queue_;

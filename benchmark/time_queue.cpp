@@ -94,9 +94,31 @@ TimeQueue_PushAndPopLoaded(benchmark::State& state)
 }
 
 static void
-TimeQueue_PushAndPop(benchmark::State& state)
+TimeQueue_PushAndPop_Interval_1ms(benchmark::State& state)
 {
     quicr::TimeQueue<int> tq(5000, 1, service, kIterations);
+    int64_t items_count = 0;
+
+    quicr::TimeQueueElement<int> elem;
+
+    for (auto _ : state) {
+        ++items_count;
+        tq.Push(items_count, 1000);
+
+        tq.Front(elem);
+        tq.Pop();
+
+        benchmark::DoNotOptimize(items_count);
+        benchmark::DoNotOptimize(elem);
+    }
+
+    state.SetItemsProcessed(items_count);
+}
+
+static void
+TimeQueue_PushAndPop_Interval_125ms(benchmark::State& state)
+{
+    quicr::TimeQueue<int> tq(5000, 125, service, kIterations);
     int64_t items_count = 0;
 
     quicr::TimeQueueElement<int> elem;
@@ -120,4 +142,5 @@ BENCHMARK(TimeQueue_Push)->Iterations(kIterations);
 BENCHMARK(TimeQueue_Pop)->Iterations(kIterations);
 BENCHMARK(TimeQueue_PopFront)->Iterations(kIterations);
 BENCHMARK(TimeQueue_PushAndPopLoaded);
-BENCHMARK(TimeQueue_PushAndPop);
+BENCHMARK(TimeQueue_PushAndPop_Interval_1ms);
+BENCHMARK(TimeQueue_PushAndPop_Interval_125ms);
