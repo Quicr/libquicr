@@ -72,7 +72,7 @@ namespace quicr {
             QueueValueType(const QueueValueType&) = default;
             QueueValueType& operator=(const QueueValueType&) = default;
 
-            const BucketType* bucket;
+            BucketType* bucket;
             IndexType value_index;
             TickType expiry_tick;
             TickType wait_for_tick;
