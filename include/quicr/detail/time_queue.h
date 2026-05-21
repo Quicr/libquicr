@@ -300,8 +300,14 @@ namespace quicr {
 
             bucket_index_ = GetFutureBucketIndex(delta);
 
-            if (last_tick_queue_cleared_ > duration_) {
-                queue_.erase(queue_.begin(), std::next(queue_.begin(), queue_index_));
+            if (last_tick_queue_cleared_ > duration_ && !queue_.empty()) {
+                if (queue_index_ >= queue_.size()) {
+                    queue_.clear();
+                } else {
+                    queue_.erase(queue_.begin(), std::next(queue_.begin(), queue_index_));
+                }
+
+                queue_index_ = 0;
                 last_tick_queue_cleared_ = current_ticks_;
             }
 
