@@ -604,6 +604,10 @@ namespace quicr {
 
         void SendSubscribeNamespace(ConnectionHandle conn_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
 
+        void SendNamespace(ConnectionContext& conn_ctx,
+                           DataContextId data_ctx_id,
+                           const TrackNamespace& track_namespace_suffix);
+
         void SendUnsubscribeNamespace(ConnectionHandle conn_handle,
                                       const std::shared_ptr<SubscribeNamespaceHandler>& handler);
 

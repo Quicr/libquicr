@@ -98,6 +98,13 @@ namespace quicr {
                                               const PublishNamespaceAttributes& publish_namespace_attributes);
 
         /**
+         * @brief Callback notification for namespace received by subscribe namespace
+         *
+         * @param track_namespace Full track namespace reconstructed from the subscribed prefix and received suffix.
+         */
+        virtual void NamespaceReceived(const TrackNamespace& track_namespace);
+
+        /**
          * @brief Callback notification for publish namespace done received
          *
          * @param request_id Request ID of the track that is done.

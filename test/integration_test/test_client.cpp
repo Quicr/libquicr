@@ -26,6 +26,14 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
 }
 
 void
+TestClient::NamespaceReceived([[maybe_unused]] const TrackNamespace& track_namespace)
+{
+    if (namespace_received_) {
+        namespace_received_->set_value(track_namespace);
+    }
+}
+
+void
 TestClient::PublishReceived(quicr::ConnectionHandle connection_handle,
                             uint64_t request_id,
                             const quicr::messages::PublishAttributes& publish_attributes,

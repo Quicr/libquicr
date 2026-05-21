@@ -494,6 +494,21 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
+    void Transport::SendNamespace(ConnectionContext& conn_ctx,
+                                  DataContextId data_ctx_id,
+                                  const TrackNamespace& track_namespace_suffix)
+    try {
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending NAMESPACE to conn_id: {} suffix_hash: {}",
+                            conn_ctx.connection_handle,
+                            TrackHash({ track_namespace_suffix, {} }).track_namespace_hash);
+
+        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kNamespace, track_namespace_suffix);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending NAMESPACE (error={})", e.what());
+        // TODO: add error handling in libquicr in calling function
+    }
+
     void Transport::SendTrackStatus(ConnectionContext& conn_ctx,
                                     messages::RequestID request_id,
                                     const FullTrackName& tfn)

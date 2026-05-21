@@ -27,6 +27,7 @@ namespace quicr {
 
     void Client::PublishNamespaceStatusChanged(messages::RequestID, const PublishNamespaceStatus) {}
     void Client::PublishNamespaceReceived(const TrackNamespace&, const PublishNamespaceAttributes&) {}
+    void Client::NamespaceReceived(const TrackNamespace&) {}
     void Client::PublishNamespaceDoneReceived(messages::RequestID) {}
 
     void Client::PublishReceived(const ConnectionHandle connection_handle,
@@ -425,6 +426,36 @@ namespace quicr {
                 // TODO: Use params.
 
                 PublishNamespaceReceived(track_namespace, { .request_id = request_id });
+                return true;
+            }
+            case messages::ControlMessageType::kNamespace: {
+                const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+
+                for (auto& [_, track] : conn_ctx.request_handlers) {
+                    if (auto h = track.Get<SubscribeNamespaceHandler>();
+                        h && h->GetMode() == SubscribeNamespaceHandler::Mode::kNamespaces &&
+                        h->data_ctx_id_ == data_ctx_id) {
+                        std::vector<Bytes> entries;
+                        entries.reserve(h->GetPrefix().GetEntries().size() +
+                                        track_namespace_suffix.GetEntries().size());
+
+                        for (const auto& entry : h->GetPrefix().GetEntries()) {
+                            entries.emplace_back(entry.begin(), entry.end());
+                        }
+
+                        for (const auto& entry : track_namespace_suffix.GetEntries()) {
+                            entries.emplace_back(entry.begin(), entry.end());
+                        }
+
+                        NamespaceReceived(TrackNamespace{ entries });
+                        return true;
+                    }
+                }
+
+                SPDLOG_LOGGER_WARN(logger_,
+                                   "Received NAMESPACE to unknown subscribe namespace conn_id: {} data_ctx_id: {}",
+                                   conn_ctx.connection_handle,
+                                   data_ctx_id);
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespaceDone: {
