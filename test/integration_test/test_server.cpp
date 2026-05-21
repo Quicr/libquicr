@@ -151,10 +151,10 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
 }
 
 void
-TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
-                                       const DataContextId data_ctx_id,
-                                       const TrackNamespace& prefix_namespace,
-                                       const messages::SubscribeNamespaceAttributes& attributes)
+TestServer::SubscribeTracksReceived(const ConnectionHandle connection_handle,
+                                    const DataContextId data_ctx_id,
+                                    const TrackNamespace& prefix_namespace,
+                                    const messages::SubscribeNamespaceAttributes& attributes)
 {
     if (subscribe_namespace_promise_.has_value()) {
         subscribe_namespace_promise_->set_value({ connection_handle, prefix_namespace, attributes });
@@ -166,7 +166,7 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
                                                   .namespaces = known_published_namespaces_ };
 
     // Blindly accept it.
-    ResolveSubscribeNamespace(connection_handle, data_ctx_id, attributes.request_id, prefix_namespace, response);
+    ResolveSubscribeTracks(connection_handle, data_ctx_id, attributes.request_id, prefix_namespace, response);
 
     auto ns_handler = PublishNamespaceHandler::Create(prefix_namespace);
     PublishNamespace(connection_handle, ns_handler, true);
@@ -182,6 +182,15 @@ TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
     }
 
     namespace_subscribers_[prefix_namespace][connection_handle] = ns_handler;
+}
+
+void
+TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
+                                       const DataContextId data_ctx_id,
+                                       const TrackNamespace& prefix_namespace,
+                                       const messages::SubscribeNamespaceAttributes& attributes)
+{
+    // TODO: Implement.
 }
 
 void

@@ -165,11 +165,11 @@ namespace quicr {
         }
     }
 
-    void Server::ResolveSubscribeNamespace(const ConnectionHandle connection_handle,
-                                           const DataContextId data_ctx_id,
-                                           const uint64_t request_id,
-                                           const TrackNamespace& prefix,
-                                           const SubscribeNamespaceResponse& response)
+    void Server::ResolveSubscribeTracks(const ConnectionHandle connection_handle,
+                                        const DataContextId data_ctx_id,
+                                        const uint64_t request_id,
+                                        const TrackNamespace& prefix,
+                                        const SubscribeNamespaceResponse& response)
     {
         const auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
@@ -195,6 +195,39 @@ namespace quicr {
 
             auto request_id = conn_it->second.GetNextRequestId();
             SendPublishNamespace(conn_it->second, request_id, name_space);
+        }
+    }
+
+    void Server::ResolveSubscribeNamespace(const ConnectionHandle connection_handle,
+                                           const DataContextId data_ctx_id,
+                                           const uint64_t request_id,
+                                           const TrackNamespace& prefix,
+                                           const SubscribeNamespaceResponse& response)
+    {
+        const auto conn_it = connections_.find(connection_handle);
+        if (conn_it == connections_.end()) {
+            return;
+        }
+
+        auto th = TrackHash({ prefix, {} });
+
+        if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
+            SendRequestError(conn_it->second, request_id, messages::ErrorCode::kInternalError, 0ms, "Internal error");
+            return;
+        }
+
+        SendRequestOk(conn_it->second, request_id);
+
+        // Fan out NAMESPACE for matching namespaces.
+        for (const auto& name_space : response.namespaces) {
+            const auto match = prefix.IsPrefixOf(name_space);
+            if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
+                SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
+                continue;
+            }
+
+            auto request_id = conn_it->second.GetNextRequestId();
+            // SendNamespace(conn_it->second, request_id, name_space);
         }
     }
 
@@ -517,10 +550,28 @@ namespace quicr {
                 PublishNamespaceReceived(conn_ctx.connection_handle, tfn.name_space, { request_id });
                 return true;
             }
+            case messages::ControlMessageType::kSubscribeTracks: {
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto track_namespace_prefix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
+
+                messages::Filter filter; // TODO: Support more filters.
+                if (parameters.Contains(messages::ParameterType::kLocationFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kLocationFilter);
+                } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
+                }
+
+                SubscribeTracksReceived(
+                  conn_ctx.connection_handle,
+                  data_ctx_id,
+                  track_namespace_prefix,
+                  { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
+                return true;
+            }
             case messages::ControlMessageType::kSubscribeNamespace: {
                 const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto track_namespace_prefix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
-                const auto subscribe_options = messages::Message::ParseField<messages::SubscribeOptions>(msg_bytes);
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 messages::Filter filter; // TODO: Support more filters.

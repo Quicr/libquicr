@@ -495,7 +495,7 @@ TEST_CASE("Qlog Generation")
     }
 }
 
-TEST_CASE("Integration - Raw Subscribe Namespace")
+TEST_CASE("Integration - Raw Subscribe Tracks")
 {
     auto server = MakeTestServer();
 
@@ -521,7 +521,7 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
         client->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Client sends SUBSCRIBE_NAMESPACE
-        auto handler = SubscribeNamespaceHandler::Create(prefix_namespace);
+        auto handler = SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks);
         CHECK_NOTHROW(client->SubscribeNamespace(handler));
 
         // Server should receive the SUBSCRIBE_NAMESPACE message
@@ -556,7 +556,7 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     }
 }
 
-TEST_CASE("Integration - Subscribe Namespace with matching namespace")
+TEST_CASE("Integration - Subscribe Tracks with matching namespace")
 {
     auto server = MakeTestServer();
 
@@ -573,7 +573,8 @@ TEST_CASE("Integration - Subscribe Namespace with matching namespace")
         client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(SubscribeNamespaceHandler::Create(prefix_namespace)));
+        CHECK_NOTHROW(client->SubscribeNamespace(
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Client should receive matched PUBLISH_NAMESPACE.
         auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
@@ -595,7 +596,7 @@ TEST_CASE("Integration - Subscribe Namespace with matching namespace")
     }
 }
 
-TEST_CASE("Integration - Subscribe Namespace with matching track")
+TEST_CASE("Integration - Subscribe Tracks with matching track")
 {
     auto test_matching_track = [&](const std::string& protocol_scheme) {
         auto server = MakeTestServer();
@@ -626,7 +627,8 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(SubscribeNamespaceHandler::Create(prefix_namespace)));
+        CHECK_NOTHROW(client->SubscribeNamespace(
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Client should receive matched PUBLISH for existing track.
         auto publish_status = publish_future.wait_for(kDefaultTimeout);
@@ -656,7 +658,7 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
     }
 }
 
-TEST_CASE("Integration - Subscribe Namespace with ongoing match")
+TEST_CASE("Integration - Subscribe Tracks with ongoing match")
 {
     auto server = MakeTestServer(std::nullopt, 4);
 
@@ -683,7 +685,8 @@ TEST_CASE("Integration - Subscribe Namespace with ongoing match")
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(SubscribeNamespaceHandler::Create(prefix_namespace)));
+        CHECK_NOTHROW(client->SubscribeNamespace(
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // In the future, a PUBLISH arrives.
         std::this_thread::sleep_for(kDefaultTimeout);
@@ -718,7 +721,7 @@ TEST_CASE("Integration - Subscribe Namespace with ongoing match")
     }
 }
 
-TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
+TEST_CASE("Integration - Subscribe Tracks with non-matching namespace")
 {
     auto server = MakeTestServer();
 
@@ -736,7 +739,8 @@ TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
         client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(SubscribeNamespaceHandler::Create(prefix_namespace)));
+        CHECK_NOTHROW(client->SubscribeNamespace(
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Client should NOT receive PUBLISH_NAMESPACE.
         auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
@@ -1324,7 +1328,8 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         auto publish_future = publish_promise.get_future();
         subscriber->SetPublishReceivedPromise(std::move(publish_promise));
 
-        CHECK_NOTHROW(subscriber->SubscribeNamespace(SubscribeNamespaceHandler::Create(prefix_namespace)));
+        CHECK_NOTHROW(subscriber->SubscribeNamespace(
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Give the namespace subscription time to settle.
         std::this_thread::sleep_for(kDefaultTimeout);
