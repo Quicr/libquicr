@@ -295,7 +295,7 @@ namespace quicr {
             }
 
             for (std::size_t i = 0; i < delta; ++i) {
-                buckets_.erase(GetFutureBucketIndex(i));
+                buckets_[GetFutureBucketIndex(i)].clear();
             }
 
             bucket_index_ = GetFutureBucketIndex(delta);
