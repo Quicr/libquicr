@@ -67,7 +67,7 @@ namespace quicr {
         buffer.insert(buffer.end(), bytes.begin(), bytes.end());
     }
 
-    constexpr const char* moqt_alpn = "moqt-16";
+    constexpr const char* moqt_alpn = "moqt-18";
     constexpr uint64_t kMoqtVersion = 0xff00010; ///< draft-ietf-moq-transport-16
     constexpr uint64_t kSubscribeExpires = 0;    ///< Never expires
     constexpr int kReadLoopMaxPerStream = 100; ///< Support packet/frame bursts, but do not allow starving other streams
