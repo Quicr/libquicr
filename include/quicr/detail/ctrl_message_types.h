@@ -34,8 +34,8 @@ namespace quicr::messages {
         kPublishNamespaceCancel = 0xc,
         kTrackStatus = 0xd,
         kNamespaceDone = 0xe,
+        kPublishBlocked = 0xf,
         kGoaway = 0x10,
-        kSubscribeNamespace = 0x11,
         kMaxRequestId = 0x15,
         kFetch = 0x16,
         kFetchCancel = 0x17,
@@ -45,6 +45,8 @@ namespace quicr::messages {
         kPublishOk = 0x1e,
         kClientSetup = 0x20,
         kServerSetup = 0x21,
+        kSubscribeNamespace = 0x50,
+        kSubscribeTracks = 0x51,
     };
 
     using TrackAlias = std::uint64_t;
