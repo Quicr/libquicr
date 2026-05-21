@@ -2,9 +2,9 @@ name: Fuzz
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "draft-18" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "draft-18" ]
 
 jobs:
   fuzz:
