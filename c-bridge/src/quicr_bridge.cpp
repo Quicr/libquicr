@@ -523,16 +523,16 @@ struct qbridge_publish_namespace_track_handler
 class BridgeSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
 {
   public:
-    static std::shared_ptr<BridgeSubscribeNamespaceHandler> Create(const quicr::TrackNamespace& ns)
+    static std::shared_ptr<BridgeSubscribeNamespaceHandler> Create(const quicr::TrackNamespace& ns, const Mode mode)
     {
-        return std::shared_ptr<BridgeSubscribeNamespaceHandler>(new BridgeSubscribeNamespaceHandler(ns));
+        return std::shared_ptr<BridgeSubscribeNamespaceHandler>(new BridgeSubscribeNamespaceHandler(ns, mode));
     }
 
     void* user_data = nullptr;
 
   protected:
-    BridgeSubscribeNamespaceHandler(const quicr::TrackNamespace& ns)
-      : quicr::SubscribeNamespaceHandler(ns)
+    BridgeSubscribeNamespaceHandler(const quicr::TrackNamespace& ns, const Mode mode)
+      : quicr::SubscribeNamespaceHandler(ns, mode)
     {
     }
 
@@ -550,10 +550,18 @@ struct qbridge_subscribe_namespace_track_handler
 {
     std::shared_ptr<BridgeSubscribeNamespaceHandler> cpp_handler;
 
-    qbridge_subscribe_namespace_track_handler(const qbridge_namespace_t* ns)
+    enum qbridge_subscribe_namespace_mode
+    {
+        kNamespaces,
+        kTracks,
+    };
+
+    qbridge_subscribe_namespace_track_handler(const qbridge_namespace_t* ns,
+                                              const qbridge_subscribe_namespace_mode mode)
     {
         if (ns) {
-            cpp_handler = BridgeSubscribeNamespaceHandler::Create(cpp_namespace_from_c(ns));
+            cpp_handler = BridgeSubscribeNamespaceHandler::Create(
+              cpp_namespace_from_c(ns), static_cast<BridgeSubscribeNamespaceHandler::Mode>(mode));
         }
     }
 };

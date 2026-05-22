@@ -17,6 +17,13 @@ namespace quicr {
     {
       public:
         using Error = std::pair<messages::ErrorCode, messages::ReasonPhrase>;
+        enum class Mode
+        {
+            // Receive NAMESPACE notifications of matching namespaces.
+            kNamespaces,
+            // Receive PUBLISH notifications of matching tracks.
+            kTracks
+        };
 
         /**
          * @brief  Status codes for the subscribe track
@@ -29,12 +36,16 @@ namespace quicr {
         };
 
       protected:
-        SubscribeNamespaceHandler(const TrackNamespace& prefix, const messages::Filter& filter = std::monostate{});
+        SubscribeNamespaceHandler(const TrackNamespace& prefix,
+                                  Mode mode,
+                                  const messages::Filter& filter = std::monostate{});
 
       public:
-        static auto Create(const TrackNamespace& prefix, const messages::Filter& filter = std::monostate{})
+        static auto Create(const TrackNamespace& prefix,
+                           const Mode mode,
+                           const messages::Filter& filter = std::monostate{})
         {
-            return std::shared_ptr<SubscribeNamespaceHandler>(new SubscribeNamespaceHandler(prefix, filter));
+            return std::shared_ptr<SubscribeNamespaceHandler>(new SubscribeNamespaceHandler(prefix, mode, filter));
         }
 
         virtual ~SubscribeNamespaceHandler();
@@ -66,6 +77,12 @@ namespace quicr {
          * @return Subscribe namespace error code and reason.
          */
         std::optional<Error> GetError() const noexcept { return error_; }
+
+        /**
+         * @brief Get the mode this handler is operating in.
+         * @return Subscribe mode for this namespace handler.
+         */
+        constexpr Mode GetMode() const noexcept { return mode_; }
 
       protected:
         const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
@@ -103,6 +120,9 @@ namespace quicr {
         }
 
       private:
+        /// Mode in use.
+        const Mode mode_;
+
         /// Prefix namespace for contained handlers.
         const TrackNamespace prefix_;
 

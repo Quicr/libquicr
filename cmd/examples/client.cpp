@@ -698,16 +698,17 @@ class MyClient : public quicr::Client
 
 class MySubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
 {
-    MySubscribeNamespaceHandler(const quicr::TrackNamespace& prefix, std::shared_ptr<MyClient> client)
-      : quicr::SubscribeNamespaceHandler(prefix)
+    MySubscribeNamespaceHandler(const quicr::TrackNamespace& prefix, Mode mode, std::shared_ptr<MyClient> client)
+      : quicr::SubscribeNamespaceHandler(prefix, mode)
       , client_(std::move(client))
     {
     }
 
   public:
-    static auto Create(const quicr::TrackNamespace& prefix, std::shared_ptr<MyClient> client)
+    static auto Create(const quicr::TrackNamespace& prefix, Mode mode, std::shared_ptr<MyClient> client)
     {
-        return std::shared_ptr<MySubscribeNamespaceHandler>(new MySubscribeNamespaceHandler(prefix, std::move(client)));
+        return std::shared_ptr<MySubscribeNamespaceHandler>(
+          new MySubscribeNamespaceHandler(prefix, mode, std::move(client)));
     }
 
   private:
@@ -1620,8 +1621,10 @@ main(int argc, char* argv[])
                         result["sub_announces"].as<std::string>(),
                         th.track_namespace_hash);
 
-            client->SubscribeNamespace(MySubscribeNamespaceHandler::Create(
-              prefix_ns.name_space, std::static_pointer_cast<MyClient>(client->shared_from_this())));
+            client->SubscribeNamespace(
+              MySubscribeNamespaceHandler::Create(prefix_ns.name_space,
+                                                  quicr::SubscribeNamespaceHandler::Mode::kTracks,
+                                                  std::static_pointer_cast<MyClient>(client->shared_from_this())));
         }
 
         if (enable_pub) {

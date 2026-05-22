@@ -4,8 +4,10 @@
 #include "quicr/subscribe_track_handler.h"
 
 quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix,
+                                                            const Mode mode,
                                                             const messages::Filter& filter)
   : BaseTrackHandler({ prefix, {} })
+  , mode_(mode)
   , prefix_(prefix)
   , filter_(std::move(filter))
 {
