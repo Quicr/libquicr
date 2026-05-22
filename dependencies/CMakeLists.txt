@@ -64,7 +64,7 @@ if (${USE_MBEDTLS})
         option(ENABLE_TESTING OFF)
         option(ENABLE_PROGRAMS OFF)
         set(MBEDTLS_AS_SUBPROJECT ON)
-        add_subdirectory(mbedtls)
+        add_subdirectory(mbedtls) #TODO: Remove this and use CPMAddPackage instead.
 
         set(MBEDTLS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls)
         set(MBEDTLS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls/include)

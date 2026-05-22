@@ -58,14 +58,6 @@ else()
   set(USE_MBEDTLS ON)
 endif()
 
-set (BUILD_SHARED_LIBS OFF)
-set (BUILD_STATIC_LIBS ON)
-
-if (NOT DEFINED ENV{IDF_PATH})
-    set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-    list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/transport/cmake)
-endif()
-
 #=============================================================================#
 # Dependencies
 #=============================================================================#

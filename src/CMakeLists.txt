@@ -7,7 +7,17 @@ else()
     add_library(quicr)
 endif()
 
-target_sources (quicr PRIVATE
+set_target_properties(quicr PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS OFF
+)
+
+target_compile_options(quicr PRIVATE
+    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wall -pedantic -Wextra -Wmissing-declarations -Werror=switch>
+)
+
+target_sources(quicr PRIVATE
     base_track_handler.cpp
     client.cpp
     ctrl_message_types.cpp
@@ -25,38 +35,17 @@ target_sources (quicr PRIVATE
     transport.cpp
 )
 
-target_compile_options(quicr PRIVATE
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall -Werror=switch>
-    $<$<CXX_COMPILER_ID:MSVC>: >
+target_link_libraries(quicr PUBLIC
+    spdlog
+    picoquic-core
+    picoquic-log
+    picohttp-core
 )
 
-set_target_properties(quicr PROPERTIES
-    CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED YES
-    CXX_EXTENSIONS OFF
-)
-
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    target_compile_options(quicr PRIVATE -Wall -pedantic -Wextra  -Wmissing-declarations)
-endif()
-
-if(MSVC)
-    target_compile_options(quicr PRIVATE /W4 /WX)
-    target_compile_definitions(quicr _CRT_SECURE_NO_WARNINGS)
-endif()
+target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(quicr PRIVATE ${PROJECT_SOURCE_DIR}/dependencies/picoquic/picohttp)
 
 if(LINT)
     include(Lint)
     lint(quicr)
 endif()
-
-target_link_libraries(quicr PUBLIC spdlog)
-
-target_link_libraries(quicr PUBLIC picoquic-core picoquic-log picohttp-core)
-
-if (DEFINED ENV{IDF_PATH})
-    add_compile_definitions(${LIB_NAME} PLATFORM_ESP)
-endif()
-
-target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include)
-target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/dependencies/picoquic/picohttp)
