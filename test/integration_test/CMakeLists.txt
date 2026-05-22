@@ -45,7 +45,7 @@ add_custom_command(
     COMMENT "Creating certificate in ${CMAKE_CURRENT_BINARY_DIR}"
 )
 
-add_custom_target(generate_test_certs ALL DEPENDS ${TEST_KEY} ${TEST_CRT})
+add_custom_target(generate_test_certs ALL DEPENDS ${TEST_KEY} ${TEST_CERT})
 
 # Enable test discovery with doctest - can't run in parallel.
 doctest_discover_tests(quicr_integration_test

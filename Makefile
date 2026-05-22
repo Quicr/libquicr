@@ -11,7 +11,7 @@ BUILD_DIR=build
 export MERMAID_FILTER_THEME=neutral
 CLANG_FORMAT=clang-format -i
 
-.PHONY: all clean cclean format fuzz c-bridge c-bridge-only
+.PHONY: all clean cclean format fuzz c-bridge c-bridge-only cert
 
 # Build.
 all: ${BUILD_DIR}
