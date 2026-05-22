@@ -43,7 +43,6 @@ target_link_libraries(quicr PUBLIC
 )
 
 target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include)
-target_include_directories(quicr PRIVATE ${PROJECT_SOURCE_DIR}/dependencies/picoquic/picohttp)
 
 if(LINT)
     include(Lint)
