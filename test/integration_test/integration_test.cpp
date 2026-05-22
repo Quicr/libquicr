@@ -499,13 +499,13 @@ TEST_CASE("Integration - Raw Subscribe Tracks")
 {
     auto server = MakeTestServer();
 
-    auto test_subscribe_namespace = [&](const std::string& protocol_scheme) {
+    auto test_subscribe_tracks = [&](const std::string& protocol_scheme) {
         auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
 
         // Set up the prefix namespace we want to subscribe to
         TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
 
-        // Set up promise to capture server-side callback
+        // Set up promise to capture the server-side SUBSCRIBE_TRACKS callback.
         std::promise<TestServer::SubscribeNamespaceDetails> server_promise;
         std::future<TestServer::SubscribeNamespaceDetails> server_future = server_promise.get_future();
         server->SetSubscribeNamespacePromise(std::move(server_promise));
@@ -520,17 +520,17 @@ TEST_CASE("Integration - Raw Subscribe Tracks")
         auto publish_future = publish_promise.get_future();
         client->SetPublishReceivedPromise(std::move(publish_promise));
 
-        // Client sends SUBSCRIBE_NAMESPACE
+        // Client sends SUBSCRIBE_TRACKS.
         auto handler = SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks);
         CHECK_NOTHROW(client->SubscribeNamespace(handler));
 
-        // Server should receive the SUBSCRIBE_NAMESPACE message
+        // Server should receive the SUBSCRIBE_TRACKS message.
         auto server_status = server_future.wait_for(kDefaultTimeout);
         REQUIRE(server_status == std::future_status::ready);
         const auto& details = server_future.get();
         CHECK_EQ(details.prefix_namespace, prefix_namespace);
 
-        // Client should receive SUBSCRIBE_NAMESPACE_OK from relay
+        // Client should mark the SUBSCRIBE_TRACKS request ok.
         std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
         CHECK_EQ(handler->GetStatus(), SubscribeNamespaceHandler::Status::kOk);
 
@@ -546,13 +546,13 @@ TEST_CASE("Integration - Raw Subscribe Tracks")
     SUBCASE("Raw QUIC")
     {
         CAPTURE("Raw QUIC");
-        test_subscribe_namespace("moq");
+        test_subscribe_tracks("moq");
     }
 
     SUBCASE("WebTransport")
     {
         CAPTURE("WebTransport");
-        test_subscribe_namespace("https");
+        test_subscribe_tracks("https");
     }
 }
 
@@ -572,7 +572,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching namespace")
         server->AddKnownPublishedNamespace(prefix_namespace);
         client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
-        // SUBSCRIBE_NAMESPACE to prefix.
+        // SUBSCRIBE_TRACKS to prefix.
         CHECK_NOTHROW(client->SubscribeNamespace(
           SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
@@ -610,7 +610,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
         const FullTrackName existing_track{ prefix_namespace, { 0x01 } };
         const auto existing_track_hash = TrackHash(existing_track);
 
-        // Set up promise to verify client received matching PUBLISH_NAMESPACE.
+        // Set up promise to verify client received matching PUBLISH.
         std::promise<FullTrackName> publish_promise;
         auto publish_future = publish_promise.get_future();
         messages::PublishAttributes publish_attributes;
@@ -626,7 +626,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
         auto publish_ok_future = publish_ok_promise.get_future();
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
-        // SUBSCRIBE_NAMESPACE to prefix.
+        // SUBSCRIBE_TRACKS to prefix.
         CHECK_NOTHROW(client->SubscribeNamespace(
           SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
@@ -674,7 +674,7 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
         existing_track.name_space = prefix_namespace;
         existing_track.name = { 0x01 };
 
-        // Set up promise to verify client received matching PUBLISH_NAMESPACE.
+        // Set up promise to verify client received matching PUBLISH.
         std::promise<FullTrackName> publish_promise;
         auto publish_future = publish_promise.get_future();
         client->SetPublishReceivedPromise(std::move(publish_promise));
@@ -684,7 +684,7 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
         auto publish_ok_future = publish_ok_promise.get_future();
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
-        // SUBSCRIBE_NAMESPACE to prefix.
+        // SUBSCRIBE_TRACKS to prefix.
         CHECK_NOTHROW(client->SubscribeNamespace(
           SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
@@ -732,19 +732,206 @@ TEST_CASE("Integration - Subscribe Tracks with non-matching namespace")
         TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
         TrackNamespace non_match({ "baz" });
 
-        // Set up promise to verify client received matching PUBLISH_NAMESPACE.
+        // Set up promise to verify client does NOT receive PUBLISH_NAMESPACE.
         std::promise<TrackNamespace> publish_namespace_promise;
         std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
         server->AddKnownPublishedNamespace(non_match);
         client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
-        // SUBSCRIBE_NAMESPACE to prefix.
+        // SUBSCRIBE_TRACKS to prefix.
         CHECK_NOTHROW(client->SubscribeNamespace(
           SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Client should NOT receive PUBLISH_NAMESPACE.
         auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
         REQUIRE(publish_namespace_status == std::future_status::timeout);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_non_matching("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_non_matching("https");
+    }
+}
+
+TEST_CASE("Integration - Subscribe Namespace")
+{
+    auto server = MakeTestServer();
+
+    auto test_subscribe_namespace = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        // Subscribe to namespace announcements under this prefix.
+        TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+
+        // Verify the relay receives SUBSCRIBE_NAMESPACE with the requested prefix.
+        std::promise<TestServer::SubscribeNamespaceDetails> server_promise;
+        std::future<TestServer::SubscribeNamespaceDetails> server_future = server_promise.get_future();
+        server->SetSubscribeNamespacePromise(std::move(server_promise));
+
+        // Verify no namespace announcement is sent when the relay has no matches.
+        std::promise<TrackNamespace> namespace_promise;
+        std::future<TrackNamespace> namespace_future = namespace_promise.get_future();
+        client->SetNamespaceReceivedPromise(std::move(namespace_promise));
+
+        // Verify namespace-mode subscription does not produce PUBLISH_NAMESPACE.
+        std::promise<TrackNamespace> publish_namespace_promise;
+        std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
+        client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
+
+        // Verify namespace-mode subscription does not directly produce PUBLISH.
+        std::promise<FullTrackName> publish_promise;
+        auto publish_future = publish_promise.get_future();
+        client->SetPublishReceivedPromise(std::move(publish_promise));
+
+        auto handler =
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kNamespaces);
+        CHECK_NOTHROW(client->SubscribeNamespace(handler));
+
+        auto server_status = server_future.wait_for(kDefaultTimeout);
+        REQUIRE(server_status == std::future_status::ready);
+        const auto& details = server_future.get();
+        CHECK_EQ(details.prefix_namespace, prefix_namespace);
+
+        std::this_thread::sleep_for(kDefaultTimeout);
+        CHECK_EQ(handler->GetStatus(), SubscribeNamespaceHandler::Status::kOk);
+
+        auto namespace_status = namespace_future.wait_for(kDefaultTimeout);
+        CHECK(namespace_status == std::future_status::timeout);
+
+        auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+        CHECK(publish_namespace_status == std::future_status::timeout);
+
+        auto publish_status = publish_future.wait_for(kDefaultTimeout);
+        CHECK(publish_status == std::future_status::timeout);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_subscribe_namespace("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_subscribe_namespace("https");
+    }
+}
+
+TEST_CASE("Integration - Subscribe Namespace with matching namespace")
+{
+    auto server = MakeTestServer();
+
+    auto test_matching_namespace = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        // The relay has a known namespace below the subscribed prefix.
+        TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+        TrackNamespace matching_namespace(std::vector<std::string>{ "foo", "bar", "baz" });
+
+        // Verify the client receives the matching namespace announcement.
+        std::promise<TrackNamespace> namespace_promise;
+        std::future<TrackNamespace> namespace_future = namespace_promise.get_future();
+        server->AddKnownPublishedNamespace(matching_namespace);
+        client->SetNamespaceReceivedPromise(std::move(namespace_promise));
+
+        // Verify SUBSCRIBE_NAMESPACE does not fall back to PUBLISH_NAMESPACE.
+        std::promise<TrackNamespace> publish_namespace_promise;
+        std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
+        client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
+
+        CHECK_NOTHROW(client->SubscribeNamespace(
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kNamespaces)));
+
+        auto namespace_status = namespace_future.wait_for(kDefaultTimeout);
+        REQUIRE(namespace_status == std::future_status::ready);
+        const auto& received_namespace = namespace_future.get();
+        CHECK_EQ(received_namespace, matching_namespace);
+
+        auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+        CHECK(publish_namespace_status == std::future_status::timeout);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_matching_namespace("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_matching_namespace("https");
+    }
+}
+
+TEST_CASE("Integration - Subscribe Namespace with exact matching namespace")
+{
+    auto server = MakeTestServer();
+
+    auto test_exact_matching_namespace = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        // Exact matches are encoded as an empty NAMESPACE suffix.
+        TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+
+        // Verify the client reconstructs the full namespace from prefix plus suffix.
+        std::promise<TrackNamespace> namespace_promise;
+        std::future<TrackNamespace> namespace_future = namespace_promise.get_future();
+        server->AddKnownPublishedNamespace(prefix_namespace);
+        client->SetNamespaceReceivedPromise(std::move(namespace_promise));
+
+        CHECK_NOTHROW(client->SubscribeNamespace(
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kNamespaces)));
+
+        auto namespace_status = namespace_future.wait_for(kDefaultTimeout);
+        REQUIRE(namespace_status == std::future_status::ready);
+        const auto& received_namespace = namespace_future.get();
+        CHECK_EQ(received_namespace, prefix_namespace);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_exact_matching_namespace("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_exact_matching_namespace("https");
+    }
+}
+
+TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
+{
+    auto server = MakeTestServer();
+
+    auto test_non_matching = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        // The relay has a namespace outside the subscribed prefix.
+        TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+        TrackNamespace non_match({ "baz" });
+
+        // Verify unrelated namespaces are filtered and no NAMESPACE is sent.
+        std::promise<TrackNamespace> namespace_promise;
+        std::future<TrackNamespace> namespace_future = namespace_promise.get_future();
+        server->AddKnownPublishedNamespace(non_match);
+        client->SetNamespaceReceivedPromise(std::move(namespace_promise));
+
+        CHECK_NOTHROW(client->SubscribeNamespace(
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kNamespaces)));
+
+        auto namespace_status = namespace_future.wait_for(kDefaultTimeout);
+        REQUIRE(namespace_status == std::future_status::timeout);
     };
 
     SUBCASE("Raw QUIC")

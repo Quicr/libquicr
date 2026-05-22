@@ -142,7 +142,7 @@ namespace quicr_test {
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
-        // Set up promise for subscribe namespace event
+        // Set up promise for subscribe tracks or subscribe namespace event.
         void SetSubscribeNamespacePromise(std::promise<SubscribeNamespaceDetails> promise)
         {
             subscribe_namespace_promise_ = std::move(promise);

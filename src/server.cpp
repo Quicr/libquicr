@@ -221,13 +221,16 @@ namespace quicr {
         // Fan out NAMESPACE for matching namespaces.
         for (const auto& name_space : response.namespaces) {
             const auto match = prefix.IsPrefixOf(name_space);
-            if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
+            if (match == std::partial_ordering::unordered || match == std::partial_ordering::greater) {
                 SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
                 continue;
             }
 
-            auto request_id = conn_it->second.GetNextRequestId();
-            // SendNamespace(conn_it->second, request_id, name_space);
+            const auto prefix_size = prefix.GetEntries().size();
+            const auto namespace_size = name_space.GetEntries().size();
+            auto suffix =
+              namespace_size == prefix_size ? TrackNamespace{} : name_space.GetSuffix(namespace_size - prefix_size);
+            SendNamespace(conn_it->second, data_ctx_id, suffix);
         }
     }
 
