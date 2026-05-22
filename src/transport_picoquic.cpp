@@ -992,7 +992,7 @@ PicoQuicTransport::Start()
      *    max datagram size is zero, preventing sending of datagrams. Setting this
      *    also triggers PMTUD to run. This value will be the initial value.
      */
-    picoquic_init_transport_parameters(&local_tp_options_, 1);
+    picoquic_init_transport_parameters(&local_tp_options_);
 
     // TODO(tievens): revisit PMTU/GSO, removing this breaks some networks
     local_tp_options_.max_datagram_frame_size = 1280;
@@ -1984,11 +1984,8 @@ try {
         // Parse the capsule data using picowt_receive_capsule
         // This accumulates partial capsule data across multiple calls
         if (!is_fin) {
-            int ret = picowt_receive_capsule(conn_ctx->pq_cnx,
-                                             conn_ctx->wt_control_stream_ctx,
-                                             bytes.data(),
-                                             bytes.data() + bytes.size(),
-                                             &conn_ctx->wt_capsule);
+            int ret = picowt_receive_capsule(
+              conn_ctx->pq_cnx, bytes.data(), bytes.data() + bytes.size(), &conn_ctx->wt_capsule);
 
             if (ret != 0) {
                 SPDLOG_LOGGER_ERROR(logger,
