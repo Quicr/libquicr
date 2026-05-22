@@ -58,5 +58,5 @@ if (DEFINED ENV{IDF_PATH})
     add_compile_definitions(${LIB_NAME} PLATFORM_ESP)
 endif()
 
-target_include_directories(quicr PUBLIC ${PROJECT_BINARY_DIR}/include)
+target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include)
 target_include_directories(quicr PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/dependencies/picoquic/picohttp)
