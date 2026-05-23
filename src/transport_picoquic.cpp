@@ -2258,13 +2258,13 @@ PicoQuicTransport::CheckConnsForCongestion()
             conn_ctx.metrics.tx_congested++;
 
             conn_ctx.is_congested = true;
-            // SPDLOG_LOGGER_WARN(
-            //   logger,
-            //   "CC: conn_id: {} has streams congested. congested_count: {} retrans: {} cwin_congested: {}",
-            //   conn_id,
-            //   congested_count,
-            //   conn_ctx.metrics.tx_retransmits,
-            //   conn_ctx.metrics.cwin_congested);
+            SPDLOG_LOGGER_DEBUG(
+              logger,
+              "CC: conn_id: {} has streams congested. congested_count: {} retrans: {} cwin_congested: {}",
+              conn_id,
+              congested_count,
+              conn_ctx.metrics.tx_retransmits,
+              conn_ctx.metrics.cwin_congested);
 
             if (tconfig_.use_reset_wait_strategy && reset_wait_data_ctx_id > 0) {
                 auto& data_ctx = conn_ctx.active_data_contexts[reset_wait_data_ctx_id];
