@@ -385,6 +385,8 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
         return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
     }
 
+    transport->PqRunner();
+
     switch (cb_mode) {
         case picoquic_packet_loop_ready: {
             SPDLOG_LOGGER_INFO(transport->logger, "packet_loop_ready, waiting for packets");
@@ -471,7 +473,6 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
         }
 
         case picoquic_packet_loop_wake_up:
-            transport->PqRunner();
             break;
 
         default:
@@ -2257,13 +2258,13 @@ PicoQuicTransport::CheckConnsForCongestion()
             conn_ctx.metrics.tx_congested++;
 
             conn_ctx.is_congested = true;
-            SPDLOG_LOGGER_WARN(
-              logger,
-              "CC: conn_id: {} has streams congested. congested_count: {} retrans: {} cwin_congested: {}",
-              conn_id,
-              congested_count,
-              conn_ctx.metrics.tx_retransmits,
-              conn_ctx.metrics.cwin_congested);
+            // SPDLOG_LOGGER_WARN(
+            //   logger,
+            //   "CC: conn_id: {} has streams congested. congested_count: {} retrans: {} cwin_congested: {}",
+            //   conn_id,
+            //   congested_count,
+            //   conn_ctx.metrics.tx_retransmits,
+            //   conn_ctx.metrics.cwin_congested);
 
             if (tconfig_.use_reset_wait_strategy && reset_wait_data_ctx_id > 0) {
                 auto& data_ctx = conn_ctx.active_data_contexts[reset_wait_data_ctx_id];
@@ -2729,7 +2730,7 @@ PicoQuicTransport::CreateStreamInternal(TransportConnId conn_id, DataContextId d
           picoquic_get_next_local_stream_id(conn_it->second.pq_cnx, !data_ctx_it->second.is_bidir);
         stream_id = conn_it->second.last_stream_id;
 
-        SPDLOG_LOGGER_INFO(logger,
+        SPDLOG_LOGGER_DEBUG(logger,
                            "conn_id: {0} data_ctx_id: {1} create new stream with stream_id: {2}",
                            conn_id,
                            data_ctx_id,
@@ -2825,8 +2826,12 @@ PicoQuicTransport::EraseStreamState(ConnectionContext& conn_ctx, DataContext* da
 void
 PicoQuicTransport::RunPqFunction(std::function<int()>&& function)
 {
+    bool should_wake = picoquic_runner_queue_.Empty();
     picoquic_runner_queue_.Push(std::move(function));
-    picoquic_wake_up_network_thread(quic_network_thread_ctx_);
+
+    if (should_wake) {
+        picoquic_wake_up_network_thread(quic_network_thread_ctx_);
+    }
 }
 
 void
