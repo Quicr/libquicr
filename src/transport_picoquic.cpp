@@ -2731,10 +2731,10 @@ PicoQuicTransport::CreateStreamInternal(TransportConnId conn_id, DataContextId d
         stream_id = conn_it->second.last_stream_id;
 
         SPDLOG_LOGGER_DEBUG(logger,
-                           "conn_id: {0} data_ctx_id: {1} create new stream with stream_id: {2}",
-                           conn_id,
-                           data_ctx_id,
-                           conn_it->second.last_stream_id);
+                            "conn_id: {0} data_ctx_id: {1} create new stream with stream_id: {2}",
+                            conn_id,
+                            data_ctx_id,
+                            conn_it->second.last_stream_id);
 
         picoquic_set_app_stream_ctx(conn_it->second.pq_cnx, stream_id, &data_ctx_it->second);
         cb_stream_ctx = &data_ctx_it->second;
