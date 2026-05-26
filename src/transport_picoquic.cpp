@@ -1263,6 +1263,34 @@ PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, uint64_t app_re
     if (conn_it == conn_context_.end())
         return;
 
+    // Clear all stream TX queues and RX buffers to release shared pointers
+    for (auto& [data_ctx_id, data_ctx] : conn_it->second.active_data_contexts) {
+        for (auto& [stream_id, stream_ctx] : data_ctx.streams) {
+            if (stream_ctx.tx_data) {
+                stream_ctx.tx_data->Clear();
+                stream_ctx.tx_data.reset();
+            }
+            stream_ctx.tx_object = nullptr;
+        }
+    }
+
+    // Clear all RX stream buffers to release shared pointers
+    for (auto& [stream_id, rx_buf] : conn_it->second.rx_stream_buffer) {
+        if (rx_buf.rx_ctx) {
+            rx_buf.rx_ctx->data_queue.Clear();
+        }
+    }
+
+    // Clear datagram RX and TX queues and reset shared pointers
+    if (conn_it->second.dgram_rx_data) {
+        conn_it->second.dgram_rx_data->Clear();
+        conn_it->second.dgram_rx_data.reset();
+    }
+    if (conn_it->second.dgram_tx_data) {
+        conn_it->second.dgram_tx_data->Clear();
+        conn_it->second.dgram_tx_data.reset();
+    }
+
     // Remove pointer references in picoquic for active streams
     for (const auto& [stream_id, rx_buf] : conn_it->second.rx_stream_buffer) {
         picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 0, NULL);
@@ -1302,7 +1330,10 @@ PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, uint64_t app_re
         conn_it->second.wt_h3_ctx = nullptr;
     }
 
-    picoquic_close(conn_it->second.pq_cnx, app_reason_code);
+    const auto ret = picoquic_close(conn_it->second.pq_cnx, app_reason_code);
+    if (ret) {
+        SPDLOG_LOGGER_WARN(logger, "Closing conn_id: {} has non-zero piocquic return: {}", conn_id, ret);
+    }
 
     conn_context_.erase(conn_it);
 }
