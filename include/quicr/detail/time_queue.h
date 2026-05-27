@@ -62,7 +62,7 @@ namespace quicr {
         struct QueueValueType
         {
             QueueValueType(BucketType& bucket, IndexType value_index, TickType expiry_tick, TickType wait_for_tick)
-              : bucket(&bucket)
+              : bucket(std::addressof(bucket))
               , value_index(value_index)
               , expiry_tick(expiry_tick)
               , wait_for_tick(wait_for_tick)
@@ -227,7 +227,7 @@ namespace quicr {
             while (queue_index_ < queue_.size()) {
                 auto& [bucket, value_index, expiry_tick, pop_wait_ttl] = queue_.at(queue_index_);
 
-                if (value_index >= bucket->size() || ticks > expiry_tick) {
+                if (ticks > expiry_tick || value_index >= bucket->size()) {
                     elem.expired_count++;
                     queue_index_++;
                     continue;
@@ -277,7 +277,7 @@ namespace quicr {
          *
          * @returns Current tick value at time of advance
          */
-        [[nodiscard]] FORCE_INLINE TickType Advance(std::optional<IndexType> future_insertion_index = std::nullopt)
+        [[nodiscard]] FORCE_INLINE TickType Advance(bool preserve_future_bucket_memory = false)
         {
             const TickType new_tick_count = tick_service_->Milliseconds();
             const TickType delta = new_tick_count - current_ticks_;
@@ -294,16 +294,22 @@ namespace quicr {
                 return new_tick_count;
             }
 
+            const IndexType future_bucket_index = GetFutureBucketIndex(delta);
+
             for (std::size_t i = 0; i < delta; ++i) {
                 const IndexType index = GetFutureBucketIndex(i);
-                if (future_insertion_index.has_value() && index == future_insertion_index.value()) {
-                    buckets_[index].clear();
-                } else {
-                    buckets_.erase(index);
+                BucketType& bucket = buckets_[index];
+
+                bucket.clear();
+
+                if (preserve_future_bucket_memory && index == future_bucket_index) {
+                    continue;
                 }
+
+                bucket.shrink_to_fit();
             }
 
-            bucket_index_ = GetFutureBucketIndex(delta);
+            bucket_index_ = future_bucket_index;
 
             if (last_tick_queue_cleared_ > duration_ && !queue_.empty()) {
                 if (queue_index_ >= queue_.size()) {
@@ -344,11 +350,11 @@ namespace quicr {
 
             auto relative_ttl = ttl / interval_;
 
-            const IndexType future_index = GetFutureBucketIndex(relative_ttl - 1);
-
-            const TickType ticks = Advance(future_index);
+            const TickType ticks = Advance(true);
 
             const TickType expiry_tick = ticks + ttl;
+
+            const IndexType future_index = GetFutureBucketIndex(relative_ttl - 1);
 
             BucketType& bucket = buckets_[future_index];
 
