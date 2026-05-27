@@ -41,8 +41,6 @@ namespace quicr {
             if (!tick_service_) {
                 throw std::invalid_argument("Tick service cannot be null");
             }
-
-            buckets_.resize(total_buckets_);
         }
 
         Cache() = delete;
@@ -137,10 +135,7 @@ namespace quicr {
         {
             cache_.clear();
             bucket_index_ = 0;
-
-            for (auto& bucket : buckets_) {
-                bucket.clear();
-            }
+            buckets_.clear();
         }
 
       protected:
@@ -165,6 +160,7 @@ namespace quicr {
                     cache_.erase(key);
                 }
                 bucket.clear();
+                bucket.shrink_to_fit();
             }
 
             bucket_index_ = (bucket_index_ + delta) % total_buckets_;
@@ -205,7 +201,7 @@ namespace quicr {
         TickType current_ticks_{ 0 };
 
         /// The memory storage for all keys to be managed.
-        std::vector<BucketType> buckets_;
+        std::map<std::uint64_t, BucketType> buckets_;
 
         /// The cache of elements being stored.
         CacheType cache_;
