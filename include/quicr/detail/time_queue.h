@@ -62,7 +62,7 @@ namespace quicr {
         struct QueueValueType
         {
             QueueValueType(BucketType& bucket, IndexType value_index, TickType expiry_tick, TickType wait_for_tick)
-              : bucket(&bucket)
+              : bucket(std::addressof(bucket))
               , value_index(value_index)
               , expiry_tick(expiry_tick)
               , wait_for_tick(wait_for_tick)
@@ -227,7 +227,7 @@ namespace quicr {
             while (queue_index_ < queue_.size()) {
                 auto& [bucket, value_index, expiry_tick, pop_wait_ttl] = queue_.at(queue_index_);
 
-                if (value_index >= bucket->size() || ticks > expiry_tick) {
+                if (ticks > expiry_tick || value_index >= bucket->size()) {
                     elem.expired_count++;
                     queue_index_++;
                     continue;
@@ -295,7 +295,9 @@ namespace quicr {
             }
 
             for (std::size_t i = 0; i < delta; ++i) {
-                buckets_[GetFutureBucketIndex(i)].clear();
+                BucketType& bucket = buckets_[GetFutureBucketIndex(i)];
+                bucket.clear();
+                bucket.shrink_to_fit();
             }
 
             bucket_index_ = GetFutureBucketIndex(delta);
