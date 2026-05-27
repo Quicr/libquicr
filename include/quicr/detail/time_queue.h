@@ -277,7 +277,7 @@ namespace quicr {
          *
          * @returns Current tick value at time of advance
          */
-        [[nodiscard]] FORCE_INLINE TickType Advance(bool preserve_future_bucket_memory = false)
+        [[nodiscard]] FORCE_INLINE TickType Advance()
         {
             const TickType new_tick_count = tick_service_->Milliseconds();
             const TickType delta = new_tick_count - current_ticks_;
@@ -294,22 +294,13 @@ namespace quicr {
                 return new_tick_count;
             }
 
-            const IndexType future_bucket_index = GetFutureBucketIndex(delta);
-
             for (std::size_t i = 0; i < delta; ++i) {
-                const IndexType index = GetFutureBucketIndex(i);
-                BucketType& bucket = buckets_[index];
-
+                BucketType& bucket = buckets_[GetFutureBucketIndex(i)];
                 bucket.clear();
-
-                if (preserve_future_bucket_memory && index == future_bucket_index) {
-                    continue;
-                }
-
                 bucket.shrink_to_fit();
             }
 
-            bucket_index_ = future_bucket_index;
+            bucket_index_ = GetFutureBucketIndex(delta);
 
             if (last_tick_queue_cleared_ > duration_ && !queue_.empty()) {
                 if (queue_index_ >= queue_.size()) {
@@ -350,7 +341,7 @@ namespace quicr {
 
             auto relative_ttl = ttl / interval_;
 
-            const TickType ticks = Advance(true);
+            const TickType ticks = Advance();
 
             const TickType expiry_tick = ticks + ttl;
 
