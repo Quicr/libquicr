@@ -1133,14 +1133,10 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
         stream.tx_data->Push(std::move(cd), ttl_ms, 0);
 
-        if (!stream.mark_active) {
-            stream.mark_active = true;
-
-            RunPqFunction([this, conn_id, data_ctx_id, stream_id]() {
-                MarkStreamActive(conn_id, data_ctx_id, stream_id);
-                return 0;
-            });
-        }
+        RunPqFunction([this, conn_id, data_ctx_id, stream_id]() {
+            MarkStreamActive(conn_id, data_ctx_id, stream_id);
+            return 0;
+        });
     } else { // datagram
         ConnData cd{
             conn_id, data_ctx_id, priority, StreamAction::kNoAction, std::move(bytes), tick_service_->Microseconds(),
@@ -1330,11 +1326,7 @@ PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, uint64_t app_re
         conn_it->second.wt_h3_ctx = nullptr;
     }
 
-    const auto ret = picoquic_close(conn_it->second.pq_cnx, app_reason_code);
-    if (ret) {
-        SPDLOG_LOGGER_WARN(logger, "Closing conn_id: {} has non-zero piocquic return: {}", conn_id, ret);
-    }
-
+    picoquic_close(conn_it->second.pq_cnx, app_reason_code);
     conn_context_.erase(conn_it);
 }
 
@@ -1779,8 +1771,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
                 }
             }
         }
-
-        stream_ctx.mark_active = false;
     }
 
     bool should_reset = false;
@@ -2229,7 +2219,7 @@ PicoQuicTransport::CheckConnsForCongestion()
         uint64_t reset_wait_data_ctx_id{ 0 }; // Positive value indicates the data_ctx_id that can be set to reset_wait
 
         for (auto& [data_ctx_id, data_ctx] : conn_ctx.active_data_contexts) {
-            for (auto& [_, stream] : data_ctx.streams) {
+            for (auto& [stream_id, stream] : data_ctx.streams) {
                 // Skip context that is in reset and wait
                 if (stream.tx_reset_wait_discard) {
                     continue;
@@ -2239,10 +2229,11 @@ PicoQuicTransport::CheckConnsForCongestion()
                 if (stream.priority >= 2 &&
                     data_ctx.metrics.tx_delayed_callback - data_ctx.metrics.prev_tx_delayed_callback > 1) {
                     SPDLOG_LOGGER_DEBUG(logger,
-                                        "CC: remote: {} port: {} conn_id: {} queue_size: {}",
+                                        "CC: remote: {} port: {} conn_id: {} stream_id: {} queue_size: {}",
                                         conn_ctx.peer_addr_text,
                                         conn_ctx.peer_port,
                                         conn_id,
+                                        stream_id,
                                         data_ctx.metrics.tx_delayed_callback -
                                           data_ctx.metrics.prev_tx_delayed_callback);
 
@@ -2256,10 +2247,11 @@ PicoQuicTransport::CheckConnsForCongestion()
                 if (stream.tx_data->Size() >= 50) {
                     congested_count++;
                     SPDLOG_LOGGER_DEBUG(logger,
-                                        "CC: remote: {} port: {} conn_id: {} queue_size: {}",
+                                        "CC: remote: {} port: {} conn_id: {} stream_id: {} queue_size: {}",
                                         conn_ctx.peer_addr_text,
                                         conn_ctx.peer_port,
                                         conn_id,
+                                        stream_id,
                                         stream.tx_data->Size());
                 }
 
@@ -2320,7 +2312,7 @@ PicoQuicTransport::CheckConnsForCongestion()
                 // No longer congested
                 conn_ctx.is_congested = false;
                 conn_ctx.not_congested_gauge = 0;
-                SPDLOG_LOGGER_INFO(
+                SPDLOG_LOGGER_DEBUG(
                   logger, "CC: conn_id: {0} congested_count: {1} is no longer congested.", conn_id, congested_count);
             } else {
                 conn_ctx.not_congested_gauge++;
@@ -2887,8 +2879,6 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id,
         return;
     }
 
-    stream_it->second.mark_active = false;
-
     // For WebTransport and raw QUIC, pass the correct stream context
     void* stream_ctx = nullptr;
     if (conn_it->second.transport_mode == TransportMode::kWebTransport) {
@@ -2898,6 +2888,7 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id,
         stream_ctx = &data_ctx_it->second;
     }
 
+    picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 0, NULL);
     picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 1, stream_ctx);
 }
 

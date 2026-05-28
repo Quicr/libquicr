@@ -1722,6 +1722,8 @@ namespace quicr {
                 }
             }
         } // end of for loop rx data queue
+    } catch (const TransportException& e) {
+        SPDLOG_LOGGER_INFO(logger_, "OnRecvStream: connection or stream no longer exists (error={})", e.what());
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception on receiving stream. (error={})", e.what());
         throw;

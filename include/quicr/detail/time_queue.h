@@ -287,20 +287,24 @@ namespace quicr {
                 return new_tick_count;
             }
 
-            TickType total_buckets = duration_ / interval_;
-
-            if (delta >= total_buckets) {
+            if (delta > duration_) {
                 Clear();
                 return new_tick_count;
             }
 
-            for (std::size_t i = 0; i < delta; ++i) {
-                BucketType& bucket = buckets_[GetFutureBucketIndex(i)];
-                bucket.clear();
-                bucket.shrink_to_fit();
+            auto new_bucket_index = GetFutureBucketIndex(delta / interval_);
+            std::size_t clear_buckets_count = new_bucket_index < bucket_index_ ? 0 : new_bucket_index - bucket_index_;
+
+            for (std::size_t i = 1; i <= clear_buckets_count; ++i) {
+                auto bucket_it = buckets_.find(bucket_index_ + i);
+                if (bucket_it != buckets_.end()) {
+                    BucketType& bucket = bucket_it->second;
+                    bucket.clear();
+                    bucket.shrink_to_fit();
+                }
             }
 
-            bucket_index_ = GetFutureBucketIndex(delta);
+            bucket_index_ = new_bucket_index;
 
             if (last_tick_queue_cleared_ > duration_ && !queue_.empty()) {
                 if (queue_index_ >= queue_.size()) {

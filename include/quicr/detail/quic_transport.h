@@ -93,7 +93,7 @@ namespace quicr {
         std::string tls_key_filename;                ///< QUIC TLS private key to use
         uint32_t time_queue_init_queue_size{ 1000 }; ///< Initial queue size to reserve upfront
         uint32_t time_queue_max_duration{ 2000 };    ///< Max duration for the time queue in milliseconds
-        uint32_t time_queue_bucket_interval{ 1 };    ///< The bucket interval in milliseconds
+        uint32_t time_queue_bucket_interval{ 500 };  ///< The bucket interval in milliseconds
         uint32_t time_queue_rx_size{ 1000 };         ///< Receive queue size
         bool debug{ false };                         ///< Enable debug logging/processing
         uint64_t quic_cwin_minimum{ 131072 };        ///< QUIC congestion control minimum size (default is 128k)

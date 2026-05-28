@@ -119,9 +119,6 @@ namespace quicr {
                 }
 
               public:
-                /// Instructs the stream to be marked active
-                bool mark_active : 1 { false };
-
                 /// Instructs that the stream should be closed upon empty
                 bool close_on_empty : 1 { false };
 
