@@ -140,7 +140,7 @@ else ()
 
     set(PICOQUIC_FETCH_PTLS ON)
     set(picoquic_BUILD_TESTS OFF)
-    set(WITH_SELECT ON)
+    set(WITH_SELECT OFF)
     add_subdirectory(picoquic)
     add_dependencies(picoquic-core picotls-core)
 endif ()

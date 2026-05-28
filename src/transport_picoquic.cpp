@@ -1133,10 +1133,12 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
         stream.tx_data->Push(std::move(cd), ttl_ms, 0);
 
-        RunPqFunction([this, conn_id, data_ctx_id, stream_id]() {
-            MarkStreamActive(conn_id, data_ctx_id, stream_id);
-            return 0;
-        });
+        if (stream.tx_data->Size() < 10) {
+            RunPqFunction([this, conn_id, data_ctx_id, stream_id]() {
+                MarkStreamActive(conn_id, data_ctx_id, stream_id);
+                return 0;
+            });
+        }
     } else { // datagram
         ConnData cd{
             conn_id, data_ctx_id, priority, StreamAction::kNoAction, std::move(bytes), tick_service_->Microseconds(),
@@ -1814,7 +1816,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
         }
 
         if (obj.expired_count) {
-            stream_ctx.tx_reset_wait_discard = true;
             data_ctx->metrics.tx_queue_expired += obj.expired_count;
             SPDLOG_LOGGER_DEBUG(logger,
                                 "Send stream objects expired; conn_id: {} data_ctx_id: {} expired: {} queue_size: {}",
@@ -1856,7 +1857,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
             stream_ctx.tx_object = std::move(obj.value.data);
 
         } else {
-            picoquic_provide_stream_data_buffer(bytes_ctx, 0, 0, not stream_ctx.tx_data->Empty());
+            picoquic_provide_stream_data_buffer(bytes_ctx, 0, stream_ctx.close_on_empty, not stream_ctx.tx_data->Empty());
             return;
         }
     }
@@ -2811,7 +2812,9 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx,
         picoquic_reset_stream_ctx(conn_ctx.pq_cnx, stream_id);
         picoquic_reset_stream(conn_ctx.pq_cnx, stream_id, 0);
     } else {
-        picoquic_reset_stream_ctx(conn_ctx.pq_cnx, stream_id);
+        // TODO: PQ doesn't have a method to call to FIN a stream correctly, so we FIN it in SendStreamBytes()
+
+        // Below doesn't work correctly, results in loss of data inflight
         uint8_t empty{ 0 };
         picoquic_add_to_stream(conn_ctx.pq_cnx, stream_id, &empty, 0, 1);
     }
