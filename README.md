@@ -3,20 +3,18 @@ libquicr
 
 [![Build](https://github.com/Quicr/libquicr/actions/workflows/cmake.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/cmake.yml)
 
-An API library that implements publish/subscribe protocol [draft-ietf-moq-transport-04](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-04).
-The API supports both client and server. Server is intended to be implemented as a relay.
+An API library that implements publish/subscribe protocol [draft-ietf-moq-transport-16](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-16). The API supports both client and server. Server is intended to be implemented as a relay.
 
 API documentation can be found under https://quicr.github.io/libquicr
 
-## Build
+## Requirements
 
-### Minimum Requirements
+### Tools
 
 * GCC/G++ version 12 or higher
 * Clang/llvm version 17 or higher
 * AppleClang/llvm version 17 or higher
 * Clang-tidy version 15 or higher
-* Python 3 with virtual environment
 * Golang 1.19 or higher
 * Cmake 3.13 or higher
 
@@ -24,8 +22,7 @@ API documentation can be found under https://quicr.github.io/libquicr
 
 ```
 sudo apt-get update
-sudo apt-get install -y cmake make gcc-12 g++-12 clang-tidy-15 openssl golang \
-            wget git libssl-dev python3 python3-venv
+sudo apt-get install -y cmake make gcc-12 g++-12 clang-tidy-15 openssl golang wget git libssl-dev
 ```
 
 > [!IMPORTANT]
@@ -40,8 +37,7 @@ sudo apt-get install -y cmake make gcc-12 g++-12 clang-tidy-15 openssl golang \
 
 ```
 sudo apt-get update
-sudo apt-get install -y make wget git cmake openssl golang \
-             libssl-dev python3 python3-venv clang-tidy-15
+sudo apt-get install -y make wget git cmake openssl golang libssl-dev clang-tidy-15
 ```
 
 > [!NOTE]
@@ -75,13 +71,9 @@ Install via https://brew.sh instructions.
 ```
 brew install cmake clang-format
 ```
-
-#### (5) Install GoLang
-Golang is required for BoringSSL build.  Install via https://go.dev/doc/install instructions.
-
 ---
 
-## Example
+## Examples
 [cmd/examples](https://github.com/Quicr/libquicr/tree/main/cmd/examples) has an example client implementation showing chat and clock
 applications.
 
