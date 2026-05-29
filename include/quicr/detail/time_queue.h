@@ -298,7 +298,8 @@ namespace quicr {
                 bucket.shrink_to_fit();
             }
 
-            bucket_index_ = GetFutureBucketIndex(delta / interval_);;
+            bucket_index_ = GetFutureBucketIndex(delta / interval_);
+            ;
 
             if (last_tick_queue_cleared_ > duration_ && !queue_.empty()) {
                 if (queue_index_ >= queue_.size()) {

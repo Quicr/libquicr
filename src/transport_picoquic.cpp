@@ -1857,7 +1857,8 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
             stream_ctx.tx_object = std::move(obj.value.data);
 
         } else {
-            picoquic_provide_stream_data_buffer(bytes_ctx, 0, stream_ctx.close_on_empty, not stream_ctx.tx_data->Empty());
+            picoquic_provide_stream_data_buffer(
+              bytes_ctx, 0, stream_ctx.close_on_empty, not stream_ctx.tx_data->Empty());
             return;
         }
     }
