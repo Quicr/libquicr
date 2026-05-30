@@ -14,7 +14,6 @@ add_executable(quicr_test
     cache.cpp
     priority_queue.cpp
     time_queue.cpp
-    precise_sleep.cpp
 )
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 

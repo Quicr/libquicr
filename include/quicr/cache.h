@@ -141,7 +141,8 @@ namespace quicr {
       protected:
         inline void Advance()
         {
-            const TickType new_ticks = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
+            const TickType new_ticks = static_cast<uint64_t>(
+              std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
             const TickType delta = current_ticks_ ? (new_ticks - current_ticks_) / interval_ : 0;
             current_ticks_ = new_ticks;
 
