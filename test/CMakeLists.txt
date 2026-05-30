@@ -9,7 +9,6 @@ add_executable(quicr_test
     track_handlers.cpp
     uintvar.cpp
     client.cpp
-    tick_service.cpp
     track_namespace.cpp
     data_storage.cpp
     cache.cpp

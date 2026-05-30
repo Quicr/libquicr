@@ -17,13 +17,12 @@ endif()
 
 add_executable(quicr_benchmark
     stream_buffer.cpp
-    time_queue.cpp
     uintvar.cpp
     priority_queue.cpp
     hash.cpp
     data_storage.cpp
-    tick_service.cpp
     extensions.cpp
+    safe_time_queue.cpp
 )
 
 target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)

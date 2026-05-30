@@ -61,6 +61,10 @@ target_link_libraries(quicr
         spdlog)
 
 target_link_libraries(quicr
+        PUBLIC
+        timeq)
+
+target_link_libraries(quicr
     PUBLIC
         picoquic-core picoquic-log picohttp-core)
 

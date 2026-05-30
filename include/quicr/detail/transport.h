@@ -15,7 +15,8 @@
 #include "quicr/publish_track_handler.h"
 #include "quicr/subscribe_namespace_handler.h"
 #include "quicr/subscribe_track_handler.h"
-#include "tick_service.h"
+
+#include <timeq/tick_service.h>
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -103,7 +104,7 @@ namespace quicr {
          * @param cfg            MoQ Instance Client Configuration
          * @param tick_service   Shared pointer to the tick service to use
          */
-        Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service);
+        Transport(const ClientConfig& cfg, std::shared_ptr<timeq::tick_service> tick_service);
 
         /**
          * @brief Server mode Constructor to create the MOQ instance
@@ -111,11 +112,11 @@ namespace quicr {
          * @param cfg            MoQ Server Configuration
          * @param tick_service   Shared pointer to the tick service to use
          */
-        Transport(const ServerConfig& cfg, std::shared_ptr<TickService> tick_service);
+        Transport(const ServerConfig& cfg, std::shared_ptr<timeq::tick_service> tick_service);
 
         ~Transport();
 
-        const std::shared_ptr<TickService>& GetTickService() const noexcept { return tick_service_; }
+        const std::shared_ptr<timeq::tick_service>& GetTickService() const noexcept { return tick_service_; }
 
         // -------------------------------------------------------------------------------------------------
         // Public API MoQ Instance API methods
@@ -784,7 +785,7 @@ namespace quicr {
 
         Status status_{ Status::kNotReady };
 
-        std::shared_ptr<TickService> tick_service_;
+        std::shared_ptr<timeq::tick_service> tick_service_;
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
 
         friend class Client;

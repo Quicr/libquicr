@@ -35,6 +35,9 @@ endif()
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
+# Time queue
+add_subdirectory(timeq)
+
 # mbedtls
 if (${USE_MBEDTLS})
     message("Transport building with MBedTLS")
@@ -140,6 +143,7 @@ else ()
 
     set(PICOQUIC_FETCH_PTLS ON)
     set(picoquic_BUILD_TESTS OFF)
+    set(WITH_SELECT OFF)
     add_subdirectory(picoquic)
     add_dependencies(picoquic-core picotls-core)
 endif ()

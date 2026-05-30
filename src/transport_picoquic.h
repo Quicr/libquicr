@@ -8,7 +8,8 @@
 #include "quicr/detail/safe_queue.h"
 #include "quicr/detail/safe_time_queue.h"
 #include "quicr/detail/stream_buffer.h"
-#include "quicr/detail/time_queue.h"
+
+#include <timeq/time_queue.h>
 
 #include <picoquic.h>
 #include <picoquic_config.h>
@@ -119,9 +120,6 @@ namespace quicr {
                 }
 
               public:
-                /// Instructs the stream to be marked active
-                bool mark_active : 1 { false };
-
                 /// Instructs that the stream should be closed upon empty
                 bool close_on_empty : 1 { false };
 
@@ -295,7 +293,7 @@ namespace quicr {
                           const TransportConfig& tcfg,
                           TransportDelegate& delegate,
                           bool is_server_mode,
-                          std::shared_ptr<TickService> tick_service,
+                          std::shared_ptr<timeq::tick_service> tick_service,
                           std::shared_ptr<spdlog::logger> logger,
                           TransportMode transport_mode = TransportMode::kQuic);
 
@@ -597,7 +595,7 @@ namespace quicr {
         TransportConfig tconfig_;
 
         std::map<TransportConnId, ConnectionContext> conn_context_;
-        std::shared_ptr<TickService> tick_service_;
+        std::shared_ptr<timeq::tick_service> tick_service_;
 
         // WebTransport configuration (server-wide, not per-connection)
         struct WebTransportConfig

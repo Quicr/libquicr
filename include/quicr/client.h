@@ -28,7 +28,7 @@ namespace quicr {
          * @param cfg           MoQ Client Configuration
          */
         Client(const ClientConfig& cfg)
-          : Transport(cfg, std::make_shared<ThreadedTickService>(cfg.tick_service_sleep_delay_us))
+          : Transport(cfg, std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us))
         {
         }
 
