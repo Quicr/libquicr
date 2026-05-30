@@ -9,12 +9,12 @@ add_executable(quicr_test
     track_handlers.cpp
     uintvar.cpp
     client.cpp
-    tick_service.cpp
     track_namespace.cpp
     data_storage.cpp
     cache.cpp
     priority_queue.cpp
     time_queue.cpp
+    precise_sleep.cpp
 )
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 

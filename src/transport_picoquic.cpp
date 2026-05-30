@@ -28,8 +28,8 @@
 #include <quicr/detail/quic_transport_metrics.h>
 #include <quicr/detail/safe_queue.h>
 #include <quicr/detail/stream_buffer.h>
-#include <quicr/detail/time_queue.h>
 #include <spdlog/logger.h>
+#include <timeq/time_queue.h>
 
 // System.
 #include "transport_picoquic.h"
@@ -1114,6 +1114,8 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
         StreamAction stream_action{ StreamAction::kNoAction };
 
+        std::lock_guard __(*stream.tx_data);
+
         if (flags.close_stream) {
             if (flags.use_reset) {
                 stream_action = StreamAction::kCloseStreamUseReset;
@@ -1128,7 +1130,8 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         }
 
         ConnData cd{
-            conn_id, data_ctx_id, priority, stream_action, std::move(bytes), tick_service_->Microseconds(),
+            conn_id,       data_ctx_id,      priority,
+            stream_action, std::move(bytes), static_cast<uint64_t>(tick_service_->get().count()),
         };
 
         stream.tx_data->Push(std::move(cd), ttl_ms, 0);
@@ -1141,8 +1144,13 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
         }
     } else { // datagram
         ConnData cd{
-            conn_id, data_ctx_id, priority, StreamAction::kNoAction, std::move(bytes), tick_service_->Microseconds(),
+            conn_id,          data_ctx_id,
+            priority,         StreamAction::kNoAction,
+            std::move(bytes), static_cast<uint64_t>(tick_service_->get().count()),
         };
+
+        std::lock_guard __(*conn_ctx_it->second.dgram_tx_data);
+
         conn_ctx_it->second.dgram_tx_data->Push(0 /* FIXMEL Phony group number */, std::move(cd), ttl_ms, priority, 0);
 
         if (!conn_ctx_it->second.mark_dgram_ready) {
@@ -1446,7 +1454,7 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
                                      const TransportConfig& tcfg,
                                      TransportDelegate& delegate,
                                      bool is_server_mode,
-                                     std::shared_ptr<TickService> tick_service,
+                                     std::shared_ptr<timeq::tick_service> tick_service,
                                      std::shared_ptr<spdlog::logger> logger,
                                      TransportMode transport_mode)
   : logger(std::move(logger))
@@ -1641,7 +1649,7 @@ PicoQuicTransport::DeleteDataContext(const TransportConnId& conn_id, DataContext
 void
 PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_ctx, size_t max_len)
 {
-    if (bytes_ctx == nullptr) {
+    if (bytes_ctx == nullptr || conn_ctx->dgram_tx_data == nullptr) {
         return;
     }
 
@@ -1657,20 +1665,21 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
         }
     };
 
-    TimeQueueElement<ConnData> out_data;
-    conn_ctx->dgram_tx_data->Front(out_data);
-    if (out_data.has_value) {
-        const auto data_ctx_it = conn_ctx->active_data_contexts.find(out_data.value.data_ctx_id);
+    std::lock_guard _(*conn_ctx->dgram_tx_data);
+
+    auto out_data = conn_ctx->dgram_tx_data->Front();
+    if (out_data.value.has_value()) {
+        const auto data_ctx_it = conn_ctx->active_data_contexts.find(out_data.value->get().data_ctx_id);
         if (data_ctx_it == conn_ctx->active_data_contexts.end()) {
             SPDLOG_LOGGER_DEBUG(logger,
                                 "send_next_dgram has no data context conn_id: {0} data len: {1} dropping",
                                 conn_ctx->conn_id,
-                                out_data.value.data->size());
+                                out_data.value->get().data->size());
             conn_ctx->metrics.tx_dgram_drops++;
             return;
         }
 
-        if (out_data.value.data->size() == 0) {
+        if (out_data.value->get().data->size() == 0) {
             SPDLOG_LOGGER_ERROR(logger,
                                 "conn_id: {0} data_ctx_id: {1} has ZERO data size",
                                 data_ctx_it->second.conn_id,
@@ -1679,21 +1688,21 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
             return;
         }
 
-        data_ctx_it->second.metrics.tx_queue_expired += out_data.expired_count;
+        data_ctx_it->second.metrics.tx_queue_expired += out_data.expired;
 
-        if (out_data.value.data->size() <= max_len) {
+        if (out_data.value->get().data->size() <= max_len) {
             conn_ctx->dgram_tx_data->Pop();
 
-            data_ctx_it->second.metrics.tx_object_duration_us.AddValue(tick_service_->Microseconds() -
-                                                                       out_data.value.tick_microseconds);
-            data_ctx_it->second.metrics.tx_dgrams_bytes += out_data.value.data->size();
+            data_ctx_it->second.metrics.tx_object_duration_us.AddValue(
+              static_cast<uint64_t>(tick_service_->get().count()) - out_data.value->get().tick_microseconds);
+            data_ctx_it->second.metrics.tx_dgrams_bytes += out_data.value->get().data->size();
             data_ctx_it->second.metrics.tx_dgrams++;
 
             bool more_data = !conn_ctx->dgram_tx_data->Empty();
-            uint8_t* buf = provide_buffer(out_data.value.data->size(), more_data);
+            uint8_t* buf = provide_buffer(out_data.value->get().data->size(), more_data);
 
             if (buf != nullptr) {
-                std::memcpy(buf, out_data.value.data->data(), out_data.value.data->size());
+                std::memcpy(buf, out_data.value->get().data->data(), out_data.value->get().data->size());
             }
         } else {
             RunPqFunction([this, conn_id = conn_ctx->conn_id]() {
@@ -1731,6 +1740,15 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
 
     auto& stream_ctx = stream_it->second;
 
+    if (stream_ctx.tx_data == nullptr) {
+        SPDLOG_LOGGER_WARN(logger,
+                           "SendStreamBytes conn_id: {} data_ctx_id: {} stream_id: {} has no TX queue, skipping",
+                           data_ctx->conn_id,
+                           data_ctx->data_ctx_id,
+                           stream_id);
+        return;
+    }
+
     SPDLOG_LOGGER_TRACE(logger,
                         "SendStreamBytes conn_id: {} data_ctx_id: {} stream_id: {} bytes_len: {}",
                         data_ctx->conn_id,
@@ -1744,15 +1762,16 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
 
     CheckCallbackDelta(data_ctx);
 
-    TimeQueueElement<ConnData> obj;
+    std::lock_guard _(*stream_ctx.tx_data);
 
     if (data_ctx != nullptr && stream_ctx.tx_reset_wait_discard) { // Drop TX objects till next reset/new stream
-        stream_ctx.tx_data->Front(obj);
-        if (obj.has_value && obj.value.data) {
+
+        auto obj = stream_ctx.tx_data->Front();
+        if (obj.value.has_value() && obj.value->get().data) {
             data_ctx->metrics.tx_queue_discards++;
 
-            if (obj.value.stream_action == StreamAction::kCloseStreamUseFin ||
-                obj.value.stream_action == StreamAction::kCloseStreamUseReset) {
+            if (obj.value->get().stream_action == StreamAction::kCloseStreamUseFin ||
+                obj.value->get().stream_action == StreamAction::kCloseStreamUseReset) {
 
                 std::lock_guard<std::mutex> _(state_mutex_);
                 const auto conn_ctx = GetConnContext(data_ctx->conn_id);
@@ -1800,9 +1819,28 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
                             data_ctx->conn_id,
                             data_ctx->data_ctx_id);
 
-        stream_ctx.tx_data->PopFront(obj);
+        auto obj = stream_ctx.tx_data->PopFront();
 
-        switch (obj.value.stream_action) {
+        if (obj.expired) {
+            data_ctx->metrics.tx_queue_expired += obj.expired;
+            SPDLOG_LOGGER_DEBUG(logger,
+                                "Send stream objects expired; conn_id: {} data_ctx_id: {} expired: {} queue_size: {}",
+                                data_ctx->conn_id,
+                                data_ctx->data_ctx_id,
+                                obj.expired,
+                                stream_ctx.tx_data->Size());
+
+            should_reset = true;
+            return;
+        }
+
+        if (!obj.value.has_value()) {
+            return; // empty object means empty queue, nothing to do
+        }
+
+        auto conn_data = obj.value;
+
+        switch (conn_data->stream_action) {
             case StreamAction::kCloseStreamUseFin:
                 stream_ctx.close_on_empty = true;
                 break;
@@ -1815,35 +1853,14 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
                 break;
         }
 
-        if (obj.expired_count) {
-            data_ctx->metrics.tx_queue_expired += obj.expired_count;
-            SPDLOG_LOGGER_DEBUG(logger,
-                                "Send stream objects expired; conn_id: {} data_ctx_id: {} expired: {} queue_size: {}",
-                                data_ctx->conn_id,
-                                data_ctx->data_ctx_id,
-                                obj.expired_count,
-                                stream_ctx.tx_data->Size());
-
-            should_reset = true;
-            return;
-        }
-
-        if (obj.has_value && obj.value.data) {
-            if (obj.value.data->size() == 0) {
-                SPDLOG_LOGGER_ERROR(logger,
-                                    "conn_id: {0} data_ctx_id: {1} priority: {2} stream has ZERO data size",
-                                    data_ctx->conn_id,
-                                    data_ctx->data_ctx_id,
-                                    static_cast<int>(stream_ctx.priority));
-                return;
-            }
+        if (conn_data.has_value() && conn_data->data && conn_data->data->size() > 0) {
 
             stream_ctx.tx_object_offset = 0;
             data_ctx->metrics.tx_stream_objects++;
-            data_ctx->metrics.tx_object_duration_us.AddValue(tick_service_->Microseconds() -
-                                                             obj.value.tick_microseconds);
+            data_ctx->metrics.tx_object_duration_us.AddValue(static_cast<uint64_t>(tick_service_->get().count()) -
+                                                             obj.value->tick_microseconds);
 
-            if (obj.value.stream_action != StreamAction::kNoAction) {
+            if (obj.value->stream_action != StreamAction::kNoAction) {
                 SPDLOG_LOGGER_TRACE(
                   logger,
                   "Object wants New Stream conn_id: {} data_ctx_id: {} stream_id: {}, object size: {} queue_size: {}",
@@ -1854,7 +1871,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
                   data_ctx->tx_data->Size());
             }
 
-            stream_ctx.tx_object = std::move(obj.value.data);
+            stream_ctx.tx_object = std::move(obj.value->data);
 
         } else {
             picoquic_provide_stream_data_buffer(
@@ -2083,13 +2100,15 @@ try {
 
     auto& rx_buf = rx_buf_it->second;
 
-    if (rx_buf.rx_ctx->unknown_expiry_tick_ms &&
-        tick_service_->Milliseconds() > rx_buf.rx_ctx->unknown_expiry_tick_ms) {
+    auto curr_ticks_ms =
+      static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
+
+    if (rx_buf.rx_ctx->unknown_expiry_tick_ms && curr_ticks_ms > rx_buf.rx_ctx->unknown_expiry_tick_ms) {
         SPDLOG_LOGGER_DEBUG(logger,
                             "Stream is unknown and now has expired, resetting stream {} expiry {}ms > {}ms",
                             stream_id,
                             rx_buf.rx_ctx->unknown_expiry_tick_ms,
-                            tick_service_->Milliseconds());
+                            curr_ticks_ms);
         picoquic_reset_stream_ctx(conn_ctx->pq_cnx, stream_id);
         picoquic_reset_stream(conn_ctx->pq_cnx, stream_id, static_cast<uint64_t>(StreamErrorCodes::kUnknownExpiry));
         rx_buf.closed = true;
@@ -2614,7 +2633,8 @@ PicoQuicTransport::CheckCallbackDelta(DataContext* data_ctx, bool tx)
     if (!tx)
         return;
 
-    const auto current_tick = tick_service_->Milliseconds();
+    const auto current_tick =
+      static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
 
     std::lock_guard _(data_ctx->stream_mutex); // TODO: This doesn't seem to help.
 

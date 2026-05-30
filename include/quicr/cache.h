@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "detail/tick_service.h"
+#include <timeq/tick_service.h>
 
 namespace quicr {
     template<typename K, typename T>
@@ -20,7 +20,7 @@ namespace quicr {
         // Internal type definitions
         /*=======================================================================*/
 
-        using TickType = TickService::TickType;
+        using TickType = timeq::tick_service::tick_type;
         using IndexType = std::uint32_t;
 
         using BucketType = std::vector<K>;
@@ -28,7 +28,7 @@ namespace quicr {
         using CacheType = std::map<K, ValueType>;
 
       public:
-        Cache(size_t duration, size_t interval, std::shared_ptr<TickService> tick_service)
+        Cache(size_t duration, size_t interval, std::shared_ptr<timeq::tick_service> tick_service)
           : duration_{ duration }
           , interval_{ interval }
           , total_buckets_{ duration_ / interval_ }
@@ -141,7 +141,7 @@ namespace quicr {
       protected:
         inline void Advance()
         {
-            const TickType new_ticks = tick_service_->Milliseconds();
+            const TickType new_ticks = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
             const TickType delta = current_ticks_ ? (new_ticks - current_ticks_) / interval_ : 0;
             current_ticks_ = new_ticks;
 
@@ -207,7 +207,7 @@ namespace quicr {
         CacheType cache_;
 
         /// Tick service for calculating new tick and jumps in time.
-        std::shared_ptr<TickService> tick_service_;
+        std::shared_ptr<timeq::tick_service> tick_service_;
     };
 
 } // namespace quicr

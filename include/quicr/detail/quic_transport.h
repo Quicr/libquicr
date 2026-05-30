@@ -5,10 +5,11 @@
 
 #include "quic_transport_metrics.h"
 #include "quicr/detail/data_storage.h"
-#include "quicr/detail/tick_service.h"
 #include "safe_queue.h"
 #include "stream_buffer.h"
+
 #include <span>
+#include <timeq/tick_service.h>
 
 #include <spdlog/spdlog.h>
 
@@ -308,7 +309,7 @@ namespace quicr {
         static std::shared_ptr<ITransport> MakeClientTransport(const TransportRemote& server,
                                                                const TransportConfig& tcfg,
                                                                TransportDelegate& delegate,
-                                                               std::shared_ptr<TickService> tick_service,
+                                                               std::shared_ptr<timeq::tick_service> tick_service,
                                                                std::shared_ptr<spdlog::logger> logger);
 
         /**
@@ -330,7 +331,7 @@ namespace quicr {
         static std::shared_ptr<ITransport> MakeServerTransport(const TransportRemote& server,
                                                                const TransportConfig& tcfg,
                                                                TransportDelegate& delegate,
-                                                               std::shared_ptr<TickService> tick_service,
+                                                               std::shared_ptr<timeq::tick_service> tick_service,
                                                                std::shared_ptr<spdlog::logger> logger);
 
       public:

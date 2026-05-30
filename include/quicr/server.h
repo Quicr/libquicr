@@ -54,11 +54,11 @@ namespace quicr {
          * @param cfg           MoQ Server Configuration
          */
         Server(const ServerConfig& cfg)
-          : Transport(cfg, std::make_shared<ThreadedTickService>(cfg.tick_service_sleep_delay_us))
+          : Transport(cfg, std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us))
         {
         }
 
-        Server(const ServerConfig& cfg, std::shared_ptr<ThreadedTickService> tick_service)
+        Server(const ServerConfig& cfg, std::shared_ptr<timeq::threaded_tick_service> tick_service)
           : Transport(cfg, tick_service)
         {
         }
