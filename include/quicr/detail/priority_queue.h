@@ -165,7 +165,7 @@ namespace quicr {
                             continue;
                     }
 
-                    return std::move(elem);
+                    return elem;
                 }
             }
 
