@@ -1,16 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-CPMAddPackage(
-        NAME benchmark
-        GIT_REPOSITORY https://github.com
-        GIT_TAG v1.9.5
-        OPTIONS
-            "BENCHMARK_USE_BUNDLED_GTEST OFF"
-            "BENCHMARK_ENABLE_TESTING OFF"
-            "BENCHMARK_ENABLE_GTEST_TESTS"
-            "BENCHMARK_ENABLE_INSTALL"
-)
+set(BENCHMARK_USE_BUNDLED_GTEST OFF)
+set(BENCHMARK_ENABLE_TESTING OFF)
+CPMAddPackage("gh:google/benchmark@1.9.5")
 
 add_executable(quicr_benchmark
     data_storage.cpp
