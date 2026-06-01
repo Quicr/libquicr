@@ -8,6 +8,7 @@ add_executable(quicr_integration_test
     test_server.cpp
     test_client.h
     test_client.cpp
+    ${QUICR_SANITIZER_TEST_SRC}
 )
 
 # Include directories

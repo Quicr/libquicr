@@ -517,6 +517,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderProperties properties, Extension
         }
         // got one object
         object_count++;
+        std::destroy_at(&obj_out);
         std::construct_at(&obj_out);
         obj_out.properties.emplace(properties);
         in_buffer.Pop(in_buffer.Size());

@@ -3,6 +3,10 @@
 
 CPMAddPackage("gh:doctest/doctest@2.5.2")
 
+if(QUICR_ENABLE_SANITIZERS)
+    set(QUICR_SANITIZER_TEST_SRC "${CMAKE_CURRENT_SOURCE_DIR}/sanitizer_options.cpp")
+endif()
+
 add_executable(quicr_test
     cache.cpp
     client.cpp
@@ -17,6 +21,7 @@ add_executable(quicr_test
     track_handlers.cpp
     track_namespace.cpp
     uintvar.cpp
+    ${QUICR_SANITIZER_TEST_SRC}
 )
 
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)

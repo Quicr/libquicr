@@ -47,9 +47,22 @@ cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON CM
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
+option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 
 option(USE_MBEDTLS OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
+
+if(QUICR_ENABLE_SANITIZERS)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang|GNU" OR NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        message(FATAL_ERROR "QUICR_ENABLE_SANITIZERS requires Clang or GCC")
+    endif()
+    add_compile_options(
+        -fsanitize=address,undefined
+        -fno-omit-frame-pointer
+        -fno-sanitize-recover=undefined
+    )
+    add_link_options(-fsanitize=address,undefined)
+endif()
 
 if (NOT DEFINED ENV{IDF_PATH})
   find_package(Threads REQUIRED)

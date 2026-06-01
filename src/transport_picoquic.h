@@ -577,8 +577,8 @@ namespace quicr {
          * Variables
          */
         picoquic_quic_config_t config_;
-        picoquic_quic_t* quic_ctx_;
-        picoquic_network_thread_ctx_t* quic_network_thread_ctx_;
+        picoquic_quic_t* quic_ctx_{ nullptr };
+        picoquic_network_thread_ctx_t* quic_network_thread_ctx_{ nullptr };
         picoquic_packet_loop_param_t quic_network_thread_params_{};
         int quic_loop_return_value_{ 0 };
         picoquic_tp_t local_tp_options_;
