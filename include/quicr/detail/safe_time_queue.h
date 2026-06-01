@@ -88,14 +88,14 @@ namespace quicr {
          *
          * @return timeq::element<DataType> reference
          */
-        timeq::time_queue<DataType>::reference Front() { return time_queue_.front(); }
+        typename timeq::time_queue<DataType>::reference Front() { return time_queue_.front(); }
 
         /**
          * @brief Get and remove the first object from queue
          *
          * @return timeq::element<DataType> element
          */
-        timeq::time_queue<DataType>::value_type PopFront() { return time_queue_.pop_front(); }
+        typename timeq::time_queue<DataType>::value_type PopFront() { return time_queue_.pop_front(); }
 
         /**
          * @brief Pop/remove the first object from queue
