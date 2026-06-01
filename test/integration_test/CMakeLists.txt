@@ -11,12 +11,12 @@ add_executable(quicr_integration_test
 )
 
 # Include directories
-target_include_directories(quicr_integration_test PRIVATE 
+target_include_directories(quicr_integration_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # Link against the quicr library and test framework
-target_link_libraries(quicr_integration_test PRIVATE 
+target_link_libraries(quicr_integration_test PRIVATE
     quicr
     doctest::doctest)
 
@@ -34,6 +34,18 @@ set_target_properties(quicr_integration_test
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF
 )
+
+set(TEST_KEY ${CMAKE_CURRENT_BINARY_DIR}/server-key.pem)
+set(TEST_CERT ${CMAKE_CURRENT_BINARY_DIR}/server-cert.pem)
+add_custom_command(
+    OUTPUT ${TEST_KEY} ${TEST_CERT}
+    COMMAND openssl req -nodes -x509 -newkey rsa:2048 -days 365
+        -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org"
+        -keyout ${TEST_KEY} -out ${TEST_CERT}
+    COMMENT "Creating certificate in ${CMAKE_CURRENT_BINARY_DIR}"
+)
+
+add_custom_target(generate_test_certs ALL DEPENDS ${TEST_KEY} ${TEST_CERT})
 
 # Enable test discovery with doctest - can't run in parallel.
 doctest_discover_tests(quicr_integration_test
