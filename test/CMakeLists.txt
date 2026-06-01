@@ -32,10 +32,13 @@ target_compile_options(quicr_test PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
 )
 
-if (doctest_ADDED)
+if (doctest_SOURCE_DIR)
     list(APPEND CMAKE_MODULE_PATH "${doctest_SOURCE_DIR}/scripts/cmake")
-    include(doctest)
+else()
+    list(APPEND CMAKE_MODULE_PATH "${doctest_DIR}")
 endif()
+
+include(doctest)
 
 doctest_discover_tests(quicr_test)
 
