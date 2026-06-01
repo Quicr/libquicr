@@ -1679,7 +1679,7 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
             return;
         }
 
-        if (out_data.value->get().data->size() == 0) {
+        if (out_data.value->get().data == nullptr || out_data.value->get().data->size() == 0) {
             SPDLOG_LOGGER_ERROR(logger,
                                 "conn_id: {0} data_ctx_id: {1} has ZERO data size",
                                 data_ctx_it->second.conn_id,
@@ -1691,7 +1691,6 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
         data_ctx_it->second.metrics.tx_queue_expired += out_data.expired;
 
         if (out_data.value->get().data->size() <= max_len) {
-            conn_ctx->dgram_tx_data->Pop();
 
             data_ctx_it->second.metrics.tx_object_duration_us.AddValue(
               static_cast<uint64_t>(tick_service_->get().count()) - out_data.value->get().tick_microseconds);
@@ -1704,6 +1703,8 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
             if (buf != nullptr) {
                 std::memcpy(buf, out_data.value->get().data->data(), out_data.value->get().data->size());
             }
+
+            conn_ctx->dgram_tx_data->Pop();
         } else {
             RunPqFunction([this, conn_id = conn_ctx->conn_id]() {
                 MarkDgramReady(conn_id);
