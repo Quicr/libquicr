@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: jidicula/clang-format-action@v4.13.0
         with:
           clang-format-version: '18'
@@ -32,16 +32,15 @@ jobs:
     timeout-minutes: 10
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: recursive
 
     - name: Install Packages (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        brew install llvm go
+        brew install llvm go google-benchmark
         ln -s "$(brew --prefix llvm)/bin/clang-tidy" "/usr/local/bin/clang-tidy"
-        brew install google-benchmark
 
     - name: Install Packages (Ubuntu)
       if: matrix.os == 'ubuntu-22.04' || matrix.os == 'ubuntu-22.04-arm'
@@ -55,16 +54,17 @@ jobs:
         echo "CXX=/usr/bin/g++-12" >> $GITHUB_ENV
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
+      run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j
 
-    - name: Cache Build Output
-      uses: actions/cache@v4
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v6
       with:
+        name: ${{matrix.os}}-build-output
         path: ${{github.workspace}}/build
-        key: ${{matrix.os}}-build-${{github.sha}}
+        retention-days: 5
 
   test:
     needs: build
@@ -76,19 +76,18 @@ jobs:
     continue-on-error: true
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - name: Restore build output cache
-        uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v6
         with:
+          name: ${{matrix.os}}-build-output
           path: ${{github.workspace}}/build
-          key: ${{matrix.os}}-build-${{github.sha}}
-
-      - name: Generate Certificates
-        run: make cert
 
       - name: Test
         working-directory: ${{github.workspace}}/build
-        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+        run: |
+          chmod -R +rx ${{github.workspace}}/build
+          ctest -C ${{env.BUILD_TYPE}} --output-on-failure
 
   benchmark:
     needs: build
@@ -100,31 +99,14 @@ jobs:
     continue-on-error: true
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - name: Restore build output cache
-        uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v6
         with:
+          name: ${{matrix.os}}-build-output
           path: ${{github.workspace}}/build
-          key: ${{matrix.os}}-build-${{github.sha}}
 
       - name: Benchmark
-        run: ${{github.workspace}}/build/benchmark/quicr_benchmark
-
-  cleanup_cache:
-    needs: [test, benchmark]
-    strategy:
-      matrix:
-        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
-
-    runs-on: ${{ matrix.os }}
-    continue-on-error: true
-    timeout-minutes: 10
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-
-    if: always() # Run even if previous jobs failed
-    steps:
-      - name: Delete Cache
         run: |
-          gh cache delete ${{matrix.os}}-build-${{github.sha}}
+          chmod +x ${{github.workspace}}/build/benchmark/quicr_benchmark
+          ${{github.workspace}}/build/benchmark/quicr_benchmark

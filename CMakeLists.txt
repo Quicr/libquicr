@@ -1,26 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
 cmake_minimum_required(VERSION 3.13)
 
-set (CMAKE_POLICY_VERSION_MINIMUM 3.5)
-
-# Build tests by default only if not a sub-project
-if(DEFINED PROJECT_NAME)
-    option(QUICR_BUILD_TESTS "Build tests for quicr" OFF)
-    option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" OFF)
-    option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" OFF)
-else()
-    option(QUICR_BUILD_TESTS "Build tests for quicr" ON)
-    option(quicr_BUILD_BENCHMARKS "Build benchmarks for quicr" ON)
-    option(QUICR_BUILD_INTEGRATION_TESTS "Also build integration tests for quicr" ON)
-    option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON)
-endif()
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 project(quicr
-        VERSION 1.14.0
-        DESCRIPTION "QuicR, a Media over QUIC Library"
-        LANGUAGES C CXX)
+    VERSION 1.14.0
+    DESCRIPTION "QuicR, a Media over QUIC Library"
+    LANGUAGES C CXX
+)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
     message(FATAL_ERROR
@@ -28,24 +17,39 @@ if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 You may need to delete the already generated Cache and CMake folder to continue.")
 endif()
 
-configure_file( src/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h )
+configure_file(cmake/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h)
 
-IF (NOT UNIX AND NOT APPLE AND NOT DEFINED ENV{IDF_PATH})
+#=============================================================================#
+# Check System Requirements
+#=============================================================================#
+
+if(NOT UNIX AND NOT APPLE AND NOT DEFINED ENV{IDF_PATH})
     message(FATAL_ERROR "Unsupported platform; Linux, Apple, and ESP-IDF are the only supported platforms")
 endif ()
 
-set (supported_archs arm64 x86_64 aarch64 i686 armv7-a arm64-v8a)
+set(supported_archs arm64 x86_64 aarch64 i686 armv7-a arm64-v8a)
 if (NOT ${CMAKE_SYSTEM_PROCESSOR} IN_LIST supported_archs)
     message(FATAL_ERROR "Unsupported system architecture '${CMAKE_SYSTEM_PROCESSOR}'. Supported is arm64 and x86_64")
 endif()
 
 message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
 
-option(LINT "Perform linting with clang-tidy" OFF)
-option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
-option(USE_MBEDTLS OFF)
-option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
+#=============================================================================#
+# Options
+#=============================================================================#
 
+include(CMakeDependentOption)
+
+cmake_dependent_option(QUICR_BUILD_TESTS "Build tests for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
+cmake_dependent_option(QUICR_BUILD_BENCHMARKS "Build benchmarks for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
+cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
+
+option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
+option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
+option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
+
+option(USE_MBEDTLS OFF)
+option(LINT "Perform linting with clang-tidy" OFF)
 
 if (NOT DEFINED ENV{IDF_PATH})
   find_package(Threads REQUIRED)
@@ -54,61 +58,56 @@ else()
   set(USE_MBEDTLS ON)
 endif()
 
-###
-### Global Config
-###
-set (BUILD_SHARED_LIBS OFF)
-set (BUILD_STATIC_LIBS ON)
+#=============================================================================#
+# Dependencies
+#=============================================================================#
 
 if (NOT DEFINED ENV{IDF_PATH})
     set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-    list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/transport/cmake)
 endif()
 
-###
-### Include Ctest to ensure BUILD_TESTING is set
-###
-include(CTest)
+include(CPM)
 
-###
-### Dependencies
-###
+set(CPM_USE_LOCAL_PACKAGES ON)
+
 add_subdirectory(dependencies)
 
-###
-### Build the quicr library
-###
+#=============================================================================#
+# Build the library
+#=============================================================================#
+
 add_subdirectory(src)
 
-###
-### Enable testing and add tests if QUICR_BUILD_TESTS is ON
-###
-if(BUILD_TESTING AND QUICR_BUILD_TESTS)
-    add_subdirectory(test)
+#=============================================================================#
+# Testing
+#=============================================================================
+
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    include(CTest)
 endif()
 
-if (BUILD_BENCHMARKING AND quicr_BUILD_BENCHMARKS)
-    add_subdirectory(benchmark)
+if(BUILD_TESTING)
+    if(QUICR_BUILD_TESTS)
+        add_subdirectory(test)
+    endif()
+
+    if(QUICR_BUILD_BENCHMARKS)
+        add_subdirectory(benchmark)
+    endif()
+
+    if(QUICR_BUILD_FUZZ)
+       add_subdirectory(fuzz)
+    endif()
+
+    if(QUICR_BUILD_EXAMPLES)
+       add_subdirectory(cmd)
+    endif()
 endif()
 
-###
-### Fuzzing targets
-###
-if(QUICR_BUILD_FUZZ)
-   add_subdirectory(fuzz)
-endif()
+#=============================================================================#
+# C Bridge API
+#=============================================================================#
 
-
-###
-### C Bridge API
-###
 if(QUICR_BUILD_C_BRIDGE)
    add_subdirectory(c-bridge)
-endif()
-
-###
-### Applications
-###
-if(BUILD_TESTING AND QUICR_BUILD_TESTS)
-   add_subdirectory(cmd)
 endif()
