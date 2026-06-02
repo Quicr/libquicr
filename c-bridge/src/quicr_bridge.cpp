@@ -708,8 +708,8 @@ extern "C"
 
     // Session callback registration
     void qbridge_session_set_status_callback(qbridge_session_t* session,
-                                            qbridge_connection_status_callback_t callback,
-                                            void* user_data)
+                                             qbridge_connection_status_callback_t callback,
+                                             void* user_data)
     {
         if (!session)
             return;
@@ -720,8 +720,8 @@ extern "C"
     }
 
     void qbridge_session_set_namespace_callback(qbridge_session_t* session,
-                                               qbridge_namespace_callback_t callback,
-                                               void* user_data)
+                                                qbridge_namespace_callback_t callback,
+                                                void* user_data)
     {
         if (!session)
             return;
@@ -733,7 +733,7 @@ extern "C"
 
     // Namespace operations
     qbridge_result_t qbridge_session_publish_namespace(qbridge_session_t* session,
-                                                      const qbridge_publish_namespace_track_handler_t* handler)
+                                                       const qbridge_publish_namespace_track_handler_t* handler)
     {
         if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
@@ -744,7 +744,7 @@ extern "C"
     }
 
     qbridge_result_t qbridge_session_unpublish_namespace(qbridge_session_t* session,
-                                                        const qbridge_publish_namespace_track_handler_t* handler)
+                                                         const qbridge_publish_namespace_track_handler_t* handler)
     {
         if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
@@ -755,7 +755,7 @@ extern "C"
     }
 
     qbridge_result_t qbridge_session_subscribe_namespace(qbridge_session_t* session,
-                                                        const qbridge_subscribe_namespace_track_handler_t* handler)
+                                                         const qbridge_subscribe_namespace_track_handler_t* handler)
     {
         if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
@@ -766,7 +766,7 @@ extern "C"
     }
 
     qbridge_result_t qbridge_session_unsubscribe_namespace(qbridge_session_t* session,
-                                                          const qbridge_subscribe_namespace_track_handler_t* handler)
+                                                           const qbridge_subscribe_namespace_track_handler_t* handler)
     {
         if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
@@ -855,7 +855,8 @@ extern "C"
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_session_unpublish_track(qbridge_session_t* session, qbridge_publish_track_handler_t* handler)
+    qbridge_result_t qbridge_session_unpublish_track(qbridge_session_t* session,
+                                                     qbridge_publish_track_handler_t* handler)
     {
         if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
@@ -866,7 +867,7 @@ extern "C"
     }
 
     qbridge_result_t qbridge_session_subscribe_track(qbridge_session_t* session,
-                                                    qbridge_subscribe_track_handler_t* handler)
+                                                     qbridge_subscribe_track_handler_t* handler)
     {
         if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
@@ -877,7 +878,7 @@ extern "C"
     }
 
     qbridge_result_t qbridge_session_unsubscribe_track(qbridge_session_t* session,
-                                                      qbridge_subscribe_track_handler_t* handler)
+                                                       qbridge_subscribe_track_handler_t* handler)
     {
         if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
@@ -897,7 +898,8 @@ extern "C"
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_session_cancel_fetch_track(qbridge_session_t* session, qbridge_fetch_track_handler_t* handler)
+    qbridge_result_t qbridge_session_cancel_fetch_track(qbridge_session_t* session,
+                                                        qbridge_fetch_track_handler_t* handler)
     {
         if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;

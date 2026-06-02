@@ -435,7 +435,7 @@ extern "C"
      * @return Result code
      */
     qbridge_result_t qbridge_session_publish_namespace(qbridge_session_t* session,
-                                                      const qbridge_publish_namespace_track_handler_t* handler);
+                                                       const qbridge_publish_namespace_track_handler_t* handler);
 
     /**
      * @brief Unpublish a namespace
@@ -444,7 +444,7 @@ extern "C"
      * @return Result code
      */
     qbridge_result_t qbridge_session_unpublish_namespace(qbridge_session_t* session,
-                                                        const qbridge_publish_namespace_track_handler_t* handler);
+                                                         const qbridge_publish_namespace_track_handler_t* handler);
 
     /**
      * @brief Subscribe to a namespace
@@ -453,7 +453,7 @@ extern "C"
      * @return Result code
      */
     qbridge_result_t qbridge_session_subscribe_namespace(qbridge_session_t* session,
-                                                        const qbridge_subscribe_namespace_track_handler_t* handler);
+                                                         const qbridge_subscribe_namespace_track_handler_t* handler);
 
     /**
      * @brief Unsubscribe from a namespace
@@ -462,7 +462,7 @@ extern "C"
      * @return Result code
      */
     qbridge_result_t qbridge_session_unsubscribe_namespace(qbridge_session_t* session,
-                                                          const qbridge_subscribe_namespace_track_handler_t* handler);
+                                                           const qbridge_subscribe_namespace_track_handler_t* handler);
 
     /** @} */
 
@@ -540,7 +540,8 @@ extern "C"
      * @param handler Publish track handler
      * @return Result code
      */
-    qbridge_result_t qbridge_session_publish_track(qbridge_session_t* session, qbridge_publish_track_handler_t* handler);
+    qbridge_result_t qbridge_session_publish_track(qbridge_session_t* session,
+                                                   qbridge_publish_track_handler_t* handler);
 
     /**
      * @brief Unpublish a track
@@ -548,7 +549,8 @@ extern "C"
      * @param handler Publish track handler
      * @return Result code
      */
-    qbridge_result_t qbridge_session_unpublish_track(qbridge_session_t* session, qbridge_publish_track_handler_t* handler);
+    qbridge_result_t qbridge_session_unpublish_track(qbridge_session_t* session,
+                                                     qbridge_publish_track_handler_t* handler);
 
     /**
      * @brief Subscribe to a track
@@ -557,7 +559,7 @@ extern "C"
      * @return Result code
      */
     qbridge_result_t qbridge_session_subscribe_track(qbridge_session_t* session,
-                                                    qbridge_subscribe_track_handler_t* handler);
+                                                     qbridge_subscribe_track_handler_t* handler);
 
     /**
      * @brief Unsubscribe from a track
@@ -566,7 +568,7 @@ extern "C"
      * @return Result code
      */
     qbridge_result_t qbridge_session_unsubscribe_track(qbridge_session_t* session,
-                                                      qbridge_subscribe_track_handler_t* handler);
+                                                       qbridge_subscribe_track_handler_t* handler);
 
     /**
      * @brief Fetch a track
@@ -583,7 +585,7 @@ extern "C"
      * @return Result code
      */
     qbridge_result_t qbridge_session_cancel_fetch_track(qbridge_session_t* session,
-                                                       qbridge_fetch_track_handler_t* handler);
+                                                        qbridge_fetch_track_handler_t* handler);
 
     /** @} */
 
