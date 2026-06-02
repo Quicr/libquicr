@@ -3,11 +3,14 @@
 
 #pragma once
 
+#include <quicr/detail/thread_safety.h>
+
 #include <timeq/time_queue.h>
 
 #include <algorithm>
 #include <chrono>
 #include <map>
+#include <mutex>
 #include <numeric>
 #include <quicr/defer.h>
 
@@ -25,7 +28,7 @@ namespace quicr {
      * @tparam DataType   The element type to be stored.
      */
     template<typename DataType>
-    class PriorityQueue
+    class QUICR_CAPABILITY("mutex") PriorityQueue
     {
         using TimeQueueType = timeq::time_queue<DataType>;
         using TimeQueueReference = typename TimeQueueType::reference;
@@ -45,9 +48,9 @@ namespace quicr {
         };
 
       public:
-        constexpr void lock() { mutex_.lock(); }
-        constexpr void unlock() { mutex_.unlock(); }
-        constexpr bool try_lock() { return mutex_.try_lock(); }
+        constexpr void lock() QUICR_ACQUIRE() { mutex_.lock(); }
+        constexpr void unlock() QUICR_RELEASE() { mutex_.unlock(); }
+        constexpr bool try_lock() QUICR_TRY_ACQUIRE(true) { return mutex_.try_lock(); }
 
         /**
          * Construct a priority queue
@@ -95,6 +98,7 @@ namespace quicr {
          * @param delay_ttl Delay POP by this ttl value in milliseconds
          */
         void Push(std::uint64_t group_id, DataType& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
+          QUICR_REQUIRES(this)
         {
             auto& queue = GetQueueByPriorityGroupId(priority, group_id);
             queue.push(value, ttl, delay_ttl);
@@ -109,6 +113,7 @@ namespace quicr {
          * @param delay_ttl Delay POP by this ttl value in milliseconds
          */
         void Push(std::uint64_t group_id, DataType&& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
+          QUICR_REQUIRES(this)
         {
             auto& queue = GetQueueByPriorityGroupId(priority, group_id);
             queue.push(std::move(value), ttl, delay_ttl);
@@ -119,7 +124,7 @@ namespace quicr {
          *
          * @return timeq::element<DataType> element
          */
-        TimeQueueReference Front()
+        TimeQueueReference Front() QUICR_REQUIRES(this)
         {
             std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
 
@@ -148,7 +153,7 @@ namespace quicr {
          *
          * @return timeq::element<DataType> element
          */
-        TimeQueueValueType PopFront()
+        TimeQueueValueType PopFront() QUICR_REQUIRES(this)
         {
             std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
 
@@ -175,7 +180,7 @@ namespace quicr {
         /**
          * @brief Pop/remove the first object from queue
          */
-        void Pop()
+        void Pop() QUICR_REQUIRES(this)
         {
             std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
             defer(RemoveGroupTimeQueue(remove_group_ids));
@@ -204,14 +209,14 @@ namespace quicr {
         /**
          * @brief Clear queue all
          */
-        void Clear()
+        void Clear() QUICR_REQUIRES(this)
         {
             queues_.clear();
 
             InitFreeTimeQueues();
         }
 
-        size_t Size()
+        size_t Size() QUICR_REQUIRES(this)
         {
             return std::accumulate(queues_.begin(), queues_.end(), 0, [](auto total_sum, auto& group) {
                 auto group_sum = std::accumulate(
@@ -222,7 +227,7 @@ namespace quicr {
             });
         }
 
-        bool Empty() const
+        bool Empty() const QUICR_REQUIRES(this)
         {
             for (auto& [_, queue] : queues_) {
                 if (!queue.empty()) {

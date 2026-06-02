@@ -3,10 +3,13 @@
 
 #pragma once
 
+#include <quicr/detail/thread_safety.h>
+
 #include <timeq/time_queue.h>
 
 #include <algorithm>
 #include <chrono>
+#include <mutex>
 
 namespace quicr {
 
@@ -16,7 +19,7 @@ namespace quicr {
      * @tparam DataType   The element type to be stored.
      */
     template<typename DataType>
-    class SafeTimeQueue
+    class QUICR_CAPABILITY("mutex") SafeTimeQueue
     {
         using TimeQueueType = timeq::time_queue<DataType>;
 
@@ -31,9 +34,9 @@ namespace quicr {
         };
 
       public:
-        constexpr void lock() { mutex_.lock(); }
-        constexpr void unlock() { mutex_.unlock(); }
-        constexpr bool try_lock() { return mutex_.try_lock(); }
+        constexpr void lock() QUICR_ACQUIRE() { mutex_.lock(); }
+        constexpr void unlock() QUICR_RELEASE() { mutex_.unlock(); }
+        constexpr bool try_lock() QUICR_TRY_ACQUIRE(true) { return mutex_.try_lock(); }
 
         /**
          * Construct a time queue
@@ -69,7 +72,10 @@ namespace quicr {
          * @param ttl       The time to live of the value in milliseconds.
          * @param delay_ttl Delay POP by this ttl value in milliseconds
          */
-        void Push(DataType& value, uint32_t ttl, uint32_t delay_ttl = 0) { time_queue_.push(value, ttl, delay_ttl); }
+        void Push(DataType& value, uint32_t ttl, uint32_t delay_ttl = 0) QUICR_REQUIRES(this)
+        {
+            time_queue_.push(value, ttl, delay_ttl);
+        }
 
         /**
          * @brief Pushes a new value onto the queue with a time to live and priority
@@ -78,7 +84,7 @@ namespace quicr {
          * @param ttl       The time to live of the value in milliseconds.
          * @param delay_ttl Delay POP by this ttl value in milliseconds
          */
-        void Push(DataType&& value, uint32_t ttl, uint32_t delay_ttl = 0)
+        void Push(DataType&& value, uint32_t ttl, uint32_t delay_ttl = 0) QUICR_REQUIRES(this)
         {
             time_queue_.push(std::move(value), ttl, delay_ttl);
         }
@@ -88,28 +94,31 @@ namespace quicr {
          *
          * @return timeq::element<DataType> reference
          */
-        typename timeq::time_queue<DataType>::reference Front() { return time_queue_.front(); }
+        typename timeq::time_queue<DataType>::reference Front() QUICR_REQUIRES(this) { return time_queue_.front(); }
 
         /**
          * @brief Get and remove the first object from queue
          *
          * @return timeq::element<DataType> element
          */
-        typename timeq::time_queue<DataType>::value_type PopFront() { return time_queue_.pop_front(); }
+        typename timeq::time_queue<DataType>::value_type PopFront() QUICR_REQUIRES(this)
+        {
+            return time_queue_.pop_front();
+        }
 
         /**
          * @brief Pop/remove the first object from queue
          */
-        void Pop() { time_queue_.pop(); }
+        void Pop() QUICR_REQUIRES(this) { time_queue_.pop(); }
 
         /**
          * @brief Clear queue all
          */
-        void Clear() { time_queue_.clear(); }
+        void Clear() QUICR_REQUIRES(this) { time_queue_.clear(); }
 
-        size_t Size() { return time_queue_.size(); }
+        size_t Size() QUICR_REQUIRES(this) { return time_queue_.size(); }
 
-        bool Empty() const { return time_queue_.empty(); }
+        bool Empty() const QUICR_REQUIRES(this) { return time_queue_.empty(); }
 
       private:
         mutable std::mutex mutex_;
