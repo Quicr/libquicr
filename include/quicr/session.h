@@ -65,7 +65,10 @@ namespace quicr {
         virtual void PublishNamespaceReceived(ConnectionHandle connection_handle,
                                               const TrackNamespace& track_namespace,
                                               const PublishNamespaceAttributes& publish_announce_attributes);
+        virtual void PublishNamespaceReceived(const TrackNamespace& track_namespace,
+                                              const PublishNamespaceAttributes& publish_namespace_attributes);
         virtual void PublishNamespaceStatusChanged(messages::RequestID request_id, const PublishNamespaceStatus status);
+        virtual void PublishNamespaceDoneReceived(messages::RequestID request_id);
         virtual void ResolveFetch(ConnectionHandle connection_handle,
                                   uint64_t request_id,
                                   std::uint8_t priority,
@@ -135,6 +138,8 @@ namespace quicr {
                                 uint64_t request_id,
                                 const std::shared_ptr<PublishTrackHandler>& track_handler,
                                 bool ephemeral = false);
+        using Transport::PublishNamespace;
+        void PublishNamespace(std::shared_ptr<PublishNamespaceHandler> handler);
         void PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& handler);
         void ResolvePublishNamespace(ConnectionHandle connection_handle,
                                      uint64_t request_id,
@@ -208,6 +213,16 @@ namespace quicr {
                                 uint64_t data_ctx_id,
                                 messages::ControlMessageType msg_type,
                                 BytesSpan msg_bytes) override;
+
+        bool ProcessClientCtrlMessage(ConnectionContext& conn_ctx,
+                                      uint64_t data_ctx_id,
+                                      messages::ControlMessageType msg_type,
+                                      BytesSpan msg_bytes);
+
+        bool ProcessServerCtrlMessage(ConnectionContext& conn_ctx,
+                                      uint64_t data_ctx_id,
+                                      messages::ControlMessageType msg_type,
+                                      BytesSpan msg_bytes);
 
         void SetConnectionHandle(ConnectionHandle connection_handle) override
         {

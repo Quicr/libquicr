@@ -1,8 +1,8 @@
 #include <future>
-#include <quicr/client.h>
+#include <quicr/session.h>
 
 namespace quicr_test {
-    class TestClient final : public quicr::Client
+    class TestClient final : public quicr::Session
     {
       public:
         explicit TestClient(const quicr::ClientConfig& cfg);

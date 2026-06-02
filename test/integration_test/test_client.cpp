@@ -1,10 +1,12 @@
 #include "test_client.h"
 
+#include <quicr/subscribe_track_handler.h>
+
 using namespace quicr;
 using namespace quicr_test;
 
 TestClient::TestClient(const ClientConfig& cfg)
-  : Client(cfg)
+  : Session(cfg)
 {
 }
 
