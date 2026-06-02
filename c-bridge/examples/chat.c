@@ -41,7 +41,7 @@ signal_handler(int signum)
 void
 status_callback(qbridge_connection_status_t status, void* user_data)
 {
-    printf("Client status changed: %s\n", qbridge_status_to_string(status));
+    printf("Session status changed: %s\n", qbridge_status_to_string(status));
 }
 
 void
@@ -213,7 +213,7 @@ main(int argc, char* argv[])
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    // Initialize client configuration
+    // Initialize session configuration
     qbridge_client_config_t config;
     qbridge_client_config_init(&config);
 
@@ -243,32 +243,32 @@ main(int argc, char* argv[])
     printf("Joining chat room: %s\n", room_name);
     printf("Username: %s\n\n", username);
 
-    // Create client
-    qbridge_client_t* client = qbridge_client_create(&config);
-    if (!client) {
-        printf("Failed to create client\n");
+    // Create session
+    qbridge_session_t* session = qbridge_session_create(&config);
+    if (!session) {
+        printf("Failed to create session\n");
         return 1;
     }
 
-    qbridge_client_set_status_callback(client, status_callback, NULL);
+    qbridge_session_set_status_callback(session, status_callback, NULL);
 
     // Connect to server
-    qbridge_result_t result = qbridge_client_connect(client);
+    qbridge_result_t result = qbridge_session_connect(session);
     if (result != QBRIDGE_OK) {
         printf("Failed to connect: %s\n", qbridge_result_to_string(result));
-        qbridge_client_destroy(client);
+        qbridge_session_destroy(session);
         return 1;
     }
 
     // Wait for connection
     printf("Waiting for connection...\n");
-    while (keep_running && qbridge_client_get_status(client) == QBRIDGE_STATUS_CONNECTING) {
+    while (keep_running && qbridge_session_get_status(session) == QBRIDGE_STATUS_CONNECTING) {
         usleep(100000);
     }
 
-    if (!keep_running || qbridge_client_get_status(client) != QBRIDGE_STATUS_READY) {
+    if (!keep_running || qbridge_session_get_status(session) != QBRIDGE_STATUS_READY) {
         printf("Failed to connect to server\n");
-        qbridge_client_destroy(client);
+        qbridge_session_destroy(session);
         return 1;
     }
 
@@ -282,13 +282,13 @@ main(int argc, char* argv[])
     result = qbridge_namespace_from_string(&ns, namespace_str);
     if (result != QBRIDGE_OK) {
         printf("Failed to create namespace: %s\n", qbridge_result_to_string(result));
-        qbridge_client_destroy(client);
+        qbridge_session_destroy(session);
         return 1;
     }
 
     // Publish namespace if using announce flow
     if (use_announce) {
-        result = qbridge_client_publish_namespace(client, &ns);
+        result = qbridge_session_publish_namespace(session, &ns);
         if (result != QBRIDGE_OK) {
             printf("Failed to publish namespace: %s\n", qbridge_result_to_string(result));
         }
@@ -301,7 +301,7 @@ main(int argc, char* argv[])
     result = qbridge_full_track_name_from_strings(&sub_config.full_track_name, namespace_str, "messages");
     if (result != QBRIDGE_OK) {
         printf("Failed to create subscribe track name: %s\n", qbridge_result_to_string(result));
-        qbridge_client_destroy(client);
+        qbridge_session_destroy(session);
         return 1;
     }
 
@@ -312,15 +312,15 @@ main(int argc, char* argv[])
 
     if (!subscribe_handler) {
         printf("Failed to create subscribe track handler\n");
-        qbridge_client_destroy(client);
+        qbridge_session_destroy(session);
         return 1;
     }
 
-    result = qbridge_client_subscribe_track(client, subscribe_handler);
+    result = qbridge_session_subscribe_track(session, subscribe_handler);
     if (result != QBRIDGE_OK) {
         printf("Failed to subscribe to track: %s\n", qbridge_result_to_string(result));
         qbridge_destroy_subscribe_track_handler(subscribe_handler);
-        qbridge_client_destroy(client);
+        qbridge_session_destroy(session);
         return 1;
     }
 
@@ -331,9 +331,9 @@ main(int argc, char* argv[])
     result = qbridge_full_track_name_from_strings(&pub_config.full_track_name, namespace_str, "messages");
     if (result != QBRIDGE_OK) {
         printf("Failed to create publish track name: %s\n", qbridge_result_to_string(result));
-        qbridge_client_unsubscribe_track(client, subscribe_handler);
+        qbridge_session_unsubscribe_track(session, subscribe_handler);
         qbridge_destroy_subscribe_track_handler(subscribe_handler);
-        qbridge_client_destroy(client);
+        qbridge_session_destroy(session);
         return 1;
     }
 
@@ -346,19 +346,19 @@ main(int argc, char* argv[])
 
     if (!publish_handler) {
         printf("Failed to create publish track handler\n");
-        qbridge_client_unsubscribe_track(client, subscribe_handler);
+        qbridge_session_unsubscribe_track(session, subscribe_handler);
         qbridge_destroy_subscribe_track_handler(subscribe_handler);
-        qbridge_client_destroy(client);
+        qbridge_session_destroy(session);
         return 1;
     }
 
-    result = qbridge_client_publish_track(client, publish_handler);
+    result = qbridge_session_publish_track(session, publish_handler);
     if (result != QBRIDGE_OK) {
         printf("Failed to publish track: %s\n", qbridge_result_to_string(result));
         qbridge_destroy_publish_track_handler(publish_handler);
-        qbridge_client_unsubscribe_track(client, subscribe_handler);
+        qbridge_session_unsubscribe_track(session, subscribe_handler);
         qbridge_destroy_subscribe_track_handler(subscribe_handler);
-        qbridge_client_destroy(client);
+        qbridge_session_destroy(session);
         return 1;
     }
 
@@ -385,18 +385,18 @@ main(int argc, char* argv[])
     printf("\nShutting down chat...\n");
 
     // Cleanup
-    qbridge_client_unpublish_track(client, publish_handler);
-    qbridge_client_unsubscribe_track(client, subscribe_handler);
+    qbridge_session_unpublish_track(session, publish_handler);
+    qbridge_session_unsubscribe_track(session, subscribe_handler);
 
     if (use_announce) {
-        qbridge_client_unpublish_namespace(client, &ns);
+        qbridge_session_unpublish_namespace(session, &ns);
     }
 
     qbridge_destroy_publish_track_handler(publish_handler);
     qbridge_destroy_subscribe_track_handler(subscribe_handler);
 
-    qbridge_client_disconnect(client);
-    qbridge_client_destroy(client);
+    qbridge_session_disconnect(session);
+    qbridge_session_destroy(session);
 
     printf("Chat shut down complete.\n");
     return 0;

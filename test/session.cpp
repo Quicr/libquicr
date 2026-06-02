@@ -3,28 +3,28 @@
 
 #include <doctest/doctest.h>
 
-#include <memory>
-#include <quicr/client.h>
 #include <quicr/config.h>
+#include <quicr/session.h>
 
+#include <memory>
 TEST_CASE("Multiple client creation")
 {
     CHECK_NOTHROW({
-        auto client = quicr::Client::Create(quicr::ClientConfig());
+        auto client = quicr::Session::Create(quicr::ClientConfig());
         client = nullptr;
-        client = quicr::Client::Create(quicr::ClientConfig());
+        client = quicr::Session::Create(quicr::ClientConfig());
     });
 }
 
 TEST_CASE("Construction")
 {
-    CHECK_NOTHROW(quicr::Client::Create(quicr::ClientConfig()));
+    CHECK_NOTHROW(quicr::Session::Create(quicr::ClientConfig()));
 }
 
-struct BadClient : public quicr::Client
+struct BadClient : public quicr::Session
 {
     BadClient()
-      : quicr::Client(quicr::ClientConfig())
+      : quicr::Session(quicr::ClientConfig())
     {
     }
 };

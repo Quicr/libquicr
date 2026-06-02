@@ -53,7 +53,7 @@ extern "C"
      * @{
      */
 
-    typedef struct qbridge_client qbridge_client_t;
+    typedef struct qbridge_session qbridge_session_t;
     typedef struct qbridge_publish_track_handler qbridge_publish_track_handler_t;
     typedef struct qbridge_subscribe_track_handler qbridge_subscribe_track_handler_t;
     typedef struct qbridge_fetch_track_handler qbridge_fetch_track_handler_t;
@@ -229,15 +229,15 @@ extern "C"
      */
 
     /**
-     * @brief Client configuration
+     * @brief Client configuration for session creation
      *
      * Use qbridge_client_config_init() to initialize with default values.
      */
     typedef struct
     {
-        /** Server hostname (default: "localhost") */
+        /** Remote relay hostname (default: "localhost") */
         char server_hostname[QBRIDGE_MAX_HOSTNAME_LEN];
-        /** Server port (default: 4433) */
+        /** Remote relay port (default: 4433) */
         uint16_t server_port;
         /** TLS certificate filename (optional) */
         char tls_cert_filename[QBRIDGE_MAX_FILENAME_LEN];
@@ -351,75 +351,75 @@ extern "C"
     /** @} */
 
     /**
-     * @defgroup client_api Client API
+     * @defgroup session_api Session API
      * @{
      */
 
     /**
-     * @defgroup client_lifecycle Client Lifecycle
+     * @defgroup session_lifecycle Session Lifecycle
      * @{
      */
 
     /**
-     * @brief Create a new client instance
-     * @param config Client configuration
-     * @return Client handle or NULL on failure
+     * @brief Create a new session instance
+     * @param config Session configuration
+     * @return Session handle or NULL on failure
      */
-    qbridge_client_t* qbridge_client_create(const qbridge_client_config_t* config);
+    qbridge_session_t* qbridge_session_create(const qbridge_client_config_t* config);
 
     /**
-     * @brief Destroy a client instance
-     * @param client Client handle
+     * @brief Destroy a session instance
+     * @param session Session handle
      */
-    void qbridge_client_destroy(qbridge_client_t* client);
+    void qbridge_session_destroy(qbridge_session_t* session);
 
     /**
-     * @brief Connect client to server
-     * @param client Client handle
+     * @brief Connect session to a remote relay
+     * @param session Session handle
      * @return Result code
      */
-    qbridge_result_t qbridge_client_connect(qbridge_client_t* client);
+    qbridge_result_t qbridge_session_connect(qbridge_session_t* session);
 
     /**
-     * @brief Disconnect client from server
-     * @param client Client handle
+     * @brief Disconnect session from remote relay
+     * @param session Session handle
      * @return Result code
      */
-    qbridge_result_t qbridge_client_disconnect(qbridge_client_t* client);
+    qbridge_result_t qbridge_session_disconnect(qbridge_session_t* session);
 
     /**
      * @brief Get current connection status
-     * @param client Client handle
+     * @param session Session handle
      * @return Connection status
      */
-    qbridge_connection_status_t qbridge_client_get_status(const qbridge_client_t* client);
+    qbridge_connection_status_t qbridge_session_get_status(const qbridge_session_t* session);
 
     /** @} */
 
     /**
-     * @defgroup client_callbacks Client Callback Registration
+     * @defgroup session_callbacks Session Callback Registration
      * @{
      */
 
     /**
      * @brief Set connection status callback
-     * @param client Client handle
+     * @param session Session handle
      * @param callback Callback function
      * @param user_data User data to pass to callback
      */
-    void qbridge_client_set_status_callback(qbridge_client_t* client,
-                                            qbridge_connection_status_callback_t callback,
-                                            void* user_data);
+    void qbridge_session_set_status_callback(qbridge_session_t* session,
+                                             qbridge_connection_status_callback_t callback,
+                                             void* user_data);
 
     /**
      * @brief Set namespace callback
-     * @param client Client handle
+     * @param session Session handle
      * @param callback Callback function
      * @param user_data User data to pass to callback
      */
-    void qbridge_client_set_namespace_callback(qbridge_client_t* client,
-                                               qbridge_namespace_callback_t callback,
-                                               void* user_data);
+    void qbridge_session_set_namespace_callback(qbridge_session_t* session,
+                                                qbridge_namespace_callback_t callback,
+                                                void* user_data);
 
     /** @} */
 
@@ -430,38 +430,38 @@ extern "C"
 
     /**
      * @brief Publish a namespace
-     * @param client Client handle
+     * @param session Session handle
      * @param handler The namespace handler to publish to
      * @return Result code
      */
-    qbridge_result_t qbridge_client_publish_namespace(qbridge_client_t* client,
+    qbridge_result_t qbridge_session_publish_namespace(qbridge_session_t* session,
                                                       const qbridge_publish_namespace_track_handler_t* handler);
 
     /**
      * @brief Unpublish a namespace
-     * @param client Client handle
+     * @param session Session handle
      * @param handler The namespace handler to unpublish from.
      * @return Result code
      */
-    qbridge_result_t qbridge_client_unpublish_namespace(qbridge_client_t* client,
+    qbridge_result_t qbridge_session_unpublish_namespace(qbridge_session_t* session,
                                                         const qbridge_publish_namespace_track_handler_t* handler);
 
     /**
      * @brief Subscribe to a namespace
-     * @param client Client handle
+     * @param session Session handle
      * @param handler Namespace handler to subscribe to
      * @return Result code
      */
-    qbridge_result_t qbridge_client_subscribe_namespace(qbridge_client_t* client,
+    qbridge_result_t qbridge_session_subscribe_namespace(qbridge_session_t* session,
                                                         const qbridge_subscribe_namespace_track_handler_t* handler);
 
     /**
      * @brief Unsubscribe from a namespace
-     * @param client Client handle
+     * @param session Session handle
      * @param handler Namespace handler to unsubscribe from
      * @return Result code
      */
-    qbridge_result_t qbridge_client_unsubscribe_namespace(qbridge_client_t* client,
+    qbridge_result_t qbridge_session_unsubscribe_namespace(qbridge_session_t* session,
                                                           const qbridge_subscribe_namespace_track_handler_t* handler);
 
     /** @} */
@@ -536,53 +536,53 @@ extern "C"
 
     /**
      * @brief Publish a track
-     * @param client Client handle
+     * @param session Session handle
      * @param handler Publish track handler
      * @return Result code
      */
-    qbridge_result_t qbridge_client_publish_track(qbridge_client_t* client, qbridge_publish_track_handler_t* handler);
+    qbridge_result_t qbridge_session_publish_track(qbridge_session_t* session, qbridge_publish_track_handler_t* handler);
 
     /**
      * @brief Unpublish a track
-     * @param client Client handle
+     * @param session Session handle
      * @param handler Publish track handler
      * @return Result code
      */
-    qbridge_result_t qbridge_client_unpublish_track(qbridge_client_t* client, qbridge_publish_track_handler_t* handler);
+    qbridge_result_t qbridge_session_unpublish_track(qbridge_session_t* session, qbridge_publish_track_handler_t* handler);
 
     /**
      * @brief Subscribe to a track
-     * @param client Client handle
+     * @param session Session handle
      * @param handler Subscribe track handler
      * @return Result code
      */
-    qbridge_result_t qbridge_client_subscribe_track(qbridge_client_t* client,
+    qbridge_result_t qbridge_session_subscribe_track(qbridge_session_t* session,
                                                     qbridge_subscribe_track_handler_t* handler);
 
     /**
      * @brief Unsubscribe from a track
-     * @param client Client handle
+     * @param session Session handle
      * @param handler Subscribe track handler
      * @return Result code
      */
-    qbridge_result_t qbridge_client_unsubscribe_track(qbridge_client_t* client,
+    qbridge_result_t qbridge_session_unsubscribe_track(qbridge_session_t* session,
                                                       qbridge_subscribe_track_handler_t* handler);
 
     /**
      * @brief Fetch a track
-     * @param client Client handle
+     * @param session Session handle
      * @param handler Fetch track handler
      * @return Result code
      */
-    qbridge_result_t qbridge_client_fetch_track(qbridge_client_t* client, qbridge_fetch_track_handler_t* handler);
+    qbridge_result_t qbridge_session_fetch_track(qbridge_session_t* session, qbridge_fetch_track_handler_t* handler);
 
     /**
      * @brief Cancel a fetch track operation
-     * @param client Client handle
+     * @param session Session handle
      * @param handler Fetch track handler
      * @return Result code
      */
-    qbridge_result_t qbridge_client_cancel_fetch_track(qbridge_client_t* client,
+    qbridge_result_t qbridge_session_cancel_fetch_track(qbridge_session_t* session,
                                                        qbridge_fetch_track_handler_t* handler);
 
     /** @} */

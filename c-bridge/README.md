@@ -50,7 +50,7 @@ make c-bridge
 
 ### Core Types
 
-- **`qbridge_client_t`** - Client connection handle
+- **`qbridge_session_t`** - MoQ session handle (client-mode connection)
 - **`qbridge_publish_track_handler_t`** - Publisher track handler
 - **`qbridge_subscribe_track_handler_t`** - Subscriber track handler
 - **`qbridge_fetch_track_handler_t`** - Fetch track handler
