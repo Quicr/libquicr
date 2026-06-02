@@ -19,7 +19,7 @@ namespace quicr {
      *
      * @details MoQ Server is the handler of the MoQ QUIC listening socket
      */
-    class Server : public Transport
+    class [[deprecated("Use quicr::Session")]] Server : public Transport
     {
       public:
         /**

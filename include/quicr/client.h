@@ -19,7 +19,7 @@ namespace quicr {
      *
      * @details MoQ Client is the handler of the MoQ QUIC transport IP connection.
      */
-    class Client : public Transport
+    class [[deprecated("Use quicr::Session")]] Client : public Transport
     {
       protected:
         /**
