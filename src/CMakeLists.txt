@@ -28,6 +28,7 @@ target_sources(quicr PRIVATE
     publish_namespace_handler.cpp
     publish_track_handler.cpp
     quic_transport.cpp
+    session.cpp
     server.cpp
     subscribe_namespace_handler.cpp
     subscribe_track_handler.cpp

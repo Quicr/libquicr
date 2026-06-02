@@ -5,7 +5,7 @@
 #include <optional>
 
 #include <quicr/publish_track_handler.h>
-#include <quicr/server.h>
+#include <quicr/session.h>
 #include <quicr/subscribe_track_handler.h>
 
 namespace quicr_test {
@@ -105,7 +105,7 @@ namespace quicr_test {
         std::weak_ptr<TestServer> server_;
     };
 
-    class TestServer final : public quicr::Server
+    class TestServer final : public quicr::Session
     {
       public:
         explicit TestServer(const quicr::ServerConfig& config);
@@ -169,13 +169,6 @@ namespace quicr_test {
                                     const quicr::messages::PublishAttributes& attributes);
 
       protected:
-        ClientSetupResponse ClientSetupReceived(
-          [[maybe_unused]] quicr::ConnectionHandle connection_handle,
-          [[maybe_unused]] const quicr::ClientSetupAttributes& client_setup_attributes) override
-        {
-            return {};
-        };
-
         std::vector<quicr::ConnectionHandle> PublishNamespaceDoneReceived(
           quicr::ConnectionHandle,
           quicr::messages::RequestID request_id) override

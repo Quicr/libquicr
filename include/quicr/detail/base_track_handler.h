@@ -150,6 +150,7 @@ namespace quicr {
         friend class Transport;
         friend class Server;
         friend class Client;
+        friend class Session;
 
         virtual ~BaseTrackHandler() = default;
 

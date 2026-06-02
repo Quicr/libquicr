@@ -174,9 +174,9 @@ namespace quicr {
          *                                    and callbacks
          * @param passive                     True indicates that PUBLISH_NAMESPACE will not be sent
          */
-        void PublishNamespace(ConnectionHandle connection_handle,
-                              std::shared_ptr<PublishNamespaceHandler> ns_handler,
-                              bool passive = false);
+        virtual void PublishNamespace(ConnectionHandle connection_handle,
+                                      std::shared_ptr<PublishNamespaceHandler> ns_handler,
+                                      bool passive = false);
 
         /**
          * @brief Unpublish track
@@ -789,6 +789,7 @@ namespace quicr {
 
         friend class Client;
         friend class Server;
+        friend class Session;
         friend class PublishTrackHandler;
         friend class PublishFetchHandler;
         friend class SubscribeTrackHandler;

@@ -432,6 +432,7 @@ namespace quicr {
         friend class Transport;
         friend class Client;
         friend class Server;
+        friend class Session;
     };
 
 } // namespace moq
