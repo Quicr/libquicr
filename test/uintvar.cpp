@@ -76,29 +76,29 @@ TEST_CASE("Encode/Decode UintVar Bytes")
 
 TEST_CASE("Length of UintVar")
 {
-    for (const auto& [value, bytes] : var::kMinimalVectors) {
-        CAPTURE(value);
-        CHECK_EQ(bytes.size(), quicr::UintVar(value).Size());
-        CHECK_EQ(bytes.size(), quicr::UintVar::Size(bytes.front()));
+    for (const auto& vector : var::kMinimalVectors) {
+        CAPTURE(vector.value);
+        CHECK_EQ(vector.bytes.size(), quicr::UintVar(vector.value).Size());
+        CHECK_EQ(vector.bytes.size(), quicr::UintVar::Size(vector.bytes.front()));
     }
 }
 
 TEST_CASE("Validate UintVar from minimal bytes")
 {
-    for (const auto& [value, bytes] : var::kMinimalVectors) {
-        CAPTURE(value);
-        CHECK_EQ(value, uint64_t(quicr::UintVar(bytes)));
+    for (const auto& vector : var::kMinimalVectors) {
+        CAPTURE(vector.value);
+        CHECK_EQ(vector.value, uint64_t(quicr::UintVar(vector.bytes)));
 
-        const auto encoded = quicr::UintVar(value);
-        CHECK(std::vector<std::uint8_t>(encoded.begin(), encoded.end()) == bytes);
+        const auto encoded = quicr::UintVar(vector.value);
+        CHECK(std::vector<std::uint8_t>(encoded.begin(), encoded.end()) == vector.bytes);
     }
 }
 
 TEST_CASE("Validate UintVar from Draft 18 examples")
 {
-    for (const auto& [value, bytes] : var::kSpecVectors) {
-        CAPTURE(value);
-        CHECK_EQ(value, uint64_t(quicr::UintVar(bytes)));
+    for (const auto& vector : var::kSpecVectors) {
+        CAPTURE(vector.value);
+        CHECK_EQ(vector.value, uint64_t(quicr::UintVar(vector.bytes)));
     }
 }
 
