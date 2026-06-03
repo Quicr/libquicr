@@ -30,7 +30,6 @@ set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
 # Time queue
-set(timeq_BUILD_BENCHMARKS OFF)
 add_subdirectory(timeq)
 
 # mbedtls
@@ -132,7 +131,6 @@ else ()
 
     set(PICOQUIC_FETCH_PTLS ON)
     set(picoquic_BUILD_TESTS OFF)
-    set(WITH_SELECT OFF)
     add_subdirectory(picoquic)
     add_dependencies(picoquic-core picotls-core)
 
