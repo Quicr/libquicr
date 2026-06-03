@@ -79,6 +79,7 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
       : PublishTrackHandler(ftn, TrackMode::kStream, priority, ttl, std::nullopt, { 0, 0 })
       , on_status_(std::move(on_status))
     {
+        support_new_group_request_ = support_dynamic_groups;
     }
 
     void StatusChanged(const Status status) override
@@ -1275,15 +1276,15 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         ftn.name = { 1, 2, 3 };
 
         // Publish the track, watching for a new group request.
-        std::atomic new_group_was_requested{ false };
+        auto new_group_was_requested = std::make_shared<std::atomic_bool>(false);
         const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(
           ftn,
           1,
           5000,
-          [&new_group_was_requested](const PublishTrackHandler::Status status) {
+          [new_group_was_requested](const PublishTrackHandler::Status status) {
               // Ensure we get the status callback.
               if (status == PublishTrackHandler::Status::kNewGroupRequested) {
-                  new_group_was_requested = true;
+                  new_group_was_requested->store(true);
               }
           },
           dynamic_groups);
@@ -1304,7 +1305,7 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         // If there is support, check a request will make it back to the publisher.
         if (dynamic_groups) {
             sub_handler->RequestNewGroup();
-            const bool received = WaitFor([&new_group_was_requested]() { return new_group_was_requested.load(); });
+            const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
             CHECK(received);
         }
     };
@@ -1330,11 +1331,11 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         std::this_thread::sleep_for(kDefaultTimeout);
 
         // Publish the track, watching for a new group request.
-        std::atomic new_group_was_requested{ false };
+        auto new_group_was_requested = std::make_shared<std::atomic_bool>(false);
         const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(
-          ftn, 1, 5000, [&new_group_was_requested](const PublishTrackHandler::Status status) {
+          ftn, 1, 5000, [new_group_was_requested](const PublishTrackHandler::Status status) {
               if (status == PublishTrackHandler::Status::kNewGroupRequested) {
-                  new_group_was_requested = true;
+                  new_group_was_requested->store(true);
               }
           });
         publisher->PublishTrack(pub_handler);
@@ -1362,7 +1363,7 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
 
         // Request a new group; it should make it back to the publisher.
         sub_handler->RequestNewGroup();
-        const bool received = WaitFor([&new_group_was_requested]() { return new_group_was_requested.load(); });
+        const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
         CHECK(received);
     };
 
