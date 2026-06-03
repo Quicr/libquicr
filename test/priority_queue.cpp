@@ -23,9 +23,9 @@ TEST_CASE("Priority Queue Push/Pop - one group")
 
     for (size_t i = 0; i < 500; ++i) {
         CHECK(pq.Empty() == false);
-        auto elem = pq.PopFront();
-        CHECK(elem.value.has_value() == true);
-        CHECK(elem.expired == 0);
+        const auto [value, expired] = pq.PopFront();
+        CHECK(value.has_value() == true);
+        CHECK(expired == 0);
 
         size_t num = 0;
 

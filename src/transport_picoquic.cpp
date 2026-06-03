@@ -1273,7 +1273,7 @@ PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, uint64_t app_re
     for (auto& [data_ctx_id, data_ctx] : conn_it->second.active_data_contexts) {
         for (auto& [stream_id, stream_ctx] : data_ctx.streams) {
             if (stream_ctx.tx_data) {
-                stream_ctx.tx_data->Clear();
+                std::lock_guard _(*stream_ctx.tx_data);
                 stream_ctx.tx_data.reset();
             }
             stream_ctx.tx_object = nullptr;
@@ -1289,11 +1289,10 @@ PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, uint64_t app_re
 
     // Clear datagram RX and TX queues and reset shared pointers
     if (conn_it->second.dgram_rx_data) {
-        conn_it->second.dgram_rx_data->Clear();
         conn_it->second.dgram_rx_data.reset();
     }
     if (conn_it->second.dgram_tx_data) {
-        conn_it->second.dgram_tx_data->Clear();
+        std::lock_guard _(*conn_it->second.dgram_tx_data);
         conn_it->second.dgram_tx_data.reset();
     }
 
@@ -1667,9 +1666,9 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
 
     std::lock_guard _(*conn_ctx->dgram_tx_data);
 
-    auto out_data = conn_ctx->dgram_tx_data->Front();
-    if (out_data.value.has_value()) {
-        const auto data_ctx_it = conn_ctx->active_data_contexts.find(out_data.value->get().data_ctx_id);
+    const auto [out_data, expired] = conn_ctx->dgram_tx_data->Front();
+    if (out_data.has_value()) {
+        const auto data_ctx_it = conn_ctx->active_data_contexts.find(out_data->get().data_ctx_id);
         if (data_ctx_it == conn_ctx->active_data_contexts.end()) {
             SPDLOG_LOGGER_DEBUG(logger,
                                 "send_next_dgram has no data context conn_id: {0} data len: {1} dropping",
@@ -1679,7 +1678,7 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
             return;
         }
 
-        if (out_data.value->get().data == nullptr || out_data.value->get().data->size() == 0) {
+        if (out_data->get().data == nullptr || out_data->get().data->size() == 0) {
             SPDLOG_LOGGER_ERROR(logger,
                                 "conn_id: {0} data_ctx_id: {1} has ZERO data size",
                                 data_ctx_it->second.conn_id,
@@ -1688,20 +1687,20 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
             return;
         }
 
-        data_ctx_it->second.metrics.tx_queue_expired += out_data.expired;
+        data_ctx_it->second.metrics.tx_queue_expired += expired;
 
-        if (out_data.value->get().data->size() <= max_len) {
+        if (out_data->get().data->size() <= max_len) {
 
             data_ctx_it->second.metrics.tx_object_duration_us.AddValue(
-              static_cast<uint64_t>(tick_service_->get().count()) - out_data.value->get().tick_microseconds);
-            data_ctx_it->second.metrics.tx_dgrams_bytes += out_data.value->get().data->size();
+              static_cast<uint64_t>(tick_service_->get().count()) - out_data->get().tick_microseconds);
+            data_ctx_it->second.metrics.tx_dgrams_bytes += out_data->get().data->size();
             data_ctx_it->second.metrics.tx_dgrams++;
 
             bool more_data = !conn_ctx->dgram_tx_data->Empty();
-            uint8_t* buf = provide_buffer(out_data.value->get().data->size(), more_data);
+            uint8_t* buf = provide_buffer(out_data->get().data->size(), more_data);
 
             if (buf != nullptr) {
-                std::memcpy(buf, out_data.value->get().data->data(), out_data.value->get().data->size());
+                std::memcpy(buf, out_data->get().data->data(), out_data->get().data->size());
             }
 
             conn_ctx->dgram_tx_data->Pop();
@@ -2247,6 +2246,10 @@ PicoQuicTransport::CheckConnsForCongestion()
                     continue;
                 }
 
+                if (!stream.tx_data) {
+                    continue;
+                }
+
                 // Don't include control stream in delayed callbacks check. Control stream should be priority 0 or 1
                 if (stream.priority >= 2 &&
                     data_ctx.metrics.tx_delayed_callback - data_ctx.metrics.prev_tx_delayed_callback > 1) {
@@ -2262,6 +2265,8 @@ PicoQuicTransport::CheckConnsForCongestion()
                     congested_count++;
                 }
                 data_ctx.metrics.prev_tx_delayed_callback = data_ctx.metrics.tx_delayed_callback;
+
+                std::lock_guard _(*stream.tx_data);
 
                 data_ctx.metrics.tx_queue_size.AddValue(stream.tx_data->Size());
 
@@ -2650,6 +2655,7 @@ PicoQuicTransport::CheckCallbackDelta(DataContext* data_ctx, bool tx)
 
         data_ctx->metrics.tx_callback_ms.AddValue(delta_ms);
 
+        std::lock_guard _(*stream.tx_data);
         if (stream.priority > 0 && delta_ms > 50 && stream.tx_data->Size() >= 20) {
             data_ctx->metrics.tx_delayed_callback++;
         }
@@ -2913,6 +2919,7 @@ PicoQuicTransport::MarkStreamActive(const TransportConnId conn_id,
         stream_ctx = &data_ctx_it->second;
     }
 
+    // NOTE: This is a hack to force picoquic to requeue the active state. Needed when congested
     picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 0, NULL);
     picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 1, stream_ctx);
 }
