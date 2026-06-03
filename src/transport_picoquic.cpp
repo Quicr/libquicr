@@ -2655,7 +2655,7 @@ PicoQuicTransport::CheckCallbackDelta(DataContext* data_ctx, bool tx)
 
         data_ctx->metrics.tx_callback_ms.AddValue(delta_ms);
 
-        std::lock_guard _(*stream.tx_data);
+        std::lock_guard __(*stream.tx_data);
         if (stream.priority > 0 && delta_ms > 50 && stream.tx_data->Size() >= 20) {
             data_ctx->metrics.tx_delayed_callback++;
         }
