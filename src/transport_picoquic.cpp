@@ -1273,8 +1273,10 @@ PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, uint64_t app_re
     for (auto& [data_ctx_id, data_ctx] : conn_it->second.active_data_contexts) {
         for (auto& [stream_id, stream_ctx] : data_ctx.streams) {
             if (stream_ctx.tx_data) {
-                std::lock_guard _(*stream_ctx.tx_data);
-                stream_ctx.tx_data.reset();
+                {
+                    std::lock_guard __(*stream_ctx.tx_data);
+                    stream_ctx.tx_data->Clear();
+                }
             }
             stream_ctx.tx_object = nullptr;
         }
@@ -1292,8 +1294,10 @@ PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, uint64_t app_re
         conn_it->second.dgram_rx_data.reset();
     }
     if (conn_it->second.dgram_tx_data) {
-        std::lock_guard _(*conn_it->second.dgram_tx_data);
-        conn_it->second.dgram_tx_data.reset();
+        {
+            std::lock_guard _(*conn_it->second.dgram_tx_data);
+            conn_it->second.dgram_tx_data->Clear();
+        }
     }
 
     // Remove pointer references in picoquic for active streams
