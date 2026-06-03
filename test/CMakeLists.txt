@@ -12,8 +12,6 @@ add_executable(quicr_test
     moq_data_messages.cpp
     moq_test.cpp
     priority_queue.cpp
-    tick_service.cpp
-    time_queue.cpp
     track_handlers.cpp
     track_namespace.cpp
     uintvar.cpp

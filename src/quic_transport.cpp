@@ -15,7 +15,7 @@ namespace quicr {
     std::shared_ptr<ITransport> ITransport::MakeClientTransport(const TransportRemote& server,
                                                                 const TransportConfig& tcfg,
                                                                 TransportDelegate& delegate,
-                                                                std::shared_ptr<TickService> tick_service,
+                                                                std::shared_ptr<timeq::tick_service> tick_service,
                                                                 std::shared_ptr<spdlog::logger> logger)
     {
         switch (server.proto) {
@@ -41,7 +41,7 @@ namespace quicr {
     std::shared_ptr<ITransport> ITransport::MakeServerTransport(const TransportRemote& server,
                                                                 const TransportConfig& tcfg,
                                                                 TransportDelegate& delegate,
-                                                                std::shared_ptr<TickService> tick_service,
+                                                                std::shared_ptr<timeq::tick_service> tick_service,
                                                                 std::shared_ptr<spdlog::logger> logger)
     {
         // Server mode supports BOTH raw QUIC (moq-00) and WebTransport (h3) simultaneously.

@@ -240,49 +240,6 @@ namespace quicr {
             SetDefaultTrackMode(*object_headers.track_mode);
         }
 
-        // Prior Object ID Gap.
-        const auto group_last_it = last_object_id_by_group_.find(object_headers.group_id);
-        if (group_last_it != last_object_id_by_group_.end()) {
-            prior_object_id_gap =
-              object_headers.object_id > group_last_it->second ? object_headers.object_id - group_last_it->second : 0;
-            if (prior_object_id_gap) {
-                prior_object_id_gap--;
-            }
-            group_last_it->second = object_headers.object_id;
-        } else {
-            prior_object_id_gap = object_headers.object_id;
-            last_object_id_by_group_.emplace(object_headers.group_id, object_headers.object_id);
-        }
-
-        auto object_extensions = object_headers.extensions;
-
-        // Only client (publishers) can add these extensions. Per moqt, relays do not add these extensions
-        if (transport->client_mode_) {
-            if (group_id_delta > 1) {
-                const std::uint64_t value = group_id_delta - 1;
-                std::vector<std::uint8_t> value_bytes(sizeof(value));
-                memcpy(value_bytes.data(), &value, sizeof(value));
-                if (not object_extensions.has_value()) {
-                    object_extensions = Extensions{};
-                }
-
-                (*object_extensions)[static_cast<uint64_t>(messages::ExtensionType::kPriorGroupIdGap)].push_back(
-                  value_bytes);
-            }
-
-            if (prior_object_id_gap > 0) {
-                const std::uint64_t value = prior_object_id_gap;
-                std::vector<std::uint8_t> value_bytes(sizeof(value));
-                memcpy(value_bytes.data(), &value, sizeof(value));
-                if (not object_extensions.has_value()) {
-                    object_extensions = Extensions{};
-                }
-
-                (*object_extensions)[static_cast<uint64_t>(messages::ExtensionType::kPriorObjectIdGap)].push_back(
-                  value_bytes);
-            }
-        }
-
         publish_track_metrics_.bytes_published += data.size();
         publish_track_metrics_.objects_published++;
 
@@ -301,12 +258,8 @@ namespace quicr {
                 object.object_id = object_headers.object_id;
                 object.priority = priority;
                 object.track_alias = GetTrackAlias().value();
-                if (object_extensions) {
-                    object.extensions = std::move(*object_extensions);
-                }
-                if (object_headers.immutable_extensions) {
-                    object.immutable_extensions = std::move(object_headers.immutable_extensions);
-                }
+                object.extensions = object_headers.extensions;
+                object.immutable_extensions = object_headers.immutable_extensions;
                 object.payload.assign(data.begin(), data.end());
                 object_msg_buffer_ << object;
                 break;
@@ -334,12 +287,8 @@ namespace quicr {
                 object.object_delta = object_id_delta;
                 object.object_status = object_headers.status;
                 object.properties.emplace(properties);
-                if (object_extensions) {
-                    object.extensions = std::move(*object_extensions);
-                }
-                if (object_headers.immutable_extensions) {
-                    object.immutable_extensions = std::move(*object_headers.immutable_extensions);
-                }
+                object.extensions = object_headers.extensions;
+                object.immutable_extensions = object_headers.immutable_extensions;
                 object.payload.assign(data.begin(), data.end());
                 object_msg_buffer_ << object;
                 break;

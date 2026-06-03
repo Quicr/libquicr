@@ -7,11 +7,13 @@
 using namespace quicr;
 using namespace std::string_literals;
 
-static auto tick_service = std::make_shared<ThreadedTickService>();
+static auto tick_service = std::make_shared<timeq::threaded_tick_service>();
 
 TEST_CASE("Priority Queue Push/Pop - one group")
 {
+
     PriorityQueue<std::vector<uint8_t>> pq(30000, 1, tick_service, 150);
+
     std::vector<uint8_t> data(1000, 0);
 
     for (size_t i = 0; i < 500; ++i) {
@@ -19,16 +21,15 @@ TEST_CASE("Priority Queue Push/Pop - one group")
         pq.Push(static_cast<int>(i / 15), data, 2000);
     }
 
-    TimeQueueElement<std::vector<uint8_t>> elem;
-
     for (size_t i = 0; i < 500; ++i) {
         CHECK(pq.Empty() == false);
-        pq.PopFront(elem);
-        CHECK(elem.has_value == true);
-        CHECK(elem.expired_count == 0);
+        const auto [value, expired] = pq.PopFront();
+        CHECK(value.has_value() == true);
+        CHECK(expired == 0);
 
         size_t num = 0;
-        std::memcpy(&num, elem.value.data(), sizeof(num));
+
+        std::memcpy(&num, value.value().data(), sizeof(num));
         CHECK(num == i);
     }
 
@@ -45,17 +46,15 @@ TEST_CASE("Priority Queue Push/Pop - multi-group")
         pq.Push(static_cast<int>(i / 20), data, 2000);
     }
 
-    TimeQueueElement<std::vector<uint8_t>> elem;
-
     for (size_t i = 0; i < 500; ++i) {
         CHECK(pq.Empty() == false);
 
-        pq.PopFront(elem);
-        CHECK(elem.has_value == true);
-        CHECK(elem.expired_count == 0);
+        auto elem = pq.PopFront();
+        CHECK(elem.value.has_value() == true);
+        CHECK(elem.expired == 0);
 
         size_t num = 0;
-        std::memcpy(&num, elem.value.data(), sizeof(num));
+        std::memcpy(&num, elem.value.value().data(), sizeof(num));
         CHECK(num == i);
     }
 

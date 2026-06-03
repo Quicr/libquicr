@@ -126,7 +126,7 @@ namespace quicr {
         return std::make_tuple(address_str, port, transport_proto, path_str);
     }
 
-    Transport::Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service)
+    Transport::Transport(const ClientConfig& cfg, std::shared_ptr<timeq::tick_service> tick_service)
       : std::enable_shared_from_this<Transport>()
       , client_mode_(true)
       , logger_(SafeLoggerGet("MTC"))
@@ -139,7 +139,7 @@ namespace quicr {
         Init();
     }
 
-    Transport::Transport(const ServerConfig& cfg, std::shared_ptr<TickService> tick_service)
+    Transport::Transport(const ServerConfig& cfg, std::shared_ptr<timeq::tick_service> tick_service)
       : std::enable_shared_from_this<Transport>()
       , client_mode_(false)
       , logger_(SafeLoggerGet("MTS"))
@@ -1679,14 +1679,17 @@ namespace quicr {
                     if (!rx_ctx->unknown_expiry_tick_ms) {
                         uint64_t age_ms = client_mode_ ? client_config_.unknown_stream_expiry_ms
                                                        : server_config_.unknown_stream_expiry_ms;
-                        rx_ctx->unknown_expiry_tick_ms = tick_service_->Milliseconds();
+                        rx_ctx->unknown_expiry_tick_ms = static_cast<uint64_t>(
+                          std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
                         rx_ctx->unknown_expiry_tick_ms += age_ms;
 
-                        SPDLOG_LOGGER_INFO(logger_,
-                                           "Setting stream_id: {} unknown expiry to {}ms (current time is {}ms)",
-                                           stream_id,
-                                           rx_ctx->unknown_expiry_tick_ms,
-                                           tick_service_->Milliseconds());
+                        SPDLOG_LOGGER_INFO(
+                          logger_,
+                          "Setting stream_id: {} unknown expiry to {}ms (current time is {}ms)",
+                          stream_id,
+                          rx_ctx->unknown_expiry_tick_ms,
+                          static_cast<uint64_t>(
+                            std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count()));
                     }
 
                     rx_ctx->unknown_expiry_tick_ms = 0;
@@ -1722,6 +1725,8 @@ namespace quicr {
                 }
             }
         } // end of for loop rx data queue
+    } catch (const TransportException& e) {
+        SPDLOG_LOGGER_INFO(logger_, "OnRecvStream: connection or stream no longer exists (error={})", e.what());
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception on receiving stream. (error={})", e.what());
         throw;

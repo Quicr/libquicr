@@ -29,6 +29,9 @@ CPMAddPackage("gh:gabime/spdlog@1.17.0")
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
+# Time queue
+add_subdirectory(timeq)
+
 # mbedtls
 if (${USE_MBEDTLS})
     message("Transport building with MBedTLS")

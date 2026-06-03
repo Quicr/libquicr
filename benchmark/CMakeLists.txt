@@ -6,14 +6,13 @@ set(BENCHMARK_ENABLE_TESTING OFF)
 CPMAddPackage("gh:google/benchmark@1.9.5")
 
 add_executable(quicr_benchmark
-    stream_buffer.cpp
-    time_queue.cpp
-    uintvar.cpp
-    priority_queue.cpp
-    hash.cpp
     data_storage.cpp
-    tick_service.cpp
     extensions.cpp
+    hash.cpp
+    priority_queue.cpp
+    safe_time_queue.cpp
+    stream_buffer.cpp
+    uintvar.cpp
 )
 
 target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)
