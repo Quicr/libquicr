@@ -8,8 +8,13 @@ add_executable(quicr_integration_test
     test_server.cpp
     test_client.h
     test_client.cpp
-    ${QUICR_SANITIZER_TEST_SRC}
 )
+
+if(QUICR_ENABLE_SANITIZERS)
+    target_sources(quicr_integration_test PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}/../sanitizer_options.cpp"
+    )
+endif()
 
 # Include directories
 target_include_directories(quicr_integration_test PRIVATE
