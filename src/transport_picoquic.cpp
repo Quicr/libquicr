@@ -1766,12 +1766,12 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
 
     if (data_ctx != nullptr && stream_ctx.tx_reset_wait_discard) { // Drop TX objects till next reset/new stream
 
-        auto obj = stream_ctx.tx_data->Front();
-        if (obj.value.has_value() && obj.value->get().data) {
+        const auto [value, _] = stream_ctx.tx_data->Front();
+        if (value.has_value() && value->get().data) {
             data_ctx->metrics.tx_queue_discards++;
 
-            if (obj.value->get().stream_action == StreamAction::kCloseStreamUseFin ||
-                obj.value->get().stream_action == StreamAction::kCloseStreamUseReset) {
+            if (value->get().stream_action == StreamAction::kCloseStreamUseFin ||
+                value->get().stream_action == StreamAction::kCloseStreamUseReset) {
 
                 std::lock_guard<std::mutex> _(state_mutex_);
                 const auto conn_ctx = GetConnContext(data_ctx->conn_id);
