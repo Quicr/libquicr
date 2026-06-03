@@ -29,7 +29,7 @@ TEST_CASE("Priority Queue Push/Pop - one group")
 
         size_t num = 0;
 
-        std::memcpy(&num, elem.value.value().data(), sizeof(num));
+        std::memcpy(&num, value.value().data(), sizeof(num));
         CHECK(num == i);
     }
 
