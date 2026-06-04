@@ -1804,7 +1804,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
 #pragma clang diagnostic ignored "-Wthread-safety-analysis"
     defer({
         const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
-#pragma clang diagnostic pop
 
         if (should_reset) {
             CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, true);
