@@ -12,12 +12,14 @@ add_executable(quicr_test
     moq_test.cpp
     priority_queue.cpp
     session.cpp
-    tick_service.cpp
-    time_queue.cpp
     track_handlers.cpp
     track_namespace.cpp
     uintvar.cpp
 )
+
+if(QUICR_ENABLE_SANITIZERS)
+    target_sources(quicr_test PRIVATE sanitizer_options.cpp)
+endif()
 
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)

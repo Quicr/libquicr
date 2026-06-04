@@ -5,7 +5,7 @@
 
 #include <any>
 #include <doctest/doctest.h>
-#include <memory>
+#include <optional>
 #include <string>
 #include <sys/socket.h>
 
@@ -487,38 +487,39 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderProperties properties, Extension
         buffer << obj;
     }
 
-    StreamSubGroupObject obj_out;
-    obj_out.properties.emplace(properties);
+    std::optional<StreamSubGroupObject> obj_out;
+    obj_out.emplace();
+    obj_out->properties.emplace(properties);
     size_t object_count = 0;
     StreamBuffer<uint8_t> in_buffer;
     for (size_t i = 0; i < buffer.size(); i++) {
         in_buffer.Push(buffer.at(i));
-        bool done = in_buffer >> obj_out;
+        bool done = in_buffer >> *obj_out;
         if (!done) {
             continue;
         }
 
-        CHECK_EQ(obj_out.object_delta, objects[object_count].object_delta);
+        CHECK_EQ(obj_out->object_delta, objects[object_count].object_delta);
         if (empty_payload) {
-            CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
+            CHECK_EQ(obj_out->object_status, objects[object_count].object_status);
         } else {
-            CHECK(obj_out.payload.size() > 0);
-            CHECK_EQ(obj_out.payload, objects[object_count].payload);
+            CHECK(obj_out->payload.size() > 0);
+            CHECK_EQ(obj_out->payload, objects[object_count].payload);
         }
 
         if (properties.extensions) {
             CompareExtensions(objects[object_count].extensions,
-                              obj_out.extensions,
+                              obj_out->extensions,
                               extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
-            CHECK_EQ(obj_out.immutable_extensions, objects[object_count].immutable_extensions);
+            CHECK_EQ(obj_out->immutable_extensions, objects[object_count].immutable_extensions);
         } else {
-            CHECK_EQ(obj_out.extensions, std::nullopt);
-            CHECK_EQ(obj_out.immutable_extensions, std::nullopt);
+            CHECK_EQ(obj_out->extensions, std::nullopt);
+            CHECK_EQ(obj_out->immutable_extensions, std::nullopt);
         }
         // got one object
         object_count++;
-        std::construct_at(&obj_out);
-        obj_out.properties.emplace(properties);
+        obj_out.emplace();
+        obj_out->properties.emplace(properties);
         in_buffer.Pop(in_buffer.Size());
     }
 

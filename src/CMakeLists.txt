@@ -35,6 +35,7 @@ target_sources(quicr PRIVATE
 
 target_link_libraries(quicr PUBLIC
     spdlog
+    timeq
     picoquic-core
     picoquic-log
     picohttp-core

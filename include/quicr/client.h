@@ -138,7 +138,7 @@ namespace quicr {
         {
         }
 
-        Client(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service)
+        Client(const ClientConfig& cfg, std::shared_ptr<timeq::tick_service> tick_service)
           : Transport(cfg, std::move(tick_service))
         {
         }

@@ -16,7 +16,8 @@
 #include "quicr/publish_track_handler.h"
 #include "quicr/subscribe_namespace_handler.h"
 #include "quicr/subscribe_track_handler.h"
-#include "tick_service.h"
+
+#include <timeq/tick_service.h>
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -120,7 +121,7 @@ namespace quicr {
 
         ~Transport();
 
-        const std::shared_ptr<TickService>& GetTickService() const noexcept { return tick_service_; }
+        const std::shared_ptr<timeq::tick_service>& GetTickService() const noexcept { return tick_service_; }
 
         // -------------------------------------------------------------------------------------------------
         // Lifecycle
@@ -862,7 +863,7 @@ namespace quicr {
          * @param cfg MoQ Client Configuration
          */
         Transport(const ClientConfig& cfg)
-          : Transport(cfg, std::make_shared<ThreadedTickService>(cfg.tick_service_sleep_delay_us))
+          : Transport(cfg, std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us))
         {
         }
 
@@ -872,7 +873,7 @@ namespace quicr {
          * @param cfg MoQ Server Configuration
          */
         Transport(const ServerConfig& cfg)
-          : Transport(cfg, std::make_shared<ThreadedTickService>(cfg.tick_service_sleep_delay_us))
+          : Transport(cfg, std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us))
         {
         }
 
@@ -882,7 +883,7 @@ namespace quicr {
          * @param cfg            MoQ Instance Client Configuration
          * @param tick_service   Shared pointer to the tick service to use
          */
-        Transport(const ClientConfig& cfg, std::shared_ptr<TickService> tick_service);
+        Transport(const ClientConfig& cfg, std::shared_ptr<timeq::tick_service> tick_service);
 
         /**
          * @brief Server mode constructor with explicit tick service
@@ -890,7 +891,7 @@ namespace quicr {
          * @param cfg            MoQ Server Configuration
          * @param tick_service   Shared pointer to the tick service to use
          */
-        Transport(const ServerConfig& cfg, std::shared_ptr<TickService> tick_service);
+        Transport(const ServerConfig& cfg, std::shared_ptr<timeq::tick_service> tick_service);
 
         StartTransportResult StartTransport();
 
@@ -1269,7 +1270,7 @@ namespace quicr {
 
         Status status_{ Status::kNotReady };
 
-        std::shared_ptr<TickService> tick_service_;
+        std::shared_ptr<timeq::tick_service> tick_service_;
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
 
         friend class PublishTrackHandler;

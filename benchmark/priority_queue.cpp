@@ -2,8 +2,9 @@
 
 #include <benchmark/benchmark.h>
 #include <quicr/detail/quic_transport.h>
+#include <timeq/tick_service.h>
 
-static auto tick_service = std::make_shared<quicr::ThreadedTickService>();
+static auto tick_service = std::make_shared<timeq::threaded_tick_service>();
 
 constexpr size_t kIterations = 1'000'000;
 constexpr size_t kNumSubscribers = 10;
@@ -120,8 +121,7 @@ PQ_PopFront(benchmark::State& state)
     int64_t items_count = 0;
     for (auto _ : state) {
         ++items_count;
-        quicr::TimeQueueElement<std::vector<uint8_t>> elem;
-        pq.PopFront(elem);
+        auto elem = pq.PopFront();
         benchmark::DoNotOptimize(elem);
         benchmark::ClobberMemory();
     }
@@ -154,10 +154,9 @@ PQ_ConnDataForwarding(benchmark::State& state)
         cd.tick_microseconds++;
         for (auto& pq : queues) {
             pq->Push(static_cast<int>(items_count / 150), cd, 2000);
-            quicr::TimeQueueElement<quicr::ConnData> elem;
-            pq->PopFront(elem);
+            auto elem = pq->PopFront();
 
-            if (pq->Size() > 4 and elem.has_value) {
+            if (pq->Size() > 4 && elem.value.has_value()) {
                 break;
             }
         }
