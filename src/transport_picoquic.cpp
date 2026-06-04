@@ -1799,8 +1799,12 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
     }
 
     bool should_reset = false;
+// tx_data is still locked here, but the analyzer can't see it, so skip the check.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wthread-safety-analysis"
     defer({
         const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
+#pragma clang diagnostic pop
 
         if (should_reset) {
             CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, true);
@@ -1816,6 +1820,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
             CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, false);
         }
     });
+#pragma clang diagnostic pop
 
     if (stream_ctx.tx_object == nullptr) {
         SPDLOG_LOGGER_TRACE(logger,
