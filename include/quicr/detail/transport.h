@@ -194,7 +194,7 @@ namespace quicr {
                             const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
-         * @brief Publish a track namespace on a specific connection
+         * @brief Publish a track namespace
          *
          * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param ns_handler                  Namespace handler to use for track related functions
@@ -206,7 +206,7 @@ namespace quicr {
                               bool passive = false);
 
         /**
-         * @brief Unpublish a track namespace on a specific connection
+         * @brief Unpublish track namespace
          *
          * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param track_handler               Track handler used when published track
@@ -334,10 +334,10 @@ namespace quicr {
          * @param track_alias        Track alias the subscriber should use
          * @param subscribe_response Response for the subscribe
          */
-        virtual void ResolveSubscribe(ConnectionHandle connection_handle,
-                                      uint64_t request_id,
-                                      uint64_t track_alias,
-                                      const RequestResponse& subscribe_response);
+        void ResolveSubscribe(ConnectionHandle connection_handle,
+                              uint64_t request_id,
+                              uint64_t track_alias,
+                              const RequestResponse& subscribe_response);
 
         /**
          * @brief Accept or reject subscribe namespace that was received
@@ -350,11 +350,11 @@ namespace quicr {
          * @param prefix            Track namespace prefix
          * @param response          Response for remainder of subscribe namespace flow
          */
-        virtual void ResolveSubscribeNamespace(ConnectionHandle connection_handle,
-                                               DataContextId data_ctx_id,
-                                               uint64_t request_id,
-                                               const TrackNamespace& prefix,
-                                               const SubscribeNamespaceResponse& response);
+        void ResolveSubscribeNamespace(ConnectionHandle connection_handle,
+                                       DataContextId data_ctx_id,
+                                       uint64_t request_id,
+                                       const TrackNamespace& prefix,
+                                       const SubscribeNamespaceResponse& response);
 
         /**
          * @brief Accept or reject a fetch that was received
@@ -368,11 +368,11 @@ namespace quicr {
          * @param group_order       Optional group order for the fetch response
          * @param response          Response to the fetch
          */
-        virtual void ResolveFetch(ConnectionHandle connection_handle,
-                                  uint64_t request_id,
-                                  std::uint8_t priority,
-                                  std::optional<messages::GroupOrder> group_order,
-                                  const FetchResponse& response);
+        void ResolveFetch(ConnectionHandle connection_handle,
+                          uint64_t request_id,
+                          std::uint8_t priority,
+                          std::optional<messages::GroupOrder> group_order,
+                          const FetchResponse& response);
 
         /**
          * @brief Accept or reject an announce that was received
@@ -414,10 +414,10 @@ namespace quicr {
          * @param existing_request_id   Existing request ID being updated
          * @param params                Updated parameters
          */
-        virtual void ResolveRequestUpdate(ConnectionHandle connection_handle,
-                                          uint64_t request_id,
-                                          uint64_t existing_request_id,
-                                          const messages::Parameters& params);
+        void ResolveRequestUpdate(ConnectionHandle connection_handle,
+                                  uint64_t request_id,
+                                  uint64_t existing_request_id,
+                                  const messages::Parameters& params);
 
         /**
          * @brief Accept or reject track status that was received
@@ -431,9 +431,9 @@ namespace quicr {
          * @param subscribe_response       Response to the track status request, either Ok or Error.
          *                                 Largest loation should be set if kOk and there is content
          */
-        virtual void ResolveTrackStatus(ConnectionHandle connection_handle,
-                                        uint64_t request_id,
-                                        const RequestResponse& subscribe_response);
+        void ResolveTrackStatus(ConnectionHandle connection_handle,
+                                uint64_t request_id,
+                                const RequestResponse& subscribe_response);
 
         ///@}
         // --END RESOLVE METHODS -----------------------------------------------------------------------------
