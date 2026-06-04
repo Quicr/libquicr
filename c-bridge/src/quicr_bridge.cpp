@@ -8,12 +8,12 @@
 
 #include "quicr/quicr_bridge.h"
 
+#include <quicr/client.h>
 #include <quicr/common.h>
 #include <quicr/config.h>
 #include <quicr/fetch_track_handler.h>
 #include <quicr/object.h>
 #include <quicr/publish_track_handler.h>
-#include <quicr/session.h>
 #include <quicr/subscribe_namespace_handler.h>
 #include <quicr/subscribe_track_handler.h>
 #include <quicr/track_name.h>
@@ -146,7 +146,7 @@ namespace {
         if (c_config) {
             config.connect_uri =
               std::string("moq://") + c_config->server_hostname + ":" + std::to_string(c_config->server_port);
-            config.endpoint_id = "qbridge_session";
+            config.endpoint_id = "qbridge_client";
             config.tick_service_sleep_delay_us = c_config->tick_service_sleep_delay_us;
 
             // Configure transport
@@ -187,17 +187,17 @@ namespace {
 
 } // anonymous namespace
 
-// === SESSION IMPLEMENTATION ===
+// === CLIENT IMPLEMENTATION ===
 
 /**
- * @brief Bridge session class extending quicr::Client
+ * @brief Bridge client class extending quicr::Client
  */
-class BridgeSession : public quicr::Client
+class BridgeClient : public quicr::Client
 {
   public:
-    static std::shared_ptr<BridgeSession> Create(const quicr::ClientConfig& cfg)
+    static std::shared_ptr<BridgeClient> Create(const quicr::ClientConfig& cfg)
     {
-        return std::shared_ptr<BridgeSession>(new BridgeSession(cfg));
+        return std::shared_ptr<BridgeClient>(new BridgeClient(cfg));
     }
 
     qbridge_connection_status_callback_t status_callback = nullptr;
@@ -207,7 +207,7 @@ class BridgeSession : public quicr::Client
     std::mutex callback_mutex;
 
   protected:
-    BridgeSession(const quicr::ClientConfig& config)
+    BridgeClient(const quicr::ClientConfig& config)
       : quicr::Client(config)
     {
     }
@@ -223,16 +223,16 @@ class BridgeSession : public quicr::Client
 };
 
 /**
- * @brief C session structure wrapping C++ session
+ * @brief C client structure wrapping C++ client
  */
-struct qbridge_session
+struct qbridge_client
 {
-    std::shared_ptr<BridgeSession> cpp_session;
+    std::shared_ptr<BridgeClient> cpp_client;
 
-    qbridge_session(const qbridge_client_config_t* config)
+    qbridge_client(const qbridge_client_config_t* config)
     {
         auto cpp_config = cpp_client_config_from_c(config);
-        cpp_session = BridgeSession::Create(cpp_config);
+        cpp_client = BridgeClient::Create(cpp_config);
     }
 };
 
@@ -658,121 +658,121 @@ struct qbridge_fetch_track_handler
 extern "C"
 {
 
-    // Session lifecycle
-    qbridge_session_t* qbridge_session_create(const qbridge_client_config_t* config)
+    // Client lifecycle
+    qbridge_client_t* qbridge_client_create(const qbridge_client_config_t* config)
     {
         if (!config) {
             return nullptr;
         }
 
         try {
-            return new qbridge_session(config);
+            return new qbridge_client(config);
         } catch (...) {
             return nullptr;
         }
     }
 
-    void qbridge_session_destroy(qbridge_session_t* session)
+    void qbridge_client_destroy(qbridge_client_t* client)
     {
-        delete session;
+        delete client;
     }
 
-    qbridge_result_t qbridge_session_connect(qbridge_session_t* session)
+    qbridge_result_t qbridge_client_connect(qbridge_client_t* client)
     {
-        if (!session || !session->cpp_session) {
+        if (!client || !client->cpp_client) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto status = session->cpp_session->Start();
+        const auto status = client->cpp_client->Connect();
         return (status == quicr::Transport::Status::kConnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
     }
 
-    qbridge_result_t qbridge_session_disconnect(qbridge_session_t* session)
+    qbridge_result_t qbridge_client_disconnect(qbridge_client_t* client)
     {
-        if (!session || !session->cpp_session) {
+        if (!client || !client->cpp_client) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        session->cpp_session->Stop();
+        client->cpp_client->Disconnect();
         return QBRIDGE_OK;
     }
 
-    qbridge_connection_status_t qbridge_session_get_status(const qbridge_session_t* session)
+    qbridge_connection_status_t qbridge_client_get_status(const qbridge_client_t* client)
     {
-        if (!session || !session->cpp_session) {
+        if (!client || !client->cpp_client) {
             return QBRIDGE_STATUS_ERROR;
         }
 
-        return status_from_cpp(session->cpp_session->GetStatus());
+        return status_from_cpp(client->cpp_client->GetStatus());
     }
 
-    // Session callback registration
-    void qbridge_session_set_status_callback(qbridge_session_t* session,
-                                             qbridge_connection_status_callback_t callback,
-                                             void* user_data)
+    // Client callback registration
+    void qbridge_client_set_status_callback(qbridge_client_t* client,
+                                            qbridge_connection_status_callback_t callback,
+                                            void* user_data)
     {
-        if (!session)
+        if (!client)
             return;
 
-        std::lock_guard<std::mutex> lock(session->cpp_session->callback_mutex);
-        session->cpp_session->status_callback = callback;
-        session->cpp_session->status_callback_user_data = user_data;
+        std::lock_guard<std::mutex> lock(client->cpp_client->callback_mutex);
+        client->cpp_client->status_callback = callback;
+        client->cpp_client->status_callback_user_data = user_data;
     }
 
-    void qbridge_session_set_namespace_callback(qbridge_session_t* session,
-                                                qbridge_namespace_callback_t callback,
-                                                void* user_data)
+    void qbridge_client_set_namespace_callback(qbridge_client_t* client,
+                                               qbridge_namespace_callback_t callback,
+                                               void* user_data)
     {
-        if (!session)
+        if (!client)
             return;
 
-        std::lock_guard<std::mutex> lock(session->cpp_session->callback_mutex);
-        session->cpp_session->namespace_callback = callback;
-        session->cpp_session->namespace_callback_user_data = user_data;
+        std::lock_guard<std::mutex> lock(client->cpp_client->callback_mutex);
+        client->cpp_client->namespace_callback = callback;
+        client->cpp_client->namespace_callback_user_data = user_data;
     }
 
     // Namespace operations
-    qbridge_result_t qbridge_session_publish_namespace(qbridge_session_t* session,
-                                                       const qbridge_publish_namespace_track_handler_t* handler)
+    qbridge_result_t qbridge_client_publish_namespace(qbridge_client_t* client,
+                                                      const qbridge_publish_namespace_track_handler_t* handler)
     {
-        if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        session->cpp_session->PublishNamespace(handler->cpp_handler);
+        client->cpp_client->PublishNamespace(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_session_unpublish_namespace(qbridge_session_t* session,
-                                                         const qbridge_publish_namespace_track_handler_t* handler)
+    qbridge_result_t qbridge_client_unpublish_namespace(qbridge_client_t* client,
+                                                        const qbridge_publish_namespace_track_handler_t* handler)
     {
-        if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        session->cpp_session->PublishNamespaceDone(handler->cpp_handler);
+        client->cpp_client->PublishNamespaceDone(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_session_subscribe_namespace(qbridge_session_t* session,
-                                                         const qbridge_subscribe_namespace_track_handler_t* handler)
+    qbridge_result_t qbridge_client_subscribe_namespace(qbridge_client_t* client,
+                                                        const qbridge_subscribe_namespace_track_handler_t* handler)
     {
-        if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        session->cpp_session->SubscribeNamespace(handler->cpp_handler);
+        client->cpp_client->SubscribeNamespace(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_session_unsubscribe_namespace(qbridge_session_t* session,
-                                                           const qbridge_subscribe_namespace_track_handler_t* handler)
+    qbridge_result_t qbridge_client_unsubscribe_namespace(qbridge_client_t* client,
+                                                          const qbridge_subscribe_namespace_track_handler_t* handler)
     {
-        if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        session->cpp_session->UnsubscribeNamespace(handler->cpp_handler);
+        client->cpp_client->UnsubscribeNamespace(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
@@ -845,67 +845,65 @@ extern "C"
     }
 
     // Track operations
-    qbridge_result_t qbridge_session_publish_track(qbridge_session_t* session, qbridge_publish_track_handler_t* handler)
+    qbridge_result_t qbridge_client_publish_track(qbridge_client_t* client, qbridge_publish_track_handler_t* handler)
     {
-        if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        session->cpp_session->PublishTrack(handler->cpp_handler);
+        client->cpp_client->PublishTrack(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_session_unpublish_track(qbridge_session_t* session,
-                                                     qbridge_publish_track_handler_t* handler)
+    qbridge_result_t qbridge_client_unpublish_track(qbridge_client_t* client, qbridge_publish_track_handler_t* handler)
     {
-        if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        session->cpp_session->UnpublishTrack(handler->cpp_handler);
+        client->cpp_client->UnpublishTrack(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_session_subscribe_track(qbridge_session_t* session,
-                                                     qbridge_subscribe_track_handler_t* handler)
+    qbridge_result_t qbridge_client_subscribe_track(qbridge_client_t* client,
+                                                    qbridge_subscribe_track_handler_t* handler)
     {
-        if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        session->cpp_session->SubscribeTrack(handler->cpp_handler);
+        client->cpp_client->SubscribeTrack(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_session_unsubscribe_track(qbridge_session_t* session,
-                                                       qbridge_subscribe_track_handler_t* handler)
+    qbridge_result_t qbridge_client_unsubscribe_track(qbridge_client_t* client,
+                                                      qbridge_subscribe_track_handler_t* handler)
     {
-        if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        session->cpp_session->UnsubscribeTrack(handler->cpp_handler);
+        client->cpp_client->UnsubscribeTrack(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_session_fetch_track(qbridge_session_t* session, qbridge_fetch_track_handler_t* handler)
+    qbridge_result_t qbridge_client_fetch_track(qbridge_client_t* client, qbridge_fetch_track_handler_t* handler)
     {
-        if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        session->cpp_session->FetchTrack(handler->cpp_handler);
+        client->cpp_client->FetchTrack(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 
-    qbridge_result_t qbridge_session_cancel_fetch_track(qbridge_session_t* session,
-                                                        qbridge_fetch_track_handler_t* handler)
+    qbridge_result_t qbridge_client_cancel_fetch_track(qbridge_client_t* client, qbridge_fetch_track_handler_t* handler)
     {
-        if (!session || !session->cpp_session || !handler || !handler->cpp_handler) {
+        if (!client || !client->cpp_client || !handler || !handler->cpp_handler) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        session->cpp_session->CancelFetchTrack(handler->cpp_handler);
+        client->cpp_client->CancelFetchTrack(handler->cpp_handler);
         return QBRIDGE_OK;
     }
 

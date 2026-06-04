@@ -69,7 +69,7 @@ signal_handler(int signum)
 void
 status_callback(qbridge_connection_status_t status, void* user_data)
 {
-    printf("Session status changed: %s\n", qbridge_status_to_string(status));
+    printf("Client status changed: %s\n", qbridge_status_to_string(status));
 }
 
 void
@@ -213,7 +213,7 @@ print_usage(const char* program_name)
 }
 
 int
-send_file(qbridge_session_t* session,
+send_file(qbridge_client_t* client,
           const char* namespace_str,
           const char* track_name_str,
           const char* filename,
@@ -249,7 +249,7 @@ send_file(qbridge_session_t* session,
     }
 
     if (use_announce) {
-        qbridge_session_publish_namespace(session, &ns);
+        qbridge_client_publish_namespace(client, &ns);
     }
 
     // Create publish track
@@ -275,7 +275,7 @@ send_file(qbridge_session_t* session,
         return 1;
     }
 
-    result = qbridge_session_publish_track(session, publish_handler);
+    result = qbridge_client_publish_track(client, publish_handler);
     if (result != QBRIDGE_OK) {
         fclose(fp);
         qbridge_destroy_publish_track_handler(publish_handler);
@@ -290,7 +290,7 @@ send_file(qbridge_session_t* session,
 
     if (!keep_running) {
         fclose(fp);
-        qbridge_session_unpublish_track(session, publish_handler);
+        qbridge_client_unpublish_track(client, publish_handler);
         qbridge_destroy_publish_track_handler(publish_handler);
         return 0;
     }
@@ -314,7 +314,7 @@ send_file(qbridge_session_t* session,
     if (result != QBRIDGE_OK) {
         printf("Failed to send metadata: %s\n", qbridge_result_to_string(result));
         fclose(fp);
-        qbridge_session_unpublish_track(session, publish_handler);
+        qbridge_client_unpublish_track(client, publish_handler);
         qbridge_destroy_publish_track_handler(publish_handler);
         return 1;
     }
@@ -409,9 +409,9 @@ send_file(qbridge_session_t* session,
     fclose(fp);
 
     // Cleanup
-    qbridge_session_unpublish_track(session, publish_handler);
+    qbridge_client_unpublish_track(client, publish_handler);
     if (use_announce) {
-        qbridge_session_unpublish_namespace(session, &ns);
+        qbridge_client_unpublish_namespace(client, &ns);
     }
     qbridge_destroy_publish_track_handler(publish_handler);
 
@@ -419,7 +419,7 @@ send_file(qbridge_session_t* session,
 }
 
 int
-receive_file(qbridge_session_t* session,
+receive_file(qbridge_client_t* client,
              const char* namespace_str,
              const char* track_name_str,
              const char* filename,
@@ -469,7 +469,7 @@ receive_file(qbridge_session_t* session,
         return 1;
     }
 
-    result = qbridge_session_subscribe_track(session, subscribe_handler);
+    result = qbridge_client_subscribe_track(client, subscribe_handler);
     if (result != QBRIDGE_OK) {
         fclose(fp);
         qbridge_destroy_subscribe_track_handler(subscribe_handler);
@@ -499,7 +499,7 @@ receive_file(qbridge_session_t* session,
     }
 
     // Cleanup
-    qbridge_session_unsubscribe_track(session, subscribe_handler);
+    qbridge_client_unsubscribe_track(client, subscribe_handler);
     qbridge_destroy_subscribe_track_handler(subscribe_handler);
     fclose(fp);
 
@@ -526,7 +526,7 @@ main(int argc, char* argv[])
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    // Initialize session configuration
+    // Initialize client configuration
     qbridge_client_config_t config;
     qbridge_client_config_init(&config);
 
@@ -572,37 +572,37 @@ main(int argc, char* argv[])
     config.debug_logs = false;
     printf("Connecting to %s:%d\n", config.server_hostname, config.server_port);
 
-    // Create session
-    qbridge_session_t* session = qbridge_session_create(&config);
-    if (!session) {
-        printf("Failed to create session\n");
+    // Create client
+    qbridge_client_t* client = qbridge_client_create(&config);
+    if (!client) {
+        printf("Failed to create client\n");
         return 1;
     }
 
-    qbridge_session_set_status_callback(session, status_callback, NULL);
+    qbridge_client_set_status_callback(client, status_callback, NULL);
 
     // Connect to server
-    qbridge_result_t result = qbridge_session_connect(session);
+    qbridge_result_t result = qbridge_client_connect(client);
     if (result != QBRIDGE_OK) {
         printf("Failed to connect: %s\n", qbridge_result_to_string(result));
-        qbridge_session_destroy(session);
+        qbridge_client_destroy(client);
         return 1;
     }
 
     // Wait for connection
     printf("Waiting for connection...\n");
-    while (keep_running && qbridge_session_get_status(session) == QBRIDGE_STATUS_CONNECTING) {
+    while (keep_running && qbridge_client_get_status(client) == QBRIDGE_STATUS_CONNECTING) {
         usleep(100000);
     }
 
     if (!keep_running) {
-        qbridge_session_destroy(session);
+        qbridge_client_destroy(client);
         return 0;
     }
 
-    if (qbridge_session_get_status(session) != QBRIDGE_STATUS_READY) {
+    if (qbridge_client_get_status(client) != QBRIDGE_STATUS_READY) {
         printf("Failed to connect to server\n");
-        qbridge_session_destroy(session);
+        qbridge_client_destroy(client);
         return 1;
     }
 
@@ -611,14 +611,14 @@ main(int argc, char* argv[])
     // Execute send or receive
     int ret;
     if (mode == 1) {
-        ret = send_file(session, namespace_str, track_name_str, filename, use_announce);
+        ret = send_file(client, namespace_str, track_name_str, filename, use_announce);
     } else {
-        ret = receive_file(session, namespace_str, track_name_str, filename, expected_chunks);
+        ret = receive_file(client, namespace_str, track_name_str, filename, expected_chunks);
     }
 
     // Cleanup
-    qbridge_session_disconnect(session);
-    qbridge_session_destroy(session);
+    qbridge_client_disconnect(client);
+    qbridge_client_destroy(client);
 
     printf("\nFile transfer example shut down complete.\n");
     return ret;

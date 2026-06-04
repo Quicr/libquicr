@@ -31,7 +31,7 @@ signal_handler(int signum)
 void
 status_callback(qbridge_connection_status_t status, void* user_data)
 {
-    printf("Session status changed: %s\n", qbridge_status_to_string(status));
+    printf("Client status changed: %s\n", qbridge_status_to_string(status));
 }
 
 void
@@ -87,7 +87,7 @@ main(int argc, char* argv[])
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    // Initialize session configuration
+    // Initialize client configuration
     qbridge_client_config_t config;
     qbridge_client_config_init(&config);
 
@@ -127,37 +127,37 @@ main(int argc, char* argv[])
     printf("Fetching from namespace: %s, track: %s\n", namespace_str, track_name_str);
     printf("Range: group [%llu - %llu], object [%llu - %llu]\n\n", start_group, end_group, start_object, end_object);
 
-    // Create session
-    qbridge_session_t* session = qbridge_session_create(&config);
-    if (!session) {
-        printf("Failed to create session\n");
+    // Create client
+    qbridge_client_t* client = qbridge_client_create(&config);
+    if (!client) {
+        printf("Failed to create client\n");
         return 1;
     }
 
-    qbridge_session_set_status_callback(session, status_callback, NULL);
+    qbridge_client_set_status_callback(client, status_callback, NULL);
 
     // Connect to server
-    qbridge_result_t result = qbridge_session_connect(session);
+    qbridge_result_t result = qbridge_client_connect(client);
     if (result != QBRIDGE_OK) {
         printf("Failed to connect: %s\n", qbridge_result_to_string(result));
-        qbridge_session_destroy(session);
+        qbridge_client_destroy(client);
         return 1;
     }
 
     // Wait for connection
     printf("Waiting for connection...\n");
-    while (keep_running && qbridge_session_get_status(session) == QBRIDGE_STATUS_CONNECTING) {
+    while (keep_running && qbridge_client_get_status(client) == QBRIDGE_STATUS_CONNECTING) {
         usleep(100000);
     }
 
     if (!keep_running) {
-        qbridge_session_destroy(session);
+        qbridge_client_destroy(client);
         return 0;
     }
 
-    if (qbridge_session_get_status(session) != QBRIDGE_STATUS_READY) {
+    if (qbridge_client_get_status(client) != QBRIDGE_STATUS_READY) {
         printf("Failed to connect to server\n");
-        qbridge_session_destroy(session);
+        qbridge_client_destroy(client);
         return 1;
     }
 
@@ -170,7 +170,7 @@ main(int argc, char* argv[])
     result = qbridge_full_track_name_from_strings(&fetch_config.full_track_name, namespace_str, track_name_str);
     if (result != QBRIDGE_OK) {
         printf("Failed to create track name: %s\n", qbridge_result_to_string(result));
-        qbridge_session_destroy(session);
+        qbridge_client_destroy(client);
         return 1;
     }
 
@@ -185,18 +185,18 @@ main(int argc, char* argv[])
 
     if (!fetch_handler) {
         printf("Failed to create fetch track handler\n");
-        qbridge_session_destroy(session);
+        qbridge_client_destroy(client);
         return 1;
     }
 
     printf("Starting fetch...\n");
 
     // Fetch track
-    result = qbridge_session_fetch_track(session, fetch_handler);
+    result = qbridge_client_fetch_track(client, fetch_handler);
     if (result != QBRIDGE_OK) {
         printf("Failed to fetch track: %s\n", qbridge_result_to_string(result));
         qbridge_destroy_fetch_track_handler(fetch_handler);
-        qbridge_session_destroy(session);
+        qbridge_client_destroy(client);
         return 1;
     }
 
@@ -213,11 +213,11 @@ main(int argc, char* argv[])
     printf("Total objects received: %d\n", objects_received);
 
     // Cleanup
-    qbridge_session_cancel_fetch_track(session, fetch_handler);
+    qbridge_client_cancel_fetch_track(client, fetch_handler);
     qbridge_destroy_fetch_track_handler(fetch_handler);
 
-    qbridge_session_disconnect(session);
-    qbridge_session_destroy(session);
+    qbridge_client_disconnect(client);
+    qbridge_client_destroy(client);
 
     printf("Fetch example shut down complete.\n");
     return 0;
