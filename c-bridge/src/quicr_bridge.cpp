@@ -845,6 +845,25 @@ extern "C"
         delete handler;
     }
 
+    qbridge_publish_namespace_track_handler_t* qbridge_create_publish_namespace_track_handler(
+      const qbridge_namespace_t* ns)
+    {
+        if (!ns) {
+            return nullptr;
+        }
+
+        try {
+            return new qbridge_publish_namespace_track_handler(ns);
+        } catch (...) {
+            return nullptr;
+        }
+    }
+
+    void qbridge_destroy_publish_namespace_track_handler(qbridge_publish_namespace_track_handler_t* handler)
+    {
+        delete handler;
+    }
+
     // Track operations
     qbridge_result_t qbridge_client_publish_track(qbridge_client_t* client, qbridge_publish_track_handler_t* handler)
     {

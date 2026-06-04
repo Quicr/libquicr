@@ -248,8 +248,12 @@ send_file(qbridge_client_t* client,
         return 1;
     }
 
+    qbridge_publish_namespace_track_handler_t* ns_handler = NULL;
     if (use_announce) {
-        qbridge_client_publish_namespace(client, &ns);
+        ns_handler = qbridge_create_publish_namespace_track_handler(&ns);
+        if (ns_handler) {
+            qbridge_client_publish_namespace(client, ns_handler);
+        }
     }
 
     // Create publish track
@@ -410,8 +414,9 @@ send_file(qbridge_client_t* client,
 
     // Cleanup
     qbridge_client_unpublish_track(client, publish_handler);
-    if (use_announce) {
-        qbridge_client_unpublish_namespace(client, &ns);
+    if (ns_handler) {
+        qbridge_client_unpublish_namespace(client, ns_handler);
+        qbridge_destroy_publish_namespace_track_handler(ns_handler);
     }
     qbridge_destroy_publish_track_handler(publish_handler);
 
