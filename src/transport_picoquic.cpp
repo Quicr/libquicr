@@ -2621,6 +2621,7 @@ PicoQuicTransport::Shutdown()
         }
 
         picoquic_delete_network_thread(quic_network_thread_ctx_);
+        quic_network_thread_ctx_ = nullptr;
     }
 
     picoquic_runner_queue_.StopWaiting();
@@ -2629,6 +2630,11 @@ PicoQuicTransport::Shutdown()
     if (cbNotifyThread_.joinable()) {
         SPDLOG_LOGGER_INFO(logger, "Closing transport callback notifier thread");
         cbNotifyThread_.join();
+    }
+
+    if (quic_ctx_ != nullptr) {
+        picoquic_free(quic_ctx_);
+        quic_ctx_ = nullptr;
     }
 
     tick_service_.reset();

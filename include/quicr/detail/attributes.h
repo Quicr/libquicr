@@ -18,50 +18,50 @@ namespace quicr::messages {
      */
     struct SubscribeAttributes
     {
-        std::uint8_t priority;                                              ///< Subscriber priority
+        std::uint8_t priority{ 0 };                                         ///< Subscriber priority
         std::optional<GroupOrder> group_order;                              ///< Subscriber group order
         GroupOrder publisher_default_group_order{ GroupOrder::kAscending }; ///< Publisher track default group order
-        std::chrono::milliseconds delivery_timeout;                         ///< Subscriber delivery timeout
-        std::chrono::milliseconds expires;                                  ///< Subscriber expiry in ms
-        Filter filter;                                                      /// Subscriber filter
-        std::uint8_t forward;                         ///< True to Resume/forward data, False to pause/stop data
+        std::chrono::milliseconds delivery_timeout{ 0 };                    ///< Subscriber delivery timeout
+        std::chrono::milliseconds expires{ 0 };                             ///< Subscriber expiry in ms
+        Filter filter{ std::monostate{} };                                  /// Subscriber filter
+        std::uint8_t forward{ 0 };                    ///< True to Resume/forward data, False to pause/stop data
         std::optional<uint64_t> new_group_request_id; ///< Indicates new group id is requested
-        bool is_publisher_initiated;                  ///< True will not send SUBSCRIBE_OK.
-        Location start_location;                      ///< Start location of group and object
+        bool is_publisher_initiated{ false };         ///< True will not send SUBSCRIBE_OK.
+        Location start_location{};                    ///< Start location of group and object
     };
 
     struct PublishAttributes : SubscribeAttributes
     {
         FullTrackName track_full_name;
-        std::uint64_t track_alias;
-        bool dynamic_groups = false;
+        std::uint64_t track_alias{ 0 };
+        bool dynamic_groups{ false };
     };
 
     struct FetchEndLocation
     {
         /// The group ID of the fetch's end location (inclusive).
-        GroupId group;
+        GroupId group{ 0 };
         /// The object ID of the fetch's end location (inclusive), or null for the whole group.
         std::optional<ObjectId> object;
     };
 
     struct StandaloneFetchAttributes
     {
-        std::uint8_t priority;                                              ///< Fetch priority
+        std::uint8_t priority{ 0 };                                         ///< Fetch priority
         std::optional<GroupOrder> group_order;                              ///< Fetch group order
         GroupOrder publisher_default_group_order{ GroupOrder::kAscending }; ///< Publisher track default group order
-        Location start_location;                                            ///< Fetch starting location in range
-        FetchEndLocation end_location;                                      ///< Fetch final location.
+        Location start_location{};                                          ///< Fetch starting location in range
+        FetchEndLocation end_location{};                                    ///< Fetch final location.
     };
 
     struct JoiningFetchAttributes
     {
-        std::uint8_t priority;                                              ///< Fetch priority
+        std::uint8_t priority{ 0 };                                         ///< Fetch priority
         std::optional<GroupOrder> group_order;                              ///< Fetch group order
         GroupOrder publisher_default_group_order{ GroupOrder::kAscending }; ///< Publisher track default group order
-        RequestID joining_request_id;                                       ///< Fetch joining request_id
-        bool relative{ false };      ///< True indicates relative to largest, False indicates absolute
-        std::uint64_t joining_start; ///< Fetch joining start
+        RequestID joining_request_id{ 0 };                                  ///< Fetch joining request_id
+        bool relative{ false };           ///< True indicates relative to largest, False indicates absolute
+        std::uint64_t joining_start{ 0 }; ///< Fetch joining start
     };
 
     struct SubscribeNamespaceAttributes

@@ -17,6 +17,10 @@ add_executable(quicr_test
     uintvar.cpp
 )
 
+if(QUICR_ENABLE_SANITIZERS)
+    target_sources(quicr_test PRIVATE sanitizer_options.cpp)
+endif()
+
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
 
