@@ -26,15 +26,11 @@ namespace quicr {
             return result.status;
         }
 
-        Status Connect() { return Start(); }
-
         void Stop() override
         {
             Transport::Stop();
             connection_handle_.reset();
         }
-
-        void Disconnect() { Stop(); }
 
         using Transport::CancelFetchTrack;
         using Transport::FetchTrack;

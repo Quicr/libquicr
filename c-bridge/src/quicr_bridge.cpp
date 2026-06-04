@@ -683,7 +683,7 @@ extern "C"
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto status = client->cpp_client->Connect();
+        const auto status = client->cpp_client->Start();
         return (status == quicr::Transport::Status::kConnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
     }
 
@@ -693,7 +693,7 @@ extern "C"
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        client->cpp_client->Disconnect();
+        client->cpp_client->Stop();
         return QBRIDGE_OK;
     }
 
