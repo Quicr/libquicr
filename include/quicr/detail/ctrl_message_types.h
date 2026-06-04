@@ -253,7 +253,7 @@ namespace quicr::messages {
             buffer = buffer.subspan(uvar.size());
             std::uint64_t val(uvar);
             const auto* p = reinterpret_cast<const std::uint8_t*>(&val);
-            kvp.value.assign(p, p + uvar.size());
+            kvp.value.assign(p, p + sizeof(val));
         }
     }
 

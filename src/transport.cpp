@@ -897,7 +897,6 @@ namespace quicr {
         track_handler->connection_handle_ = conn_id;
 
         // Track hash is the track alias for now.
-        // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
         auto th = TrackHash(tfn);
 
         auto proposed_track_alias = track_handler->GetTrackAlias();

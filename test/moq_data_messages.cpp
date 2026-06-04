@@ -655,6 +655,12 @@ TEST_CASE("Fetch Stream Message encode/decode")
 
 TEST_CASE("Key Value Pair size")
 {
+    const auto serialized_size = [](const KeyValuePair<std::uint64_t>& kvp) {
+        Bytes serialized;
+        SerializeKvp(serialized, kvp, std::uint64_t{ 0 });
+        return serialized.size();
+    };
+
     SUBCASE("ODD")
     {
         // Odd should be uintvar bytes of type + uintvar bytes of value's length + n value bytes.
@@ -666,6 +672,7 @@ TEST_CASE("Key Value Pair size")
         const std::size_t expected_size = kvp_type.size() + UintVar(kvp.value.size()).size() + kvp.value.size();
         REQUIRE_EQ(expected_size, 5); // 1 byte for type, 1 byte for length, 3 bytes for value.
         CHECK_EQ(kvp.Size(0), expected_size);
+        CHECK_EQ(kvp.Size(0), serialized_size(kvp));
     }
 
     SUBCASE("1 Byte Value")
@@ -675,7 +682,7 @@ TEST_CASE("Key Value Pair size")
         const UintVar kvp_type = 2;
         kvp.type = kvp_type.Get();
         kvp.value = kUint1ByteValue;
-        CHECK_EQ(kvp.Size(0), 2); // 1 byte for type, 1 byte for value.
+        CHECK_EQ(kvp.Size(0), serialized_size(kvp));
     }
 
     SUBCASE("2 Byte Value")
@@ -685,7 +692,7 @@ TEST_CASE("Key Value Pair size")
         const UintVar kvp_type = 2;
         kvp.type = kvp_type.Get();
         kvp.value = kUint2ByteValue;
-        CHECK_EQ(kvp.Size(0), 3); // 1 byte for type, 2 bytes for value.
+        CHECK_EQ(kvp.Size(0), serialized_size(kvp));
     }
 
     SUBCASE("4 Byte Value")
@@ -695,7 +702,7 @@ TEST_CASE("Key Value Pair size")
         const UintVar kvp_type = 2;
         kvp.type = kvp_type.Get();
         kvp.value = kUint4ByteValue;
-        CHECK_EQ(kvp.Size(0), 5); // 1 byte for type, 4 bytes for value.
+        CHECK_EQ(kvp.Size(0), serialized_size(kvp));
     }
 
     SUBCASE("8 Byte Value")
@@ -705,7 +712,7 @@ TEST_CASE("Key Value Pair size")
         const UintVar kvp_type = 2;
         kvp.type = kvp_type.Get();
         kvp.value = kUint8ByteValue;
-        CHECK_EQ(kvp.Size(0), 9); // 1 byte for type, 8 bytes for value.
+        CHECK_EQ(kvp.Size(0), serialized_size(kvp));
     }
 }
 
@@ -834,7 +841,7 @@ TEST_CASE("Immutable Extensions not length prefixed")
 
     // First KVP: even type key, varint value.
     CHECK_EQ(buffer[idx++], even_type_key);
-    CHECK_EQ(buffer[idx++], 0x40); // Varint byte 1.
+    CHECK_EQ(buffer[idx++], 0x80); // Varint byte 1.
     CHECK_EQ(buffer[idx++], varint_value);
 
     // Second KVP: odd type key delta-encoded from even_type_key, byte array value.

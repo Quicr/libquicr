@@ -5,13 +5,14 @@
 
 #include "utilities.h"
 
+#include <algorithm>
+#include <array>
 #include <bit>
 #include <cstdint>
-#include <cstring>
 #include <source_location>
 #include <span>
 #include <stdexcept>
-#include <vector>
+#include <string>
 
 namespace quicr {
 
@@ -30,31 +31,27 @@ namespace quicr {
     class UintVar
     {
       public:
-        constexpr UintVar(uint64_t value, const std::source_location caller = std::source_location::current())
-          : be_value_{ std::bit_cast<std::array<std::uint8_t, sizeof(std::uint64_t)>>(SwapBytes(value)) }
+        constexpr UintVar(uint64_t value) noexcept
+          : be_value_{ 0 }
         {
-            constexpr uint64_t k14bitLength = (static_cast<uint64_t>(-1) << (64 - 6) >> (64 - 6));
-            constexpr uint64_t k30bitLength = (static_cast<uint64_t>(-1) << (64 - 14) >> (64 - 14));
-            constexpr uint64_t k62bitLength = (static_cast<uint64_t>(-1) << (64 - 30) >> (64 - 30));
+            // How many bytes do we need to store this value?
+            const auto bits = std::bit_width(value);
+            const std::size_t length = std::min<std::size_t>(kMaxEncodedSize, bits == 0 ? 1 : (bits + 6) / 7);
 
-            if (be_value_.front() & 0xC0u) { // Check if invalid
-                throw UintVarInvalidArgException("Value greater than uintvar maximum", caller);
+            // Max is 1 byte of 1s, 8 bytes of value.
+            if (length == kMaxEncodedSize) {
+                const auto bytes = std::bit_cast<std::array<std::uint8_t, sizeof(value)>>(SwapBytes(value));
+                std::copy(bytes.begin(), bytes.end(), std::next(be_value_.begin()));
+                be_value_.front() = 0xFF;
+                return;
             }
 
-            std::uint64_t be_v = std::bit_cast<std::uint64_t>(be_value_);
-            if (value > k62bitLength) { // 62 bit encoding (8 bytes)
-                be_v |= 0xC0ull;
-            } else if (value > k30bitLength) { // 30 bit encoding (4 bytes)
-                be_v >>= 32;
-                be_v |= 0x80ull;
-            } else if (value > k14bitLength) { // 14 bit encoding (2 bytes)
-                be_v >>= 48;
-                be_v |= 0x40ull;
-            } else {
-                be_v >>= 56;
-            }
-
-            be_value_ = std::bit_cast<std::array<std::uint8_t, sizeof(std::uint64_t)>>(be_v);
+            // Otherwise length signalled by leading 1s, followed by compressed value.
+            const auto value_be = SwapBytes(value << ((sizeof(value) - length) * 8));
+            const auto bytes = std::bit_cast<std::array<std::uint8_t, sizeof(value)>>(value_be);
+            std::copy(bytes.begin(), bytes.end(), be_value_.begin());
+            const auto prefix = length == 1 ? 0u : static_cast<std::uint8_t>(0xFFu << (kMaxEncodedSize - length));
+            be_value_.front() |= static_cast<std::uint8_t>(prefix);
         }
 
         constexpr UintVar(std::span<const std::uint8_t> bytes,
@@ -64,15 +61,7 @@ namespace quicr {
             if (bytes.empty() || bytes.size() < Size(bytes.front())) {
                 throw UintVarInvalidArgException("Invalid bytes for uintvar", caller);
             }
-
-            const std::size_t size = Size(bytes.front());
-            if (std::is_constant_evaluated()) {
-                for (std::size_t i = 0; i < size; ++i) {
-                    be_value_[i] = bytes.data()[i];
-                }
-            } else {
-                std::memcpy(&be_value_, bytes.data(), size);
-            }
+            std::copy_n(bytes.data(), Size(bytes.front()), be_value_.begin());
         }
 
         constexpr UintVar(const UintVar&) noexcept = default;
@@ -89,21 +78,21 @@ namespace quicr {
 
         constexpr std::uint64_t Get() const noexcept
         {
-            return SwapBytes((std::bit_cast<std::uint64_t>(be_value_) & SwapBytes(uint64_t(~(~0x3Full << 56))))
-                             << (sizeof(uint64_t) - Size()) * 8);
+            // Read length of value in leading 1s, then value.
+            const auto length = Size();
+            const auto value_bits = length == kMaxEncodedSize ? 0 : 8 - length;
+            const auto mask = value_bits == 0 ? 0 : static_cast<std::uint8_t>((1u << value_bits) - 1);
+            std::uint64_t value = be_value_.front() & mask;
+            for (std::size_t i = 1; i < length; ++i) {
+                value = (value << 8) | be_value_[i];
+            }
+            return value;
         }
 
         static constexpr std::size_t Size(uint8_t msb_bytes) noexcept
         {
-            if ((msb_bytes & 0xC0) == 0xC0) {
-                return sizeof(uint64_t);
-            } else if ((msb_bytes & 0x80) == 0x80) {
-                return sizeof(uint32_t);
-            } else if ((msb_bytes & 0x40) == 0x40) {
-                return sizeof(uint16_t);
-            }
-
-            return sizeof(uint8_t);
+            const auto leading_ones = std::countl_one(msb_bytes);
+            return leading_ones == 8 ? kMaxEncodedSize : leading_ones + 1;
         }
 
         constexpr std::size_t Size() const noexcept { return UintVar::Size(be_value_.front()); }
@@ -120,6 +109,7 @@ namespace quicr {
         constexpr auto operator<=>(const UintVar&) const noexcept = default;
 
       private:
-        std::array<std::uint8_t, sizeof(std::uint64_t)> be_value_;
+        static constexpr std::size_t kMaxEncodedSize = sizeof(std::uint64_t) + 1;
+        std::array<std::uint8_t, kMaxEncodedSize> be_value_;
     };
 }
