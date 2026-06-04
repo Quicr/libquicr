@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/client.h"
-
+#include "quicr/detail/transport.h"
 #include "quicr/detail/ctrl_message_types.h"
 #include "quicr/detail/message.h"
 #include "quicr/detail/messages.h"
