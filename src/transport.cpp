@@ -175,11 +175,6 @@ namespace quicr {
         }
     }
 
-    std::shared_ptr<Client> Transport::Create(const ClientConfig& cfg)
-    {
-        return Client::Create(cfg);
-    }
-
     Transport::StartTransportResult Transport::StartTransport()
     {
         if (!weak_from_this().lock()) {

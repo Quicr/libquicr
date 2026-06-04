@@ -31,8 +31,6 @@
 
 namespace quicr {
 
-    class Client;
-
     /**
      * @brief MoQ transport endpoint supporting connection-explicit operations
      *
@@ -107,7 +105,10 @@ namespace quicr {
          *
          * @param cfg MoQ Client Configuration
          */
-        static std::shared_ptr<Client> Create(const ClientConfig& cfg);
+        static std::shared_ptr<Transport> Create(const ClientConfig& cfg)
+        {
+            return std::shared_ptr<Transport>(new Transport(cfg));
+        }
 
         /**
          * @brief Create a server-mode endpoint
