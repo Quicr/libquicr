@@ -137,7 +137,7 @@ MakeTestClient(const bool connect = true,
     }
     auto client = std::make_shared<TestClient>(client_config);
     if (connect) {
-        client->Connect();
+        client->Start();
         // Wait for client to be connected instead of fixed sleep
         const bool connected = WaitFor([&client]() {
             const auto status = client->GetStatus();
@@ -247,7 +247,7 @@ TEST_CASE("Integration - Connection")
         std::promise<ServerSetupAttributes> recv_attributes;
         auto future = recv_attributes.get_future();
         client->SetConnectedPromise(std::move(recv_attributes));
-        client->Connect();
+        client->Start();
         auto status = future.wait_for(kDefaultTimeout);
         REQUIRE(status == std::future_status::ready);
         const auto& [moqt_version, server_id] = future.get();

@@ -7,6 +7,7 @@
 #include <nlohmann/json.hpp>
 #include <oss/cxxopts.hpp>
 #include <quicr/cache.h>
+#include <quicr/client.h>
 #include <quicr/defer.h>
 #include <quicr/object.h>
 #include <quicr/publish_fetch_handler.h>
@@ -455,10 +456,10 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
  * @brief MoQ client
  * @details Implementation of the MoQ Client
  */
-class MyClient : public quicr::Session
+class MyClient : public quicr::Client
 {
     MyClient(const quicr::ClientConfig& cfg, bool& stop_threads)
-      : quicr::Session(cfg)
+      : quicr::Client(cfg)
       , stop_threads_(stop_threads)
     {
     }
@@ -730,7 +731,7 @@ class MyPublisherNamespaceHandler : public quicr::PublishNamespaceHandler
 /*===========================================================================*/
 
 void
-PublishWithHandler(const std::shared_ptr<quicr::Session>& client,
+PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
                    const std::shared_ptr<quicr::PublishTrackHandler> track_handler,
                    bool& stop)
 {
@@ -984,7 +985,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& client,
 void
 DoPublisher(const std::string prefix_str,
             const std::vector<std::string>& names,
-            const std::shared_ptr<quicr::Session>& client,
+            const std::shared_ptr<quicr::Client>& client,
             bool use_announce,
             bool& stop)
 {
@@ -1053,7 +1054,7 @@ DoPublisher(const std::string prefix_str,
 
 void
 DoSubgroupTest(const quicr::FullTrackName& full_track_name,
-               const std::shared_ptr<quicr::Session>& client,
+               const std::shared_ptr<quicr::Client>& client,
                bool use_announce,
                bool& stop)
 {
@@ -1248,7 +1249,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
 
 void
 DoSubscriber(const quicr::FullTrackName& full_track_name,
-             const std::shared_ptr<quicr::Session>& client,
+             const std::shared_ptr<quicr::Client>& client,
              quicr::messages::FilterType filter_type,
              const bool& stop,
              const std::optional<std::uint64_t> join_fetch,
@@ -1291,7 +1292,7 @@ void
 DoFetch(const quicr::FullTrackName& full_track_name,
         const quicr::messages::Location& start_location,
         const quicr::messages::FetchEndLocation& end_location,
-        const std::shared_ptr<quicr::Session>& client,
+        const std::shared_ptr<quicr::Client>& client,
         const bool& stop)
 {
     auto track_handler = MyFetchTrackHandler::Create(full_track_name, start_location, end_location);

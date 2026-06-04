@@ -81,9 +81,6 @@ namespace quicr {
         messages::FetchEndLocation end_location_;
 
         friend class Transport;
-        friend class Client;
-        friend class Server;
-        friend class Session;
     };
 
 } // namespace moq

@@ -6,7 +6,7 @@ using namespace quicr;
 using namespace quicr_test;
 
 TestClient::TestClient(const ClientConfig& cfg)
-  : Session(cfg)
+  : Client(cfg)
 {
 }
 

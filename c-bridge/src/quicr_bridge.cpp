@@ -190,9 +190,9 @@ namespace {
 // === SESSION IMPLEMENTATION ===
 
 /**
- * @brief Bridge session class extending quicr::Session
+ * @brief Bridge session class extending quicr::Client
  */
-class BridgeSession : public quicr::Session
+class BridgeSession : public quicr::Client
 {
   public:
     static std::shared_ptr<BridgeSession> Create(const quicr::ClientConfig& cfg)
@@ -208,7 +208,7 @@ class BridgeSession : public quicr::Session
 
   protected:
     BridgeSession(const quicr::ClientConfig& config)
-      : quicr::Session(config)
+      : quicr::Client(config)
     {
     }
 
@@ -683,7 +683,7 @@ extern "C"
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto status = session->cpp_session->Connect();
+        const auto status = session->cpp_session->Start();
         return (status == quicr::Transport::Status::kConnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
     }
 
@@ -693,8 +693,8 @@ extern "C"
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto status = session->cpp_session->Disconnect();
-        return (status == quicr::Transport::Status::kDisconnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
+        session->cpp_session->Stop();
+        return QBRIDGE_OK;
     }
 
     qbridge_connection_status_t qbridge_session_get_status(const qbridge_session_t* session)

@@ -2,7 +2,7 @@
 #include <quicr/session.h>
 
 namespace quicr_test {
-    class TestClient final : public quicr::Session
+    class TestClient final : public quicr::Client
     {
       public:
         explicit TestClient(const quicr::ClientConfig& cfg);

@@ -430,9 +430,6 @@ namespace quicr {
         std::optional<uint64_t> pending_new_group_request_id_;
 
         friend class Transport;
-        friend class Client;
-        friend class Server;
-        friend class Session;
     };
 
 } // namespace moq

@@ -10,21 +10,21 @@
 TEST_CASE("Multiple client creation")
 {
     CHECK_NOTHROW({
-        auto client = quicr::Session::Create(quicr::ClientConfig());
+        auto client = quicr::Client::Create(quicr::ClientConfig());
         client = nullptr;
-        client = quicr::Session::Create(quicr::ClientConfig());
+        client = quicr::Client::Create(quicr::ClientConfig());
     });
 }
 
 TEST_CASE("Construction")
 {
-    CHECK_NOTHROW(quicr::Session::Create(quicr::ClientConfig()));
+    CHECK_NOTHROW(quicr::Client::Create(quicr::ClientConfig()));
 }
 
-struct BadClient : public quicr::Session
+struct BadClient : public quicr::Client
 {
     BadClient()
-      : quicr::Session(quicr::ClientConfig())
+      : quicr::Client(quicr::ClientConfig())
     {
     }
 };
@@ -32,5 +32,5 @@ struct BadClient : public quicr::Session
 TEST_CASE("Construction Non-shared")
 {
     BadClient client;
-    CHECK_THROWS(client.Connect());
+    CHECK_THROWS(client.Start());
 }

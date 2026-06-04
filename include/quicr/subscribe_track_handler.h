@@ -434,9 +434,6 @@ namespace quicr {
         bool support_new_group_request_{ false };
 
         friend class Transport;
-        friend class Client;
-        friend class Server;
-        friend class Session;
     };
 
 } // namespace moq

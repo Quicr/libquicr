@@ -178,8 +178,5 @@ namespace quicr {
         // ConnectionHandle connection_handle_{ 0 };
 
         friend class Transport;
-        friend class Client;
-        friend class Server;
-        friend class Session;
     };
 }
