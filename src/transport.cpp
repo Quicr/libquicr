@@ -715,115 +715,117 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendSubscribeNamespace(ConnectionHandle conn_handle,
-                                           std::shared_ptr<SubscribeNamespaceHandler> handler)
-    {
-        // Namespace or tracks?
-        std::string log_name;
-        ControlMessageType type;
-        switch (handler->GetMode()) {
-            case SubscribeNamespaceHandler::Mode::kNamespaces:
-                log_name = "SUBSCRIBE_NAMESPACE";
-                type = ControlMessageType::kSubscribeNamespace;
-                break;
-            case SubscribeNamespaceHandler::Mode::kTracks:
-                log_name = "SUBSCRIBE_TRACKS";
-                type = ControlMessageType::kSubscribeTracks;
-                break;
-        }
-
-        try {
-            std::lock_guard<std::mutex> _(state_mutex_);
-            auto conn_it = connections_.find(conn_handle);
-            if (conn_it == connections_.end()) {
-                SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {} does not exist.", conn_handle);
-                return;
-            }
-
-            const auto& prefix = handler->GetPrefix();
-            handler->SetRequestId(conn_it->second.GetNextRequestId());
-
-            /* Available parameters:
-             * - AUTHORIZATION TOKEN (0x03)
-             * - FORWARD (0x10)
-             */
-            const auto& filter = handler->GetFilter();
-            Parameters params;
-            if (const auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
-                params.Add(filter_type, filter);
-            }
-
-            handler->SetTransport(GetSharedPtr());
-
-            [[maybe_unused]] auto th = TrackHash({ prefix, {} });
-
-            if (auto [_, is_new] =
-                  conn_it->second.request_handlers.try_emplace(handler->GetRequestId().value(), handler);
-                !is_new) {
-                SPDLOG_LOGGER_WARN(logger_, "Namespace already subscribed to (alias={})", th.track_fullname_hash);
-                return;
-            }
-
-            SPDLOG_LOGGER_DEBUG(logger_,
-                                "Sending {} to conn_id: {} request_id: {} prefix_hash: {}",
-                                log_name,
-                                conn_it->second.connection_handle,
-                                handler->GetRequestId().value(),
-                                th.track_namespace_hash);
-
-            handler->SetDataContextId(
-              quic_transport_->CreateDataContext(conn_handle, true, 0, true, handler->GetRequestId()));
-            quic_transport_->CreateStream(conn_handle, handler->GetDataContextId().value(), 0);
-
-            SendCtrlMsg(conn_it->second,
-                        handler->GetDataContextId().value(),
-                        type,
-                        UintVar(handler->GetRequestId().value()),
-                        prefix,
-                        params);
-        } catch (const std::exception& e) {
-            SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending {} (error={})", log_name, e.what());
-            // TODO: add error handling in libquicr in calling function
-        }
-    }
-
-    void Transport::SendUnsubscribeNamespace(ConnectionHandle conn_handle,
-                                             const std::shared_ptr<SubscribeNamespaceHandler>& handler)
+    void Transport::SendSubscribeNamespace(ConnectionContext& conn_ctx,
+                                           DataContextId data_ctx_id,
+                                           messages::RequestID request_id,
+                                           const TrackNamespace& prefix,
+                                           const messages::Filter& filter,
+                                           messages::ControlMessageType type)
     try {
-        std::lock_guard<std::mutex> _(state_mutex_);
-        auto conn_it = connections_.find(conn_handle);
-        if (conn_it == connections_.end()) {
-            SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {} does not exist.", conn_handle);
-            return;
+        Parameters params;
+        if (const auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
+            params.Add(filter_type, filter);
         }
 
-        conn_it->second.request_handlers.erase(handler->GetRequestId().value());
-
-        const auto& prefix = handler->GetPrefix();
+        const char* log_name =
+          type == ControlMessageType::kSubscribeNamespace ? "SUBSCRIBE_NAMESPACE" : "SUBSCRIBE_TRACKS";
 
         [[maybe_unused]] auto th = TrackHash({ prefix, {} });
 
         SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending UNSUBSCRIBE_NAMESPACE to conn_id: {} prefix_hash: {}",
-                            conn_handle,
+                            "Sending {} to conn_id: {} request_id: {} prefix_hash: {}",
+                            log_name,
+                            conn_ctx.connection_handle,
+                            request_id,
                             th.track_namespace_hash);
 
-        SendCtrlMsg(conn_it->second, handler->GetDataContextId().value(), ControlMessageType::kNamespaceDone, prefix);
+        SendCtrlMsg(conn_ctx, data_ctx_id, type, UintVar(request_id), prefix, params);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending subscribe namespace (error={})", e.what());
+        // TODO: add error handling in libquicr in calling function
+    }
+
+    void Transport::SendUnsubscribeNamespace(ConnectionContext& conn_ctx,
+                                             DataContextId data_ctx_id,
+                                             const TrackNamespace& prefix)
+    try {
+        [[maybe_unused]] auto th = TrackHash({ prefix, {} });
+
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending UNSUBSCRIBE_NAMESPACE to conn_id: {} prefix_hash: {}",
+                            conn_ctx.connection_handle,
+                            th.track_namespace_hash);
+
+        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kNamespaceDone, prefix);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending UNSUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SubscribeNamespace(ConnectionHandle connection_handle,
-                                       std::shared_ptr<SubscribeNamespaceHandler> handler)
+    void Transport::SubscribeNamespace(ConnectionHandle conn_id, std::shared_ptr<SubscribeNamespaceHandler> handler)
     {
-        SendSubscribeNamespace(connection_handle, std::move(handler));
+        const auto& prefix = handler->GetPrefix();
+        handler->connection_handle_ = conn_id;
+
+        [[maybe_unused]] auto th = TrackHash({ prefix, {} });
+
+        SPDLOG_LOGGER_INFO(logger_,
+                           "Subscribe namespace conn_id: {} prefix_hash: {} mode: {}",
+                           conn_id,
+                           th.track_namespace_hash,
+                           handler->GetMode() == SubscribeNamespaceHandler::Mode::kNamespaces ? "namespaces"
+                                                                                              : "tracks");
+
+        std::lock_guard<std::mutex> lock(state_mutex_);
+
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Subscribe namespace conn_id: {} does not exist.", conn_id);
+            return;
+        }
+
+        handler->SetRequestId(conn_it->second.GetNextRequestId());
+        handler->SetTransport(GetSharedPtr());
+
+        if (auto [_, is_new] = conn_it->second.request_handlers.try_emplace(handler->GetRequestId().value(), handler);
+            !is_new) {
+            SPDLOG_LOGGER_WARN(logger_, "Namespace already subscribed to (prefix_hash={})", th.track_namespace_hash);
+            return;
+        }
+
+        const auto message_type = handler->GetMode() == SubscribeNamespaceHandler::Mode::kNamespaces
+                                    ? ControlMessageType::kSubscribeNamespace
+                                    : ControlMessageType::kSubscribeTracks;
+
+        handler->SetDataContextId(quic_transport_->CreateDataContext(conn_id, true, 0, true, handler->GetRequestId()));
+        quic_transport_->CreateStream(conn_id, handler->GetDataContextId().value(), 0);
+
+        SendSubscribeNamespace(conn_it->second,
+                               handler->GetDataContextId().value(),
+                               handler->GetRequestId().value(),
+                               prefix,
+                               handler->GetFilter(),
+                               message_type);
     }
 
-    void Transport::UnsubscribeNamespace(ConnectionHandle connection_handle,
+    void Transport::UnsubscribeNamespace(ConnectionHandle conn_id,
                                          const std::shared_ptr<SubscribeNamespaceHandler>& handler)
     {
-        SendUnsubscribeNamespace(connection_handle, handler);
+        const auto& prefix = handler->GetPrefix();
+        [[maybe_unused]] auto th = TrackHash({ prefix, {} });
+
+        SPDLOG_LOGGER_INFO(
+          logger_, "Unsubscribe namespace conn_id: {} prefix_hash: {}", conn_id, th.track_namespace_hash);
+
+        std::lock_guard<std::mutex> lock(state_mutex_);
+
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Unsubscribe namespace conn_id: {} does not exist.", conn_id);
+            return;
+        }
+
+        RemoveSubscribeNamespace(conn_it->second, *handler);
     }
 
     void Transport::SendFetch(ConnectionContext& conn_ctx,
@@ -981,10 +983,15 @@ namespace quicr {
 
         track_handler->SetTransport(GetSharedPtr());
 
-        // Set the track handler for tracking by request ID
-        conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
-
         if (!track_handler->IsPublisherInitiated()) {
+            if (auto [_, is_new] =
+                  conn_it->second.request_handlers.try_emplace(*track_handler->GetRequestId(), track_handler);
+                !is_new) {
+                SPDLOG_LOGGER_WARN(
+                  logger_, "Track already subscribed conn_id: {} track_alias: {}", conn_id, th.track_fullname_hash);
+                return;
+            }
+
             track_handler->SetDataContextId(
               quic_transport_->CreateDataContext(conn_id, true, 0, true, track_handler->GetRequestId()));
             quic_transport_->CreateStream(conn_id, track_handler->GetDataContextId().value(), 0);
@@ -1022,14 +1029,28 @@ namespace quicr {
                                  info.joining_start,
                                  info.absolute);
             }
+        } else {
+            conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
         }
     }
 
     void Transport::UnsubscribeTrack(quicr::TransportConnId conn_id,
                                      const std::shared_ptr<SubscribeTrackHandler>& track_handler)
     {
-        auto& conn_ctx = connections_[conn_id];
-        RemoveSubscribeTrack(conn_ctx, *track_handler);
+        const auto& tfn = track_handler->GetFullTrackName();
+        auto th = TrackHash(tfn);
+
+        SPDLOG_LOGGER_INFO(logger_, "Unsubscribe track conn_id: {} track_alias: {}", conn_id, th.track_fullname_hash);
+
+        std::lock_guard<std::mutex> lock(state_mutex_);
+
+        auto conn_it = connections_.find(conn_id);
+        if (conn_it == connections_.end()) {
+            SPDLOG_LOGGER_ERROR(logger_, "Unsubscribe track conn_id: {} does not exist.", conn_id);
+            return;
+        }
+
+        RemoveSubscribeTrack(conn_it->second, *track_handler);
     }
 
     void Transport::UpdateTrackSubscription(TransportConnId conn_id,
@@ -1099,8 +1120,6 @@ namespace quicr {
         }
 
         if (remove_handler) {
-            std::lock_guard<std::mutex> _(state_mutex_);
-
             if (handler.GetRequestId().has_value()) {
                 conn_ctx.request_handlers.erase(*handler.GetRequestId());
             }
@@ -1108,6 +1127,33 @@ namespace quicr {
             if (handler.GetReceivedTrackAlias().has_value()) {
                 conn_ctx.sub_by_recv_track_alias.erase(handler.GetReceivedTrackAlias().value());
             }
+        }
+    }
+
+    void Transport::RemoveSubscribeNamespace(ConnectionContext& conn_ctx,
+                                             SubscribeNamespaceHandler& handler,
+                                             bool remove_handler,
+                                             bool send_unsubscribe)
+    {
+        switch (handler.GetStatus()) {
+            case SubscribeNamespaceHandler::Status::kOk:
+                try {
+                    if (send_unsubscribe && not conn_ctx.closed && handler.GetDataContextId().has_value()) {
+                        SendUnsubscribeNamespace(conn_ctx, handler.GetDataContextId().value(), handler.GetPrefix());
+                    }
+                } catch (const std::exception& e) {
+                    SPDLOG_LOGGER_ERROR(logger_, "Failed to send unsubscribe namespace: {}", e.what());
+                }
+
+                handler.SetStatus(SubscribeNamespaceHandler::Status::kNotSubscribed);
+                break;
+
+            default:
+                break;
+        }
+
+        if (remove_handler && handler.GetRequestId().has_value()) {
+            conn_ctx.request_handlers.erase(*handler.GetRequestId());
         }
     }
 
@@ -1189,7 +1235,7 @@ namespace quicr {
         }
 
         if (auto ns_handler = handler_it->second.Get<SubscribeNamespaceHandler>()) {
-            ns_handler->SetStatus(SubscribeNamespaceHandler::Status::kNotSubscribed);
+            RemoveSubscribeNamespace(conn_ctx, *ns_handler, false, false);
             conn_ctx.request_handlers.erase(handler_it);
             conn_ctx.recv_req_id.erase(request_id);
             conn_ctx.ctrl_msg_buffer.erase(stream_id);

@@ -1171,10 +1171,16 @@ namespace quicr {
         // Subscribe Namespace
         /*===================================================================*/
 
-        void SendSubscribeNamespace(ConnectionHandle conn_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
+        void SendSubscribeNamespace(ConnectionContext& conn_ctx,
+                                    DataContextId data_ctx_id,
+                                    messages::RequestID request_id,
+                                    const TrackNamespace& prefix,
+                                    const messages::Filter& filter,
+                                    messages::ControlMessageType type);
 
-        void SendUnsubscribeNamespace(ConnectionHandle conn_handle,
-                                      const std::shared_ptr<SubscribeNamespaceHandler>& handler);
+        void SendUnsubscribeNamespace(ConnectionContext& conn_ctx,
+                                      DataContextId data_ctx_id,
+                                      const TrackNamespace& prefix);
 
         /*===================================================================*/
         // Subscribe
@@ -1278,6 +1284,11 @@ namespace quicr {
                                   SubscribeTrackHandler& handler,
                                   bool remove_handler = true,
                                   bool send_unsubscribe = true);
+
+        void RemoveSubscribeNamespace(ConnectionContext& conn_ctx,
+                                      SubscribeNamespaceHandler& handler,
+                                      bool remove_handler = true,
+                                      bool send_unsubscribe = true);
 
         void CloseRequestHandler(ConnectionContext& conn_ctx,
                                  ConnectionHandle connection_handle,
