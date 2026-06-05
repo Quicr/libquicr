@@ -188,16 +188,18 @@ namespace quicr {
     void SubscribeTrackHandler::Pause() noexcept
     {
         auto transport = GetTransport().lock();
-        if (!transport || status_ == Status::kPaused || status_ == Status::kNotConnected) {
+        if (!transport || status_ == Status::kPaused || status_ == Status::kNotConnected ||
+            !GetDataContextId().has_value()) {
             return;
         }
 
         status_ = Status::kPaused;
         auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
         transport->SendRequestUpdate(conn_ctx,
+                                     GetDataContextId().value(),
                                      conn_ctx.GetNextRequestId(),
                                      GetRequestId().value(),
-                                     GetFullTrackName(),
+                                     TrackHash(GetFullTrackName()),
                                      std::nullopt,
                                      GetPriority(),
                                      false);
@@ -206,7 +208,7 @@ namespace quicr {
     void SubscribeTrackHandler::Resume() noexcept
     {
         auto transport = GetTransport().lock();
-        if (!transport) {
+        if (!transport || !GetDataContextId().has_value()) {
             return;
         }
 
@@ -217,9 +219,10 @@ namespace quicr {
         status_ = Status::kOk;
         auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
         transport->SendRequestUpdate(conn_ctx,
+                                     GetDataContextId().value(),
                                      conn_ctx.GetNextRequestId(),
                                      GetRequestId().value(),
-                                     GetFullTrackName(),
+                                     TrackHash(GetFullTrackName()),
                                      std::nullopt,
                                      GetPriority(),
                                      true);
@@ -228,15 +231,16 @@ namespace quicr {
     void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
     {
         auto transport = GetTransport().lock();
-        if (!transport || status_ != Status::kOk || !support_new_group_request_) {
+        if (!transport || status_ != Status::kOk || !support_new_group_request_ || !GetDataContextId().has_value()) {
             return;
         }
 
         auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
         transport->SendRequestUpdate(conn_ctx,
+                                     GetDataContextId().value(),
                                      conn_ctx.GetNextRequestId(),
                                      GetRequestId().value(),
-                                     GetFullTrackName(),
+                                     TrackHash(GetFullTrackName()),
                                      group_id,
                                      GetPriority(),
                                      true);
