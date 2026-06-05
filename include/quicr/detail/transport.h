@@ -1197,9 +1197,7 @@ namespace quicr {
                              uint64_t expires,
                              const std::optional<messages::Location>& largest_location,
                              messages::GroupOrder publisher_default_group_order);
-        void SendUnsubscribe(ConnectionContext& conn_ctx,
-                             DataContextId data_ctx_id,
-                             messages::RequestID request_id);
+        void SendUnsubscribe(ConnectionContext& conn_ctx, DataContextId data_ctx_id, messages::RequestID request_id);
 
         /*===================================================================*/
         // Publish

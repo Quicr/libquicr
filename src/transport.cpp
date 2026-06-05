@@ -555,13 +555,8 @@ namespace quicr {
                             th.track_namespace_hash,
                             th.track_name_hash);
 
-        SendCtrlMsg(conn_ctx,
-                    data_ctx_id,
-                    ControlMessageType::kSubscribe,
-                    UintVar(request_id),
-                    tfn.name_space,
-                    tfn.name,
-                    params);
+        SendCtrlMsg(
+          conn_ctx, data_ctx_id, ControlMessageType::kSubscribe, UintVar(request_id), tfn.name_space, tfn.name, params);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Subscribe (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -709,9 +704,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Transport::SendUnsubscribe(ConnectionContext& conn_ctx,
-                                      DataContextId data_ctx_id,
-                                      uint64_t request_id)
+    void Transport::SendUnsubscribe(ConnectionContext& conn_ctx, DataContextId data_ctx_id, uint64_t request_id)
     try {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending UNSUBSCRIBE to conn_id: {} request_id: {}", conn_ctx.connection_handle, request_id);
@@ -778,8 +771,8 @@ namespace quicr {
                                 handler->GetRequestId().value(),
                                 th.track_namespace_hash);
 
-            handler->SetDataContextId(quic_transport_->CreateDataContext(
-              conn_handle, true, 0, true, handler->GetRequestId()));
+            handler->SetDataContextId(
+              quic_transport_->CreateDataContext(conn_handle, true, 0, true, handler->GetRequestId()));
             quic_transport_->CreateStream(conn_handle, handler->GetDataContextId().value(), 0);
 
             SendCtrlMsg(conn_it->second,
@@ -815,10 +808,7 @@ namespace quicr {
                             conn_handle,
                             th.track_namespace_hash);
 
-        SendCtrlMsg(conn_it->second,
-                    handler->GetDataContextId().value(),
-                    ControlMessageType::kNamespaceDone,
-                    prefix);
+        SendCtrlMsg(conn_it->second, handler->GetDataContextId().value(), ControlMessageType::kNamespaceDone, prefix);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending UNSUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -995,8 +985,8 @@ namespace quicr {
         conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
 
         if (!track_handler->IsPublisherInitiated()) {
-            track_handler->SetDataContextId(quic_transport_->CreateDataContext(
-              conn_id, true, 0, true, track_handler->GetRequestId()));
+            track_handler->SetDataContextId(
+              quic_transport_->CreateDataContext(conn_id, true, 0, true, track_handler->GetRequestId()));
             quic_transport_->CreateStream(conn_id, track_handler->GetDataContextId().value(), 0);
 
             SendSubscribe(conn_it->second,
@@ -1093,9 +1083,8 @@ namespace quicr {
                 try {
                     if (send_unsubscribe && not handler.IsPublisherInitiated() && not conn_ctx.closed) {
                         if (handler.GetDataContextId().has_value()) {
-                            SendUnsubscribe(conn_ctx,
-                                            handler.GetDataContextId().value(),
-                                            handler.GetRequestId().value());
+                            SendUnsubscribe(
+                              conn_ctx, handler.GetDataContextId().value(), handler.GetRequestId().value());
                         }
                     }
                 } catch (const std::exception& e) {
@@ -1264,8 +1253,7 @@ namespace quicr {
             if (pub_n_it != pub_ns_it->second.end()) {
                 // Send subscribe done if track has subscriber and is sending
                 if (pub_n_it->second->GetStatus() == PublishTrackHandler::Status::kOk &&
-                    pub_n_it->second->GetRequestId().has_value() &&
-                    pub_n_it->second->GetDataContextId().has_value()) {
+                    pub_n_it->second->GetRequestId().has_value() && pub_n_it->second->GetDataContextId().has_value()) {
                     SPDLOG_LOGGER_INFO(
                       logger_,
                       "Unpublish track namespace hash: {} track_name_hash: {} track_alias: {}, sending "
@@ -1327,8 +1315,8 @@ namespace quicr {
 
         track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
 
-        track_handler->SetDataContextId(quic_transport_->CreateDataContext(
-          conn_id, true, 0, true, track_handler->GetRequestId()));
+        track_handler->SetDataContextId(
+          quic_transport_->CreateDataContext(conn_id, true, 0, true, track_handler->GetRequestId()));
         quic_transport_->CreateStream(conn_id, track_handler->GetDataContextId().value(), 0);
 
         SendPublish(conn_it->second,
@@ -1389,8 +1377,8 @@ namespace quicr {
 
             ns_handler->SetStatus(PublishNamespaceHandler::Status::kPendingResponse);
 
-            ns_handler->SetDataContextId(quic_transport_->CreateDataContext(
-              conn_id, true, 0, true, ns_handler->GetRequestId()));
+            ns_handler->SetDataContextId(
+              quic_transport_->CreateDataContext(conn_id, true, 0, true, ns_handler->GetRequestId()));
             quic_transport_->CreateStream(conn_id, ns_handler->GetDataContextId().value(), 0);
 
             lock.lock();
@@ -1429,16 +1417,13 @@ namespace quicr {
         }
 
         if (!track_handler->GetDataContextId().has_value()) {
-            SPDLOG_LOGGER_ERROR(logger_,
-                                "PublishNamespaceDone missing data context conn_id: {} prefix_hash: {}",
-                                conn_id,
-                                prefix_hash);
+            SPDLOG_LOGGER_ERROR(
+              logger_, "PublishNamespaceDone missing data context conn_id: {} prefix_hash: {}", conn_id, prefix_hash);
             return;
         }
 
-        SendPublishNamespaceDone(conn_it->second,
-                                 track_handler->GetDataContextId().value(),
-                                 track_handler->GetRequestId().value());
+        SendPublishNamespaceDone(
+          conn_it->second, track_handler->GetDataContextId().value(), track_handler->GetRequestId().value());
         conn_it->second.request_handlers.erase(track_handler->GetRequestId().value());
     }
 
@@ -1500,12 +1485,8 @@ namespace quicr {
                 break;
         }
 
-        SendRequestError(conn_it->second,
-                         ResponseDataContext(conn_it->second, request_id),
-                         request_id,
-                         error_code,
-                         0ms,
-                         reason);
+        SendRequestError(
+          conn_it->second, ResponseDataContext(conn_it->second, request_id), request_id, error_code, 0ms, reason);
     }
 
     void Transport::StandaloneFetchReceived(
@@ -2451,12 +2432,8 @@ namespace quicr {
         auto th = TrackHash({ prefix, {} });
 
         if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
-            SendRequestError(conn_it->second,
-                             data_ctx_id,
-                             request_id,
-                             messages::ErrorCode::kInternalError,
-                             0ms,
-                             "Internal error");
+            SendRequestError(
+              conn_it->second, data_ctx_id, request_id, messages::ErrorCode::kInternalError, 0ms, "Internal error");
             return;
         }
 
@@ -2487,12 +2464,8 @@ namespace quicr {
         }
 
         if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
-            SendRequestError(conn_it->second,
-                             data_ctx_id,
-                             request_id,
-                             messages::ErrorCode::kInternalError,
-                             0ms,
-                             "Internal error");
+            SendRequestError(
+              conn_it->second, data_ctx_id, request_id, messages::ErrorCode::kInternalError, 0ms, "Internal error");
             return;
         }
 
@@ -2567,9 +2540,8 @@ namespace quicr {
 
                 const auto sub_data_ctx_id = FindSubscribeNamespaceDataContext(it->second, track_namespace);
                 if (!sub_data_ctx_id.has_value()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "No subscribe namespace data context for fan-out conn_id: {}",
-                                       sub_conn_handle);
+                    SPDLOG_LOGGER_WARN(
+                      logger_, "No subscribe namespace data context for fan-out conn_id: {}", sub_conn_handle);
                     continue;
                 }
 
@@ -3707,8 +3679,12 @@ namespace quicr {
                                        conn_ctx.connection_handle,
                                        request_id);
 
-                    SendRequestError(
-                      conn_ctx, data_ctx_id, request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Subscription not found");
+                    SendRequestError(conn_ctx,
+                                     data_ctx_id,
+                                     request_id,
+                                     messages::ErrorCode::kDoesNotExist,
+                                     0ms,
+                                     "Subscription not found");
                     return true;
                 }
 
