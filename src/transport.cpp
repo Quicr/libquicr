@@ -1079,7 +1079,8 @@ namespace quicr {
 
     void Transport::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
                                          SubscribeTrackHandler& handler,
-                                         bool remove_handler)
+                                         bool remove_handler,
+                                         bool send_unsubscribe)
     {
         auto handler_status = handler.GetStatus();
 
@@ -1090,7 +1091,7 @@ namespace quicr {
                 [[fallthrough]];
             case SubscribeTrackHandler::Status::kOk:
                 try {
-                    if (not handler.IsPublisherInitiated() && not conn_ctx.closed) {
+                    if (send_unsubscribe && not handler.IsPublisherInitiated() && not conn_ctx.closed) {
                         if (handler.GetDataContextId().has_value()) {
                             SendUnsubscribe(conn_ctx,
                                             handler.GetDataContextId().value(),
@@ -1119,6 +1120,113 @@ namespace quicr {
                 conn_ctx.sub_by_recv_track_alias.erase(handler.GetReceivedTrackAlias().value());
             }
         }
+    }
+
+    void Transport::ClosePublishTrackLocal(ConnectionContext& conn_ctx,
+                                           ConnectionHandle connection_handle,
+                                           PublishTrackHandler& handler,
+                                           std::uint64_t stream_id,
+                                           bool is_reset)
+    {
+        handler.StreamClosed(stream_id, is_reset);
+        handler.SetStatus(PublishTrackHandler::Status::kNotAnnounced);
+
+        const auto th = TrackHash(handler.GetFullTrackName());
+        conn_ctx.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
+
+        if (handler.GetRequestId().has_value()) {
+            conn_ctx.recv_req_id.erase(*handler.GetRequestId());
+        }
+
+        if (auto pub_ns_it = conn_ctx.pub_tracks_by_name.find(th.track_namespace_hash);
+            pub_ns_it != conn_ctx.pub_tracks_by_name.end()) {
+            pub_ns_it->second.erase(th.track_name_hash);
+            if (pub_ns_it->second.empty()) {
+                conn_ctx.pub_tracks_by_name.erase(pub_ns_it);
+            }
+        }
+
+        if (handler.publish_data_ctx_id_ != 0) {
+            conn_ctx.pub_tracks_by_data_ctx_id.erase(handler.publish_data_ctx_id_);
+            quic_transport_->DeleteDataContext(connection_handle, handler.publish_data_ctx_id_);
+            handler.publish_data_ctx_id_ = 0;
+        }
+    }
+
+    void Transport::CloseRequestHandler(ConnectionContext& conn_ctx,
+                                        ConnectionHandle connection_handle,
+                                        messages::RequestID request_id,
+                                        std::uint64_t stream_id,
+                                        StreamClosedFlag flag)
+    {
+        const auto handler_it = conn_ctx.request_handlers.find(request_id);
+        if (handler_it == conn_ctx.request_handlers.end()) {
+            SPDLOG_LOGGER_DEBUG(logger_,
+                                "Stream closed for unknown request_id conn_id: {} request_id: {}",
+                                connection_handle,
+                                request_id);
+            conn_ctx.recv_req_id.erase(request_id);
+            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            return;
+        }
+
+        const bool is_reset = flag == StreamClosedFlag::kReset;
+
+        SPDLOG_LOGGER_INFO(logger_,
+                           "Closing request handler conn_id: {} request_id: {} stream_id: {} reset: {}",
+                           connection_handle,
+                           request_id,
+                           stream_id,
+                           is_reset);
+
+        if (auto sub_handler = handler_it->second.Get<SubscribeTrackHandler>()) {
+            sub_handler->SetStatus(is_reset ? SubscribeTrackHandler::Status::kDoneByReset
+                                            : SubscribeTrackHandler::Status::kDoneByFin);
+            RemoveSubscribeTrack(conn_ctx, *sub_handler, false, false);
+            conn_ctx.request_handlers.erase(handler_it);
+            if (sub_handler->GetReceivedTrackAlias().has_value()) {
+                conn_ctx.sub_by_recv_track_alias.erase(sub_handler->GetReceivedTrackAlias().value());
+            }
+            conn_ctx.recv_req_id.erase(request_id);
+            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            return;
+        }
+
+        if (auto pub_handler = handler_it->second.Get<PublishTrackHandler>()) {
+            ClosePublishTrackLocal(conn_ctx, connection_handle, *pub_handler, stream_id, is_reset);
+            conn_ctx.request_handlers.erase(handler_it);
+            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            return;
+        }
+
+        if (auto ns_handler = handler_it->second.Get<SubscribeNamespaceHandler>()) {
+            ns_handler->SetStatus(SubscribeNamespaceHandler::Status::kNotSubscribed);
+            conn_ctx.request_handlers.erase(handler_it);
+            conn_ctx.recv_req_id.erase(request_id);
+            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            return;
+        }
+
+        if (auto pub_ns_handler = handler_it->second.Get<PublishNamespaceHandler>()) {
+            pub_ns_handler->SetStatus(PublishNamespaceHandler::Status::kNotPublished);
+            conn_ctx.request_handlers.erase(handler_it);
+            conn_ctx.recv_req_id.erase(request_id);
+            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            return;
+        }
+
+        if (auto fetch_handler = handler_it->second.Get<FetchTrackHandler>()) {
+            fetch_handler->SetStatus(is_reset ? FetchTrackHandler::Status::kDoneByReset
+                                              : FetchTrackHandler::Status::kDoneByFin);
+            conn_ctx.request_handlers.erase(handler_it);
+            conn_ctx.recv_req_id.erase(request_id);
+            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            return;
+        }
+
+        conn_ctx.request_handlers.erase(handler_it);
+        conn_ctx.recv_req_id.erase(request_id);
+        conn_ctx.ctrl_msg_buffer.erase(stream_id);
     }
 
     void Transport::UnpublishTrack(TransportConnId conn_id, const std::shared_ptr<PublishTrackHandler>& track_handler)
@@ -1833,24 +1941,36 @@ namespace quicr {
     }
 
     void Transport::OnStreamClosed(const ConnectionHandle& connection_handle,
-                                   [[maybe_unused]] std::uint64_t stream_id,
+                                   std::uint64_t stream_id,
                                    std::shared_ptr<StreamRxContext> rx_ctx,
                                    std::optional<uint64_t> request_id,
                                    StreamClosedFlag flag)
     {
         SPDLOG_LOGGER_DEBUG(logger_, "Stream {} closed", stream_id);
 
-        if (rx_ctx == nullptr) { // If not RX, it's for TX/publisher
-            if (request_id.has_value()) {
-                const auto& conn_ctx = connections_[connection_handle];
-                const auto& handler_it = conn_ctx.request_handlers.find(*request_id);
-                if (handler_it != conn_ctx.request_handlers.end()) {
+        if (request_id.has_value()) {
+            const bool is_bidir = (stream_id & 2) == 0;
+
+            try {
+                std::lock_guard<std::mutex> _(state_mutex_);
+                auto conn_it = connections_.find(connection_handle);
+                if (conn_it == connections_.end()) {
+                    return;
+                }
+
+                if (is_bidir) {
+                    CloseRequestHandler(conn_it->second, connection_handle, *request_id, stream_id, flag);
+                    return;
+                }
+
+                const auto handler_it = conn_it->second.request_handlers.find(*request_id);
+                if (handler_it != conn_it->second.request_handlers.end()) {
                     if (auto pub_handler = handler_it->second.Get<PublishTrackHandler>()) {
-                        SPDLOG_LOGGER_DEBUG(
-                          logger_, "Stream {} closed, calling publish handler stream close", stream_id);
                         pub_handler->StreamClosed(stream_id, flag == StreamClosedFlag::kReset);
                     }
                 }
+            } catch (const std::exception& e) {
+                SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream closed: {}", e.what());
             }
             return;
         }
@@ -1880,6 +2000,10 @@ namespace quicr {
                         break;
                 }
 
+                return;
+            }
+
+            if (rx_ctx == nullptr) {
                 return;
             }
 

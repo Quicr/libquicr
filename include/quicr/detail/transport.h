@@ -1278,7 +1278,20 @@ namespace quicr {
 
         void RemoveSubscribeTrack(ConnectionContext& conn_ctx,
                                   SubscribeTrackHandler& handler,
-                                  bool remove_handler = true);
+                                  bool remove_handler = true,
+                                  bool send_unsubscribe = true);
+
+        void CloseRequestHandler(ConnectionContext& conn_ctx,
+                                 ConnectionHandle connection_handle,
+                                 messages::RequestID request_id,
+                                 std::uint64_t stream_id,
+                                 StreamClosedFlag flag);
+
+        void ClosePublishTrackLocal(ConnectionContext& conn_ctx,
+                                    ConnectionHandle connection_handle,
+                                    PublishTrackHandler& handler,
+                                    std::uint64_t stream_id,
+                                    bool is_reset);
 
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(ConnectionContext& conn_ctx, TrackHash& th);
 

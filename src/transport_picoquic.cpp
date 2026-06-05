@@ -214,6 +214,8 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                     }
 
                     if (data_ctx != nullptr) {
+                        transport->OnStreamClosed(
+                          conn_id, stream_id, nullptr, data_ctx->request_id, StreamClosedFlag::kFin);
                         transport->DeleteDataContext(conn_id, data_ctx->data_ctx_id, false);
                     }
                 }
