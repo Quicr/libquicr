@@ -139,7 +139,5 @@ namespace quicr {
         DataContextId data_ctx_id_{ 0 };
 
         friend class Transport;
-        friend class Client;
-        friend class Server;
     };
 }

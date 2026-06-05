@@ -40,8 +40,8 @@ file(GLOB_RECURSE BRIDGE_HEADERS
 add_library(quicr-bridge STATIC ${BRIDGE_SOURCES} ${BRIDGE_HEADERS})
 
 # Link against the main QuicR library
-target_link_libraries(quicr-bridge 
-    PRIVATE 
+target_link_libraries(quicr-bridge
+    PRIVATE
     quicr
     spdlog::spdlog
 )
@@ -57,8 +57,8 @@ target_include_directories(quicr-bridge
 
 # Compiler-specific options
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(quicr-bridge PRIVATE 
-        -Wall -Wextra -Wpedantic 
+    target_compile_options(quicr-bridge PRIVATE
+        -Wall -Wextra -Wpedantic
         -Wno-unused-parameter
         -fPIC
     )
@@ -76,8 +76,10 @@ set_target_properties(quicr-bridge PROPERTIES
     PUBLIC_HEADER "${BRIDGE_HEADERS}"
 )
 
+include(CMakeDependentOption)
+
 # Examples
-option(BUILD_BRIDGE_EXAMPLES "Build C bridge example applications" ON)
+cmake_dependent_option(BUILD_BRIDGE_EXAMPLES "Build C bridge example applications" ON QUICR_BUILD_EXAMPLES OFF)
 
 if(BUILD_BRIDGE_EXAMPLES)
     # Simple Publisher Example

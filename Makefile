@@ -11,7 +11,7 @@ BUILD_DIR=build
 export MERMAID_FILTER_THEME=neutral
 CLANG_FORMAT=clang-format -i
 
-.PHONY: all clean cclean format fuzz c-bridge c-bridge-only
+.PHONY: all clean cclean format fuzz c-bridge c-bridge-only cert
 
 # Build.
 all: ${BUILD_DIR}
@@ -19,7 +19,7 @@ all: ${BUILD_DIR}
 
 # Standard development CMake generation.
 ${BUILD_DIR}: CMakeLists.txt cmd/CMakeLists.txt
-	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_C_BRIDGE=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_MBEDTLS=OFF -DLINT=ON .
+	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_C_BRIDGE=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_MBEDTLS=OFF -DLINT=OFF .
 
 # Run fuzzing tests.
 fuzz:
@@ -29,7 +29,7 @@ fuzz:
 
 # Mimic a CI build.
 ci: CMakeLists.txt cmd/CMakeLists.txt
-	cmake -B${BUILD_DIR} -DLINT=OFF -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DBUILD_BENCHMARKING=ON
+	cmake -B${BUILD_DIR} -DLINT=OFF -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON
 
 # Generate self-signed certificates.
 cert:
