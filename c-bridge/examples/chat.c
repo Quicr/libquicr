@@ -287,10 +287,14 @@ main(int argc, char* argv[])
     }
 
     // Publish namespace if using announce flow
+    qbridge_publish_namespace_track_handler_t* ns_handler = NULL;
     if (use_announce) {
-        result = qbridge_client_publish_namespace(client, &ns);
-        if (result != QBRIDGE_OK) {
-            printf("Failed to publish namespace: %s\n", qbridge_result_to_string(result));
+        ns_handler = qbridge_create_publish_namespace_track_handler(&ns);
+        if (ns_handler) {
+            result = qbridge_client_publish_namespace(client, ns_handler);
+            if (result != QBRIDGE_OK) {
+                printf("Failed to publish namespace: %s\n", qbridge_result_to_string(result));
+            }
         }
     }
 
@@ -388,8 +392,9 @@ main(int argc, char* argv[])
     qbridge_client_unpublish_track(client, publish_handler);
     qbridge_client_unsubscribe_track(client, subscribe_handler);
 
-    if (use_announce) {
-        qbridge_client_unpublish_namespace(client, &ns);
+    if (ns_handler) {
+        qbridge_client_unpublish_namespace(client, ns_handler);
+        qbridge_destroy_publish_namespace_track_handler(ns_handler);
     }
 
     qbridge_destroy_publish_track_handler(publish_handler);

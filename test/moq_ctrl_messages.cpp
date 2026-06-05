@@ -7,6 +7,7 @@
 #include <any>
 #include <doctest/doctest.h>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <sys/socket.h>
@@ -371,13 +372,15 @@ TEST_CASE("uint16_t encode/decode")
 TEST_CASE("KeyValuePair even-type round-trip preserves values")
 {
     const std::vector<std::uint64_t> test_values = {
-        0,      1,
-        63, // Max 1-byte varint
-        64, // Min 2-byte varint
-        127,    128, 255,
-        16383, // Max 2-byte varint
-        16384, // Min 4-byte varint
-        100000,
+        0,       1,
+        127, // Max 1-byte varint
+        128, // Min 2-byte varint
+        255,
+        16383,   // Max 2-byte varint
+        16384,   // Min 3-byte varint
+        2097151, // Max 3-byte varint
+        2097152, // Min 4-byte varint
+        100000,  std::numeric_limits<std::uint64_t>::max(),
     };
 
     for (const auto value : test_values) {
@@ -409,13 +412,15 @@ TEST_CASE("KeyValuePair even-type round-trip preserves values")
 TEST_CASE("TrackExtensions even-type round-trip preserves values")
 {
     const std::vector<std::uint64_t> test_values = {
-        0,      1,
-        63, // Max 1-byte varint
-        64, // Min 2-byte varint
-        127,    128, 255,
-        16383, // Max 2-byte varint
-        16384, // Min 4-byte varint
-        100000,
+        0,       1,
+        127, // Max 1-byte varint
+        128, // Min 2-byte varint
+        255,
+        16383,   // Max 2-byte varint
+        16384,   // Min 3-byte varint
+        2097151, // Max 3-byte varint
+        2097152, // Min 4-byte varint
+        100000,  std::numeric_limits<std::uint64_t>::max(),
     };
 
     for (const auto value : test_values) {

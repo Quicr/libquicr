@@ -224,9 +224,17 @@ main(int argc, char* argv[])
         return 1;
     }
 
-    result = qbridge_client_publish_namespace(client, &namespace);
+    qbridge_publish_namespace_track_handler_t* ns_handler = qbridge_create_publish_namespace_track_handler(&namespace);
+    if (!ns_handler) {
+        printf("Failed to create namespace handler\n");
+        qbridge_client_destroy(client);
+        return 1;
+    }
+
+    result = qbridge_client_publish_namespace(client, ns_handler);
     if (result != QBRIDGE_OK) {
         printf("Failed to publish namespace: %s\n", qbridge_result_to_string(result));
+        qbridge_destroy_publish_namespace_track_handler(ns_handler);
         qbridge_client_destroy(client);
         return 1;
     }
@@ -262,6 +270,7 @@ main(int argc, char* argv[])
 
     if (!track_handler) {
         printf("Failed to create publish track handler\n");
+        qbridge_destroy_publish_namespace_track_handler(ns_handler);
         qbridge_client_destroy(client);
         return 1;
     }
@@ -271,6 +280,7 @@ main(int argc, char* argv[])
     if (result != QBRIDGE_OK) {
         printf("Failed to publish track: %s\n", qbridge_result_to_string(result));
         qbridge_destroy_publish_track_handler(track_handler);
+        qbridge_destroy_publish_namespace_track_handler(ns_handler);
         qbridge_client_destroy(client);
         return 1;
     }
@@ -389,8 +399,9 @@ main(int argc, char* argv[])
 
     // Cleanup
     qbridge_client_unpublish_track(client, track_handler);
-    qbridge_client_unpublish_namespace(client, &namespace);
+    qbridge_client_unpublish_namespace(client, ns_handler);
     qbridge_destroy_publish_track_handler(track_handler);
+    qbridge_destroy_publish_namespace_track_handler(ns_handler);
 
     qbridge_client_disconnect(client);
     qbridge_client_destroy(client);

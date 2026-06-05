@@ -11,9 +11,11 @@
 #include <quicr/defer.h>
 #include <quicr/object.h>
 #include <quicr/publish_fetch_handler.h>
+#include <quicr/session.h>
 #include <sframe/sframe.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
+#include <timeq/tick_service.h>
 
 #include <filesystem>
 #include <fstream>
@@ -51,7 +53,7 @@ namespace qclient_vars {
     std::chrono::milliseconds cache_duration_ms(180000);
     std::unordered_map<quicr::messages::TrackAlias, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>>
       cache;
-    std::shared_ptr<quicr::ThreadedTickService> tick_service = std::make_shared<quicr::ThreadedTickService>();
+    std::shared_ptr<timeq::threaded_tick_service> tick_service = std::make_shared<timeq::threaded_tick_service>();
     std::optional<sframe::MLSContext> mls_ctx = sframe::MLSContext(sframe::CipherSuite::AES_GCM_128_SHA256, 1);
     std::optional<std::filesystem::path> watch_path;
     std::chrono::milliseconds watch_interval_ms(5000);
@@ -1595,7 +1597,7 @@ main(int argc, char* argv[])
         bool stop_threads{ false };
         auto client = MyClient::Create(config, stop_threads);
 
-        if (client->Connect() != quicr::Transport::Status::kConnecting) {
+        if (client->Start() != quicr::Transport::Status::kConnecting) {
             SPDLOG_ERROR("Failed to connect to server due to invalid params, check URI");
             exit(-1);
         }
@@ -1694,7 +1696,7 @@ main(int argc, char* argv[])
             fetch_thread.join();
         }
 
-        client->Disconnect();
+        client->Stop();
 
         SPDLOG_INFO("Client done");
         std::this_thread::sleep_for(std::chrono::milliseconds(3000));

@@ -213,11 +213,7 @@ print_usage(const char* program_name)
 }
 
 int
-send_file(qbridge_client_t* client,
-          const char* namespace_str,
-          const char* track_name_str,
-          const char* filename,
-          int use_announce)
+send_file(qbridge_client_t* client, const char* namespace_str, const char* track_name_str, const char* filename)
 {
 
     // Get file size
@@ -240,23 +236,12 @@ send_file(qbridge_client_t* client,
     printf("File size: %llu bytes\n", file_size);
     printf("Total chunks: %llu\n\n", total_chunks);
 
-    // Create namespace
-    qbridge_namespace_t ns;
-    qbridge_result_t result = qbridge_namespace_from_string(&ns, namespace_str);
-    if (result != QBRIDGE_OK) {
-        fclose(fp);
-        return 1;
-    }
-
-    if (use_announce) {
-        qbridge_client_publish_namespace(client, &ns);
-    }
-
     // Create publish track
     qbridge_publish_track_config_t pub_config;
     qbridge_publish_track_config_init(&pub_config);
 
-    result = qbridge_full_track_name_from_strings(&pub_config.full_track_name, namespace_str, track_name_str);
+    qbridge_result_t result =
+      qbridge_full_track_name_from_strings(&pub_config.full_track_name, namespace_str, track_name_str);
     if (result != QBRIDGE_OK) {
         fclose(fp);
         return 1;
@@ -410,9 +395,6 @@ send_file(qbridge_client_t* client,
 
     // Cleanup
     qbridge_client_unpublish_track(client, publish_handler);
-    if (use_announce) {
-        qbridge_client_unpublish_namespace(client, &ns);
-    }
     qbridge_destroy_publish_track_handler(publish_handler);
 
     return 0;
@@ -608,12 +590,29 @@ main(int argc, char* argv[])
 
     printf("Connected!\n\n");
 
+    // Announce the namespace up front
+    qbridge_publish_namespace_track_handler_t* ns_handler = NULL;
+    if (mode == 1 && use_announce) {
+        qbridge_namespace_t ns;
+        if (qbridge_namespace_from_string(&ns, namespace_str) == QBRIDGE_OK) {
+            ns_handler = qbridge_create_publish_namespace_track_handler(&ns);
+            if (ns_handler) {
+                qbridge_client_publish_namespace(client, ns_handler);
+            }
+        }
+    }
+
     // Execute send or receive
     int ret;
     if (mode == 1) {
-        ret = send_file(client, namespace_str, track_name_str, filename, use_announce);
+        ret = send_file(client, namespace_str, track_name_str, filename);
     } else {
         ret = receive_file(client, namespace_str, track_name_str, filename, expected_chunks);
+    }
+
+    if (ns_handler) {
+        qbridge_client_unpublish_namespace(client, ns_handler);
+        qbridge_destroy_publish_namespace_track_handler(ns_handler);
     }
 
     // Cleanup

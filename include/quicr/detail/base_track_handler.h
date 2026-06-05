@@ -148,8 +148,6 @@ namespace quicr {
     {
       public:
         friend class Transport;
-        friend class Server;
-        friend class Client;
 
         virtual ~BaseTrackHandler() = default;
 
@@ -181,7 +179,7 @@ namespace quicr {
          * @details MoQ instance sets the request id based on subscribe track method call. Request
          *      id is specific to the connection, so it must be set by the moq instance/connection.
          *
-         * @param request_id          62bit request ID
+         * @param request_id          64bit request ID
          */
         void SetRequestId(std::optional<uint64_t> request_id) { request_id_ = request_id; }
 

@@ -527,6 +527,20 @@ extern "C"
      */
     void qbridge_destroy_fetch_track_handler(qbridge_fetch_track_handler_t* handler);
 
+    /**
+     * @brief Create a publish namespace track handler
+     * @param ns Namespace to publish
+     * @return Namespace handler or NULL on failure
+     */
+    qbridge_publish_namespace_track_handler_t* qbridge_create_publish_namespace_track_handler(
+      const qbridge_namespace_t* ns);
+
+    /**
+     * @brief Destroy a publish namespace track handler
+     * @param handler Namespace handler
+     */
+    void qbridge_destroy_publish_namespace_track_handler(qbridge_publish_namespace_track_handler_t* handler);
+
     /** @} */
 
     /**

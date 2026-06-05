@@ -417,10 +417,6 @@ namespace quicr {
         // Key is group and subgroup id
         std::map<std::uint64_t, std::map<std::uint64_t, StreamInfo>> stream_info_by_group_;
 
-        // Per group object tracking.
-        // TODO(RichLogan): Cleanup on EndGroup().
-        std::map<std::uint64_t, std::uint64_t> last_object_id_by_group_;
-
         std::optional<uint64_t> track_alias_;
         messages::Location largest_location_;
 
@@ -430,8 +426,6 @@ namespace quicr {
         std::optional<uint64_t> pending_new_group_request_id_;
 
         friend class Transport;
-        friend class Client;
-        friend class Server;
     };
 
 } // namespace moq

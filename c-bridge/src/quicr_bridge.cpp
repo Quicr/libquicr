@@ -14,7 +14,6 @@
 #include <quicr/fetch_track_handler.h>
 #include <quicr/object.h>
 #include <quicr/publish_track_handler.h>
-#include <quicr/server.h>
 #include <quicr/subscribe_namespace_handler.h>
 #include <quicr/subscribe_track_handler.h>
 #include <quicr/track_name.h>
@@ -692,7 +691,7 @@ extern "C"
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto status = client->cpp_client->Connect();
+        const auto status = client->cpp_client->Start();
         return (status == quicr::Transport::Status::kConnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
     }
 
@@ -702,8 +701,8 @@ extern "C"
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto status = client->cpp_client->Disconnect();
-        return (status == quicr::Transport::Status::kDisconnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
+        client->cpp_client->Stop();
+        return QBRIDGE_OK;
     }
 
     qbridge_connection_status_t qbridge_client_get_status(const qbridge_client_t* client)
@@ -849,6 +848,25 @@ extern "C"
     }
 
     void qbridge_destroy_fetch_track_handler(qbridge_fetch_track_handler_t* handler)
+    {
+        delete handler;
+    }
+
+    qbridge_publish_namespace_track_handler_t* qbridge_create_publish_namespace_track_handler(
+      const qbridge_namespace_t* ns)
+    {
+        if (!ns) {
+            return nullptr;
+        }
+
+        try {
+            return new qbridge_publish_namespace_track_handler(ns);
+        } catch (...) {
+            return nullptr;
+        }
+    }
+
+    void qbridge_destroy_publish_namespace_track_handler(qbridge_publish_namespace_track_handler_t* handler)
     {
         delete handler;
     }
