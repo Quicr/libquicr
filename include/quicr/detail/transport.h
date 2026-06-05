@@ -671,6 +671,15 @@ namespace quicr {
                                               const PublishNamespaceAttributes& publish_namespace_attributes);
 
         /**
+         * @brief Callback notification for namespace received by subscribe namespace
+         *
+         * @details Client mode only. Called when a NAMESPACE is received for a subscribed prefix.
+         *
+         * @param track_namespace Full track namespace reconstructed from the subscribed prefix and received suffix.
+         */
+        virtual void NamespaceReceived(const TrackNamespace& track_namespace);
+
+        /**
          * @brief Callback notification for publish namespace done received
          *
          * @details Client mode only. Called when a PUBLISH_NAMESPACE_DONE is received.
@@ -1165,6 +1174,10 @@ namespace quicr {
         /*===================================================================*/
 
         void SendSubscribeNamespace(ConnectionHandle conn_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
+
+        void SendNamespace(ConnectionContext& conn_ctx,
+                           DataContextId data_ctx_id,
+                           const TrackNamespace& track_namespace_suffix);
 
         void SendUnsubscribeNamespace(ConnectionHandle conn_handle,
                                       const std::shared_ptr<SubscribeNamespaceHandler>& handler);

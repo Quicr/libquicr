@@ -487,6 +487,21 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
+    void Transport::SendNamespace(ConnectionContext& conn_ctx,
+                                  DataContextId data_ctx_id,
+                                  const TrackNamespace& track_namespace_suffix)
+    try {
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending NAMESPACE to conn_id: {} suffix_hash: {}",
+                            conn_ctx.connection_handle,
+                            TrackHash({ track_namespace_suffix, {} }).track_namespace_hash);
+
+        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kNamespace, track_namespace_suffix);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending NAMESPACE (error={})", e.what());
+        // TODO: add error handling in libquicr in calling function
+    }
+
     void Transport::SendTrackStatus(ConnectionContext& conn_ctx,
                                     messages::RequestID request_id,
                                     const FullTrackName& tfn)
@@ -2242,16 +2257,19 @@ namespace quicr {
 
         SendRequestOk(conn_it->second, request_id);
 
-        // Fan out PUBLISH_NAMESPACE for matching namespaces.
+        // Fan out NAMESPACE for matching namespaces.
         for (const auto& name_space : response.namespaces) {
             const auto match = prefix.IsPrefixOf(name_space);
-            if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
+            if (match == std::partial_ordering::unordered || match == std::partial_ordering::greater) {
                 SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
                 continue;
             }
 
-            auto request_id = conn_it->second.GetNextRequestId();
-            SendPublishNamespace(conn_it->second, request_id, name_space);
+            const auto prefix_size = prefix.GetEntries().size();
+            const auto namespace_size = name_space.GetEntries().size();
+            auto suffix =
+              namespace_size == prefix_size ? TrackNamespace{} : name_space.GetSuffix(namespace_size - prefix_size);
+            SendNamespace(conn_it->second, data_ctx_id, suffix);
         }
     }
 
@@ -2426,6 +2444,8 @@ namespace quicr {
                                              const PublishNamespaceAttributes& publish_namespace_attributes)
     {
     }
+
+    void Transport::NamespaceReceived(const TrackNamespace&) {}
 
     void Transport::PublishNamespaceDoneReceived(messages::RequestID request_id) {}
 
@@ -2915,6 +2935,42 @@ namespace quicr {
                   data_ctx_id,
                   track_namespace_prefix,
                   { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
+                return true;
+            }
+            case messages::ControlMessageType::kNamespace: {
+                if (!client_mode_) {
+                    SPDLOG_LOGGER_ERROR(
+                      logger_, "Unsupported MOQT message type: {}, bad stream", static_cast<uint64_t>(msg_type));
+                    return false;
+                }
+
+                const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+
+                for (auto& [_, track] : conn_ctx.request_handlers) {
+                    if (auto h = track.Get<SubscribeNamespaceHandler>();
+                        h && h->GetMode() == SubscribeNamespaceHandler::Mode::kNamespaces &&
+                        h->data_ctx_id_ == data_ctx_id) {
+                        std::vector<Bytes> entries;
+                        entries.reserve(h->GetPrefix().GetEntries().size() +
+                                        track_namespace_suffix.GetEntries().size());
+
+                        for (const auto& entry : h->GetPrefix().GetEntries()) {
+                            entries.emplace_back(entry.begin(), entry.end());
+                        }
+
+                        for (const auto& entry : track_namespace_suffix.GetEntries()) {
+                            entries.emplace_back(entry.begin(), entry.end());
+                        }
+
+                        NamespaceReceived(TrackNamespace{ entries });
+                        return true;
+                    }
+                }
+
+                SPDLOG_LOGGER_WARN(logger_,
+                                   "Received NAMESPACE to unknown subscribe namespace conn_id: {} data_ctx_id: {}",
+                                   conn_ctx.connection_handle,
+                                   data_ctx_id);
                 return true;
             }
             case messages::ControlMessageType::kNamespaceDone: {

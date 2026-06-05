@@ -21,6 +21,13 @@ namespace quicr_test {
         void PublishNamespaceReceived(const quicr::TrackNamespace& track_namespace,
                                       const quicr::PublishNamespaceAttributes& publish_namespace_attributes) override;
 
+        // Namespace received.
+        void SetNamespaceReceivedPromise(std::promise<quicr::TrackNamespace> promise)
+        {
+            namespace_received_ = std::move(promise);
+        }
+        void NamespaceReceived(const quicr::TrackNamespace& track_namespace) override;
+
         // Publish received.
         void SetPublishReceivedPromise(std::promise<quicr::FullTrackName> promise)
         {
@@ -48,6 +55,7 @@ namespace quicr_test {
       private:
         std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;
         std::optional<std::promise<quicr::TrackNamespace>> publish_namespace_received_;
+        std::optional<std::promise<quicr::TrackNamespace>> namespace_received_;
         std::optional<std::promise<quicr::FullTrackName>> publish_received_;
         std::optional<std::promise<quicr::messages::RequestID>> publish_namespace_status_changed_;
         std::shared_ptr<quicr::SubscribeTrackHandler> last_publish_received_sub_handler_;
