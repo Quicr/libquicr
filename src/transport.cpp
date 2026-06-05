@@ -317,7 +317,7 @@ namespace quicr {
                                 DataContextId data_ctx_id,
                                 std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        if (!conn_ctx.ctrl_data_ctx_id.has_value()) {
+        if (!conn_ctx.tx_ctrl_data_ctx_id.has_value()) {
             CloseConnection(conn_ctx.connection_handle,
                             messages::TerminationReason::kProtocolViolation,
                             "Control bidir data context not created");
@@ -370,7 +370,7 @@ namespace quicr {
 
         auto& conn_ctx = connections_.begin()->second;
 
-        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), ControlMessageType::kClientSetup, setup_parameters);
+        SendCtrlMsg(conn_ctx, conn_ctx.tx_ctrl_data_ctx_id.value(), ControlMessageType::kClientSetup, setup_parameters);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending ClientSetup (error={})", e.what());
         throw e;
@@ -382,7 +382,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {}", conn_ctx.connection_handle);
 
-        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), ControlMessageType::kServerSetup, setup_parameters);
+        SendCtrlMsg(conn_ctx, conn_ctx.tx_ctrl_data_ctx_id.value(), ControlMessageType::kServerSetup, setup_parameters);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending ServerSetup (error={})", e.what());
         throw e;
@@ -509,7 +509,7 @@ namespace quicr {
           logger_, "Sending TRACK_STATUS to conn_id: {} request_id: {}", conn_ctx.connection_handle, request_id);
 
         SendCtrlMsg(conn_ctx,
-                    conn_ctx.ctrl_data_ctx_id.value(),
+                    conn_ctx.tx_ctrl_data_ctx_id.value(),
                     ControlMessageType::kTrackStatus,
                     UintVar(request_id),
                     tfn.name_space,
@@ -850,7 +850,7 @@ namespace quicr {
                         .AddOptional(ParameterType::kGroupOrder, group_order);
 
         SendCtrlMsg(conn_ctx,
-                    conn_ctx.ctrl_data_ctx_id.value(),
+                    conn_ctx.tx_ctrl_data_ctx_id.value(),
                     ControlMessageType::kFetch,
                     UintVar(request_id),
                     messages::FetchType::kStandalone,
@@ -882,7 +882,7 @@ namespace quicr {
                         .AddOptional(ParameterType::kGroupOrder, group_order);
 
         SendCtrlMsg(conn_ctx,
-                    conn_ctx.ctrl_data_ctx_id.value(),
+                    conn_ctx.tx_ctrl_data_ctx_id.value(),
                     ControlMessageType::kFetch,
                     UintVar(request_id),
                     absolute ? FetchType::kAbsoluteJoiningFetch : FetchType::kRelativeJoiningFetch,
@@ -896,7 +896,8 @@ namespace quicr {
 
     void Transport::SendFetchCancel(ConnectionContext& conn_ctx, uint64_t request_id)
     try {
-        SendCtrlMsg(conn_ctx, conn_ctx.ctrl_data_ctx_id.value(), ControlMessageType::kFetchCancel, UintVar(request_id));
+        SendCtrlMsg(
+          conn_ctx, conn_ctx.tx_ctrl_data_ctx_id.value(), ControlMessageType::kFetchCancel, UintVar(request_id));
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchCancel (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -919,7 +920,7 @@ namespace quicr {
                             .Add(ExtensionType::kDynamicGroups, true);
 
         SendCtrlMsg(conn_ctx,
-                    conn_ctx.ctrl_data_ctx_id.value(),
+                    conn_ctx.tx_ctrl_data_ctx_id.value(),
                     ControlMessageType::kFetchOk,
                     UintVar(request_id),
                     end_of_track,
@@ -1669,9 +1670,9 @@ namespace quicr {
                     SPDLOG_LOGGER_INFO(logger_,
                                        "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
 
-                    conn_ctx.ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, true);
-                    conn_ctx.ctrl_stream_id =
-                      quic_transport_->CreateStream(conn_id, conn_ctx.ctrl_data_ctx_id.value(), 0);
+                    conn_ctx.tx_ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, false);
+                    conn_ctx.tx_ctrl_stream_id =
+                      quic_transport_->CreateStream(conn_id, conn_ctx.tx_ctrl_data_ctx_id.value(), 0);
 
                     SendClientSetup();
 
@@ -1748,6 +1749,11 @@ namespace quicr {
         conn_ctx->second.next_request_id = 1; // Server is odd, starting at 1
 
         conn_ctx->second.connection_handle = conn_id;
+
+        conn_ctx->second.tx_ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, false);
+        conn_ctx->second.tx_ctrl_stream_id =
+          quic_transport_->CreateStream(conn_id, conn_ctx->second.tx_ctrl_data_ctx_id.value(), 0);
+
         NewConnectionAccepted(conn_id, { remote.host_or_ip, remote.port });
     }
 
@@ -1779,11 +1785,49 @@ namespace quicr {
             }
 
             auto& data = *data_opt.value();
+            auto cursor_it = data.begin();
+            uint64_t msg_type{ 0 };
+            bool is_controL_stream = is_bidir || conn_ctx.rx_ctrl_stream_id.value_or(0) == stream_id;
+
+            // Get message type if new stream
+            if (rx_ctx->is_new) {
+                auto type_sz = UintVar::Size(data.front());
+                if (data.size() < type_sz) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "New stream {} bidir: {} does not have enough bytes to process start of stream "
+                                       "header len: {} < {}",
+                                       stream_id,
+                                       is_bidir,
+                                       data.size(),
+                                       type_sz);
+                    i = kReadLoopMaxPerStream;
+                    continue; // Not enough bytes to process control message. Try again once more.
+                }
+
+                SPDLOG_LOGGER_DEBUG(logger_,
+                                    "New stream conn_id: {} stream_id: {} bidir: {} data size: {}",
+                                    conn_id,
+                                    stream_id,
+                                    is_bidir,
+                                    data.size());
+
+                msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
+                cursor_it = std::next(data.begin(), type_sz);
+
+                if (static_cast<ControlMessageType>(msg_type) == ControlMessageType::kClientSetup ||
+                    static_cast<ControlMessageType>(msg_type) == ControlMessageType::kServerSetup) {
+                    is_controL_stream = true;
+
+                    if (!is_bidir) {
+                        conn_ctx.rx_ctrl_stream_id = stream_id;
+                    }
+                }
+            }
 
             // CONTROL STREAM
-            if (is_bidir) {
+            if (is_controL_stream) {
                 auto& ctrl_msg_buffer = conn_ctx.ctrl_msg_buffer[stream_id];
-                ctrl_msg_buffer.data.insert(ctrl_msg_buffer.data.end(), data.begin(), data.end());
+                ctrl_msg_buffer.data.insert(ctrl_msg_buffer.data.end(), cursor_it, data.end());
 
                 rx_ctx->data_queue.PopFront();
                 SPDLOG_LOGGER_DEBUG(logger_,
@@ -1792,36 +1836,8 @@ namespace quicr {
                                     stream_id,
                                     ctrl_msg_buffer.data.size());
 
-                // Set the default/primary control stream and data context id
-                if (not conn_ctx.ctrl_data_ctx_id) {
-                    if (not data_ctx_id) {
-                        CloseConnection(conn_id,
-                                        messages::TerminationReason::kInternalError,
-                                        "Received bidir is missing data context");
-                        return;
-                    }
-
-                    conn_ctx.ctrl_data_ctx_id = data_ctx_id;
-
-                    if (!conn_ctx.ctrl_stream_id.has_value()) { // First bidir is the primary control stream
-                        conn_ctx.ctrl_stream_id = stream_id;
-                    }
-                }
-
                 while (ctrl_msg_buffer.data.size() > 0) {
                     if (not ctrl_msg_buffer.msg_type.has_value()) {
-                        // Decode message type
-                        auto uv_sz = UintVar::Size(ctrl_msg_buffer.data.front());
-                        if (ctrl_msg_buffer.data.size() < uv_sz) {
-                            i = kReadLoopMaxPerStream - 4;
-                            break; // Not enough bytes to process control message. Try again once more.
-                        }
-
-                        auto msg_type = uint64_t(
-                          quicr::UintVar({ ctrl_msg_buffer.data.begin(), ctrl_msg_buffer.data.begin() + uv_sz }));
-
-                        ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(), ctrl_msg_buffer.data.begin() + uv_sz);
-
                         ctrl_msg_buffer.msg_type = static_cast<ControlMessageType>(msg_type);
                     }
 
@@ -1842,7 +1858,7 @@ namespace quicr {
                     }
 
                     if (ProcessCtrlMessage(conn_ctx,
-                                           data_ctx_id.value(),
+                                           data_ctx_id.value_or(conn_ctx.tx_ctrl_data_ctx_id.value()),
                                            ctrl_msg_buffer.msg_type.value(),
                                            { ctrl_msg_buffer.data.begin() + sizeof(payload_len),
                                              ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len })) {
@@ -1867,24 +1883,6 @@ namespace quicr {
                  * Process data subgroup header - assume that the start of stream will always have enough bytes
                  * for track alias
                  */
-                auto type_sz = UintVar::Size(data.front());
-                if (data.size() < type_sz) {
-                    SPDLOG_LOGGER_WARN(
-                      logger_,
-                      "New stream {} does not have enough bytes to process start of stream header len: {} < {}",
-                      stream_id,
-                      data.size(),
-                      type_sz);
-                    i = kReadLoopMaxPerStream;
-                    continue; // Not enough bytes to process control message. Try again once more.
-                }
-
-                SPDLOG_LOGGER_DEBUG(
-                  logger_, "New stream conn_id: {} stream_id: {} data size: {}", conn_id, stream_id, data.size());
-
-                auto msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
-                auto cursor_it = std::next(data.begin(), type_sz);
-
                 SPDLOG_LOGGER_TRACE(logger_, "Received stream message type: 0x{:02x} ({})", msg_type, msg_type);
 
                 bool parsed_header = false;
@@ -2009,7 +2007,7 @@ namespace quicr {
 
                 switch (flag) {
                     case StreamClosedFlag::kFin:
-                        if (conn_ctx.ctrl_stream_id.has_value() && conn_ctx.ctrl_stream_id == stream_id) {
+                        if (conn_ctx.tx_ctrl_stream_id.has_value() && conn_ctx.tx_ctrl_stream_id == stream_id) {
                             CloseConnection(
                               connection_handle, TerminationReason::kProtocolViolation, "Primary control stream FIN");
                         } else {
@@ -2018,7 +2016,7 @@ namespace quicr {
 
                         break;
                     case StreamClosedFlag::kReset:
-                        if (conn_ctx.ctrl_stream_id.has_value() && conn_ctx.ctrl_stream_id == stream_id) {
+                        if (conn_ctx.tx_ctrl_stream_id.has_value() && conn_ctx.tx_ctrl_stream_id == stream_id) {
                             CloseConnection(
                               connection_handle, TerminationReason::kProtocolViolation, "Primary control stream RESET");
                         } else {
@@ -2720,7 +2718,7 @@ namespace quicr {
             return recv_it->second.data_ctx_id;
         }
 
-        return conn_ctx.ctrl_data_ctx_id.value();
+        return conn_ctx.tx_ctrl_data_ctx_id.value();
     }
 
     // -- Client Callbacks --

@@ -1096,7 +1096,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
         decltype(streams.begin()) stream_it;
 
-        if (data_ctx_it->second.is_bidir) {
+        if (data_ctx_it->second.is_bidir || (stream_id == 0 && priority == 0)) {
             if (streams.empty()) {
                 return TransportError::kInvalidStreamId;
             }

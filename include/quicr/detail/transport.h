@@ -1010,8 +1010,9 @@ namespace quicr {
             }
 
             ConnectionHandle connection_handle{ 0 };
-            std::optional<uint64_t> ctrl_data_ctx_id;
-            std::optional<uint64_t> ctrl_stream_id;
+            std::optional<uint64_t> tx_ctrl_data_ctx_id;
+            std::optional<uint64_t> tx_ctrl_stream_id;
+            std::optional<uint64_t> rx_ctrl_stream_id;
 
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             bool closed{ false };
