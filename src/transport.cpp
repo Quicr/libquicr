@@ -1787,7 +1787,7 @@ namespace quicr {
             auto& data = *data_opt.value();
             auto cursor_it = data.begin();
             uint64_t msg_type{ 0 };
-            bool is_controL_stream = is_bidir || conn_ctx.rx_ctrl_stream_id.value_or(0) == stream_id;
+            bool is_control_stream = is_bidir || conn_ctx.rx_ctrl_stream_id.value_or(0) == stream_id;
 
             // Get message type if new stream
             if (rx_ctx->is_new) {
@@ -1816,7 +1816,7 @@ namespace quicr {
 
                 if (static_cast<ControlMessageType>(msg_type) == ControlMessageType::kClientSetup ||
                     static_cast<ControlMessageType>(msg_type) == ControlMessageType::kServerSetup) {
-                    is_controL_stream = true;
+                    is_control_stream = true;
 
                     if (!is_bidir) {
                         conn_ctx.rx_ctrl_stream_id = stream_id;
@@ -1825,7 +1825,7 @@ namespace quicr {
             }
 
             // CONTROL STREAM
-            if (is_controL_stream) {
+            if (is_control_stream) {
                 auto& ctrl_msg_buffer = conn_ctx.ctrl_msg_buffer[stream_id];
                 ctrl_msg_buffer.data.insert(ctrl_msg_buffer.data.end(), cursor_it, data.end());
 
