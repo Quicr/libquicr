@@ -1,6 +1,8 @@
 #include "quicr/config.h"
 #include "quicr/defer.h"
 #include "quicr/fetch_track_handler.h"
+#include "quicr/publish_namespace_handler.h"
+#include "quicr/subscribe_namespace_handler.h"
 #include "quicr/subscribe_track_handler.h"
 #include "test_client.h"
 #include "test_server.h"
@@ -88,6 +90,8 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
             on_status_(status);
         }
     }
+
+    uint64_t GetPublishDataContextId() const { return publish_data_ctx_id_; }
 
   private:
     const StatusCallback on_status_;
@@ -1390,5 +1394,139 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
     SUBCASE("WebTransport - Publisher initiated")
     {
         test_dynamic_groups_publisher_initiated("https");
+    }
+}
+
+TEST_CASE("Integration - Dedicated bidirectional control data contexts")
+{
+    auto server = MakeTestServer(std::nullopt, 4);
+
+    auto test_dedicated_control_data_contexts = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        TrackNamespace prefix(std::vector<std::string>{ "ctrl", "stream" });
+
+        std::promise<TestServer::SubscribeNamespaceDetails> ns_server_promise;
+        std::future<TestServer::SubscribeNamespaceDetails> ns_server_future = ns_server_promise.get_future();
+        server->SetSubscribeNamespacePromise(std::move(ns_server_promise));
+
+        auto ns_handler = SubscribeNamespaceHandler::Create(prefix, SubscribeNamespaceHandler::Mode::kTracks);
+        CHECK_NOTHROW(client->SubscribeNamespace(ns_handler));
+
+        REQUIRE(ns_server_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto ns_server_details = ns_server_future.get();
+        CHECK(ns_server_details.data_ctx_id != 0);
+
+        const bool ns_ready =
+          WaitFor([&ns_handler]() { return ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; });
+        REQUIRE(ns_ready);
+        REQUIRE(ns_handler->GetDataContextId().has_value());
+        CHECK(ns_handler->GetDataContextId().value() != 0);
+
+        const auto ns_data_ctx = ns_handler->GetDataContextId().value();
+
+        FullTrackName ftn;
+        ftn.name_space = prefix;
+        ftn.name = { 1, 2, 3 };
+
+        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        CHECK_NOTHROW(client->SubscribeTrack(sub_handler));
+
+        const bool sub_ready =
+          WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        REQUIRE(sub_ready);
+        REQUIRE(sub_handler->GetDataContextId().has_value());
+        CHECK(sub_handler->GetDataContextId().value() != ns_data_ctx);
+
+        const auto sub_data_ctx = sub_handler->GetDataContextId().value();
+
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 1, 5000, [](const auto&) {});
+        CHECK_NOTHROW(publisher->PublishTrack(pub_handler));
+        const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
+        REQUIRE(pub_ready);
+        REQUIRE(pub_handler->GetDataContextId().has_value());
+        CHECK(pub_handler->GetPublishDataContextId() != 0);
+        // Control and object data contexts are distinct on the same connection.
+        CHECK(pub_handler->GetDataContextId().value() != pub_handler->GetPublishDataContextId());
+
+        TrackNamespace pub_ns(std::vector<std::string>{ "ctrl", "publish" });
+        std::promise<TestServer::PublishNamespaceDetails> pub_ns_server_promise;
+        std::future<TestServer::PublishNamespaceDetails> pub_ns_server_future = pub_ns_server_promise.get_future();
+        server->SetPublishNamespacePromise(std::move(pub_ns_server_promise));
+
+        const auto pub_ns_handler = PublishNamespaceHandler::Create(pub_ns);
+        CHECK_NOTHROW(publisher->PublishNamespace(pub_ns_handler));
+        REQUIRE(pub_ns_server_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        (void)pub_ns_server_future.get();
+
+        const bool pub_ns_ready =
+          WaitFor([&pub_ns_handler]() { return pub_ns_handler->GetStatus() == PublishNamespaceHandler::Status::kOk; });
+        REQUIRE(pub_ns_ready);
+        REQUIRE(pub_ns_handler->GetDataContextId().has_value());
+        // Data context IDs are unique per connection; compare handlers on the publisher only.
+        CHECK(pub_ns_handler->GetDataContextId().value() != pub_handler->GetDataContextId().value());
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_dedicated_control_data_contexts("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_dedicated_control_data_contexts("https");
+    }
+}
+
+TEST_CASE("Integration - Request updates use handler data context")
+{
+    auto server = MakeTestServer(std::nullopt, 4);
+
+    auto test_request_update_data_context = [&](const std::string& protocol_scheme) {
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "ctrl", "update" });
+        ftn.name = { 4, 5, 6 };
+
+        auto new_group_was_requested = std::make_shared<std::atomic_bool>(false);
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(
+          ftn, 1, 5000, [new_group_was_requested](const PublishTrackHandler::Status status) {
+              if (status == PublishTrackHandler::Status::kNewGroupRequested) {
+                  new_group_was_requested->store(true);
+              }
+          });
+        CHECK_NOTHROW(publisher->PublishTrack(pub_handler));
+        const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
+        REQUIRE(pub_ready);
+
+        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        CHECK_NOTHROW(subscriber->SubscribeTrack(sub_handler));
+
+        const bool sub_ready =
+          WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        REQUIRE(sub_ready);
+        REQUIRE(sub_handler->GetDataContextId().has_value());
+
+        const auto data_ctx_before = sub_handler->GetDataContextId().value();
+
+        CHECK_NOTHROW(sub_handler->RequestNewGroup());
+
+        const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
+        CHECK(received);
+        REQUIRE(sub_handler->GetDataContextId().has_value());
+        CHECK(sub_handler->GetDataContextId().value() == data_ctx_before);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_request_update_data_context("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_request_update_data_context("https");
     }
 }

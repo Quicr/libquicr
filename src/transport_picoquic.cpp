@@ -214,6 +214,8 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                     }
 
                     if (data_ctx != nullptr) {
+                        transport->OnStreamClosed(
+                          conn_id, stream_id, nullptr, data_ctx->request_id, StreamClosedFlag::kFin);
                         transport->DeleteDataContext(conn_id, data_ctx->data_ctx_id, false);
                     }
                 }
@@ -456,6 +458,7 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                 picoquic_cnx_t* close_cnx = picoquic_get_first_cnx(quic);
 
                 if (close_cnx == NULL) {
+                    transport->SetStatus(TransportStatus::kShutdown);
                     return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
                 }
 
@@ -1093,7 +1096,7 @@ PicoQuicTransport::Enqueue(const TransportConnId& conn_id,
 
         decltype(streams.begin()) stream_it;
 
-        if (data_ctx_it->second.is_bidir) {
+        if (data_ctx_it->second.is_bidir || (stream_id == 0 && priority == 0)) {
             if (streams.empty()) {
                 return TransportError::kInvalidStreamId;
             }

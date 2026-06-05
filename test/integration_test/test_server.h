@@ -121,6 +121,7 @@ namespace quicr_test {
         struct SubscribeNamespaceDetails
         {
             quicr::ConnectionHandle connection_handle;
+            quicr::DataContextId data_ctx_id{ 0 };
             quicr::TrackNamespace prefix_namespace;
             quicr::messages::SubscribeNamespaceAttributes attributes;
         };

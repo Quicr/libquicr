@@ -1010,8 +1010,9 @@ namespace quicr {
             }
 
             ConnectionHandle connection_handle{ 0 };
-            std::optional<uint64_t> ctrl_data_ctx_id;
-            std::optional<uint64_t> ctrl_stream_id;
+            std::optional<uint64_t> tx_ctrl_data_ctx_id;
+            std::optional<uint64_t> tx_ctrl_stream_id;
+            std::optional<uint64_t> rx_ctrl_stream_id;
 
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             bool closed{ false };
@@ -1038,6 +1039,7 @@ namespace quicr {
                 FullTrackName track_full_name;
                 TrackHash track_hash{ 0, 0 };
                 std::optional<messages::Location> largest_location{ std::nullopt };
+                DataContextId data_ctx_id{ 0 };
             };
 
             std::map<messages::RequestID, SubscribeContext> recv_req_id;
@@ -1133,10 +1135,12 @@ namespace quicr {
         /*===================================================================*/
 
         void SendRequestOk(ConnectionContext& conn_ctx,
+                           DataContextId data_ctx_id,
                            messages::RequestID request_id,
                            std::optional<messages::Location> largest_location = std::nullopt);
 
         void SendRequestUpdate(const ConnectionContext& conn_ctx,
+                               DataContextId data_ctx_id,
                                messages::RequestID request_id,
                                messages::RequestID existing_request_id,
                                TrackHash th,
@@ -1145,6 +1149,7 @@ namespace quicr {
                                bool forward);
 
         void SendRequestError(ConnectionContext& conn_ctx,
+                              DataContextId data_ctx_id,
                               messages::RequestID request_id,
                               messages::ErrorCode error,
                               std::chrono::milliseconds retry_interval,
@@ -1155,25 +1160,35 @@ namespace quicr {
         /*===================================================================*/
 
         void SendPublishNamespace(ConnectionContext& conn_ctx,
+                                  DataContextId data_ctx_id,
                                   messages::RequestID request_id,
                                   const TrackNamespace& track_namespace);
 
-        void SendPublishNamespaceDone(ConnectionContext& conn_ctx, messages::RequestID request_id);
+        void SendPublishNamespaceDone(ConnectionContext& conn_ctx,
+                                      DataContextId data_ctx_id,
+                                      messages::RequestID request_id);
 
         /*===================================================================*/
         // Subscribe Namespace
         /*===================================================================*/
 
-        void SendSubscribeNamespace(ConnectionHandle conn_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
+        void SendSubscribeNamespace(ConnectionContext& conn_ctx,
+                                    DataContextId data_ctx_id,
+                                    messages::RequestID request_id,
+                                    const TrackNamespace& prefix,
+                                    const messages::Filter& filter,
+                                    messages::ControlMessageType type);
 
-        void SendUnsubscribeNamespace(ConnectionHandle conn_handle,
-                                      const std::shared_ptr<SubscribeNamespaceHandler>& handler);
+        void SendUnsubscribeNamespace(ConnectionContext& conn_ctx,
+                                      DataContextId data_ctx_id,
+                                      const TrackNamespace& prefix);
 
         /*===================================================================*/
         // Subscribe
         /*===================================================================*/
 
         void SendSubscribe(ConnectionContext& conn_ctx,
+                           DataContextId data_ctx_id,
                            messages::RequestID request_id,
                            const FullTrackName& tfn,
                            TrackHash th,
@@ -1183,18 +1198,20 @@ namespace quicr {
                            std::optional<std::chrono::milliseconds> delivery_timeout);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
+                             DataContextId data_ctx_id,
                              messages::RequestID request_id,
                              uint64_t track_alias,
                              uint64_t expires,
                              const std::optional<messages::Location>& largest_location,
                              messages::GroupOrder publisher_default_group_order);
-        void SendUnsubscribe(ConnectionContext& conn_ctx, messages::RequestID request_id);
+        void SendUnsubscribe(ConnectionContext& conn_ctx, DataContextId data_ctx_id, messages::RequestID request_id);
 
         /*===================================================================*/
         // Publish
         /*===================================================================*/
 
         void SendPublish(ConnectionContext& conn_ctx,
+                         DataContextId data_ctx_id,
                          messages::RequestID request_id,
                          const FullTrackName& tfn,
                          uint64_t track_alias,
@@ -1204,16 +1221,23 @@ namespace quicr {
                          bool support_new_group);
 
         void SendPublishDone(ConnectionContext& conn_ctx,
+                             DataContextId data_ctx_id,
                              messages::RequestID request_id,
                              messages::PublishDoneStatusCode status,
                              const std::string& reason);
 
         void SendPublishOk(ConnectionContext& conn_ctx,
+                           DataContextId data_ctx_id,
                            messages::RequestID request_id,
                            bool forward,
                            std::uint8_t priority,
                            std::optional<messages::GroupOrder> group_order,
                            const messages::Filter& filter);
+
+        std::optional<DataContextId> FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
+                                                                       const TrackNamespace& track_namespace) const;
+
+        DataContextId ResponseDataContext(const ConnectionContext& conn_ctx, messages::RequestID request_id) const;
 
         /*===================================================================*/
         // Track Status
@@ -1259,7 +1283,25 @@ namespace quicr {
 
         void RemoveSubscribeTrack(ConnectionContext& conn_ctx,
                                   SubscribeTrackHandler& handler,
-                                  bool remove_handler = true);
+                                  bool remove_handler = true,
+                                  bool send_unsubscribe = true);
+
+        void RemoveSubscribeNamespace(ConnectionContext& conn_ctx,
+                                      SubscribeNamespaceHandler& handler,
+                                      bool remove_handler = true,
+                                      bool send_unsubscribe = true);
+
+        void CloseRequestHandler(ConnectionContext& conn_ctx,
+                                 ConnectionHandle connection_handle,
+                                 messages::RequestID request_id,
+                                 std::uint64_t stream_id,
+                                 StreamClosedFlag flag);
+
+        void ClosePublishTrackLocal(ConnectionContext& conn_ctx,
+                                    ConnectionHandle connection_handle,
+                                    PublishTrackHandler& handler,
+                                    std::uint64_t stream_id,
+                                    bool is_reset);
 
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(ConnectionContext& conn_ctx, TrackHash& th);
 

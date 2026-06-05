@@ -157,7 +157,7 @@ TestServer::SubscribeTracksReceived(const ConnectionHandle connection_handle,
                                     const messages::SubscribeNamespaceAttributes& attributes)
 {
     if (subscribe_namespace_promise_.has_value()) {
-        subscribe_namespace_promise_->set_value({ connection_handle, prefix_namespace, attributes });
+        subscribe_namespace_promise_->set_value({ connection_handle, data_ctx_id, prefix_namespace, attributes });
     }
 
     // Deliberately not prefix matching to allow testing bad case. Tests should only add tracks
