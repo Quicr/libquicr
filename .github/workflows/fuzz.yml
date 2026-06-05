@@ -15,9 +15,5 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - name: Install Clang
-      run: |
-        wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 20
-        echo "/usr/lib/llvm-20/bin" >> "$GITHUB_PATH"
     - name: Fuzz
       run: make fuzz
