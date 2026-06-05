@@ -28,7 +28,7 @@ TestPublishTrackHandler::StatusChanged(Status status)
 }
 
 TestServer::TestServer(const ServerConfig& config)
-  : Server(config)
+  : Session(config)
 {
 }
 

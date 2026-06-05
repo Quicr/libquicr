@@ -3,10 +3,10 @@
 
 #include <doctest/doctest.h>
 
-#include <memory>
-#include <quicr/client.h>
 #include <quicr/config.h>
+#include <quicr/session.h>
 
+#include <memory>
 TEST_CASE("Multiple client creation")
 {
     CHECK_NOTHROW({
@@ -32,5 +32,5 @@ struct BadClient : public quicr::Client
 TEST_CASE("Construction Non-shared")
 {
     BadClient client;
-    CHECK_THROWS(client.Connect());
+    CHECK_THROWS(client.Start());
 }
