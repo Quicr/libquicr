@@ -23,7 +23,7 @@ ${BUILD_DIR}: CMakeLists.txt cmd/CMakeLists.txt
 
 # Run fuzzing tests.
 fuzz:
-	cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DQUICR_BUILD_FUZZ=ON -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DCMAKE_EXE_LINKER_FLAGS=-stdlib=libc++ -DCMAKE_SHARED_LINKER_FLAGS=-stdlib=libc++ .
+	cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DQUICR_BUILD_FUZZ=ON .
 	cmake --build ${BUILD_DIR} --parallel 8
 	./${BUILD_DIR}/fuzz/ctrl_messages_fuzzer -max_total_time=10
 
