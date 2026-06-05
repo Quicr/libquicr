@@ -11,6 +11,7 @@
 #include <quicr/defer.h>
 #include <quicr/object.h>
 #include <quicr/publish_fetch_handler.h>
+#include <quicr/session.h>
 #include <sframe/sframe.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -1595,7 +1596,7 @@ main(int argc, char* argv[])
         bool stop_threads{ false };
         auto client = MyClient::Create(config, stop_threads);
 
-        if (client->Connect() != quicr::Transport::Status::kConnecting) {
+        if (client->Start() != quicr::Transport::Status::kConnecting) {
             SPDLOG_ERROR("Failed to connect to server due to invalid params, check URI");
             exit(-1);
         }
@@ -1692,7 +1693,7 @@ main(int argc, char* argv[])
             fetch_thread.join();
         }
 
-        client->Disconnect();
+        client->Stop();
 
         SPDLOG_INFO("Client done");
         std::this_thread::sleep_for(std::chrono::milliseconds(3000));

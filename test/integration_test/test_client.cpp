@@ -1,5 +1,7 @@
 #include "test_client.h"
 
+#include <quicr/subscribe_track_handler.h>
+
 using namespace quicr;
 using namespace quicr_test;
 

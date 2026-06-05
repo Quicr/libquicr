@@ -19,7 +19,6 @@ target_compile_options(quicr PRIVATE
 
 target_sources(quicr PRIVATE
     base_track_handler.cpp
-    client.cpp
     ctrl_message_types.cpp
     fetch_track_handler.cpp
     joining_fetch_handler.cpp
@@ -28,7 +27,6 @@ target_sources(quicr PRIVATE
     publish_namespace_handler.cpp
     publish_track_handler.cpp
     quic_transport.cpp
-    server.cpp
     subscribe_namespace_handler.cpp
     subscribe_track_handler.cpp
     transport_picoquic.cpp
