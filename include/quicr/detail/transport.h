@@ -358,6 +358,23 @@ namespace quicr {
                                        const SubscribeNamespaceResponse& response);
 
         /**
+         * @brief Accept or reject subscribe tracks that was received
+         *
+         * @details Server mode only. Called after `SubscribeTracksReceived()`.
+         *
+         * @param connection_handle Source connection ID
+         * @param data_ctx_id       Data context ID for the bidir connection to use
+         * @param request_id        Request ID
+         * @param prefix            Track namespace prefix
+         * @param response          Response for remainder of subscribe tracks flow
+         */
+        void ResolveSubscribeTracks(ConnectionHandle connection_handle,
+                                    DataContextId data_ctx_id,
+                                    uint64_t request_id,
+                                    const TrackNamespace& prefix,
+                                    const SubscribeNamespaceResponse& response);
+
+        /**
          * @brief Accept or reject a fetch that was received
          *
          * @details Accept or reject a fetch received via `StandaloneFetchReceived()` or
@@ -799,6 +816,23 @@ namespace quicr {
                                                 DataContextId data_ctx_id,
                                                 const TrackNamespace& prefix_namespace,
                                                 const messages::SubscribeNamespaceAttributes& attributes);
+
+        /**
+         * @brief Callback notification for new subscribe tracks received
+         *
+         * @details Server mode only.
+         *
+         * @note The implementor **MUST** call `ResolveSubscribeTracks()`.
+         *
+         * @param connection_handle  Source connection ID
+         * @param data_ctx_id        Data context ID that the message was received on
+         * @param prefix_namespace   Track namespace prefix
+         * @param attributes         Attributes received
+         */
+        virtual void SubscribeTracksReceived(ConnectionHandle connection_handle,
+                                             DataContextId data_ctx_id,
+                                             const TrackNamespace& prefix_namespace,
+                                             const messages::SubscribeNamespaceAttributes& attributes);
 
         /**
          * @brief Callback notification for new subscribe received

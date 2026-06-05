@@ -205,6 +205,11 @@ namespace quicr_test {
 
         void PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override;
 
+        void SubscribeTracksReceived(quicr::ConnectionHandle connection_handle,
+                                     quicr::DataContextId data_ctx_id,
+                                     const quicr::TrackNamespace& prefix_namespace,
+                                     const quicr::messages::SubscribeNamespaceAttributes& attributes) override;
+
         void SubscribeNamespaceReceived(quicr::ConnectionHandle connection_handle,
                                         quicr::DataContextId data_ctx_id,
                                         const quicr::TrackNamespace& prefix_namespace,
