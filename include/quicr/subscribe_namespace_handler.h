@@ -136,8 +136,6 @@ namespace quicr {
 
         std::optional<Error> error_{};
 
-        DataContextId data_ctx_id_{ 0 };
-
         friend class Transport;
     };
 }

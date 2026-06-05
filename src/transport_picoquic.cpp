@@ -456,6 +456,7 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                 picoquic_cnx_t* close_cnx = picoquic_get_first_cnx(quic);
 
                 if (close_cnx == NULL) {
+                    transport->SetStatus(TransportStatus::kShutdown);
                     return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
                 }
 

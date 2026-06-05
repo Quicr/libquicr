@@ -728,7 +728,7 @@ namespace quicr {
             }
 
             const auto& prefix = handler->GetPrefix();
-            const auto rid = conn_it->second.GetNextRequestId();
+            handler->SetRequestId(conn_it->second.GetNextRequestId());
 
             /* Available parameters:
              * - AUTHORIZATION TOKEN (0x03)
@@ -744,7 +744,9 @@ namespace quicr {
 
             [[maybe_unused]] auto th = TrackHash({ prefix, {} });
 
-            if (auto [_, is_new] = conn_it->second.request_handlers.try_emplace(rid, handler); !is_new) {
+            if (auto [_, is_new] =
+                  conn_it->second.request_handlers.try_emplace(handler->GetRequestId().value(), handler);
+                !is_new) {
                 SPDLOG_LOGGER_WARN(logger_, "Namespace already subscribed to (alias={})", th.track_fullname_hash);
                 return;
             }
@@ -753,13 +755,13 @@ namespace quicr {
                                 "Sending {} to conn_id: {} request_id: {} prefix_hash: {}",
                                 log_name,
                                 conn_it->second.connection_handle,
-                                rid,
+                                handler->GetRequestId().value(),
                                 th.track_namespace_hash);
 
             handler->data_ctx_id_ = quic_transport_->CreateDataContext(conn_handle, true, 0, true);
-            quic_transport_->CreateStream(conn_handle, handler->data_ctx_id_, 0);
+            quic_transport_->CreateStream(conn_handle, handler->GetDataContextId().value(), 0);
 
-            SendCtrlMsg(conn_it->second, handler->data_ctx_id_, type, UintVar(rid), prefix, params);
+            SendCtrlMsg(conn_it->second, handler->GetDataContextId().value(), type, UintVar(handler->GetRequestId().value()), prefix, params);
         } catch (const std::exception& e) {
             SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending {} (error={})", log_name, e.what());
             // TODO: add error handling in libquicr in calling function
