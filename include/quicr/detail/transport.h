@@ -1020,10 +1020,7 @@ namespace quicr {
 
             struct CtrlMsgBuffer
             {
-                /// Indicates the current message type being read
-                std::optional<messages::ControlMessageType> msg_type;
-
-                std::vector<uint8_t> data; ///< Data buffer to parse control message
+                std::vector<uint8_t> data; ///< Control message buffer
             };
             std::map<uint64_t, CtrlMsgBuffer> ctrl_msg_buffer; ///< Control message buffer
 

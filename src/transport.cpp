@@ -1803,9 +1803,11 @@ namespace quicr {
             // CONTROL STREAM
             if (is_control_stream) {
                 auto& ctrl_msg_buffer = conn_ctx.ctrl_msg_buffer[stream_id];
-                ctrl_msg_buffer.data.insert(ctrl_msg_buffer.data.end(), cursor_it, data.end());
+                ctrl_msg_buffer.data.insert(ctrl_msg_buffer.data.end(), data.begin(), data.end());
 
                 rx_ctx->data_queue.PopFront();
+                rx_ctx->is_new = false;
+
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
                                     conn_id,
@@ -1813,41 +1815,44 @@ namespace quicr {
                                     ctrl_msg_buffer.data.size());
 
                 while (ctrl_msg_buffer.data.size() > 0) {
-                    if (not ctrl_msg_buffer.msg_type.has_value()) {
-                        ctrl_msg_buffer.msg_type = static_cast<ControlMessageType>(msg_type);
+                    if (ctrl_msg_buffer.data.size() < UintVar::Size(ctrl_msg_buffer.data.front())) {
+                        i = kReadLoopMaxPerStream - 4;
+                        break;
                     }
+
+                    const auto type_sz = UintVar::Size(ctrl_msg_buffer.data.front());
+                    const auto msg_type = static_cast<ControlMessageType>(static_cast<uint64_t>(
+                      UintVar({ ctrl_msg_buffer.data.data(), ctrl_msg_buffer.data.data() + type_sz })));
 
                     uint16_t payload_len = 0;
 
-                    // Decode control payload length in bytes
-                    if (ctrl_msg_buffer.data.size() < sizeof(payload_len)) {
+                    if (ctrl_msg_buffer.data.size() < type_sz + sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
-                        break; // Not enough bytes to process control message. Try again once more.
+                        break;
                     }
 
-                    std::memcpy(&payload_len, ctrl_msg_buffer.data.data(), sizeof(payload_len));
+                    std::memcpy(&payload_len, ctrl_msg_buffer.data.data() + type_sz, sizeof(payload_len));
                     payload_len = SwapBytes(payload_len);
 
-                    if (ctrl_msg_buffer.data.size() < payload_len + sizeof(payload_len)) {
+                    const auto message_size = type_sz + sizeof(payload_len) + payload_len;
+                    if (ctrl_msg_buffer.data.size() < message_size) {
                         i = kReadLoopMaxPerStream - 4;
-                        break; // Not enough bytes to process control message. Try again once more.
+                        break;
                     }
+
+                    const auto payload_begin = ctrl_msg_buffer.data.begin() + type_sz + sizeof(payload_len);
+                    const auto payload_end = payload_begin + payload_len;
 
                     if (ProcessCtrlMessage(conn_ctx,
                                            data_ctx_id.value_or(conn_ctx.tx_ctrl_data_ctx_id.value()),
-                                           ctrl_msg_buffer.msg_type.value(),
-                                           { ctrl_msg_buffer.data.begin() + sizeof(payload_len),
-                                             ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len })) {
-
-                        // Reset the control message buffer and message type to start a new message.
-                        ctrl_msg_buffer.msg_type = std::nullopt;
+                                           msg_type,
+                                           { payload_begin, payload_end })) {
                         ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
-                                                   ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len);
+                                                   ctrl_msg_buffer.data.begin() + message_size);
                     } else {
                         conn_ctx.metrics.invalid_ctrl_stream_msg++;
-                        ctrl_msg_buffer.msg_type = std::nullopt;
                         ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
-                                                   ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len);
+                                                   ctrl_msg_buffer.data.begin() + message_size);
                     }
                 }
                 continue;
