@@ -43,10 +43,9 @@ namespace quicr::messages {
         kRequestsBlocked = 0x1a,
         kPublish = 0x1d,
         kPublishOk = 0x1e,
-        kClientSetup = 0x20,
-        kServerSetup = 0x21,
         kSubscribeNamespace = 0x50,
         kSubscribeTracks = 0x51,
+        kSetup = 0x2F00,
     };
 
     using TrackAlias = std::uint64_t;
@@ -259,10 +258,9 @@ namespace quicr::messages {
         }
     }
 
-    enum struct SetupParameterType : uint64_t
+    enum struct SetupOptionType : uint64_t
     {
         kPath = 0x01,
-        kMaxRequestId = 0x02,
         kAuthorizationToken = 0x03,
         kMaxAuthTokenCacheSize = 0x04,
         kAuthority = 0x05,
@@ -301,7 +299,7 @@ namespace quicr::messages {
     };
 
     using Parameter = KeyValuePair<ParameterType>;
-    using SetupParameter = KeyValuePair<SetupParameterType>;
+    using SetupParameter = KeyValuePair<SetupOptionType>;
 
     enum struct GroupOrder : uint8_t
     {
@@ -1077,7 +1075,7 @@ namespace quicr::messages {
         return buffer;
     }
 
-    using SetupParameters = quicr::messages::ParameterList<quicr::messages::SetupParameterType>;
+    using SetupOptions = quicr::messages::ParameterList<quicr::messages::SetupOptionType>;
     using Parameters = quicr::messages::ParameterList<quicr::messages::ParameterType>;
 
 } // namespace

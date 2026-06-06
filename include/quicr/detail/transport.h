@@ -1127,8 +1127,7 @@ namespace quicr {
             SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes());
         }
 
-        void SendClientSetup();
-        void SendServerSetup(ConnectionContext& conn_ctx);
+        void SendSetup(ConnectionContext& conn_ctx);
 
         /*===================================================================*/
         // Requests

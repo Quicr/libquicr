@@ -135,6 +135,7 @@ MakeTestClient(const bool connect = true,
     // Connect a client.
     ClientConfig client_config;
     client_config.transport_config.debug = true;
+    client_config.endpoint_id = "client";
     client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
     client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(kPort) + "/relay";
     if (qlog_path.has_value()) {
