@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/detail/transport.h"
+#include "quicr/detail/control_messages/setup.h"
 #include "quicr/detail/ctrl_message_types.h"
 #include "quicr/detail/message.h"
 #include "quicr/detail/messages.h"
@@ -342,7 +343,7 @@ namespace quicr {
     try {
         SPDLOG_LOGGER_DEBUG(logger_, "Sending SETUP to conn_id: {}", conn_ctx.connection_handle);
 
-        SetupOptions setup_options = SetupOptions{};
+        KeyValueAttributes setup_options;
 
         if (client_mode_) {
             setup_options.Add(SetupOptionType::kEndpointId, client_config_.endpoint_id);
@@ -3373,14 +3374,12 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kSetup: {
-                const auto setup_parameters = messages::Message::ParseField<messages::SetupOptions>(msg_bytes);
+                const auto setup = messages::control::Setup{ msg_bytes };
 
                 std::string endpoint_id = "Unknown Endpoint ID";
-                for (const auto& param : setup_parameters) {
-                    if (param.type == messages::SetupOptionType::kEndpointId) {
-                        endpoint_id = std::string(param.value.begin(), param.value.end());
-                        break;
-                    }
+                if (auto endpoint =
+                      setup.setup_options.GetOptional<std::string>(messages::SetupOptionType::kEndpointId)) {
+                    endpoint_id = *endpoint;
                 }
 
                 if (client_mode_) {

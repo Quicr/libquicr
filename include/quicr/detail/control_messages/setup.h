@@ -11,7 +11,7 @@ namespace quicr::messages::control {
     {
         static constexpr std::uint64_t kType = 0x2F00;
 
-        const std::vector<KeyValuePair<std::uint64_t>> setup_options;
+        const KeyValueAttributes setup_options;
 
         explicit Setup(BytesSpan payload)
           : Setup(MessageReader{ payload })
@@ -20,7 +20,7 @@ namespace quicr::messages::control {
 
       private:
         explicit Setup(MessageReader reader)
-          : setup_options(reader.ReadKeyValuePairs())
+          : setup_options(reader.Read<KeyValueAttributes>())
         {
             reader.ExpectDone();
         }
