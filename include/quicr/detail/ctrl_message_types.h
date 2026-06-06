@@ -797,22 +797,22 @@ namespace quicr::messages {
         { BytesSpan{} >> value } -> std::same_as<BytesSpan>;
     };
 
-    /// Draft 18 flat key-value attributes: a bounded, sorted KVP sequence without a leading count.
-    class KeyValueAttributes
+    /// Draft 18 flat key-value pairs: a bounded, sorted KVP sequence without a leading count.
+    class KeyValuePairs
     {
       public:
-        KeyValueAttributes() = default;
+        KeyValuePairs() = default;
 
-        KeyValueAttributes(const std::map<std::uint64_t, Bytes>& attributes)
-          : attributes_(attributes)
+        KeyValuePairs(const std::map<std::uint64_t, Bytes>& pairs)
+          : pairs_(pairs)
         {
         }
 
         template<typename T, KeyType K>
-        KeyValueAttributes& Add(K type, const T& value)
+        KeyValuePairs& Add(K type, const T& value)
         {
             const auto type_value = static_cast<std::uint64_t>(type);
-            attributes_[type_value] = EncodeValue(type_value, value);
+            pairs_[type_value] = EncodeValue(type_value, value);
             return *this;
         }
 
@@ -822,7 +822,7 @@ namespace quicr::messages {
             if constexpr (std::is_arithmetic_v<T>) {
                 if (static_cast<std::uint64_t>(type) % 2 == 0) {
                     std::uint64_t val = 0;
-                    const auto& bytes = attributes_.at(static_cast<std::uint64_t>(type));
+                    const auto& bytes = pairs_.at(static_cast<std::uint64_t>(type));
                     std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
                     return static_cast<T>(val);
                 }
@@ -830,26 +830,25 @@ namespace quicr::messages {
 
             if constexpr (HasByteStreamOperators<T>) {
                 T result;
-                attributes_.at(static_cast<std::uint64_t>(type)) >> result;
+                pairs_.at(static_cast<std::uint64_t>(type)) >> result;
                 return result;
             }
 
-            return FromBytes<T>(attributes_.at(static_cast<std::uint64_t>(type)));
+            return FromBytes<T>(pairs_.at(static_cast<std::uint64_t>(type)));
         }
 
         template<typename T, KeyType K>
         std::optional<T> GetOptional(K type) const
         {
-            return attributes_.contains(static_cast<std::uint64_t>(type)) ? std::make_optional(Get<T>(type))
-                                                                          : std::nullopt;
+            return pairs_.contains(static_cast<std::uint64_t>(type)) ? std::make_optional(Get<T>(type)) : std::nullopt;
         }
 
-        bool Contains(std::uint64_t type) const { return attributes_.contains(type); }
+        bool Contains(std::uint64_t type) const { return pairs_.contains(type); }
 
-        auto begin() const noexcept { return attributes_.begin(); }
-        auto end() const noexcept { return attributes_.end(); }
+        auto begin() const noexcept { return pairs_.begin(); }
+        auto end() const noexcept { return pairs_.end(); }
 
-        const std::map<std::uint64_t, Bytes>& Attributes() const noexcept { return attributes_; }
+        const std::map<std::uint64_t, Bytes>& Pairs() const noexcept { return pairs_; }
 
         template<typename T>
         static Bytes EncodeValue(std::uint64_t type, const T& value)
@@ -872,11 +871,11 @@ namespace quicr::messages {
         }
 
       private:
-        std::map<std::uint64_t, Bytes> attributes_;
+        std::map<std::uint64_t, Bytes> pairs_;
     };
 
-    BytesSpan operator>>(BytesSpan buffer, KeyValueAttributes& msg);
-    Bytes& operator<<(Bytes& buffer, const KeyValueAttributes& msg);
+    BytesSpan operator>>(BytesSpan buffer, KeyValuePairs& msg);
+    Bytes& operator<<(Bytes& buffer, const KeyValuePairs& msg);
 
     class TrackExtensions
     {
@@ -898,7 +897,7 @@ namespace quicr::messages {
             }
 
             extensions[static_cast<std::uint64_t>(type)] =
-              KeyValueAttributes::EncodeValue(static_cast<std::uint64_t>(type), value);
+              KeyValuePairs::EncodeValue(static_cast<std::uint64_t>(type), value);
 
             return *this;
         }
@@ -907,7 +906,7 @@ namespace quicr::messages {
         TrackExtensions& AddImmutable(ExtensionType type, const T& value)
         {
             immutable_extensions[static_cast<std::uint64_t>(type)] =
-              KeyValueAttributes::EncodeValue(static_cast<std::uint64_t>(type), value);
+              KeyValuePairs::EncodeValue(static_cast<std::uint64_t>(type), value);
             return *this;
         }
 

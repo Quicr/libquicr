@@ -184,11 +184,11 @@ namespace quicr::messages {
 
     } // namespace
 
-    Bytes& operator<<(Bytes& buffer, const KeyValueAttributes& attributes)
+    Bytes& operator<<(Bytes& buffer, const KeyValuePairs& pairs)
     {
         std::vector<KeyValuePair<std::uint64_t>> kvps;
-        kvps.reserve(attributes.Attributes().size());
-        for (const auto& [key, value] : attributes.Attributes()) {
+        kvps.reserve(pairs.Pairs().size());
+        for (const auto& [key, value] : pairs.Pairs()) {
             kvps.push_back(KeyValuePair<std::uint64_t>{ key, value });
         }
 
@@ -196,11 +196,11 @@ namespace quicr::messages {
         return buffer;
     }
 
-    BytesSpan operator>>(BytesSpan buffer, KeyValueAttributes& attributes)
+    BytesSpan operator>>(BytesSpan buffer, KeyValuePairs& pairs)
     {
         std::map<std::uint64_t, Bytes> parsed;
         buffer = ParseKeyValuePairSequence(buffer, parsed);
-        attributes = KeyValueAttributes{ parsed };
+        pairs = KeyValuePairs{ parsed };
         return buffer;
     }
 

@@ -343,7 +343,7 @@ namespace quicr {
     try {
         SPDLOG_LOGGER_DEBUG(logger_, "Sending SETUP to conn_id: {}", conn_ctx.connection_handle);
 
-        KeyValueAttributes setup_options;
+        KeyValuePairs setup_options;
 
         if (client_mode_) {
             setup_options.Add(SetupOptionType::kEndpointId, client_config_.endpoint_id);
