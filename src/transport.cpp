@@ -3544,6 +3544,9 @@ namespace quicr {
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
 
+                // TODO: Fill all these in.
+                control::ValidateParameters(
+                  parameters, { ParameterType::kLargestObject, ParameterType::kForward, ParameterType::kGroupOrder });
                 const control::Publish publish{
                     .full_track_name = { track_namespace, track_name },
                     .track_alias = track_alias,
