@@ -201,7 +201,7 @@ namespace quicr_test {
 
         void PublishReceived(quicr::ConnectionHandle connection_handle,
                              uint64_t request_id,
-                             const quicr::messages::Publish& publish,
+                             const quicr::messages::PublishAttributes& publish,
                              std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;
 
         void PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override;

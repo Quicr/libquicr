@@ -35,7 +35,7 @@ TestServer::TestServer(const ServerConfig& config)
 void
 TestServer::PublishReceived(const ConnectionHandle connection_handle,
                             const uint64_t request_id,
-                            const messages::Publish& publish,
+                            const messages::PublishAttributes& publish,
                             [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler)
 {
     std::lock_guard lock(state_mutex_);
@@ -172,8 +172,8 @@ TestServer::SubscribeTracksReceived(const ConnectionHandle connection_handle,
         auto handler =
           std::make_shared<TestPublishTrackHandler>(track.full_track_name,
                                                     quicr::TrackMode::kStream,
-                                                    track.attributes.priority,
-                                                    track.attributes.delivery_timeout.count(),
+                                                    track.attributes.default_publisher_priority,
+                                                    track.attributes.delivery_timeout.value_or(0),
                                                     std::static_pointer_cast<TestServer>(shared_from_this()));
         ns_handler->PublishTrack(handler);
     }

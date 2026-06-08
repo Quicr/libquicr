@@ -544,12 +544,7 @@ namespace quicr {
     void Transport::SendPublish(ConnectionContext& conn_ctx,
                                 DataContextId data_ctx_id,
                                 messages::RequestID request_id,
-                                const FullTrackName& tfn,
-                                uint64_t track_alias,
-                                messages::GroupOrder group_order,
-                                std::optional<Location> largest_location,
-                                bool forward,
-                                bool support_new_group)
+                                const PublishAttributes& publish)
     try {
         /* Available parameters:
          * - AUTHORIZATION TOKEN (0x03): Conveys authorization for the publisher to initiate the track.
@@ -558,16 +553,16 @@ namespace quicr {
          * - FORWARD (0x10): Specifies the initial Forwarding State.
          */
         auto params = Parameters{}
-                        .Add(ParameterType::kForward, forward)
-                        .Add(ParameterType::kExpires, 0)
-                        .AddOptional(ParameterType::kLargestObject, largest_location);
+                        .Add(ParameterType::kForward, publish.forward)
+                        .AddOptional(ParameterType::kExpires, publish.expires)
+                        .AddOptional(ParameterType::kLargestObject, publish.largest_object);
 
         auto extensions = TrackExtensions{}
-                            .Add(ExtensionType::kDeliveryTimeout, 0)
-                            .Add(ExtensionType::kMaxCacheDuration, 0)
-                            .Add(ExtensionType::kDefaultPublisherGroupOrder, group_order)
-                            .Add(ExtensionType::kDefaultPublisherPriority, 1)
-                            .Add(ExtensionType::kDynamicGroups, support_new_group);
+                            .Add(ExtensionType::kDeliveryTimeout, publish.delivery_timeout)
+                            .Add(ExtensionType::kMaxCacheDuration, publish.max_cache_duration)
+                            .Add(ExtensionType::kDefaultPublisherGroupOrder, publish.default_publisher_group_order)
+                            .Add(ExtensionType::kDefaultPublisherPriority, publish.default_publisher_priority)
+                            .Add(ExtensionType::kDynamicGroups, publish.dynamic_groups);
 
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending PUBLISH to conn_id: {} request_id: {} track alias: {}",
@@ -579,9 +574,9 @@ namespace quicr {
                     data_ctx_id,
                     ControlMessageType::kPublish,
                     UintVar(request_id),
-                    tfn.name_space,
-                    tfn.name,
-                    UintVar(track_alias),
+                    publish.full_track_name.name_space,
+                    publish.full_track_name.name,
+                    UintVar(publish.track_alias),
                     params,
                     extensions);
     } catch (const std::exception& e) {
@@ -1347,16 +1342,23 @@ namespace quicr {
           quic_transport_->CreateDataContext(conn_id, true, 0, true, track_handler->GetRequestId()));
         quic_transport_->CreateStream(conn_id, track_handler->GetDataContextId().value(), 0);
 
-        SendPublish(conn_it->second,
-                    track_handler->GetDataContextId().value(),
-                    *track_handler->GetRequestId(),
-                    tfn,
-                    track_handler->GetTrackAlias().value(),
-                    GroupOrder::kAscending,
-                    std::make_optional(
-                      Location{ track_handler->largest_location_.group, track_handler->largest_location_.object }),
-                    true,
-                    track_handler->support_new_group_request_);
+        const PublishAttributes publish{ .full_track_name = { tfn },
+                                         .track_alias = track_handler->GetTrackAlias().value(),
+                                         .auth_tokens = {},
+                                         .expires = 0, // TODO: Expires?
+                                         .largest_object =
+                                           std::make_optional(Location{ track_handler->largest_location_.group,
+                                                                        track_handler->largest_location_.object }),
+                                         .forward = true,
+                                         .default_publisher_group_order = GroupOrder::kAscending,
+                                         .dynamic_groups = track_handler->support_new_group_request_,
+                                         .default_publisher_priority = track_handler->GetDefaultPriority(),
+                                         .max_cache_duration = std::nullopt,
+                                         .delivery_timeout = track_handler->GetDefaultTTL(),
+                                         .track_properties = {} };
+
+        SendPublish(
+          conn_it->second, track_handler->GetDataContextId().value(), *track_handler->GetRequestId(), publish);
 
         track_handler->connection_handle_ = conn_id;
         SPDLOG_LOGGER_INFO(logger_,
@@ -1457,7 +1459,7 @@ namespace quicr {
 
     void Transport::ResolvePublish(const ConnectionHandle connection_handle,
                                    const uint64_t request_id,
-                                   const Publish& publish,
+                                   const PublishAttributes& publish,
                                    const PublishResponse& publish_response,
                                    std::shared_ptr<SubscribeTrackHandler> handler)
     {
@@ -2783,7 +2785,7 @@ namespace quicr {
 
     void Transport::PublishReceived(ConnectionHandle connection_handle,
                                     messages::RequestID request_id,
-                                    const Publish& publish,
+                                    const PublishAttributes& publish,
                                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler)
     {
         if (!client_mode_) {
@@ -3548,20 +3550,20 @@ namespace quicr {
                 // TODO: Fill all these in.
                 ValidateParameters(
                   parameters, { ParameterType::kLargestObject, ParameterType::kForward, ParameterType::kGroupOrder });
-                const Publish publish{ .full_track_name = { track_namespace, track_name },
-                                       .track_alias = track_alias,
-                                       .auth_tokens = CollectAuthTokens(parameters),
-                                       .expires = ResolveExpires(parameters),
-                                       .largest_object =
-                                         parameters.GetOptional<Location>(messages::ParameterType::kLargestObject),
-                                       .forward = ResolveForward(parameters, true),
-                                       .default_publisher_group_order =
-                                         ResolveDefaultPublisherGroupOrder(track_extensions),
-                                       .dynamic_groups = ResolveDynamicGroups(track_extensions),
-                                       .default_publisher_priority = ResolveDefaultPublisherPriority(track_extensions),
-                                       .max_cache_duration = ResolveMaxCacheDuration(track_extensions),
-                                       .delivery_timeout = ResolveDeliveryTimeout(track_extensions),
-                                       .track_properties = std::move(track_extensions) };
+                const PublishAttributes publish{
+                    .full_track_name = { track_namespace, track_name },
+                    .track_alias = track_alias,
+                    .auth_tokens = CollectAuthTokens(parameters),
+                    .expires = ResolveExpires(parameters),
+                    .largest_object = parameters.GetOptional<Location>(messages::ParameterType::kLargestObject),
+                    .forward = ResolveForward(parameters, true),
+                    .default_publisher_group_order = ResolveDefaultPublisherGroupOrder(track_extensions),
+                    .dynamic_groups = ResolveDynamicGroups(track_extensions),
+                    .default_publisher_priority = ResolveDefaultPublisherPriority(track_extensions),
+                    .max_cache_duration = ResolveMaxCacheDuration(track_extensions),
+                    .delivery_timeout = ResolveDeliveryTimeout(track_extensions),
+                    .track_properties = std::move(track_extensions)
+                };
 
                 auto th = TrackHash(publish.full_track_name);
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = publish.full_track_name,
