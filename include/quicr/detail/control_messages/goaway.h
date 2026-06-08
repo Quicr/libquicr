@@ -7,6 +7,7 @@
 
 namespace quicr::messages::control {
 
+    // A GOAWAY sent on a request stream: no Request ID (§10.4).
     struct RequestGoaway
     {
         static constexpr std::uint64_t kType = 0x10;
@@ -14,20 +15,28 @@ namespace quicr::messages::control {
         const Bytes new_session_uri;
         const std::uint64_t timeout;
 
-        explicit RequestGoaway(BytesSpan payload)
-          : RequestGoaway(MessageReader{ payload })
+        static RequestGoaway Decode(BytesSpan payload)
         {
+            MessageReader reader{ payload };
+            auto new_session_uri = reader.Read<Bytes>();
+            auto timeout = reader.Read<std::uint64_t>();
+            reader.ExpectDone();
+
+            return RequestGoaway{
+                .new_session_uri = std::move(new_session_uri),
+                .timeout = timeout,
+            };
         }
 
-      private:
-        explicit RequestGoaway(MessageReader reader)
-          : new_session_uri(reader.Read<Bytes>())
-          , timeout(reader.Read<std::uint64_t>())
+        [[nodiscard]] Bytes Encode() const
         {
-            reader.ExpectDone();
+            Bytes out;
+            out << new_session_uri << timeout;
+            return out;
         }
     };
 
+    // A GOAWAY sent on the control stream: carries the trailing Request ID (§10.4).
     struct ControlGoaway
     {
         static constexpr std::uint64_t kType = 0x10;
@@ -36,18 +45,26 @@ namespace quicr::messages::control {
         const std::uint64_t timeout;
         const RequestID request_id;
 
-        explicit ControlGoaway(BytesSpan payload)
-          : ControlGoaway(MessageReader{ payload })
+        static ControlGoaway Decode(BytesSpan payload)
         {
+            MessageReader reader{ payload };
+            auto new_session_uri = reader.Read<Bytes>();
+            auto timeout = reader.Read<std::uint64_t>();
+            auto request_id = reader.Read<RequestID>();
+            reader.ExpectDone();
+
+            return ControlGoaway{
+                .new_session_uri = std::move(new_session_uri),
+                .timeout = timeout,
+                .request_id = request_id,
+            };
         }
 
-      private:
-        explicit ControlGoaway(MessageReader reader)
-          : new_session_uri(reader.Read<Bytes>())
-          , timeout(reader.Read<std::uint64_t>())
-          , request_id(reader.Read<RequestID>())
+        [[nodiscard]] Bytes Encode() const
         {
-            reader.ExpectDone();
+            Bytes out;
+            out << new_session_uri << timeout << request_id;
+            return out;
         }
     };
 

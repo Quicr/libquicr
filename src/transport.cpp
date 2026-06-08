@@ -360,7 +360,6 @@ namespace quicr {
         } else {
             setup_options.Add(SetupOptionType::kEndpointId, server_config_.endpoint_id);
         }
-
         SendCtrlMsg(conn_ctx, conn_ctx.tx_ctrl_data_ctx_id.value(), ControlMessageType::kSetup, setup_options);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Setup (error={})", e.what());
@@ -3374,7 +3373,7 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kSetup: {
-                const auto setup = messages::control::Setup{ msg_bytes };
+                const auto setup = messages::control::Setup::Decode(msg_bytes);
 
                 std::string endpoint_id = "Unknown Endpoint ID";
                 if (auto endpoint =

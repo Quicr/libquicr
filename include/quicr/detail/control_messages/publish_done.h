@@ -15,18 +15,26 @@ namespace quicr::messages::control {
         const std::uint64_t stream_count;
         const ReasonPhrase error_reason;
 
-        explicit PublishDone(BytesSpan payload)
-          : PublishDone(MessageReader{ payload })
+        static PublishDone Decode(BytesSpan payload)
         {
+            MessageReader reader{ payload };
+            auto status_code = static_cast<PublishDoneStatus>(reader.Read<std::uint64_t>());
+            auto stream_count = reader.Read<std::uint64_t>();
+            auto error_reason = reader.Read<ReasonPhrase>();
+            reader.ExpectDone();
+
+            return PublishDone{
+                .status_code = status_code,
+                .stream_count = stream_count,
+                .error_reason = std::move(error_reason),
+            };
         }
 
-      private:
-        explicit PublishDone(MessageReader reader)
-          : status_code(static_cast<PublishDoneStatus>(reader.Read<std::uint64_t>()))
-          , stream_count(reader.Read<std::uint64_t>())
-          , error_reason(reader.Read<ReasonPhrase>())
+        [[nodiscard]] Bytes Encode() const
         {
-            reader.ExpectDone();
+            Bytes out;
+            out << static_cast<std::uint64_t>(status_code) << stream_count << error_reason;
+            return out;
         }
     };
 

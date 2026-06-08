@@ -13,16 +13,20 @@ namespace quicr::messages::control {
 
         const TrackNamespace track_namespace_suffix;
 
-        explicit NamespaceDone(BytesSpan payload)
-          : NamespaceDone(MessageReader{ payload })
+        static NamespaceDone Decode(BytesSpan payload)
         {
+            MessageReader reader{ payload };
+            auto track_namespace_suffix = reader.Read<TrackNamespace>();
+            reader.ExpectDone();
+
+            return NamespaceDone{ .track_namespace_suffix = std::move(track_namespace_suffix) };
         }
 
-      private:
-        explicit NamespaceDone(MessageReader reader)
-          : track_namespace_suffix(reader.Read<TrackNamespace>())
+        [[nodiscard]] Bytes Encode() const
         {
-            reader.ExpectDone();
+            Bytes out;
+            out << track_namespace_suffix;
+            return out;
         }
     };
 

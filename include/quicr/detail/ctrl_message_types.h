@@ -278,18 +278,22 @@ namespace quicr::messages {
     {
         kDeliveryTimeout = 0x02,
         kAuthorizationToken = 0x03,
+        kRendezvousTimeout = 0x04,
+        kSubgroupDeliveryTimeout = 0x06,
         kExpires = 0x08,
         kLargestObject = 0x09,
+        kFillTimeout = 0x0A,
         kForward = 0x10,
         kSubscriberPriority = 0x20,
         kLocationFilter = 0x21,
+        kGroupOrder = 0x22,
         kSubgroupFilter = 0x25,
         kObjectFilter = 0x26,
         kPriorityFilter = 0x27,
         kPropertyFilter = 0x28,
         kTrackFilter = 0x29,
-        kGroupOrder = 0x22,
         kNewGroupRequest = 0x32,
+        kTrackNamespacePrefix = 0x34,
 
         /*===================================================================*/
         // Internal Use
@@ -300,6 +304,84 @@ namespace quicr::messages {
 
     using Parameter = KeyValuePair<ParameterType>;
     using SetupParameter = KeyValuePair<SetupOptionType>;
+
+    struct Token
+    {
+        enum class AliasType : std::uint64_t
+        {
+            kDelete = 0x0,
+            kRegister = 0x1,
+            kUseAlias = 0x2,
+            kUseValue = 0x3,
+        };
+
+        AliasType alias_type{ AliasType::kUseValue };
+        std::optional<std::uint64_t> token_alias;
+        std::optional<std::uint64_t> token_type;
+        Bytes token_value;
+
+        bool operator==(const Token&) const = default;
+    };
+
+    inline Bytes& operator<<(Bytes& buffer, const Token& token)
+    {
+        buffer << UintVar(static_cast<std::uint64_t>(token.alias_type));
+        switch (token.alias_type) {
+            case Token::AliasType::kDelete:
+            case Token::AliasType::kUseAlias:
+                buffer << UintVar(token.token_alias.value());
+                break;
+            case Token::AliasType::kRegister:
+                buffer << UintVar(token.token_alias.value());
+                buffer << UintVar(token.token_type.value());
+                AppendBytes(buffer, token.token_value);
+                break;
+            case Token::AliasType::kUseValue:
+                buffer << UintVar(token.token_type.value());
+                AppendBytes(buffer, token.token_value);
+                break;
+        }
+        return buffer;
+    }
+
+    inline BytesSpan operator>>(BytesSpan buffer, Token& token)
+    {
+        std::uint64_t alias_type = 0;
+        buffer = buffer >> alias_type;
+        token.alias_type = static_cast<Token::AliasType>(alias_type);
+
+        switch (token.alias_type) {
+            case Token::AliasType::kDelete:
+            case Token::AliasType::kUseAlias: {
+                std::uint64_t alias = 0;
+                buffer = buffer >> alias;
+                token.token_alias = alias;
+                break;
+            }
+            case Token::AliasType::kRegister: {
+                std::uint64_t alias = 0;
+                std::uint64_t type = 0;
+                buffer = buffer >> alias;
+                buffer = buffer >> type;
+                token.token_alias = alias;
+                token.token_type = type;
+                token.token_value.assign(buffer.begin(), buffer.end());
+                buffer = buffer.subspan(buffer.size());
+                break;
+            }
+            case Token::AliasType::kUseValue: {
+                std::uint64_t type = 0;
+                buffer = buffer >> type;
+                token.token_type = type;
+                token.token_value.assign(buffer.begin(), buffer.end());
+                buffer = buffer.subspan(buffer.size());
+                break;
+            }
+            default:
+                throw ProtocolViolationException("Invalid AUTHORIZATION_TOKEN alias type");
+        }
+        return buffer;
+    }
 
     enum struct GroupOrder : uint8_t
     {

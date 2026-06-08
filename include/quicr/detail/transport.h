@@ -24,6 +24,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <concepts>
 #include <map>
 #include <span>
 #include <string>
@@ -1121,6 +1122,19 @@ namespace quicr {
 
             (msg.Append(args), ...);
 
+            SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes());
+        }
+
+        template<typename Msg>
+            requires requires(const Msg& m) {
+                { Msg::kType } -> std::convertible_to<std::uint64_t>;
+                { m.Encode() } -> std::same_as<Bytes>;
+            }
+        void SendCtrlMsg(const ConnectionContext& conn_ctx, DataContextId data_ctx_id, const Msg& message)
+        {
+            messages::Message msg = messages::Message{}.PrependType(Msg::kType).ReserveLength();
+            const auto payload = message.Encode();
+            msg.Append(std::span<const std::uint8_t>{ payload });
             SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes());
         }
 

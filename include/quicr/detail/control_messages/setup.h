@@ -13,16 +13,20 @@ namespace quicr::messages::control {
 
         const KeyValuePairs setup_options;
 
-        explicit Setup(BytesSpan payload)
-          : Setup(MessageReader{ payload })
+        static Setup Decode(BytesSpan payload)
         {
+            MessageReader reader{ payload };
+            auto setup_options = reader.Read<KeyValuePairs>();
+            reader.ExpectDone();
+
+            return Setup{ .setup_options = std::move(setup_options) };
         }
 
-      private:
-        explicit Setup(MessageReader reader)
-          : setup_options(reader.Read<KeyValuePairs>())
+        [[nodiscard]] Bytes Encode() const
         {
-            reader.ExpectDone();
+            Bytes out;
+            out << setup_options;
+            return out;
         }
     };
 

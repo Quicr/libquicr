@@ -14,17 +14,24 @@ namespace quicr::messages::control {
         const TrackNamespace track_namespace_suffix;
         const TrackName track_name;
 
-        explicit PublishBlocked(BytesSpan payload)
-          : PublishBlocked(MessageReader{ payload })
+        static PublishBlocked Decode(BytesSpan payload)
         {
+            MessageReader reader{ payload };
+            auto track_namespace_suffix = reader.Read<TrackNamespace>();
+            auto track_name = reader.Read<TrackName>();
+            reader.ExpectDone();
+
+            return PublishBlocked{
+                .track_namespace_suffix = std::move(track_namespace_suffix),
+                .track_name = std::move(track_name),
+            };
         }
 
-      private:
-        explicit PublishBlocked(MessageReader reader)
-          : track_namespace_suffix(reader.Read<TrackNamespace>())
-          , track_name(reader.Read<TrackName>())
+        [[nodiscard]] Bytes Encode() const
         {
-            reader.ExpectDone();
+            Bytes out;
+            out << track_namespace_suffix << track_name;
+            return out;
         }
     };
 

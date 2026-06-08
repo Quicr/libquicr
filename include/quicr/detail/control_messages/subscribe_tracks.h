@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/detail/control_messages/message_reader.h"
+#include "quicr/detail/control_messages/parameters.h"
 
 namespace quicr::messages::control {
 
@@ -13,20 +14,41 @@ namespace quicr::messages::control {
 
         const RequestID request_id;
         const TrackNamespace track_namespace_prefix;
-        const Parameters parameters;
+        const std::vector<Token> auth_tokens;
+        const bool forward; // Absent on the wire means true (§10.2.12).
 
-        explicit SubscribeTracks(BytesSpan payload)
-          : SubscribeTracks(MessageReader{ payload })
+        static SubscribeTracks Decode(BytesSpan payload)
         {
+            MessageReader reader{ payload };
+            auto request_id = reader.Read<RequestID>();
+            auto track_namespace_prefix = reader.Read<TrackNamespace>();
+
+            const auto params = reader.Read<Parameters>();
+            reader.ExpectDone();
+
+            ValidateParameters(params, { ParameterType::kAuthorizationToken, ParameterType::kForward });
+
+            return SubscribeTracks{
+                .request_id = request_id,
+                .track_namespace_prefix = std::move(track_namespace_prefix),
+                .auth_tokens = CollectAuthTokens(params),
+                .forward = ResolveForward(params, true),
+            };
         }
 
-      private:
-        explicit SubscribeTracks(MessageReader reader)
-          : request_id(reader.Read<RequestID>())
-          , track_namespace_prefix(reader.Read<TrackNamespace>())
-          , parameters(reader.Read<Parameters>())
+        [[nodiscard]] Bytes Encode() const
         {
-            reader.ExpectDone();
+            auto params = Parameters{};
+            for (const auto& token : auth_tokens) {
+                params.Add(ParameterType::kAuthorizationToken, token);
+            }
+            if (!forward) {
+                params.Add(ParameterType::kForward, std::uint8_t{ 0 });
+            }
+
+            Bytes out;
+            out << request_id << track_namespace_prefix << params;
+            return out;
         }
     };
 

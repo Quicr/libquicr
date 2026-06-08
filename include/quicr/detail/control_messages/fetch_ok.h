@@ -16,19 +16,29 @@ namespace quicr::messages::control {
         const Parameters parameters;
         const TrackExtensions track_properties;
 
-        explicit FetchOk(BytesSpan payload)
-          : FetchOk(MessageReader{ payload })
+        static FetchOk Decode(BytesSpan payload)
         {
+            MessageReader reader{ payload };
+            auto end_of_track = reader.Read<std::uint8_t>();
+            auto end_location = reader.Read<Location>();
+
+            auto parameters = reader.Read<Parameters>();
+            auto track_properties = reader.Read<TrackExtensions>();
+            reader.ExpectDone();
+
+            return FetchOk{
+                .end_of_track = end_of_track,
+                .end_location = end_location,
+                .parameters = std::move(parameters),
+                .track_properties = std::move(track_properties),
+            };
         }
 
-      private:
-        explicit FetchOk(MessageReader reader)
-          : end_of_track(reader.Read<std::uint8_t>())
-          , end_location(reader.Read<Location>())
-          , parameters(reader.Read<Parameters>())
-          , track_properties(reader.Read<TrackExtensions>())
+        [[nodiscard]] Bytes Encode() const
         {
-            reader.ExpectDone();
+            Bytes out;
+            out << end_of_track << end_location << parameters << track_properties;
+            return out;
         }
     };
 
