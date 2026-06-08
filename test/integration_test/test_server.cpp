@@ -35,12 +35,12 @@ TestServer::TestServer(const ServerConfig& config)
 void
 TestServer::PublishReceived(const ConnectionHandle connection_handle,
                             const uint64_t request_id,
-                            const messages::PublishAttributes& publish_attributes,
+                            const messages::control::Publish& publish,
                             [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler)
 {
     std::lock_guard lock(state_mutex_);
 
-    const auto th = TrackHash(publish_attributes.track_full_name);
+    const auto th = TrackHash(publish.full_track_name);
     const auto track_alias = th.track_fullname_hash;
 
     // Is anyone interested in this prefix?
@@ -48,13 +48,13 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
 
     for (const auto& [_, interested] : namespace_subscribers_) {
         for (const auto& [conn_id, ns_handler] : interested) {
-            if (ns_handler->GetFullTrackName().name_space.HasSamePrefix(
-                  publish_attributes.track_full_name.name_space)) {
+            if (ns_handler->GetFullTrackName().name_space.HasSamePrefix(publish.full_track_name.name_space)) {
+                const auto delivery_timeout = publish.delivery_timeout.value_or(0);
                 auto handler =
-                  std::make_shared<TestPublishTrackHandler>(publish_attributes.track_full_name,
+                  std::make_shared<TestPublishTrackHandler>(publish.full_track_name,
                                                             quicr::TrackMode::kStream,
-                                                            publish_attributes.priority,
-                                                            publish_attributes.delivery_timeout.count(),
+                                                            publish.default_publisher_priority,
+                                                            delivery_timeout,
                                                             std::static_pointer_cast<TestServer>(shared_from_this()));
                 ns_handler->PublishTrack(handler);
             }
@@ -62,7 +62,7 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
     }
 
     // Create a subscribe handler to receive objects from the publisher
-    auto sub_track_handler = std::make_shared<TestSubscribeTrackHandler>(publish_attributes.track_full_name, true);
+    auto sub_track_handler = std::make_shared<TestSubscribeTrackHandler>(publish.full_track_name, true);
 
     // If there are subscribers for this track, link the subscribe handler to forward to them
     auto sub_it = subscribes_.find(track_alias);
@@ -77,11 +77,8 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
 
     pub_subscribes_[track_alias][connection_handle] = sub_track_handler;
 
-    ResolvePublish(connection_handle,
-                   request_id,
-                   publish_attributes,
-                   { .reason_code = PublishResponse::ReasonCode::kOk },
-                   sub_track_handler);
+    ResolvePublish(
+      connection_handle, request_id, publish, { .reason_code = PublishResponse::ReasonCode::kOk }, sub_track_handler);
 }
 
 void

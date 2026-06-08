@@ -4,6 +4,8 @@
 #pragma once
 
 #include "quicr/detail/control_messages/message_reader.h"
+#include "quicr/detail/control_messages/parameters.h"
+#include "quicr/detail/control_messages/track_properties.h"
 
 namespace quicr::messages::control {
 
@@ -11,29 +13,18 @@ namespace quicr::messages::control {
     {
         static constexpr std::uint64_t kType = 0x1D;
 
-        const RequestID request_id;
-        const TrackNamespace track_namespace;
-        const TrackName track_name;
+        const FullTrackName full_track_name;
         const TrackAlias track_alias;
-        const Parameters parameters;
+        const std::vector<Token> auth_tokens;
+        const std::optional<std::uint64_t> expires;
+        const std::optional<Location> largest_object;
+        const bool forward;
+        const GroupOrder default_publisher_group_order;
+        const bool dynamic_groups;
+        const std::uint8_t default_publisher_priority;
+        const std::optional<std::uint64_t> max_cache_duration;
+        const std::optional<std::uint64_t> delivery_timeout;
         const TrackExtensions track_properties;
-
-        explicit Publish(BytesSpan payload)
-          : Publish(MessageReader{ payload })
-        {
-        }
-
-      private:
-        explicit Publish(MessageReader reader)
-          : request_id(reader.Read<RequestID>())
-          , track_namespace(reader.Read<TrackNamespace>())
-          , track_name(reader.Read<TrackName>())
-          , track_alias(reader.Read<TrackAlias>())
-          , parameters(reader.Read<Parameters>())
-          , track_properties(reader.Read<TrackExtensions>())
-        {
-            reader.ExpectDone();
-        }
     };
 
 } // namespace quicr::messages::control

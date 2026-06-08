@@ -9,6 +9,7 @@
 #include "quicr/detail/control_messages/message_reader.h"
 #include "quicr/detail/control_messages/namespace.h"
 #include "quicr/detail/control_messages/namespace_done.h"
+#include "quicr/detail/control_messages/parameters.h"
 #include "quicr/detail/control_messages/publish.h"
 #include "quicr/detail/control_messages/publish_blocked.h"
 #include "quicr/detail/control_messages/publish_done.h"

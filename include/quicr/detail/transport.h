@@ -4,6 +4,7 @@
 #pragma once
 
 #include "attributes.h"
+#include "control_messages/publish.h"
 #include "message.h"
 #include "messages.h"
 #include "quic_transport.h"
@@ -249,7 +250,7 @@ namespace quicr {
          */
         void ResolvePublish(ConnectionHandle connection_handle,
                             uint64_t request_id,
-                            const messages::PublishAttributes& attributes,
+                            const messages::control::Publish& attributes,
                             const PublishResponse& publish_response,
                             std::shared_ptr<SubscribeTrackHandler> handler);
 
@@ -535,12 +536,12 @@ namespace quicr {
          *
          * @param connection_handle  Connection that received this publish
          * @param request_id         Incoming publish request ID
-         * @param publish_attributes Attributes of the publish
+         * @param publish            The received Publish.
          * @param sub_ns_handler     Matching subscribe namespace handler, if any
          */
         virtual void PublishReceived(ConnectionHandle connection_handle,
                                      uint64_t request_id,
-                                     const messages::PublishAttributes& publish_attributes,
+                                     const messages::control::Publish& publish,
                                      std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler);
 
         /**
@@ -1226,7 +1227,7 @@ namespace quicr {
                            DataContextId data_ctx_id,
                            messages::RequestID request_id,
                            bool forward,
-                           std::uint8_t priority,
+                           std::optional<std::uint8_t> priority,
                            std::optional<messages::GroupOrder> group_order,
                            const messages::Filter& filter);
 

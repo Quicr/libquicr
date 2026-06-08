@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/detail/transport.h"
-#include "quicr/detail/control_messages/setup.h"
+#include "quicr/detail/control_messages.h"
 #include "quicr/detail/ctrl_message_types.h"
 #include "quicr/detail/message.h"
 #include "quicr/detail/messages.h"
@@ -360,7 +360,6 @@ namespace quicr {
         } else {
             setup_options.Add(SetupOptionType::kEndpointId, server_config_.endpoint_id);
         }
-
         SendCtrlMsg(conn_ctx, conn_ctx.tx_ctrl_data_ctx_id.value(), ControlMessageType::kSetup, setup_options);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Setup (error={})", e.what());
@@ -593,7 +592,7 @@ namespace quicr {
                                   DataContextId data_ctx_id,
                                   messages::RequestID request_id,
                                   bool forward,
-                                  std::uint8_t priority,
+                                  std::optional<std::uint8_t> priority,
                                   std::optional<messages::GroupOrder> group_order,
                                   const messages::Filter& filter)
     try {
@@ -607,9 +606,11 @@ namespace quicr {
          * - NEW GROUP REQUEST (0x32): Requests the publisher to start a new group.
          */
         auto params = Parameters{}
-                        .Add(ParameterType::kSubscriberPriority, priority)
-                        .AddOptional(ParameterType::kGroupOrder, group_order)
-                        .Add(ParameterType::kForward, forward);
+                        .AddOptional(ParameterType::kSubscriberPriority, priority)
+                        .AddOptional(ParameterType::kGroupOrder, group_order);
+        if (!forward) {
+            params.Add(ParameterType::kForward, forward);
+        }
 
         if (const auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
             params.Add(filter_type, filter);
@@ -1455,7 +1456,7 @@ namespace quicr {
 
     void Transport::ResolvePublish(const ConnectionHandle connection_handle,
                                    const uint64_t request_id,
-                                   const PublishAttributes& attributes,
+                                   const control::Publish& publish,
                                    const PublishResponse& publish_response,
                                    std::shared_ptr<SubscribeTrackHandler> handler)
     {
@@ -1471,17 +1472,17 @@ namespace quicr {
             case PublishResponse::ReasonCode::kOk: {
                 // Update the handler to correctly work with publisher initiated subscribe
                 if (handler) {
-                    if (attributes.is_publisher_initiated) {
-                        handler->SetPublishInitiated();
-                    }
+                    handler->SetPublishInitiated();
 
                     handler->SetConnectionId(connection_handle);
                     handler->SetRequestId(request_id);
-                    handler->SetReceivedTrackAlias(attributes.track_alias);
-                    handler->SetPriority(attributes.priority);
-                    handler->SetDeliveryTimeout(attributes.delivery_timeout);
-                    handler->SetPublisherDefaultGroupOrder(attributes.publisher_default_group_order);
-                    handler->SupportNewGroupRequest(attributes.dynamic_groups);
+                    handler->SetReceivedTrackAlias(publish.track_alias);
+                    handler->SetPriority(publish.default_publisher_priority);
+                    // TODO: Optional delivery timeout?
+                    const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
+                    handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));
+                    handler->SetPublisherDefaultGroupOrder(publish.default_publisher_group_order);
+                    handler->SupportNewGroupRequest(publish.dynamic_groups);
 
                     SubscribeTrack(connection_handle, std::move(handler));
                 }
@@ -1489,10 +1490,10 @@ namespace quicr {
                 SendPublishOk(conn_it->second,
                               ResponseDataContext(conn_it->second, request_id),
                               request_id,
-                              attributes.forward,
-                              attributes.priority,
-                              attributes.group_order,
-                              attributes.filter);
+                              publish_response.forward,
+                              publish_response.subscriber_priority,
+                              publish_response.group_order,
+                              publish_response.filter);
 
                 return;
             }
@@ -2780,19 +2781,19 @@ namespace quicr {
     // -- Shared Callbacks --
 
     void Transport::PublishReceived(ConnectionHandle connection_handle,
-                                    uint64_t request_id,
-                                    const messages::PublishAttributes& publish_attributes,
+                                    messages::RequestID request_id,
+                                    const control::Publish& publish,
                                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler)
     {
         if (!client_mode_) {
             return;
         }
 
-        auto handler = SubscribeTrackHandler::Create(publish_attributes.track_full_name, publish_attributes.priority);
+        auto handler = SubscribeTrackHandler::Create(publish.full_track_name, publish.default_publisher_priority);
 
         ResolvePublish(connection_handle,
                        request_id,
-                       publish_attributes,
+                       publish,
                        { .reason_code = PublishResponse::ReasonCode::kNotSupported },
                        handler);
     }
@@ -3374,11 +3375,10 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kSetup: {
-                const auto setup = messages::control::Setup{ msg_bytes };
+                const auto setup_options = messages::Message::ParseField<messages::KeyValuePairs>(msg_bytes);
 
                 std::string endpoint_id = "Unknown Endpoint ID";
-                if (auto endpoint =
-                      setup.setup_options.GetOptional<std::string>(messages::SetupOptionType::kEndpointId)) {
+                if (auto endpoint = setup_options.GetOptional<std::string>(messages::SetupOptionType::kEndpointId)) {
                     endpoint_id = *endpoint;
                 }
 
@@ -3544,53 +3544,40 @@ namespace quicr {
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
 
-                auto tfn = FullTrackName{ track_namespace, track_name };
-                auto th = TrackHash(tfn);
-                conn_ctx.recv_req_id[request_id] = { .track_full_name = tfn,
+                const control::Publish publish{
+                    .full_track_name = { track_namespace, track_name },
+                    .track_alias = track_alias,
+                    .auth_tokens = control::CollectAuthTokens(parameters),
+                    .expires = control::ResolveExpires(parameters),
+                    .largest_object = parameters.GetOptional<Location>(messages::ParameterType::kLargestObject),
+                    .forward = control::ResolveForward(parameters, true),
+                    .default_publisher_group_order = control::ResolveDefaultPublisherGroupOrder(track_extensions),
+                    .dynamic_groups = control::ResolveDynamicGroups(track_extensions),
+                    .default_publisher_priority = control::ResolveDefaultPublisherPriority(track_extensions),
+                    .max_cache_duration = control::ResolveMaxCacheDuration(track_extensions),
+                    .delivery_timeout = control::ResolveDeliveryTimeout(track_extensions),
+                    .track_properties = std::move(track_extensions)
+                };
+
+                auto th = TrackHash(publish.full_track_name);
+                conn_ctx.recv_req_id[request_id] = { .track_full_name = publish.full_track_name,
                                                      .track_hash = th,
                                                      .data_ctx_id = data_ctx_id };
 
-                auto delivery_timeout = parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                auto expires = parameters.Get<std::uint64_t>(messages::ParameterType::kExpires);
-                auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
-                auto new_group_request_id =
-                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-                const auto publisher_default_group_order =
-                  track_extensions
-                    .GetOptional<messages::GroupOrder>(messages::ExtensionType::kDefaultPublisherGroupOrder)
-                    .value_or(messages::GroupOrder::kAscending);
-
-                messages::PublishAttributes attrs;
-                attrs.track_full_name = tfn;
-                attrs.track_alias = track_alias;
-                attrs.forward = forward;
-                attrs.group_order = std::nullopt;
-                attrs.publisher_default_group_order = publisher_default_group_order;
-                attrs.delivery_timeout = std::chrono::milliseconds(delivery_timeout);
-                attrs.expires = std::chrono::milliseconds(expires);
-                attrs.is_publisher_initiated = true;
-                attrs.new_group_request_id = new_group_request_id;
-
                 if (client_mode_) {
-                    auto dynamic_groups = track_extensions.GetOptional<bool>(messages::ExtensionType::kDynamicGroups);
-                    attrs.dynamic_groups = dynamic_groups.value_or(false);
-
                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
                     for (auto& [_, track] : conn_ctx.request_handlers) {
                         if (auto h = track.Get<SubscribeNamespaceHandler>()) {
-                            if (h->GetPrefix().HasSamePrefix(track_namespace)) {
+                            if (h->GetPrefix().HasSamePrefix(publish.full_track_name.name_space)) {
                                 sub_ns_handler = h;
                                 break;
                             }
                         }
                     }
 
-                    PublishReceived(conn_ctx.connection_handle, request_id, attrs, sub_ns_handler);
+                    PublishReceived(conn_ctx.connection_handle, request_id, publish, sub_ns_handler);
                 } else {
-                    attrs.priority = 0;
-                    attrs.dynamic_groups = true; // TODO: read from extensions/properties
-
-                    PublishReceived(conn_ctx.connection_handle, request_id, attrs, {});
+                    PublishReceived(conn_ctx.connection_handle, request_id, publish, {});
                 }
 
                 return true;
