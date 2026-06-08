@@ -558,8 +558,8 @@ namespace quicr {
                         .AddOptional(ParameterType::kLargestObject, publish.largest_object);
 
         auto extensions = TrackExtensions{}
-                            .Add(ExtensionType::kDeliveryTimeout, publish.delivery_timeout)
-                            .Add(ExtensionType::kMaxCacheDuration, publish.max_cache_duration)
+                            .AddOptional(ExtensionType::kDeliveryTimeout, publish.delivery_timeout)
+                            .AddOptional(ExtensionType::kMaxCacheDuration, publish.max_cache_duration)
                             .Add(ExtensionType::kDefaultPublisherGroupOrder, publish.default_publisher_group_order)
                             .Add(ExtensionType::kDefaultPublisherPriority, publish.default_publisher_priority)
                             .Add(ExtensionType::kDynamicGroups, publish.dynamic_groups);
@@ -3547,9 +3547,11 @@ namespace quicr {
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
 
-                // TODO: Fill all these in.
-                ValidateParameters(
-                  parameters, { ParameterType::kLargestObject, ParameterType::kForward, ParameterType::kGroupOrder });
+                ValidateParameters(parameters,
+                                   { ParameterType::kAuthorizationToken,
+                                     ParameterType::kExpires,
+                                     ParameterType::kLargestObject,
+                                     ParameterType::kForward });
                 const PublishAttributes publish{
                     .full_track_name = { track_namespace, track_name },
                     .track_alias = track_alias,
@@ -3603,7 +3605,7 @@ namespace quicr {
                 }
 
                 if (client_mode_) {
-                    auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
+                    const auto forward = ResolveForward(parameters, true);
                     if (auto h = pub_it->second.Get<PublishTrackHandler>()) {
                         h->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
                     }
@@ -3618,7 +3620,7 @@ namespace quicr {
                     auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                     auto delivery_timeout =
                       parameters.GetOptional<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                    auto forward = parameters.GetOptional<bool>(messages::ParameterType::kForward);
+                    const auto forward = ResolveForward(parameters, true);
                     auto new_group_request_id =
                       parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
@@ -3630,10 +3632,7 @@ namespace quicr {
                         pub_h->SetDefaultTTL(*delivery_timeout);
                     }
 
-                    if (forward.has_value()) {
-                        pub_h->SetStatus(*forward ? PublishTrackHandler::Status::kOk
-                                                  : PublishTrackHandler::Status::kPaused);
-                    }
+                    pub_h->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
 
                     if (new_group_request_id.has_value()) {
                         pub_h->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);

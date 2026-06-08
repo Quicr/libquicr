@@ -985,6 +985,15 @@ namespace quicr::messages {
         }
 
         template<typename T>
+        TrackExtensions& AddOptional(ExtensionType type, const std::optional<T>& value)
+        {
+            if (value.has_value()) {
+                Add<T>(type, value.value());
+            }
+            return *this;
+        }
+
+        template<typename T>
         TrackExtensions& AddImmutable(ExtensionType type, const T& value)
         {
             immutable_extensions[static_cast<std::uint64_t>(type)] =
