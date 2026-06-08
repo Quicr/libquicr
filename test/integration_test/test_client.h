@@ -34,7 +34,7 @@ namespace quicr_test {
 
         void PublishReceived(quicr::ConnectionHandle connection_handle,
                              uint64_t request_id,
-                             const quicr::messages::PublishAttributes& publish,
+                             const quicr::messages::PublishAttributes& publish_attributes,
                              std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;
 
         // Publish Namespace status changed.

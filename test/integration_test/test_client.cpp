@@ -30,7 +30,7 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
 void
 TestClient::PublishReceived(quicr::ConnectionHandle connection_handle,
                             uint64_t request_id,
-                            const quicr::messages::PublishAttributes& publish,
+                            const quicr::messages::PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> ns_handler)
 {
     auto sub_handler = SubscribeTrackHandler::Create(publish.full_track_name, publish.default_publisher_priority);
