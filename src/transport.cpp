@@ -3,6 +3,7 @@
 
 #include "quicr/detail/transport.h"
 #include "quicr/detail/control_messages.h"
+#include "quicr/detail/control_messages/track_properties.h"
 #include "quicr/detail/ctrl_message_types.h"
 #include "quicr/detail/message.h"
 #include "quicr/detail/messages.h"
@@ -1456,7 +1457,7 @@ namespace quicr {
 
     void Transport::ResolvePublish(const ConnectionHandle connection_handle,
                                    const uint64_t request_id,
-                                   const control::Publish& publish,
+                                   const Publish& publish,
                                    const PublishResponse& publish_response,
                                    std::shared_ptr<SubscribeTrackHandler> handler)
     {
@@ -2782,7 +2783,7 @@ namespace quicr {
 
     void Transport::PublishReceived(ConnectionHandle connection_handle,
                                     messages::RequestID request_id,
-                                    const control::Publish& publish,
+                                    const Publish& publish,
                                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler)
     {
         if (!client_mode_) {
@@ -3545,22 +3546,22 @@ namespace quicr {
                 const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
 
                 // TODO: Fill all these in.
-                control::ValidateParameters(
+                ValidateParameters(
                   parameters, { ParameterType::kLargestObject, ParameterType::kForward, ParameterType::kGroupOrder });
-                const control::Publish publish{
-                    .full_track_name = { track_namespace, track_name },
-                    .track_alias = track_alias,
-                    .auth_tokens = control::CollectAuthTokens(parameters),
-                    .expires = control::ResolveExpires(parameters),
-                    .largest_object = parameters.GetOptional<Location>(messages::ParameterType::kLargestObject),
-                    .forward = control::ResolveForward(parameters, true),
-                    .default_publisher_group_order = control::ResolveDefaultPublisherGroupOrder(track_extensions),
-                    .dynamic_groups = control::ResolveDynamicGroups(track_extensions),
-                    .default_publisher_priority = control::ResolveDefaultPublisherPriority(track_extensions),
-                    .max_cache_duration = control::ResolveMaxCacheDuration(track_extensions),
-                    .delivery_timeout = control::ResolveDeliveryTimeout(track_extensions),
-                    .track_properties = std::move(track_extensions)
-                };
+                const Publish publish{ .full_track_name = { track_namespace, track_name },
+                                       .track_alias = track_alias,
+                                       .auth_tokens = CollectAuthTokens(parameters),
+                                       .expires = ResolveExpires(parameters),
+                                       .largest_object =
+                                         parameters.GetOptional<Location>(messages::ParameterType::kLargestObject),
+                                       .forward = ResolveForward(parameters, true),
+                                       .default_publisher_group_order =
+                                         ResolveDefaultPublisherGroupOrder(track_extensions),
+                                       .dynamic_groups = ResolveDynamicGroups(track_extensions),
+                                       .default_publisher_priority = ResolveDefaultPublisherPriority(track_extensions),
+                                       .max_cache_duration = ResolveMaxCacheDuration(track_extensions),
+                                       .delivery_timeout = ResolveDeliveryTimeout(track_extensions),
+                                       .track_properties = std::move(track_extensions) };
 
                 auto th = TrackHash(publish.full_track_name);
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = publish.full_track_name,

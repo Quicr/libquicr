@@ -250,7 +250,7 @@ namespace quicr {
          */
         void ResolvePublish(ConnectionHandle connection_handle,
                             uint64_t request_id,
-                            const messages::control::Publish& attributes,
+                            const messages::Publish& attributes,
                             const PublishResponse& publish_response,
                             std::shared_ptr<SubscribeTrackHandler> handler);
 
@@ -541,7 +541,7 @@ namespace quicr {
          */
         virtual void PublishReceived(ConnectionHandle connection_handle,
                                      uint64_t request_id,
-                                     const messages::control::Publish& publish,
+                                     const messages::Publish& publish,
                                      std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler);
 
         /**

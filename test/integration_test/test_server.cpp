@@ -35,7 +35,7 @@ TestServer::TestServer(const ServerConfig& config)
 void
 TestServer::PublishReceived(const ConnectionHandle connection_handle,
                             const uint64_t request_id,
-                            const messages::control::Publish& publish,
+                            const messages::Publish& publish,
                             [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler)
 {
     std::lock_guard lock(state_mutex_);

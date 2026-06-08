@@ -3,11 +3,9 @@
 
 #pragma once
 
-#include "quicr/detail/control_messages/message_reader.h"
-#include "quicr/detail/control_messages/parameters.h"
-#include "quicr/detail/control_messages/track_properties.h"
+#include <quicr/detail/ctrl_message_types.h>
 
-namespace quicr::messages::control {
+namespace quicr::messages {
 
     struct Publish
     {
@@ -27,4 +25,4 @@ namespace quicr::messages::control {
         const TrackExtensions track_properties;
     };
 
-} // namespace quicr::messages::control
+} // namespace quicr::messages

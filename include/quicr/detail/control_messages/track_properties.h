@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace quicr::messages::control {
+namespace quicr::messages {
 
     inline GroupOrder ResolveDefaultPublisherGroupOrder(const TrackExtensions& properties)
     {
@@ -50,4 +50,4 @@ namespace quicr::messages::control {
         return properties.GetOptional<std::uint64_t>(ExtensionType::kDeliveryTimeout);
     }
 
-} // namespace quicr::messages::control
+} // namespace quicr::messages

@@ -9,7 +9,7 @@
 #include <initializer_list>
 #include <vector>
 
-namespace quicr::messages::control {
+namespace quicr::messages {
 
     /// Must all be known, must not be duplicated (except auth).
     inline void ValidateParameters(const Parameters& params, std::initializer_list<ParameterType> allowed)
@@ -95,4 +95,4 @@ namespace quicr::messages::control {
         return std::monostate{};
     }
 
-} // namespace quicr::messages::control
+} // namespace quicr::messages
