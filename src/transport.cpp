@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/detail/transport.h"
+#include "quicr/detail/control_messages/setup.h"
 #include "quicr/detail/ctrl_message_types.h"
 #include "quicr/detail/message.h"
 #include "quicr/detail/messages.h"
@@ -338,53 +339,31 @@ namespace quicr {
         }
     }
 
-    void Transport::SendClientSetup()
+    void Transport::SendSetup(ConnectionContext& conn_ctx)
     try {
-        /* Available parameters:
-         * - PATH (0x01): Specifies the path and query portion of the MoQ URI. Used only in native QUIC; prohibited in
-         *   WebTransport.
-         * - AUTHORITY (0x05): Specifies the authority (host) component of the MoQ URI. Used only in native QUIC;
-         *   prohibited in WebTransport.
-         * - MAX_REQUEST_ID (0x02): Communicates the initial number of requests the server is allowed to send to the
-         *   client.
-         * - MAX_AUTH_TOKEN_CACHE_SIZE (0x04): The maximum size in bytes of registered Authorization tokens the client
-         *   is willing to store.
-         * - AUTHORIZATION TOKEN (0x03): Provides one or more tokens to authorize the establishment of the session.
-         * - MOQT IMPLEMENTATION (0x07): A free-form string identifying the name and version of the client's
-         *   implementation.
-         */
-        auto setup_parameters = SetupParameters{}
-                                  .Add(SetupParameterType::kEndpointId, client_config_.endpoint_id)
-                                  .Add(SetupParameterType::kMaxRequestId, 0x1000);
+        SPDLOG_LOGGER_DEBUG(logger_, "Sending SETUP to conn_id: {}", conn_ctx.connection_handle);
 
-        // Set PATH and AUTHORITY for native QUIC connections.
-        // Start() has already validated parse of connect URI succeeds.
-        const auto [host, port, protocol, path] = *ParseConnectUri(client_config_.connect_uri);
-        if (protocol != TransportProtocol::kWebTransport) {
-            const auto authority = port > 0 ? host + ":" + std::to_string(port) : host;
-            setup_parameters.Add(SetupParameterType::kAuthority, authority);
-            if (!path.empty()) {
-                setup_parameters.Add(SetupParameterType::kPath, path);
+        KeyValuePairs setup_options;
+
+        if (client_mode_) {
+            setup_options.Add(SetupOptionType::kEndpointId, client_config_.endpoint_id);
+
+            const auto [host, port, protocol, path] = *ParseConnectUri(client_config_.connect_uri);
+            if (protocol != TransportProtocol::kWebTransport) {
+                const auto authority = port > 0 ? host + ":" + std::to_string(port) : host;
+                setup_options.Add(SetupOptionType::kAuthority, authority);
+                if (!path.empty()) {
+                    setup_options.Add(SetupOptionType::kPath, path);
+                }
             }
+
+        } else {
+            setup_options.Add(SetupOptionType::kEndpointId, server_config_.endpoint_id);
         }
 
-        auto& conn_ctx = connections_.begin()->second;
-
-        SendCtrlMsg(conn_ctx, conn_ctx.tx_ctrl_data_ctx_id.value(), ControlMessageType::kClientSetup, setup_parameters);
+        SendCtrlMsg(conn_ctx, conn_ctx.tx_ctrl_data_ctx_id.value(), ControlMessageType::kSetup, setup_options);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending ClientSetup (error={})", e.what());
-        throw e;
-    }
-
-    void Transport::SendServerSetup(ConnectionContext& conn_ctx)
-    try {
-        auto setup_parameters = SetupParameters{}.Add(SetupParameterType::kEndpointId, server_config_.endpoint_id);
-
-        SPDLOG_LOGGER_DEBUG(logger_, "Sending SERVER_SETUP to conn_id: {}", conn_ctx.connection_handle);
-
-        SendCtrlMsg(conn_ctx, conn_ctx.tx_ctrl_data_ctx_id.value(), ControlMessageType::kServerSetup, setup_parameters);
-    } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending ServerSetup (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Setup (error={})", e.what());
         throw e;
     }
 
@@ -1667,14 +1646,13 @@ namespace quicr {
         switch (status) {
             case TransportStatus::kReady: {
                 if (client_mode_) {
-                    SPDLOG_LOGGER_INFO(logger_,
-                                       "Connection established, creating bi-dir stream and sending CLIENT_SETUP");
+                    SPDLOG_LOGGER_INFO(logger_, "Connection established, creating bi-dir stream and sending SETUP");
 
                     conn_ctx.tx_ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, false);
                     conn_ctx.tx_ctrl_stream_id =
                       quic_transport_->CreateStream(conn_id, conn_ctx.tx_ctrl_data_ctx_id.value(), 0);
 
-                    SendClientSetup();
+                    SendSetup(conn_ctx);
 
                     if (client_mode_) {
                         status_ = Status::kPendingServerSetup;
@@ -1814,8 +1792,7 @@ namespace quicr {
                 msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
                 cursor_it = std::next(data.begin(), type_sz);
 
-                if (static_cast<ControlMessageType>(msg_type) == ControlMessageType::kClientSetup ||
-                    static_cast<ControlMessageType>(msg_type) == ControlMessageType::kServerSetup) {
+                if (static_cast<ControlMessageType>(msg_type) == ControlMessageType::kSetup) {
                     is_control_stream = true;
 
                     if (!is_bidir) {
@@ -1827,9 +1804,11 @@ namespace quicr {
             // CONTROL STREAM
             if (is_control_stream) {
                 auto& ctrl_msg_buffer = conn_ctx.ctrl_msg_buffer[stream_id];
-                ctrl_msg_buffer.data.insert(ctrl_msg_buffer.data.end(), cursor_it, data.end());
+                ctrl_msg_buffer.data.insert(ctrl_msg_buffer.data.end(), data.begin(), data.end());
 
                 rx_ctx->data_queue.PopFront();
+                rx_ctx->is_new = false;
+
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
                                     conn_id,
@@ -1837,41 +1816,44 @@ namespace quicr {
                                     ctrl_msg_buffer.data.size());
 
                 while (ctrl_msg_buffer.data.size() > 0) {
-                    if (not ctrl_msg_buffer.msg_type.has_value()) {
-                        ctrl_msg_buffer.msg_type = static_cast<ControlMessageType>(msg_type);
+                    if (ctrl_msg_buffer.data.size() < UintVar::Size(ctrl_msg_buffer.data.front())) {
+                        i = kReadLoopMaxPerStream - 4;
+                        break;
                     }
+
+                    const auto type_sz = UintVar::Size(ctrl_msg_buffer.data.front());
+                    const auto msg_type = static_cast<ControlMessageType>(static_cast<uint64_t>(
+                      UintVar({ ctrl_msg_buffer.data.data(), ctrl_msg_buffer.data.data() + type_sz })));
 
                     uint16_t payload_len = 0;
 
-                    // Decode control payload length in bytes
-                    if (ctrl_msg_buffer.data.size() < sizeof(payload_len)) {
+                    if (ctrl_msg_buffer.data.size() < type_sz + sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
-                        break; // Not enough bytes to process control message. Try again once more.
+                        break;
                     }
 
-                    std::memcpy(&payload_len, ctrl_msg_buffer.data.data(), sizeof(payload_len));
+                    std::memcpy(&payload_len, ctrl_msg_buffer.data.data() + type_sz, sizeof(payload_len));
                     payload_len = SwapBytes(payload_len);
 
-                    if (ctrl_msg_buffer.data.size() < payload_len + sizeof(payload_len)) {
+                    const auto message_size = type_sz + sizeof(payload_len) + payload_len;
+                    if (ctrl_msg_buffer.data.size() < message_size) {
                         i = kReadLoopMaxPerStream - 4;
-                        break; // Not enough bytes to process control message. Try again once more.
+                        break;
                     }
+
+                    const auto payload_begin = ctrl_msg_buffer.data.begin() + type_sz + sizeof(payload_len);
+                    const auto payload_end = payload_begin + payload_len;
 
                     if (ProcessCtrlMessage(conn_ctx,
                                            data_ctx_id.value_or(conn_ctx.tx_ctrl_data_ctx_id.value()),
-                                           ctrl_msg_buffer.msg_type.value(),
-                                           { ctrl_msg_buffer.data.begin() + sizeof(payload_len),
-                                             ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len })) {
-
-                        // Reset the control message buffer and message type to start a new message.
-                        ctrl_msg_buffer.msg_type = std::nullopt;
+                                           msg_type,
+                                           { payload_begin, payload_end })) {
                         ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
-                                                   ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len);
+                                                   ctrl_msg_buffer.data.begin() + message_size);
                     } else {
                         conn_ctx.metrics.invalid_ctrl_stream_msg++;
-                        ctrl_msg_buffer.msg_type = std::nullopt;
                         ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
-                                                   ctrl_msg_buffer.data.begin() + sizeof(payload_len) + payload_len);
+                                                   ctrl_msg_buffer.data.begin() + message_size);
                     }
                 }
                 continue;
@@ -3391,54 +3373,27 @@ namespace quicr {
                 SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {}", new_sess_uri);
                 return true;
             }
-            case messages::ControlMessageType::kServerSetup: {
-                if (!client_mode_) {
-                    SPDLOG_LOGGER_ERROR(
-                      logger_, "Unsupported MOQT message type: {}, bad stream", static_cast<uint64_t>(msg_type));
-                    return false;
-                }
-
-                const auto setup_parameters = messages::Message::ParseField<messages::SetupParameters>(msg_bytes);
+            case messages::ControlMessageType::kSetup: {
+                const auto setup = messages::control::Setup{ msg_bytes };
 
                 std::string endpoint_id = "Unknown Endpoint ID";
-                for (const auto& param : setup_parameters) {
-                    if (param.type == messages::SetupParameterType::kEndpointId) {
-                        endpoint_id = std::string(param.value.begin(), param.value.end());
-                        break;
-                    }
+                if (auto endpoint =
+                      setup.setup_options.GetOptional<std::string>(messages::SetupOptionType::kEndpointId)) {
+                    endpoint_id = *endpoint;
                 }
 
-                ServerSetupReceived({ 0, endpoint_id });
+                if (client_mode_) {
+                    ServerSetupReceived({ 0, endpoint_id });
+                } else {
+                    ClientSetupReceived(conn_ctx.connection_handle, { endpoint_id });
+                    SendSetup(conn_ctx);
+                }
+
                 SetStatus(Status::kReady);
 
                 SPDLOG_LOGGER_INFO(
-                  logger_, "Server setup received conn_id: {} from: {}", conn_ctx.connection_handle, endpoint_id);
+                  logger_, "Setup received conn_id: {} from: {}", conn_ctx.connection_handle, endpoint_id);
 
-                conn_ctx.setup_complete = true;
-                return true;
-            }
-            case messages::ControlMessageType::kClientSetup: {
-                if (client_mode_) {
-                    SPDLOG_LOGGER_ERROR(
-                      logger_, "Unsupported MOQT message type: {}, bad stream", static_cast<uint64_t>(msg_type));
-                    return false;
-                }
-
-                const auto setup_parameters = messages::Message::ParseField<messages::SetupParameters>(msg_bytes);
-
-                std::string endpoint_id = "Unknown Endpoint ID";
-                for (const auto& param : setup_parameters) {
-                    if (param.type == messages::SetupParameterType::kEndpointId) {
-                        endpoint_id = std::string(param.value.begin(), param.value.end());
-                    }
-                }
-
-                ClientSetupReceived(conn_ctx.connection_handle, { endpoint_id });
-
-                SPDLOG_LOGGER_INFO(
-                  logger_, "Client setup received conn_id: {} from: {}", conn_ctx.connection_handle, endpoint_id);
-
-                SendServerSetup(conn_ctx);
                 conn_ctx.setup_complete = true;
                 return true;
             }
