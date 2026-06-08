@@ -32,7 +32,7 @@ namespace quicr::messages {
 
     struct PublishAttributes
     {
-        const FullTrackName full_track_name;
+        const FullTrackName track_full_name;
         const TrackAlias track_alias;
         const std::vector<Token> auth_tokens;
         const std::optional<std::uint64_t> expires;

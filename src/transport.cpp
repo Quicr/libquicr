@@ -574,8 +574,8 @@ namespace quicr {
                     data_ctx_id,
                     ControlMessageType::kPublish,
                     UintVar(request_id),
-                    publish.full_track_name.name_space,
-                    publish.full_track_name.name,
+                    publish.track_full_name.name_space,
+                    publish.track_full_name.name,
                     UintVar(publish.track_alias),
                     params,
                     extensions);
@@ -1342,7 +1342,7 @@ namespace quicr {
           quic_transport_->CreateDataContext(conn_id, true, 0, true, track_handler->GetRequestId()));
         quic_transport_->CreateStream(conn_id, track_handler->GetDataContextId().value(), 0);
 
-        const PublishAttributes publish{ .full_track_name = { tfn },
+        const PublishAttributes publish{ .track_full_name = { tfn },
                                          .track_alias = track_handler->GetTrackAlias().value(),
                                          .auth_tokens = {},
                                          .expires = 0, // TODO: Expires?
@@ -2792,7 +2792,7 @@ namespace quicr {
             return;
         }
 
-        auto handler = SubscribeTrackHandler::Create(publish.full_track_name, publish.default_publisher_priority);
+        auto handler = SubscribeTrackHandler::Create(publish.track_full_name, publish.default_publisher_priority);
 
         ResolvePublish(connection_handle,
                        request_id,
@@ -3553,7 +3553,7 @@ namespace quicr {
                                      ParameterType::kLargestObject,
                                      ParameterType::kForward });
                 const PublishAttributes publish{
-                    .full_track_name = { track_namespace, track_name },
+                    .track_full_name = { track_namespace, track_name },
                     .track_alias = track_alias,
                     .auth_tokens = CollectAuthTokens(parameters),
                     .expires = ResolveExpires(parameters),
@@ -3567,8 +3567,8 @@ namespace quicr {
                     .track_properties = std::move(track_extensions)
                 };
 
-                auto th = TrackHash(publish.full_track_name);
-                conn_ctx.recv_req_id[request_id] = { .track_full_name = publish.full_track_name,
+                auto th = TrackHash(publish.track_full_name);
+                conn_ctx.recv_req_id[request_id] = { .track_full_name = publish.track_full_name,
                                                      .track_hash = th,
                                                      .data_ctx_id = data_ctx_id };
 
@@ -3576,7 +3576,7 @@ namespace quicr {
                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
                     for (auto& [_, track] : conn_ctx.request_handlers) {
                         if (auto h = track.Get<SubscribeNamespaceHandler>()) {
-                            if (h->GetPrefix().HasSamePrefix(publish.full_track_name.name_space)) {
+                            if (h->GetPrefix().HasSamePrefix(publish.track_full_name.name_space)) {
                                 sub_ns_handler = h;
                                 break;
                             }
