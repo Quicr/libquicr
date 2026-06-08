@@ -3552,20 +3552,24 @@ namespace quicr {
                                      ParameterType::kExpires,
                                      ParameterType::kLargestObject,
                                      ParameterType::kForward });
-                const PublishAttributes publish{
-                    .track_full_name = { track_namespace, track_name },
-                    .track_alias = track_alias,
-                    .auth_tokens = CollectAuthTokens(parameters),
-                    .expires = ResolveExpires(parameters),
-                    .largest_object = parameters.GetOptional<Location>(messages::ParameterType::kLargestObject),
-                    .forward = ResolveForward(parameters, true),
-                    .default_publisher_group_order = ResolveDefaultPublisherGroupOrder(track_extensions),
-                    .dynamic_groups = ResolveDynamicGroups(track_extensions),
-                    .default_publisher_priority = ResolveDefaultPublisherPriority(track_extensions),
-                    .max_cache_duration = ResolveMaxCacheDuration(track_extensions),
-                    .delivery_timeout = ResolveDeliveryTimeout(track_extensions),
-                    .track_properties = std::move(track_extensions)
-                };
+                const auto default_publisher_group_order = ResolveDefaultPublisherGroupOrder(track_extensions);
+                const auto dynamic_groups = ResolveDynamicGroups(track_extensions);
+                const auto default_publisher_priority = ResolveDefaultPublisherPriority(track_extensions);
+                const auto max_cache_duration = ResolveMaxCacheDuration(track_extensions);
+                const auto delivery_timeout = ResolveDeliveryTimeout(track_extensions);
+                const PublishAttributes publish{ .track_full_name = { track_namespace, track_name },
+                                                 .track_alias = track_alias,
+                                                 .auth_tokens = CollectAuthTokens(parameters),
+                                                 .expires = ResolveExpires(parameters),
+                                                 .largest_object = parameters.GetOptional<Location>(
+                                                   messages::ParameterType::kLargestObject),
+                                                 .forward = ResolveForward(parameters, true),
+                                                 .default_publisher_group_order = default_publisher_group_order,
+                                                 .dynamic_groups = dynamic_groups,
+                                                 .default_publisher_priority = default_publisher_priority,
+                                                 .max_cache_duration = max_cache_duration,
+                                                 .delivery_timeout = delivery_timeout,
+                                                 .track_properties = std::move(track_extensions) };
 
                 auto th = TrackHash(publish.track_full_name);
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = publish.track_full_name,
