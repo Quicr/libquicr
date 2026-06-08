@@ -535,12 +535,12 @@ namespace quicr {
          *
          * @param connection_handle  Connection that received this publish
          * @param request_id         Incoming publish request ID
-         * @param publish            The received Publish.
+         * @param publish_attributes Attributes of the publish
          * @param sub_ns_handler     Matching subscribe namespace handler, if any
          */
         virtual void PublishReceived(ConnectionHandle connection_handle,
                                      uint64_t request_id,
-                                     const messages::PublishAttributes& publish,
+                                     const messages::PublishAttributes& publish_attributes,
                                      std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler);
 
         /**
