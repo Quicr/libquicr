@@ -7,7 +7,20 @@
 
 #define DEFER_CONCAT(a, b) DEFER_CONCAT_INNER(a, b)
 #define DEFER_CONCAT_INNER(a, b) a##b
-#define defer(n) quicr::DeferType DEFER_CONCAT(defer_, __LINE__)([&] { n; })
+
+#if defined(__clang__)
+#define DEFER_PUSH _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wthread-safety-analysis\"")
+#define DEFER_POP _Pragma("clang diagnostic pop")
+#else
+#define DEFER_PUSH
+#define DEFER_POP
+#endif
+
+#define defer(n)                                                                                                       \
+    quicr::DeferType DEFER_CONCAT(defer_, __LINE__)([&] {                                                              \
+        DEFER_PUSH n;                                                                                                  \
+        DEFER_POP                                                                                                      \
+    })
 
 namespace quicr {
     class DeferType

@@ -17,6 +17,12 @@ target_compile_options(quicr PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wall -pedantic -Wextra -Wmissing-declarations -Werror=switch>
 )
 
+if(NOT QUICR_BUILD_FUZZ)
+    target_compile_options(quicr PRIVATE
+        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>: -Wthread-safety -Werror=thread-safety>
+    )
+endif()
+
 target_sources(quicr PRIVATE
     base_track_handler.cpp
     client.cpp
