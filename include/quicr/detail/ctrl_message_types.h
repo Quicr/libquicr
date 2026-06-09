@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <map>
 #include <optional>
 #include <source_location>
 #include <stdexcept>
@@ -302,8 +303,145 @@ namespace quicr::messages {
         kInvalid = 0xFF,
     };
 
-    using Parameter = KeyValuePair<ParameterType>;
-    using SetupParameter = KeyValuePair<SetupOptionType>;
+    /// Possible encodings a parameter can have
+    enum class ParameterEncoding
+    {
+        kByte,
+        kVarint,
+        kLocation,
+        kBytes
+    };
+
+    /**
+     * Look up the wire encoding for a Message Parameter type.
+     * @param type The parameter type.
+     * @return The encoding it uses.
+     * @throws ProtocolViolationException if the type is unknown.
+     */
+    inline ParameterEncoding GetParameterEncoding(ParameterType type)
+    {
+        static const std::map<ParameterType, ParameterEncoding> encodings = {
+            { ParameterType::kDeliveryTimeout, ParameterEncoding::kVarint },
+            { ParameterType::kAuthorizationToken, ParameterEncoding::kBytes },
+            { ParameterType::kRendezvousTimeout, ParameterEncoding::kVarint },
+            { ParameterType::kSubgroupDeliveryTimeout, ParameterEncoding::kVarint },
+            { ParameterType::kExpires, ParameterEncoding::kVarint },
+            { ParameterType::kLargestObject, ParameterEncoding::kLocation },
+            { ParameterType::kFillTimeout, ParameterEncoding::kVarint },
+            { ParameterType::kForward, ParameterEncoding::kByte },
+            { ParameterType::kSubscriberPriority, ParameterEncoding::kByte },
+            { ParameterType::kLocationFilter, ParameterEncoding::kBytes },
+            { ParameterType::kGroupOrder, ParameterEncoding::kByte },
+            { ParameterType::kNewGroupRequest, ParameterEncoding::kVarint },
+            { ParameterType::kTrackNamespacePrefix, ParameterEncoding::kBytes },
+        };
+
+        const auto it = encodings.find(type);
+        if (it == encodings.end()) {
+            throw ProtocolViolationException("Unknown Message Parameter type");
+        }
+        return it->second;
+    }
+
+    struct Parameter
+    {
+        ParameterType type{};
+        Bytes value;
+
+        bool operator==(const Parameter&) const = default;
+    };
+
+    /**
+     * Serialize a Parameter
+     * @param buffer Buffer to write into.
+     * @param param The parameter to write.
+     * @param prev_type The previous parameter type, for delta encoding.
+     */
+    inline void SerializeParameter(Bytes& buffer, const Parameter& param, ParameterType prev_type)
+    {
+        // Delta encode type.
+        const auto type_value = static_cast<std::uint64_t>(param.type);
+        const auto prev_value = static_cast<std::uint64_t>(prev_type);
+        buffer << UintVar(type_value - prev_value);
+
+        switch (GetParameterEncoding(param.type)) {
+            case ParameterEncoding::kByte:
+                [[fallthrough]];
+            case ParameterEncoding::kVarint: {
+                std::uint64_t value = 0;
+                std::memcpy(&value, param.value.data(), std::min(param.value.size(), sizeof(value)));
+                if (GetParameterEncoding(param.type) == ParameterEncoding::kByte) {
+                    buffer << static_cast<std::uint8_t>(value);
+                } else {
+                    buffer << value;
+                }
+                break;
+            }
+            case ParameterEncoding::kLocation:
+                buffer.insert(buffer.end(), param.value.begin(), param.value.end());
+                break;
+            case ParameterEncoding::kBytes:
+                buffer << param.value;
+                break;
+        }
+    }
+
+    /**
+     * Parse a Message Parameter.
+     * @param buffer Buffer to read from.
+     * @param param The parameter to read into.
+     * @param prev_type The previous parameter type, to unwrap the delta.
+     * @throws ProtocolViolationException on delta overflow, unknown type, or a malformed value.
+     */
+    inline void ParseParameter(BytesSpan& buffer, Parameter& param, ParameterType prev_type)
+    {
+        const auto prev_value = static_cast<std::uint64_t>(prev_type);
+        std::uint64_t delta = 0;
+        buffer = buffer >> delta;
+        if (delta > std::numeric_limits<std::uint64_t>::max() - prev_value) {
+            throw ProtocolViolationException("Delta encoding overflow: prev_type + delta exceeds 2^64-1");
+        }
+        param.type = static_cast<ParameterType>(prev_value + delta);
+
+        switch (GetParameterEncoding(param.type)) {
+            case ParameterEncoding::kByte: {
+                std::uint8_t byte = 0;
+                buffer = buffer >> byte;
+                const std::uint64_t val = byte;
+                const auto* val_bytes = reinterpret_cast<const std::uint8_t*>(&val);
+                param.value.assign(val_bytes, val_bytes + sizeof(val));
+                break;
+            }
+            case ParameterEncoding::kVarint: {
+                std::uint64_t val = 0;
+                buffer = buffer >> val;
+                const auto* val_bytes = reinterpret_cast<const std::uint8_t*>(&val);
+                param.value.assign(val_bytes, val_bytes + sizeof(val));
+                break;
+            }
+            case ParameterEncoding::kLocation: {
+                const auto start = buffer;
+                Location location;
+                buffer = buffer >> location;
+                const auto consumed = start.size() - buffer.size();
+                param.value.assign(start.begin(), start.begin() + consumed);
+                break;
+            }
+            case ParameterEncoding::kBytes: {
+                std::uint64_t length = 0;
+                buffer = buffer >> length;
+                if (length > std::numeric_limits<std::uint16_t>::max()) {
+                    throw ProtocolViolationException("Message Parameter value length exceeds 2^16-1");
+                }
+                if (buffer.size() < length) {
+                    throw ProtocolViolationException("Message Parameter value is truncated");
+                }
+                param.value.assign(buffer.begin(), buffer.begin() + length);
+                buffer = buffer.subspan(length);
+                break;
+            }
+        }
+    }
 
     struct Token
     {
@@ -1068,7 +1206,6 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, TrackExtensions& msg);
     Bytes& operator<<(Bytes& buffer, const TrackExtensions& msg);
 
-    template<typename Type = ParameterType>
     class ParameterList
     {
       public:
@@ -1078,13 +1215,13 @@ namespace quicr::messages {
         ParameterList& operator=(const ParameterList&) = default;
         ParameterList& operator=(ParameterList&&) = default;
 
-        ParameterList(std::initializer_list<KeyValuePair<Type>> values)
+        ParameterList(std::initializer_list<Parameter> values)
           : parameters(values)
         {
         }
 
         template<typename T>
-        ParameterList& Add(Type type, const T& value)
+        ParameterList& Add(ParameterType type, const T& value)
         {
             if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
                 if (static_cast<uint64_t>(type) % 2 == 0) {
@@ -1107,7 +1244,7 @@ namespace quicr::messages {
         }
 
         template<typename T>
-        ParameterList& AddOptional(Type type, const std::optional<T>& value)
+        ParameterList& AddOptional(ParameterType type, const std::optional<T>& value)
         {
             if (value.has_value()) {
                 Add<T>(type, value.value());
@@ -1122,14 +1259,14 @@ namespace quicr::messages {
         auto begin() const noexcept { return parameters.begin(); }
         auto end() const noexcept { return parameters.end(); }
 
-        bool Contains(Type type) const
+        bool Contains(ParameterType type) const
         {
             auto it =
               std::find_if(parameters.begin(), parameters.end(), [type](const auto& kv) { return kv.type == type; });
             return it != parameters.end();
         }
 
-        BytesSpan Find(Type type) const
+        BytesSpan Find(ParameterType type) const
         {
             auto it =
               std::find_if(parameters.begin(), parameters.end(), [type](const auto& kv) { return kv.type == type; });
@@ -1141,7 +1278,7 @@ namespace quicr::messages {
         }
 
         template<typename T>
-        T Get(Type type) const
+        T Get(ParameterType type) const
         {
             auto bytes = Find(type);
             if (bytes.empty()) {
@@ -1167,10 +1304,6 @@ namespace quicr::messages {
 
         Filter GetFilter(FilterType type) const
         {
-            if constexpr (!std::is_same_v<ParameterType, Type>) {
-                return std::monostate{};
-            }
-
             auto bytes = Find(ToParameterFilterType(type));
             if (bytes.empty()) {
                 return {};
@@ -1180,26 +1313,25 @@ namespace quicr::messages {
         }
 
         template<typename T>
-        std::optional<T> GetOptional(Type type) const
+        std::optional<T> GetOptional(ParameterType type) const
         {
             return Contains(type) ? std::make_optional(Get<T>(type)) : std::nullopt;
         }
 
-        auto operator<=>(const ParameterList&) const = default;
+        bool operator==(const ParameterList&) const = default;
 
-        std::vector<KeyValuePair<Type>> parameters;
+        std::vector<Parameter> parameters;
     };
 
-    template<typename Type = ParameterType>
-    BytesSpan operator>>(BytesSpan buffer, ParameterList<Type>& msg)
+    inline BytesSpan operator>>(BytesSpan buffer, ParameterList& msg)
     {
         uint64_t size = 0;
         buffer = buffer >> size;
 
-        Type prev_type{};
+        ParameterType prev_type{};
         for (uint64_t i = 0; i < size; ++i) {
-            KeyValuePair<Type> param;
-            ParseKvp(buffer, param, prev_type);
+            Parameter param;
+            ParseParameter(buffer, param, prev_type);
             prev_type = param.type;
             msg.parameters.push_back(std::move(param));
         }
@@ -1207,26 +1339,24 @@ namespace quicr::messages {
         return buffer;
     }
 
-    template<typename Type = ParameterType>
-    Bytes& operator<<(Bytes& buffer, const ParameterList<Type>& msg)
+    inline Bytes& operator<<(Bytes& buffer, const ParameterList& msg)
     {
         buffer << UintVar(msg.parameters.size());
 
-        // Sort parameters by type for delta encoding
         auto sorted = msg.parameters;
         std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) {
             return static_cast<std::uint64_t>(a.type) < static_cast<std::uint64_t>(b.type);
         });
 
-        Type prev_type{};
+        ParameterType prev_type{};
         for (const auto& param : sorted) {
-            SerializeKvp(buffer, param, prev_type);
+            SerializeParameter(buffer, param, prev_type);
             prev_type = param.type;
         }
 
         return buffer;
     }
 
-    using Parameters = quicr::messages::ParameterList<quicr::messages::ParameterType>;
+    using Parameters = quicr::messages::ParameterList;
 
 } // namespace

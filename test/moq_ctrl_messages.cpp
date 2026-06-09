@@ -26,24 +26,20 @@ const TrackNamespace kTrackNamespaceConf{ FromASCII("conf.example.com"), FromASC
 const Bytes kTrackNameAliceVideo = FromASCII("alice/video");
 const UintVar kTrackAliasAliceVideo{ 0xA11CE };
 
-// Values that will encode to the corresponding UintVar values.
 const Bytes kExampleBytes = {
     0x1, 0x2, 0x3, 0x4, 0x5,
 };
-const Bytes kUint1ByteValue = { 0x25 };
-const Bytes kUint2ByteValue = { 0xBD, 0x3B };
-const Bytes kUint4ByteValue = { 0x7D, 0x3E, 0x7F, 0x1D };
-const Bytes kUint8ByteValue = { 0x8C, 0xE8, 0x14, 0xFF, 0x5E, 0x7C, 0x19, 0x02 };
 
-// Note: Parameters must be in sorted order by type for delta encoding.
-// ParameterType::kAuthorizationToken = 0x03
-const Parameters kExampleParameters = {
-    { static_cast<ParameterType>(2), kUint1ByteValue },
-    { ParameterType::kAuthorizationToken, kExampleBytes }, // type 0x03
-    { static_cast<ParameterType>(4), kUint2ByteValue },
-    { static_cast<ParameterType>(6), kUint4ByteValue },
-    { static_cast<ParameterType>(8), kUint8ByteValue },
-};
+// Some params for testing.
+const Parameters kExampleParameters = [] {
+    Parameters params;
+    params.Add(static_cast<ParameterType>(2), std::uint64_t{ 37 });                       // 1-byte varint
+    params.parameters.push_back({ ParameterType::kAuthorizationToken, kExampleBytes });   // type 0x03 bytes
+    params.Add(static_cast<ParameterType>(4), std::uint64_t{ 15675 });                    // 2-byte varint
+    params.Add(static_cast<ParameterType>(6), std::uint64_t{ 0x1D7F3E7D });               // 4-byte varint
+    params.Add(static_cast<ParameterType>(8), std::numeric_limits<std::uint64_t>::max()); // 8-byte varint
+    return params;
+}();
 
 template<typename T>
 bool
@@ -492,6 +488,66 @@ TEST_CASE("Parameters")
     CHECK_EQ(params.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), std::uint64_t(5000));
 }
 
+TEST_CASE("Parameters - typed encodings round-trip")
+{
+    SUBCASE("single byte encoding")
+    {
+        for (const std::uint8_t priority : { static_cast<std::uint8_t>(0), static_cast<std::uint8_t>(255) }) {
+            CAPTURE(priority);
+            Parameters params;
+            params.Add(ParameterType::kSubscriberPriority, priority);
+
+            Bytes buffer;
+            buffer << params;
+
+            CHECK_EQ(buffer.size(), 3);
+            CHECK_EQ(buffer.back(), priority);
+            Parameters out;
+            BytesSpan{ buffer } >> out;
+            CHECK_EQ(out.Get<std::uint8_t>(ParameterType::kSubscriberPriority), priority);
+        }
+    }
+
+    SUBCASE("Location encodes as two varints")
+    {
+        constexpr Location location{ 300, 5 };
+        Parameters params;
+        params.Add(ParameterType::kLargestObject, location);
+
+        Bytes buffer;
+        buffer << params;
+
+        Parameters out;
+        BytesSpan{ buffer } >> out;
+        CHECK_EQ(out.Get<Location>(ParameterType::kLargestObject), location);
+    }
+
+    SUBCASE("Track Namespace prefix encodes as length-prefixed bytes")
+    {
+        const TrackNamespace prefix{ Bytes{ 'a', 'b' }, Bytes{ 'c' } };
+        Parameters params;
+        params.Add(ParameterType::kTrackNamespacePrefix, prefix);
+
+        Bytes buffer;
+        buffer << params;
+
+        Parameters out;
+        BytesSpan{ buffer } >> out;
+        CHECK_EQ(out.Get<TrackNamespace>(ParameterType::kTrackNamespacePrefix), prefix);
+    }
+}
+
+TEST_CASE("Parameters - unknown type is a protocol violation")
+{
+    Bytes buffer;
+    buffer << UintVar(std::uint64_t{ 1 });    // One parameter.
+    buffer << UintVar(std::uint64_t{ 0x7F }); // Type delta to an unknown type.
+    buffer << UintVar(std::uint64_t{ 0 });    // Some value.
+
+    Parameters out;
+    CHECK_THROWS_AS(BytesSpan{ buffer } >> out, ProtocolViolationException);
+}
+
 TEST_CASE("Filters")
 {
     static_assert(HasByteStreamOperators<Filter>);
@@ -542,13 +598,14 @@ TEST_CASE("Filters")
 
 TEST_CASE("Parameters - Filters")
 {
-    Filter filter = TrackFilter{
-        .property_type = 1,
-        .max_tracks_selected = 2,
-        .timeout = 3,
+    Filter filter = LocationFilter{
+        {
+          .start = 1,
+          .end = 2,
+        },
     };
 
-    auto params = Parameters{}.Add(ParameterType::kTrackFilter, filter);
+    auto params = Parameters{}.Add(ParameterType::kLocationFilter, filter);
 
     Bytes bytes;
     bytes << params;
@@ -558,6 +615,6 @@ TEST_CASE("Parameters - Filters")
     Parameters recv_params;
     bytes >> recv_params;
 
-    auto recv_filter = recv_params.GetFilter(FilterType::kTrackFilter);
+    auto recv_filter = recv_params.GetFilter(FilterType::kLocationFilter);
     CHECK_EQ(recv_filter, filter);
 }

@@ -586,7 +586,6 @@ namespace quicr {
 
     void Transport::SendPublishOk(ConnectionContext& conn_ctx,
                                   DataContextId data_ctx_id,
-                                  messages::RequestID request_id,
                                   bool forward,
                                   std::optional<std::uint8_t> priority,
                                   std::optional<messages::GroupOrder> group_order,
@@ -612,10 +611,12 @@ namespace quicr {
             params.Add(filter_type, filter);
         }
 
-        SPDLOG_LOGGER_DEBUG(
-          logger_, "Sending PUBLISH_OK to conn_id: {} request_id: {} ", conn_ctx.connection_handle, request_id);
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending PUBLISH_OK to conn_id: {} request_id: {} ",
+                            conn_ctx.connection_handle,
+                            conn_ctx.request_id_by_data_ctx[data_ctx_id]);
 
-        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kPublishOk, UintVar(request_id), params);
+        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kPublishOk, params);
 
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish Ok (error={})", e.what());
@@ -1504,7 +1505,6 @@ namespace quicr {
 
                 SendPublishOk(conn_it->second,
                               ResponseDataContext(conn_it->second, request_id),
-                              request_id,
                               publish_response.forward,
                               publish_response.subscriber_priority,
                               publish_response.group_order,
@@ -3607,7 +3607,15 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kPublishOk: {
-                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto req_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
+                if (req_it == conn_ctx.request_id_by_data_ctx.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received publish ok on unknown stream conn_id: {} data_ctx_id: {}",
+                                       conn_ctx.connection_handle,
+                                       data_ctx_id);
+                    return true;
+                }
+                const auto request_id = req_it->second;
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 auto pub_it = conn_ctx.request_handlers.find(request_id);
