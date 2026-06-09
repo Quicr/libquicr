@@ -11,7 +11,7 @@
 
 namespace quicr::messages {
     /**
-     * @brief Subscribe attributes carried on the wire in a SUBSCRIBE message.
+     * @brief Subscribe attributes
      */
     struct SubscribeAttributes
     {

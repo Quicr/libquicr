@@ -85,6 +85,11 @@ namespace quicr::messages {
         return params.GetOptional<std::uint64_t>(ParameterType::kRendezvousTimeout);
     }
 
+    inline std::optional<std::uint64_t> ResolveNewGroupRequest(const Parameters& params)
+    {
+        return params.GetOptional<std::uint64_t>(ParameterType::kNewGroupRequest);
+    }
+
     // Filters.
     inline constexpr FilterType kFilterTypes[] = {
         FilterType::kLocationFilter, FilterType::kSubgroupFilter, FilterType::kObjectFilter,

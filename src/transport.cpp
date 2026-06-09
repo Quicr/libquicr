@@ -3031,15 +3031,12 @@ namespace quicr {
                                      ToParameterFilterType(FilterType::kLocationFilter),
                                      ToParameterFilterType(FilterType::kTrackFilter) });
 
-                const auto new_group_request_id =
-                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-
                 const messages::SubscribeAttributes subscribe_attributes{
                     .priority = ResolveSubscriberPriority(parameters),
                     .group_order = ResolveGroupOrder(parameters),
                     .filter = ResolveFilter(parameters),
                     .forward = ResolveForward(parameters, true),
-                    .new_group_request_id = new_group_request_id,
+                    .new_group_request_id = ResolveNewGroupRequest(parameters),
                     .rendezvous_timeout = ResolveRendezvousTimeout(parameters),
                     .auth_tokens = CollectAuthTokens(parameters),
                     .is_publisher_initiated = false,
@@ -3047,8 +3044,8 @@ namespace quicr {
 
                 SubscribeReceived(conn_ctx.connection_handle, request_id, tfn, subscribe_attributes);
 
-                if (new_group_request_id.has_value()) {
-                    NewGroupRequested(tfn, *new_group_request_id);
+                if (subscribe_attributes.new_group_request_id.has_value()) {
+                    NewGroupRequested(tfn, *subscribe_attributes.new_group_request_id);
                 }
 
                 return true;

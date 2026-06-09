@@ -115,8 +115,6 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
 
     const auto th = TrackHash(track_full_name);
     const auto track_alias = th.track_fullname_hash;
-
-    // SUBSCRIBE no longer carries a delivery timeout; use the test default.
     const std::uint32_t ttl = 5000;
 
     // Create a publish track handler to send objects to this subscriber
