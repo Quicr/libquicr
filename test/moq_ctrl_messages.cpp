@@ -39,7 +39,7 @@ const Bytes kUint8ByteValue = { 0x8C, 0xE8, 0x14, 0xFF, 0x5E, 0x7C, 0x19, 0x02 }
 // ParameterType::kAuthorizationToken = 0x03
 const auto kExampleParameters = Parameters{}
                                   .Add(static_cast<ParameterType>(2), kUint1ByteValue)
-                                  .Add(ParameterType::kAuthorizationToken, kExampleBytes)
+                                  .Add(static_cast<ParameterType>(3), kExampleBytes)
                                   .Add(static_cast<ParameterType>(4), kUint2ByteValue)
                                   .Add(static_cast<ParameterType>(6), kUint4ByteValue)
                                   .Add(static_cast<ParameterType>(8), kUint8ByteValue);
@@ -491,6 +491,14 @@ TEST_CASE("Parameters")
     CHECK_EQ(params.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), std::uint64_t(5000));
 }
 
+TEST_CASE("Parameters - Out of Order")
+{
+    Parameters params;
+
+    CHECK_NOTHROW(params.Add(ParameterType::kAuthorizationToken, std::uint64_t(5000)));
+    CHECK_THROWS(params.Add(ParameterType::kDeliveryTimeout, std::uint64_t(5000)));
+}
+
 TEST_CASE("Filters")
 {
     static_assert(HasByteStreamOperators<Filter>);
@@ -528,7 +536,7 @@ TEST_CASE("Filters")
     filter = LocationFilter{
         { .start = 1 },
     };
-    serialise_filter(FilterType::kLocationFilter, filter);
+    serialise_filter(FilterType::kSubscriptionFilter, filter);
 
     filter = LocationFilter{
         {
@@ -536,7 +544,7 @@ TEST_CASE("Filters")
           .end = 2,
         },
     };
-    serialise_filter(FilterType::kLocationFilter, filter);
+    serialise_filter(FilterType::kSubscriptionFilter, filter);
 }
 
 TEST_CASE("Parameters - Filters")
