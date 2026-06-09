@@ -37,13 +37,12 @@ const Bytes kUint8ByteValue = { 0x8C, 0xE8, 0x14, 0xFF, 0x5E, 0x7C, 0x19, 0x02 }
 
 // Note: Parameters must be in sorted order by type for delta encoding.
 // ParameterType::kAuthorizationToken = 0x03
-const Parameters kExampleParameters = {
-    { static_cast<ParameterType>(2), kUint1ByteValue },
-    { ParameterType::kAuthorizationToken, kExampleBytes }, // type 0x03
-    { static_cast<ParameterType>(4), kUint2ByteValue },
-    { static_cast<ParameterType>(6), kUint4ByteValue },
-    { static_cast<ParameterType>(8), kUint8ByteValue },
-};
+const auto kExampleParameters = Parameters{}
+                                  .Add(static_cast<ParameterType>(2), kUint1ByteValue)
+                                  .Add(ParameterType::kAuthorizationToken, kExampleBytes)
+                                  .Add(static_cast<ParameterType>(4), kUint2ByteValue)
+                                  .Add(static_cast<ParameterType>(6), kUint4ByteValue)
+                                  .Add(static_cast<ParameterType>(8), kUint8ByteValue);
 
 template<typename T>
 bool
