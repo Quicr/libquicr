@@ -43,7 +43,6 @@ namespace quicr::messages {
         kFetchOk = 0x18,
         kRequestsBlocked = 0x1a,
         kPublish = 0x1d,
-        kPublishOk = 0x1e,
         kSubscribeNamespace = 0x50,
         kSubscribeTracks = 0x51,
         kSetup = 0x2F00,

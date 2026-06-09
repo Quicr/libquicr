@@ -611,7 +611,7 @@ namespace quicr {
                             conn_ctx.connection_handle,
                             conn_ctx.request_id_by_data_ctx[data_ctx_id]);
 
-        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kPublishOk, params);
+        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kRequestOk, params);
 
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish Ok (error={})", e.what());
@@ -3097,9 +3097,23 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kRequestOk: {
-                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
-                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
+                // Find the request ID for this request.
+                const auto req_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
+                if (req_it == conn_ctx.request_id_by_data_ctx.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received publish ok on unknown stream conn_id: {} data_ctx_id: {}",
+                                       conn_ctx.connection_handle,
+                                       data_ctx_id);
+                    return true;
+                }
+                const auto request_id = req_it->second;
+                SPDLOG_LOGGER_DEBUG(logger_, "Got request ok for request: {}", request_id);
 
+                // Parse REQUEST_OK.
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
+                const auto track_properties = messages::Message::ParseField<TrackExtensions>(msg_bytes);
+
+                // TODO: Why would this be different for client mode / server mode.
                 if (client_mode_) {
                     auto track_it = conn_ctx.request_handlers.find(request_id);
                     if (track_it == conn_ctx.request_handlers.end()) {
@@ -3110,7 +3124,7 @@ namespace quicr {
                         return true;
                     }
 
-                    track_it->second.handler->RequestOk(request_id, parameters);
+                    track_it->second.handler->RequestOk(request_id, parameters, track_properties);
                     RequestOkReceived(conn_ctx.connection_handle, request_id);
                     return true;
                 }
@@ -3599,65 +3613,6 @@ namespace quicr {
                     PublishReceived(conn_ctx.connection_handle, request_id, publish, sub_ns_handler);
                 } else {
                     PublishReceived(conn_ctx.connection_handle, request_id, publish, {});
-                }
-
-                return true;
-            }
-            case messages::ControlMessageType::kPublishOk: {
-                const auto req_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
-                if (req_it == conn_ctx.request_id_by_data_ctx.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received publish ok on unknown stream conn_id: {} data_ctx_id: {}",
-                                       conn_ctx.connection_handle,
-                                       data_ctx_id);
-                    return true;
-                }
-                const auto request_id = req_it->second;
-                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
-
-                auto pub_it = conn_ctx.request_handlers.find(request_id);
-                if (pub_it == conn_ctx.request_handlers.end()) {
-                    SPDLOG_LOGGER_WARN(
-                      logger_,
-                      "Received publish ok to unknown publish track conn_id: {} request_id: {}, ignored",
-                      conn_ctx.connection_handle,
-                      request_id);
-                    return true;
-                }
-
-                if (client_mode_) {
-                    const auto forward = ResolveForward(parameters, true);
-                    if (auto h = pub_it->second.Get<PublishTrackHandler>()) {
-                        h->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
-                    }
-                    return true;
-                }
-
-                if (auto pub_h = pub_it->second.Get<PublishTrackHandler>()) {
-                    auto th = TrackHash(pub_h->GetFullTrackName());
-                    conn_ctx.recv_req_id[request_id] = { .track_full_name = pub_h->GetFullTrackName(),
-                                                         .track_hash = th };
-
-                    auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                    auto delivery_timeout =
-                      parameters.GetOptional<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                    const auto forward = ResolveForward(parameters, true);
-                    auto new_group_request_id =
-                      parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-
-                    if (pub_h->GetDefaultPriority() < priority) {
-                        pub_h->SetDefaultPriority(priority);
-                    }
-
-                    if (delivery_timeout.has_value() && *delivery_timeout) {
-                        pub_h->SetDefaultTTL(*delivery_timeout);
-                    }
-
-                    pub_h->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
-
-                    if (new_group_request_id.has_value()) {
-                        pub_h->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
-                    }
                 }
 
                 return true;
