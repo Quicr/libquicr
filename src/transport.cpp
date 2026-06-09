@@ -529,11 +529,14 @@ namespace quicr {
          * - FORWARD (0x10): Specifies the Forwarding State (0 or 1).
          * - NEW GROUP REQUEST (0x32): Requests the publisher to start a new group.
          */
-        auto params = Parameters{}
-                        .Add(ParameterType::kSubscriberPriority, priority)
-                        .AddOptional(ParameterType::kGroupOrder, group_order)
-                        .Add(ParameterType::kForward, 1)
-                        .AddOptional(ParameterType::kDeliveryTimeout, delivery_timeout);
+        auto params =
+          Parameters{}
+            .Add(ParameterType::kSubscriberPriority, priority)
+            .AddOptional(ParameterType::kGroupOrder, group_order)
+            .Add(ParameterType::kForward, 1)
+            .AddOptional(ParameterType::kDeliveryTimeout,
+                         delivery_timeout.has_value() ? std::make_optional<std::uint64_t>(delivery_timeout->count())
+                                                      : std::nullopt);
 
         if (auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
             params.Add(filter_type, filter);
