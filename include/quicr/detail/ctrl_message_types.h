@@ -978,6 +978,8 @@ namespace quicr::messages {
     Bytes& operator<<(Bytes& buffer, const TrackExtensions& msg);
 
     template<typename Type = ParameterType>
+        requires std::is_convertible_v<Type, std::uint64_t> ||
+                 std::is_same_v<std::underlying_type_t<Type>, std::uint64_t>
     class ParameterList
     {
       public:
@@ -987,35 +989,39 @@ namespace quicr::messages {
         ParameterList& operator=(const ParameterList&) = default;
         ParameterList& operator=(ParameterList&&) = default;
 
-        ParameterList(std::initializer_list<KeyValuePair<Type>> values)
-          : parameters(values)
-        {
-        }
-
         template<typename T>
+            requires HasByteStreamOperators<T> || std::is_same_v<T, std::uint8_t> || std::is_same_v<T, Location> ||
+                     requires(T v) {
+                         { static_cast<std::uint64_t>(v) };
+                     }
         ParameterList& Add(Type type, const T& value)
         {
-            if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
-                if (static_cast<uint64_t>(type) % 2 == 0) {
-                    const std::uint64_t val = static_cast<std::uint64_t>(value);
-                    auto* val_bytes = reinterpret_cast<const std::uint8_t*>(&val);
-                    parameters.push_back({ type, Bytes{ val_bytes, val_bytes + sizeof(val) } });
-                    return *this;
+            const std::uint64_t key = static_cast<std::uint64_t>(type);
+
+            if (!parameters.empty()) {
+                const std::uint64_t& last_key = std::next(parameters.begin(), parameters.size() - 1)->first;
+
+                if (key <= last_key) {
+                    throw ProtocolViolationException("Parameters must be added in strictly increasing order of key");
                 }
             }
 
-            if constexpr (HasByteStreamOperators<T>) {
-                Bytes bytes;
-                bytes << value;
-                parameters.push_back({ type, std::move(bytes) });
-                return *this;
+            if constexpr (std::is_same_v<T, std::uint8_t>) {
+                parameters[key].push_back(value);
+            } else if constexpr (std::is_convertible_v<T, std::uint64_t>) {
+                parameters[key] << UintVar(value);
+            } else {
+                parameters[key] << value;
             }
 
-            parameters.push_back({ type, AsOwnedBytes(value) });
             return *this;
         }
 
         template<typename T>
+            requires HasByteStreamOperators<T> || std::is_same_v<T, std::uint8_t> || std::is_same_v<T, Location> ||
+                     std::is_same_v<T, Bytes> || requires(T v) {
+                         { static_cast<std::uint64_t>(v) };
+                     }
         ParameterList& AddOptional(Type type, const std::optional<T>& value)
         {
             if (value.has_value()) {
@@ -1031,38 +1037,28 @@ namespace quicr::messages {
         auto begin() const noexcept { return parameters.begin(); }
         auto end() const noexcept { return parameters.end(); }
 
-        bool Contains(Type type) const
-        {
-            auto it =
-              std::find_if(parameters.begin(), parameters.end(), [type](const auto& kv) { return kv.type == type; });
-            return it != parameters.end();
-        }
+        bool Contains(Type type) const { return parameters.contains(static_cast<std::uint64_t>(type)); }
 
         BytesSpan Find(Type type) const
         {
-            auto it =
-              std::find_if(parameters.begin(), parameters.end(), [type](const auto& kv) { return kv.type == type; });
+            auto it = parameters.find(static_cast<std::uint64_t>(type));
             if (it == parameters.end()) {
                 return {};
             }
 
-            return it->value;
+            return it->second;
         }
 
         template<typename T>
+            requires HasByteStreamOperators<T> || std::is_same_v<T, std::uint8_t> || std::is_same_v<T, Location> ||
+                     std::is_same_v<T, Bytes> || requires(T v) {
+                         { static_cast<std::uint64_t>(v) };
+                     }
         T Get(Type type) const
         {
             auto bytes = Find(type);
             if (bytes.empty()) {
                 return {};
-            }
-
-            if constexpr (std::is_arithmetic_v<T>) {
-                if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    std::uint64_t val = 0;
-                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
-                    return static_cast<T>(val);
-                }
             }
 
             if constexpr (HasByteStreamOperators<T>) {
@@ -1089,6 +1085,10 @@ namespace quicr::messages {
         }
 
         template<typename T>
+            requires HasByteStreamOperators<T> || std::is_same_v<T, std::uint8_t> || std::is_same_v<T, Location> ||
+                     std::is_same_v<T, Bytes> || requires(T v) {
+                         { static_cast<std::uint64_t>(v) };
+                     }
         std::optional<T> GetOptional(Type type) const
         {
             return Contains(type) ? std::make_optional(Get<T>(type)) : std::nullopt;
@@ -1096,21 +1096,17 @@ namespace quicr::messages {
 
         auto operator<=>(const ParameterList&) const = default;
 
-        std::vector<KeyValuePair<Type>> parameters;
+        std::map<std::uint64_t, Bytes> parameters;
     };
 
     template<typename Type = ParameterType>
     BytesSpan operator>>(BytesSpan buffer, ParameterList<Type>& msg)
     {
-        uint64_t size = 0;
-        buffer = buffer >> size;
-
-        Type prev_type{};
-        for (uint64_t i = 0; i < size; ++i) {
-            KeyValuePair<Type> param;
-            ParseKvp(buffer, param, prev_type);
-            prev_type = param.type;
-            msg.parameters.push_back(std::move(param));
+        std::uint64_t prev_type = 0;
+        std::uint64_t delta = 0;
+        while (!buffer.empty()) {
+            buffer = buffer >> delta;
+            buffer = buffer >> msg.parameters[prev_type += delta];
         }
 
         return buffer;
@@ -1119,18 +1115,10 @@ namespace quicr::messages {
     template<typename Type = ParameterType>
     Bytes& operator<<(Bytes& buffer, const ParameterList<Type>& msg)
     {
-        buffer << UintVar(msg.parameters.size());
-
-        // Sort parameters by type for delta encoding
-        auto sorted = msg.parameters;
-        std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) {
-            return static_cast<std::uint64_t>(a.type) < static_cast<std::uint64_t>(b.type);
-        });
-
-        Type prev_type{};
-        for (const auto& param : sorted) {
-            SerializeKvp(buffer, param, prev_type);
-            prev_type = param.type;
+        std::uint64_t prev_type = 0;
+        for (const auto& [type, value] : msg.parameters) {
+            buffer << UintVar(type - prev_type) << value;
+            prev_type = type;
         }
 
         return buffer;
