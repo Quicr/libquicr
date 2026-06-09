@@ -1196,7 +1196,6 @@ namespace quicr {
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
                              DataContextId data_ctx_id,
-                             messages::RequestID request_id,
                              uint64_t track_alias,
                              uint64_t expires,
                              const std::optional<messages::Location>& largest_location,
