@@ -1099,9 +1099,6 @@ namespace quicr::messages {
             return *this;
         }
 
-        operator std::vector<Parameter>&() noexcept { return parameters; }
-        operator const std::vector<Parameter>&() const noexcept { return parameters; }
-
         auto begin() const noexcept { return parameters.begin(); }
         auto end() const noexcept { return parameters.end(); }
 
