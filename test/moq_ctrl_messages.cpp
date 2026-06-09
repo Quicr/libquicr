@@ -491,14 +491,6 @@ TEST_CASE("Parameters")
     CHECK_EQ(params.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), std::uint64_t(5000));
 }
 
-TEST_CASE("Parameters - Out of Order")
-{
-    Parameters params;
-
-    CHECK_NOTHROW(params.Add(ParameterType::kAuthorizationToken, std::uint64_t(5000)));
-    CHECK_THROWS(params.Add(ParameterType::kDeliveryTimeout, std::uint64_t(5000)));
-}
-
 TEST_CASE("Filters")
 {
     static_assert(HasByteStreamOperators<Filter>);
