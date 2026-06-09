@@ -10,23 +10,20 @@
 #include <vector>
 
 namespace quicr::messages {
-
-    // TODO: Maybe split base attributes out from SUBSCRIBE / PUBLISH?
-    // TODO: E.g priority, new_group_request_id.
-
     /**
      * @brief Subscribe attributes carried on the wire in a SUBSCRIBE message.
      */
     struct SubscribeAttributes
     {
-        const std::uint8_t priority;                             ///< Subscriber priority (128 if absent)
-        const std::optional<GroupOrder> group_order;             ///< Requested order (absent => publisher default)
-        const Filter filter;                                     ///< Subscription filter (monostate => unfiltered)
-        const bool forward;                                      ///< Forwarding state (1 if absent)
-        const std::optional<std::uint64_t> new_group_request_id; ///< NEW_GROUP_REQUEST value, if present
-        const std::optional<std::uint64_t> rendezvous_timeout;   ///< RENDEZVOUS_TIMEOUT ms, if present
-        const std::vector<Token> auth_tokens;                    ///< Collected AUTHORIZATION_TOKENs
-        const bool is_publisher_initiated;                       ///< True => do not send SUBSCRIBE_OK
+        const std::uint8_t priority;
+        const std::optional<GroupOrder> group_order;
+        const Filter filter;
+        const bool forward;
+        const std::optional<std::uint64_t> delivery_timeout;
+        const std::optional<std::uint64_t> new_group_request_id;
+        const std::optional<std::uint64_t> rendezvous_timeout;
+        const std::vector<Token> auth_tokens;
+        const bool is_publisher_initiated;
     };
 
     struct PublishAttributes

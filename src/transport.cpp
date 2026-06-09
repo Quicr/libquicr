@@ -501,10 +501,7 @@ namespace quicr {
                                   uint64_t request_id,
                                   const FullTrackName& tfn,
                                   TrackHash th, // TODO: This is only for a debug message, should be removed
-                                  std::uint8_t priority,
-                                  std::optional<GroupOrder> group_order,
-                                  const Filter& filter,
-                                  std::optional<std::chrono::milliseconds> delivery_timeout)
+                                  const SubscribeAttributes& subscribe)
     try {
         /* Available parameters:
          * - AUTHORIZATION TOKEN (0x03): Conveys information to authorize the subscription.
@@ -516,13 +513,13 @@ namespace quicr {
          * - NEW GROUP REQUEST (0x32): Requests the publisher to start a new group.
          */
         auto params = Parameters{}
-                        .Add(ParameterType::kSubscriberPriority, priority)
-                        .AddOptional(ParameterType::kGroupOrder, group_order)
-                        .Add(ParameterType::kForward, 1)
-                        .AddOptional(ParameterType::kDeliveryTimeout, delivery_timeout);
+                        .Add(ParameterType::kSubscriberPriority, subscribe.priority)
+                        .AddOptional(ParameterType::kGroupOrder, subscribe.group_order)
+                        .Add(ParameterType::kForward, subscribe.forward)
+                        .AddOptional(ParameterType::kDeliveryTimeout, subscribe.delivery_timeout);
 
-        if (auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
-            params.Add(filter_type, filter);
+        if (auto filter_type = GetFilterParameterType(subscribe.filter); filter_type != ParameterType::kInvalid) {
+            params.Add(filter_type, subscribe.filter);
         }
 
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -948,11 +945,6 @@ namespace quicr {
             conn_it->second.sub_by_recv_track_alias[*track_handler->GetReceivedTrackAlias()] = track_handler;
         }
 
-        auto priority = track_handler->GetPriority();
-        auto group_order = track_handler->GetGroupOrder();
-        const auto& filter = track_handler->GetFilter();
-        auto delivery_timeout = track_handler->GetDeliveryTimeout();
-
         track_handler->SetTransport(GetSharedPtr());
 
         if (!track_handler->IsPublisherInitiated()) {
@@ -970,15 +962,27 @@ namespace quicr {
             conn_it->second.request_id_by_data_ctx[track_handler->GetDataContextId().value()] =
               track_handler->GetRequestId().value();
 
+            const auto delivery_timeout = track_handler->GetDeliveryTimeout();
+            const std::optional<std::uint64_t> delivery_timeout_ms =
+              delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt;
+            const messages::SubscribeAttributes subscribe_attributes{
+                .priority = track_handler->GetPriority(),
+                .group_order = track_handler->GetGroupOrder(),
+                .filter = track_handler->GetFilter(),
+                .forward = true,
+                .delivery_timeout = delivery_timeout_ms,
+                .new_group_request_id = std::nullopt,
+                .rendezvous_timeout = std::nullopt,
+                .auth_tokens = {},
+                .is_publisher_initiated = false,
+            };
+
             SendSubscribe(conn_it->second,
                           track_handler->GetDataContextId().value(),
                           *track_handler->GetRequestId(),
                           tfn,
                           th,
-                          priority,
-                          group_order,
-                          filter,
-                          delivery_timeout);
+                          subscribe_attributes);
 
             // Handle joining fetch, if requested.
             auto joining_fetch = track_handler->GetJoiningFetch();

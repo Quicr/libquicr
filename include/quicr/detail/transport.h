@@ -1189,10 +1189,7 @@ namespace quicr {
                            messages::RequestID request_id,
                            const FullTrackName& tfn,
                            TrackHash th,
-                           std::uint8_t priority,
-                           std::optional<messages::GroupOrder> group_order,
-                           const messages::Filter& filter,
-                           std::optional<std::chrono::milliseconds> delivery_timeout);
+                           const messages::SubscribeAttributes& subscribe);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
                              DataContextId data_ctx_id,
