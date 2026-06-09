@@ -244,9 +244,7 @@ namespace quicr {
         return Status();
     }
 
-    uint64_t Transport::RequestTrackStatus(ConnectionHandle connection_handle,
-                                           const FullTrackName& track_full_name,
-                                           const messages::SubscribeAttributes&)
+    uint64_t Transport::RequestTrackStatus(ConnectionHandle connection_handle, const FullTrackName& track_full_name)
     {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(connection_handle);
@@ -3024,36 +3022,33 @@ namespace quicr {
                     return true;
                 }
 
-                auto delivery_timeout = parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto group_order = parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
-                const auto publisher_default_group_order = messages::GroupOrder::kAscending;
-                auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
-                auto new_group_request_id =
+                ValidateParameters(parameters,
+                                   { ParameterType::kAuthorizationToken,
+                                     ParameterType::kDeliveryTimeout,
+                                     ParameterType::kSubgroupDeliveryTimeout,
+                                     ParameterType::kRendezvousTimeout,
+                                     ParameterType::kSubscriberPriority,
+                                     ParameterType::kGroupOrder,
+                                     ParameterType::kForward,
+                                     ParameterType::kNewGroupRequest,
+                                     ToParameterFilterType(FilterType::kLocationFilter),
+                                     ToParameterFilterType(FilterType::kTrackFilter) });
+
+                const auto new_group_request_id =
                   parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
-                messages::Filter filter;
-                if (parameters.Contains(messages::ParameterType::kLocationFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kLocationFilter);
-                } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
-                }
+                const messages::SubscribeAttributes subscribe_attributes{
+                    .priority = ResolveSubscriberPriority(parameters),
+                    .group_order = ResolveGroupOrder(parameters),
+                    .filter = ResolveFilter(parameters),
+                    .forward = ResolveForward(parameters, true),
+                    .new_group_request_id = new_group_request_id,
+                    .rendezvous_timeout = ResolveRendezvousTimeout(parameters),
+                    .auth_tokens = CollectAuthTokens(parameters),
+                    .is_publisher_initiated = false,
+                };
 
-                SubscribeReceived(conn_ctx.connection_handle,
-                                  request_id,
-                                  tfn,
-                                  {
-                                    .priority = priority,
-                                    .group_order = group_order,
-                                    .publisher_default_group_order = publisher_default_group_order,
-                                    .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
-                                    .expires = std::chrono::milliseconds{ delivery_timeout },
-                                    .filter = filter,
-                                    .forward = forward,
-                                    .new_group_request_id = new_group_request_id,
-                                    .is_publisher_initiated = false,
-                                    .start_location = {},
-                                  });
+                SubscribeReceived(conn_ctx.connection_handle, request_id, tfn, subscribe_attributes);
 
                 if (new_group_request_id.has_value()) {
                     NewGroupRequested(tfn, *new_group_request_id);
@@ -3067,6 +3062,9 @@ namespace quicr {
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
 
+                ValidateParameters(parameters,
+                                   { messages::ParameterType::kExpires, messages::ParameterType::kLargestObject });
+
                 auto sub_it = conn_ctx.request_handlers.find(request_id);
                 if (sub_it == conn_ctx.request_handlers.end()) {
                     SPDLOG_LOGGER_WARN(
@@ -3078,10 +3076,7 @@ namespace quicr {
                 }
 
                 if (auto sub_handler = sub_it->second.Get<SubscribeTrackHandler>()) {
-                    const auto publisher_default_group_order =
-                      track_extensions
-                        .GetOptional<messages::GroupOrder>(messages::ExtensionType::kDefaultPublisherGroupOrder)
-                        .value_or(messages::GroupOrder::kAscending);
+                    const auto publisher_default_group_order = ResolveDefaultPublisherGroupOrder(track_extensions);
 
                     if (client_mode_) {
                         if (parameters.Contains(messages::ParameterType::kLargestObject)) {

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include "quicr/detail/control_messages/parameters.h"
 #include "quicr/detail/message.h"
 #include "quicr/detail/messages.h"
 
@@ -486,6 +487,41 @@ TEST_CASE("Parameters")
     CHECK(params.Contains(ParameterType::kLargestObject));
 
     CHECK_EQ(params.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), std::uint64_t(5000));
+}
+
+TEST_CASE("ResolveSubscriberPriority")
+{
+    CHECK_EQ(ResolveSubscriberPriority(Parameters{}), std::uint8_t(128));
+
+    auto params = Parameters{}.Add(ParameterType::kSubscriberPriority, std::uint8_t(7));
+    CHECK_EQ(ResolveSubscriberPriority(params), std::uint8_t(7));
+}
+
+TEST_CASE("ResolveRendezvousTimeout")
+{
+    CHECK_FALSE(ResolveRendezvousTimeout(Parameters{}).has_value());
+
+    auto params = Parameters{}.Add(ParameterType::kRendezvousTimeout, std::uint64_t(3000));
+    CHECK_EQ(ResolveRendezvousTimeout(params).value(), std::uint64_t(3000));
+}
+
+TEST_CASE("SUBSCRIBE parameter validation rejects stray parameters")
+{
+    const std::initializer_list<ParameterType> allowed = { ParameterType::kAuthorizationToken,
+                                                           ParameterType::kDeliveryTimeout,
+                                                           ParameterType::kSubgroupDeliveryTimeout,
+                                                           ParameterType::kRendezvousTimeout,
+                                                           ParameterType::kSubscriberPriority,
+                                                           ParameterType::kGroupOrder,
+                                                           ParameterType::kForward,
+                                                           ParameterType::kNewGroupRequest };
+
+    auto ok = Parameters{}.Add(ParameterType::kSubscriberPriority, std::uint8_t(5));
+    CHECK_NOTHROW(ValidateParameters(ok, allowed));
+
+    // EXPIRES is valid in SUBSCRIBE_OK, not SUBSCRIBE.
+    auto stray = Parameters{}.Add(ParameterType::kExpires, std::uint64_t(1000));
+    CHECK_THROWS_AS(ValidateParameters(stray, allowed), ProtocolViolationException);
 }
 
 TEST_CASE("Parameters - typed encodings round-trip")

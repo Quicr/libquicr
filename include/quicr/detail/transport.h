@@ -278,9 +278,7 @@ namespace quicr {
          *
          * * @returns Request ID that is used for the track status request
          */
-        uint64_t RequestTrackStatus(ConnectionHandle connection_handle,
-                                    const FullTrackName& track_full_name,
-                                    const messages::SubscribeAttributes& subscribe_attributes);
+        uint64_t RequestTrackStatus(ConnectionHandle connection_handle, const FullTrackName& track_full_name);
 
         /**
          * @brief Get the status of the endpoint

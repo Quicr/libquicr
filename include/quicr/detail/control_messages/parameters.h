@@ -75,6 +75,16 @@ namespace quicr::messages {
         return (expires.has_value() && expires.value() != 0) ? expires : std::nullopt;
     }
 
+    inline std::uint8_t ResolveSubscriberPriority(const Parameters& params)
+    {
+        return params.GetOptional<std::uint8_t>(ParameterType::kSubscriberPriority).value_or(128);
+    }
+
+    inline std::optional<std::uint64_t> ResolveRendezvousTimeout(const Parameters& params)
+    {
+        return params.GetOptional<std::uint64_t>(ParameterType::kRendezvousTimeout);
+    }
+
     // Filters.
     inline constexpr FilterType kFilterTypes[] = {
         FilterType::kLocationFilter, FilterType::kSubgroupFilter, FilterType::kObjectFilter,

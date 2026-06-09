@@ -7,6 +7,7 @@
 
 #include <chrono>
 #include <optional>
+#include <vector>
 
 namespace quicr::messages {
 
@@ -14,20 +15,18 @@ namespace quicr::messages {
     // TODO: E.g priority, new_group_request_id.
 
     /**
-     * @brief Subscribe attributes
+     * @brief Subscribe attributes carried on the wire in a SUBSCRIBE message.
      */
     struct SubscribeAttributes
     {
-        std::uint8_t priority{ 0 };                                         ///< Subscriber priority
-        std::optional<GroupOrder> group_order;                              ///< Subscriber group order
-        GroupOrder publisher_default_group_order{ GroupOrder::kAscending }; ///< Publisher track default group order
-        std::chrono::milliseconds delivery_timeout{ 0 };                    ///< Subscriber delivery timeout
-        std::chrono::milliseconds expires{ 0 };                             ///< Subscriber expiry in ms
-        Filter filter{ std::monostate{} };                                  /// Subscriber filter
-        std::uint8_t forward{ 0 };                    ///< True to Resume/forward data, False to pause/stop data
-        std::optional<uint64_t> new_group_request_id; ///< Indicates new group id is requested
-        bool is_publisher_initiated{ false };         ///< True will not send SUBSCRIBE_OK.
-        Location start_location{};                    ///< Start location of group and object
+        const std::uint8_t priority;                             ///< Subscriber priority (128 if absent)
+        const std::optional<GroupOrder> group_order;             ///< Requested order (absent => publisher default)
+        const Filter filter;                                     ///< Subscription filter (monostate => unfiltered)
+        const bool forward;                                      ///< Forwarding state (1 if absent)
+        const std::optional<std::uint64_t> new_group_request_id; ///< NEW_GROUP_REQUEST value, if present
+        const std::optional<std::uint64_t> rendezvous_timeout;   ///< RENDEZVOUS_TIMEOUT ms, if present
+        const std::vector<Token> auth_tokens;                    ///< Collected AUTHORIZATION_TOKENs
+        const bool is_publisher_initiated;                       ///< True => do not send SUBSCRIBE_OK
     };
 
     struct PublishAttributes
