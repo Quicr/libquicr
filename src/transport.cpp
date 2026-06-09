@@ -393,8 +393,8 @@ namespace quicr {
                                       bool forward)
     try {
         auto params = Parameters{}
-                        .Add(ParameterType::kForward, forward)
                         .Add(ParameterType::kSubscriberPriority, priority)
+                        .Add(ParameterType::kForward, forward)
                         .AddOptional(ParameterType::kNewGroupRequest, end_group_id);
 
         SPDLOG_LOGGER_DEBUG(
@@ -519,11 +519,11 @@ namespace quicr {
          */
         auto params =
           Parameters{}
-            .AddOptional(ParameterType::kDeliveryTimeout,
-                         delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt)
-            .Add(ParameterType::kForward, std::uint8_t(1))
             .Add(ParameterType::kSubscriberPriority, priority)
-            .AddOptional(ParameterType::kGroupOrder, group_order);
+            .AddOptional(ParameterType::kGroupOrder, group_order)
+            .Add(ParameterType::kForward, 1)
+            .AddOptional(ParameterType::kDeliveryTimeout,
+                         delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt);
 
         if (auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
             params.Add(filter_type, filter);
@@ -560,9 +560,9 @@ namespace quicr {
          * - FORWARD (0x10): Specifies the initial Forwarding State.
          */
         auto params = Parameters{}
+                        .Add(ParameterType::kForward, forward)
                         .Add(ParameterType::kExpires, 0)
-                        .AddOptional(ParameterType::kLargestObject, largest_location)
-                        .Add(ParameterType::kForward, forward);
+                        .AddOptional(ParameterType::kLargestObject, largest_location);
 
         auto extensions = TrackExtensions{}
                             .Add(ExtensionType::kDeliveryTimeout, 0)
@@ -609,9 +609,9 @@ namespace quicr {
          * - NEW GROUP REQUEST (0x32): Requests the publisher to start a new group.
          */
         auto params = Parameters{}
-                        .Add(ParameterType::kForward, forward)
                         .Add(ParameterType::kSubscriberPriority, priority)
-                        .AddOptional(ParameterType::kGroupOrder, group_order);
+                        .AddOptional(ParameterType::kGroupOrder, group_order)
+                        .Add(ParameterType::kForward, forward);
 
         if (const auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
             params.Add(filter_type, filter);
