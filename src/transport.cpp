@@ -387,14 +387,14 @@ namespace quicr {
                                       DataContextId data_ctx_id,
                                       messages::RequestID request_id,
                                       messages::RequestID existing_request_id,
-                                      quicr::TrackHash th,
+                                      [[maybe_unused]] quicr::TrackHash th,
                                       std::optional<messages::GroupId> end_group_id,
                                       std::uint8_t priority,
                                       bool forward)
     try {
         auto params = Parameters{}
-                        .Add(ParameterType::kSubscriberPriority, priority)
                         .Add(ParameterType::kForward, forward)
+                        .Add(ParameterType::kSubscriberPriority, priority)
                         .AddOptional(ParameterType::kNewGroupRequest, end_group_id);
 
         SPDLOG_LOGGER_DEBUG(
@@ -519,11 +519,11 @@ namespace quicr {
          */
         auto params =
           Parameters{}
-            .Add(ParameterType::kSubscriberPriority, priority)
-            .AddOptional(ParameterType::kGroupOrder, group_order)
-            .Add(ParameterType::kForward, 1)
             .AddOptional(ParameterType::kDeliveryTimeout,
-                         delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt);
+                         delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt)
+            .Add(ParameterType::kForward, std::uint8_t(1))
+            .Add(ParameterType::kSubscriberPriority, priority)
+            .AddOptional(ParameterType::kGroupOrder, group_order);
 
         if (auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
             params.Add(filter_type, filter);
@@ -560,9 +560,9 @@ namespace quicr {
          * - FORWARD (0x10): Specifies the initial Forwarding State.
          */
         auto params = Parameters{}
-                        .Add(ParameterType::kForward, forward)
                         .Add(ParameterType::kExpires, 0)
-                        .AddOptional(ParameterType::kLargestObject, largest_location);
+                        .AddOptional(ParameterType::kLargestObject, largest_location)
+                        .Add(ParameterType::kForward, forward);
 
         auto extensions = TrackExtensions{}
                             .Add(ExtensionType::kDeliveryTimeout, 0)
@@ -609,9 +609,9 @@ namespace quicr {
          * - NEW GROUP REQUEST (0x32): Requests the publisher to start a new group.
          */
         auto params = Parameters{}
+                        .Add(ParameterType::kForward, forward)
                         .Add(ParameterType::kSubscriberPriority, priority)
-                        .AddOptional(ParameterType::kGroupOrder, group_order)
-                        .Add(ParameterType::kForward, forward);
+                        .AddOptional(ParameterType::kGroupOrder, group_order);
 
         if (const auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
             params.Add(filter_type, filter);
@@ -3019,8 +3019,8 @@ namespace quicr {
                   parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                 messages::Filter filter;
-                if (parameters.Contains(messages::ParameterType::kLocationFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kLocationFilter);
+                if (parameters.Contains(messages::ParameterType::kSubscriptionFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kSubscriptionFilter);
                 } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
@@ -3187,8 +3187,8 @@ namespace quicr {
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 messages::Filter filter;
-                if (parameters.Contains(messages::ParameterType::kLocationFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kLocationFilter);
+                if (parameters.Contains(messages::ParameterType::kSubscriptionFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kSubscriptionFilter);
                 } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
@@ -3214,8 +3214,8 @@ namespace quicr {
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 messages::Filter filter;
-                if (parameters.Contains(messages::ParameterType::kLocationFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kLocationFilter);
+                if (parameters.Contains(messages::ParameterType::kSubscriptionFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kSubscriptionFilter);
                 } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
