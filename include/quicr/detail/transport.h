@@ -1041,6 +1041,9 @@ namespace quicr {
 
             std::map<messages::RequestID, SubscribeContext> recv_req_id;
 
+            /// Lookup request ID by carrying data context.
+            std::map<DataContextId, messages::RequestID> request_id_by_data_ctx;
+
             /// Handlers by request ID
             std::map<messages::RequestID, TrackHandler> request_handlers;
 

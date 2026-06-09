@@ -775,6 +775,7 @@ namespace quicr {
 
         handler->SetDataContextId(quic_transport_->CreateDataContext(conn_id, true, 0, true, handler->GetRequestId()));
         quic_transport_->CreateStream(conn_id, handler->GetDataContextId().value(), 0);
+        conn_it->second.request_id_by_data_ctx[handler->GetDataContextId().value()] = handler->GetRequestId().value();
 
         SendSubscribeNamespace(conn_it->second,
                                handler->GetDataContextId().value(),
@@ -972,6 +973,8 @@ namespace quicr {
             track_handler->SetDataContextId(
               quic_transport_->CreateDataContext(conn_id, true, 0, true, track_handler->GetRequestId()));
             quic_transport_->CreateStream(conn_id, track_handler->GetDataContextId().value(), 0);
+            conn_it->second.request_id_by_data_ctx[track_handler->GetDataContextId().value()] =
+              track_handler->GetRequestId().value();
 
             SendSubscribe(conn_it->second,
                           track_handler->GetDataContextId().value(),
@@ -1184,6 +1187,10 @@ namespace quicr {
 
         const bool is_reset = flag == StreamClosedFlag::kReset;
 
+        if (const auto data_ctx_id = handler_it->second.handler->GetDataContextId()) {
+            conn_ctx.request_id_by_data_ctx.erase(*data_ctx_id);
+        }
+
         SPDLOG_LOGGER_INFO(logger_,
                            "Closing request handler conn_id: {} request_id: {} stream_id: {} reset: {}",
                            connection_handle,
@@ -1341,6 +1348,8 @@ namespace quicr {
         track_handler->SetDataContextId(
           quic_transport_->CreateDataContext(conn_id, true, 0, true, track_handler->GetRequestId()));
         quic_transport_->CreateStream(conn_id, track_handler->GetDataContextId().value(), 0);
+        conn_it->second.request_id_by_data_ctx[track_handler->GetDataContextId().value()] =
+          track_handler->GetRequestId().value();
 
         const PublishAttributes publish{ .track_full_name = { tfn },
                                          .track_alias = track_handler->GetTrackAlias().value(),
@@ -1412,6 +1421,9 @@ namespace quicr {
             quic_transport_->CreateStream(conn_id, ns_handler->GetDataContextId().value(), 0);
 
             lock.lock();
+
+            conn_it->second.request_id_by_data_ctx[ns_handler->GetDataContextId().value()] =
+              ns_handler->GetRequestId().value();
 
             SendPublishNamespace(conn_it->second,
                                  ns_handler->GetDataContextId().value(),
