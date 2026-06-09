@@ -1048,42 +1048,36 @@ namespace quicr::messages {
         ParameterList& operator=(ParameterList&&) = default;
 
         template<typename T>
-            requires HasByteStreamOperators<T> || std::is_same_v<T, std::uint8_t> || std::is_same_v<T, bool> ||
+            requires HasByteStreamOperators<T> || std::is_convertible_v<T, std::uint8_t> ||
                      std::is_same_v<T, Location> || requires(T v) {
                          { UintVar(v) };
                      }
         ParameterList& Add(Type type, const T& value)
         {
             const std::uint64_t key = static_cast<std::uint64_t>(type);
-
-            if (!parameters.empty()) {
-                const std::uint64_t& last_key = std::next(parameters.begin(), parameters.size() - 1)->first;
-
-                if (key <= last_key) {
-                    throw ProtocolViolationException("Parameters must be added in strictly increasing order of key");
-                }
-            }
-
-            switch (GetParameterEncoding(static_cast<Type>(type))) {
+            switch (GetParameterEncoding(type)) {
                 case ParameterEncoding::kByte:
-                    if constexpr (std::is_same_v<T, std::uint8_t> || std::is_same_v<T, bool>) {
+                    if constexpr (std::is_convertible_v<T, std::uint8_t>) {
                         parameters[key].push_back(static_cast<std::uint8_t>(value));
                         break;
                     } else {
-                        throw ProtocolViolationException("Given parameter type must be u8");
+                        throw ProtocolViolationException(
+                          "Given parameter type must be u8 (type=" + std::to_string(key) + ")");
                     }
                 case ParameterEncoding::kVarint:
                     if constexpr (requires { UintVar(value); }) {
                         parameters[key] << UintVar(value);
                         break;
                     } else {
-                        throw ProtocolViolationException("Given parameter type must be uvarint(u64)");
+                        throw ProtocolViolationException(
+                          "Given parameter type must be uvarint(u64) (type=" + std::to_string(key) + ")");
                     }
                 default:
                     if constexpr (HasByteStreamOperators<T>) {
                         parameters[key] << value;
                     } else {
-                        throw ProtocolViolationException("Type must be Location or Bytes");
+                        throw ProtocolViolationException(
+                          "Given parameter type must be Location or Bytes (type=" + std::to_string(key) + ")");
                     }
                     break;
             }
@@ -1092,7 +1086,7 @@ namespace quicr::messages {
         }
 
         template<typename T>
-            requires HasByteStreamOperators<T> || std::is_same_v<T, std::uint8_t> || std::is_same_v<T, bool> ||
+            requires HasByteStreamOperators<T> || std::is_convertible_v<T, std::uint8_t> ||
                      std::is_same_v<T, Location> || std::is_same_v<T, Bytes> || requires(T v) {
                          { UintVar(v) };
                      }
@@ -1124,7 +1118,7 @@ namespace quicr::messages {
         }
 
         template<typename T>
-            requires HasByteStreamOperators<T> || std::is_same_v<T, std::uint8_t> || std::is_same_v<T, bool> ||
+            requires HasByteStreamOperators<T> || std::is_convertible_v<T, std::uint8_t> ||
                      std::is_same_v<T, Location> || std::is_same_v<T, Bytes> || requires(T v) {
                          { UintVar(v) };
                      }
@@ -1159,7 +1153,7 @@ namespace quicr::messages {
         }
 
         template<typename T>
-            requires HasByteStreamOperators<T> || std::is_same_v<T, std::uint8_t> || std::is_same_v<T, bool> ||
+            requires HasByteStreamOperators<T> || std::is_convertible_v<T, std::uint8_t> ||
                      std::is_same_v<T, Location> || std::is_same_v<T, Bytes> || requires(T v) {
                          { UintVar(v) };
                      }
