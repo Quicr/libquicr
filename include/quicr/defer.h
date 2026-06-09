@@ -8,7 +8,7 @@
 #define DEFER_CONCAT(a, b) DEFER_CONCAT_INNER(a, b)
 #define DEFER_CONCAT_INNER(a, b) a##b
 
-#if defined(__clang__)
+#if defined(__clang__) && __clang_major__ >= 21
 #define DEFER_PUSH _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wthread-safety-analysis\"")
 #define DEFER_POP _Pragma("clang diagnostic pop")
 #else
@@ -17,23 +17,27 @@
 #endif
 
 #define defer(n)                                                                                                       \
-    quicr::DeferType DEFER_CONCAT(defer_, __LINE__)([&] {                                                              \
+    quicr::ScopeGuard DEFER_CONCAT(defer_, __LINE__)([&]() __attribute__((always_inline)) {                            \
         DEFER_PUSH n;                                                                                                  \
         DEFER_POP                                                                                                      \
     })
 
 namespace quicr {
-    class DeferType
+    template<typename F>
+    class ScopeGuard
     {
       public:
-        explicit DeferType(std::function<void()>&& f)
-          : func{ f }
+        explicit ScopeGuard(F&& f)
+          : func(std::forward<F>(f))
         {
         }
 
-        ~DeferType() { func(); }
+        ScopeGuard(const ScopeGuard&) = delete;
+        ScopeGuard& operator=(const ScopeGuard&) = delete;
+
+        ~ScopeGuard() { func(); }
 
       private:
-        std::function<void()> func;
+        F func;
     };
 }
