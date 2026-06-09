@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <quicr/detail/thread_safety.h>
+#include "quicr/detail/thread_safety.h"
 
 #include <timeq/time_queue.h>
 
