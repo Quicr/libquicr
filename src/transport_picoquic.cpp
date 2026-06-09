@@ -215,7 +215,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
 
                     if (data_ctx != nullptr) {
                         transport->OnStreamClosed(
-                          conn_id, stream_id, nullptr, data_ctx->request_id, StreamClosedFlag::kFin);
+                          conn_id, stream_id, nullptr, data_ctx->data_ctx_id, StreamClosedFlag::kFin);
                         transport->DeleteDataContext(conn_id, data_ctx->data_ctx_id, false);
                     }
                 }
@@ -255,7 +255,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                   stream_id);
 
                 // Cleanup the reset stream.
-                transport->OnStreamClosed(conn_id, stream_id, nullptr, data_ctx->request_id, StreamClosedFlag::kReset);
+                transport->OnStreamClosed(conn_id, stream_id, nullptr, data_ctx->data_ctx_id, StreamClosedFlag::kReset);
                 if (auto conn_ctx = transport->GetConnContext(conn_id)) {
                     transport->EraseStreamState(*conn_ctx, data_ctx, stream_id);
                 }
@@ -1209,8 +1209,7 @@ DataContextId
 PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
                                      bool use_reliable_transport,
                                      uint8_t priority,
-                                     bool bidir,
-                                     std::optional<uint64_t> request_id)
+                                     bool bidir)
 {
     std::unique_lock lock(state_mutex_);
 
@@ -1237,7 +1236,6 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
         data_ctx_it->second.conn_id = conn_id;
         data_ctx_it->second.is_bidir = bidir;
         data_ctx_it->second.data_ctx_id = conn_it->second.next_data_ctx_id++; // Set and bump next data_ctx_id
-        data_ctx_it->second.request_id = request_id;
 
         data_ctx_it->second.uses_reset_wait = tconfig_.use_reset_wait_strategy;
 
@@ -2156,12 +2154,12 @@ void
 PicoQuicTransport::OnStreamClosed(TransportConnId conn_id,
                                   uint64_t stream_id,
                                   std::shared_ptr<StreamRxContext> rx_ctx,
-                                  std::optional<uint64_t> request_id,
+                                  std::optional<DataContextId> data_ctx_id,
                                   StreamClosedFlag flag)
 {
     SPDLOG_DEBUG("Stream {} closed for connection {}", stream_id, conn_id);
     cbNotifyQueue_.Push([=, rx_ctx = std::move(rx_ctx), this]() {
-        delegate_.OnStreamClosed(conn_id, stream_id, std::move(rx_ctx), request_id, flag);
+        delegate_.OnStreamClosed(conn_id, stream_id, std::move(rx_ctx), data_ctx_id, flag);
     });
 }
 
