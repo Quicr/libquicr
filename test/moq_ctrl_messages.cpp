@@ -27,20 +27,23 @@ const TrackNamespace kTrackNamespaceConf{ FromASCII("conf.example.com"), FromASC
 const Bytes kTrackNameAliceVideo = FromASCII("alice/video");
 const UintVar kTrackAliasAliceVideo{ 0xA11CE };
 
+// Values that will encode to the corresponding UintVar values.
 const Bytes kExampleBytes = {
     0x1, 0x2, 0x3, 0x4, 0x5,
 };
+const Bytes kUint1ByteValue = { 0x25 };
+const Bytes kUint2ByteValue = { 0xBD, 0x3B };
+const Bytes kUint4ByteValue = { 0x7D, 0x3E, 0x7F, 0x1D };
+const Bytes kUint8ByteValue = { 0x8C, 0xE8, 0x14, 0xFF, 0x5E, 0x7C, 0x19, 0x02 };
 
-// Some params for testing.
-const Parameters kExampleParameters = [] {
-    Parameters params;
-    params.Add(static_cast<ParameterType>(2), std::uint64_t{ 37 });                       // 1-byte varint
-    params.parameters.push_back({ ParameterType::kAuthorizationToken, kExampleBytes });   // type 0x03 bytes
-    params.Add(static_cast<ParameterType>(4), std::uint64_t{ 15675 });                    // 2-byte varint
-    params.Add(static_cast<ParameterType>(6), std::uint64_t{ 0x1D7F3E7D });               // 4-byte varint
-    params.Add(static_cast<ParameterType>(8), std::numeric_limits<std::uint64_t>::max()); // 8-byte varint
-    return params;
-}();
+// Note: Parameters must be in sorted order by type for delta encoding.
+// ParameterType::kAuthorizationToken = 0x03
+const auto kExampleParameters = Parameters{}
+                                  .Add(static_cast<ParameterType>(2), kUint1ByteValue)
+                                  .Add(static_cast<ParameterType>(3), kExampleBytes)
+                                  .Add(static_cast<ParameterType>(4), kUint2ByteValue)
+                                  .Add(static_cast<ParameterType>(6), kUint4ByteValue)
+                                  .Add(static_cast<ParameterType>(8), kUint8ByteValue);
 
 template<typename T>
 bool
@@ -248,6 +251,142 @@ TEST_CASE("Parameters encode/decode")
     Parameters out;
     buffer >> out;
     CHECK_EQ(out, params);
+}
+
+TEST_CASE("Parameters wire encoding")
+{
+    SUBCASE("raw uint8")
+    {
+        auto params = Parameters{}.Add(ParameterType::kForward, std::uint8_t{ 1 });
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer,
+                 Bytes{ 0x01,    // Parameter count of 1.
+                        0x10,    // Type of 10.
+                        0x01 }); // 1 byte value of 1.
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<std::uint8_t>(ParameterType::kForward), 1);
+    }
+
+    SUBCASE("uint8 enum")
+    {
+        auto params = Parameters{}.Add(ParameterType::kGroupOrder, GroupOrder::kAscending);
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer,
+                 Bytes{ 0x01,    // Parameter count of 1.
+                        0x22,    // Type of 22.
+                        0x01 }); // 1 byte value of 1.
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<std::uint8_t>(ParameterType::kGroupOrder), 1);
+    }
+
+    SUBCASE("varint")
+    {
+        auto params = Parameters{}.Add(ParameterType::kDeliveryTimeout, std::uint64_t{ 15293 });
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer,
+                 Bytes{ 0x01, // Parameter count of 1.
+                        0x02, // Parameter type of 2.
+                        0xbb, // Varint bytes of 15293.
+                        0xbd });
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), 15293);
+    }
+
+    SUBCASE("Location")
+    {
+        constexpr std::uint64_t group = 226442877;
+        constexpr std::uint64_t object = 2893212287960;
+        auto params = Parameters{}.Add(ParameterType::kLargestObject, Location{ group, object });
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer,
+                 Bytes{ 0x01, // Parameter count varint of 1.
+                        0x09, // Parameter type varint of 9.
+                        0xed, // Bytes of the 2 varints, { group, object }.
+                        0x7f,
+                        0x3e,
+                        0x7d,
+                        0xfa,
+                        0xa1,
+                        0xa0,
+                        0xe4,
+                        0x03,
+                        0xd8 });
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<Location>(ParameterType::kLargestObject), Location{ group, object });
+    }
+
+    SUBCASE("length-prefixed bytes")
+    {
+        const Bytes value{ 0xAA, 0xBB, 0xCC };
+        auto params = Parameters{}.Add(ParameterType::kAuthorizationToken, value);
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer,
+                 Bytes{ 0x01,    // Parameter count varint of 1.
+                        0x03,    // Parameter type varint of 3.
+                        0x03,    // Byte length prefix of 3.
+                        0xAA,    // Byte 1.
+                        0xBB,    // Byte 2.
+                        0xCC }); // Byte 3.
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<Bytes>(ParameterType::kAuthorizationToken), value);
+    }
+
+    SUBCASE("multiple length-prefixed bytes")
+    {
+        const Bytes auth{ 0xAA, 0xBB, 0xCC };
+        const Bytes prefix{ 0xDD, 0xEE };
+        auto params = Parameters{}
+                        .Add(ParameterType::kAuthorizationToken, auth)      // type 0x03
+                        .Add(ParameterType::kTrackNamespacePrefix, prefix); // type 0x34
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer,
+                 Bytes{ 0x02,    // Parameter count varint of 2.
+                        0x03,    // Type delta to 0x03 (first parameter).
+                        0x03,    // Length prefix of 3.
+                        0xAA,    // Auth byte 1.
+                        0xBB,    // Auth byte 2.
+                        0xCC,    // Auth byte 3.
+                        0x31,    // Type delta from 0x03 to 0x34 = 0x31.
+                        0x02,    // Length prefix of 2.
+                        0xDD,    // Prefix byte 1.
+                        0xEE }); // Prefix byte 2.
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<Bytes>(ParameterType::kAuthorizationToken), auth);
+        CHECK_EQ(out.Get<Bytes>(ParameterType::kTrackNamespacePrefix), prefix);
+    }
+}
+
+// Param byte encoding static checks.
+namespace {
+    enum struct ByteBackedEnum : std::uint8_t
+    {
+    };
+    enum struct WideBackedEnum : std::uint64_t
+    {
+    };
+    // Bytes and uint8_t enums are allowed.
+    static_assert(ByteParameter<std::uint8_t>);
+    static_assert(ByteParameter<ByteBackedEnum>);
+    // uint64_t enum not allowed.
+    static_assert(!ByteParameter<WideBackedEnum>);
 }
 
 TEST_CASE("KVP Value Equality")
@@ -621,7 +760,7 @@ TEST_CASE("Filters")
     filter = LocationFilter{
         { .start = 1 },
     };
-    serialise_filter(FilterType::kLocationFilter, filter);
+    serialise_filter(FilterType::kSubscriptionFilter, filter);
 
     filter = LocationFilter{
         {
@@ -629,7 +768,7 @@ TEST_CASE("Filters")
           .end = 2,
         },
     };
-    serialise_filter(FilterType::kLocationFilter, filter);
+    serialise_filter(FilterType::kSubscriptionFilter, filter);
 }
 
 TEST_CASE("Parameters - Filters")
@@ -641,7 +780,7 @@ TEST_CASE("Parameters - Filters")
         },
     };
 
-    auto params = Parameters{}.Add(ParameterType::kLocationFilter, filter);
+    auto params = Parameters{}.Add(ParameterType::kSubscriptionFilter, filter);
 
     Bytes bytes;
     bytes << params;
@@ -651,6 +790,6 @@ TEST_CASE("Parameters - Filters")
     Parameters recv_params;
     bytes >> recv_params;
 
-    auto recv_filter = recv_params.GetFilter(FilterType::kLocationFilter);
+    auto recv_filter = recv_params.GetFilter(FilterType::kSubscriptionFilter);
     CHECK_EQ(recv_filter, filter);
 }

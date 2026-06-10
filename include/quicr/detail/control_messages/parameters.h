@@ -11,33 +11,26 @@
 
 namespace quicr::messages {
 
-    /// Must all be known, must not be duplicated (except auth).
+    /// All parameters must be valid for the message type. Duplicates are impossible by
+    /// construction since ParameterList keys by type.
     inline void ValidateParameters(const Parameters& params, std::initializer_list<ParameterType> allowed)
     {
-        std::vector<ParameterType> seen;
-        for (const auto& kvp : params) {
-            if (std::ranges::find(allowed, kvp.type) == allowed.end()) {
+        for (const auto& [key, value] : params) {
+            if (std::ranges::find(allowed, static_cast<ParameterType>(key)) == allowed.end()) {
                 throw ProtocolViolationException("Parameter not valid for this message type");
-            }
-
-            if (kvp.type != ParameterType::kAuthorizationToken) {
-                if (std::ranges::find(seen, kvp.type) != seen.end()) {
-                    throw ProtocolViolationException("Unexpected duplicate parameter");
-                }
-                seen.push_back(kvp.type);
             }
         }
     }
 
+    // BROKEN: ParameterList stores parameters keyed by type in a map, so multiple
+    // AUTHORIZATION_TOKEN parameters collapse into a single concatenated value and only
+    // the first token is recovered here. To be fixed when the storage supports repeats.
     inline std::vector<Token> CollectAuthTokens(const Parameters& params)
     {
         std::vector<Token> tokens;
-        for (const auto& kvp : params) {
-            if (kvp.type != ParameterType::kAuthorizationToken) {
-                continue;
-            }
+        const BytesSpan span{ params.Find(ParameterType::kAuthorizationToken) };
+        if (!span.empty()) {
             Token token{};
-            const BytesSpan span{ kvp.value };
             span >> token;
             tokens.push_back(std::move(token));
         }
@@ -92,8 +85,8 @@ namespace quicr::messages {
 
     // Filters.
     inline constexpr FilterType kFilterTypes[] = {
-        FilterType::kLocationFilter, FilterType::kSubgroupFilter, FilterType::kObjectFilter,
-        FilterType::kPriorityFilter, FilterType::kPropertyFilter, FilterType::kTrackFilter,
+        FilterType::kSubscriptionFilter, FilterType::kSubgroupFilter, FilterType::kObjectFilter,
+        FilterType::kPriorityFilter,     FilterType::kPropertyFilter, FilterType::kTrackFilter,
     };
     inline bool ContainsAnyFilter(const Parameters& params)
     {

@@ -385,7 +385,7 @@ namespace quicr {
                                       DataContextId data_ctx_id,
                                       messages::RequestID request_id,
                                       messages::RequestID existing_request_id,
-                                      quicr::TrackHash th,
+                                      [[maybe_unused]] quicr::TrackHash th,
                                       std::optional<messages::GroupId> end_group_id,
                                       std::uint8_t priority,
                                       bool forward)
@@ -3028,7 +3028,7 @@ namespace quicr {
                                      ParameterType::kGroupOrder,
                                      ParameterType::kForward,
                                      ParameterType::kNewGroupRequest,
-                                     ToParameterFilterType(FilterType::kLocationFilter),
+                                     ToParameterFilterType(FilterType::kSubscriptionFilter),
                                      ToParameterFilterType(FilterType::kTrackFilter) });
 
                 const messages::SubscribeAttributes subscribe_attributes{
@@ -3212,8 +3212,8 @@ namespace quicr {
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 messages::Filter filter;
-                if (parameters.Contains(messages::ParameterType::kLocationFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kLocationFilter);
+                if (parameters.Contains(messages::ParameterType::kSubscriptionFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kSubscriptionFilter);
                 } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
@@ -3239,8 +3239,8 @@ namespace quicr {
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 messages::Filter filter;
-                if (parameters.Contains(messages::ParameterType::kLocationFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kLocationFilter);
+                if (parameters.Contains(messages::ParameterType::kSubscriptionFilter)) {
+                    filter = parameters.GetFilter(messages::FilterType::kSubscriptionFilter);
                 } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }

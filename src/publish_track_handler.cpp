@@ -376,7 +376,15 @@ namespace quicr {
                                         const messages::Parameters& params,
                                         const messages::TrackExtensions& track_properties)
     {
-        messages::ValidateParameters(params, {});
+        messages::ValidateParameters(params,
+                                     { messages::ParameterType::kDeliveryTimeout,
+                                       messages::ParameterType::kSubgroupDeliveryTimeout,
+                                       messages::ParameterType::kExpires,
+                                       messages::ParameterType::kForward,
+                                       messages::ParameterType::kSubscriberPriority,
+                                       messages::ParameterType::kGroupOrder,
+                                       messages::ParameterType::kNewGroupRequest,
+                                       messages::ToParameterFilterType(messages::FilterType::kSubscriptionFilter) });
 
         const auto forward = messages::ResolveForward(params, true);
         SetStatus(forward ? Status::kOk : Status::kPaused);
