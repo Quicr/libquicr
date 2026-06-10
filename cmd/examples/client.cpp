@@ -1532,7 +1532,7 @@ main(int argc, char* argv[])
         ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
         ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
         ("s,ssl_keylog", "Enable SSL Keylog for transport debugging")
-        ("t,transport", "Transport protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"))
+        ("t,transport", "Session protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"))
         ("k,mls_key", "Enable MLS with a key", cxxopts::value<std::string>());
 
     options.add_options("Publisher")
@@ -1597,7 +1597,7 @@ main(int argc, char* argv[])
         bool stop_threads{ false };
         auto client = MyClient::Create(config, stop_threads);
 
-        if (client->Start() != quicr::Transport::Status::kConnecting) {
+        if (client->Start() != quicr::Session::Status::kConnecting) {
             SPDLOG_ERROR("Failed to connect to server due to invalid params, check URI");
             exit(-1);
         }

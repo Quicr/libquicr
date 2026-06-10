@@ -433,7 +433,7 @@ namespace quicr {
         bool publisher_initiated_{ false };
         bool support_new_group_request_{ false };
 
-        friend class Transport;
+        friend class Session;
     };
 
 } // namespace moq

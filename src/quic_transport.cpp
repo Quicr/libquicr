@@ -3,7 +3,7 @@
 
 #include "transport_picoquic.h"
 #include <memory>
-#include <quicr/detail/quic_transport.h>
+#include <quicr/detail/transport.h>
 #include <spdlog/logger.h>
 #include <stdexcept>
 #include <utility>
