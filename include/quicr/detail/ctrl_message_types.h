@@ -1057,7 +1057,7 @@ namespace quicr::messages {
             const std::uint64_t key = static_cast<std::uint64_t>(type);
             switch (GetParameterEncoding(type)) {
                 case ParameterEncoding::kByte:
-                    if constexpr (std::is_convertible_v<T, std::uint8_t>) {
+                    if constexpr (std::is_convertible_v<T, std::uint8_t> || std::is_enum_v<T>) {
                         parameters[key].push_back(static_cast<std::uint8_t>(value));
                         break;
                     } else {

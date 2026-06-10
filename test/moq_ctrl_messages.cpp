@@ -254,19 +254,34 @@ TEST_CASE("Parameters encode/decode")
 
 TEST_CASE("Parameters wire encoding")
 {
-    SUBCASE("uint8")
+    SUBCASE("raw uint8")
     {
-        // Should be parameter count varint of 1 = 0x01.
-        // Then parameter type 10 varint = 0x10.
-        // Then single byte value of 1 = 0x01.
         auto params = Parameters{}.Add(ParameterType::kForward, std::uint8_t{ 1 });
         Bytes buffer;
         buffer << params;
-        CHECK_EQ(buffer, Bytes{ 0x01, 0x10, 0x01 });
+        CHECK_EQ(buffer,
+                 Bytes{ 0x01,    // Parameter count of 1.
+                        0x10,    // Type of 10.
+                        0x01 }); // 1 byte value of 1.
 
         Parameters out;
         buffer >> out;
         CHECK_EQ(out.Get<std::uint8_t>(ParameterType::kForward), 1);
+    }
+
+    SUBCASE("uint8 enum")
+    {
+        auto params = Parameters{}.Add(ParameterType::kGroupOrder, GroupOrder::kAscending);
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer,
+                 Bytes{ 0x01,    // Parameter count of 1.
+                        0x22,    // Type of 22.
+                        0x01 }); // 1 byte value of 1.
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<std::uint8_t>(ParameterType::kGroupOrder), 1);
     }
 
     SUBCASE("varint")
