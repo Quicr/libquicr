@@ -810,6 +810,11 @@ namespace quicr::messages {
         { BytesSpan{} >> value } -> std::same_as<BytesSpan>;
     };
 
+    /// Single byte parameter concept.
+    template<class T>
+    concept ByteParameter = std::is_convertible_v<T, std::uint8_t> ||
+                            (std::is_enum_v<T> && std::same_as<std::underlying_type_t<T>, std::uint8_t>);
+
     /// Draft 18 flat key-value pairs: a bounded, sorted KVP sequence without a leading count.
     class KeyValuePairs
     {
@@ -1057,7 +1062,7 @@ namespace quicr::messages {
             const std::uint64_t key = static_cast<std::uint64_t>(type);
             switch (GetParameterEncoding(type)) {
                 case ParameterEncoding::kByte:
-                    if constexpr (std::is_convertible_v<T, std::uint8_t>) {
+                    if constexpr (ByteParameter<T>) {
                         parameters[key].push_back(static_cast<std::uint8_t>(value));
                         break;
                     } else {
@@ -1073,7 +1078,9 @@ namespace quicr::messages {
                           "Given parameter type must be uvarint(u64) (type=" + std::to_string(key) + ")");
                     }
                 default:
-                    if constexpr (HasByteStreamOperators<T>) {
+                    if constexpr (std::is_same_v<T, Bytes> || std::is_same_v<T, BytesSpan>) {
+                        parameters[key].insert(parameters[key].end(), value.begin(), value.end());
+                    } else if constexpr (HasByteStreamOperators<T>) {
                         parameters[key] << value;
                     } else {
                         throw ProtocolViolationException(
@@ -1125,8 +1132,9 @@ namespace quicr::messages {
             if (bytes.empty()) {
                 return {};
             }
-
-            if constexpr (HasByteStreamOperators<T>) {
+            if constexpr (std::is_same_v<T, Bytes>) {
+                return Bytes{ bytes.begin(), bytes.end() };
+            } else if constexpr (HasByteStreamOperators<T>) {
                 T result;
                 bytes >> result;
                 return result;
