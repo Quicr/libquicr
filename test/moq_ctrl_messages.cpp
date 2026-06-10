@@ -344,6 +344,48 @@ TEST_CASE("Parameters wire encoding")
         buffer >> out;
         CHECK_EQ(out.Get<Bytes>(ParameterType::kAuthorizationToken), value);
     }
+
+    SUBCASE("multiple length-prefixed bytes")
+    {
+        const Bytes auth{ 0xAA, 0xBB, 0xCC };
+        const Bytes prefix{ 0xDD, 0xEE };
+        auto params = Parameters{}
+                        .Add(ParameterType::kAuthorizationToken, auth)      // type 0x03
+                        .Add(ParameterType::kTrackNamespacePrefix, prefix); // type 0x34
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer,
+                 Bytes{ 0x02,    // Parameter count varint of 2.
+                        0x03,    // Type delta to 0x03 (first parameter).
+                        0x03,    // Length prefix of 3.
+                        0xAA,    // Auth byte 1.
+                        0xBB,    // Auth byte 2.
+                        0xCC,    // Auth byte 3.
+                        0x31,    // Type delta from 0x03 to 0x34 = 0x31.
+                        0x02,    // Length prefix of 2.
+                        0xDD,    // Prefix byte 1.
+                        0xEE }); // Prefix byte 2.
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<Bytes>(ParameterType::kAuthorizationToken), auth);
+        CHECK_EQ(out.Get<Bytes>(ParameterType::kTrackNamespacePrefix), prefix);
+    }
+}
+
+// Param byte encoding static checks.
+namespace {
+    enum struct ByteBackedEnum : std::uint8_t
+    {
+    };
+    enum struct WideBackedEnum : std::uint64_t
+    {
+    };
+    // Bytes and uint8_t enums are allowed.
+    static_assert(ByteParameter<std::uint8_t>);
+    static_assert(ByteParameter<ByteBackedEnum>);
+    // uint64_t enum not allowed.
+    static_assert(!ByteParameter<WideBackedEnum>);
 }
 
 TEST_CASE("KVP Value Equality")
