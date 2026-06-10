@@ -1666,11 +1666,13 @@ namespace quicr {
                       quic_transport_->CreateStream(conn_id, conn_ctx.tx_ctrl_data_ctx_id.value(), 0);
 
                     SendSetup(conn_ctx);
+                    conn_ctx.setup_sent = true;
 
-                    if (client_mode_) {
-                        status_ = Status::kPendingServerSetup;
-                    } else {
+                    if (conn_ctx.setup_received) {
+                        conn_ctx.setup_complete = true;
                         status_ = Status::kReady;
+                    } else {
+                        status_ = Status::kPendingServerSetup;
                     }
 
                     conn_status = ConnectionStatus::kConnected;
@@ -1858,7 +1860,7 @@ namespace quicr {
                     const auto payload_end = payload_begin + payload_len;
 
                     if (ProcessCtrlMessage(conn_ctx,
-                                           data_ctx_id.value_or(conn_ctx.tx_ctrl_data_ctx_id.value()),
+                                           data_ctx_id.value_or(conn_ctx.tx_ctrl_data_ctx_id.value_or(0)),
                                            msg_type,
                                            { payload_begin, payload_end })) {
                         ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
@@ -3408,19 +3410,25 @@ namespace quicr {
                     endpoint_id = *endpoint;
                 }
 
+                conn_ctx.setup_received = true;
+
                 if (client_mode_) {
                     ServerSetupReceived({ 0, endpoint_id });
+                    if (conn_ctx.setup_sent) {
+                        conn_ctx.setup_complete = true;
+                        SetStatus(Status::kReady);
+                    }
                 } else {
                     ClientSetupReceived(conn_ctx.connection_handle, { endpoint_id });
                     SendSetup(conn_ctx);
+                    conn_ctx.setup_sent = true;
+                    conn_ctx.setup_complete = true;
+                    SetStatus(Status::kReady);
                 }
-
-                SetStatus(Status::kReady);
 
                 SPDLOG_LOGGER_INFO(
                   logger_, "Setup received conn_id: {} from: {}", conn_ctx.connection_handle, endpoint_id);
 
-                conn_ctx.setup_complete = true;
                 return true;
             }
             case messages::ControlMessageType::kFetchOk: {

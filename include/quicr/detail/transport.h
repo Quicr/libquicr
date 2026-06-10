@@ -1012,6 +1012,8 @@ namespace quicr {
             std::optional<uint64_t> tx_ctrl_stream_id;
             std::optional<uint64_t> rx_ctrl_stream_id;
 
+            bool setup_sent{ false };     ///< True once we have sent our SETUP message
+            bool setup_received{ false }; ///< True once we have received their SETUP message
             bool setup_complete{ false }; ///< True if both client and server setup messages have completed
             bool closed{ false };
             uint64_t client_version{ 0 };
