@@ -252,6 +252,85 @@ TEST_CASE("Parameters encode/decode")
     CHECK_EQ(out, params);
 }
 
+TEST_CASE("Parameters wire encoding")
+{
+    SUBCASE("uint8")
+    {
+        // Should be parameter count varint of 1 = 0x01.
+        // Then parameter type 10 varint = 0x10.
+        // Then single byte value of 1 = 0x01.
+        auto params = Parameters{}.Add(ParameterType::kForward, std::uint8_t{ 1 });
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer, Bytes{ 0x01, 0x10, 0x01 });
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<std::uint8_t>(ParameterType::kForward), 1);
+    }
+
+    SUBCASE("varint")
+    {
+        auto params = Parameters{}.Add(ParameterType::kDeliveryTimeout, std::uint64_t{ 15293 });
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer,
+                 Bytes{ 0x01, // Parameter count of 1.
+                        0x02, // Parameter type of 2.
+                        0xbb, // Varint bytes of 15293.
+                        0xbd });
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), 15293);
+    }
+
+    SUBCASE("Location")
+    {
+        constexpr std::uint64_t group = 226442877;
+        constexpr std::uint64_t object = 2893212287960;
+        auto params = Parameters{}.Add(ParameterType::kLargestObject, Location{ group, object });
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer,
+                 Bytes{ 0x01, // Parameter count varint of 1.
+                        0x09, // Parameter type varint of 9.
+                        0xed, // Bytes of the 2 varints, { group, object }.
+                        0x7f,
+                        0x3e,
+                        0x7d,
+                        0xfa,
+                        0xa1,
+                        0xa0,
+                        0xe4,
+                        0x03,
+                        0xd8 });
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<Location>(ParameterType::kLargestObject), Location{ group, object });
+    }
+
+    SUBCASE("length-prefixed bytes")
+    {
+        const Bytes value{ 0xAA, 0xBB, 0xCC };
+        auto params = Parameters{}.Add(ParameterType::kAuthorizationToken, value);
+        Bytes buffer;
+        buffer << params;
+        CHECK_EQ(buffer,
+                 Bytes{ 0x01,    // Parameter count varint of 1.
+                        0x03,    // Parameter type varint of 3.
+                        0x03,    // Byte length prefix of 3.
+                        0xAA,    // Byte 1.
+                        0xBB,    // Byte 2.
+                        0xCC }); // Byte 3.
+
+        Parameters out;
+        buffer >> out;
+        CHECK_EQ(out.Get<Bytes>(ParameterType::kAuthorizationToken), value);
+    }
+}
+
 TEST_CASE("KVP Value Equality")
 {
     SUBCASE("Even type - varint compression")

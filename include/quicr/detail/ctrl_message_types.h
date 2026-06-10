@@ -1073,7 +1073,9 @@ namespace quicr::messages {
                           "Given parameter type must be uvarint(u64) (type=" + std::to_string(key) + ")");
                     }
                 default:
-                    if constexpr (HasByteStreamOperators<T>) {
+                    if constexpr (std::is_same_v<T, Bytes> || std::is_same_v<T, BytesSpan>) {
+                        parameters[key].insert(parameters[key].end(), value.begin(), value.end());
+                    } else if constexpr (HasByteStreamOperators<T>) {
                         parameters[key] << value;
                     } else {
                         throw ProtocolViolationException(
@@ -1125,8 +1127,9 @@ namespace quicr::messages {
             if (bytes.empty()) {
                 return {};
             }
-
-            if constexpr (HasByteStreamOperators<T>) {
+            if constexpr (std::is_same_v<T, Bytes>) {
+                return Bytes{ bytes.begin(), bytes.end() };
+            } else if constexpr (HasByteStreamOperators<T>) {
                 T result;
                 bytes >> result;
                 return result;
