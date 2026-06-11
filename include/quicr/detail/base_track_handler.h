@@ -8,6 +8,7 @@
 #include "quicr/detail/ctrl_message_types.h"
 #include "quicr/track_name.h"
 
+#include <memory>
 #include <optional>
 #include <span>
 #include <vector>
