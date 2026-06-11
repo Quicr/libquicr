@@ -112,7 +112,10 @@ namespace quicr {
             SetStatus(Status::kError);
         }
 
-        void RequestOk(uint64_t, const messages::Parameters&) override { SetStatus(Status::kOk); }
+        void RequestOk(uint64_t, const messages::Parameters&, const messages::TrackExtensions&) override
+        {
+            SetStatus(Status::kOk);
+        }
 
         void RequestError(messages::ErrorCode error_code, std::string reason) override
         {

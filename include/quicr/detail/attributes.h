@@ -7,27 +7,39 @@
 
 #include <chrono>
 #include <optional>
+#include <vector>
 
 namespace quicr::messages {
 
-    // TODO: Maybe split base attributes out from SUBSCRIBE / PUBLISH?
-    // TODO: E.g priority, new_group_request_id.
+    struct RequestUpdateOkAttributes
+    {
+        std::optional<std::uint64_t> expires;
+        std::optional<Location> largest_object;
+    };
 
-    /**
-     * @brief Subscribe attributes
-     */
+    struct PublishOkAttributes
+    {
+        const std::uint8_t priority;
+        const std::optional<GroupOrder> group_order;
+        const Filter filter;
+        const bool forward;
+        const std::optional<std::uint64_t> subgroup_delivery_timeout;
+        const std::optional<std::uint64_t> object_delivery_timeout;
+        const std::optional<std::uint64_t> new_group_request_id;
+    };
+
     struct SubscribeAttributes
     {
-        std::uint8_t priority{ 0 };                                         ///< Subscriber priority
-        std::optional<GroupOrder> group_order;                              ///< Subscriber group order
-        GroupOrder publisher_default_group_order{ GroupOrder::kAscending }; ///< Publisher track default group order
-        std::chrono::milliseconds delivery_timeout{ 0 };                    ///< Subscriber delivery timeout
-        std::chrono::milliseconds expires{ 0 };                             ///< Subscriber expiry in ms
-        Filter filter{ std::monostate{} };                                  /// Subscriber filter
-        std::uint8_t forward{ 0 };                    ///< True to Resume/forward data, False to pause/stop data
-        std::optional<uint64_t> new_group_request_id; ///< Indicates new group id is requested
-        bool is_publisher_initiated{ false };         ///< True will not send SUBSCRIBE_OK.
-        Location start_location{};                    ///< Start location of group and object
+        const std::uint8_t priority;
+        const std::optional<GroupOrder> group_order;
+        const Filter filter;
+        const bool forward;
+        const std::optional<std::uint64_t> subgroup_delivery_timeout;
+        const std::optional<std::uint64_t> object_delivery_timeout;
+        const std::optional<std::uint64_t> new_group_request_id;
+        const std::optional<std::uint64_t> rendezvous_timeout;
+        const std::vector<Token> auth_tokens;
+        const bool is_publisher_initiated;
     };
 
     struct PublishAttributes

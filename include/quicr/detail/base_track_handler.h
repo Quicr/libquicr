@@ -218,7 +218,9 @@ namespace quicr {
          */
         uint64_t GetConnectionId() const noexcept { return connection_handle_; };
 
-        virtual void RequestOk(uint64_t request_id, const messages::Parameters& params);
+        virtual void RequestOk(uint64_t request_id,
+                               const messages::Parameters& params,
+                               const messages::TrackExtensions& track_properties);
         virtual void RequestUpdate(uint64_t request_id, const messages::Parameters& params);
 
         virtual void RequestError(messages::ErrorCode error_code, std::string reason);

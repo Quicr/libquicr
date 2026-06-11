@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include "quicr/detail/parameters.h"
+#include "quicr/detail/track_properties.h"
 #include "quicr/session.h"
+
 #include <quicr/publish_track_handler.h>
 
 namespace quicr {
@@ -369,10 +372,34 @@ namespace quicr {
         }
     }
 
-    void PublishTrackHandler::RequestOk([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
+    void PublishTrackHandler::RequestOk([[maybe_unused]] uint64_t request_id,
+                                        const messages::Parameters& params,
+                                        const messages::TrackExtensions& track_properties)
     {
-        auto forward = params.Get<bool>(messages::ParameterType::kForward);
+        messages::ValidateParameters(params,
+                                     { messages::ParameterType::kDeliveryTimeout,
+                                       messages::ParameterType::kSubgroupDeliveryTimeout,
+                                       messages::ParameterType::kExpires,
+                                       messages::ParameterType::kForward,
+                                       messages::ParameterType::kSubscriberPriority,
+                                       messages::ParameterType::kGroupOrder,
+                                       messages::ParameterType::kNewGroupRequest,
+                                       messages::ToParameterFilterType(messages::FilterType::kSubscriptionFilter) });
+
+        const auto forward = messages::ResolveForward(params, true);
         SetStatus(forward ? Status::kOk : Status::kPaused);
+        const auto priority = messages::ResolveSubscriberPriority(params);
+        if (priority < GetDefaultPriority()) {
+            SetDefaultPriority(priority);
+        }
+        const auto delivery_timeout = messages::ResolveDeliveryTimeout(track_properties);
+        // TODO(RichLogan): 0 probably not right?
+        SetDefaultTTL(delivery_timeout.has_value() ? delivery_timeout.value() : 0);
+
+        const auto ngr = messages::ResolveNewGroupRequest(params);
+        if (ngr.has_value()) {
+            SetStatus(Status::kNewGroupRequested);
+        }
     }
 
     void PublishTrackHandler::RequestUpdate([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)

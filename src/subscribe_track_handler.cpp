@@ -251,7 +251,9 @@ namespace quicr {
         streams_.erase(stream_id);
     }
 
-    void SubscribeTrackHandler::RequestOk([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
+    void SubscribeTrackHandler::RequestOk([[maybe_unused]] uint64_t request_id,
+                                          const messages::Parameters& params,
+                                          const messages::TrackExtensions& track_properties)
     {
         auto forward = params.Get<bool>(messages::ParameterType::kForward);
         SetStatus(forward ? Status::kOk : Status::kPaused);

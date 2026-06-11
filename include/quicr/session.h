@@ -278,9 +278,7 @@ namespace quicr {
          *
          * * @returns Request ID that is used for the track status request
          */
-        uint64_t RequestTrackStatus(ConnectionHandle connection_handle,
-                                    const FullTrackName& track_full_name,
-                                    const messages::SubscribeAttributes& subscribe_attributes);
+        uint64_t RequestTrackStatus(ConnectionHandle connection_handle, const FullTrackName& track_full_name);
 
         /**
          * @brief Get the status of the endpoint
@@ -1041,6 +1039,9 @@ namespace quicr {
 
             std::map<messages::RequestID, SubscribeContext> recv_req_id;
 
+            /// Lookup request ID by carrying data context.
+            std::map<DataContextId, messages::RequestID> request_id_by_data_ctx;
+
             /// Handlers by request ID
             std::map<messages::RequestID, TrackHandler> request_handlers;
 
@@ -1130,10 +1131,22 @@ namespace quicr {
         // Requests
         /*===================================================================*/
 
+        void SendPublishOk(ConnectionContext& conn_ctx,
+                           DataContextId data_ctx_id,
+                           const messages::PublishOkAttributes& attrs);
+        void SendRequestUpdateOk(ConnectionContext& conn_ctx,
+                                 DataContextId data_ctx_id,
+                                 const messages::RequestUpdateOkAttributes& attrs);
+
+        void SendTrackStatusOk();
+        void SendSubscribeNamespaceOk();
+        void SendPublishNamespaceOk();
+
+        // This shouldn't be called directly, but instead from one of the typed overloads.
         void SendRequestOk(ConnectionContext& conn_ctx,
                            DataContextId data_ctx_id,
-                           messages::RequestID request_id,
-                           std::optional<messages::Location> largest_location = std::nullopt);
+                           const messages::Parameters& params,
+                           std::optional<messages::TrackExtensions> track_properties = std::nullopt);
 
         void SendRequestUpdate(const ConnectionContext& conn_ctx,
                                DataContextId data_ctx_id,
@@ -1188,14 +1201,10 @@ namespace quicr {
                            messages::RequestID request_id,
                            const FullTrackName& tfn,
                            TrackHash th,
-                           std::uint8_t priority,
-                           std::optional<messages::GroupOrder> group_order,
-                           const messages::Filter& filter,
-                           std::optional<std::chrono::milliseconds> delivery_timeout);
+                           const messages::SubscribeAttributes& subscribe);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
                              DataContextId data_ctx_id,
-                             messages::RequestID request_id,
                              uint64_t track_alias,
                              uint64_t expires,
                              const std::optional<messages::Location>& largest_location,
@@ -1219,7 +1228,6 @@ namespace quicr {
 
         void SendPublishOk(ConnectionContext& conn_ctx,
                            DataContextId data_ctx_id,
-                           messages::RequestID request_id,
                            bool forward,
                            std::optional<std::uint8_t> priority,
                            std::optional<messages::GroupOrder> group_order,

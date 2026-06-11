@@ -163,7 +163,7 @@ namespace quicr::messages {
 
         static constexpr bool IsValid(const std::uint64_t type) noexcept
         {
-            if ((type & 0b11010000) != 0b00010000) {
+            if ((type & 0b10010000) != 0b00010000) {
                 return false;
             }
             if ((type & 0x06) == 0x06) {

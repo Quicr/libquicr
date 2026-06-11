@@ -46,7 +46,7 @@ namespace quicr {
         return ReasonCode::kOk;
     }
 
-    void BaseTrackHandler::RequestOk(uint64_t, const messages::Parameters&) {}
+    void BaseTrackHandler::RequestOk(uint64_t, const messages::Parameters&, const messages::TrackExtensions&) {}
 
     void BaseTrackHandler::RequestUpdate(uint64_t, const messages::Parameters&) {}
 

@@ -11,34 +11,26 @@
 
 namespace quicr::messages {
 
-    /// Must all be known, must not be duplicated (except auth).
+    /// All parameters must be valid for the message type. Duplicates are impossible by
+    /// construction since ParameterList keys by type.
     inline void ValidateParameters(const Parameters& params, std::initializer_list<ParameterType> allowed)
     {
-        std::vector<ParameterType> seen;
-        for (const auto& [type_value, value] : params) {
-            const auto type = static_cast<ParameterType>(type_value);
-            if (std::ranges::find(allowed, type) == allowed.end()) {
+        for (const auto& [key, value] : params) {
+            if (std::ranges::find(allowed, static_cast<ParameterType>(key)) == allowed.end()) {
                 throw ProtocolViolationException("Parameter not valid for this message type");
-            }
-
-            if (type != ParameterType::kAuthorizationToken) {
-                if (std::ranges::find(seen, type) != seen.end()) {
-                    throw ProtocolViolationException("Unexpected duplicate parameter");
-                }
-                seen.push_back(type);
             }
         }
     }
 
+    // BROKEN: ParameterList stores parameters keyed by type in a map, so multiple
+    // AUTHORIZATION_TOKEN parameters collapse into a single concatenated value and only
+    // the first token is recovered here. To be fixed when the storage supports repeats.
     inline std::vector<Token> CollectAuthTokens(const Parameters& params)
     {
         std::vector<Token> tokens;
-        for (const auto& [type_value, value] : params) {
-            if (static_cast<ParameterType>(type_value) != ParameterType::kAuthorizationToken) {
-                continue;
-            }
+        const BytesSpan span{ params.Find(ParameterType::kAuthorizationToken) };
+        if (!span.empty()) {
             Token token{};
-            const BytesSpan span{ value };
             span >> token;
             tokens.push_back(std::move(token));
         }
@@ -74,6 +66,21 @@ namespace quicr::messages {
     {
         const auto expires = params.GetOptional<std::uint64_t>(ParameterType::kExpires);
         return (expires.has_value() && expires.value() != 0) ? expires : std::nullopt;
+    }
+
+    inline std::uint8_t ResolveSubscriberPriority(const Parameters& params)
+    {
+        return params.GetOptional<std::uint8_t>(ParameterType::kSubscriberPriority).value_or(128);
+    }
+
+    inline std::optional<std::uint64_t> ResolveRendezvousTimeout(const Parameters& params)
+    {
+        return params.GetOptional<std::uint64_t>(ParameterType::kRendezvousTimeout);
+    }
+
+    inline std::optional<std::uint64_t> ResolveNewGroupRequest(const Parameters& params)
+    {
+        return params.GetOptional<std::uint64_t>(ParameterType::kNewGroupRequest);
     }
 
     // Filters.

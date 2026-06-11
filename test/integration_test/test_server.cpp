@@ -115,11 +115,7 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
 
     const auto th = TrackHash(track_full_name);
     const auto track_alias = th.track_fullname_hash;
-
-    // Calculate TTL from delivery timeout
-    const std::uint32_t ttl = subscribe_attributes.delivery_timeout != std::chrono::milliseconds::zero()
-                                ? static_cast<std::uint32_t>(subscribe_attributes.delivery_timeout.count())
-                                : 5000;
+    const std::uint32_t ttl = 5000;
 
     // Create a publish track handler to send objects to this subscriber
     auto pub_track_handler = std::make_shared<TestPublishTrackHandler>(

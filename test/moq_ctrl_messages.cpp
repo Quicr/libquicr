@@ -3,6 +3,7 @@
 
 #include "quicr/detail/message.h"
 #include "quicr/detail/messages.h"
+#include "quicr/detail/parameters.h"
 
 #include <any>
 #include <doctest/doctest.h>
@@ -627,6 +628,101 @@ TEST_CASE("Parameters")
     CHECK_EQ(params.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), std::uint64_t(5000));
 }
 
+TEST_CASE("ResolveSubscriberPriority")
+{
+    CHECK_EQ(ResolveSubscriberPriority(Parameters{}), std::uint8_t(128));
+
+    auto params = Parameters{}.Add(ParameterType::kSubscriberPriority, std::uint8_t(7));
+    CHECK_EQ(ResolveSubscriberPriority(params), std::uint8_t(7));
+}
+
+TEST_CASE("ResolveRendezvousTimeout")
+{
+    CHECK_FALSE(ResolveRendezvousTimeout(Parameters{}).has_value());
+
+    auto params = Parameters{}.Add(ParameterType::kRendezvousTimeout, std::uint64_t(3000));
+    CHECK_EQ(ResolveRendezvousTimeout(params).value(), std::uint64_t(3000));
+}
+
+TEST_CASE("SUBSCRIBE parameter validation rejects stray parameters")
+{
+    const std::initializer_list<ParameterType> allowed = { ParameterType::kAuthorizationToken,
+                                                           ParameterType::kDeliveryTimeout,
+                                                           ParameterType::kSubgroupDeliveryTimeout,
+                                                           ParameterType::kRendezvousTimeout,
+                                                           ParameterType::kSubscriberPriority,
+                                                           ParameterType::kGroupOrder,
+                                                           ParameterType::kForward,
+                                                           ParameterType::kNewGroupRequest };
+
+    auto ok = Parameters{}.Add(ParameterType::kSubscriberPriority, std::uint8_t(5));
+    CHECK_NOTHROW(ValidateParameters(ok, allowed));
+
+    // EXPIRES is valid in SUBSCRIBE_OK, not SUBSCRIBE.
+    auto stray = Parameters{}.Add(ParameterType::kExpires, std::uint64_t(1000));
+    CHECK_THROWS_AS(ValidateParameters(stray, allowed), ProtocolViolationException);
+}
+
+TEST_CASE("Parameters - typed encodings round-trip")
+{
+    SUBCASE("single byte encoding")
+    {
+        for (const std::uint8_t priority : { static_cast<std::uint8_t>(0), static_cast<std::uint8_t>(255) }) {
+            CAPTURE(priority);
+            Parameters params;
+            params.Add(ParameterType::kSubscriberPriority, priority);
+
+            Bytes buffer;
+            buffer << params;
+
+            CHECK_EQ(buffer.size(), 3);
+            CHECK_EQ(buffer.back(), priority);
+            Parameters out;
+            BytesSpan{ buffer } >> out;
+            CHECK_EQ(out.Get<std::uint8_t>(ParameterType::kSubscriberPriority), priority);
+        }
+    }
+
+    SUBCASE("Location encodes as two varints")
+    {
+        constexpr Location location{ 300, 5 };
+        Parameters params;
+        params.Add(ParameterType::kLargestObject, location);
+
+        Bytes buffer;
+        buffer << params;
+
+        Parameters out;
+        BytesSpan{ buffer } >> out;
+        CHECK_EQ(out.Get<Location>(ParameterType::kLargestObject), location);
+    }
+
+    SUBCASE("Track Namespace prefix encodes as length-prefixed bytes")
+    {
+        const TrackNamespace prefix{ Bytes{ 'a', 'b' }, Bytes{ 'c' } };
+        Parameters params;
+        params.Add(ParameterType::kTrackNamespacePrefix, prefix);
+
+        Bytes buffer;
+        buffer << params;
+
+        Parameters out;
+        BytesSpan{ buffer } >> out;
+        CHECK_EQ(out.Get<TrackNamespace>(ParameterType::kTrackNamespacePrefix), prefix);
+    }
+}
+
+TEST_CASE("Parameters - unknown type is a protocol violation")
+{
+    Bytes buffer;
+    buffer << UintVar(std::uint64_t{ 1 });    // One parameter.
+    buffer << UintVar(std::uint64_t{ 0x7F }); // Type delta to an unknown type.
+    buffer << UintVar(std::uint64_t{ 0 });    // Some value.
+
+    Parameters out;
+    CHECK_THROWS_AS(BytesSpan{ buffer } >> out, ProtocolViolationException);
+}
+
 TEST_CASE("Filters")
 {
     static_assert(HasByteStreamOperators<Filter>);
@@ -677,13 +773,14 @@ TEST_CASE("Filters")
 
 TEST_CASE("Parameters - Filters")
 {
-    Filter filter = TrackFilter{
-        .property_type = 1,
-        .max_tracks_selected = 2,
-        .timeout = 3,
+    Filter filter = LocationFilter{
+        {
+          .start = 1,
+          .end = 2,
+        },
     };
 
-    auto params = Parameters{}.Add(ParameterType::kTrackFilter, filter);
+    auto params = Parameters{}.Add(ParameterType::kSubscriptionFilter, filter);
 
     Bytes bytes;
     bytes << params;
@@ -693,6 +790,6 @@ TEST_CASE("Parameters - Filters")
     Parameters recv_params;
     bytes >> recv_params;
 
-    auto recv_filter = recv_params.GetFilter(FilterType::kTrackFilter);
+    auto recv_filter = recv_params.GetFilter(FilterType::kSubscriptionFilter);
     CHECK_EQ(recv_filter, filter);
 }
