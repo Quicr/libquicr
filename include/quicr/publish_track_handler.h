@@ -427,7 +427,7 @@ namespace quicr {
         bool support_new_group_request_{ true }; /// TODO: For now, always support dynamic groups
         std::optional<uint64_t> pending_new_group_request_id_;
 
-        friend class Transport;
+        friend class Session;
     };
 
 } // namespace moq

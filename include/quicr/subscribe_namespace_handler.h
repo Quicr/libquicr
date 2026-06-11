@@ -11,7 +11,7 @@
 
 namespace quicr {
 
-    class Transport;
+    class Session;
 
     class SubscribeNamespaceHandler : public BaseTrackHandler
     {
@@ -85,8 +85,8 @@ namespace quicr {
         constexpr Mode GetMode() const noexcept { return mode_; }
 
       protected:
-        const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
-        void SetTransport(const std::shared_ptr<Transport>& new_transport) noexcept { transport_ = new_transport; }
+        const std::weak_ptr<Session>& GetTransport() const noexcept { return transport_; }
+        void SetTransport(const std::shared_ptr<Session>& new_transport) noexcept { transport_ = new_transport; }
 
         /**
          * @brief Set the subscribe status
@@ -133,12 +133,12 @@ namespace quicr {
         messages::Filter filter_;
 
         /// Weak reference to the transport.
-        std::weak_ptr<Transport> transport_;
+        std::weak_ptr<Session> transport_;
 
         Status status_{ Status::kNotSubscribed };
 
         std::optional<Error> error_{};
 
-        friend class Transport;
+        friend class Session;
     };
 }

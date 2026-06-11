@@ -11,7 +11,7 @@
 
 namespace quicr {
 
-    class Transport;
+    class Session;
 
     class PublishNamespaceHandler : public BaseTrackHandler
     {
@@ -112,9 +112,9 @@ namespace quicr {
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 
-        const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
+        const std::weak_ptr<Session>& GetTransport() const noexcept { return transport_; }
 
-        void SetTransport(const std::shared_ptr<Transport>& new_transport) noexcept { transport_ = new_transport; }
+        void SetTransport(const std::shared_ptr<Session>& new_transport) noexcept { transport_ = new_transport; }
 
         /**
          * @brief Get the status of the Publish
@@ -172,7 +172,7 @@ namespace quicr {
         const TrackNamespace prefix_;
 
         /// Weak reference to the transport.
-        std::weak_ptr<Transport> transport_;
+        std::weak_ptr<Session> transport_;
 
         Status status_{ Status::kNotPublished };
 
@@ -180,6 +180,6 @@ namespace quicr {
 
         // ConnectionHandle connection_handle_{ 0 };
 
-        friend class Transport;
+        friend class Session;
     };
 }

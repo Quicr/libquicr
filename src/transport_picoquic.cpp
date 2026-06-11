@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "transport_picoquic.h"
-#include "quicr/detail/transport.h"
+#include "quicr/session.h"
 
 // PicoQuic.
 #include <autoqlog.h>
@@ -1395,7 +1395,7 @@ PicoQuicTransport::CreateConnContext(picoquic_cnx_t* pq_cnx)
                 conn_ctx.transport_mode = TransportMode::kWebTransport;
                 SPDLOG_LOGGER_INFO(logger, "Server connection using WebTransport (ALPN: {})", negotiated_alpn);
                 // Notify the transport delegate about WebTransport mode
-                if (auto transport = dynamic_cast<Transport*>(&delegate_)) {
+                if (auto transport = dynamic_cast<Session*>(&delegate_)) {
                     transport->SetWebTransportMode(conn_ctx.conn_id, true);
                 }
             } else if (strcmp(negotiated_alpn, moqt_alpn) == 0) {
@@ -1413,7 +1413,7 @@ PicoQuicTransport::CreateConnContext(picoquic_cnx_t* pq_cnx)
         // For clients, use the configured transport mode
         conn_ctx.transport_mode = transport_mode; // Notify the transport delegate about WebTransport mode for clients
         if (transport_mode == TransportMode::kWebTransport) {
-            if (auto transport = dynamic_cast<Transport*>(&delegate_)) {
+            if (auto transport = dynamic_cast<Session*>(&delegate_)) {
                 transport->SetWebTransportMode(conn_ctx.conn_id, true);
             }
         }

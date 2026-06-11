@@ -5,7 +5,7 @@
 
 #include "quicr/detail/messages.h"
 #include "quicr/detail/stream_buffer.h"
-#include "quicr/detail/transport.h"
+#include "quicr/session.h"
 
 namespace quicr {
 
