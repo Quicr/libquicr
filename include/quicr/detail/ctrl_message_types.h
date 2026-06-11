@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <map>
 #include <optional>
 #include <source_location>
 #include <stdexcept>
@@ -48,8 +49,6 @@ namespace quicr::messages {
         kSetup = 0x2F00,
     };
 
-    using TrackAlias = std::uint64_t;
-
     struct ProtocolViolationException : std::runtime_error
     {
         const std::string reason;
@@ -76,17 +75,10 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const UintVar& value);
 
-    using GroupId = uint64_t;
-    using ObjectId = uint64_t;
-    // TODO(RichLogan): Remove when ErrorReason -> ReasonPhrase.
-    using ReasonPhrase = Bytes;
-    using RequestID = uint64_t;
-    using TrackName = Bytes;
-
     struct Location
     {
-        GroupId group{ 0 };
-        ObjectId object{ 0 };
+        std::uint64_t group{ 0 };
+        std::uint64_t object{ 0 };
 
         auto operator<=>(const Location& other) const
         {

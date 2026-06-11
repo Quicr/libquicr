@@ -5,15 +5,19 @@
 #include "quicr/detail/control_messages.h"
 #include "quicr/detail/control_messages/setup.h"
 #include "quicr/detail/ctrl_message_types.h"
+#include "quicr/detail/joining_fetch_handler.h"
 #include "quicr/detail/message.h"
 #include "quicr/detail/messages.h"
 #include "quicr/detail/parameters.h"
 #include "quicr/detail/track_properties.h"
 #include "quicr/subscribe_namespace_handler.h"
+#include "transport_picoquic.h"
 
 #include <iomanip>
-#include <quicr/detail/joining_fetch_handler.h>
+#include <memory>
 #include <sstream>
+#include <stdexcept>
+#include <utility>
 
 namespace quicr {
     using namespace quicr::messages;
@@ -27,6 +31,81 @@ namespace quicr {
             }
 
             return spdlog::stderr_color_mt(name);
+        }
+
+        /**
+         * @brief Create a new client transport based on the remote (server) host/ip
+         *
+         * @param[in] server        Transport remote server information
+         * @param[in] tcfg          Transport configuration
+         * @param[in] delegate      Implemented callback methods
+         * @param[in] tick_service  Shared pointer to the tick service to use
+         * @param[in] logger        Shared pointer to logger
+         *
+         * @return shared_ptr for the under lining transport.
+         */
+        std::shared_ptr<ITransport> MakeClientTransport(const TransportRemote& server,
+                                                        const TransportConfig& tcfg,
+                                                        ITransport::TransportDelegate& delegate,
+                                                        std::shared_ptr<timeq::tick_service> tick_service,
+                                                        std::shared_ptr<spdlog::logger> logger)
+        {
+            switch (server.proto) {
+                case TransportProtocol::kQuic:
+                    return std::make_shared<PicoQuicTransport>(
+                      server, tcfg, delegate, false, std::move(tick_service), std::move(logger), TransportMode::kQuic);
+                case TransportProtocol::kWebTransport:
+                    return std::make_shared<PicoQuicTransport>(server,
+                                                               tcfg,
+                                                               delegate,
+                                                               false,
+                                                               std::move(tick_service),
+                                                               std::move(logger),
+                                                               TransportMode::kWebTransport);
+                default:
+                    throw std::runtime_error("make_client_transport: Protocol not implemented");
+                    break;
+            }
+
+            return nullptr;
+        }
+
+        /**
+         * @brief Create a new server transport based on the remote (server) ip and port
+         *
+         * @details Server mode automatically supports BOTH raw QUIC (ALPN: moq-00) and
+         * WebTransport (ALPN: h3) simultaneously. The transport mode for each connection
+         * is determined dynamically based on the ALPN negotiated with each client during
+         * the TLS handshake.
+         *
+         * @param[in] server      Transport remote server information (server.proto is ignored)
+         * @param[in] tcfg        Transport configuration
+         * @param[in] delegate    Implemented callback methods
+         * @param[in] tick_service Shared pointer to tick service
+         * @param[in] logger      Shared pointer to logger
+         *
+         * @return shared_ptr for the underlying transport
+         */
+        std::shared_ptr<ITransport> MakeServerTransport(const TransportRemote& server,
+                                                        const TransportConfig& tcfg,
+                                                        ITransport::TransportDelegate& delegate,
+                                                        std::shared_ptr<timeq::tick_service> tick_service,
+                                                        std::shared_ptr<spdlog::logger> logger)
+        {
+            // Server mode supports BOTH raw QUIC (moq-00) and WebTransport (h3) simultaneously.
+            //
+            // The server.proto field is IGNORED - the transport mode is automatically determined
+            // per-connection based on the ALPN negotiated with each client:
+            //   - Client sends ALPN "moq-00" -> ConnectionContext.transport_mode = TransportMode::kQuic
+            //   - Client sends ALPN "h3"     -> ConnectionContext.transport_mode = TransportMode::kWebTransport
+            //
+            // See PqAlpnSelectCb() in transport_picoquic.cpp for ALPN selection logic.
+            // See CreateConnContext() in transport_picoquic.cpp for per-connection mode assignment.
+            //
+            // The TransportMode parameter passed to PicoQuicTransport constructor is only used as
+            // a default/fallback and is overridden for each connection based on ALPN.
+            return std::make_shared<PicoQuicTransport>(
+              server, tcfg, delegate, true, std::move(tick_service), std::move(logger), TransportMode::kQuic);
         }
     }
 
@@ -198,7 +277,7 @@ namespace quicr {
             relay.path = path;
 
             quic_transport_ =
-              ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
+              MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
 
             auto conn_id = quic_transport_->Start();
 
@@ -228,8 +307,7 @@ namespace quicr {
         server.proto = TransportProtocol::kQuic; // Ignored by server
         server.path = "/relay";
 
-        quic_transport_ =
-          ITransport::MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
+        quic_transport_ = MakeServerTransport(server, server_config_.transport_config, *this, tick_service_, logger_);
         quic_transport_->Start();
 
         if (quic_transport_->Status() == TransportStatus::kShutdown) {
@@ -246,7 +324,7 @@ namespace quicr {
         return Status();
     }
 
-    uint64_t Session::RequestTrackStatus(ConnectionHandle connection_handle,
+    uint64_t Session::RequestTrackStatus(std::uint64_t connection_handle,
                                          const FullTrackName& track_full_name,
                                          const messages::SubscribeAttributes&)
     {
@@ -264,13 +342,13 @@ namespace quicr {
         return request_id;
     }
 
-    void Session::RequestOkReceived(ConnectionHandle, uint64_t, std::optional<messages::Location>) {}
+    void Session::RequestOkReceived(std::uint64_t, uint64_t, std::optional<messages::Location>) {}
 
-    void Session::RequestErrorReceived(ConnectionHandle, uint64_t, const RequestResponse&) {}
+    void Session::RequestErrorReceived(std::uint64_t, uint64_t, const RequestResponse&) {}
 
-    void Session::TrackStatusReceived(ConnectionHandle, uint64_t, const FullTrackName&) {}
+    void Session::TrackStatusReceived(std::uint64_t, uint64_t, const FullTrackName&) {}
 
-    void Session::ResolveTrackStatus(ConnectionHandle connection_handle,
+    void Session::ResolveTrackStatus(std::uint64_t connection_handle,
                                      uint64_t request_id,
                                      const RequestResponse& subscribe_response)
     {
@@ -318,7 +396,7 @@ namespace quicr {
     }
 
     void Session::SendCtrlMsg(const ConnectionContext& conn_ctx,
-                              DataContextId data_ctx_id,
+                              std::uint64_t data_ctx_id,
                               std::shared_ptr<const std::vector<uint8_t>> data)
     {
         if (!conn_ctx.tx_ctrl_data_ctx_id.has_value()) {
@@ -370,8 +448,8 @@ namespace quicr {
     }
 
     void Session::SendRequestOk(ConnectionContext& conn_ctx,
-                                DataContextId data_ctx_id,
-                                messages::RequestID request_id,
+                                std::uint64_t data_ctx_id,
+                                std::uint64_t request_id,
                                 std::optional<Location> largest_location)
     try {
         auto params = Parameters{}.AddOptional(ParameterType::kLargestObject, largest_location);
@@ -386,11 +464,11 @@ namespace quicr {
     }
 
     void Session::SendRequestUpdate(const ConnectionContext& conn_ctx,
-                                    DataContextId data_ctx_id,
-                                    messages::RequestID request_id,
-                                    messages::RequestID existing_request_id,
+                                    std::uint64_t data_ctx_id,
+                                    std::uint64_t request_id,
+                                    std::uint64_t existing_request_id,
                                     [[maybe_unused]] quicr::TrackHash th,
-                                    std::optional<messages::GroupId> end_group_id,
+                                    std::optional<std::uint64_t> end_group_id,
                                     std::uint8_t priority,
                                     bool forward)
     try {
@@ -423,7 +501,7 @@ namespace quicr {
     }
 
     void Session::SendRequestError(ConnectionContext& conn_ctx,
-                                   DataContextId data_ctx_id,
+                                   std::uint64_t data_ctx_id,
                                    uint64_t request_id,
                                    ErrorCode error,
                                    std::chrono::milliseconds retry_interval,
@@ -449,8 +527,8 @@ namespace quicr {
     }
 
     void Session::SendPublishNamespace(ConnectionContext& conn_ctx,
-                                       DataContextId data_ctx_id,
-                                       RequestID request_id,
+                                       std::uint64_t data_ctx_id,
+                                       std::uint64_t request_id,
                                        const TrackNamespace& track_namespace)
     try {
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -471,8 +549,8 @@ namespace quicr {
     }
 
     void Session::SendPublishNamespaceDone(ConnectionContext& conn_ctx,
-                                           DataContextId data_ctx_id,
-                                           messages::RequestID request_id)
+                                           std::uint64_t data_ctx_id,
+                                           std::uint64_t request_id)
     try {
         SPDLOG_LOGGER_DEBUG(logger_, "Sending PUBLISH_NAMESPACE_DONE to conn_id: {}", conn_ctx.connection_handle);
 
@@ -482,7 +560,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Session::SendTrackStatus(ConnectionContext& conn_ctx, messages::RequestID request_id, const FullTrackName& tfn)
+    void Session::SendTrackStatus(ConnectionContext& conn_ctx, std::uint64_t request_id, const FullTrackName& tfn)
     try {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending TRACK_STATUS to conn_id: {} request_id: {}", conn_ctx.connection_handle, request_id);
@@ -499,7 +577,7 @@ namespace quicr {
     }
 
     void Session::SendSubscribe(ConnectionContext& conn_ctx,
-                                DataContextId data_ctx_id,
+                                std::uint64_t data_ctx_id,
                                 uint64_t request_id,
                                 const FullTrackName& tfn,
                                 TrackHash th, // TODO: This is only for a debug message, should be removed
@@ -544,8 +622,8 @@ namespace quicr {
     }
 
     void Session::SendPublish(ConnectionContext& conn_ctx,
-                              DataContextId data_ctx_id,
-                              messages::RequestID request_id,
+                              std::uint64_t data_ctx_id,
+                              std::uint64_t request_id,
                               const PublishAttributes& publish)
     try {
         /* Available parameters:
@@ -587,8 +665,8 @@ namespace quicr {
     }
 
     void Session::SendPublishOk(ConnectionContext& conn_ctx,
-                                DataContextId data_ctx_id,
-                                messages::RequestID request_id,
+                                std::uint64_t data_ctx_id,
+                                std::uint64_t request_id,
                                 bool forward,
                                 std::optional<std::uint8_t> priority,
                                 std::optional<messages::GroupOrder> group_order,
@@ -625,7 +703,7 @@ namespace quicr {
     }
 
     void Session::SendSubscribeOk(ConnectionContext& conn_ctx,
-                                  DataContextId data_ctx_id,
+                                  std::uint64_t data_ctx_id,
                                   uint64_t request_id,
                                   uint64_t track_alias,
                                   uint64_t expires,
@@ -659,7 +737,7 @@ namespace quicr {
     }
 
     void Session::SendPublishDone(ConnectionContext& conn_ctx,
-                                  DataContextId data_ctx_id,
+                                  std::uint64_t data_ctx_id,
                                   uint64_t request_id,
                                   messages::PublishDoneStatusCode status,
                                   const std::string& reason)
@@ -682,7 +760,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Session::SendUnsubscribe(ConnectionContext& conn_ctx, DataContextId data_ctx_id, uint64_t request_id)
+    void Session::SendUnsubscribe(ConnectionContext& conn_ctx, std::uint64_t data_ctx_id, uint64_t request_id)
     try {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending UNSUBSCRIBE to conn_id: {} request_id: {}", conn_ctx.connection_handle, request_id);
@@ -694,8 +772,8 @@ namespace quicr {
     }
 
     void Session::SendSubscribeNamespace(ConnectionContext& conn_ctx,
-                                         DataContextId data_ctx_id,
-                                         messages::RequestID request_id,
+                                         std::uint64_t data_ctx_id,
+                                         std::uint64_t request_id,
                                          const TrackNamespace& prefix,
                                          const messages::Filter& filter,
                                          messages::ControlMessageType type)
@@ -724,7 +802,7 @@ namespace quicr {
     }
 
     void Session::SendUnsubscribeNamespace(ConnectionContext& conn_ctx,
-                                           DataContextId data_ctx_id,
+                                           std::uint64_t data_ctx_id,
                                            const TrackNamespace& prefix)
     try {
         [[maybe_unused]] auto th = TrackHash({ prefix, {} });
@@ -740,7 +818,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Session::SubscribeNamespace(ConnectionHandle conn_id, std::shared_ptr<SubscribeNamespaceHandler> handler)
+    void Session::SubscribeNamespace(std::uint64_t conn_id, std::shared_ptr<SubscribeNamespaceHandler> handler)
     {
         const auto& prefix = handler->GetPrefix();
         handler->connection_handle_ = conn_id;
@@ -787,8 +865,7 @@ namespace quicr {
                                message_type);
     }
 
-    void Session::UnsubscribeNamespace(ConnectionHandle conn_id,
-                                       const std::shared_ptr<SubscribeNamespaceHandler>& handler)
+    void Session::UnsubscribeNamespace(std::uint64_t conn_id, const std::shared_ptr<SubscribeNamespaceHandler>& handler)
     {
         const auto& prefix = handler->GetPrefix();
         [[maybe_unused]] auto th = TrackHash({ prefix, {} });
@@ -848,7 +925,7 @@ namespace quicr {
                                    std::uint8_t priority,
                                    std::optional<messages::GroupOrder> group_order,
                                    uint64_t joining_request_id,
-                                   messages::GroupId joining_start,
+                                   std::uint64_t joining_start,
                                    bool absolute)
     try {
         /* Available parameters:
@@ -911,7 +988,7 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Session::SubscribeTrack(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
+    void Session::SubscribeTrack(std::uint64_t conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
         track_handler->connection_handle_ = conn_id;
@@ -1016,8 +1093,7 @@ namespace quicr {
         }
     }
 
-    void Session::UnsubscribeTrack(quicr::TransportConnId conn_id,
-                                   const std::shared_ptr<SubscribeTrackHandler>& track_handler)
+    void Session::UnsubscribeTrack(std::uint64_t conn_id, const std::shared_ptr<SubscribeTrackHandler>& track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
@@ -1035,7 +1111,7 @@ namespace quicr {
         RemoveSubscribeTrack(conn_it->second, *track_handler);
     }
 
-    void Session::UpdateTrackSubscription(TransportConnId conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
+    void Session::UpdateTrackSubscription(std::uint64_t conn_id, std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
@@ -1139,7 +1215,7 @@ namespace quicr {
     }
 
     void Session::ClosePublishTrackLocal(ConnectionContext& conn_ctx,
-                                         ConnectionHandle connection_handle,
+                                         std::uint64_t connection_handle,
                                          PublishTrackHandler& handler,
                                          std::uint64_t stream_id,
                                          bool is_reset)
@@ -1170,8 +1246,8 @@ namespace quicr {
     }
 
     void Session::CloseRequestHandler(ConnectionContext& conn_ctx,
-                                      ConnectionHandle connection_handle,
-                                      messages::RequestID request_id,
+                                      std::uint64_t connection_handle,
+                                      std::uint64_t request_id,
                                       std::uint64_t stream_id,
                                       StreamClosedFlag flag)
     {
@@ -1249,7 +1325,7 @@ namespace quicr {
         conn_ctx.ctrl_msg_buffer.erase(stream_id);
     }
 
-    void Session::UnpublishTrack(TransportConnId conn_id, const std::shared_ptr<PublishTrackHandler>& track_handler)
+    void Session::UnpublishTrack(std::uint64_t conn_id, const std::shared_ptr<PublishTrackHandler>& track_handler)
     {
         // Generate track alias
         auto tfn = track_handler->GetFullTrackName();
@@ -1321,7 +1397,7 @@ namespace quicr {
         }
     }
 
-    void Session::PublishTrack(TransportConnId conn_id, std::shared_ptr<PublishTrackHandler> track_handler)
+    void Session::PublishTrack(std::uint64_t conn_id, std::shared_ptr<PublishTrackHandler> track_handler)
     {
         const auto tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
@@ -1393,7 +1469,7 @@ namespace quicr {
         conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
     }
 
-    void Session::PublishNamespace(ConnectionHandle conn_id,
+    void Session::PublishNamespace(std::uint64_t conn_id,
                                    std::shared_ptr<PublishNamespaceHandler> ns_handler,
                                    bool passive)
     {
@@ -1440,7 +1516,7 @@ namespace quicr {
         ns_handler->SetTransport(GetSharedPtr());
     }
 
-    void Session::PublishNamespaceDone(ConnectionHandle conn_id,
+    void Session::PublishNamespaceDone(std::uint64_t conn_id,
                                        const std::shared_ptr<PublishNamespaceHandler>& track_handler)
     {
         const auto& prefix = track_handler->GetPrefix();
@@ -1470,7 +1546,7 @@ namespace quicr {
         conn_it->second.request_handlers.erase(track_handler->GetRequestId().value());
     }
 
-    void Session::ResolvePublish(const ConnectionHandle connection_handle,
+    void Session::ResolvePublish(const std::uint64_t connection_handle,
                                  const uint64_t request_id,
                                  const PublishAttributes& publish,
                                  const PublishResponse& publish_response,
@@ -1532,21 +1608,21 @@ namespace quicr {
           conn_it->second, ResponseDataContext(conn_it->second, request_id), request_id, error_code, 0ms, reason);
     }
 
-    void Session::StandaloneFetchReceived([[maybe_unused]] ConnectionHandle connection_handle,
+    void Session::StandaloneFetchReceived([[maybe_unused]] std::uint64_t connection_handle,
                                           [[maybe_unused]] uint64_t request_id,
                                           [[maybe_unused]] const FullTrackName& track_full_name,
                                           [[maybe_unused]] const quicr::messages::StandaloneFetchAttributes& attributes)
     {
     }
 
-    void Session::JoiningFetchReceived([[maybe_unused]] ConnectionHandle connection_handle,
+    void Session::JoiningFetchReceived([[maybe_unused]] std::uint64_t connection_handle,
                                        [[maybe_unused]] uint64_t request_id,
                                        [[maybe_unused]] const FullTrackName& track_full_name,
                                        [[maybe_unused]] const quicr::messages::JoiningFetchAttributes& attributes)
     {
     }
 
-    void Session::FetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler)
+    void Session::FetchTrack(std::uint64_t connection_handle, std::shared_ptr<FetchTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
@@ -1579,7 +1655,7 @@ namespace quicr {
         SendFetch(conn_it->second, request_id, tfn, priority, group_order, start_location, end_location);
     }
 
-    void Session::CancelFetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler)
+    void Session::CancelFetchTrack(std::uint64_t connection_handle, std::shared_ptr<FetchTrackHandler> track_handler)
     {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(connection_handle);
@@ -1651,7 +1727,7 @@ namespace quicr {
     // Transport handler callbacks
     // ---------------------------------------------------------------------------------------
 
-    void Session::OnConnectionStatus(const TransportConnId& conn_id, const TransportStatus status)
+    void Session::OnConnectionStatus(const std::uint64_t& conn_id, const TransportStatus status)
     {
         SPDLOG_LOGGER_DEBUG(logger_, "Connection status conn_id: {} status: {}", conn_id, static_cast<int>(status));
         ConnectionStatus conn_status = ConnectionStatus::kConnected;
@@ -1736,7 +1812,7 @@ namespace quicr {
         StatusChanged(status_);
     }
 
-    void Session::OnNewConnection(const TransportConnId& conn_id, const TransportRemote& remote)
+    void Session::OnNewConnection(const std::uint64_t& conn_id, const TransportRemote& remote)
     {
         auto [conn_ctx, is_new] = connections_.try_emplace(conn_id, ConnectionContext{});
         conn_ctx->second.next_request_id = 1; // Server is odd, starting at 1
@@ -1750,9 +1826,9 @@ namespace quicr {
         NewConnectionAccepted(conn_id, { remote.host_or_ip, remote.port });
     }
 
-    void Session::OnRecvStream(const TransportConnId& conn_id,
+    void Session::OnRecvStream(const std::uint64_t& conn_id,
                                uint64_t stream_id,
-                               std::optional<DataContextId> data_ctx_id,
+                               std::optional<std::uint64_t> data_ctx_id,
                                const bool is_bidir)
     try {
         auto rx_ctx = quic_transport_->GetStreamRxContext(conn_id, stream_id);
@@ -1962,7 +2038,7 @@ namespace quicr {
         // TODO(tievens): Add metrics to track if this happens
     }
 
-    void Session::OnStreamClosed(const ConnectionHandle& connection_handle,
+    void Session::OnStreamClosed(const std::uint64_t& connection_handle,
                                  std::uint64_t stream_id,
                                  std::shared_ptr<StreamRxContext> rx_ctx,
                                  std::optional<uint64_t> request_id,
@@ -2158,7 +2234,7 @@ namespace quicr {
         return false;
     }
 
-    void Session::OnRecvDgram(const TransportConnId& conn_id, std::optional<DataContextId> data_ctx_id)
+    void Session::OnRecvDgram(const std::uint64_t& conn_id, std::optional<std::uint64_t> data_ctx_id)
     {
         for (int i = 0; i < kReadLoopMaxPerStream; i++) {
             auto data = quic_transport_->Dequeue(conn_id, data_ctx_id);
@@ -2226,7 +2302,7 @@ namespace quicr {
     }
 
     void Session::OnConnectionMetricsSampled(const MetricsTimeStamp sample_time,
-                                             const TransportConnId conn_id,
+                                             const std::uint64_t conn_id,
                                              const QuicConnectionMetrics& quic_connection_metrics)
     {
         // TODO: doesn't require lock right now, but might need to add lock
@@ -2249,8 +2325,8 @@ namespace quicr {
     }
 
     void Session::OnDataMetricsStampled(const MetricsTimeStamp sample_time,
-                                        const TransportConnId conn_id,
-                                        const DataContextId data_ctx_id,
+                                        const std::uint64_t conn_id,
+                                        const std::uint64_t data_ctx_id,
                                         const QuicDataContextMetrics& quic_data_context_metrics)
     {
         auto conn_it = connections_.find(conn_id);
@@ -2286,9 +2362,9 @@ namespace quicr {
         }
     }
 
-    void Session::OnNewDataContext(const ConnectionHandle&, const DataContextId&) {}
+    void Session::OnNewDataContext(const std::uint64_t&, const std::uint64_t&) {}
 
-    void Session::CloseConnection(TransportConnId conn_id,
+    void Session::CloseConnection(std::uint64_t conn_id,
                                   messages::TerminationReason reason,
                                   const std::string& reason_str)
     {
@@ -2340,12 +2416,12 @@ namespace quicr {
         return shared_from_this();
     }
 
-    Session::ConnectionContext& Session::GetConnectionContext(ConnectionHandle conn)
+    Session::ConnectionContext& Session::GetConnectionContext(std::uint64_t conn)
     {
         return connections_.at(conn);
     }
 
-    void Session::SetWebTransportMode(ConnectionHandle conn_id, bool is_webtransport)
+    void Session::SetWebTransportMode(std::uint64_t conn_id, bool is_webtransport)
     {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
@@ -2354,13 +2430,13 @@ namespace quicr {
         }
     }
 
-    std::uint64_t Session::CreateStream(ConnectionHandle conn_id, std::uint64_t data_ctx_id, uint8_t priority)
+    std::uint64_t Session::CreateStream(std::uint64_t conn_id, std::uint64_t data_ctx_id, uint8_t priority)
     {
         return quic_transport_->CreateStream(conn_id, data_ctx_id, priority);
     }
 
-    TransportError Session::Enqueue(const TransportConnId& conn_id,
-                                    const DataContextId& data_ctx_id,
+    TransportError Session::Enqueue(const std::uint64_t& conn_id,
+                                    const std::uint64_t& data_ctx_id,
                                     std::uint64_t stream_id,
                                     std::shared_ptr<const std::vector<uint8_t>> bytes,
                                     const uint8_t priority,
@@ -2387,7 +2463,7 @@ namespace quicr {
 
     // -- Resolve Methods --
 
-    void Session::ResolveSubscribe(ConnectionHandle connection_handle,
+    void Session::ResolveSubscribe(std::uint64_t connection_handle,
                                    uint64_t request_id,
                                    uint64_t track_alias,
                                    const RequestResponse& subscribe_response)
@@ -2459,8 +2535,8 @@ namespace quicr {
         }
     }
 
-    void Session::ResolveSubscribeNamespace(ConnectionHandle connection_handle,
-                                            DataContextId data_ctx_id,
+    void Session::ResolveSubscribeNamespace(std::uint64_t connection_handle,
+                                            std::uint64_t data_ctx_id,
                                             uint64_t request_id,
                                             const TrackNamespace& prefix,
                                             const SubscribeNamespaceResponse& response)
@@ -2493,8 +2569,8 @@ namespace quicr {
         }
     }
 
-    void Session::ResolveSubscribeTracks(ConnectionHandle connection_handle,
-                                         DataContextId data_ctx_id,
+    void Session::ResolveSubscribeTracks(std::uint64_t connection_handle,
+                                         std::uint64_t data_ctx_id,
                                          uint64_t request_id,
                                          const TrackNamespace& prefix,
                                          const SubscribeNamespaceResponse& response)
@@ -2525,7 +2601,7 @@ namespace quicr {
         }
     }
 
-    void Session::ResolveFetch(ConnectionHandle connection_handle,
+    void Session::ResolveFetch(std::uint64_t connection_handle,
                                uint64_t request_id,
                                std::uint8_t priority,
                                std::optional<messages::GroupOrder> group_order,
@@ -2565,10 +2641,10 @@ namespace quicr {
                          response.error_reason.has_value() ? response.error_reason.value() : "Internal error");
     }
 
-    void Session::ResolvePublishNamespace(ConnectionHandle connection_handle,
+    void Session::ResolvePublishNamespace(std::uint64_t connection_handle,
                                           uint64_t request_id,
                                           const TrackNamespace& track_namespace,
-                                          const std::vector<ConnectionHandle>& subscribers,
+                                          const std::vector<std::uint64_t>& subscribers,
                                           const PublishNamespaceResponse& response)
     {
         auto th = TrackHash({ track_namespace, {} });
@@ -2603,7 +2679,7 @@ namespace quicr {
 
         switch (response.reason_code) {
             case PublishNamespaceResponse::ReasonCode::kOk: {
-                DataContextId response_data_ctx_id = ResponseDataContext(conn_it->second, request_id);
+                std::uint64_t response_data_ctx_id = ResponseDataContext(conn_it->second, request_id);
                 const auto pub_ns_it = conn_it->second.request_handlers.find(request_id);
                 if (pub_ns_it != conn_it->second.request_handlers.end() &&
                     pub_ns_it->second.handler->GetDataContextId().has_value()) {
@@ -2621,9 +2697,9 @@ namespace quicr {
         }
     }
 
-    void Session::ResolvePublishNamespaceDone(ConnectionHandle connection_handle,
-                                              messages::RequestID request_id,
-                                              const std::vector<ConnectionHandle>& subscribers)
+    void Session::ResolvePublishNamespaceDone(std::uint64_t connection_handle,
+                                              std::uint64_t request_id,
+                                              const std::vector<std::uint64_t>& subscribers)
     {
         for (const auto& sub_conn_handle : subscribers) {
             auto it = connections_.find(sub_conn_handle);
@@ -2641,7 +2717,7 @@ namespace quicr {
         }
     }
 
-    void Session::ResolveRequestUpdate(ConnectionHandle connection_handle,
+    void Session::ResolveRequestUpdate(std::uint64_t connection_handle,
                                        uint64_t request_id,
                                        uint64_t existing_request_id,
                                        const messages::Parameters& params)
@@ -2685,7 +2761,7 @@ namespace quicr {
         SendRequestOk(conn_it->second, *track_it->second.handler->GetDataContextId(), request_id);
     }
 
-    std::optional<DataContextId> Session::FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
+    std::optional<std::uint64_t> Session::FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
                                                                             const TrackNamespace& track_namespace) const
     {
         for (const auto& [_, handler] : conn_ctx.request_handlers) {
@@ -2706,7 +2782,7 @@ namespace quicr {
         return std::nullopt;
     }
 
-    DataContextId Session::ResponseDataContext(const ConnectionContext& conn_ctx, messages::RequestID request_id) const
+    std::uint64_t Session::ResponseDataContext(const ConnectionContext& conn_ctx, std::uint64_t request_id) const
     {
         const auto recv_it = conn_ctx.recv_req_id.find(request_id);
         if (recv_it != conn_ctx.recv_req_id.end() && recv_it->second.data_ctx_id != 0) {
@@ -2720,14 +2796,14 @@ namespace quicr {
 
     void Session::ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes) {}
 
-    void Session::PublishNamespaceStatusChanged(messages::RequestID request_id, const PublishNamespaceStatus status) {}
+    void Session::PublishNamespaceStatusChanged(std::uint64_t request_id, const PublishNamespaceStatus status) {}
 
     void Session::PublishNamespaceReceived(const TrackNamespace& track_namespace,
                                            const PublishNamespaceAttributes& publish_namespace_attributes)
     {
     }
 
-    void Session::PublishNamespaceDoneReceived(messages::RequestID request_id) {}
+    void Session::PublishNamespaceDoneReceived(std::uint64_t request_id) {}
 
     void Session::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&) {}
 
@@ -2735,63 +2811,63 @@ namespace quicr {
 
     // -- Server Callbacks --
 
-    void Session::NewConnectionAccepted(ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote)
+    void Session::NewConnectionAccepted(std::uint64_t connection_handle, const ConnectionRemoteInfo& remote)
     {
         SPDLOG_LOGGER_DEBUG(
           logger_, "New connection conn_id: {} remote ip: {} port: {}", connection_handle, remote.ip, remote.port);
     }
 
-    void Session::ConnectionStatusChanged(ConnectionHandle connection_handle, ConnectionStatus status) {}
+    void Session::ConnectionStatusChanged(std::uint64_t connection_handle, ConnectionStatus status) {}
 
-    void Session::MetricsSampled(ConnectionHandle, const ConnectionMetrics&) {}
+    void Session::MetricsSampled(std::uint64_t, const ConnectionMetrics&) {}
 
-    void Session::ClientSetupReceived(ConnectionHandle, const ClientSetupAttributes&) {}
+    void Session::ClientSetupReceived(std::uint64_t, const ClientSetupAttributes&) {}
 
-    void Session::PublishNamespaceReceived(ConnectionHandle connection_handle,
+    void Session::PublishNamespaceReceived(std::uint64_t connection_handle,
                                            const TrackNamespace& track_namespace,
                                            const PublishNamespaceAttributes& publish_announce_attributes)
     {
     }
 
-    std::vector<ConnectionHandle> Session::PublishNamespaceDoneReceived(ConnectionHandle connection_handle,
-                                                                        messages::RequestID request_id)
+    std::vector<std::uint64_t> Session::PublishNamespaceDoneReceived(std::uint64_t connection_handle,
+                                                                     std::uint64_t request_id)
     {
-        return std::vector<ConnectionHandle>();
+        return std::vector<std::uint64_t>();
     }
 
-    void Session::UnsubscribeNamespaceReceived(ConnectionHandle, const TrackNamespace&) {}
+    void Session::UnsubscribeNamespaceReceived(std::uint64_t, const TrackNamespace&) {}
 
-    void Session::SubscribeNamespaceReceived(ConnectionHandle,
-                                             DataContextId,
+    void Session::SubscribeNamespaceReceived(std::uint64_t,
+                                             std::uint64_t,
                                              const TrackNamespace&,
                                              const messages::SubscribeNamespaceAttributes&)
     {
     }
 
-    void Session::SubscribeTracksReceived(ConnectionHandle,
-                                          DataContextId,
+    void Session::SubscribeTracksReceived(std::uint64_t,
+                                          std::uint64_t,
                                           const TrackNamespace&,
                                           const messages::SubscribeNamespaceAttributes&)
     {
     }
 
-    void Session::SubscribeReceived(ConnectionHandle connection_handle,
+    void Session::SubscribeReceived(std::uint64_t connection_handle,
                                     uint64_t request_id,
                                     const FullTrackName& track_full_name,
                                     const messages::SubscribeAttributes& subscribe_attributes)
     {
     }
 
-    void Session::UnsubscribeReceived(ConnectionHandle, uint64_t) {}
+    void Session::UnsubscribeReceived(std::uint64_t, uint64_t) {}
 
-    void Session::PublishDoneReceived(ConnectionHandle, uint64_t) {}
+    void Session::PublishDoneReceived(std::uint64_t, uint64_t) {}
 
-    void Session::NewGroupRequested(const FullTrackName&, messages::GroupId) {}
+    void Session::NewGroupRequested(const FullTrackName&, std::uint64_t) {}
 
     // -- Shared Callbacks --
 
-    void Session::PublishReceived(ConnectionHandle connection_handle,
-                                  messages::RequestID request_id,
+    void Session::PublishReceived(std::uint64_t connection_handle,
+                                  std::uint64_t request_id,
                                   const PublishAttributes& publish,
                                   std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler)
     {
@@ -2808,9 +2884,9 @@ namespace quicr {
                        handler);
     }
 
-    void Session::FetchCancelReceived(ConnectionHandle connection_handle, uint64_t request_id) {}
+    void Session::FetchCancelReceived(std::uint64_t connection_handle, uint64_t request_id) {}
 
-    void Session::RequestUpdateReceived(ConnectionHandle connection_handle,
+    void Session::RequestUpdateReceived(std::uint64_t connection_handle,
                                         uint64_t request_id,
                                         uint64_t existing_request_id,
                                         const messages::Parameters& params)
@@ -2822,8 +2898,8 @@ namespace quicr {
 
     // -- Server Relay Methods --
 
-    void Session::BindPublisherTrack(ConnectionHandle connection_handle,
-                                     ConnectionHandle src_id,
+    void Session::BindPublisherTrack(std::uint64_t connection_handle,
+                                     std::uint64_t src_id,
                                      uint64_t request_id,
                                      const std::shared_ptr<PublishTrackHandler>& track_handler,
                                      bool ephemeral)
@@ -2874,8 +2950,8 @@ namespace quicr {
         track_handler->SetStatus(PublishTrackHandler::Status::kOk);
     }
 
-    void Session::UnbindPublisherTrack(ConnectionHandle connection_handle,
-                                       ConnectionHandle src_id,
+    void Session::UnbindPublisherTrack(std::uint64_t connection_handle,
+                                       std::uint64_t src_id,
                                        const std::shared_ptr<PublishTrackHandler>& track_handler,
                                        bool send_publish_done)
     {
@@ -2925,7 +3001,7 @@ namespace quicr {
         }
     }
 
-    void Session::BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler)
+    void Session::BindFetchTrack(std::uint64_t conn_id, std::shared_ptr<PublishFetchHandler> track_handler)
     {
         const std::uint64_t request_id = *track_handler->GetRequestId();
         SPDLOG_LOGGER_INFO(logger_, "Publish fetch track conn_id: {} subscribe: {}", conn_id, request_id);
@@ -2949,7 +3025,7 @@ namespace quicr {
         conn_it->second.pub_fetch_tracks_by_request_id[request_id] = track_handler;
     }
 
-    void Session::UnbindFetchTrack(ConnectionHandle connection_handle,
+    void Session::UnbindFetchTrack(std::uint64_t connection_handle,
                                    const std::shared_ptr<PublishFetchHandler>& track_handler)
     {
         std::lock_guard lock(state_mutex_);

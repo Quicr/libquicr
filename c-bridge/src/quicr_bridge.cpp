@@ -647,7 +647,7 @@ struct qbridge_fetch_track_handler
             const quicr::messages::FetchEndLocation end_location = { config->end_group_id,
                                                                      config->end_object_id == QBRIDGE_FETCH_END_OF_GROUP
                                                                        ? std::nullopt
-                                                                       : std::optional<quicr::messages::ObjectId>(
+                                                                       : std::optional<std::uint64_t>(
                                                                            config->end_object_id) };
 
             cpp_handler = BridgeFetchTrackHandler::Create(full_track_name,

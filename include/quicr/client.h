@@ -126,7 +126,7 @@ namespace quicr {
             }
         }
 
-        std::optional<ConnectionHandle> GetConnectionHandle() const noexcept { return connection_handle_; }
+        std::optional<std::uint64_t> GetConnectionHandle() const noexcept { return connection_handle_; }
 
       protected:
         explicit Client(const ClientConfig& cfg)
@@ -140,7 +140,7 @@ namespace quicr {
         }
 
       private:
-        std::optional<ConnectionHandle> connection_handle_;
+        std::optional<std::uint64_t> connection_handle_;
     };
 
 } // namespace quicr

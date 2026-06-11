@@ -3,6 +3,8 @@
 
 #include "quicr/detail/joining_fetch_handler.h"
 
+#include <spdlog/spdlog.h>
+
 namespace quicr {
     void JoiningFetchHandler::StreamDataRecv(bool is_start,
                                              std::uint64_t stream_id,

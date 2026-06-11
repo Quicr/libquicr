@@ -60,7 +60,7 @@ namespace quicr {
             const std::uint8_t priority;
             const std::optional<messages::GroupOrder> group_order;
             const messages::Parameters parameters;
-            const messages::GroupId joining_start;
+            const std::uint64_t joining_start;
             const bool absolute;
         };
 

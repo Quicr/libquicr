@@ -250,7 +250,7 @@ TEST_CASE("Integration - Connection")
 
     auto test_connection = [&](const std::string& protocol_scheme) {
         auto client = MakeTestClient(false, std::nullopt, protocol_scheme);
-        std::promise<ServerSetupAttributes> recv_attributes;
+        std::promise<messages::ServerSetupAttributes> recv_attributes;
         auto future = recv_attributes.get_future();
         client->SetConnectedPromise(std::move(recv_attributes));
         client->Start();
@@ -408,7 +408,7 @@ TEST_CASE("Group ID Gap")
         const bool pub_ready = WaitFor([&pub]() { return pub->CanPublish(); });
         CHECK(pub_ready);
 
-        constexpr messages::GroupId expected_gap = 1758273157;
+        constexpr std::uint64_t expected_gap = 1758273157;
 
         // TODO: Re-enable when data roundtrip support.
         // Sub.
@@ -887,9 +887,9 @@ TEST_CASE("Integration - Fetch object roundtrip")
 
         // Set up test data with specific values for all fields
         std::vector<TestServer::FetchResponseData> cached;
-        constexpr messages::GroupId fetch_group = 100;
-        constexpr messages::ObjectId max_object = 100;
-        for (messages::ObjectId object = 0; object <= max_object; object++) {
+        constexpr std::uint64_t fetch_group = 100;
+        constexpr std::uint64_t max_object = 100;
+        for (std::uint64_t object = 0; object <= max_object; object++) {
             TestServer::FetchResponseData response_data{};
             response_data.headers.group_id = fetch_group;
             response_data.headers.subgroup_id = 0;

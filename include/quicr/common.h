@@ -3,10 +3,7 @@
 
 #pragma once
 
-#include "detail/transport.h"
-
 #include <cstdint>
-#include <map>
 #include <span>
 #include <string>
 #include <vector>
@@ -15,7 +12,6 @@ namespace quicr {
     using Byte = uint8_t;
     using Bytes = std::vector<Byte>;
     using BytesSpan = std::span<const Byte>;
-    using ConnectionHandle = uint64_t;
 
     template<class T>
         requires std::is_standard_layout_v<T>
@@ -71,33 +67,6 @@ namespace quicr {
     constexpr uint64_t kMoqtVersion = 0xff00010; ///< draft-ietf-moq-transport-16
     constexpr uint64_t kSubscribeExpires = 0;    ///< Never expires
     constexpr int kReadLoopMaxPerStream = 100; ///< Support packet/frame bursts, but do not allow starving other streams
-
-    /**
-     * @brief Publish namespace attributes
-     *
-     * @details Various attributes relative to the publish namespace
-     */
-    struct PublishNamespaceAttributes
-    {
-        uint64_t request_id{ 0 };
-    };
-
-    /**
-     * @brief Client Setup Attributes
-     */
-    struct ClientSetupAttributes
-    {
-        const std::string endpoint_id;
-    };
-
-    /**
-     * @brief Server Setup Attributes
-     */
-    struct ServerSetupAttributes
-    {
-        const uint64_t moqt_version;
-        const std::string server_id;
-    };
 
     /**
      * @brief  Publish Announce Status

@@ -14,9 +14,6 @@
 #include <vector>
 
 namespace quicr::messages {
-    using SubGroupId = quicr::messages::GroupId;
-    using ObjectPriority = uint8_t;
-
     Bytes& operator<<(Bytes& buffer, const std::optional<Extensions>& extensions);
     Bytes& operator<<(Bytes& buffer, const Extensions& extensions);
     BytesSpan operator>>(BytesSpan buffer, Extensions& extensions);
@@ -304,10 +301,10 @@ namespace quicr::messages {
 
     struct FetchObject
     {
-        messages::GroupId group_id;
-        SubGroupId subgroup_id;
-        ObjectId object_id;
-        ObjectPriority publisher_priority;
+        std::uint64_t group_id;
+        std::uint64_t subgroup_id;
+        std::uint64_t object_id;
+        std::uint8_t publisher_priority;
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
         uint64_t payload_len{ 0 };
@@ -334,10 +331,10 @@ namespace quicr::messages {
 
     struct ObjectDatagram
     {
-        messages::TrackAlias track_alias;
-        messages::GroupId group_id;
-        ObjectId object_id;
-        std::optional<ObjectPriority> priority;
+        std::uint64_t track_alias;
+        std::uint64_t group_id;
+        std::uint64_t object_id;
+        std::optional<std::uint8_t> priority;
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
         uint64_t payload_len{ 0 };
@@ -381,10 +378,10 @@ namespace quicr::messages {
 
     struct ObjectDatagramStatus
     {
-        TrackAlias track_alias;
-        GroupId group_id;
-        ObjectId object_id;
-        std::optional<ObjectPriority> priority;
+        std::uint64_t track_alias;
+        std::uint64_t group_id;
+        std::uint64_t object_id;
+        std::optional<std::uint8_t> priority;
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
         ObjectStatus status;
@@ -418,10 +415,10 @@ namespace quicr::messages {
     struct StreamHeaderSubGroup
     {
         std::optional<StreamHeaderProperties> properties;
-        messages::TrackAlias track_alias;
-        messages::GroupId group_id;
-        std::optional<SubGroupId> subgroup_id;
-        std::optional<ObjectPriority> priority;
+        std::uint64_t track_alias;
+        std::uint64_t group_id;
+        std::optional<std::uint64_t> subgroup_id;
+        std::optional<std::uint8_t> priority;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, StreamHeaderSubGroup& msg);
 
@@ -435,7 +432,7 @@ namespace quicr::messages {
 
     struct StreamSubGroupObject
     {
-        ObjectId object_delta;
+        std::uint64_t object_delta;
         uint64_t payload_len{ 0 };
         ObjectStatus object_status;
         std::optional<Extensions> extensions;

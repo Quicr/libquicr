@@ -155,7 +155,7 @@ namespace quicr {
          * @param track_handler             Track handler to use for track related functions and callbacks
          *
          */
-        void SubscribeTrack(ConnectionHandle connection_handle, std::shared_ptr<SubscribeTrackHandler> track_handler);
+        void SubscribeTrack(std::uint64_t connection_handle, std::shared_ptr<SubscribeTrackHandler> track_handler);
 
         /**
          * @brief Unsubscribe track
@@ -163,7 +163,7 @@ namespace quicr {
          * @param connection_handle         Connection ID to send subscribe
          * @param track_handler             Track handler to use for track related functions and callbacks
          */
-        void UnsubscribeTrack(ConnectionHandle connection_handle,
+        void UnsubscribeTrack(std::uint64_t connection_handle,
                               const std::shared_ptr<SubscribeTrackHandler>& track_handler);
 
         /**
@@ -173,7 +173,7 @@ namespace quicr {
          * @param track_handler             Track handler to use for track related functions and callbacks
          *
          */
-        void UpdateTrackSubscription(ConnectionHandle connection_handle,
+        void UpdateTrackSubscription(std::uint64_t connection_handle,
                                      std::shared_ptr<SubscribeTrackHandler> track_handler);
 
         /**
@@ -183,7 +183,7 @@ namespace quicr {
          * @param track_handler               Track handler to use for track related functions
          *                                    and callbacks
          */
-        void PublishTrack(ConnectionHandle connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
+        void PublishTrack(std::uint64_t connection_handle, std::shared_ptr<PublishTrackHandler> track_handler);
 
         /**
          * @brief Unpublish track
@@ -191,8 +191,7 @@ namespace quicr {
          * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param track_handler               Track handler used when published track
          */
-        void UnpublishTrack(ConnectionHandle connection_handle,
-                            const std::shared_ptr<PublishTrackHandler>& track_handler);
+        void UnpublishTrack(std::uint64_t connection_handle, const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
          * @brief Publish a track namespace
@@ -202,7 +201,7 @@ namespace quicr {
          *                                    and callbacks
          * @param passive                     True indicates that PUBLISH_NAMESPACE will not be sent
          */
-        void PublishNamespace(ConnectionHandle connection_handle,
+        void PublishNamespace(std::uint64_t connection_handle,
                               std::shared_ptr<PublishNamespaceHandler> ns_handler,
                               bool passive = false);
 
@@ -212,7 +211,7 @@ namespace quicr {
          * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param track_handler               Track handler used when published track
          */
-        void PublishNamespaceDone(ConnectionHandle connection_handle,
+        void PublishNamespaceDone(std::uint64_t connection_handle,
                                   const std::shared_ptr<PublishNamespaceHandler>& track_handler);
 
         /**
@@ -221,7 +220,7 @@ namespace quicr {
          * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param handler                     Namespace handler to subscribe with
          */
-        void SubscribeNamespace(ConnectionHandle connection_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
+        void SubscribeNamespace(std::uint64_t connection_handle, std::shared_ptr<SubscribeNamespaceHandler> handler);
 
         /**
          * @brief Unsubscribe from a prefix namespace on a specific connection
@@ -229,7 +228,7 @@ namespace quicr {
          * @param connection_handle           Connection ID from transport for the QUIC connection context
          * @param handler                     Namespace handler to unsubscribe
          */
-        void UnsubscribeNamespace(ConnectionHandle connection_handle,
+        void UnsubscribeNamespace(std::uint64_t connection_handle,
                                   const std::shared_ptr<SubscribeNamespaceHandler>& handler);
 
         /**
@@ -247,7 +246,7 @@ namespace quicr {
          * @param handler                   Constructed SubscribeTrackHandler to subscribe track using
          *                                  Clients set this, relay/server does not need to.
          */
-        void ResolvePublish(ConnectionHandle connection_handle,
+        void ResolvePublish(std::uint64_t connection_handle,
                             uint64_t request_id,
                             const messages::PublishAttributes& attributes,
                             const PublishResponse& publish_response,
@@ -259,7 +258,7 @@ namespace quicr {
          * @param connection_handle         Connection ID to send fetch
          * @param track_handler             Track handler used for fetching
          */
-        void FetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler);
+        void FetchTrack(std::uint64_t connection_handle, std::shared_ptr<FetchTrackHandler> track_handler);
 
         /**
          * @brief Cancel Fetch track
@@ -267,7 +266,7 @@ namespace quicr {
          * @param connection_handle         Connection ID to send fetch cancel.
          * @param track_handler             Fetch Track handler to cancel.
          */
-        void CancelFetchTrack(ConnectionHandle connection_handle, std::shared_ptr<FetchTrackHandler> track_handler);
+        void CancelFetchTrack(std::uint64_t connection_handle, std::shared_ptr<FetchTrackHandler> track_handler);
 
         /**
          * @brief Request track status
@@ -278,7 +277,7 @@ namespace quicr {
          *
          * * @returns Request ID that is used for the track status request
          */
-        uint64_t RequestTrackStatus(ConnectionHandle connection_handle,
+        uint64_t RequestTrackStatus(std::uint64_t connection_handle,
                                     const FullTrackName& track_full_name,
                                     const messages::SubscribeAttributes& subscribe_attributes);
 
@@ -294,7 +293,7 @@ namespace quicr {
          * @param conn_id Connection ID
          * @param is_webtransport True if this is a WebTransport connection
          */
-        void SetWebTransportMode(ConnectionHandle conn_id, bool is_webtransport);
+        void SetWebTransportMode(std::uint64_t conn_id, bool is_webtransport);
 
         /**
          * @brief Response to received MOQT Announce message
@@ -313,7 +312,7 @@ namespace quicr {
             };
             ReasonCode reason_code;
 
-            std::optional<messages::ReasonPhrase> error_reason;
+            std::optional<Bytes> error_reason;
         };
 
         // --BEGIN RESOLVE METHODS ---------------------------------------------------------------------------
@@ -335,7 +334,7 @@ namespace quicr {
          * @param track_alias        Track alias the subscriber should use
          * @param subscribe_response Response for the subscribe
          */
-        void ResolveSubscribe(ConnectionHandle connection_handle,
+        void ResolveSubscribe(std::uint64_t connection_handle,
                               uint64_t request_id,
                               uint64_t track_alias,
                               const RequestResponse& subscribe_response);
@@ -351,8 +350,8 @@ namespace quicr {
          * @param prefix            Track namespace prefix
          * @param response          Response for remainder of subscribe namespace flow
          */
-        void ResolveSubscribeNamespace(ConnectionHandle connection_handle,
-                                       DataContextId data_ctx_id,
+        void ResolveSubscribeNamespace(std::uint64_t connection_handle,
+                                       std::uint64_t data_ctx_id,
                                        uint64_t request_id,
                                        const TrackNamespace& prefix,
                                        const SubscribeNamespaceResponse& response);
@@ -368,8 +367,8 @@ namespace quicr {
          * @param prefix            Track namespace prefix
          * @param response          Response for remainder of subscribe tracks flow
          */
-        void ResolveSubscribeTracks(ConnectionHandle connection_handle,
-                                    DataContextId data_ctx_id,
+        void ResolveSubscribeTracks(std::uint64_t connection_handle,
+                                    std::uint64_t data_ctx_id,
                                     uint64_t request_id,
                                     const TrackNamespace& prefix,
                                     const SubscribeNamespaceResponse& response);
@@ -386,7 +385,7 @@ namespace quicr {
          * @param group_order       Optional group order for the fetch response
          * @param response          Response to the fetch
          */
-        void ResolveFetch(ConnectionHandle connection_handle,
+        void ResolveFetch(std::uint64_t connection_handle,
                           uint64_t request_id,
                           std::uint8_t priority,
                           std::optional<messages::GroupOrder> group_order,
@@ -405,10 +404,10 @@ namespace quicr {
          * @param subscribers        Subscriber connection handles that should be sent the announce
          * @param announce_response  Response for the announcement
          */
-        void ResolvePublishNamespace(ConnectionHandle connection_handle,
+        void ResolvePublishNamespace(std::uint64_t connection_handle,
                                      uint64_t request_id,
                                      const TrackNamespace& track_namespace,
-                                     const std::vector<ConnectionHandle>& subscribers,
+                                     const std::vector<std::uint64_t>& subscribers,
                                      const PublishNamespaceResponse& announce_response);
 
         /**
@@ -420,9 +419,9 @@ namespace quicr {
          * @param request_id        Request ID of the namespace that is done
          * @param subscribers       Subscriber connection handles that should be sent a done message
          */
-        void ResolvePublishNamespaceDone(ConnectionHandle connection_handle,
-                                         messages::RequestID request_id,
-                                         const std::vector<ConnectionHandle>& subscribers);
+        void ResolvePublishNamespaceDone(std::uint64_t connection_handle,
+                                         std::uint64_t request_id,
+                                         const std::vector<std::uint64_t>& subscribers);
 
         /**
          * @brief Accept or reject a request update
@@ -432,7 +431,7 @@ namespace quicr {
          * @param existing_request_id   Existing request ID being updated
          * @param params                Updated parameters
          */
-        void ResolveRequestUpdate(ConnectionHandle connection_handle,
+        void ResolveRequestUpdate(std::uint64_t connection_handle,
                                   uint64_t request_id,
                                   uint64_t existing_request_id,
                                   const messages::Parameters& params);
@@ -449,7 +448,7 @@ namespace quicr {
          * @param subscribe_response       Response to the track status request, either Ok or Error.
          *                                 Largest loation should be set if kOk and there is content
          */
-        void ResolveTrackStatus(ConnectionHandle connection_handle,
+        void ResolveTrackStatus(std::uint64_t connection_handle,
                                 uint64_t request_id,
                                 const RequestResponse& subscribe_response);
 
@@ -474,8 +473,8 @@ namespace quicr {
          * @param track_handler     Server publish track handler
          * @param ephemeral         Indicates if persistent state tracking is needed
          */
-        void BindPublisherTrack(ConnectionHandle connection_handle,
-                                ConnectionHandle src_id,
+        void BindPublisherTrack(std::uint64_t connection_handle,
+                                std::uint64_t src_id,
                                 uint64_t request_id,
                                 const std::shared_ptr<PublishTrackHandler>& track_handler,
                                 bool ephemeral = false);
@@ -490,8 +489,8 @@ namespace quicr {
          * @param track_handler     Server publish track handler
          * @param send_publish_done Indicates to send publish done or not
          */
-        void UnbindPublisherTrack(ConnectionHandle connection_handle,
-                                  ConnectionHandle src_id,
+        void UnbindPublisherTrack(std::uint64_t connection_handle,
+                                  std::uint64_t src_id,
                                   const std::shared_ptr<PublishTrackHandler>& track_handler,
                                   bool send_publish_done = false);
 
@@ -501,7 +500,7 @@ namespace quicr {
          * @param conn_id       Connection ID of the client/fetcher
          * @param track_handler The fetch publisher
          */
-        void BindFetchTrack(TransportConnId conn_id, std::shared_ptr<PublishFetchHandler> track_handler);
+        void BindFetchTrack(std::uint64_t conn_id, std::shared_ptr<PublishFetchHandler> track_handler);
 
         /**
          * @brief Unbind a server fetch publisher track handler
@@ -509,7 +508,7 @@ namespace quicr {
          * @param conn_id       Connection ID of the client/fetcher
          * @param track_handler The fetch publisher
          */
-        void UnbindFetchTrack(ConnectionHandle conn_id, const std::shared_ptr<PublishFetchHandler>& track_handler);
+        void UnbindFetchTrack(std::uint64_t conn_id, const std::shared_ptr<PublishFetchHandler>& track_handler);
 
         ///@}
         // --END SERVER RELAY METHODS ------------------------------------------------------------------------
@@ -538,7 +537,7 @@ namespace quicr {
          * @param publish_attributes Attributes of the publish
          * @param sub_ns_handler     Matching subscribe namespace handler, if any
          */
-        virtual void PublishReceived(ConnectionHandle connection_handle,
+        virtual void PublishReceived(std::uint64_t connection_handle,
                                      uint64_t request_id,
                                      const messages::PublishAttributes& publish_attributes,
                                      std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler);
@@ -551,7 +550,7 @@ namespace quicr {
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
          */
-        virtual void StandaloneFetchReceived(ConnectionHandle connection_handle,
+        virtual void StandaloneFetchReceived(std::uint64_t connection_handle,
                                              uint64_t request_id,
                                              const FullTrackName& track_full_name,
                                              const quicr::messages::StandaloneFetchAttributes& attributes);
@@ -564,7 +563,7 @@ namespace quicr {
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
          */
-        virtual void JoiningFetchReceived(ConnectionHandle connection_handle,
+        virtual void JoiningFetchReceived(std::uint64_t connection_handle,
                                           uint64_t request_id,
                                           const FullTrackName& track_full_name,
                                           const quicr::messages::JoiningFetchAttributes& attributes);
@@ -575,7 +574,7 @@ namespace quicr {
          * @param connection_handle Source connection ID.
          * @param request_id        Request ID received.
          */
-        virtual void FetchCancelReceived(ConnectionHandle connection_handle, uint64_t request_id);
+        virtual void FetchCancelReceived(std::uint64_t connection_handle, uint64_t request_id);
 
         /**
          * @brief Callback notification for track status message received
@@ -587,7 +586,7 @@ namespace quicr {
          * @param request_id            Request ID received
          * @param track_full_name       Track full name
          */
-        virtual void TrackStatusReceived(ConnectionHandle connection_handle,
+        virtual void TrackStatusReceived(std::uint64_t connection_handle,
                                          uint64_t request_id,
                                          const FullTrackName& track_full_name);
         /**
@@ -601,7 +600,7 @@ namespace quicr {
          * @param request_id            Request ID received
          * @param largest_location      Largest location (only set for responses from TRACK_STATUS and REQUEST_UPDATE)
          */
-        virtual void RequestOkReceived(ConnectionHandle connection_handle,
+        virtual void RequestOkReceived(std::uint64_t connection_handle,
                                        uint64_t request_id,
                                        std::optional<messages::Location> largest_location = std::nullopt);
 
@@ -616,7 +615,7 @@ namespace quicr {
          * @param request_id            Request ID received
          * @param response              Response message
          */
-        virtual void RequestErrorReceived(ConnectionHandle connection_handle,
+        virtual void RequestErrorReceived(std::uint64_t connection_handle,
                                           uint64_t request_id,
                                           const RequestResponse& response);
 
@@ -628,7 +627,7 @@ namespace quicr {
          * @param existing_request_id   Existing request ID being updated
          * @param params                Updated parameters
          */
-        virtual void RequestUpdateReceived(ConnectionHandle connection_handle,
+        virtual void RequestUpdateReceived(std::uint64_t connection_handle,
                                            uint64_t request_id,
                                            uint64_t existing_request_id,
                                            const messages::Parameters& params);
@@ -647,7 +646,7 @@ namespace quicr {
          *
          * @param server_setup_attributes Server setup attributes received
          */
-        virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes);
+        virtual void ServerSetupReceived(const messages::ServerSetupAttributes& server_setup_attributes);
 
         /**
          * @brief Notification on publish namespace status change
@@ -657,7 +656,7 @@ namespace quicr {
          * @param request_id Request ID of the namespace being changed
          * @param status     Publish namespace status
          */
-        virtual void PublishNamespaceStatusChanged(messages::RequestID request_id, const PublishNamespaceStatus status);
+        virtual void PublishNamespaceStatusChanged(std::uint64_t request_id, const PublishNamespaceStatus status);
 
         /**
          * @brief Callback notification for announce received by subscribe namespace
@@ -668,7 +667,7 @@ namespace quicr {
          * @param publish_namespace_attributes   Publish announce attributes received
          */
         virtual void PublishNamespaceReceived(const TrackNamespace& track_namespace,
-                                              const PublishNamespaceAttributes& publish_namespace_attributes);
+                                              const messages::PublishNamespaceAttributes& publish_namespace_attributes);
 
         /**
          * @brief Callback notification for publish namespace done received
@@ -677,7 +676,7 @@ namespace quicr {
          *
          * @param request_id Request ID of the namespace that is done
          */
-        virtual void PublishNamespaceDoneReceived(messages::RequestID request_id);
+        virtual void PublishNamespaceDoneReceived(std::uint64_t request_id);
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -720,7 +719,7 @@ namespace quicr {
          * @param connection_handle Transport connection ID
          * @param remote              Transport remote connection information
          */
-        virtual void NewConnectionAccepted(ConnectionHandle connection_handle, const ConnectionRemoteInfo& remote);
+        virtual void NewConnectionAccepted(std::uint64_t connection_handle, const ConnectionRemoteInfo& remote);
 
         /**
          * @brief Callback notification for connection status/state change
@@ -731,7 +730,7 @@ namespace quicr {
          * @param connection_handle Transport connection ID
          * @param status            ConnectionStatus of connection id
          */
-        virtual void ConnectionStatusChanged(ConnectionHandle connection_handle, ConnectionStatus status);
+        virtual void ConnectionStatusChanged(std::uint64_t connection_handle, ConnectionStatus status);
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -743,7 +742,7 @@ namespace quicr {
          * @param connection_handle Source connection ID
          * @param metrics           Copy of the connection metrics for the sample period
          */
-        virtual void MetricsSampled(ConnectionHandle connection_handle, const ConnectionMetrics& metrics);
+        virtual void MetricsSampled(std::uint64_t connection_handle, const ConnectionMetrics& metrics);
 
         /**
          * @brief Callback on client setup message
@@ -754,8 +753,8 @@ namespace quicr {
          * @param connection_handle       Transport connection ID
          * @param client_setup_attributes Decoded client setup message
          */
-        virtual void ClientSetupReceived(ConnectionHandle connection_handle,
-                                         const ClientSetupAttributes& client_setup_attributes);
+        virtual void ClientSetupReceived(std::uint64_t connection_handle,
+                                         const messages::ClientSetupAttributes& client_setup_attributes);
 
         /**
          * @brief Callback notification for new announce received that needs to be authorized
@@ -769,9 +768,9 @@ namespace quicr {
          * @param track_namespace               Track namespace
          * @param publish_announce_attributes   Publish announce attributes received
          */
-        virtual void PublishNamespaceReceived(ConnectionHandle connection_handle,
+        virtual void PublishNamespaceReceived(std::uint64_t connection_handle,
                                               const TrackNamespace& track_namespace,
-                                              const PublishNamespaceAttributes& publish_announce_attributes);
+                                              const messages::PublishNamespaceAttributes& publish_announce_attributes);
 
         /**
          * @brief Callback notification for publish namespace done received
@@ -786,8 +785,8 @@ namespace quicr {
          * @returns Vector of subscribe namespace connection handler ids matching prefix to the namespace being
          *      marked as done.
          */
-        virtual std::vector<ConnectionHandle> PublishNamespaceDoneReceived(ConnectionHandle connection_handle,
-                                                                           messages::RequestID request_id);
+        virtual std::vector<std::uint64_t> PublishNamespaceDoneReceived(std::uint64_t connection_handle,
+                                                                        std::uint64_t request_id);
 
         /**
          * @brief Callback notification for unsubscribe namespace received
@@ -797,7 +796,7 @@ namespace quicr {
          * @param connection_handle Source connection ID
          * @param prefix_namespace  Prefix namespace
          */
-        virtual void UnsubscribeNamespaceReceived(ConnectionHandle connection_handle,
+        virtual void UnsubscribeNamespaceReceived(std::uint64_t connection_handle,
                                                   const TrackNamespace& prefix_namespace);
 
         /**
@@ -812,8 +811,8 @@ namespace quicr {
          * @param prefix_namespace   Track namespace prefix
          * @param attributes         Attributes received
          */
-        virtual void SubscribeNamespaceReceived(ConnectionHandle connection_handle,
-                                                DataContextId data_ctx_id,
+        virtual void SubscribeNamespaceReceived(std::uint64_t connection_handle,
+                                                std::uint64_t data_ctx_id,
                                                 const TrackNamespace& prefix_namespace,
                                                 const messages::SubscribeNamespaceAttributes& attributes);
 
@@ -829,8 +828,8 @@ namespace quicr {
          * @param prefix_namespace   Track namespace prefix
          * @param attributes         Attributes received
          */
-        virtual void SubscribeTracksReceived(ConnectionHandle connection_handle,
-                                             DataContextId data_ctx_id,
+        virtual void SubscribeTracksReceived(std::uint64_t connection_handle,
+                                             std::uint64_t data_ctx_id,
                                              const TrackNamespace& prefix_namespace,
                                              const messages::SubscribeNamespaceAttributes& attributes);
 
@@ -847,7 +846,7 @@ namespace quicr {
          * @param track_full_name      Track full name
          * @param subscribe_attributes Subscribe attributes received
          */
-        virtual void SubscribeReceived(ConnectionHandle connection_handle,
+        virtual void SubscribeReceived(std::uint64_t connection_handle,
                                        uint64_t request_id,
                                        const FullTrackName& track_full_name,
                                        const messages::SubscribeAttributes& subscribe_attributes);
@@ -860,7 +859,7 @@ namespace quicr {
          * @param connection_handle Source connection ID
          * @param request_id        Request ID received
          */
-        virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t request_id);
+        virtual void UnsubscribeReceived(std::uint64_t connection_handle, uint64_t request_id);
 
         /**
          * @brief Callback notification on publish done received
@@ -870,7 +869,7 @@ namespace quicr {
          * @param connection_handle Source connection ID
          * @param request_id        Request ID received
          */
-        virtual void PublishDoneReceived(ConnectionHandle connection_handle, uint64_t request_id);
+        virtual void PublishDoneReceived(std::uint64_t connection_handle, uint64_t request_id);
 
         /**
          * @brief New group requested received by a subscription
@@ -880,7 +879,7 @@ namespace quicr {
          * @param track_full_name Track full name
          * @param group_id        Group ID requested — should be plus one of current group or zero
          */
-        virtual void NewGroupRequested(const FullTrackName& track_full_name, messages::GroupId group_id);
+        virtual void NewGroupRequested(const FullTrackName& track_full_name, std::uint64_t group_id);
 
         ///@}
         // --END CALLBACKS -----------------------------------------------------------------------------------
@@ -889,7 +888,7 @@ namespace quicr {
         struct StartTransportResult
         {
             Status status;
-            std::optional<ConnectionHandle> connection_handle;
+            std::optional<std::uint64_t> connection_handle;
         };
 
         /**
@@ -937,27 +936,27 @@ namespace quicr {
         // Transport Delegate/callback functions
         // -------------------------------------------------------------------------------------------------
 
-        void OnNewDataContext([[maybe_unused]] const ConnectionHandle& connection_handle,
-                              [[maybe_unused]] const DataContextId& data_ctx_id) override;
+        void OnNewDataContext([[maybe_unused]] const std::uint64_t& connection_handle,
+                              [[maybe_unused]] const std::uint64_t& data_ctx_id) override;
 
-        void OnConnectionStatus(const ConnectionHandle& connection_handle, const TransportStatus status) override;
-        void OnNewConnection(const ConnectionHandle& connection_handle, const TransportRemote& remote) override;
-        void OnRecvStream(const ConnectionHandle& connection_handle,
+        void OnConnectionStatus(const std::uint64_t& connection_handle, const TransportStatus status) override;
+        void OnNewConnection(const std::uint64_t& connection_handle, const TransportRemote& remote) override;
+        void OnRecvStream(const std::uint64_t& connection_handle,
                           uint64_t stream_id,
-                          std::optional<DataContextId> data_ctx_id,
+                          std::optional<std::uint64_t> data_ctx_id,
                           const bool is_bidir = false) override;
-        void OnRecvDgram(const ConnectionHandle& connection_handle, std::optional<DataContextId> data_ctx_id) override;
+        void OnRecvDgram(const std::uint64_t& connection_handle, std::optional<std::uint64_t> data_ctx_id) override;
 
         void OnConnectionMetricsSampled(MetricsTimeStamp sample_time,
-                                        TransportConnId conn_id,
+                                        std::uint64_t conn_id,
                                         const QuicConnectionMetrics& quic_connection_metrics) override;
 
         void OnDataMetricsStampled(MetricsTimeStamp sample_time,
-                                   TransportConnId conn_id,
-                                   DataContextId data_ctx_id,
+                                   std::uint64_t conn_id,
+                                   std::uint64_t data_ctx_id,
                                    const QuicDataContextMetrics& quic_data_context_metrics) override;
 
-        void OnStreamClosed(const ConnectionHandle& connection_handle,
+        void OnStreamClosed(const std::uint64_t& connection_handle,
                             std::uint64_t stream_id,
                             std::shared_ptr<StreamRxContext> rx_ctx,
                             std::optional<uint64_t> request_id,
@@ -1009,7 +1008,7 @@ namespace quicr {
             {
             }
 
-            ConnectionHandle connection_handle{ 0 };
+            std::uint64_t connection_handle{ 0 };
             std::optional<uint64_t> tx_ctrl_data_ctx_id;
             std::optional<uint64_t> tx_ctrl_stream_id;
             std::optional<uint64_t> rx_ctrl_stream_id;
@@ -1036,16 +1035,16 @@ namespace quicr {
                 FullTrackName track_full_name;
                 TrackHash track_hash{ 0, 0 };
                 std::optional<messages::Location> largest_location{ std::nullopt };
-                DataContextId data_ctx_id{ 0 };
+                std::uint64_t data_ctx_id{ 0 };
             };
 
-            std::map<messages::RequestID, SubscribeContext> recv_req_id;
+            std::map<std::uint64_t, SubscribeContext> recv_req_id;
 
             /// Lookup request ID by carrying data context.
-            std::map<DataContextId, messages::RequestID> request_id_by_data_ctx;
+            std::map<std::uint64_t, std::uint64_t> request_id_by_data_ctx;
 
             /// Handlers by request ID
-            std::map<messages::RequestID, TrackHandler> request_handlers;
+            std::map<std::uint64_t, TrackHandler> request_handlers;
 
             /**
              * Data is received with a track alias that is set by the publisher. The map key
@@ -1053,7 +1052,7 @@ namespace quicr {
              * is matched to this track alias to find the subscriber handler that matches. The
              * subscribe handler has both received track alias and generated track alias.
              */
-            std::map<messages::TrackAlias, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
+            std::map<std::uint64_t, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
 
             /**
              * Publish tracks by namespace and name. map[track namespace][track name] = track handler
@@ -1063,14 +1062,13 @@ namespace quicr {
               pub_tracks_by_name;
 
             /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
-            std::map<messages::TrackAlias, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>>
-              pub_tracks_by_track_alias;
+            std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias;
 
             /// Published tracks by quic transport data context ID.
-            std::map<DataContextId, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
+            std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
             /// Fetch Publishers by request ID.
-            std::map<messages::RequestID, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
+            std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
 
             ConnectionMetrics metrics{};   ///< Connection metrics
             bool is_webtransport{ false }; ///< True if this connection uses WebTransport over HTTP/3
@@ -1097,7 +1095,7 @@ namespace quicr {
 
         std::shared_ptr<Session> GetSharedPtr();
 
-        ConnectionContext& GetConnectionContext(ConnectionHandle conn);
+        ConnectionContext& GetConnectionContext(std::uint64_t conn);
 
         bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
                                 uint64_t data_ctx_id,
@@ -1111,12 +1109,12 @@ namespace quicr {
         }
 
         void SendCtrlMsg(const ConnectionContext& conn_ctx,
-                         DataContextId data_ctx_id,
+                         std::uint64_t data_ctx_id,
                          std::shared_ptr<const std::vector<uint8_t>> data);
 
         template<typename... Fields>
         void SendCtrlMsg(const ConnectionContext& conn_ctx,
-                         DataContextId data_ctx_id,
+                         std::uint64_t data_ctx_id,
                          messages::ControlMessageType type,
                          Fields&&... args)
         {
@@ -1134,22 +1132,22 @@ namespace quicr {
         /*===================================================================*/
 
         void SendRequestOk(ConnectionContext& conn_ctx,
-                           DataContextId data_ctx_id,
-                           messages::RequestID request_id,
+                           std::uint64_t data_ctx_id,
+                           std::uint64_t request_id,
                            std::optional<messages::Location> largest_location = std::nullopt);
 
         void SendRequestUpdate(const ConnectionContext& conn_ctx,
-                               DataContextId data_ctx_id,
-                               messages::RequestID request_id,
-                               messages::RequestID existing_request_id,
+                               std::uint64_t data_ctx_id,
+                               std::uint64_t request_id,
+                               std::uint64_t existing_request_id,
                                TrackHash th,
-                               std::optional<messages::GroupId> end_group_id,
+                               std::optional<std::uint64_t> end_group_id,
                                std::uint8_t priority,
                                bool forward);
 
         void SendRequestError(ConnectionContext& conn_ctx,
-                              DataContextId data_ctx_id,
-                              messages::RequestID request_id,
+                              std::uint64_t data_ctx_id,
+                              std::uint64_t request_id,
                               messages::ErrorCode error,
                               std::chrono::milliseconds retry_interval,
                               const std::string& reason);
@@ -1159,27 +1157,25 @@ namespace quicr {
         /*===================================================================*/
 
         void SendPublishNamespace(ConnectionContext& conn_ctx,
-                                  DataContextId data_ctx_id,
-                                  messages::RequestID request_id,
+                                  std::uint64_t data_ctx_id,
+                                  std::uint64_t request_id,
                                   const TrackNamespace& track_namespace);
 
-        void SendPublishNamespaceDone(ConnectionContext& conn_ctx,
-                                      DataContextId data_ctx_id,
-                                      messages::RequestID request_id);
+        void SendPublishNamespaceDone(ConnectionContext& conn_ctx, std::uint64_t data_ctx_id, std::uint64_t request_id);
 
         /*===================================================================*/
         // Subscribe Namespace
         /*===================================================================*/
 
         void SendSubscribeNamespace(ConnectionContext& conn_ctx,
-                                    DataContextId data_ctx_id,
-                                    messages::RequestID request_id,
+                                    std::uint64_t data_ctx_id,
+                                    std::uint64_t request_id,
                                     const TrackNamespace& prefix,
                                     const messages::Filter& filter,
                                     messages::ControlMessageType type);
 
         void SendUnsubscribeNamespace(ConnectionContext& conn_ctx,
-                                      DataContextId data_ctx_id,
+                                      std::uint64_t data_ctx_id,
                                       const TrackNamespace& prefix);
 
         /*===================================================================*/
@@ -1187,8 +1183,8 @@ namespace quicr {
         /*===================================================================*/
 
         void SendSubscribe(ConnectionContext& conn_ctx,
-                           DataContextId data_ctx_id,
-                           messages::RequestID request_id,
+                           std::uint64_t data_ctx_id,
+                           std::uint64_t request_id,
                            const FullTrackName& tfn,
                            TrackHash th,
                            std::uint8_t priority,
@@ -1197,54 +1193,54 @@ namespace quicr {
                            std::optional<std::chrono::milliseconds> delivery_timeout);
 
         void SendSubscribeOk(ConnectionContext& conn_ctx,
-                             DataContextId data_ctx_id,
-                             messages::RequestID request_id,
+                             std::uint64_t data_ctx_id,
+                             std::uint64_t request_id,
                              uint64_t track_alias,
                              uint64_t expires,
                              const std::optional<messages::Location>& largest_location,
                              messages::GroupOrder publisher_default_group_order);
-        void SendUnsubscribe(ConnectionContext& conn_ctx, DataContextId data_ctx_id, messages::RequestID request_id);
+        void SendUnsubscribe(ConnectionContext& conn_ctx, std::uint64_t data_ctx_id, std::uint64_t request_id);
 
         /*===================================================================*/
         // Publish
         /*===================================================================*/
 
         void SendPublish(ConnectionContext& conn_ctx,
-                         DataContextId data_ctx_id,
-                         messages::RequestID request_id,
+                         std::uint64_t data_ctx_id,
+                         std::uint64_t request_id,
                          const messages::PublishAttributes& publish);
 
         void SendPublishDone(ConnectionContext& conn_ctx,
-                             DataContextId data_ctx_id,
-                             messages::RequestID request_id,
+                             std::uint64_t data_ctx_id,
+                             std::uint64_t request_id,
                              messages::PublishDoneStatusCode status,
                              const std::string& reason);
 
         void SendPublishOk(ConnectionContext& conn_ctx,
-                           DataContextId data_ctx_id,
-                           messages::RequestID request_id,
+                           std::uint64_t data_ctx_id,
+                           std::uint64_t request_id,
                            bool forward,
                            std::optional<std::uint8_t> priority,
                            std::optional<messages::GroupOrder> group_order,
                            const messages::Filter& filter);
 
-        std::optional<DataContextId> FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
+        std::optional<std::uint64_t> FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
                                                                        const TrackNamespace& track_namespace) const;
 
-        DataContextId ResponseDataContext(const ConnectionContext& conn_ctx, messages::RequestID request_id) const;
+        std::uint64_t ResponseDataContext(const ConnectionContext& conn_ctx, std::uint64_t request_id) const;
 
         /*===================================================================*/
         // Track Status
         /*===================================================================*/
 
-        void SendTrackStatus(ConnectionContext& conn_ctx, messages::RequestID request_id, const FullTrackName& tfn);
+        void SendTrackStatus(ConnectionContext& conn_ctx, std::uint64_t request_id, const FullTrackName& tfn);
 
         /*===================================================================*/
         // Fetch
         /*===================================================================*/
 
         void SendFetch(ConnectionContext& conn_ctx,
-                       messages::RequestID request_id,
+                       std::uint64_t request_id,
                        const FullTrackName& tfn,
                        std::uint8_t priority,
                        std::optional<messages::GroupOrder> group_order,
@@ -1252,17 +1248,17 @@ namespace quicr {
                        const messages::FetchEndLocation& end_location);
 
         void SendJoiningFetch(ConnectionContext& conn_ctx,
-                              messages::RequestID request_id,
+                              std::uint64_t request_id,
                               std::uint8_t priority,
                               std::optional<messages::GroupOrder> group_order,
-                              messages::RequestID joining_request_id,
-                              messages::GroupId joining_start,
+                              std::uint64_t joining_request_id,
+                              std::uint64_t joining_start,
                               bool absolute);
 
-        void SendFetchCancel(ConnectionContext& conn_ctx, messages::RequestID request_id);
+        void SendFetchCancel(ConnectionContext& conn_ctx, std::uint64_t request_id);
 
         void SendFetchOk(ConnectionContext& conn_ctx,
-                         messages::RequestID request_id,
+                         std::uint64_t request_id,
                          messages::GroupOrder publisher_default_group_order,
                          bool end_of_track,
                          messages::Location end_location);
@@ -1271,7 +1267,7 @@ namespace quicr {
         // Other member functions
         /*===================================================================*/
 
-        void CloseConnection(ConnectionHandle connection_handle,
+        void CloseConnection(std::uint64_t connection_handle,
                              messages::TerminationReason reason,
                              const std::string& reason_str);
 
@@ -1286,13 +1282,13 @@ namespace quicr {
                                       bool send_unsubscribe = true);
 
         void CloseRequestHandler(ConnectionContext& conn_ctx,
-                                 ConnectionHandle connection_handle,
-                                 messages::RequestID request_id,
+                                 std::uint64_t connection_handle,
+                                 std::uint64_t request_id,
                                  std::uint64_t stream_id,
                                  StreamClosedFlag flag);
 
         void ClosePublishTrackLocal(ConnectionContext& conn_ctx,
-                                    ConnectionHandle connection_handle,
+                                    std::uint64_t connection_handle,
                                     PublishTrackHandler& handler,
                                     std::uint64_t stream_id,
                                     bool is_reset);
@@ -1315,10 +1311,10 @@ namespace quicr {
                          ConnectionContext& conn_ctx,
                          std::shared_ptr<const std::vector<uint8_t>> data) const;
 
-        std::uint64_t CreateStream(ConnectionHandle conn, std::uint64_t data_ctx_id, uint8_t priority);
+        std::uint64_t CreateStream(std::uint64_t conn, std::uint64_t data_ctx_id, uint8_t priority);
 
-        TransportError Enqueue(const TransportConnId& conn_id,
-                               const DataContextId& data_ctx_id,
+        TransportError Enqueue(const std::uint64_t& conn_id,
+                               const std::uint64_t& data_ctx_id,
                                std::uint64_t stream_id,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                const uint8_t priority,
@@ -1337,7 +1333,7 @@ namespace quicr {
         const ServerConfig server_config_;
         const ClientConfig client_config_;
 
-        std::map<ConnectionHandle, ConnectionContext> connections_;
+        std::map<std::uint64_t, ConnectionContext> connections_;
 
         Status status_{ Status::kNotReady };
 

@@ -9,9 +9,22 @@
 #include <optional>
 
 namespace quicr::messages {
+    /**
+     * @brief Client Setup Attributes
+     */
+    struct ClientSetupAttributes
+    {
+        const std::string endpoint_id;
+    };
 
-    // TODO: Maybe split base attributes out from SUBSCRIBE / PUBLISH?
-    // TODO: E.g priority, new_group_request_id.
+    /**
+     * @brief Server Setup Attributes
+     */
+    struct ServerSetupAttributes
+    {
+        const uint64_t moqt_version;
+        const std::string server_id;
+    };
 
     /**
      * @brief Subscribe attributes
@@ -33,7 +46,7 @@ namespace quicr::messages {
     struct PublishAttributes
     {
         const FullTrackName track_full_name;
-        const TrackAlias track_alias;
+        const std::uint64_t track_alias;
         const std::vector<Token> auth_tokens;
         const std::optional<std::uint64_t> expires;
         const std::optional<Location> largest_object;
@@ -49,9 +62,9 @@ namespace quicr::messages {
     struct FetchEndLocation
     {
         /// The group ID of the fetch's end location (inclusive).
-        GroupId group{ 0 };
+        std::uint64_t group{ 0 };
         /// The object ID of the fetch's end location (inclusive), or null for the whole group.
-        std::optional<ObjectId> object;
+        std::optional<std::uint64_t> object;
     };
 
     struct StandaloneFetchAttributes
@@ -68,7 +81,7 @@ namespace quicr::messages {
         std::uint8_t priority{ 0 };                                         ///< Fetch priority
         std::optional<GroupOrder> group_order;                              ///< Fetch group order
         GroupOrder publisher_default_group_order{ GroupOrder::kAscending }; ///< Publisher track default group order
-        RequestID joining_request_id{ 0 };                                  ///< Fetch joining request_id
+        std::uint64_t joining_request_id{ 0 };                              ///< Fetch joining request_id
         bool relative{ false };           ///< True indicates relative to largest, False indicates absolute
         std::uint64_t joining_start{ 0 }; ///< Fetch joining start
     };
@@ -80,4 +93,13 @@ namespace quicr::messages {
         Filter filter{ std::monostate{} };
     };
 
+    /**
+     * @brief Publish namespace attributes
+     *
+     * @details Various attributes relative to the publish namespace
+     */
+    struct PublishNamespaceAttributes
+    {
+        uint64_t request_id{ 0 };
+    };
 }

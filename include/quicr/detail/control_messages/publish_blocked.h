@@ -12,7 +12,7 @@ namespace quicr::messages::control {
         static constexpr std::uint64_t kType = 0xF;
 
         const TrackNamespace track_namespace_suffix;
-        const TrackName track_name;
+        const Bytes track_name;
 
         explicit PublishBlocked(BytesSpan payload)
           : PublishBlocked(MessageReader{ payload })
@@ -22,7 +22,7 @@ namespace quicr::messages::control {
       private:
         explicit PublishBlocked(MessageReader reader)
           : track_namespace_suffix(reader.Read<TrackNamespace>())
-          , track_name(reader.Read<TrackName>())
+          , track_name(reader.Read<Bytes>())
         {
             reader.ExpectDone();
         }

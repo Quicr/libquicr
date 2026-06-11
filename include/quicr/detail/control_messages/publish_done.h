@@ -13,7 +13,7 @@ namespace quicr::messages::control {
 
         const PublishDoneStatus status_code;
         const std::uint64_t stream_count;
-        const ReasonPhrase error_reason;
+        const Bytes error_reason;
 
         explicit PublishDone(BytesSpan payload)
           : PublishDone(MessageReader{ payload })
@@ -24,7 +24,7 @@ namespace quicr::messages::control {
         explicit PublishDone(MessageReader reader)
           : status_code(static_cast<PublishDoneStatus>(reader.Read<std::uint64_t>()))
           , stream_count(reader.Read<std::uint64_t>())
-          , error_reason(reader.Read<ReasonPhrase>())
+          , error_reason(reader.Read<Bytes>())
         {
             reader.ExpectDone();
         }

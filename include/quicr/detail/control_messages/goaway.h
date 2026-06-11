@@ -34,7 +34,7 @@ namespace quicr::messages::control {
 
         const Bytes new_session_uri;
         const std::uint64_t timeout;
-        const RequestID request_id;
+        const std::uint64_t request_id;
 
         explicit ControlGoaway(BytesSpan payload)
           : ControlGoaway(MessageReader{ payload })
@@ -45,7 +45,7 @@ namespace quicr::messages::control {
         explicit ControlGoaway(MessageReader reader)
           : new_session_uri(reader.Read<Bytes>())
           , timeout(reader.Read<std::uint64_t>())
-          , request_id(reader.Read<RequestID>())
+          , request_id(reader.Read<std::uint64_t>())
         {
             reader.ExpectDone();
         }

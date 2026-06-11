@@ -30,7 +30,6 @@ target_sources(quicr PRIVATE
     subscribe_namespace_handler.cpp
     subscribe_track_handler.cpp
     transport_picoquic.cpp
-    transport.cpp
 )
 
 target_link_libraries(quicr PUBLIC
