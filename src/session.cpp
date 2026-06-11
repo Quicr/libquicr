@@ -4,10 +4,11 @@
 #include "quicr/session.h"
 #include "quicr/detail/control_messages.h"
 #include "quicr/detail/control_messages/setup.h"
-#include "quicr/detail/control_messages/track_properties.h"
 #include "quicr/detail/ctrl_message_types.h"
 #include "quicr/detail/message.h"
 #include "quicr/detail/messages.h"
+#include "quicr/detail/parameters.h"
+#include "quicr/detail/track_properties.h"
 #include "quicr/subscribe_namespace_handler.h"
 
 #include <iomanip>
