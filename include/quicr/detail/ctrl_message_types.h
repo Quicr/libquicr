@@ -1127,6 +1127,13 @@ namespace quicr::messages {
         return it->second;
     }
 
+    template<typename T>
+    concept ParameterValueType =
+      HasByteStreamOperators<std::decay_t<T>> || ByteParameter<std::decay_t<T>> ||
+      std::is_same_v<std::decay_t<T>, Location> || std::is_same_v<std::decay_t<T>, Bytes> || requires(T v) {
+          { UintVar(v) };
+      };
+
     template<typename Type = ParameterType>
         requires std::is_convertible_v<Type, std::uint64_t> ||
                  std::is_same_v<std::underlying_type_t<Type>, std::uint64_t>
@@ -1179,11 +1186,7 @@ namespace quicr::messages {
             return *this;
         }
 
-        template<typename T>
-            requires HasByteStreamOperators<T> || std::is_convertible_v<T, std::uint8_t> ||
-                     std::is_same_v<T, Location> || std::is_same_v<T, Bytes> || requires(T v) {
-                         { UintVar(v) };
-                     }
+        template<ParameterValueType T>
         ParameterList& AddOptional(Type type, const std::optional<T>& value)
         {
             if (value.has_value()) {
@@ -1208,26 +1211,41 @@ namespace quicr::messages {
             return it->second;
         }
 
-        template<typename T>
-            requires HasByteStreamOperators<T> || std::is_convertible_v<T, std::uint8_t> ||
-                     std::is_same_v<T, Location> || std::is_same_v<T, Bytes> || requires(T v) {
-                         { UintVar(v) };
-                     }
+        template<ParameterValueType T>
         T Get(Type type) const
         {
             auto bytes = Find(type);
             if (bytes.empty()) {
                 return {};
             }
-            if constexpr (std::is_same_v<T, Bytes>) {
-                return Bytes{ bytes.begin(), bytes.end() };
-            } else if constexpr (HasByteStreamOperators<T>) {
-                T result;
-                bytes >> result;
-                return result;
-            }
 
-            return FromBytes<T>(bytes);
+            switch (GetParameterEncoding(type)) {
+                case ParameterEncoding::kByte:
+                    if constexpr (ByteParameter<T>) {
+                        return static_cast<T>(bytes[0]);
+                    } else {
+                        throw ProtocolViolationException("Given parameter type must be u8 (type=" +
+                                                         std::to_string(static_cast<std::uint64_t>(type)) + ")");
+                    }
+                case ParameterEncoding::kVarint:
+                    if constexpr (requires(T v) { UintVar(v); }) {
+                        return static_cast<T>(UintVar(bytes).Get());
+                    } else {
+                        throw ProtocolViolationException("Given parameter type must be uvarint(u64) (type=" +
+                                                         std::to_string(static_cast<std::uint64_t>(type)) + ")");
+                    }
+                default:
+                    if constexpr (std::is_same_v<T, Bytes> || std::is_same_v<T, BytesSpan>) {
+                        return Bytes{ bytes.begin(), bytes.end() };
+                    } else if constexpr (HasByteStreamOperators<T>) {
+                        T result;
+                        bytes >> result;
+                        return result;
+                    } else {
+                        throw ProtocolViolationException("Given parameter type must be Location or Bytes (type=" +
+                                                         std::to_string(static_cast<std::uint64_t>(type)) + ")");
+                    }
+            }
         }
 
         Filter GetFilter(FilterType type) const
@@ -1244,11 +1262,7 @@ namespace quicr::messages {
             return DeserializeFilter(type, bytes);
         }
 
-        template<typename T>
-            requires HasByteStreamOperators<T> || std::is_convertible_v<T, std::uint8_t> ||
-                     std::is_same_v<T, Location> || std::is_same_v<T, Bytes> || requires(T v) {
-                         { UintVar(v) };
-                     }
+        template<ParameterValueType T>
         std::optional<T> GetOptional(Type type) const
         {
             return Contains(type) ? std::make_optional(Get<T>(type)) : std::nullopt;
