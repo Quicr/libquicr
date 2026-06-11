@@ -11,7 +11,7 @@ namespace quicr::messages::control {
     {
         const Bytes connect_uri;
         const TrackNamespace track_namespace;
-        const TrackName track_name;
+        const Bytes track_name;
     };
 
     struct RequestError
@@ -21,7 +21,7 @@ namespace quicr::messages::control {
 
         const ErrorCode error_code;
         const std::uint64_t retry_interval;
-        const ReasonPhrase error_reason;
+        const Bytes error_reason;
         const std::optional<Redirect> redirect;
 
         explicit RequestError(BytesSpan payload)
@@ -33,7 +33,7 @@ namespace quicr::messages::control {
         explicit RequestError(MessageReader reader)
           : error_code(static_cast<ErrorCode>(reader.Read<std::uint64_t>()))
           , retry_interval(reader.Read<std::uint64_t>())
-          , error_reason(reader.Read<ReasonPhrase>())
+          , error_reason(reader.Read<Bytes>())
           , redirect(ReadRedirect(reader, error_code))
         {
             reader.ExpectDone();
@@ -48,7 +48,7 @@ namespace quicr::messages::control {
             return Redirect{
                 .connect_uri = reader.Read<Bytes>(),
                 .track_namespace = reader.Read<TrackNamespace>(),
-                .track_name = reader.Read<TrackName>(),
+                .track_name = reader.Read<Bytes>(),
             };
         }
     };

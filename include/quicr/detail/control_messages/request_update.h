@@ -11,7 +11,7 @@ namespace quicr::messages::control {
     {
         static constexpr std::uint64_t kType = 0x2;
 
-        const RequestID request_id;
+        const std::uint64_t request_id;
         const Parameters parameters;
 
         explicit RequestUpdate(BytesSpan payload)
@@ -21,7 +21,7 @@ namespace quicr::messages::control {
 
       private:
         explicit RequestUpdate(MessageReader reader)
-          : request_id(reader.Read<RequestID>())
+          : request_id(reader.Read<std::uint64_t>())
           , parameters(reader.Read<Parameters>())
         {
             reader.ExpectDone();

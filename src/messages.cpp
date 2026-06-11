@@ -3,6 +3,7 @@
 
 #include "quicr/detail/messages.h"
 
+#include <cassert>
 #include <limits>
 
 using namespace quicr::messages;
@@ -752,7 +753,7 @@ namespace quicr::messages {
                         msg.subgroup_id = std::nullopt; // Will be updated by first object.
                         break;
                     case SubgroupIdType::kExplicit:
-                        SubGroupId subgroup_id;
+                        std::uint64_t subgroup_id;
                         if (!ParseUintVField(buffer, subgroup_id)) {
                             return false;
                         }

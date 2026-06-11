@@ -112,7 +112,7 @@ namespace quicr_test {
 
         struct SubscribeDetails
         {
-            quicr::ConnectionHandle connection_handle;
+            std::uint64_t connection_handle;
             uint64_t request_id;
             quicr::FullTrackName track_full_name;
             quicr::messages::SubscribeAttributes subscribe_attributes;
@@ -120,17 +120,17 @@ namespace quicr_test {
 
         struct SubscribeNamespaceDetails
         {
-            quicr::ConnectionHandle connection_handle;
-            quicr::DataContextId data_ctx_id{ 0 };
+            std::uint64_t connection_handle;
+            std::uint64_t data_ctx_id{ 0 };
             quicr::TrackNamespace prefix_namespace;
             quicr::messages::SubscribeNamespaceAttributes attributes;
         };
 
         struct PublishNamespaceDetails
         {
-            quicr::ConnectionHandle connection_handle;
+            std::uint64_t connection_handle;
             quicr::TrackNamespace track_namespace;
-            quicr::PublishNamespaceAttributes attributes;
+            quicr::messages::PublishNamespaceAttributes attributes;
         };
 
         // Data to respond with when a fetch is received
@@ -170,57 +170,56 @@ namespace quicr_test {
                                     const quicr::messages::PublishAttributes& attributes);
 
       protected:
-        std::vector<quicr::ConnectionHandle> PublishNamespaceDoneReceived(
-          quicr::ConnectionHandle,
-          quicr::messages::RequestID request_id) override
+        std::vector<std::uint64_t> PublishNamespaceDoneReceived(std::uint64_t, std::uint64_t request_id) override
         {
             return {};
         }
 
-        void UnsubscribeNamespaceReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+        void UnsubscribeNamespaceReceived([[maybe_unused]] std::uint64_t connection_handle,
                                           [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override {};
-        void UnsubscribeReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+        void UnsubscribeReceived([[maybe_unused]] std::uint64_t connection_handle,
                                  [[maybe_unused]] uint64_t request_id) override
         {
         }
 
-        void FetchCancelReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
+        void FetchCancelReceived([[maybe_unused]] std::uint64_t connection_handle,
                                  [[maybe_unused]] uint64_t request_id) override
         {
         }
 
-        void StandaloneFetchReceived(quicr::ConnectionHandle connection_handle,
+        void StandaloneFetchReceived(std::uint64_t connection_handle,
                                      uint64_t request_id,
                                      const quicr::FullTrackName& track_full_name,
                                      const quicr::messages::StandaloneFetchAttributes& attrs) override;
 
-        void SubscribeReceived(quicr::ConnectionHandle connection_handle,
+        void SubscribeReceived(std::uint64_t connection_handle,
                                uint64_t request_id,
                                const quicr::FullTrackName& track_full_name,
                                const quicr::messages::SubscribeAttributes& subscribe_attributes) override;
 
-        void PublishReceived(quicr::ConnectionHandle connection_handle,
+        void PublishReceived(std::uint64_t connection_handle,
                              uint64_t request_id,
                              const quicr::messages::PublishAttributes& publish_attributes,
                              std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;
 
-        void PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id) override;
+        void PublishDoneReceived(std::uint64_t connection_handle, uint64_t request_id) override;
 
-        void SubscribeTracksReceived(quicr::ConnectionHandle connection_handle,
-                                     quicr::DataContextId data_ctx_id,
+        void SubscribeTracksReceived(std::uint64_t connection_handle,
+                                     std::uint64_t data_ctx_id,
                                      const quicr::TrackNamespace& prefix_namespace,
                                      const quicr::messages::SubscribeNamespaceAttributes& attributes) override;
 
-        void SubscribeNamespaceReceived(quicr::ConnectionHandle connection_handle,
-                                        quicr::DataContextId data_ctx_id,
+        void SubscribeNamespaceReceived(std::uint64_t connection_handle,
+                                        std::uint64_t data_ctx_id,
                                         const quicr::TrackNamespace& prefix_namespace,
                                         const quicr::messages::SubscribeNamespaceAttributes& attributes) override;
 
-        void PublishNamespaceReceived(quicr::ConnectionHandle connection_handle,
-                                      const quicr::TrackNamespace& track_namespace,
-                                      const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
+        void PublishNamespaceReceived(
+          std::uint64_t connection_handle,
+          const quicr::TrackNamespace& track_namespace,
+          const quicr::messages::PublishNamespaceAttributes& publish_announce_attributes) override;
 
-        void NewGroupRequested(const quicr::FullTrackName& track_full_name, quicr::messages::GroupId group_id) override;
+        void NewGroupRequested(const quicr::FullTrackName& track_full_name, std::uint64_t group_id) override;
 
       public:
         std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
@@ -242,19 +241,15 @@ namespace quicr_test {
 
         std::vector<AvailableTrack> known_published_tracks_;
         std::unordered_map<quicr::TrackNamespace,
-                           std::map<quicr::ConnectionHandle, std::shared_ptr<quicr::PublishNamespaceHandler>>>
+                           std::map<std::uint64_t, std::shared_ptr<quicr::PublishNamespaceHandler>>>
           namespace_subscribers_;
         std::vector<FetchResponseData> fetch_response_data_;
 
         // Subscriber publish handlers: [track_alias][connection_handle] -> PublishTrackHandler
-        std::map<quicr::messages::TrackAlias,
-                 std::map<quicr::ConnectionHandle, std::shared_ptr<TestPublishTrackHandler>>>
-          subscribes_;
+        std::map<std::uint64_t, std::map<std::uint64_t, std::shared_ptr<TestPublishTrackHandler>>> subscribes_;
 
         // Publisher subscribe handlers: [track_alias][connection_handle] -> SubscribeTrackHandler
-        std::map<quicr::messages::TrackAlias,
-                 std::map<quicr::ConnectionHandle, std::shared_ptr<TestSubscribeTrackHandler>>>
-          pub_subscribes_;
+        std::map<std::uint64_t, std::map<std::uint64_t, std::shared_ptr<TestSubscribeTrackHandler>>> pub_subscribes_;
     };
 
 }

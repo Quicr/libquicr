@@ -11,7 +11,7 @@ namespace quicr::messages::control {
     {
         static constexpr std::uint64_t kType = 0x4;
 
-        const TrackAlias track_alias;
+        const std::uint64_t track_alias;
         const Parameters parameters;
         const TrackExtensions track_properties;
 
@@ -22,7 +22,7 @@ namespace quicr::messages::control {
 
       private:
         explicit SubscribeOk(MessageReader reader)
-          : track_alias(reader.Read<TrackAlias>())
+          : track_alias(reader.Read<std::uint64_t>())
           , parameters(reader.Read<Parameters>())
           , track_properties(reader.Read<TrackExtensions>())
         {

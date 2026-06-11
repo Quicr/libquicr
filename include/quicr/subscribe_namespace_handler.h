@@ -16,7 +16,7 @@ namespace quicr {
     class SubscribeNamespaceHandler : public BaseTrackHandler
     {
       public:
-        using Error = std::pair<messages::ErrorCode, messages::ReasonPhrase>;
+        using Error = std::pair<messages::ErrorCode, Bytes>;
         enum class Mode
         {
             // Receive NAMESPACE notifications of matching namespaces.

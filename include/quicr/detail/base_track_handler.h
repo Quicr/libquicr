@@ -196,13 +196,13 @@ namespace quicr {
          * @brief Sets the data context Id
          * @param data_ctx_id               Data context Id for control messages
          */
-        void SetDataContextId(DataContextId data_ctx_id) { data_ctx_id_ = data_ctx_id; }
+        void SetDataContextId(std::uint64_t data_ctx_id) { data_ctx_id_ = data_ctx_id; }
 
         /**
          * @brief Return the data context Id
          * @return Data context id if set
          */
-        std::optional<DataContextId> GetDataContextId() const noexcept { return data_ctx_id_; }
+        std::optional<std::uint64_t> GetDataContextId() const noexcept { return data_ctx_id_; }
 
         /**
          * @brief Get the full track name
@@ -246,7 +246,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
-        ConnectionHandle connection_handle_{ 0 }; // QUIC transport connection ID
+        std::uint64_t connection_handle_{ 0 }; // QUIC transport connection ID
 
         /**
          * request_id_ is the primary index/key for subscribe context/delegate storage.
@@ -259,7 +259,7 @@ namespace quicr {
         /**
          * Data context ID (transport data context) that control messages are to be sent
          */
-        std::optional<DataContextId> data_ctx_id_{ std::nullopt };
+        std::optional<std::uint64_t> data_ctx_id_{ std::nullopt };
 
         std::weak_ptr<Session> transport_;
     };

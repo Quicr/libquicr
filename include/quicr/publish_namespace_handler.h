@@ -16,7 +16,7 @@ namespace quicr {
     class PublishNamespaceHandler : public BaseTrackHandler
     {
       public:
-        using Error = std::pair<messages::ErrorCode, messages::ReasonPhrase>;
+        using Error = std::pair<messages::ErrorCode, Bytes>;
 
         /**
          * @brief  Status codes for the Publish track
@@ -175,7 +175,7 @@ namespace quicr {
 
         std::optional<Error> error_{};
 
-        // ConnectionHandle connection_handle_{ 0 };
+        // std::uint64_t connection_handle_{ 0 };
 
         friend class Session;
     };

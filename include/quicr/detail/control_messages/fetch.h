@@ -15,10 +15,10 @@ namespace quicr::messages::control {
     {
         static constexpr std::uint64_t kType = 0x16;
 
-        const RequestID request_id;
+        const std::uint64_t request_id;
         const FetchType fetch_type;
         const TrackNamespace track_namespace;
-        const TrackName track_name;
+        const Bytes track_name;
         const Location start;
         const Location end;
         const Parameters parameters;
@@ -30,10 +30,10 @@ namespace quicr::messages::control {
 
       private:
         explicit StandaloneFetch(MessageReader reader)
-          : request_id(reader.Read<RequestID>())
+          : request_id(reader.Read<std::uint64_t>())
           , fetch_type(ReadFetchType(reader))
           , track_namespace(reader.Read<TrackNamespace>())
-          , track_name(reader.Read<TrackName>())
+          , track_name(reader.Read<Bytes>())
           , start(reader.Read<Location>())
           , end(reader.Read<Location>())
           , parameters(reader.Read<Parameters>())
@@ -57,9 +57,9 @@ namespace quicr::messages::control {
     {
         static constexpr std::uint64_t kType = 0x16;
 
-        const RequestID request_id;
+        const std::uint64_t request_id;
         const FetchType fetch_type;
-        const RequestID joining_request_id;
+        const std::uint64_t joining_request_id;
         const std::uint64_t joining_start;
         const Parameters parameters;
 
@@ -70,9 +70,9 @@ namespace quicr::messages::control {
 
       private:
         explicit JoiningFetch(MessageReader reader)
-          : request_id(reader.Read<RequestID>())
+          : request_id(reader.Read<std::uint64_t>())
           , fetch_type(ReadJoiningFetchType(reader))
-          , joining_request_id(reader.Read<RequestID>())
+          , joining_request_id(reader.Read<std::uint64_t>())
           , joining_start(reader.Read<std::uint64_t>())
           , parameters(reader.Read<Parameters>())
         {
@@ -98,7 +98,7 @@ namespace quicr::messages::control {
     {
         auto reader = MessageReader{ payload };
         // TODO: We don't need to re-read these after we read them here.
-        [[maybe_unused]] const auto request_id = reader.Read<RequestID>();
+        [[maybe_unused]] const auto request_id = reader.Read<std::uint64_t>();
         const auto fetch_type = static_cast<FetchType>(reader.Read<std::uint64_t>());
 
         switch (fetch_type) {

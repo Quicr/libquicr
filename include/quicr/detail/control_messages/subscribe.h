@@ -11,9 +11,9 @@ namespace quicr::messages::control {
     {
         static constexpr std::uint64_t kType = 0x3;
 
-        const RequestID request_id;
+        const std::uint64_t request_id;
         const TrackNamespace track_namespace;
-        const TrackName track_name;
+        const Bytes track_name;
         const Parameters parameters;
 
         explicit Subscribe(BytesSpan payload)
@@ -23,9 +23,9 @@ namespace quicr::messages::control {
 
       private:
         explicit Subscribe(MessageReader reader)
-          : request_id(reader.Read<RequestID>())
+          : request_id(reader.Read<std::uint64_t>())
           , track_namespace(reader.Read<TrackNamespace>())
-          , track_name(reader.Read<TrackName>())
+          , track_name(reader.Read<Bytes>())
           , parameters(reader.Read<Parameters>())
         {
             reader.ExpectDone();

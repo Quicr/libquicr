@@ -11,7 +11,7 @@ namespace quicr::messages::control {
     {
         static constexpr std::uint64_t kType = 0x51;
 
-        const RequestID request_id;
+        const std::uint64_t request_id;
         const TrackNamespace track_namespace_prefix;
         const Parameters parameters;
 
@@ -22,7 +22,7 @@ namespace quicr::messages::control {
 
       private:
         explicit SubscribeTracks(MessageReader reader)
-          : request_id(reader.Read<RequestID>())
+          : request_id(reader.Read<std::uint64_t>())
           , track_namespace_prefix(reader.Read<TrackNamespace>())
           , parameters(reader.Read<Parameters>())
         {
