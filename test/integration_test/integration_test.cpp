@@ -118,10 +118,10 @@ MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
     }
     auto server = std::make_shared<TestServer>(server_config);
     const auto starting = server->Start();
-    CHECK_EQ(starting, Transport::Status::kReady);
+    CHECK_EQ(starting, Session::Status::kReady);
 
     // Wait for server to be ready instead of fixed sleep
-    const bool ready = WaitFor([&server]() { return server->GetStatus() == Transport::Status::kReady; });
+    const bool ready = WaitFor([&server]() { return server->GetStatus() == Session::Status::kReady; });
     CHECK(ready);
 
     return server;
@@ -147,7 +147,7 @@ MakeTestClient(const bool connect = true,
         // Wait for client to be connected instead of fixed sleep
         const bool connected = WaitFor([&client]() {
             const auto status = client->GetStatus();
-            return status == Transport::Status::kReady || status == Transport::Status::kNotConnected;
+            return status == Session::Status::kReady || status == Session::Status::kNotConnected;
         });
         CHECK(connected);
     }
@@ -619,12 +619,9 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
         // Set up promise to verify client received matching PUBLISH_NAMESPACE.
         std::promise<FullTrackName> publish_promise;
         auto publish_future = publish_promise.get_future();
-        messages::PublishAttributes publish_attributes;
-        publish_attributes.group_order = std::nullopt;
-        publish_attributes.track_alias = existing_track_hash.track_fullname_hash;
 
         // TODO: Validate full attribute round-trip.
-        server->AddKnownPublishedTrack(existing_track, std::nullopt, publish_attributes);
+        server->AddKnownPublishedTrack(existing_track, std::nullopt, {});
         client->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Set up promise to verify server gets accepted publish.

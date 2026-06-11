@@ -1,5 +1,5 @@
 #include "quicr/publish_namespace_handler.h"
-#include "quicr/detail/transport.h"
+#include "quicr/session.h"
 
 #include <ranges>
 

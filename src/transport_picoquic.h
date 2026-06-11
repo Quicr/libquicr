@@ -14,7 +14,7 @@
 #include <picoquic.h>
 #include <picoquic_config.h>
 #include <picoquic_packet_loop.h>
-#include <quicr/detail/quic_transport.h>
+#include <quicr/detail/transport.h>
 #include <spdlog/spdlog.h>
 #include <tls_api.h>
 
