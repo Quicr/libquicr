@@ -1,6 +1,6 @@
 #include "quicr/subscribe_namespace_handler.h"
 #include "quicr/detail/messages.h"
-#include "quicr/detail/transport.h"
+#include "quicr/session.h"
 #include "quicr/subscribe_track_handler.h"
 
 quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix,

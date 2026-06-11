@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/transport.h"
+#include "quicr/session.h"
 #include <quicr/publish_track_handler.h>
 
 namespace quicr {
