@@ -10,16 +10,32 @@
 #include <vector>
 
 namespace quicr::messages {
-    /**
-     * @brief Subscribe attributes
-     */
+
+    struct RequestUpdateOkAttributes
+    {
+        std::optional<std::uint64_t> expires;
+        std::optional<Location> largest_object;
+    };
+
+    struct PublishOkAttributes
+    {
+        const std::uint8_t priority;
+        const std::optional<GroupOrder> group_order;
+        const Filter filter;
+        const bool forward;
+        const std::optional<std::uint64_t> subgroup_delivery_timeout;
+        const std::optional<std::uint64_t> object_delivery_timeout;
+        const std::optional<std::uint64_t> new_group_request_id;
+    };
+
     struct SubscribeAttributes
     {
         const std::uint8_t priority;
         const std::optional<GroupOrder> group_order;
         const Filter filter;
         const bool forward;
-        const std::optional<std::uint64_t> delivery_timeout;
+        const std::optional<std::uint64_t> subgroup_delivery_timeout;
+        const std::optional<std::uint64_t> object_delivery_timeout;
         const std::optional<std::uint64_t> new_group_request_id;
         const std::optional<std::uint64_t> rendezvous_timeout;
         const std::vector<Token> auth_tokens;

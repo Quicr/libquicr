@@ -1131,10 +1131,22 @@ namespace quicr {
         // Requests
         /*===================================================================*/
 
+        void SendPublishOk(ConnectionContext& conn_ctx,
+                           DataContextId data_ctx_id,
+                           const messages::PublishOkAttributes& attrs);
+        void SendRequestUpdateOk(ConnectionContext& conn_ctx,
+                                 DataContextId data_ctx_id,
+                                 const messages::RequestUpdateOkAttributes& attrs);
+
+        void SendTrackStatusOk();
+        void SendSubscribeNamespaceOk();
+        void SendPublishNamespaceOk();
+
+        // This shouldn't be called directly, but instead from one of the typed overloads.
         void SendRequestOk(ConnectionContext& conn_ctx,
                            DataContextId data_ctx_id,
-                           messages::RequestID request_id,
-                           std::optional<messages::Location> largest_location = std::nullopt);
+                           const messages::Parameters& params,
+                           std::optional<messages::TrackExtensions> track_properties = std::nullopt);
 
         void SendRequestUpdate(const ConnectionContext& conn_ctx,
                                DataContextId data_ctx_id,

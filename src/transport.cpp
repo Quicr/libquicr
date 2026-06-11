@@ -278,10 +278,7 @@ namespace quicr {
 
         switch (subscribe_response.reason_code) {
             case RequestResponse::ReasonCode::kOk: {
-                SendRequestOk(conn_it->second,
-                              ResponseDataContext(conn_it->second, request_id),
-                              request_id,
-                              subscribe_response.largest_location);
+                SendRequestOk(conn_it->second, ResponseDataContext(conn_it->second, request_id), {});
                 break;
             }
             case RequestResponse::ReasonCode::kDoesNotExist:
@@ -365,17 +362,40 @@ namespace quicr {
         throw e;
     }
 
+    void Transport::SendPublishOk(ConnectionContext& conn_ctx,
+                                  DataContextId data_ctx_id,
+                                  const messages::PublishOkAttributes& attrs)
+    {
+        auto params = Parameters{};
+        SendRequestOk(conn_ctx, data_ctx_id, params);
+    }
+
+    void Transport::SendRequestUpdateOk(ConnectionContext& conn_ctx,
+                                        DataContextId data_ctx_id,
+                                        const messages::RequestUpdateOkAttributes& attrs)
+    {
+        auto params = Parameters{};
+        SendRequestOk(conn_ctx, data_ctx_id, params);
+    }
+
+    void SendTrackStatusOk();
+    void SendSubscribeNamespaceOk();
+    void SendPublishNamespaceOk();
+
     void Transport::SendRequestOk(ConnectionContext& conn_ctx,
                                   DataContextId data_ctx_id,
-                                  messages::RequestID request_id,
-                                  std::optional<Location> largest_location)
+                                  const messages::Parameters& params,
+                                  std::optional<TrackExtensions> track_properties)
     try {
-        auto params = Parameters{}.AddOptional(ParameterType::kLargestObject, largest_location);
-
-        SPDLOG_LOGGER_DEBUG(
-          logger_, "Sending REQUEST_OK to conn_id: {} request_id: {}", conn_ctx.connection_handle, request_id);
-
-        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kRequestOk, UintVar(request_id), params);
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending REQUEST_OK to conn_id: {} request_id: {}",
+                            conn_ctx.connection_handle,
+                            conn_ctx.request_id_by_data_ctx[data_ctx_id]);
+        if (track_properties.has_value()) {
+            SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kRequestOk, params, *track_properties);
+        } else {
+            SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kRequestOk, params);
+        }
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_OK (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -516,7 +536,7 @@ namespace quicr {
                         .Add(ParameterType::kSubscriberPriority, subscribe.priority)
                         .AddOptional(ParameterType::kGroupOrder, subscribe.group_order)
                         .Add(ParameterType::kForward, subscribe.forward)
-                        .AddOptional(ParameterType::kDeliveryTimeout, subscribe.delivery_timeout);
+                        .AddOptional(ParameterType::kDeliveryTimeout, subscribe.object_delivery_timeout);
 
         if (auto filter_type = GetFilterParameterType(subscribe.filter); filter_type != ParameterType::kInvalid) {
             params.Add(filter_type, subscribe.filter);
@@ -965,6 +985,11 @@ namespace quicr {
             const auto delivery_timeout = track_handler->GetDeliveryTimeout();
             const std::optional<std::uint64_t> delivery_timeout_ms =
               delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt;
+            const messages::SubscribeAttributes subscribe_attributes{ .auth_tokens = {},
+                                                                      .is_publisher_initiated = false,
+                                                                      .rendezvous_timeout = std::nullopt,
+                                                                      { .priority = track_handler->GetPriority() } };
+
             const messages::SubscribeAttributes subscribe_attributes{
                 .priority = track_handler->GetPriority(),
                 .group_order = track_handler->GetGroupOrder(),
@@ -3619,23 +3644,21 @@ namespace quicr {
             }
             case messages::ControlMessageType::kRequestUpdate: {
                 const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
-                const auto existing_request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 if (client_mode_) {
-                    auto track_it = conn_ctx.request_handlers.find(existing_request_id);
+                    auto track_it = conn_ctx.request_handlers.find(request_id);
                     if (track_it == conn_ctx.request_handlers.end()) {
                         SPDLOG_LOGGER_WARN(logger_,
                                            "Received REQUEST_UPDATE to unknown track conn_id: {} request_id: {}, "
-                                           "existing_request_id: {} ignored",
+                                           "ignored",
                                            conn_ctx.connection_handle,
-                                           request_id,
-                                           existing_request_id);
+                                           request_id);
                         return true;
                     }
 
                     track_it->second.handler->RequestUpdate(request_id, parameters);
-                    RequestUpdateReceived(conn_ctx.connection_handle, request_id, existing_request_id, parameters);
+                    RequestUpdateReceived(conn_ctx.connection_handle, request_id, parameters);
                     return true;
                 }
 
