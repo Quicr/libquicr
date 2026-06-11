@@ -88,8 +88,10 @@ namespace quicr {
 
         std::optional<std::string> error_reason = std::nullopt;
 
-        std::optional<messages::Location> largest_location = std::nullopt;
-        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+        bool forward = true;
+        std::optional<std::uint8_t> subscriber_priority{};
+        std::optional<messages::GroupOrder> group_order{};
+        messages::Filter filter = std::monostate{};
     };
 
     struct SubscribeNamespaceResponse

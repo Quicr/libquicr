@@ -619,12 +619,9 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
         // Set up promise to verify client received matching PUBLISH_NAMESPACE.
         std::promise<FullTrackName> publish_promise;
         auto publish_future = publish_promise.get_future();
-        messages::PublishAttributes publish_attributes;
-        publish_attributes.group_order = std::nullopt;
-        publish_attributes.track_alias = existing_track_hash.track_fullname_hash;
 
         // TODO: Validate full attribute round-trip.
-        server->AddKnownPublishedTrack(existing_track, std::nullopt, publish_attributes);
+        server->AddKnownPublishedTrack(existing_track, std::nullopt, {});
         client->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Set up promise to verify server gets accepted publish.

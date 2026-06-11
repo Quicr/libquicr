@@ -1209,12 +1209,7 @@ namespace quicr {
         void SendPublish(ConnectionContext& conn_ctx,
                          DataContextId data_ctx_id,
                          messages::RequestID request_id,
-                         const FullTrackName& tfn,
-                         uint64_t track_alias,
-                         messages::GroupOrder group_order,
-                         std::optional<messages::Location> largest_location,
-                         bool forward,
-                         bool support_new_group);
+                         const messages::PublishAttributes& publish);
 
         void SendPublishDone(ConnectionContext& conn_ctx,
                              DataContextId data_ctx_id,
@@ -1226,7 +1221,7 @@ namespace quicr {
                            DataContextId data_ctx_id,
                            messages::RequestID request_id,
                            bool forward,
-                           std::uint8_t priority,
+                           std::optional<std::uint8_t> priority,
                            std::optional<messages::GroupOrder> group_order,
                            const messages::Filter& filter);
 
