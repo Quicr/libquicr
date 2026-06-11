@@ -19,6 +19,9 @@ namespace quicr {
 
         bool is_stream_header_needed{ !sent_first_header_ };
         sent_first_header_ = true;
+        if (is_stream_header_needed) {
+            serialization_state_ = {};
+        }
 
         const auto request_id = GetRequestId();
         if (!request_id.has_value()) {
@@ -68,7 +71,9 @@ namespace quicr {
             }
         }
 
+        // Serialize.
         messages::FetchObject object{};
+        object.properties.emplace(serialization_state_.MakeProperties(object_headers, priority));
         object.group_id = group_id;
         object.subgroup_id = object_headers.subgroup_id;
         object.object_id = object_id;
@@ -91,6 +96,9 @@ namespace quicr {
         if (result != TransportError::kNone) {
             throw TransportException(result);
         }
+
+        // Save state for serialization optimizations.
+        serialization_state_.Update(object_headers);
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
