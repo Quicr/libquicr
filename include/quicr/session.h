@@ -1133,10 +1133,30 @@ namespace quicr {
         // Requests
         /*===================================================================*/
 
+        void SendTrackStatusOk(ConnectionContext& conn_ctx,
+                               DataContextId data_ctx_id,
+                               const std::optional<messages::Location>& largest_object,
+                               const messages::TrackExtensions& track_properties);
+
+        void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, DataContextId data_ctx_id);
+        void SendSubscribeTracksOk(ConnectionContext& conn_ctx, DataContextId data_ctx_id)
+        {
+            SendSubscribeNamespaceOk(conn_ctx, data_ctx_id);
+        }
+        void SendPublishNamespaceOk(ConnectionContext& conn_ctx, DataContextId data_ctx_id)
+        {
+            SendSubscribeNamespaceOk(conn_ctx, data_ctx_id);
+        }
+        void SendRequestUpdateOk(ConnectionContext& conn_ctx,
+                                 DataContextId data_ctx_id,
+                                 std::optional<std::uint64_t> expires,
+                                 const std::optional<messages::Location>& largest_object);
+
+        // Prefer the above typed overloads.
         void SendRequestOk(ConnectionContext& conn_ctx,
                            DataContextId data_ctx_id,
-                           messages::RequestID request_id,
-                           std::optional<messages::Location> largest_location = std::nullopt);
+                           const messages::Parameters& params,
+                           const messages::TrackExtensions& track_properties = {});
 
         void SendRequestUpdate(const ConnectionContext& conn_ctx,
                                DataContextId data_ctx_id,
