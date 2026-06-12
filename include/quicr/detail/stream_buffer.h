@@ -5,13 +5,13 @@
 
 #include "data_storage.h"
 #include "uintvar.h"
-#include <span>
 
 #include <algorithm>
 #include <any>
 #include <cstring>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <type_traits>
 #include <vector>
 
@@ -193,7 +193,7 @@ namespace quicr {
          */
         bool Available(std::uint32_t length) const noexcept
         {
-            return read_offset_ < buffer_.size() && buffer_.size() - read_offset_ >= length;
+            return length == 0 || (read_offset_ < buffer_.size() && buffer_.size() - read_offset_ >= length);
         }
 
         void Push(const T& value)
