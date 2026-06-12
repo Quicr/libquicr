@@ -445,6 +445,10 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                 transport->pq_loop_prev_time = targ->current_time;
             }
 
+            break;
+        }
+
+        case picoquic_packet_loop_wake_up:
             // Stop loop if done shutting down
             if (transport->Status() == TransportStatus::kShutdown) {
                 return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
@@ -470,10 +474,6 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                 transport->SetStatus(TransportStatus::kShutdown);
             }
 
-            break;
-        }
-
-        case picoquic_packet_loop_wake_up:
             break;
 
         default:
