@@ -1211,6 +1211,11 @@ namespace quicr::messages {
             return it->second;
         }
 
+        void Remove(Type type)
+        {
+            parameters.erase(static_cast<std::uint64_t>(type));
+        }
+
         template<ParameterValueType T>
         T Get(Type type) const
         {
