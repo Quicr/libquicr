@@ -2292,6 +2292,7 @@ namespace quicr {
                                   messages::TerminationReason reason,
                                   const std::string& reason_str)
     {
+        AppReasonForClose app_reason{ AppReasonForClose::kUnknown };
         std::ostringstream log_msg;
         log_msg << "Closing conn_id: " << conn_id;
         switch (reason) {
@@ -2300,21 +2301,27 @@ namespace quicr {
                 break;
             case messages::TerminationReason::kInternalError:
                 log_msg << " internal error: " << reason_str;
+                app_reason = AppReasonForClose::kInternalError;
                 break;
             case messages::TerminationReason::kUnauthorized:
                 log_msg << " unauthorized: " << reason_str;
+                app_reason = AppReasonForClose::kNotAuthorized;
                 break;
             case messages::TerminationReason::kProtocolViolation:
                 log_msg << " protocol violation: " << reason_str;
+                app_reason = AppReasonForClose::kProtocolViolation;
                 break;
             case messages::TerminationReason::kDuplicateTrackAlias:
                 log_msg << " duplicate track alias: " << reason_str;
+                app_reason = AppReasonForClose::kProtocolViolation;
                 break;
             case messages::TerminationReason::kKeyValueFormattingError:
                 log_msg << " key_value formatting mismatch: " << reason_str;
+                app_reason = AppReasonForClose::kProtocolViolation;
                 break;
             case messages::TerminationReason::kGoawayTimeout:
                 log_msg << " goaway timeout: " << reason_str;
+                app_reason = AppReasonForClose::kProtocolViolation;
                 break;
             default:
                 log_msg << " termination reason (" << reason_str << ")";
@@ -2323,7 +2330,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_INFO(logger_, log_msg.str());
 
-        quic_transport_->Close(conn_id, static_cast<uint64_t>(reason));
+        quic_transport_->Close(conn_id, app_reason);
 
         if (client_mode_) {
             SPDLOG_LOGGER_INFO(logger_, "Client connection closed, stopping client");

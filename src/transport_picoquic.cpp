@@ -213,7 +213,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
 
                     if (data_ctx != nullptr) {
                         transport->OnStreamClosed(
-                           conn_id, stream_id, nullptr, data_ctx->request_id, StreamClosedFlag::kFin);
+                          conn_id, stream_id, nullptr, data_ctx->request_id, StreamClosedFlag::kFin);
                         transport->DeleteDataContext(conn_id, data_ctx->data_ctx_id, false);
                     }
                 }
@@ -313,10 +313,11 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             switch (picoquic_get_local_error(pq_cnx)) {
                 case PICOQUIC_ERROR_IDLE_TIMEOUT:
                     log_msg << " Idle timeout";
-                    app_reason_code = 1;
+                    app_reason_code = static_cast<uint64_t>(AppReasonForClose::kIdleTimeout);
                     break;
 
                 default:
+                    app_reason_code = picoquic_get_remote_error(pq_cnx);
                     log_msg << " local_error: " << picoquic_get_local_error(pq_cnx)
                             << " remote_error: " << picoquic_get_remote_error(pq_cnx)
                             << " app_error: " << picoquic_get_application_error(pq_cnx);
@@ -330,7 +331,19 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
 
             SPDLOG_LOGGER_INFO(transport->logger, log_msg.str());
 
-            transport->CloseInternal(conn_id, app_reason_code);
+            switch (app_reason_code) {
+                case static_cast<uint64_t>(AppReasonForClose::kIdleTimeout):
+                case static_cast<uint64_t>(AppReasonForClose::kShutdown):
+                case static_cast<uint64_t>(AppReasonForClose::kRemoteRequestClose):
+                case static_cast<uint64_t>(AppReasonForClose::kNotAuthorized):
+                case static_cast<uint64_t>(AppReasonForClose::kProtocolViolation):
+                case static_cast<uint64_t>(AppReasonForClose::kInternalError):
+                    transport->CloseInternal(conn_id, static_cast<AppReasonForClose>(app_reason_code));
+                    break;
+                default:
+                    transport->CloseInternal(conn_id, AppReasonForClose::kUnknown);
+                    break;
+            }
 
             if (not transport->is_server_mode) {
                 // TODO: Fix picoquic. Apparently picoquic is not processing return values for this callback
@@ -467,11 +480,12 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                 while (close_cnx != NULL) {
                     SPDLOG_LOGGER_INFO(
                       transport->logger, "Closing connection id {0}", reinterpret_cast<uint64_t>(close_cnx));
-                    transport->CloseInternal(reinterpret_cast<uint64_t>(close_cnx));
+                    transport->CloseInternal(reinterpret_cast<uint64_t>(close_cnx), AppReasonForClose::kShutdown);
                     close_cnx = picoquic_get_next_cnx(close_cnx);
                 }
 
                 transport->SetStatus(TransportStatus::kShutdown);
+                return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
             }
 
             break;
@@ -1251,17 +1265,17 @@ PicoQuicTransport::CreateDataContext(const TransportConnId conn_id,
 }
 
 void
-PicoQuicTransport::Close(const TransportConnId& conn_id, uint64_t app_reason_code)
+PicoQuicTransport::Close(const TransportConnId& conn_id, AppReasonForClose app_reason)
 {
     RunPqFunction([=, this]() {
-        CloseInternal(conn_id, app_reason_code);
+        CloseInternal(conn_id, app_reason);
 
         return 0;
     });
 }
 
 void
-PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, uint64_t app_reason_code)
+PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, AppReasonForClose app_reason)
 {
     std::lock_guard<std::mutex> _(state_mutex_);
     const auto conn_it = conn_context_.find(conn_id);
@@ -1311,17 +1325,18 @@ PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, uint64_t app_re
     }
 
     // Only one datagram context is per connection, if it's deleted, then the connection is to be terminated
-    switch (app_reason_code) {
-        case 1: // idle timeout
-            OnConnectionStatus(conn_id, TransportStatus::kIdleTimeout);
-            break;
-
-        case 100: // Client shutting down connection
+    switch (app_reason) {
+        case AppReasonForClose::kRemoteRequestClose:
             OnConnectionStatus(conn_id, TransportStatus::kRemoteRequestClose);
             break;
-
+        case AppReasonForClose::kIdleTimeout:
+            OnConnectionStatus(conn_id, TransportStatus::kIdleTimeout);
+            break;
+        case AppReasonForClose::kShutdown:
+            OnConnectionStatus(conn_id, TransportStatus::kShutdown);
+            break;
         default:
-            OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
+            OnConnectionStatus(conn_id, TransportStatus::kRemoteRequestClose);
             break;
     }
 
@@ -1339,7 +1354,7 @@ PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, uint64_t app_re
         conn_it->second.wt_h3_ctx = nullptr;
     }
 
-    picoquic_close(conn_it->second.pq_cnx, app_reason_code);
+    picoquic_close(conn_it->second.pq_cnx, static_cast<uint64_t>(app_reason));
     conn_context_.erase(conn_it);
 }
 
@@ -1827,13 +1842,14 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
 
         if (obj.expired) {
             data_ctx->metrics.tx_queue_expired += obj.expired;
-            SPDLOG_LOGGER_DEBUG(logger,
-                                "Send stream objects expired; conn_id: {} data_ctx_id: {} stream_id: {} expired: {} queue_size: {}",
-                                data_ctx->conn_id,
-                                data_ctx->data_ctx_id,
-                                stream_id,
-                                obj.expired,
-                                stream_ctx.tx_data->Size());
+            SPDLOG_LOGGER_DEBUG(
+              logger,
+              "Send stream objects expired; conn_id: {} data_ctx_id: {} stream_id: {} expired: {} queue_size: {}",
+              data_ctx->conn_id,
+              data_ctx->data_ctx_id,
+              stream_id,
+              obj.expired,
+              stream_ctx.tx_data->Size());
 
             should_reset = true;
             return;
@@ -2127,7 +2143,8 @@ try {
         data_ctx->metrics.rx_stream_cb++;
         data_ctx->metrics.rx_stream_bytes += bytes.size();
 
-        if (rx_buf.rx_ctx->data_queue.Size() < 10 && !cbNotifyQueue_.Push([conn_id = conn_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id, stream_id, this]() {
+        if (rx_buf.rx_ctx->data_queue.Size() < 10 &&
+            !cbNotifyQueue_.Push([conn_id = conn_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id, stream_id, this]() {
                 delegate_.OnRecvStream(conn_id, stream_id, data_ctx_id, (stream_id & 2) == 0);
             })) {
 
@@ -2138,10 +2155,9 @@ try {
     } else {
         // When data_ctx is null, determine if stream is bidirectional from stream_id
         // QUIC stream IDs have bit 1 set to 0 for bidirectional streams
-        if (!cbNotifyQueue_.Push(
-              [conn_id = conn_ctx->conn_id, stream_id, this]() {
-                  delegate_.OnRecvStream(conn_id, stream_id, std::nullopt, (stream_id & 2) == 0);
-              })) {
+        if (!cbNotifyQueue_.Push([conn_id = conn_ctx->conn_id, stream_id, this]() {
+                delegate_.OnRecvStream(conn_id, stream_id, std::nullopt, (stream_id & 2) == 0);
+            })) {
             SPDLOG_LOGGER_ERROR(
               logger, "conn_id: {0} stream_id: {1} notify queue is full", conn_ctx->conn_id, stream_id);
         }
@@ -3359,5 +3375,5 @@ PicoQuicTransport::DeregisterWebTransport(picoquic_cnx_t* cnx)
     // Clear WebTransport stream mappings for this session
     conn_ctx->wt_stream_to_data_ctx.clear();
 
-    CloseInternal(conn_id, 100);
+    CloseInternal(conn_id, AppReasonForClose::kShutdown);
 }
