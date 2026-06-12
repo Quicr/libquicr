@@ -2703,7 +2703,8 @@ namespace quicr {
 
         track_it->second.handler->RequestUpdate(request_id, params);
 
-        if (!track_it->second.handler->GetDataContextId().has_value()) {
+        const auto data_ctx_id = track_it->second.handler->GetDataContextId();
+        if (!data_ctx_id.has_value()) {
             SPDLOG_LOGGER_WARN(logger_,
                                "ResolveRequestUpdate missing handler data context conn_id: {} existing_id: {}",
                                connection_handle,
@@ -2712,8 +2713,7 @@ namespace quicr {
         }
 
         // TODO: Type the params in resolve, fill in here.
-        SendRequestUpdateOk(
-          conn_it->second, ResponseDataContext(conn_it->second, request_id), std::nullopt, std::nullopt);
+        SendRequestUpdateOk(conn_it->second, *data_ctx_id, std::nullopt, std::nullopt);
     }
 
     std::optional<DataContextId> Session::FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
@@ -3126,7 +3126,16 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kRequestOk: {
-                const auto request_id = conn_ctx.request_id_by_data_ctx.at(data_ctx_id);
+                // What request is this for?
+                const auto req_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
+                if (req_it == conn_ctx.request_id_by_data_ctx.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received REQUEST_OK for unknown request conn_id: {} data_ctx_ic: {}, ignored",
+                                       conn_ctx.connection_handle,
+                                       data_ctx_id);
+                }
+                const auto request_id = req_it->second;
+
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_properties = Message::ParseField<messages::TrackExtensions>(msg_bytes);
                 // TODO: If track properties exist on anything other than TRACK_STATUS_OK, protocol violation. We can't
@@ -3616,6 +3625,7 @@ namespace quicr {
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = publish.track_full_name,
                                                      .track_hash = th,
                                                      .data_ctx_id = data_ctx_id };
+                conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
 
                 if (client_mode_) {
                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
