@@ -13,7 +13,7 @@
 #include <vector>
 
 namespace quicr {
-    class Transport;
+    class Session;
 
     /**
      * @brief Track mode object of object published or received
@@ -88,8 +88,10 @@ namespace quicr {
 
         std::optional<std::string> error_reason = std::nullopt;
 
-        std::optional<messages::Location> largest_location = std::nullopt;
-        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+        bool forward = true;
+        std::optional<std::uint8_t> subscriber_priority{};
+        std::optional<messages::GroupOrder> group_order{};
+        messages::Filter filter = std::monostate{};
     };
 
     struct SubscribeNamespaceResponse
@@ -147,7 +149,7 @@ namespace quicr {
     class BaseTrackHandler
     {
       public:
-        friend class Transport;
+        friend class Session;
 
         virtual ~BaseTrackHandler() = default;
 
@@ -226,9 +228,9 @@ namespace quicr {
          * Set the transport to use.
          * @param transport The new transport for the handler to use.
          */
-        void SetTransport(std::shared_ptr<Transport> transport);
+        void SetTransport(std::shared_ptr<Session> transport);
 
-        const std::weak_ptr<Transport>& GetTransport() const noexcept;
+        const std::weak_ptr<Session>& GetTransport() const noexcept;
 
         // --------------------------------------------------------------------------
         // Internal
@@ -259,7 +261,7 @@ namespace quicr {
          */
         std::optional<DataContextId> data_ctx_id_{ std::nullopt };
 
-        std::weak_ptr<Transport> transport_;
+        std::weak_ptr<Session> transport_;
     };
 
 } // namespace moq

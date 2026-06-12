@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "detail/quic_transport.h"
+#include "detail/transport.h"
 
 #include <cstdint>
 #include <map>

@@ -50,11 +50,12 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
         for (const auto& [conn_id, ns_handler] : interested) {
             if (ns_handler->GetFullTrackName().name_space.HasSamePrefix(
                   publish_attributes.track_full_name.name_space)) {
+                const auto delivery_timeout = publish_attributes.delivery_timeout.value_or(0);
                 auto handler =
                   std::make_shared<TestPublishTrackHandler>(publish_attributes.track_full_name,
                                                             quicr::TrackMode::kStream,
-                                                            publish_attributes.priority,
-                                                            publish_attributes.delivery_timeout.count(),
+                                                            publish_attributes.default_publisher_priority,
+                                                            delivery_timeout,
                                                             std::static_pointer_cast<TestServer>(shared_from_this()));
                 ns_handler->PublishTrack(handler);
             }
@@ -175,8 +176,8 @@ TestServer::SubscribeTracksReceived(const ConnectionHandle connection_handle,
         auto handler =
           std::make_shared<TestPublishTrackHandler>(track.full_track_name,
                                                     quicr::TrackMode::kStream,
-                                                    track.attributes.priority,
-                                                    track.attributes.delivery_timeout.count(),
+                                                    track.attributes.default_publisher_priority,
+                                                    track.attributes.delivery_timeout.value_or(0),
                                                     std::static_pointer_cast<TestServer>(shared_from_this()));
         ns_handler->PublishTrack(handler);
     }

@@ -33,7 +33,8 @@ TestClient::PublishReceived(quicr::ConnectionHandle connection_handle,
                             const quicr::messages::PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> ns_handler)
 {
-    auto sub_handler = SubscribeTrackHandler::Create(publish_attributes.track_full_name, publish_attributes.priority);
+    auto sub_handler =
+      SubscribeTrackHandler::Create(publish_attributes.track_full_name, publish_attributes.default_publisher_priority);
     last_publish_received_sub_handler_ = sub_handler;
 
     if (publish_received_) {

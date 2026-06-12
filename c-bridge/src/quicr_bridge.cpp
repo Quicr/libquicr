@@ -167,18 +167,18 @@ namespace {
     /**
      * @brief Convert C++ transport status to C connection status
      */
-    qbridge_connection_status_t status_from_cpp(const quicr::Transport::Status cpp_status)
+    qbridge_connection_status_t status_from_cpp(const quicr::Session::Status cpp_status)
     {
         switch (cpp_status) {
-            case quicr::Transport::Status::kNotConnected:
+            case quicr::Session::Status::kNotConnected:
                 return QBRIDGE_STATUS_NOT_CONNECTED;
-            case quicr::Transport::Status::kConnecting:
+            case quicr::Session::Status::kConnecting:
                 return QBRIDGE_STATUS_CONNECTING;
-            case quicr::Transport::Status::kNotReady:
+            case quicr::Session::Status::kNotReady:
                 return QBRIDGE_STATUS_CONNECTED;
-            case quicr::Transport::Status::kDisconnecting:
+            case quicr::Session::Status::kDisconnecting:
                 return QBRIDGE_STATUS_DISCONNECTING;
-            case quicr::Transport::Status::kReady:
+            case quicr::Session::Status::kReady:
                 return QBRIDGE_STATUS_READY;
             default:
                 return QBRIDGE_STATUS_ERROR;
@@ -213,7 +213,7 @@ class BridgeClient : public quicr::Client
     }
 
   public:
-    void StatusChanged(const quicr::Transport::Status status) override
+    void StatusChanged(const quicr::Session::Status status) override
     {
         std::lock_guard<std::mutex> lock(callback_mutex);
         if (status_callback) {
@@ -692,7 +692,7 @@ extern "C"
         }
 
         const auto status = client->cpp_client->Start();
-        return (status == quicr::Transport::Status::kConnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
+        return (status == quicr::Session::Status::kConnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
     }
 
     qbridge_result_t qbridge_client_disconnect(qbridge_client_t* client)

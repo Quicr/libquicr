@@ -1,5 +1,6 @@
+#include <quicr/client.h>
+
 #include <future>
-#include <quicr/session.h>
 
 namespace quicr_test {
     class TestClient final : public quicr::Client
