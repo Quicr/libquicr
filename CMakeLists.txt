@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.13)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 project(quicr
-    VERSION 1.14.0
+    VERSION 1.18.0
     DESCRIPTION "QuicR, a Media over QUIC Library"
     LANGUAGES C CXX
 )
