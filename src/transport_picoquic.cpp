@@ -981,10 +981,6 @@ PicoQuicTransport::Start()
         if (transport_mode == TransportMode::kWebTransport) {
             SPDLOG_LOGGER_INFO(logger, "Client configured for WebTransport over QUIC");
             quic_ctx_ = picoquic_create_and_configure(&config_, NULL, NULL, current_time, NULL);
-            if (quic_ctx_ != NULL) {
-                // Set WebTransport default transport parameters (enables reset_stream_at)
-                picowt_set_default_transport_parameters(quic_ctx_);
-            }
         } else {
             SPDLOG_LOGGER_INFO(logger, "Client configured for Raw QUIC");
             quic_ctx_ = picoquic_create_and_configure(&config_, PqEventCb, this, current_time, NULL);
@@ -1018,6 +1014,12 @@ PicoQuicTransport::Start()
 
     picoquic_set_default_handshake_timeout(quic_ctx_, (tconfig_.idle_timeout_ms * 1000) / 2);
     picoquic_set_default_tp(quic_ctx_, &local_tp_options_);
+
+    // Must run after set_default_tp; WebTransport requires reset_stream_at in transport parameters.
+    if (is_server_mode || transport_mode == TransportMode::kWebTransport) {
+        picowt_set_default_transport_parameters(quic_ctx_);
+    }
+
     picoquic_set_default_idle_timeout(quic_ctx_, tconfig_.idle_timeout_ms);
     picoquic_set_default_priority(quic_ctx_, 2);
     picoquic_set_default_datagram_priority(quic_ctx_, 1);
@@ -2495,6 +2497,9 @@ PicoQuicTransport::StartClient()
             }
 
             picoquic_set_transport_parameters(cnx, &local_tp_options_);
+            // Must run after set_transport_parameters; picowt_prepare_client_cnx sets WT params that local_tp_options_
+            // overwrites.
+            picowt_set_transport_parameters(cnx);
             picoquic_set_feedback_loss_notification(cnx, 1);
             picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
 
