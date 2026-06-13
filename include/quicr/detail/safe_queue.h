@@ -72,6 +72,27 @@ namespace quicr {
             return rval;
         }
 
+        bool Push(T&& elem)
+        {
+            bool rval = true;
+
+            std::lock_guard<std::mutex> _(mutex_);
+
+            if (queue_.empty()) {
+                cv_.notify_one();
+                empty_ = false;
+            }
+
+            else if (queue_.size() >= limit_) { // Make room by removing first element
+                queue_.pop();
+                rval = false;
+            }
+
+            queue_.emplace(std::move(elem));
+
+            return rval;
+        }
+
         /**
          * @brief Remove the first object from queue (oldest object)
          *
