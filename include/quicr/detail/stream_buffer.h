@@ -198,14 +198,15 @@ namespace quicr {
         void Push(std::span<const T> value)
         {
             std::lock_guard _(rw_lock_);
-            PushInternal(std::move(value));
+            buffer_.insert(buffer_.end(), value.begin(), value.end());
         }
 
         void PushLengthBytes(std::span<const T> value)
         {
             std::lock_guard _(rw_lock_);
-            PushInternal(std::span{ UintVar(static_cast<uint64_t>(value.size())) });
-            PushInternal(std::move(value));
+            auto len = UintVar(static_cast<uint64_t>(value.size()));
+            buffer_.insert(buffer_.end(), len.begin(), len.end());
+            buffer_.insert(buffer_.end(), value.begin(), value.end());
         }
 
         /**
@@ -315,11 +316,6 @@ namespace quicr {
             } else {
                 buffer_.erase(buffer_.begin(), buffer_.begin() + length);
             }
-        }
-
-        inline void PushInternal(std::span<const T> value)
-        {
-            buffer_.insert(buffer_.end(), value.begin(), value.end());
         }
 
       private:

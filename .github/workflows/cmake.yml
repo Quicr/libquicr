@@ -40,7 +40,11 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: |
         brew install llvm go google-benchmark
-        ln -s "$(brew --prefix llvm)/bin/clang-tidy" "/usr/local/bin/clang-tidy"
+        LLVM_PREFIX="$(brew --prefix llvm)"
+        echo "CC=$LLVM_PREFIX/bin/clang" >> "$GITHUB_ENV"
+        echo "CXX=$LLVM_PREFIX/bin/clang++" >> "$GITHUB_ENV"
+        echo "$LLVM_PREFIX/bin" >> "$GITHUB_PATH"
+        ln -s "$LLVM_PREFIX/bin/clang-tidy" "/usr/local/bin/clang-tidy"
 
     - name: Install Packages (Ubuntu)
       if: matrix.os == 'ubuntu-22.04' || matrix.os == 'ubuntu-22.04-arm'
