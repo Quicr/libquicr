@@ -40,7 +40,7 @@ namespace quicr::messages {
         if (!val) {
             return false;
         }
-        field = std::move(val.value());
+        field.assign(val->begin(), val->end());
         return true;
     }
 
@@ -370,11 +370,11 @@ namespace quicr::messages {
             }
             case 3: {
                 auto val = buffer.Front();
-                if (!val) {
+                if (val.empty()) {
                     return false;
                 }
                 buffer.Pop();
-                msg.publisher_priority = val.value();
+                msg.publisher_priority = val[0];
                 msg.current_pos += 1;
                 [[fallthrough]];
             }
@@ -422,7 +422,7 @@ namespace quicr::messages {
                     return false;
                 }
 
-                msg.payload = std::move(val);
+                msg.payload.assign(val.begin(), val.end());
                 buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;
                 [[fallthrough]];
@@ -510,11 +510,11 @@ namespace quicr::messages {
             case 4: {
                 if (!msg.properties->default_priority) {
                     auto val = buffer.Front();
-                    if (!val) {
+                    if (val.empty()) {
                         return false;
                     }
                     buffer.Pop();
-                    msg.priority = val.value();
+                    msg.priority = val[0];
                 } else {
                     msg.priority = std::nullopt;
                 }
@@ -550,7 +550,8 @@ namespace quicr::messages {
                     return false;
                 }
 
-                msg.payload = std::move(buffer.Front(msg.payload_len));
+                auto val = buffer.Front(msg.payload_len);
+                msg.payload.assign(val.begin(), val.end());
                 buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;
                 [[fallthrough]];
@@ -632,11 +633,11 @@ namespace quicr::messages {
             case 4: {
                 if (!msg.properties->default_priority) {
                     auto val = buffer.Front();
-                    if (!val) {
+                    if (val.empty()) {
                         return false;
                     }
                     buffer.Pop();
-                    msg.priority = val.value();
+                    msg.priority = val[0];
                 } else {
                     msg.priority = std::nullopt;
                 }
@@ -767,11 +768,11 @@ namespace quicr::messages {
             case 4: {
                 if (!msg.properties->default_priority) {
                     auto val = buffer.Front();
-                    if (!val) {
+                    if (val.empty()) {
                         return false;
                     }
                     buffer.Pop();
-                    msg.priority = val.value();
+                    msg.priority = val[0];
                 } else {
                     msg.priority = std::nullopt;
                 }
@@ -869,11 +870,11 @@ namespace quicr::messages {
                     return false;
                 }
                 auto val = buffer.Front(msg.payload_len);
-                if (val.size() == 0) {
+                if (val.empty()) {
                     return false;
                 }
 
-                msg.payload = std::move(val);
+                msg.payload.assign(val.begin(), val.end());
                 buffer.Pop(msg.payload_len);
                 msg.parse_completed = true;
                 [[fallthrough]];
