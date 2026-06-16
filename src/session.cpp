@@ -280,7 +280,11 @@ namespace quicr {
 
         switch (subscribe_response.reason_code) {
             case RequestResponse::ReasonCode::kOk: {
-                SendRequestOk(conn_it->second, ResponseDataContext(conn_it->second, request_id), {});
+                // TODO: TrackProperties should be in the subscribe_response.
+                SendTrackStatusOk(conn_it->second,
+                                  ResponseDataContext(conn_it->second, request_id),
+                                  subscribe_response.largest_location,
+                                  TrackExtensions());
                 break;
             }
             case RequestResponse::ReasonCode::kDoesNotExist:
@@ -364,40 +368,45 @@ namespace quicr {
         throw e;
     }
 
-    void Session::SendPublishOk(ConnectionContext& conn_ctx,
-                                DataContextId data_ctx_id,
-                                const messages::PublishOkAttributes& attrs)
+    void Session::SendTrackStatusOk(ConnectionContext& conn_ctx,
+                                    DataContextId data_ctx_id,
+                                    const std::optional<messages::Location>& largest_object,
+                                    const TrackExtensions& track_properties)
     {
-        auto params = Parameters{};
-        SendRequestOk(conn_ctx, data_ctx_id, params);
+        SendRequestOk(conn_ctx,
+                      data_ctx_id,
+                      Parameters().AddOptional(ParameterType::kLargestObject, largest_object),
+                      track_properties);
+    }
+
+    void Session::SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, DataContextId data_ctx_id)
+    {
+        SendRequestOk(conn_ctx, data_ctx_id, {});
     }
 
     void Session::SendRequestUpdateOk(ConnectionContext& conn_ctx,
                                       DataContextId data_ctx_id,
-                                      const messages::RequestUpdateOkAttributes& attrs)
+                                      std::optional<std::uint64_t> expires,
+                                      const std::optional<messages::Location>& largest_object)
     {
-        auto params = Parameters{};
-        SendRequestOk(conn_ctx, data_ctx_id, params);
+        SendRequestOk(conn_ctx,
+                      data_ctx_id,
+                      Parameters()
+                        .AddOptional(ParameterType::kExpires, expires)
+                        .AddOptional(ParameterType::kLargestObject, largest_object));
     }
-
-    void SendTrackStatusOk();
-    void SendSubscribeNamespaceOk();
-    void SendPublishNamespaceOk();
 
     void Session::SendRequestOk(ConnectionContext& conn_ctx,
                                 DataContextId data_ctx_id,
                                 const messages::Parameters& params,
-                                std::optional<TrackExtensions> track_properties)
+                                const TrackExtensions& track_properties)
     try {
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending REQUEST_OK to conn_id: {} request_id: {}",
                             conn_ctx.connection_handle,
-                            conn_ctx.request_id_by_data_ctx[data_ctx_id]);
-        if (track_properties.has_value()) {
-            SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kRequestOk, params, *track_properties);
-        } else {
-            SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kRequestOk, params);
-        }
+                            conn_ctx.request_id_by_data_ctx.at(data_ctx_id));
+
+        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kRequestOk, params, track_properties);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_OK (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -985,17 +994,15 @@ namespace quicr {
             const auto delivery_timeout = track_handler->GetDeliveryTimeout();
             const std::optional<std::uint64_t> delivery_timeout_ms =
               delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt;
-            const messages::SubscribeAttributes subscribe_attributes{ .auth_tokens = {},
-                                                                      .is_publisher_initiated = false,
-                                                                      .rendezvous_timeout = std::nullopt,
-                                                                      { .priority = track_handler->GetPriority() } };
 
             const messages::SubscribeAttributes subscribe_attributes{
                 .priority = track_handler->GetPriority(),
                 .group_order = track_handler->GetGroupOrder(),
                 .filter = track_handler->GetFilter(),
                 .forward = true,
-                .delivery_timeout = delivery_timeout_ms,
+                // TODO: Distinguish object vs. subgroup e2e.
+                .object_delivery_timeout = delivery_timeout_ms,
+                .subgroup_delivery_timeout = delivery_timeout_ms,
                 .new_group_request_id = std::nullopt,
                 .rendezvous_timeout = std::nullopt,
                 .auth_tokens = {},
@@ -2503,7 +2510,7 @@ namespace quicr {
             return;
         }
 
-        SendRequestOk(conn_it->second, data_ctx_id, request_id);
+        SendSubscribeNamespaceOk(conn_it->second, data_ctx_id);
 
         // Fan out PUBLISH_NAMESPACE for matching namespaces.
         for (const auto& name_space : response.namespaces) {
@@ -2535,7 +2542,7 @@ namespace quicr {
             return;
         }
 
-        SendRequestOk(conn_it->second, data_ctx_id, request_id);
+        SendSubscribeTracksOk(conn_it->second, data_ctx_id);
 
         // Fan out PUBLISH_NAMESPACE for matching namespaces.
         for (const auto& name_space : response.namespaces) {
@@ -2635,7 +2642,7 @@ namespace quicr {
                     response_data_ctx_id = *pub_ns_it->second.handler->GetDataContextId();
                 }
 
-                SendRequestOk(conn_it->second, response_data_ctx_id, request_id);
+                SendPublishNamespaceOk(conn_it->second, response_data_ctx_id);
 
                 fanout_subscribe_namespace_requestors();
                 break;
@@ -2699,7 +2706,8 @@ namespace quicr {
 
         track_it->second.handler->RequestUpdate(request_id, params);
 
-        if (!track_it->second.handler->GetDataContextId().has_value()) {
+        const auto data_ctx_id = track_it->second.handler->GetDataContextId();
+        if (!data_ctx_id.has_value()) {
             SPDLOG_LOGGER_WARN(logger_,
                                "ResolveRequestUpdate missing handler data context conn_id: {} existing_id: {}",
                                connection_handle,
@@ -2707,7 +2715,8 @@ namespace quicr {
             return;
         }
 
-        SendRequestOk(conn_it->second, *track_it->second.handler->GetDataContextId(), request_id);
+        // TODO: Type the params in resolve, fill in here.
+        SendRequestUpdateOk(conn_it->second, *data_ctx_id, std::nullopt, std::nullopt);
     }
 
     std::optional<DataContextId> Session::FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
@@ -3122,21 +3131,20 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kRequestOk: {
-                // Find the request ID for this request.
+                // What request is this for?
                 const auto req_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
                 if (req_it == conn_ctx.request_id_by_data_ctx.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
-                                       "Received publish ok on unknown stream conn_id: {} data_ctx_id: {}",
+                                       "Received REQUEST_OK for unknown request conn_id: {} data_ctx_ic: {}, ignored",
                                        conn_ctx.connection_handle,
                                        data_ctx_id);
-                    return true;
                 }
                 const auto request_id = req_it->second;
-                SPDLOG_LOGGER_DEBUG(logger_, "Got request ok for request: {}", request_id);
 
-                // Parse REQUEST_OK.
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
-                const auto track_properties = messages::Message::ParseField<TrackExtensions>(msg_bytes);
+                const auto track_properties = Message::ParseField<messages::TrackExtensions>(msg_bytes);
+                // TODO: If track properties exist on anything other than TRACK_STATUS_OK, protocol violation. We can't
+                // tell here.
 
                 // TODO: Why would this be different for client mode / server mode.
                 if (client_mode_) {
@@ -3623,6 +3631,7 @@ namespace quicr {
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = publish.track_full_name,
                                                      .track_hash = th,
                                                      .data_ctx_id = data_ctx_id };
+                conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
 
                 if (client_mode_) {
                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
@@ -3658,11 +3667,11 @@ namespace quicr {
                     }
 
                     track_it->second.handler->RequestUpdate(request_id, parameters);
-                    RequestUpdateReceived(conn_ctx.connection_handle, request_id, parameters);
+                    RequestUpdateReceived(conn_ctx.connection_handle, request_id, request_id, parameters);
                     return true;
                 }
 
-                auto sub_ctx_it = conn_ctx.recv_req_id.find(existing_request_id);
+                auto sub_ctx_it = conn_ctx.recv_req_id.find(request_id);
                 if (sub_ctx_it == conn_ctx.recv_req_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received subscribe_update for unknown subscription conn_id: {} request_id: {}",

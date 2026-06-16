@@ -1131,22 +1131,30 @@ namespace quicr {
         // Requests
         /*===================================================================*/
 
-        void SendPublishOk(ConnectionContext& conn_ctx,
-                           DataContextId data_ctx_id,
-                           const messages::PublishOkAttributes& attrs);
+        void SendTrackStatusOk(ConnectionContext& conn_ctx,
+                               DataContextId data_ctx_id,
+                               const std::optional<messages::Location>& largest_object,
+                               const messages::TrackExtensions& track_properties);
+
+        void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, DataContextId data_ctx_id);
+        void SendSubscribeTracksOk(ConnectionContext& conn_ctx, DataContextId data_ctx_id)
+        {
+            SendSubscribeNamespaceOk(conn_ctx, data_ctx_id);
+        }
+        void SendPublishNamespaceOk(ConnectionContext& conn_ctx, DataContextId data_ctx_id)
+        {
+            SendSubscribeNamespaceOk(conn_ctx, data_ctx_id);
+        }
         void SendRequestUpdateOk(ConnectionContext& conn_ctx,
                                  DataContextId data_ctx_id,
-                                 const messages::RequestUpdateOkAttributes& attrs);
+                                 std::optional<std::uint64_t> expires,
+                                 const std::optional<messages::Location>& largest_object);
 
-        void SendTrackStatusOk();
-        void SendSubscribeNamespaceOk();
-        void SendPublishNamespaceOk();
-
-        // This shouldn't be called directly, but instead from one of the typed overloads.
+        // Prefer the above typed overloads.
         void SendRequestOk(ConnectionContext& conn_ctx,
                            DataContextId data_ctx_id,
                            const messages::Parameters& params,
-                           std::optional<messages::TrackExtensions> track_properties = std::nullopt);
+                           const messages::TrackExtensions& track_properties = {});
 
         void SendRequestUpdate(const ConnectionContext& conn_ctx,
                                DataContextId data_ctx_id,
