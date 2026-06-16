@@ -30,6 +30,21 @@ namespace quicr {
 
     using TransportConnId = uint64_t; ///< Connection Id is a 64bit number that is used as a key to maps
     using DataContextId = uint64_t;   ///< Data Context 64bit number that identifies a data flow/track/stream
+
+    /**
+     * Close Connection App Reasons
+     */
+    enum class AppReasonForClose : uint8_t
+    {
+        kShutdown = 1,
+        kIdleTimeout,
+        kRemoteRequestClose,
+        kInternalError,
+        kProtocolViolation,
+        kNotAuthorized,
+        kUnknown,
+    };
+
     /**
      * Transport status/state values
      */
@@ -41,7 +56,7 @@ namespace quicr {
         kDisconnected,
         kIdleTimeout,
         kShutdown,
-        kShuttingDown
+        kShuttingDown,
     };
 
     /**
@@ -381,9 +396,10 @@ namespace quicr {
          * @brief Close a transport context
          *
          * @param conn_id           Connection ID to close
-         * @param app_reason_code   Application reason code to use when closing QUIC connnection
+         * @param app_reason        Application reason to close the connection
          */
-        virtual void Close(const TransportConnId& conn_id, uint64_t app_reason_code = 0) = 0;
+        virtual void Close(const TransportConnId& conn_id,
+                           AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose) = 0;
 
         /**
          * @brief Close stream by stream id
