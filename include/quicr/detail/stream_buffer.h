@@ -354,8 +354,6 @@ namespace quicr {
             read_offset_ = 0;
         }
 
-<<<<<<< HEAD
-=======
         FORCE_INLINE void PopInternal(std::uint32_t length)
         {
             if (read_offset_ >= buffer_.size() || length >= buffer_.size() - read_offset_) {
@@ -366,8 +364,6 @@ namespace quicr {
 
             read_offset_ += length;
         }
-
->>>>>>> 99cdeb40 (Improve stream buffer)
 
       private:
         BufferT buffer_;
