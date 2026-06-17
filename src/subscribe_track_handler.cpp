@@ -273,6 +273,10 @@ namespace quicr {
                                            messages::ParameterType::kAuthorizationToken,
                                          });
             // TODO: AUTHORIZATION_TOKEN
+            if (const auto transport = GetTransport().lock()) {
+                transport->ResolveRequestUpdate(
+                  GetConnectionId(), *GetRequestId(), { .error = std::nullopt, .params = {} });
+            }
             return;
         }
 
