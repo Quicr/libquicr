@@ -218,8 +218,18 @@ namespace quicr {
          */
         uint64_t GetConnectionId() const noexcept { return connection_handle_; };
 
-        virtual void RequestOk(uint64_t request_id, const messages::Parameters& params);
-        virtual void RequestUpdate(uint64_t request_id, const messages::Parameters& params);
+        /**
+         * Received an OK for this handler's request.
+         * @param params Parameters in the request.
+         */
+        virtual void RequestOkReceived(const messages::Parameters& params) = 0;
+
+        /**
+         * @brief Received an update for this handler's request.
+         * Implementations MUST call ResolveRequestUpdate to acknowledge the request.
+         * @param params The updated/new parameters for the request.
+         */
+        virtual void RequestUpdateReceived(const messages::Parameters& params) = 0;
 
         virtual void RequestError(messages::ErrorCode error_code, std::string reason);
 

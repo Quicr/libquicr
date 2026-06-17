@@ -316,6 +316,18 @@ namespace quicr {
             std::optional<messages::ReasonPhrase> error_reason;
         };
 
+        struct RequestUpdateResponse
+        {
+            struct Error
+            {
+                const messages::ErrorCode error_code;
+                const std::chrono::milliseconds retry_interval;
+                const std::string reason;
+            };
+            const std::optional<Error> error;
+            const messages::Parameters params;
+        };
+
         // --BEGIN RESOLVE METHODS ---------------------------------------------------------------------------
         /** @name Resolve Methods
          *      Methods to accept or reject inbound requests. Most are used in server mode; `ResolveSubscribe()`
@@ -428,14 +440,12 @@ namespace quicr {
          * @brief Accept or reject a request update
          *
          * @param connection_handle     Source connection ID
-         * @param request_id            Request ID for the update
-         * @param existing_request_id   Existing request ID being updated
-         * @param params                Updated parameters
+         * @param request_id            Request being updated
+         * @param response              Request update response
          */
         void ResolveRequestUpdate(ConnectionHandle connection_handle,
                                   uint64_t request_id,
-                                  uint64_t existing_request_id,
-                                  const messages::Parameters& params);
+                                  const RequestUpdateResponse& response);
 
         /**
          * @brief Accept or reject track status that was received
@@ -590,48 +600,7 @@ namespace quicr {
         virtual void TrackStatusReceived(ConnectionHandle connection_handle,
                                          uint64_t request_id,
                                          const FullTrackName& track_full_name);
-        /**
-         * @brief Callback notification for Request Ok received
-         *
-         * @note The REQUEST_OK message is sent to a response to REQUEST_UPDATE, TRACK_STATUS, SUBSCRIBE_NAMESPACE and
-         *       PUBLISH_NAMESPACE requests. The unique request ID in the REQUEST_OK is used to associate it with the
-         *       correct type of request.
-         *
-         * @param connection_handle     Source connection ID
-         * @param request_id            Request ID received
-         * @param largest_location      Largest location (only set for responses from TRACK_STATUS and REQUEST_UPDATE)
-         */
-        virtual void RequestOkReceived(ConnectionHandle connection_handle,
-                                       uint64_t request_id,
-                                       std::optional<messages::Location> largest_location = std::nullopt);
 
-        /**
-         * @brief Callback notification for Request Error received
-         *
-         * @note The REQUEST_ERROR message is sent to a response to any request (SUBSCRIBE, FETCH, PUBLISH,
-         *       SUBSCRIBE_NAMESPACE, PUBLISH_NAMESPACE, TRACK_STATUS). The unique request ID in the REQUEST_ERROR is
-         *       used to associate it with the correct type of request.
-         *
-         * @param connection_handle     Source connection ID
-         * @param request_id            Request ID received
-         * @param response              Response message
-         */
-        virtual void RequestErrorReceived(ConnectionHandle connection_handle,
-                                          uint64_t request_id,
-                                          const RequestResponse& response);
-
-        /**
-         * @brief Callback notification on request update received
-         *
-         * @param connection_handle     Source connection ID
-         * @param request_id            Request ID for the update
-         * @param existing_request_id   Existing request ID being updated
-         * @param params                Updated parameters
-         */
-        virtual void RequestUpdateReceived(ConnectionHandle connection_handle,
-                                           uint64_t request_id,
-                                           uint64_t existing_request_id,
-                                           const messages::Parameters& params);
         ///@}
 
         /** @name Client Callbacks

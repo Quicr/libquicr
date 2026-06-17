@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include "quicr/detail/parameters.h"
 #include "quicr/session.h"
+
 #include <quicr/publish_track_handler.h>
 
 namespace quicr {
@@ -369,20 +371,56 @@ namespace quicr {
         }
     }
 
-    void PublishTrackHandler::RequestOk([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
+    void PublishTrackHandler::RequestOkReceived(const messages::Parameters& params)
     {
-        auto forward = params.Get<bool>(messages::ParameterType::kForward);
-        SetStatus(forward ? Status::kOk : Status::kPaused);
+        // TODO: Replace this condition to signal pending request update response.
+        if (true) {
+            // PUBLISH_OK.
+            messages::ValidateParameters(params,
+                                         { messages::ParameterType::kDeliveryTimeout,
+                                           messages::ParameterType::kSubgroupDeliveryTimeout,
+                                           messages::ParameterType::kSubscriberPriority,
+                                           messages::ParameterType::kGroupOrder,
+                                           messages::ParameterType::kSubscriptionFilter,
+                                           messages::ParameterType::kNewGroupRequest,
+                                           messages::ParameterType::kExpires,
+                                           messages::ParameterType::kForward });
+            // TODO: OBJECT_DELIVERY_TIMEOUT
+            // TODO: SUBGROUP_DELIVERY_TIMEOUT
+            // TODO: SUBSCRIBER_PRIORITY
+            // TODO: GROUP_ORDER
+            // TODO: SUBSCRIPTION_FILTER
+            // TODO: NEW_GROUP_REQUEST
+            // TODO: EXPIRES
+            const auto forward = messages::ResolveForward(params, true);
+            SetStatus(forward ? Status::kOk : Status::kPaused);
+        } else {
+            // REQUEST_UPDATE_OK.
+            // TODO: In theory largest_object here?
+            messages::ValidateParameters(params, { messages::ParameterType::kExpires });
+            // TODO: EXPIRES.
+        }
     }
 
-    void PublishTrackHandler::RequestUpdate([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
+    void PublishTrackHandler::RequestUpdateReceived(const messages::Parameters& params)
     {
+        // The subscriber can update their subscription with lots of details.
+        // TODO: AUTHORIZATION_TOKEN
+        // TODO: OBJECT_DELIVERY_TIMEOUT
+        // TODO: SUBGROUP_DELIVERY_TIMEOUT
+        // TODO: SUBSCRIBER_PRIORITY
+        // TODO: SUBSCRIPTION_FILTER
         if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
             SetStatus(*forward ? Status::kOk : Status::kPaused);
         }
 
         if (auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
             SetStatus(Status::kNewGroupRequested);
+        }
+
+        if (const auto transport = GetTransport().lock()) {
+            transport->ResolveRequestUpdate(
+              GetConnectionId(), *GetRequestId(), { .error = std::nullopt, .params = {} });
         }
     }
 

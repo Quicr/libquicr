@@ -1,5 +1,6 @@
 #include "quicr/subscribe_namespace_handler.h"
 #include "quicr/detail/messages.h"
+#include "quicr/detail/parameters.h"
 #include "quicr/session.h"
 #include "quicr/subscribe_track_handler.h"
 
@@ -56,4 +57,17 @@ quicr::SubscribeNamespaceHandler::StatusChanged(Status status)
         default:
             break;
     }
+}
+
+void
+quicr::SubscribeNamespaceHandler::RequestOkReceived(const messages::Parameters& params)
+{
+    messages::ValidateParameters(params, {});
+    SetStatus(Status::kOk);
+}
+
+void
+quicr::SubscribeNamespaceHandler::RequestUpdateReceived([[maybe_unused]] const messages::Parameters& params)
+{
+    throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");
 }
