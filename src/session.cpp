@@ -264,10 +264,6 @@ namespace quicr {
         return request_id;
     }
 
-    void Session::RequestOkReceived(ConnectionHandle, uint64_t, std::optional<messages::Location>) {}
-
-    void Session::RequestErrorReceived(ConnectionHandle, uint64_t, const RequestResponse&) {}
-
     void Session::TrackStatusReceived(ConnectionHandle, uint64_t, const FullTrackName&) {}
 
     void Session::ResolveTrackStatus(ConnectionHandle connection_handle,
@@ -2678,49 +2674,42 @@ namespace quicr {
     }
 
     void Session::ResolveRequestUpdate(ConnectionHandle connection_handle,
-                                       uint64_t request_id,
-                                       uint64_t existing_request_id,
-                                       const messages::Parameters& params)
+                                       messages::RequestID request_id,
+                                       const RequestUpdateResponse& response)
     {
         auto conn_it = connections_.find(connection_handle);
         if (conn_it == connections_.end()) {
             return;
         }
 
-        auto track_it = conn_it->second.request_handlers.find(existing_request_id);
+        auto track_it = conn_it->second.request_handlers.find(request_id);
         if (track_it == conn_it->second.request_handlers.end()) {
-            if (client_mode_) {
-                const auto recv_it = conn_it->second.recv_req_id.find(existing_request_id);
-                if (recv_it == conn_it->second.recv_req_id.end()) {
-                    return;
-                }
-
-                SendRequestError(conn_it->second,
-                                 recv_it->second.data_ctx_id,
-                                 request_id,
-                                 messages::ErrorCode::kDoesNotExist,
-                                 0ms,
-                                 "Found no track for existing request ID");
-            }
+            SPDLOG_LOGGER_ERROR(logger_, "Resolve REQUEST_UPDATE for request {} had no handler", request_id);
             return;
         }
 
-        SPDLOG_LOGGER_DEBUG(
-          logger_, "Request Updated resolve req_id: {} existing_id: {}", request_id, existing_request_id);
-
-        track_it->second.handler->RequestUpdate(request_id, params);
+        SPDLOG_LOGGER_DEBUG(logger_, "Request Updated resolve req_id: {}", request_id);
 
         const auto data_ctx_id = track_it->second.handler->GetDataContextId();
         if (!data_ctx_id.has_value()) {
             SPDLOG_LOGGER_WARN(logger_,
-                               "ResolveRequestUpdate missing handler data context conn_id: {} existing_id: {}",
+                               "ResolveRequestUpdate missing handler data context conn_id: {} request_id: {}",
                                connection_handle,
-                               existing_request_id);
+                               request_id);
             return;
         }
 
-        // TODO: Type the params in resolve, fill in here.
-        SendRequestUpdateOk(conn_it->second, *data_ctx_id, std::nullopt, std::nullopt);
+        if (response.error.has_value()) {
+            SendRequestError(conn_it->second,
+                             *data_ctx_id,
+                             request_id,
+                             response.error->error_code,
+                             response.error->retry_interval,
+                             response.error->reason);
+        } else {
+            // TODO: Type the params in resolve, fill in here.
+            SendRequestUpdateOk(conn_it->second, *data_ctx_id, std::nullopt, std::nullopt);
+        }
     }
 
     std::optional<DataContextId> Session::FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
@@ -2847,16 +2836,6 @@ namespace quicr {
     }
 
     void Session::FetchCancelReceived(ConnectionHandle connection_handle, uint64_t request_id) {}
-
-    void Session::RequestUpdateReceived(ConnectionHandle connection_handle,
-                                        uint64_t request_id,
-                                        uint64_t existing_request_id,
-                                        const messages::Parameters& params)
-    {
-        if (client_mode_) {
-            ResolveRequestUpdate(connection_handle, request_id, existing_request_id, params);
-        }
-    }
 
     // -- Server Relay Methods --
 
@@ -3140,6 +3119,7 @@ namespace quicr {
                                        "Received REQUEST_OK for unknown request conn_id: {} data_ctx_ic: {}, ignored",
                                        conn_ctx.connection_handle,
                                        data_ctx_id);
+                    return true;
                 }
                 const auto request_id = req_it->second;
 
@@ -3158,14 +3138,9 @@ namespace quicr {
                         return true;
                     }
 
-                    track_it->second.handler->RequestOk(request_id, parameters);
-                    RequestOkReceived(conn_ctx.connection_handle, request_id);
+                    track_it->second.handler->RequestOkReceived(parameters);
                     return true;
                 }
-
-                auto largest_location =
-                  parameters.GetOptional<messages::Location>(messages::ParameterType::kLargestObject);
-                RequestOkReceived(conn_ctx.connection_handle, request_id, largest_location);
                 return true;
             }
             case messages::ControlMessageType::kRequestError: {
@@ -3190,7 +3165,6 @@ namespace quicr {
                     }
 
                     track_it->second.handler->RequestError(error_code, response.error_reason.value());
-                    RequestErrorReceived(conn_ctx.connection_handle, request_id, response);
                     return true;
                 }
 
@@ -3199,7 +3173,6 @@ namespace quicr {
                                     request_id,
                                     static_cast<std::uint64_t>(error_code),
                                     response.error_reason.value());
-                RequestErrorReceived(conn_ctx.connection_handle, request_id, response);
                 return true;
             }
             case messages::ControlMessageType::kTrackStatus: {
@@ -3720,8 +3693,7 @@ namespace quicr {
                         return true;
                     }
 
-                    track_it->second.handler->RequestUpdate(request_id, parameters);
-                    RequestUpdateReceived(conn_ctx.connection_handle, request_id, existing_request_id, parameters);
+                    track_it->second.handler->RequestUpdateReceived(parameters);
                     return true;
                 }
 

@@ -167,8 +167,8 @@ namespace quicr {
          */
         virtual void MetricsSampled(const PublishTrackMetrics& metrics);
 
-        void RequestUpdate(uint64_t request_id, const messages::Parameters& params) override;
-        void RequestOk(uint64_t request_id, const messages::Parameters& params) override;
+        void RequestUpdateReceived(const messages::Parameters& params) override;
+        void RequestOkReceived(const messages::Parameters& params) override;
 
         ///@}
 
