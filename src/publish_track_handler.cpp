@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/detail/parameters.h"
-#include "quicr/detail/track_properties.h"
 #include "quicr/session.h"
 
 #include <quicr/publish_track_handler.h>
@@ -372,44 +371,65 @@ namespace quicr {
         }
     }
 
-    void PublishTrackHandler::RequestOk([[maybe_unused]] uint64_t request_id,
-                                        const messages::Parameters& params,
-                                        const messages::TrackExtensions& track_properties)
+    void PublishTrackHandler::RequestOkReceived(const messages::Parameters& params)
     {
-        messages::ValidateParameters(params,
-                                     { messages::ParameterType::kDeliveryTimeout,
-                                       messages::ParameterType::kSubgroupDeliveryTimeout,
-                                       messages::ParameterType::kExpires,
-                                       messages::ParameterType::kForward,
-                                       messages::ParameterType::kSubscriberPriority,
-                                       messages::ParameterType::kGroupOrder,
-                                       messages::ParameterType::kNewGroupRequest,
-                                       messages::ToParameterFilterType(messages::FilterType::kSubscriptionFilter) });
+        // TODO: Replace this condition to signal pending request update response.
+        if (true) {
+            // PUBLISH_OK.
+            messages::ValidateParameters(params,
+                                         { messages::ParameterType::kDeliveryTimeout,
+                                           messages::ParameterType::kSubgroupDeliveryTimeout,
+                                           messages::ParameterType::kSubscriberPriority,
+                                           messages::ParameterType::kGroupOrder,
+                                           messages::ParameterType::kSubscriptionFilter,
+                                           messages::ParameterType::kNewGroupRequest,
+                                           messages::ParameterType::kExpires,
+                                           messages::ParameterType::kForward });
+            // TODO: OBJECT_DELIVERY_TIMEOUT
+            // TODO: SUBGROUP_DELIVERY_TIMEOUT
+            // TODO: GROUP_ORDER
+            // TODO: SUBSCRIPTION_FILTER
+            // TODO: EXPIRES
+            // NOTE: DELIVERY_TIMEOUT / TTL is not wired here: track properties do not arrive in REQUEST_OK.
+            const auto forward = messages::ResolveForward(params, true);
+            SetStatus(forward ? Status::kOk : Status::kPaused);
 
-        const auto forward = messages::ResolveForward(params, true);
-        SetStatus(forward ? Status::kOk : Status::kPaused);
-        const auto priority = messages::ResolveSubscriberPriority(params);
-        if (priority < GetDefaultPriority()) {
-            SetDefaultPriority(priority);
-        }
-        const auto delivery_timeout = messages::ResolveDeliveryTimeout(track_properties);
-        // TODO(RichLogan): 0 probably not right?
-        SetDefaultTTL(delivery_timeout.has_value() ? delivery_timeout.value() : 0);
+            const auto priority = messages::ResolveSubscriberPriority(params);
+            if (priority < GetDefaultPriority()) {
+                SetDefaultPriority(priority);
+            }
 
-        const auto ngr = messages::ResolveNewGroupRequest(params);
-        if (ngr.has_value()) {
-            SetStatus(Status::kNewGroupRequested);
+            const auto ngr = messages::ResolveNewGroupRequest(params);
+            if (ngr.has_value()) {
+                SetStatus(Status::kNewGroupRequested);
+            }
+        } else {
+            // REQUEST_UPDATE_OK.
+            // TODO: In theory largest_object here?
+            messages::ValidateParameters(params, { messages::ParameterType::kExpires });
+            // TODO: EXPIRES.
         }
     }
 
-    void PublishTrackHandler::RequestUpdate([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
+    void PublishTrackHandler::RequestUpdateReceived(const messages::Parameters& params)
     {
+        // The subscriber can update their subscription with lots of details.
+        // TODO: AUTHORIZATION_TOKEN
+        // TODO: OBJECT_DELIVERY_TIMEOUT
+        // TODO: SUBGROUP_DELIVERY_TIMEOUT
+        // TODO: SUBSCRIBER_PRIORITY
+        // TODO: SUBSCRIPTION_FILTER
         if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
             SetStatus(*forward ? Status::kOk : Status::kPaused);
         }
 
         if (auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
             SetStatus(Status::kNewGroupRequested);
+        }
+
+        if (const auto transport = GetTransport().lock()) {
+            transport->ResolveRequestUpdate(
+              GetConnectionId(), *GetRequestId(), { .error = std::nullopt, .params = {} });
         }
     }
 

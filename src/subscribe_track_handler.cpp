@@ -4,6 +4,7 @@
 #include "quicr/subscribe_track_handler.h"
 
 #include "quicr/detail/messages.h"
+#include "quicr/detail/parameters.h"
 #include "quicr/detail/stream_buffer.h"
 #include "quicr/session.h"
 
@@ -251,33 +252,35 @@ namespace quicr {
         streams_.erase(stream_id);
     }
 
-    void SubscribeTrackHandler::RequestOk([[maybe_unused]] uint64_t request_id,
-                                          const messages::Parameters& params,
-                                          const messages::TrackExtensions& track_properties)
+    void SubscribeTrackHandler::RequestOkReceived(const messages::Parameters& params)
     {
-        auto forward = params.Get<bool>(messages::ParameterType::kForward);
-        SetStatus(forward ? Status::kOk : Status::kPaused);
+        // SUBSCRIBE request OK itself is SUBSCRIBE_OK, so any RequestOk will be REQUEST_UPDATE_OK.
+        messages::ValidateParameters(params,
+                                     {
+                                       messages::ParameterType::kExpires,
+                                       messages::ParameterType::kLargestObject,
+                                     });
+        // TODO: EXPIRES
+        // TODO: LARGEST_OBJECT
     }
 
-    void SubscribeTrackHandler::RequestUpdate([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
+    void SubscribeTrackHandler::RequestUpdateReceived(const messages::Parameters& params)
     {
-        if (auto delivery_timeout = params.GetOptional<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-            delivery_timeout) {
-            SetDeliveryTimeout(std::chrono::milliseconds(*delivery_timeout));
+        if (IsPublisherInitiated()) {
+            // Publish can rev keys but nothing else.
+            messages::ValidateParameters(params,
+                                         {
+                                           messages::ParameterType::kAuthorizationToken,
+                                         });
+            // TODO: AUTHORIZATION_TOKEN
+            if (const auto transport = GetTransport().lock()) {
+                transport->ResolveRequestUpdate(
+                  GetConnectionId(), *GetRequestId(), { .error = std::nullopt, .params = {} });
+            }
+            return;
         }
 
-        if (auto priority = params.GetOptional<uint8_t>(messages::ParameterType::kSubscriberPriority); priority) {
-            SetPriority(*priority);
-        }
-
-        if (auto new_group_request_id = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-            new_group_request_id) {
-            RequestNewGroup(*new_group_request_id);
-        }
-
-        if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
-            SetStatus(*forward ? Status::kOk : Status::kPaused);
-        }
+        throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");
     }
 
 } // namespace quicr

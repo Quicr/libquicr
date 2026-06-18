@@ -650,26 +650,6 @@ class MyClient : public quicr::Client
                       { joining_start, std::nullopt });
     }
 
-    void RequestOkReceived(quicr::ConnectionHandle,
-                           uint64_t request_id,
-                           std::optional<quicr::messages::Location> largest_location) override
-    {
-        SPDLOG_INFO("Request track status OK response request_id: {} largest group: {} object: {}",
-                    request_id,
-                    largest_location.has_value() ? largest_location->group : 0,
-                    largest_location.has_value() ? largest_location->object : 0);
-    }
-
-    void RequestErrorReceived(quicr::ConnectionHandle,
-                              uint64_t request_id,
-                              const quicr::RequestResponse& response) override
-    {
-        SPDLOG_INFO("Request track status response ERROR request_id: {} error: {} reason: {}",
-                    request_id,
-                    static_cast<int>(response.reason_code),
-                    response.error_reason.has_value() ? response.error_reason.value() : "");
-    }
-
     void PublishReceived(quicr::ConnectionHandle connection_handle,
                          uint64_t request_id,
                          const quicr::messages::PublishAttributes& publish_attributes,
