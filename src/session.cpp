@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/session.h"
-#include "quicr/detail/control_messages.h"
-#include "quicr/detail/control_messages/setup.h"
 #include "quicr/detail/ctrl_message_types.h"
 #include "quicr/detail/message.h"
 #include "quicr/detail/messages.h"
