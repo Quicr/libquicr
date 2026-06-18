@@ -45,11 +45,25 @@ GetTestTimeout()
     return std::chrono::milliseconds(5000);
 }
 
-static const std::chrono::milliseconds kDefaultTimeout = GetTestTimeout();
+/// @brief Get negative test timeout (full wait).
+static std::chrono::milliseconds
+GetTestNegativeTimeout()
+{
+    const char* env_timeout = std::getenv("LIBQUICR_TEST_NEGATIVE_TIMEOUT_MS");
+    if (env_timeout != nullptr) {
+        try {
+            return std::chrono::milliseconds(std::stoi(env_timeout));
+        } catch (...) {
+            // Fall through to default
+        }
+    }
+    return std::chrono::milliseconds(300);
+}
 
-/// @brief Window to confirm a message does NOT arrive.
-/// @details Used for negative assertions, where the full duration is always spent, so it is kept short.
-static constexpr std::chrono::milliseconds kNegativeTimeout(300);
+// Full test timeout.
+static const std::chrono::milliseconds kDefaultTimeout = GetTestTimeout();
+// Missing message timeout.
+static constexpr std::chrono::milliseconds kNegativeTimeout(GetTestNegativeTimeout());
 
 /// @brief Wait for a condition to become true with polling
 /// @param predicate Function returning true when condition is met
