@@ -42,10 +42,28 @@ GetTestTimeout()
             // Fall through to default
         }
     }
+    return std::chrono::milliseconds(5000);
+}
+
+/// @brief Get negative test timeout (full wait).
+static std::chrono::milliseconds
+GetTestNegativeTimeout()
+{
+    const char* env_timeout = std::getenv("LIBQUICR_TEST_NEGATIVE_TIMEOUT_MS");
+    if (env_timeout != nullptr) {
+        try {
+            return std::chrono::milliseconds(std::stoi(env_timeout));
+        } catch (...) {
+            // Fall through to default
+        }
+    }
     return std::chrono::milliseconds(300);
 }
 
+// Full test timeout.
 static const std::chrono::milliseconds kDefaultTimeout = GetTestTimeout();
+// Missing message timeout.
+static const std::chrono::milliseconds kNegativeTimeout(GetTestNegativeTimeout());
 
 /// @brief Wait for a condition to become true with polling
 /// @param predicate Function returning true when condition is met
@@ -537,15 +555,16 @@ TEST_CASE("Integration - Raw Subscribe Tracks")
         CHECK_EQ(details.prefix_namespace, prefix_namespace);
 
         // Client should receive SUBSCRIBE_NAMESPACE_OK from relay
-        std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
-        CHECK_EQ(handler->GetStatus(), SubscribeNamespaceHandler::Status::kOk);
+        const bool ns_ok =
+          WaitFor([&handler]() { return handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; });
+        CHECK(ns_ok);
 
         // Client should NOT receive PUBLISH_NAMESPACE because there are no matching namespaces.
-        auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+        auto publish_namespace_status = publish_namespace_future.wait_for(kNegativeTimeout);
         CHECK(publish_namespace_status == std::future_status::timeout);
 
         // Client should NOT receive PUBLISH because there are no matching tracks.
-        auto publish_status = publish_future.wait_for(kDefaultTimeout);
+        auto publish_status = publish_future.wait_for(kNegativeTimeout);
         CHECK(publish_status == std::future_status::timeout);
     };
 
@@ -688,11 +707,13 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(
-          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
+        auto ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks);
+        CHECK_NOTHROW(client->SubscribeNamespace(ns_handler));
 
-        // In the future, a PUBLISH arrives.
-        std::this_thread::sleep_for(kDefaultTimeout);
+        // Wait for the subscription to be confirmed before the PUBLISH arrives.
+        const bool ns_ok =
+          WaitFor([&ns_handler]() { return ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; });
+        REQUIRE(ns_ok);
         const auto publish = PublishTrackHandler::Create(existing_track, TrackMode::kStream, 10, 5000, { 0, 0 });
         publisher->PublishTrack(publish);
 
@@ -746,7 +767,7 @@ TEST_CASE("Integration - Subscribe Tracks with non-matching namespace")
           SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Client should NOT receive PUBLISH_NAMESPACE.
-        auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+        auto publish_namespace_status = publish_namespace_future.wait_for(kNegativeTimeout);
         REQUIRE(publish_namespace_status == std::future_status::timeout);
     };
 
@@ -787,8 +808,9 @@ TEST_CASE("Integration - Announce Flow")
         REQUIRE_EQ(server_status, std::future_status::ready);
 
         // Verify the publish track handler transitions to kNoSubscribers (PUBLISH_NAMESPACE_OK).
-        std::this_thread::sleep_for(kDefaultTimeout);
-        CHECK_EQ(ns_handler->GetStatus(), PublishNamespaceHandler::Status::kOk);
+        const bool ns_ok =
+          WaitFor([&ns_handler]() { return ns_handler->GetStatus() == PublishNamespaceHandler::Status::kOk; });
+        CHECK(ns_ok);
 
         const std::string name = "test";
         const FullTrackName ftn{ prefix, quicr::Bytes{ name.begin(), name.end() } };
@@ -804,8 +826,9 @@ TEST_CASE("Integration - Announce Flow")
 
         CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kPendingPublishOk);
 
-        std::this_thread::sleep_for(kDefaultTimeout);
-        CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kOk);
+        const bool pub_ok =
+          WaitFor([&pub_handler]() { return pub_handler->GetStatus() == PublishTrackHandler::Status::kOk; });
+        CHECK(pub_ok);
     };
 
     SUBCASE("Raw QUIC")
@@ -1331,11 +1354,13 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         auto publish_future = publish_promise.get_future();
         subscriber->SetPublishReceivedPromise(std::move(publish_promise));
 
-        CHECK_NOTHROW(subscriber->SubscribeNamespace(
-          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
+        auto ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks);
+        CHECK_NOTHROW(subscriber->SubscribeNamespace(ns_handler));
 
-        // Give the namespace subscription time to settle.
-        std::this_thread::sleep_for(kDefaultTimeout);
+        // Wait for the namespace subscription to settle before publishing.
+        const bool ns_ok =
+          WaitFor([&ns_handler]() { return ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; });
+        REQUIRE(ns_ok);
 
         // Publish the track, watching for a new group request.
         auto new_group_was_requested = std::make_shared<std::atomic_bool>(false);
