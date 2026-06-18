@@ -1884,10 +1884,7 @@ namespace quicr {
                     const auto payload_begin = ctrl_msg_buffer.data.begin() + type_sz + sizeof(payload_len);
                     const auto payload_end = payload_begin + payload_len;
 
-                    if (ProcessCtrlMessage(conn_ctx,
-                                           data_ctx_id.value_or(conn_ctx.tx_ctrl_data_ctx_id.value()),
-                                           msg_type,
-                                           { payload_begin, payload_end })) {
+                    if (ProcessCtrlMessage(conn_ctx, data_ctx_id, msg_type, { payload_begin, payload_end })) {
                         ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
                                                    ctrl_msg_buffer.data.begin() + message_size);
                     } else {
@@ -2986,7 +2983,7 @@ namespace quicr {
     // -- Private --
 
     bool Session::ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                     uint64_t data_ctx_id,
+                                     std::optional<DataContextId> data_ctx_id,
                                      messages::ControlMessageType msg_type,
                                      BytesSpan msg_bytes)
     try {
@@ -3001,7 +2998,7 @@ namespace quicr {
                 auto th = TrackHash(tfn);
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = tfn,
                                                      .track_hash = th,
-                                                     .data_ctx_id = data_ctx_id };
+                                                     .data_ctx_id = data_ctx_id.value() };
 
                 if (client_mode_) {
                     auto ptd = GetPubTrackHandler(conn_ctx, th);
@@ -3015,7 +3012,7 @@ namespace quicr {
                                            request_id);
 
                         SendRequestError(conn_ctx,
-                                         data_ctx_id,
+                                         data_ctx_id.value(),
                                          request_id,
                                          messages::ErrorCode::kDoesNotExist,
                                          0ms,
@@ -3023,7 +3020,7 @@ namespace quicr {
                         return true;
                     }
 
-                    ptd->SetDataContextId(data_ctx_id);
+                    ptd->SetDataContextId(data_ctx_id.value());
 
                     ResolveSubscribe(conn_ctx.connection_handle,
                                      request_id,
@@ -3113,12 +3110,12 @@ namespace quicr {
             }
             case messages::ControlMessageType::kRequestOk: {
                 // What request is this for?
-                const auto req_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
+                const auto req_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id.value());
                 if (req_it == conn_ctx.request_id_by_data_ctx.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received REQUEST_OK for unknown request conn_id: {} data_ctx_ic: {}, ignored",
                                        conn_ctx.connection_handle,
-                                       data_ctx_id);
+                                       data_ctx_id.value());
                     return true;
                 }
                 const auto request_id = req_it->second;
@@ -3198,7 +3195,7 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = { track_namespace, {} },
                                                      .track_hash = TrackHash({ track_namespace, {} }),
-                                                     .data_ctx_id = data_ctx_id };
+                                                     .data_ctx_id = data_ctx_id.value() };
 
                 if (client_mode_) {
                     PublishNamespaceReceived(track_namespace, { .request_id = request_id });
@@ -3227,7 +3224,7 @@ namespace quicr {
 
                 SubscribeTracksReceived(
                   conn_ctx.connection_handle,
-                  data_ctx_id,
+                  data_ctx_id.value(),
                   track_namespace_prefix,
                   { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
                 return true;
@@ -3254,7 +3251,7 @@ namespace quicr {
 
                 SubscribeNamespaceReceived(
                   conn_ctx.connection_handle,
-                  data_ctx_id,
+                  data_ctx_id.value(),
                   track_namespace_prefix,
                   { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
                 return true;
@@ -3508,7 +3505,7 @@ namespace quicr {
                         const auto subscribe_state = conn_ctx.recv_req_id.find(joining_request_id);
                         if (subscribe_state == conn_ctx.recv_req_id.end()) {
                             SendRequestError(conn_ctx,
-                                             data_ctx_id,
+                                             data_ctx_id.value(),
                                              request_id,
                                              messages::ErrorCode::kDoesNotExist,
                                              0ms,
@@ -3536,7 +3533,7 @@ namespace quicr {
                     }
                     default: {
                         SendRequestError(conn_ctx,
-                                         data_ctx_id,
+                                         data_ctx_id.value(),
                                          request_id,
                                          messages::ErrorCode::kNotSupported,
                                          0ms,
@@ -3604,8 +3601,8 @@ namespace quicr {
                 auto th = TrackHash(publish.track_full_name);
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = publish.track_full_name,
                                                      .track_hash = th,
-                                                     .data_ctx_id = data_ctx_id };
-                conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
+                                                     .data_ctx_id = data_ctx_id.value() };
+                conn_ctx.request_id_by_data_ctx[data_ctx_id.value()] = request_id;
 
                 if (client_mode_) {
                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
@@ -3705,7 +3702,7 @@ namespace quicr {
                                        request_id);
 
                     SendRequestError(conn_ctx,
-                                     data_ctx_id,
+                                     data_ctx_id.value(),
                                      request_id,
                                      messages::ErrorCode::kDoesNotExist,
                                      0ms,

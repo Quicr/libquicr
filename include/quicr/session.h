@@ -1069,7 +1069,7 @@ namespace quicr {
         ConnectionContext& GetConnectionContext(ConnectionHandle conn);
 
         bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                uint64_t data_ctx_id,
+                                std::optional<DataContextId> data_ctx_id,
                                 messages::ControlMessageType msg_type,
                                 BytesSpan msg_bytes);
 
