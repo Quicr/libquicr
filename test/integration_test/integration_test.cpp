@@ -63,7 +63,7 @@ GetTestNegativeTimeout()
 // Full test timeout.
 static const std::chrono::milliseconds kDefaultTimeout = GetTestTimeout();
 // Missing message timeout.
-static constexpr std::chrono::milliseconds kNegativeTimeout(GetTestNegativeTimeout());
+static const std::chrono::milliseconds kNegativeTimeout(GetTestNegativeTimeout());
 
 /// @brief Wait for a condition to become true with polling
 /// @param predicate Function returning true when condition is met
