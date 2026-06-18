@@ -2983,7 +2983,7 @@ namespace quicr {
     // -- Private --
 
     bool Session::ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                     std::optional<DataContextId> data_ctx_id,
+                                     std::optional<std::uint64_t> data_ctx_id,
                                      messages::ControlMessageType msg_type,
                                      BytesSpan msg_bytes)
     try {
