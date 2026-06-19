@@ -13,6 +13,17 @@ namespace quicr::messages {
     // TODO: Maybe split base attributes out from SUBSCRIBE / PUBLISH?
     // TODO: E.g priority, new_group_request_id.
 
+    struct PublishOkAttributes
+    {
+        const std::optional<std::uint8_t> subscriber_priority;
+        const std::optional<GroupOrder> group_order;
+        const Filter filter;
+        const std::optional<bool> forward;
+        const std::optional<std::chrono::milliseconds> subgroup_delivery_timeout;
+        const std::optional<std::chrono::milliseconds> object_delivery_timeout;
+        const std::optional<std::uint64_t> new_group_request_id;
+    };
+
     /**
      * @brief Subscribe attributes
      */

@@ -86,12 +86,9 @@ namespace quicr {
         };
         ReasonCode reason_code;
 
-        std::optional<std::string> error_reason = std::nullopt;
+        std::optional<std::string> error_reason;
 
-        bool forward = true;
-        std::optional<std::uint8_t> subscriber_priority{};
-        std::optional<messages::GroupOrder> group_order{};
-        messages::Filter filter = std::monostate{};
+        const messages::PublishOkAttributes attributes;
     };
 
     struct SubscribeNamespaceResponse

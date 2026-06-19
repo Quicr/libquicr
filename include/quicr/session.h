@@ -1211,11 +1211,7 @@ namespace quicr {
 
         void SendPublishOk(ConnectionContext& conn_ctx,
                            DataContextId data_ctx_id,
-                           messages::RequestID request_id,
-                           bool forward,
-                           std::optional<std::uint8_t> priority,
-                           std::optional<messages::GroupOrder> group_order,
-                           const messages::Filter& filter);
+                           const messages::PublishOkAttributes& attributes);
 
         std::optional<DataContextId> FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
                                                                        const TrackNamespace& track_namespace) const;

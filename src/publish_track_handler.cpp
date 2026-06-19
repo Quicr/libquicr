@@ -373,8 +373,7 @@ namespace quicr {
 
     void PublishTrackHandler::RequestOkReceived(const messages::Parameters& params)
     {
-        // TODO: Replace this condition to signal pending request update response.
-        if (true) {
+        if (GetStatus() == Status::kPendingPublishOk) {
             // PUBLISH_OK.
             messages::ValidateParameters(params,
                                          { messages::ParameterType::kDeliveryTimeout,
@@ -390,13 +389,23 @@ namespace quicr {
             // TODO: SUBSCRIBER_PRIORITY
             // TODO: GROUP_ORDER
             // TODO: SUBSCRIPTION_FILTER
-            // TODO: NEW_GROUP_REQUEST
             // TODO: EXPIRES
+
+            const auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+            if (ngr.has_value()) {
+                if (!support_new_group_request_) {
+                    throw messages::ProtocolViolationException("Must not request new group on non-dynamic track");
+                }
+                // TODO: Use the NEW_GROUP_REQUEST value to do something.
+                SetStatus(Status::kNewGroupRequested);
+            }
+
             const auto forward = messages::ResolveForward(params, true);
             SetStatus(forward ? Status::kOk : Status::kPaused);
         } else {
             // REQUEST_UPDATE_OK.
             // TODO: In theory largest_object here?
+            // TODO: Handle unsolicited REQUEST_UPDATE_OK?
             messages::ValidateParameters(params, { messages::ParameterType::kExpires });
             // TODO: EXPIRES.
         }

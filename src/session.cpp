@@ -611,37 +611,31 @@ namespace quicr {
 
     void Session::SendPublishOk(ConnectionContext& conn_ctx,
                                 DataContextId data_ctx_id,
-                                messages::RequestID request_id,
-                                bool forward,
-                                std::optional<std::uint8_t> priority,
-                                std::optional<messages::GroupOrder> group_order,
-                                const messages::Filter& filter)
+                                const messages::PublishOkAttributes& attributes)
     try {
-        /* Available parameters:
-         * - DELIVERY TIMEOUT (0x02): Duration the relay should attempt forwarding objects.
-         * - SUBSCRIBER PRIORITY (0x20): Priority of the subscription relative to others.
-         * - GROUP ORDER (0x22): Preference for group delivery order.
-         * - SUBSCRIPTION FILTER (0x21): Specifies which objects the publisher should send.
-         * - EXPIRES (0x08): Time in milliseconds after which the subscription will be terminated.
-         * - FORWARD (0x10): Specifies the Forwarding State.
-         * - NEW GROUP REQUEST (0x32): Requests the publisher to start a new group.
-         */
+        // Attributes -> Parameters.
         auto params = Parameters{}
-                        .AddOptional(ParameterType::kSubscriberPriority, priority)
-                        .AddOptional(ParameterType::kGroupOrder, group_order);
-        if (!forward) {
-            params.Add(ParameterType::kForward, forward);
+                        .AddOptional(ParameterType::kSubscriberPriority, attributes.subscriber_priority)
+                        .AddOptional(ParameterType::kGroupOrder, attributes.group_order)
+                        .AddOptional(ParameterType::kNewGroupRequest, attributes.new_group_request_id)
+                        .AddOptional(ParameterType::kForward, attributes.forward);
+        const std::optional<std::uint64_t> object_timeout =
+          attributes.object_delivery_timeout.has_value()
+            ? std::make_optional(attributes.object_delivery_timeout.value().count())
+            : std::nullopt;
+        params.AddOptional(ParameterType::kDeliveryTimeout, object_timeout);
+        const std::optional<std::uint64_t> subgroup_timeout =
+          attributes.subgroup_delivery_timeout.has_value()
+            ? std::make_optional(attributes.subgroup_delivery_timeout.value().count())
+            : std::nullopt;
+        params.AddOptional(ParameterType::kSubgroupDeliveryTimeout, subgroup_timeout);
+
+        if (const auto filter_type = GetFilterParameterType(attributes.filter);
+            filter_type != ParameterType::kInvalid) {
+            params.Add(filter_type, attributes.filter);
         }
 
-        if (const auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
-            params.Add(filter_type, filter);
-        }
-
-        SPDLOG_LOGGER_DEBUG(
-          logger_, "Sending PUBLISH_OK to conn_id: {} request_id: {} ", conn_ctx.connection_handle, request_id);
-
-        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kPublishOk, UintVar(request_id), params);
-
+        SendRequestOk(conn_ctx, data_ctx_id, params);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish Ok (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -1526,13 +1520,8 @@ namespace quicr {
                     SubscribeTrack(connection_handle, std::move(handler));
                 }
 
-                SendPublishOk(conn_it->second,
-                              ResponseDataContext(conn_it->second, request_id),
-                              request_id,
-                              publish_response.forward,
-                              publish_response.subscriber_priority,
-                              publish_response.group_order,
-                              publish_response.filter);
+                SendPublishOk(
+                  conn_it->second, ResponseDataContext(conn_it->second, request_id), publish_response.attributes);
 
                 return;
             }
@@ -3126,19 +3115,16 @@ namespace quicr {
                 // TODO: If track properties exist on anything other than TRACK_STATUS_OK, protocol violation. We can't
                 // tell here.
 
-                if (client_mode_) {
-                    auto track_it = conn_ctx.request_handlers.find(request_id);
-                    if (track_it == conn_ctx.request_handlers.end()) {
-                        SPDLOG_LOGGER_WARN(logger_,
-                                           "Received REQUEST_OK to unknown track conn_id: {} request_id: {}, ignored",
-                                           conn_ctx.connection_handle,
-                                           request_id);
-                        return true;
-                    }
-
-                    track_it->second.handler->RequestOkReceived(parameters);
+                auto track_it = conn_ctx.request_handlers.find(request_id);
+                if (track_it == conn_ctx.request_handlers.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received REQUEST_OK to unknown track conn_id: {} request_id: {}, ignored",
+                                       conn_ctx.connection_handle,
+                                       request_id);
                     return true;
                 }
+
+                track_it->second.handler->RequestOkReceived(parameters);
                 return true;
             }
             case messages::ControlMessageType::kRequestError: {
@@ -3619,57 +3605,6 @@ namespace quicr {
                     PublishReceived(conn_ctx.connection_handle, request_id, publish, sub_ns_handler);
                 } else {
                     PublishReceived(conn_ctx.connection_handle, request_id, publish, {});
-                }
-
-                return true;
-            }
-            case messages::ControlMessageType::kPublishOk: {
-                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
-                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
-
-                auto pub_it = conn_ctx.request_handlers.find(request_id);
-                if (pub_it == conn_ctx.request_handlers.end()) {
-                    SPDLOG_LOGGER_WARN(
-                      logger_,
-                      "Received publish ok to unknown publish track conn_id: {} request_id: {}, ignored",
-                      conn_ctx.connection_handle,
-                      request_id);
-                    return true;
-                }
-
-                if (client_mode_) {
-                    const auto forward = ResolveForward(parameters, true);
-                    if (auto h = pub_it->second.Get<PublishTrackHandler>()) {
-                        h->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
-                    }
-                    return true;
-                }
-
-                if (auto pub_h = pub_it->second.Get<PublishTrackHandler>()) {
-                    auto th = TrackHash(pub_h->GetFullTrackName());
-                    conn_ctx.recv_req_id[request_id] = { .track_full_name = pub_h->GetFullTrackName(),
-                                                         .track_hash = th };
-
-                    auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                    auto delivery_timeout =
-                      parameters.GetOptional<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                    const auto forward = ResolveForward(parameters, true);
-                    auto new_group_request_id =
-                      parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-
-                    if (pub_h->GetDefaultPriority() < priority) {
-                        pub_h->SetDefaultPriority(priority);
-                    }
-
-                    if (delivery_timeout.has_value() && *delivery_timeout) {
-                        pub_h->SetDefaultTTL(*delivery_timeout);
-                    }
-
-                    pub_h->SetStatus(forward ? PublishTrackHandler::Status::kOk : PublishTrackHandler::Status::kPaused);
-
-                    if (new_group_request_id.has_value()) {
-                        pub_h->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
-                    }
                 }
 
                 return true;
