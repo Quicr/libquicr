@@ -2186,7 +2186,7 @@ void
 PicoQuicTransport::OnStreamClosed(TransportConnId conn_id,
                                   uint64_t stream_id,
                                   std::shared_ptr<StreamRxContext> rx_ctx,
-                                  std::optional<uint64_t> data_ctx_id,
+                                  std::optional<DataContextId> data_ctx_id,
                                   StreamClosedFlag flag)
 {
     SPDLOG_DEBUG("Stream {} closed for connection {}", stream_id, conn_id);

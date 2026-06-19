@@ -160,6 +160,26 @@ namespace quicr_test {
             publish_namespace_promise_ = std::move(promise);
         }
 
+        // Set up promise fulfilled when UnsubscribeReceived fires (carries the request id).
+        void SetUnsubscribePromise(std::promise<uint64_t> promise) { unsubscribe_promise_ = std::move(promise); }
+
+        // Set up promise fulfilled when PublishNamespaceDoneReceived fires (carries the request id).
+        void SetPublishNamespaceDonePromise(std::promise<uint64_t> promise)
+        {
+            publish_namespace_done_promise_ = std::move(promise);
+        }
+
+        // Whether the given stream was closed by RESET (true) or FIN (false); nullopt if not closed.
+        std::optional<bool> WasStreamReset(std::uint64_t stream_id) const
+        {
+            std::lock_guard lock(state_mutex_);
+            const auto it = closed_streams_.find(stream_id);
+            if (it == closed_streams_.end()) {
+                return std::nullopt;
+            }
+            return it->second;
+        }
+
         // Set up data to respond with when a fetch is received
         void SetFetchResponseData(std::vector<FetchResponseData> data) { fetch_response_data_ = std::move(data); }
 
@@ -174,14 +194,38 @@ namespace quicr_test {
           quicr::ConnectionHandle,
           quicr::messages::RequestID request_id) override
         {
+            std::lock_guard lock(state_mutex_);
+            if (publish_namespace_done_promise_.has_value()) {
+                publish_namespace_done_promise_->set_value(request_id);
+                publish_namespace_done_promise_.reset();
+            }
             return {};
         }
 
         void UnsubscribeNamespaceReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
                                           [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override {};
         void UnsubscribeReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
-                                 [[maybe_unused]] uint64_t request_id) override
+                                 uint64_t request_id) override
         {
+            std::lock_guard lock(state_mutex_);
+            if (unsubscribe_promise_.has_value()) {
+                unsubscribe_promise_->set_value(request_id);
+                unsubscribe_promise_.reset();
+            }
+        }
+
+        // Record stream FIN/RESET events so tests can verify the QUIC event for a logical action.
+        void OnStreamClosed(const quicr::ConnectionHandle& connection_handle,
+                            std::uint64_t stream_id,
+                            std::shared_ptr<quicr::StreamRxContext> rx_ctx,
+                            std::optional<quicr::DataContextId> data_ctx_id,
+                            quicr::StreamClosedFlag flag) override
+        {
+            {
+                std::lock_guard lock(state_mutex_);
+                closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
+            }
+            quicr::Session::OnStreamClosed(connection_handle, stream_id, std::move(rx_ctx), data_ctx_id, flag);
         }
 
         void FetchCancelReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
@@ -231,6 +275,9 @@ namespace quicr_test {
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
+        std::optional<std::promise<uint64_t>> unsubscribe_promise_;
+        std::optional<std::promise<uint64_t>> publish_namespace_done_promise_;
+        std::map<std::uint64_t, bool> closed_streams_;
         std::vector<quicr::TrackNamespace> known_published_namespaces_;
         std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;
         struct AvailableTrack

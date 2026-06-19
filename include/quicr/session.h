@@ -25,6 +25,7 @@
 #include <atomic>
 #include <chrono>
 #include <map>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -926,12 +927,14 @@ namespace quicr {
                                    DataContextId data_ctx_id,
                                    const QuicDataContextMetrics& quic_data_context_metrics) override;
 
+      protected:
         void OnStreamClosed(const ConnectionHandle& connection_handle,
                             std::uint64_t stream_id,
                             std::shared_ptr<StreamRxContext> rx_ctx,
-                            std::optional<uint64_t> data_ctx_id,
+                            std::optional<DataContextId> data_ctx_id,
                             StreamClosedFlag flag) override;
 
+      private:
         // -------------------------------------------------------------------------------------------------
         // End of transport handler/callback functions
         // -------------------------------------------------------------------------------------------------
@@ -1012,6 +1015,9 @@ namespace quicr {
 
             /// Lookup request ID by carrying data context.
             std::map<DataContextId, messages::RequestID> request_id_by_data_ctx;
+
+            /// For pubns lifetime
+            std::set<messages::RequestID> recv_publish_namespaces;
 
             /// Handlers by request ID
             std::map<messages::RequestID, TrackHandler> request_handlers;
@@ -1156,10 +1162,6 @@ namespace quicr {
                                   messages::RequestID request_id,
                                   const TrackNamespace& track_namespace);
 
-        void SendPublishNamespaceDone(ConnectionContext& conn_ctx,
-                                      DataContextId data_ctx_id,
-                                      messages::RequestID request_id);
-
         /*===================================================================*/
         // Subscribe Namespace
         /*===================================================================*/
@@ -1196,7 +1198,6 @@ namespace quicr {
                              uint64_t expires,
                              const std::optional<messages::Location>& largest_location,
                              messages::GroupOrder publisher_default_group_order);
-        void SendUnsubscribe(ConnectionContext& conn_ctx, DataContextId data_ctx_id, messages::RequestID request_id);
 
         /*===================================================================*/
         // Publish
@@ -1247,8 +1248,6 @@ namespace quicr {
                               messages::RequestID joining_request_id,
                               messages::GroupId joining_start,
                               bool absolute);
-
-        void SendFetchCancel(ConnectionContext& conn_ctx, messages::RequestID request_id);
 
         void SendFetchOk(ConnectionContext& conn_ctx,
                          messages::RequestID request_id,
