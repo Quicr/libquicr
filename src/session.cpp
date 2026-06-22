@@ -1810,11 +1810,7 @@ namespace quicr {
             const bool is_request_stream = is_bidir;
 
             // Single unidirection recv control stream.
-            bool is_control_stream = false;
-            if (!is_request_stream) {
-                // We may or may not already know this.
-                is_control_stream = stream_id == conn_ctx.rx_ctrl_stream_id;
-            }
+            bool is_control_stream = !is_request_stream && stream_id == conn_ctx.rx_ctrl_stream_id;
 
             // Get message type if new stream
             if (rx_ctx->is_new) {
