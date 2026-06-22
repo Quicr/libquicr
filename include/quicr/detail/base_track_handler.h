@@ -203,13 +203,13 @@ namespace quicr {
 
         /**
          * @brief Set the stream ID for the bidir request control stream.
-         * @param request_stream_id Request stream ID.
+         * @param request_stream_id Request stream's ID.
          */
         void SetRequestStreamId(uint64_t request_stream_id) { request_stream_id_ = request_stream_id; }
 
         /**
-         * @brief Get the request control stream's ID.
-         * @return Request bidir stream ID.
+         * @brief Get the stream ID of the request control stream.
+         * @return Request stream's ID.
          */
         std::optional<uint64_t> GetRequestStreamId() const noexcept { return request_stream_id_; }
 
@@ -281,9 +281,7 @@ namespace quicr {
         std::optional<DataContextId> data_ctx_id_{ std::nullopt };
 
         /**
-         * Stream ID of the bidirectional request stream carrying this request. Distinct from any
-         * data stream used to carry objects; this is the stream the request was sent on and is reset
-         * to cancel the request using QUIC stream semantics.
+         * Stream ID of the bidirectional request control stream.
          */
         std::optional<uint64_t> request_stream_id_{ std::nullopt };
 
