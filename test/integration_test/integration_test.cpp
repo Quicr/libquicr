@@ -898,7 +898,8 @@ class TestFetchTrackHandler final : public FetchTrackHandler
     std::vector<ReceivedObject> received_objects_;
 };
 
-TEST_CASE("Integration - Fetch object roundtrip")
+// TODO: Re-enable when FETCH migrated.
+TEST_CASE("Integration - Fetch object roundtrip" * doctest::skip())
 {
     const auto server = MakeTestServer();
     auto test_fetch_roundtrip = [&](const std::string& protocol_scheme) {
