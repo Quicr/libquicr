@@ -1893,17 +1893,11 @@ namespace quicr {
                         if (is_control_stream) {
                             processed = ProcessCtrlMessage(conn_ctx, msg_type, { payload_begin, payload_end });
                         } else if (is_request_stream) {
-                            if (data_ctx_id.has_value()) {
-                                processed = ProcessRequestMessage(
-                                  conn_ctx, *data_ctx_id, msg_type, { payload_begin, payload_end });
-                            } else {
-                                // TODO: What class of error is this?
-                                SPDLOG_LOGGER_ERROR(
-                                  logger_,
-                                  "Request control message missing data_ctx conn_id: {} stream_id: {}",
-                                  conn_id,
-                                  stream_id);
+                            if (!data_ctx_id.has_value()) {
+                                throw std::invalid_argument("Missing data ctx id");
                             }
+                            processed =
+                              ProcessRequestMessage(conn_ctx, *data_ctx_id, msg_type, { payload_begin, payload_end });
                         }
                     } catch (const std::exception& e) {
                         SPDLOG_LOGGER_ERROR(logger_,
