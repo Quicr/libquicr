@@ -1993,7 +1993,7 @@ namespace quicr {
     void Session::OnStreamClosed(const ConnectionHandle& connection_handle,
                                  std::uint64_t stream_id,
                                  std::shared_ptr<StreamRxContext> rx_ctx,
-                                 std::optional<std::uint64_t> data_ctx_id,
+                                 std::optional<uint64_t> data_ctx_id,
                                  StreamClosedFlag flag)
     {
         SPDLOG_LOGGER_DEBUG(logger_, "Stream {} closed", stream_id);
