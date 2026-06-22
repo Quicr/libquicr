@@ -1901,6 +1901,10 @@ namespace quicr {
                               ProcessRequestMessage(conn_ctx, *data_ctx_id, msg_type, { payload_begin, payload_end });
                         } else {
                             // TODO: What class of error is this?
+                            SPDLOG_LOGGER_ERROR(logger_,
+                                                "Request control message missing data_ctx conn_id: {} stream_id: {}",
+                                                conn_id,
+                                                stream_id);
                         }
                     }
 
@@ -3038,10 +3042,11 @@ namespace quicr {
                 return true;
             }
             default: {
-                break;
+                SPDLOG_LOGGER_ERROR(
+                  logger_, "Unsupported session control message, type: {}", static_cast<std::uint64_t>(msg_type));
+                throw ProtocolViolationException("Unsupported session control message");
             }
         }
-        return false;
     }
 
     bool Session::ProcessRequestMessage(ConnectionContext& conn_ctx,
@@ -3257,7 +3262,7 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = { track_namespace, {} },
                                                      .track_hash = TrackHash({ track_namespace, {} }),
-                                                     .data_ctx_id = data_ctx_id.value() };
+                                                     .data_ctx_id = data_ctx_id };
 
                 if (client_mode_) {
                     PublishNamespaceReceived(track_namespace, { .request_id = request_id });
@@ -3286,7 +3291,7 @@ namespace quicr {
 
                 SubscribeTracksReceived(
                   conn_ctx.connection_handle,
-                  data_ctx_id.value(),
+                  data_ctx_id,
                   track_namespace_prefix,
                   { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
                 return true;
@@ -3313,7 +3318,7 @@ namespace quicr {
 
                 SubscribeNamespaceReceived(
                   conn_ctx.connection_handle,
-                  data_ctx_id.value(),
+                  data_ctx_id,
                   track_namespace_prefix,
                   { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
                 return true;
