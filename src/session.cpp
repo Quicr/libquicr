@@ -1893,19 +1893,34 @@ namespace quicr {
                     const auto payload_end = payload_begin + payload_len;
 
                     bool processed = false;
-                    if (is_control_stream) {
-                        processed = ProcessCtrlMessage(conn_ctx, msg_type, { payload_begin, payload_end });
-                    } else if (is_request_stream) {
-                        if (data_ctx_id.has_value()) {
-                            processed =
-                              ProcessRequestMessage(conn_ctx, *data_ctx_id, msg_type, { payload_begin, payload_end });
-                        } else {
-                            // TODO: What class of error is this?
-                            SPDLOG_LOGGER_ERROR(logger_,
-                                                "Request control message missing data_ctx conn_id: {} stream_id: {}",
-                                                conn_id,
-                                                stream_id);
+                    try {
+                        if (is_control_stream) {
+                            processed = ProcessCtrlMessage(conn_ctx, msg_type, { payload_begin, payload_end });
+                        } else if (is_request_stream) {
+                            if (data_ctx_id.has_value()) {
+                                processed = ProcessRequestMessage(
+                                  conn_ctx, *data_ctx_id, msg_type, { payload_begin, payload_end });
+                            } else {
+                                // TODO: What class of error is this?
+                                SPDLOG_LOGGER_ERROR(
+                                  logger_,
+                                  "Request control message missing data_ctx conn_id: {} stream_id: {}",
+                                  conn_id,
+                                  stream_id);
+                            }
                         }
+                    } catch (const std::exception& e) {
+                        SPDLOG_LOGGER_ERROR(logger_,
+                                            "Caught exception trying to process control message. (type={}, error={})",
+                                            static_cast<int>(msg_type),
+                                            e.what());
+                        CloseConnection(
+                          conn_ctx.connection_handle, messages::TerminationReason::kProtocolViolation, e.what());
+                    } catch (...) {
+                        SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message");
+                        CloseConnection(conn_ctx.connection_handle,
+                                        messages::TerminationReason::kProtocolViolation,
+                                        "Control message cannot be parsed");
                     }
 
                     if (processed) {
@@ -3053,7 +3068,7 @@ namespace quicr {
                                         std::uint64_t data_ctx_id,
                                         messages::ControlMessageType msg_type,
                                         BytesSpan msg_bytes)
-    try {
+    {
         switch (msg_type) {
             case messages::ControlMessageType::kSubscribe: {
                 const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
@@ -3789,20 +3804,6 @@ namespace quicr {
             }
         }
 
-        return false;
-
-    } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_,
-                            "Caught exception trying to process control message. (type={}, error={})",
-                            static_cast<int>(msg_type),
-                            e.what());
-        CloseConnection(conn_ctx.connection_handle, messages::TerminationReason::kProtocolViolation, e.what());
-        return false;
-    } catch (...) {
-        SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message");
-        CloseConnection(conn_ctx.connection_handle,
-                        messages::TerminationReason::kProtocolViolation,
-                        "Control message cannot be parsed");
         return false;
     }
 
