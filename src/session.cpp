@@ -1805,7 +1805,12 @@ namespace quicr {
             auto& data = *data_opt.value();
             auto cursor_it = data.begin();
             uint64_t msg_type{ 0 };
-            bool is_control_stream = is_bidir || conn_ctx.rx_ctrl_stream_id.value_or(0) == stream_id;
+
+            // All bidir streams are requests.
+            const bool is_request_stream = is_bidir;
+
+            // Single unidirection recv control stream.
+            bool is_control_stream = !is_request_stream && stream_id == conn_ctx.rx_ctrl_stream_id;
 
             // Get message type if new stream
             if (rx_ctx->is_new) {
@@ -1832,17 +1837,16 @@ namespace quicr {
                 msg_type = uint64_t(quicr::UintVar({ data.begin(), data.begin() + type_sz }));
                 cursor_it = std::next(data.begin(), type_sz);
 
-                if (static_cast<ControlMessageType>(msg_type) == ControlMessageType::kSetup) {
+                // This might be incoming control stream arriving.
+                if (!is_request_stream && !is_control_stream &&
+                    static_cast<ControlMessageType>(msg_type) == ControlMessageType::kSetup) {
                     is_control_stream = true;
-
-                    if (!is_bidir) {
-                        conn_ctx.rx_ctrl_stream_id = stream_id;
-                    }
+                    conn_ctx.rx_ctrl_stream_id = stream_id;
                 }
             }
 
-            // CONTROL STREAM
-            if (is_control_stream) {
+            // Control or request handling.
+            if (is_control_stream || is_request_stream) {
                 auto& ctrl_msg_buffer = conn_ctx.ctrl_msg_buffer[stream_id];
                 ctrl_msg_buffer.data.insert(ctrl_msg_buffer.data.end(), data.begin(), data.end());
 
@@ -1884,7 +1888,32 @@ namespace quicr {
                     const auto payload_begin = ctrl_msg_buffer.data.begin() + type_sz + sizeof(payload_len);
                     const auto payload_end = payload_begin + payload_len;
 
-                    if (ProcessCtrlMessage(conn_ctx, data_ctx_id, msg_type, { payload_begin, payload_end })) {
+                    bool processed = false;
+                    try {
+                        if (is_control_stream) {
+                            processed = ProcessCtrlMessage(conn_ctx, msg_type, { payload_begin, payload_end });
+                        } else if (is_request_stream) {
+                            if (!data_ctx_id.has_value()) {
+                                throw std::invalid_argument("Missing data ctx id");
+                            }
+                            processed =
+                              ProcessRequestMessage(conn_ctx, *data_ctx_id, msg_type, { payload_begin, payload_end });
+                        }
+                    } catch (const std::exception& e) {
+                        SPDLOG_LOGGER_ERROR(logger_,
+                                            "Caught exception trying to process control message. (type={}, error={})",
+                                            static_cast<int>(msg_type),
+                                            e.what());
+                        CloseConnection(
+                          conn_ctx.connection_handle, messages::TerminationReason::kProtocolViolation, e.what());
+                    } catch (...) {
+                        SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message");
+                        CloseConnection(conn_ctx.connection_handle,
+                                        messages::TerminationReason::kProtocolViolation,
+                                        "Control message cannot be parsed");
+                    }
+
+                    if (processed) {
                         ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
                                                    ctrl_msg_buffer.data.begin() + message_size);
                     } else {
@@ -1894,7 +1923,7 @@ namespace quicr {
                     }
                 }
                 continue;
-            } // end of is_bidir
+            } // end of control message processing
 
             // DATA OBJECT
             if (rx_ctx->is_new) {
@@ -2983,10 +3012,53 @@ namespace quicr {
     // -- Private --
 
     bool Session::ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                     std::optional<std::uint64_t> data_ctx_id,
                                      messages::ControlMessageType msg_type,
                                      BytesSpan msg_bytes)
-    try {
+    {
+        switch (msg_type) {
+            case messages::ControlMessageType::kSetup: {
+                const auto setup_options = messages::Message::ParseField<messages::KeyValuePairs>(msg_bytes);
+
+                std::string endpoint_id = "Unknown Endpoint ID";
+                if (auto endpoint = setup_options.GetOptional<std::string>(messages::SetupOptionType::kEndpointId)) {
+                    endpoint_id = *endpoint;
+                }
+
+                if (client_mode_) {
+                    ServerSetupReceived({ 0, endpoint_id });
+                } else {
+                    ClientSetupReceived(conn_ctx.connection_handle, { endpoint_id });
+                    SendSetup(conn_ctx);
+                }
+
+                SetStatus(Status::kReady);
+
+                SPDLOG_LOGGER_INFO(
+                  logger_, "Setup received conn_id: {} from: {}", conn_ctx.connection_handle, endpoint_id);
+
+                conn_ctx.setup_complete = true;
+                return true;
+            }
+            case messages::ControlMessageType::kGoaway: {
+                // Session GOAWAY.
+                const auto new_session_uri = messages::Message::ParseField<Bytes>(msg_bytes);
+                std::string new_sess_uri(new_session_uri.begin(), new_session_uri.end());
+                SPDLOG_LOGGER_INFO(logger_, "Received session goaway new session uri: {}", new_sess_uri);
+                return true;
+            }
+            default: {
+                SPDLOG_LOGGER_ERROR(
+                  logger_, "Unsupported session control message, type: {}", static_cast<std::uint64_t>(msg_type));
+                throw ProtocolViolationException("Unsupported session control message");
+            }
+        }
+    }
+
+    bool Session::ProcessRequestMessage(ConnectionContext& conn_ctx,
+                                        std::uint64_t data_ctx_id,
+                                        messages::ControlMessageType msg_type,
+                                        BytesSpan msg_bytes)
+    {
         switch (msg_type) {
             case messages::ControlMessageType::kSubscribe: {
                 const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
@@ -2998,7 +3070,7 @@ namespace quicr {
                 auto th = TrackHash(tfn);
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = tfn,
                                                      .track_hash = th,
-                                                     .data_ctx_id = data_ctx_id.value() };
+                                                     .data_ctx_id = data_ctx_id };
 
                 if (client_mode_) {
                     auto ptd = GetPubTrackHandler(conn_ctx, th);
@@ -3012,7 +3084,7 @@ namespace quicr {
                                            request_id);
 
                         SendRequestError(conn_ctx,
-                                         data_ctx_id.value(),
+                                         data_ctx_id,
                                          request_id,
                                          messages::ErrorCode::kDoesNotExist,
                                          0ms,
@@ -3020,7 +3092,7 @@ namespace quicr {
                         return true;
                     }
 
-                    ptd->SetDataContextId(data_ctx_id.value());
+                    ptd->SetDataContextId(data_ctx_id);
 
                     ResolveSubscribe(conn_ctx.connection_handle,
                                      request_id,
@@ -3110,12 +3182,12 @@ namespace quicr {
             }
             case messages::ControlMessageType::kRequestOk: {
                 // What request is this for?
-                const auto req_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id.value());
+                const auto req_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
                 if (req_it == conn_ctx.request_id_by_data_ctx.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received REQUEST_OK for unknown request conn_id: {} data_ctx_ic: {}, ignored",
                                        conn_ctx.connection_handle,
-                                       data_ctx_id.value());
+                                       data_ctx_id);
                     return true;
                 }
                 const auto request_id = req_it->second;
@@ -3195,7 +3267,7 @@ namespace quicr {
 
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = { track_namespace, {} },
                                                      .track_hash = TrackHash({ track_namespace, {} }),
-                                                     .data_ctx_id = data_ctx_id.value() };
+                                                     .data_ctx_id = data_ctx_id };
 
                 if (client_mode_) {
                     PublishNamespaceReceived(track_namespace, { .request_id = request_id });
@@ -3224,7 +3296,7 @@ namespace quicr {
 
                 SubscribeTracksReceived(
                   conn_ctx.connection_handle,
-                  data_ctx_id.value(),
+                  data_ctx_id,
                   track_namespace_prefix,
                   { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
                 return true;
@@ -3251,7 +3323,7 @@ namespace quicr {
 
                 SubscribeNamespaceReceived(
                   conn_ctx.connection_handle,
-                  data_ctx_id.value(),
+                  data_ctx_id,
                   track_namespace_prefix,
                   { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
                 return true;
@@ -3399,32 +3471,10 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {
+                // Request GOAWAY.
                 const auto new_session_uri = messages::Message::ParseField<Bytes>(msg_bytes);
                 std::string new_sess_uri(new_session_uri.begin(), new_session_uri.end());
-                SPDLOG_LOGGER_INFO(logger_, "Received goaway new session uri: {}", new_sess_uri);
-                return true;
-            }
-            case messages::ControlMessageType::kSetup: {
-                const auto setup_options = messages::Message::ParseField<messages::KeyValuePairs>(msg_bytes);
-
-                std::string endpoint_id = "Unknown Endpoint ID";
-                if (auto endpoint = setup_options.GetOptional<std::string>(messages::SetupOptionType::kEndpointId)) {
-                    endpoint_id = *endpoint;
-                }
-
-                if (client_mode_) {
-                    ServerSetupReceived({ 0, endpoint_id });
-                } else {
-                    ClientSetupReceived(conn_ctx.connection_handle, { endpoint_id });
-                    SendSetup(conn_ctx);
-                }
-
-                SetStatus(Status::kReady);
-
-                SPDLOG_LOGGER_INFO(
-                  logger_, "Setup received conn_id: {} from: {}", conn_ctx.connection_handle, endpoint_id);
-
-                conn_ctx.setup_complete = true;
+                SPDLOG_LOGGER_INFO(logger_, "Received request goaway new session uri: {}", new_sess_uri);
                 return true;
             }
             case messages::ControlMessageType::kFetchOk: {
@@ -3505,7 +3555,7 @@ namespace quicr {
                         const auto subscribe_state = conn_ctx.recv_req_id.find(joining_request_id);
                         if (subscribe_state == conn_ctx.recv_req_id.end()) {
                             SendRequestError(conn_ctx,
-                                             data_ctx_id.value(),
+                                             data_ctx_id,
                                              request_id,
                                              messages::ErrorCode::kDoesNotExist,
                                              0ms,
@@ -3533,7 +3583,7 @@ namespace quicr {
                     }
                     default: {
                         SendRequestError(conn_ctx,
-                                         data_ctx_id.value(),
+                                         data_ctx_id,
                                          request_id,
                                          messages::ErrorCode::kNotSupported,
                                          0ms,
@@ -3601,8 +3651,8 @@ namespace quicr {
                 auto th = TrackHash(publish.track_full_name);
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = publish.track_full_name,
                                                      .track_hash = th,
-                                                     .data_ctx_id = data_ctx_id.value() };
-                conn_ctx.request_id_by_data_ctx[data_ctx_id.value()] = request_id;
+                                                     .data_ctx_id = data_ctx_id };
+                conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
 
                 if (client_mode_) {
                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
@@ -3702,7 +3752,7 @@ namespace quicr {
                                        request_id);
 
                     SendRequestError(conn_ctx,
-                                     data_ctx_id.value(),
+                                     data_ctx_id,
                                      request_id,
                                      messages::ErrorCode::kDoesNotExist,
                                      0ms,
@@ -3744,20 +3794,6 @@ namespace quicr {
             }
         }
 
-        return false;
-
-    } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_,
-                            "Caught exception trying to process control message. (type={}, error={})",
-                            static_cast<int>(msg_type),
-                            e.what());
-        CloseConnection(conn_ctx.connection_handle, messages::TerminationReason::kProtocolViolation, e.what());
-        return false;
-    } catch (...) {
-        SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message");
-        CloseConnection(conn_ctx.connection_handle,
-                        messages::TerminationReason::kProtocolViolation,
-                        "Control message cannot be parsed");
         return false;
     }
 
