@@ -792,7 +792,7 @@ namespace quicr {
                                     ? ControlMessageType::kSubscribeNamespace
                                     : ControlMessageType::kSubscribeTracks;
 
-        handler->SetDataContextId(quic_transport_->CreateDataContext(conn_id, true, 0, true, handler->GetRequestId()));
+        handler->SetDataContextId(quic_transport_->CreateDataContext(conn_id, true, 0, true));
         quic_transport_->CreateStream(conn_id, handler->GetDataContextId().value(), 0);
         conn_it->second.request_id_by_data_ctx[handler->GetDataContextId().value()] = handler->GetRequestId().value();
 
@@ -989,8 +989,7 @@ namespace quicr {
                 return;
             }
 
-            track_handler->SetDataContextId(
-              quic_transport_->CreateDataContext(conn_id, true, 0, true, track_handler->GetRequestId()));
+            track_handler->SetDataContextId(quic_transport_->CreateDataContext(conn_id, true, 0, true));
             quic_transport_->CreateStream(conn_id, track_handler->GetDataContextId().value(), 0);
             conn_it->second.request_id_by_data_ctx[track_handler->GetDataContextId().value()] =
               track_handler->GetRequestId().value();
@@ -1181,6 +1180,7 @@ namespace quicr {
 
         if (handler.publish_data_ctx_id_ != 0) {
             conn_ctx.pub_tracks_by_data_ctx_id.erase(handler.publish_data_ctx_id_);
+            // TODO: is_reset should propagate down here?
             quic_transport_->DeleteDataContext(connection_handle, handler.publish_data_ctx_id_);
             handler.publish_data_ctx_id_ = 0;
         }
@@ -1363,8 +1363,7 @@ namespace quicr {
 
         track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
 
-        track_handler->SetDataContextId(
-          quic_transport_->CreateDataContext(conn_id, true, 0, true, track_handler->GetRequestId()));
+        track_handler->SetDataContextId(quic_transport_->CreateDataContext(conn_id, true, 0, true));
         quic_transport_->CreateStream(conn_id, track_handler->GetDataContextId().value(), 0);
         conn_it->second.request_id_by_data_ctx[track_handler->GetDataContextId().value()] =
           track_handler->GetRequestId().value();
@@ -1397,8 +1396,7 @@ namespace quicr {
           quic_transport_->CreateDataContext(conn_id,
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
                                              track_handler->default_priority_,
-                                             false,
-                                             track_handler->GetRequestId());
+                                             false);
 
         // Set this transport as the one for the publisher to use.
         track_handler->SetTransport(GetSharedPtr());
@@ -1434,8 +1432,7 @@ namespace quicr {
 
             ns_handler->SetStatus(PublishNamespaceHandler::Status::kPendingResponse);
 
-            ns_handler->SetDataContextId(
-              quic_transport_->CreateDataContext(conn_id, true, 0, true, ns_handler->GetRequestId()));
+            ns_handler->SetDataContextId(quic_transport_->CreateDataContext(conn_id, true, 0, true));
             quic_transport_->CreateStream(conn_id, ns_handler->GetDataContextId().value(), 0);
 
             lock.lock();
@@ -2003,31 +2000,33 @@ namespace quicr {
     void Session::OnStreamClosed(const ConnectionHandle& connection_handle,
                                  std::uint64_t stream_id,
                                  std::shared_ptr<StreamRxContext> rx_ctx,
-                                 std::optional<uint64_t> request_id,
+                                 std::optional<uint64_t> data_ctx_id,
                                  StreamClosedFlag flag)
     {
         SPDLOG_LOGGER_DEBUG(logger_, "Stream {} closed", stream_id);
 
-        if (request_id.has_value()) {
-            const bool is_bidir = (stream_id & 2) == 0;
-
+        if (data_ctx_id.has_value()) {
             try {
                 std::lock_guard<std::mutex> _(state_mutex_);
                 auto conn_it = connections_.find(connection_handle);
                 if (conn_it == connections_.end()) {
                     return;
                 }
+                auto& conn_ctx = conn_it->second;
 
-                if (is_bidir) {
-                    CloseRequestHandler(conn_it->second, connection_handle, *request_id, stream_id, flag);
+                // This is a request stream.
+                const auto req_it = conn_ctx.request_id_by_data_ctx.find(*data_ctx_id);
+                if (req_it != conn_ctx.request_id_by_data_ctx.end()) {
+                    const auto request_id = req_it->second;
+                    conn_ctx.request_id_by_data_ctx.erase(req_it);
+                    CloseRequestHandler(conn_ctx, connection_handle, request_id, stream_id, flag);
                     return;
                 }
 
-                const auto handler_it = conn_it->second.request_handlers.find(*request_id);
-                if (handler_it != conn_it->second.request_handlers.end()) {
-                    if (auto pub_handler = handler_it->second.Get<PublishTrackHandler>()) {
-                        pub_handler->StreamClosed(stream_id, flag == StreamClosedFlag::kReset);
-                    }
+                // This is a data stream.
+                const auto pub_it = conn_ctx.pub_tracks_by_data_ctx_id.find(*data_ctx_id);
+                if (pub_it != conn_ctx.pub_tracks_by_data_ctx_id.end()) {
+                    pub_it->second->StreamClosed(stream_id, flag == StreamClosedFlag::kReset);
                 }
             } catch (const std::exception& e) {
                 SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream closed: {}", e.what());
@@ -2036,7 +2035,7 @@ namespace quicr {
         }
 
         try {
-
+            // TODO: Replace this check with control stream IDs check.
             if ((stream_id & 2) == 0) { // bidir
                 auto& conn_ctx = connections_[connection_handle];
 
@@ -2887,8 +2886,7 @@ namespace quicr {
           quic_transport_->CreateDataContext(connection_handle,
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
                                              track_handler->default_priority_,
-                                             false,
-                                             request_id);
+                                             false);
 
         // Set this transport as the one for the publisher to use.
         track_handler->SetTransport(GetSharedPtr());
@@ -3058,6 +3056,7 @@ namespace quicr {
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = tfn,
                                                      .track_hash = th,
                                                      .data_ctx_id = data_ctx_id };
+                conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
 
                 if (client_mode_) {
                     auto ptd = GetPubTrackHandler(conn_ctx, th);
@@ -3241,6 +3240,8 @@ namespace quicr {
                                     request_id,
                                     th.track_fullname_hash);
 
+                conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
+
                 TrackStatusReceived(conn_ctx.connection_handle, request_id, tfn);
                 return true;
             }
@@ -3252,6 +3253,7 @@ namespace quicr {
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = { track_namespace, {} },
                                                      .track_hash = TrackHash({ track_namespace, {} }),
                                                      .data_ctx_id = data_ctx_id };
+                conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
 
                 if (client_mode_) {
                     PublishNamespaceReceived(track_namespace, { .request_id = request_id });
@@ -3277,6 +3279,8 @@ namespace quicr {
                 } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
+
+                conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
 
                 SubscribeTracksReceived(
                   conn_ctx.connection_handle,
@@ -3304,6 +3308,8 @@ namespace quicr {
                 } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
+
+                conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
 
                 SubscribeNamespaceReceived(
                   conn_ctx.connection_handle,
