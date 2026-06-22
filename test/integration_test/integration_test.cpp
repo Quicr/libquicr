@@ -375,14 +375,14 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
         REQUIRE(handler->GetRequestStreamId().has_value());
         const auto request_stream_id = handler->GetRequestStreamId().value();
 
-        // Logical action: unsubscribe.
+        // Unsubscribe.
         CHECK_NOTHROW(client->UnsubscribeTrack(handler));
 
-        // (1) QUIC event: the subscribe request stream is RESET (not FIN'd).
+        // The request stream should be reset.
         REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
         CHECK(server->WasStreamReset(request_stream_id) == true);
 
-        // (2) Session callback: UnsubscribeReceived fires for the same request.
+        // Callback should fire.
         REQUIRE(unsub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         CHECK_EQ(unsub_future.get(), request_id);
     };
@@ -427,14 +427,14 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
         REQUIRE(handler->GetRequestId().has_value());
         const auto request_id = handler->GetRequestId().value();
 
-        // Logical action: publish namespace done.
+        // Done.
         CHECK_NOTHROW(client->PublishNamespaceDone(handler));
 
-        // (1) QUIC event: the publish-namespace request stream is RESET.
+        // Request stream reset.
         REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
         CHECK(server->WasStreamReset(request_stream_id) == true);
 
-        // (2) Session callback: PublishNamespaceDoneReceived fires for the same request.
+        // Callback fires.
         REQUIRE(done_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         CHECK_EQ(done_future.get(), request_id);
     };

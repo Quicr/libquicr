@@ -160,16 +160,16 @@ namespace quicr_test {
             publish_namespace_promise_ = std::move(promise);
         }
 
-        // Set up promise fulfilled when UnsubscribeReceived fires (carries the request id).
+        // Unsubscribe received.
         void SetUnsubscribePromise(std::promise<uint64_t> promise) { unsubscribe_promise_ = std::move(promise); }
 
-        // Set up promise fulfilled when PublishNamespaceDoneReceived fires (carries the request id).
+        // PublishNamespaceDone received.
         void SetPublishNamespaceDonePromise(std::promise<uint64_t> promise)
         {
             publish_namespace_done_promise_ = std::move(promise);
         }
 
-        // Whether the given stream was closed by RESET (true) or FIN (false); nullopt if not closed.
+        // True = reset, false = FIN, nullopt = not closed.
         std::optional<bool> WasStreamReset(std::uint64_t stream_id) const
         {
             std::lock_guard lock(state_mutex_);
@@ -214,7 +214,6 @@ namespace quicr_test {
             }
         }
 
-        // Record stream FIN/RESET events so tests can verify the QUIC event for a logical action.
         void OnStreamClosed(const quicr::ConnectionHandle& connection_handle,
                             std::uint64_t stream_id,
                             std::shared_ptr<quicr::StreamRxContext> rx_ctx,
@@ -225,7 +224,7 @@ namespace quicr_test {
                 std::lock_guard lock(state_mutex_);
                 closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
             }
-            quicr::Session::OnStreamClosed(connection_handle, stream_id, std::move(rx_ctx), data_ctx_id, flag);
+            Session::OnStreamClosed(connection_handle, stream_id, std::move(rx_ctx), data_ctx_id, flag);
         }
 
         void FetchCancelReceived([[maybe_unused]] quicr::ConnectionHandle connection_handle,
