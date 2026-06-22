@@ -25,7 +25,6 @@
 #include <atomic>
 #include <chrono>
 #include <map>
-#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -1016,8 +1015,8 @@ namespace quicr {
             /// Lookup request ID by carrying data context.
             std::map<DataContextId, messages::RequestID> request_id_by_data_ctx;
 
-            /// For pubns lifetime
-            std::set<messages::RequestID> recv_publish_namespaces;
+            /// Active inbound publish namespace notifications (not handler based).
+            std::vector<messages::RequestID> recv_publish_namespaces;
 
             /// Handlers by request ID
             std::map<messages::RequestID, TrackHandler> request_handlers;

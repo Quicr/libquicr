@@ -1164,7 +1164,8 @@ namespace quicr {
                                       std::uint64_t stream_id,
                                       StreamClosedFlag flag)
     {
-        if (conn_ctx.recv_publish_namespaces.erase(request_id) > 0) {
+        // Incoming PUBNS requests are not handler based.
+        if (std::erase(conn_ctx.recv_publish_namespaces, request_id) > 0) {
             if (client_mode_) {
                 PublishNamespaceDoneReceived(request_id);
             } else {
@@ -3248,7 +3249,7 @@ namespace quicr {
                 conn_ctx.recv_req_id[request_id] = { .track_full_name = { track_namespace, {} },
                                                      .track_hash = TrackHash({ track_namespace, {} }),
                                                      .data_ctx_id = data_ctx_id };
-                conn_ctx.recv_publish_namespaces.insert(request_id);
+                conn_ctx.recv_publish_namespaces.push_back(request_id);
                 conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
 
                 if (client_mode_) {
