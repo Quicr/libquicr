@@ -822,16 +822,6 @@ namespace quicr {
                                        const messages::SubscribeAttributes& subscribe_attributes);
 
         /**
-         * @brief Callback notification on unsubscribe received
-         *
-         * @details Server mode only.
-         *
-         * @param connection_handle Source connection ID
-         * @param request_id        Request ID received
-         */
-        virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t request_id);
-
-        /**
          * @brief Callback notification on publish done received
          *
          * @details Server mode only.

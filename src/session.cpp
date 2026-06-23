@@ -1133,7 +1133,10 @@ namespace quicr {
                                          bool is_reset)
     {
         handler.StreamClosed(stream_id, is_reset);
-        handler.SetStatus(PublishTrackHandler::Status::kNotAnnounced);
+
+        // TODO: There is more complicated state here around PUBLISH_DONE and REQUEST_ERROR.
+        handler.SetStatus(is_reset ? PublishTrackHandler::Status::kUnsubscribed
+                                   : PublishTrackHandler::Status::kDoneByFin);
 
         const auto th = TrackHash(handler.GetFullTrackName());
         conn_ctx.pub_tracks_by_track_alias.erase(th.track_fullname_hash);
@@ -1214,14 +1217,9 @@ namespace quicr {
         }
 
         if (auto pub_handler = handler_it->second.Get<PublishTrackHandler>()) {
-            const auto recv_it = conn_ctx.recv_req_id.find(request_id);
-            const bool from_subscribe = recv_it != conn_ctx.recv_req_id.end() && recv_it->second.data_ctx_id != 0;
             ClosePublishTrackLocal(conn_ctx, connection_handle, *pub_handler, stream_id, is_reset);
             conn_ctx.request_handlers.erase(handler_it);
             conn_ctx.ctrl_msg_buffer.erase(stream_id);
-            if (from_subscribe) {
-                UnsubscribeReceived(connection_handle, request_id);
-            }
             return;
         }
 
@@ -2816,8 +2814,6 @@ namespace quicr {
                                     const messages::SubscribeAttributes& subscribe_attributes)
     {
     }
-
-    void Session::UnsubscribeReceived(ConnectionHandle, uint64_t) {}
 
     void Session::PublishDoneReceived(ConnectionHandle, uint64_t) {}
 
