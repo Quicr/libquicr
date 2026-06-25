@@ -2005,20 +2005,19 @@ namespace quicr {
                 }
                 auto& conn_ctx = conn_it->second;
 
-                // Close request.
-                if (const auto req_it = conn_ctx.request_id_by_data_ctx.find(*data_ctx_id);
-                    req_it != conn_ctx.request_id_by_data_ctx.end()) {
+                // This is a request stream.
+                const auto req_it = conn_ctx.request_id_by_data_ctx.find(*data_ctx_id);
+                if (req_it != conn_ctx.request_id_by_data_ctx.end()) {
                     const auto request_id = req_it->second;
                     conn_ctx.request_id_by_data_ctx.erase(req_it);
                     CloseRequestHandler(conn_ctx, connection_handle, request_id, stream_id, flag);
                     return;
                 }
 
-                // Close data stream.
-                if (const auto pub_it = conn_ctx.pub_tracks_by_data_ctx_id.find(*data_ctx_id);
-                    pub_it != conn_ctx.pub_tracks_by_data_ctx_id.end()) {
+                // This is a data stream.
+                const auto pub_it = conn_ctx.pub_tracks_by_data_ctx_id.find(*data_ctx_id);
+                if (pub_it != conn_ctx.pub_tracks_by_data_ctx_id.end()) {
                     pub_it->second->StreamClosed(stream_id, flag == StreamClosedFlag::kReset);
-                    return;
                 }
             } catch (const std::exception& e) {
                 SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream closed: {}", e.what());
