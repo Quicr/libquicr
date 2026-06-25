@@ -2021,8 +2021,8 @@ namespace quicr {
                 }
             } catch (const std::exception& e) {
                 SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream closed: {}", e.what());
-                return;
             }
+            return;
         }
 
         try {
