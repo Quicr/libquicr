@@ -889,6 +889,12 @@ namespace quicr {
 
         StartTransportResult StartTransport();
 
+        void OnStreamClosed(const ConnectionHandle& connection_handle,
+                            std::uint64_t stream_id,
+                            std::shared_ptr<StreamRxContext> rx_ctx,
+                            std::optional<uint64_t> data_ctx_id,
+                            StreamClosedFlag flag) override;
+
       private:
         Status StopTransport();
 
@@ -916,14 +922,6 @@ namespace quicr {
                                    DataContextId data_ctx_id,
                                    const QuicDataContextMetrics& quic_data_context_metrics) override;
 
-      protected:
-        void OnStreamClosed(const ConnectionHandle& connection_handle,
-                            std::uint64_t stream_id,
-                            std::shared_ptr<StreamRxContext> rx_ctx,
-                            std::optional<uint64_t> data_ctx_id,
-                            StreamClosedFlag flag) override;
-
-      private:
         // -------------------------------------------------------------------------------------------------
         // End of transport handler/callback functions
         // -------------------------------------------------------------------------------------------------
