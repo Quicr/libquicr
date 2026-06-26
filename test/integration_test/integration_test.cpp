@@ -268,7 +268,7 @@ TEST_CASE("Integration - Connection")
 
     auto test_connection = [&](const std::string& protocol_scheme) {
         auto client = MakeTestClient(false, std::nullopt, protocol_scheme);
-        std::promise<messages::ServerSetupAttributes> recv_attributes;
+        std::promise<ServerSetupAttributes> recv_attributes;
         auto future = recv_attributes.get_future();
         client->SetConnectedPromise(std::move(recv_attributes));
         client->Start();

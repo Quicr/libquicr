@@ -9,22 +9,9 @@
 #include <optional>
 
 namespace quicr::messages {
-    /**
-     * @brief Client Setup Attributes
-     */
-    struct ClientSetupAttributes
-    {
-        const std::string endpoint_id;
-    };
 
-    /**
-     * @brief Server Setup Attributes
-     */
-    struct ServerSetupAttributes
-    {
-        const uint64_t moqt_version;
-        const std::string server_id;
-    };
+    // TODO: Maybe split base attributes out from SUBSCRIBE / PUBLISH?
+    // TODO: E.g priority, new_group_request_id.
 
     struct PublishOkAttributes
     {
@@ -104,13 +91,4 @@ namespace quicr::messages {
         Filter filter{ std::monostate{} };
     };
 
-    /**
-     * @brief Publish namespace attributes
-     *
-     * @details Various attributes relative to the publish namespace
-     */
-    struct PublishNamespaceAttributes
-    {
-        uint64_t request_id{ 0 };
-    };
 }

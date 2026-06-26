@@ -225,7 +225,7 @@ TestServer::AddKnownPublishedTrack(const FullTrackName& track,
 void
 TestServer::PublishNamespaceReceived(const std::uint64_t connection_handle,
                                      const TrackNamespace& track_namespace,
-                                     const messages::PublishNamespaceAttributes& publish_announce_attributes)
+                                     const PublishNamespaceAttributes& publish_announce_attributes)
 {
     if (publish_namespace_promise_.has_value()) {
         publish_namespace_promise_->set_value({ connection_handle, track_namespace, publish_announce_attributes });

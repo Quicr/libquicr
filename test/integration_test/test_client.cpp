@@ -11,7 +11,7 @@ TestClient::TestClient(const ClientConfig& cfg)
 }
 
 void
-TestClient::ServerSetupReceived(const messages::ServerSetupAttributes& server_setup_attributes)
+TestClient::ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes)
 {
     if (client_connected_) {
         client_connected_->set_value(server_setup_attributes);
@@ -19,9 +19,8 @@ TestClient::ServerSetupReceived(const messages::ServerSetupAttributes& server_se
 }
 
 void
-TestClient::PublishNamespaceReceived(
-  [[maybe_unused]] const TrackNamespace& track_namespace,
-  [[maybe_unused]] const messages::PublishNamespaceAttributes& publish_namespace_attributes)
+TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& track_namespace,
+                                     [[maybe_unused]] const PublishNamespaceAttributes& publish_namespace_attributes)
 {
     if (publish_namespace_received_) {
         publish_namespace_received_->set_value(track_namespace);

@@ -130,7 +130,7 @@ namespace quicr_test {
         {
             std::uint64_t connection_handle;
             quicr::TrackNamespace track_namespace;
-            quicr::messages::PublishNamespaceAttributes attributes;
+            quicr::PublishNamespaceAttributes attributes;
         };
 
         // Data to respond with when a fetch is received
@@ -248,10 +248,9 @@ namespace quicr_test {
                                         const quicr::TrackNamespace& prefix_namespace,
                                         const quicr::messages::SubscribeNamespaceAttributes& attributes) override;
 
-        void PublishNamespaceReceived(
-          std::uint64_t connection_handle,
-          const quicr::TrackNamespace& track_namespace,
-          const quicr::messages::PublishNamespaceAttributes& publish_announce_attributes) override;
+        void PublishNamespaceReceived(std::uint64_t connection_handle,
+                                      const quicr::TrackNamespace& track_namespace,
+                                      const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
 
         void NewGroupRequested(const quicr::FullTrackName& track_full_name, std::uint64_t group_id) override;
 

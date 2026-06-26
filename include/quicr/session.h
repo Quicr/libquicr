@@ -599,48 +599,7 @@ namespace quicr {
         virtual void TrackStatusReceived(std::uint64_t connection_handle,
                                          uint64_t request_id,
                                          const FullTrackName& track_full_name);
-        /**
-         * @brief Callback notification for Request Ok received
-         *
-         * @note The REQUEST_OK message is sent to a response to REQUEST_UPDATE, TRACK_STATUS, SUBSCRIBE_NAMESPACE and
-         *       PUBLISH_NAMESPACE requests. The unique request ID in the REQUEST_OK is used to associate it with the
-         *       correct type of request.
-         *
-         * @param connection_handle     Source connection ID
-         * @param request_id            Request ID received
-         * @param largest_location      Largest location (only set for responses from TRACK_STATUS and REQUEST_UPDATE)
-         */
-        virtual void RequestOkReceived(ConnectionHandle connection_handle,
-                                       uint64_t request_id,
-                                       std::optional<messages::Location> largest_location = std::nullopt);
 
-        /**
-         * @brief Callback notification for Request Error received
-         *
-         * @note The REQUEST_ERROR message is sent to a response to any request (SUBSCRIBE, FETCH, PUBLISH,
-         *       SUBSCRIBE_NAMESPACE, PUBLISH_NAMESPACE, TRACK_STATUS). The unique request ID in the REQUEST_ERROR is
-         *       used to associate it with the correct type of request.
-         *
-         * @param connection_handle     Source connection ID
-         * @param request_id            Request ID received
-         * @param response              Response message
-         */
-        virtual void RequestErrorReceived(ConnectionHandle connection_handle,
-                                          uint64_t request_id,
-                                          const RequestResponse& response);
-
-        /**
-         * @brief Callback notification on request update received
-         *
-         * @param connection_handle     Source connection ID
-         * @param request_id            Request ID for the update
-         * @param existing_request_id   Existing request ID being updated
-         * @param params                Updated parameters
-         */
-        virtual void RequestUpdateReceived(ConnectionHandle connection_handle,
-                                           uint64_t request_id,
-                                           uint64_t existing_request_id,
-                                           const messages::Parameters& params);
         ///@}
 
         /** @name Client Callbacks
@@ -656,7 +615,7 @@ namespace quicr {
          *
          * @param server_setup_attributes Server setup attributes received
          */
-        virtual void ServerSetupReceived(const messages::ServerSetupAttributes& server_setup_attributes);
+        virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes);
 
         /**
          * @brief Notification on publish namespace status change
@@ -677,7 +636,7 @@ namespace quicr {
          * @param publish_namespace_attributes   Publish announce attributes received
          */
         virtual void PublishNamespaceReceived(const TrackNamespace& track_namespace,
-                                              const messages::PublishNamespaceAttributes& publish_namespace_attributes);
+                                              const PublishNamespaceAttributes& publish_namespace_attributes);
 
         /**
          * @brief Callback notification for publish namespace done received
@@ -764,7 +723,7 @@ namespace quicr {
          * @param client_setup_attributes Decoded client setup message
          */
         virtual void ClientSetupReceived(std::uint64_t connection_handle,
-                                         const messages::ClientSetupAttributes& client_setup_attributes);
+                                         const ClientSetupAttributes& client_setup_attributes);
 
         /**
          * @brief Callback notification for new announce received that needs to be authorized
@@ -780,7 +739,7 @@ namespace quicr {
          */
         virtual void PublishNamespaceReceived(std::uint64_t connection_handle,
                                               const TrackNamespace& track_namespace,
-                                              const messages::PublishNamespaceAttributes& publish_announce_attributes);
+                                              const PublishNamespaceAttributes& publish_announce_attributes);
 
         /**
          * @brief Callback notification for publish namespace done received
@@ -1139,29 +1098,29 @@ namespace quicr {
         /*===================================================================*/
 
         void SendTrackStatusOk(ConnectionContext& conn_ctx,
-                               DataContextId data_ctx_id,
+                               std::uint64_t data_ctx_id,
                                const std::optional<messages::Location>& largest_object,
                                const messages::TrackExtensions& track_properties);
 
-        void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, DataContextId data_ctx_id);
-        void SendSubscribeTracksOk(ConnectionContext& conn_ctx, DataContextId data_ctx_id)
+        void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, std::uint64_t data_ctx_id);
+        void SendSubscribeTracksOk(ConnectionContext& conn_ctx, std::uint64_t data_ctx_id)
         {
             SendSubscribeNamespaceOk(conn_ctx, data_ctx_id);
         }
-        void SendPublishNamespaceOk(ConnectionContext& conn_ctx, DataContextId data_ctx_id)
+        void SendPublishNamespaceOk(ConnectionContext& conn_ctx, std::uint64_t data_ctx_id)
         {
             SendSubscribeNamespaceOk(conn_ctx, data_ctx_id);
         }
         void SendRequestUpdateOk(ConnectionContext& conn_ctx,
-                                 DataContextId data_ctx_id,
+                                 std::uint64_t data_ctx_id,
                                  std::optional<std::uint64_t> expires,
                                  const std::optional<messages::Location>& largest_object);
 
         // Prefer the above typed overloads.
         void SendRequestOk(ConnectionContext& conn_ctx,
-                           DataContextId data_ctx_id,
-                           messages::RequestID request_id,
-                           std::optional<messages::Location> largest_location = std::nullopt);
+                           std::uint64_t data_ctx_id,
+                           const messages::Parameters& params,
+                           const messages::TrackExtensions& track_properties = {});
 
         void SendRequestUpdate(const ConnectionContext& conn_ctx,
                                std::uint64_t data_ctx_id,
@@ -1241,12 +1200,8 @@ namespace quicr {
                              const std::string& reason);
 
         void SendPublishOk(ConnectionContext& conn_ctx,
-                           DataContextId data_ctx_id,
-                           messages::RequestID request_id,
-                           bool forward,
-                           std::optional<std::uint8_t> priority,
-                           std::optional<messages::GroupOrder> group_order,
-                           const messages::Filter& filter);
+                           std::uint64_t data_ctx_id,
+                           const messages::PublishOkAttributes& attributes);
 
         std::optional<std::uint64_t> FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
                                                                        const TrackNamespace& track_namespace) const;

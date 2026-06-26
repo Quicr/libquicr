@@ -340,7 +340,7 @@ namespace quicr {
         return request_id;
     }
 
-    void Session::TrackStatusReceived(ConnectionHandle, uint64_t, const FullTrackName&) {}
+    void Session::TrackStatusReceived(std::uint64_t, uint64_t, const FullTrackName&) {}
 
     void Session::ResolveTrackStatus(std::uint64_t connection_handle,
                                      uint64_t request_id,
@@ -443,7 +443,7 @@ namespace quicr {
     }
 
     void Session::SendTrackStatusOk(ConnectionContext& conn_ctx,
-                                    DataContextId data_ctx_id,
+                                    std::uint64_t data_ctx_id,
                                     const std::optional<messages::Location>& largest_object,
                                     const TrackExtensions& track_properties)
     {
@@ -453,13 +453,13 @@ namespace quicr {
                       track_properties);
     }
 
-    void Session::SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, DataContextId data_ctx_id)
+    void Session::SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, std::uint64_t data_ctx_id)
     {
         SendRequestOk(conn_ctx, data_ctx_id, {});
     }
 
     void Session::SendRequestUpdateOk(ConnectionContext& conn_ctx,
-                                      DataContextId data_ctx_id,
+                                      std::uint64_t data_ctx_id,
                                       std::optional<std::uint64_t> expires,
                                       const std::optional<messages::Location>& largest_object)
     {
@@ -471,7 +471,7 @@ namespace quicr {
     }
 
     void Session::SendRequestOk(ConnectionContext& conn_ctx,
-                                DataContextId data_ctx_id,
+                                std::uint64_t data_ctx_id,
                                 const messages::Parameters& params,
                                 const TrackExtensions& track_properties)
     try {
@@ -676,7 +676,7 @@ namespace quicr {
     }
 
     void Session::SendPublishOk(ConnectionContext& conn_ctx,
-                                DataContextId data_ctx_id,
+                                std::uint64_t data_ctx_id,
                                 const messages::PublishOkAttributes& attributes)
     try {
         // Attributes -> Parameters.
@@ -2754,8 +2754,8 @@ namespace quicr {
         }
     }
 
-    void Session::ResolveRequestUpdate(ConnectionHandle connection_handle,
-                                       messages::RequestID request_id,
+    void Session::ResolveRequestUpdate(std::uint64_t connection_handle,
+                                       std::uint64_t request_id,
                                        const RequestUpdateResponse& response)
     {
         auto conn_it = connections_.find(connection_handle);

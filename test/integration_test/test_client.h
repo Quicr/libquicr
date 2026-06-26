@@ -9,19 +9,18 @@ namespace quicr_test {
         explicit TestClient(const quicr::ClientConfig& cfg);
 
         // Connection.
-        void SetConnectedPromise(std::promise<quicr::messages::ServerSetupAttributes> promise)
+        void SetConnectedPromise(std::promise<quicr::ServerSetupAttributes> promise)
         {
             client_connected_ = std::move(promise);
         }
-        void ServerSetupReceived(const quicr::messages::ServerSetupAttributes& server_setup_attributes) override;
+        void ServerSetupReceived(const quicr::ServerSetupAttributes& server_setup_attributes) override;
         // Publish Namespace received.
         void SetPublishNamespaceReceivedPromise(std::promise<quicr::TrackNamespace> promise)
         {
             publish_namespace_received_ = std::move(promise);
         }
-        void PublishNamespaceReceived(
-          const quicr::TrackNamespace& track_namespace,
-          const quicr::messages::PublishNamespaceAttributes& publish_namespace_attributes) override;
+        void PublishNamespaceReceived(const quicr::TrackNamespace& track_namespace,
+                                      const quicr::PublishNamespaceAttributes& publish_namespace_attributes) override;
 
         // Publish received.
         void SetPublishReceivedPromise(std::promise<quicr::FullTrackName> promise)
@@ -48,7 +47,7 @@ namespace quicr_test {
                                            const quicr::PublishNamespaceStatus status) override;
 
       private:
-        std::optional<std::promise<quicr::messages::ServerSetupAttributes>> client_connected_;
+        std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;
         std::optional<std::promise<quicr::TrackNamespace>> publish_namespace_received_;
         std::optional<std::promise<quicr::FullTrackName>> publish_received_;
         std::optional<std::promise<std::uint64_t>> publish_namespace_status_changed_;

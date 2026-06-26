@@ -491,7 +491,7 @@ class MyClient : public quicr::Client
     }
 
     void PublishNamespaceReceived(const quicr::TrackNamespace& track_namespace,
-                                  const quicr::messages::PublishNamespaceAttributes&) override
+                                  const quicr::PublishNamespaceAttributes&) override
     {
         auto th = quicr::TrackHash({ track_namespace, {} });
         SPDLOG_INFO("Received announce for namespace_hash: {}", th.track_namespace_hash);
@@ -648,7 +648,7 @@ class MyClient : public quicr::Client
                       { joining_start, std::nullopt });
     }
 
-    void PublishReceived(quicr::ConnectionHandle connection_handle,
+    void PublishReceived(std::uint64_t connection_handle,
                          uint64_t request_id,
                          const quicr::messages::PublishAttributes& publish_attributes,
                          [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override

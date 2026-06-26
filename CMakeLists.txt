@@ -83,6 +83,8 @@ include(CPM)
 
 set(CPM_USE_LOCAL_PACKAGES ON)
 
+CPMAddPackage("gh:gabime/spdlog@1.17.0")
+
 add_subdirectory(dependencies)
 
 #=============================================================================#
