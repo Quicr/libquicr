@@ -347,6 +347,111 @@ TEST_CASE("Integration - Subscribe")
     }
 }
 
+TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
+{
+    auto server = MakeTestServer();
+
+    auto test_unsubscribe = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace({ "namespace" });
+        ftn.name = { 1, 2, 3 };
+        const auto handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+
+        std::promise<TestServer::SubscribeDetails> sub_promise;
+        std::future<TestServer::SubscribeDetails> sub_future = sub_promise.get_future();
+        server->SetSubscribePromise(std::move(sub_promise));
+
+        std::promise<uint64_t> unsub_promise;
+        std::future<uint64_t> unsub_future = unsub_promise.get_future();
+        server->SetUnsubscribePromise(std::move(unsub_promise));
+
+        // Subscribe and wait for the track to go live.
+        CHECK_NOTHROW(client->SubscribeTrack(handler));
+        REQUIRE(sub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto request_id = sub_future.get().request_id;
+        REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+        REQUIRE(handler->GetRequestStreamId().has_value());
+        const auto request_stream_id = handler->GetRequestStreamId().value();
+
+        // Unsubscribe.
+        CHECK_NOTHROW(client->UnsubscribeTrack(handler));
+
+        // The request stream should be reset.
+        REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
+        CHECK(server->WasStreamReset(request_stream_id) == true);
+
+        // Callback should fire.
+        REQUIRE(unsub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(unsub_future.get(), request_id);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_unsubscribe("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_unsubscribe("https");
+    }
+}
+
+TEST_CASE("Integration - Publish namespace done resets the request stream")
+{
+    auto server = MakeTestServer();
+
+    auto test_publish_namespace_done = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        TrackNamespace ns(std::vector<std::string>{ "ns", "done" });
+
+        std::promise<TestServer::PublishNamespaceDetails> recv_promise;
+        std::future<TestServer::PublishNamespaceDetails> recv_future = recv_promise.get_future();
+        server->SetPublishNamespacePromise(std::move(recv_promise));
+
+        std::promise<uint64_t> done_promise;
+        std::future<uint64_t> done_future = done_promise.get_future();
+        server->SetPublishNamespaceDonePromise(std::move(done_promise));
+
+        // Publish a namespace and wait for it to be accepted.
+        const auto handler = PublishNamespaceHandler::Create(ns);
+        CHECK_NOTHROW(client->PublishNamespace(handler));
+        REQUIRE(recv_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == PublishNamespaceHandler::Status::kOk; }));
+        REQUIRE(handler->GetRequestStreamId().has_value());
+        const auto request_stream_id = handler->GetRequestStreamId().value();
+        REQUIRE(handler->GetRequestId().has_value());
+        const auto request_id = handler->GetRequestId().value();
+
+        // Done.
+        CHECK_NOTHROW(client->PublishNamespaceDone(handler));
+
+        // Request stream reset.
+        REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
+        CHECK(server->WasStreamReset(request_stream_id) == true);
+
+        // Callback fires.
+        REQUIRE(done_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(done_future.get(), request_id);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_publish_namespace_done("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_publish_namespace_done("https");
+    }
+}
+
 TEST_CASE("Integration - Fetch")
 {
     auto server = MakeTestServer();

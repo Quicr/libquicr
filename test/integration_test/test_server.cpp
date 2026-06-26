@@ -22,6 +22,15 @@ TestPublishTrackHandler::StatusChanged(Status status)
             }
             break;
         }
+        case Status::kUnsubscribed: {
+            if (const auto svr = server_.lock()) {
+                if (svr->unsubscribe_promise_.has_value()) {
+                    svr->unsubscribe_promise_->set_value(GetRequestId().value());
+                    svr->unsubscribe_promise_.reset();
+                }
+            }
+            break;
+        }
         default:
             break;
     }
@@ -122,8 +131,12 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
                                 : 5000;
 
     // Create a publish track handler to send objects to this subscriber
-    auto pub_track_handler = std::make_shared<TestPublishTrackHandler>(
-      track_full_name, TrackMode::kStream, subscribe_attributes.priority, ttl);
+    auto pub_track_handler =
+      std::make_shared<TestPublishTrackHandler>(track_full_name,
+                                                TrackMode::kStream,
+                                                subscribe_attributes.priority,
+                                                ttl,
+                                                std::static_pointer_cast<TestServer>(shared_from_this()));
 
     if (!subscribe_attributes.is_publisher_initiated) {
         ResolveSubscribe(connection_handle,

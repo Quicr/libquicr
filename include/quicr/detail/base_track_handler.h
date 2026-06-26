@@ -202,6 +202,18 @@ namespace quicr {
         std::optional<DataContextId> GetDataContextId() const noexcept { return data_ctx_id_; }
 
         /**
+         * @brief Set the stream ID for the bidir request control stream.
+         * @param request_stream_id Request stream's ID.
+         */
+        void SetRequestStreamId(uint64_t request_stream_id) { request_stream_id_ = request_stream_id; }
+
+        /**
+         * @brief Get the stream ID of the request control stream.
+         * @return Request stream's ID.
+         */
+        std::optional<uint64_t> GetRequestStreamId() const noexcept { return request_stream_id_; }
+
+        /**
          * @brief Get the full track name
          *
          * @details Gets the full track name
@@ -267,6 +279,11 @@ namespace quicr {
          * Data context ID (transport data context) that control messages are to be sent
          */
         std::optional<DataContextId> data_ctx_id_{ std::nullopt };
+
+        /**
+         * Stream ID of the bidirectional request control stream.
+         */
+        std::optional<uint64_t> request_stream_id_{ std::nullopt };
 
         std::weak_ptr<Session> transport_;
     };

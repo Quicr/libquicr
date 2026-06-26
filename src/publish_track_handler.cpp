@@ -32,6 +32,10 @@ namespace quicr {
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kPaused;
 
+            case Status::kUnsubscribed:
+                [[fallthrough]];
+            case Status::kDoneByFin:
+                [[fallthrough]];
             case Status::kNoSubscribers:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNoSubscribers;
@@ -211,6 +215,10 @@ namespace quicr {
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kPaused;
 
+            case Status::kUnsubscribed:
+                [[fallthrough]];
+            case Status::kDoneByFin:
+                [[fallthrough]];
             case Status::kNoSubscribers:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNoSubscribers;

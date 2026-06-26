@@ -72,6 +72,8 @@ namespace quicr {
             kPendingAnnounceResponse,
             kAnnounceNotAuthorized,
             kNoSubscribers,
+            kUnsubscribed,
+            kDoneByFin,
             kSendingUnannounce, ///< In this state, callbacks will not be called
             kSubscriptionUpdated,
             kNewGroupRequested,

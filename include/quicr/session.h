@@ -822,16 +822,6 @@ namespace quicr {
                                        const messages::SubscribeAttributes& subscribe_attributes);
 
         /**
-         * @brief Callback notification on unsubscribe received
-         *
-         * @details Server mode only.
-         *
-         * @param connection_handle Source connection ID
-         * @param request_id        Request ID received
-         */
-        virtual void UnsubscribeReceived(ConnectionHandle connection_handle, uint64_t request_id);
-
-        /**
          * @brief Callback notification on publish done received
          *
          * @details Server mode only.
@@ -899,6 +889,12 @@ namespace quicr {
 
         StartTransportResult StartTransport();
 
+        void OnStreamClosed(const ConnectionHandle& connection_handle,
+                            std::uint64_t stream_id,
+                            std::shared_ptr<StreamRxContext> rx_ctx,
+                            std::optional<uint64_t> data_ctx_id,
+                            StreamClosedFlag flag) override;
+
       private:
         Status StopTransport();
 
@@ -925,12 +921,6 @@ namespace quicr {
                                    TransportConnId conn_id,
                                    DataContextId data_ctx_id,
                                    const QuicDataContextMetrics& quic_data_context_metrics) override;
-
-        void OnStreamClosed(const ConnectionHandle& connection_handle,
-                            std::uint64_t stream_id,
-                            std::shared_ptr<StreamRxContext> rx_ctx,
-                            std::optional<uint64_t> data_ctx_id,
-                            StreamClosedFlag flag) override;
 
         // -------------------------------------------------------------------------------------------------
         // End of transport handler/callback functions
@@ -1012,6 +1002,9 @@ namespace quicr {
 
             /// Lookup request ID by carrying data context.
             std::map<DataContextId, messages::RequestID> request_id_by_data_ctx;
+
+            /// Active inbound publish namespace notifications (not handler based).
+            std::vector<messages::RequestID> recv_publish_namespaces;
 
             /// Handlers by request ID
             std::map<messages::RequestID, TrackHandler> request_handlers;
@@ -1156,10 +1149,6 @@ namespace quicr {
                                   messages::RequestID request_id,
                                   const TrackNamespace& track_namespace);
 
-        void SendPublishNamespaceDone(ConnectionContext& conn_ctx,
-                                      DataContextId data_ctx_id,
-                                      messages::RequestID request_id);
-
         /*===================================================================*/
         // Subscribe Namespace
         /*===================================================================*/
@@ -1196,7 +1185,6 @@ namespace quicr {
                              uint64_t expires,
                              const std::optional<messages::Location>& largest_location,
                              messages::GroupOrder publisher_default_group_order);
-        void SendUnsubscribe(ConnectionContext& conn_ctx, DataContextId data_ctx_id, messages::RequestID request_id);
 
         /*===================================================================*/
         // Publish
@@ -1247,8 +1235,6 @@ namespace quicr {
                               messages::RequestID joining_request_id,
                               messages::GroupId joining_start,
                               bool absolute);
-
-        void SendFetchCancel(ConnectionContext& conn_ctx, messages::RequestID request_id);
 
         void SendFetchOk(ConnectionContext& conn_ctx,
                          messages::RequestID request_id,
