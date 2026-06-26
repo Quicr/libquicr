@@ -1003,7 +1003,7 @@ namespace quicr {
             std::map<std::uint64_t, std::uint64_t> request_id_by_data_ctx;
 
             /// Active inbound publish namespace notifications (not handler based).
-            std::vector<messages::RequestID> recv_publish_namespaces;
+            std::vector<std::uint64_t> recv_publish_namespaces;
 
             /// Handlers by request ID
             std::map<std::uint64_t, TrackHandler> request_handlers;
