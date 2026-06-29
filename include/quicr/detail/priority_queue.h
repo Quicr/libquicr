@@ -200,7 +200,9 @@ namespace quicr {
 
             queue->pop();
             if (queue->empty()) {
-                free_tqueues_.push_back(std::move(queue));
+                if (free_tqueues_.size() < kMaxFreeTimeQueues) {
+                    free_tqueues_.push_back(std::move(queue));
+                }
                 groups.erase(groups.begin());
             }
 
