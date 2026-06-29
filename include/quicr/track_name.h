@@ -74,8 +74,8 @@ namespace quicr {
         TrackNamespace(std::span<const std::span<const uint8_t>> entries)
           : entries_(entries.size())
         {
-            if (entries.size() > 32 || entries.size() == 0) {
-                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [1, 32]");
+            if (entries.size() > 32) {
+                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [0, 32]");
             }
 
             for (auto& entry : entries) {
@@ -95,8 +95,8 @@ namespace quicr {
         TrackNamespace(const std::vector<std::vector<uint8_t>>& entries)
           : entries_(entries.size())
         {
-            if (entries.size() > 32 || entries.size() == 0) {
-                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [1, 32]");
+            if (entries.size() > 32) {
+                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [0, 32]");
             }
 
             for (auto& entry : entries) {
@@ -116,8 +116,8 @@ namespace quicr {
         TrackNamespace(const std::vector<std::string>& entries)
           : entries_(entries.size())
         {
-            if (entries.size() > 32 || entries.size() == 0) {
-                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [1, 32]");
+            if (entries.size() > 32) {
+                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [0, 32]");
             }
 
             for (auto& entry : entries) {

@@ -571,6 +571,21 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
+    void Session::SendNamespace(ConnectionContext& conn_ctx,
+                                std::uint64_t data_ctx_id,
+                                const TrackNamespace& track_namespace_suffix)
+    try {
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending NAMESPACE to conn_id: {} suffix_hash: {}",
+                            conn_ctx.connection_handle,
+                            TrackHash({ track_namespace_suffix, {} }).track_namespace_hash);
+
+        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kNamespace, track_namespace_suffix);
+    } catch (const std::exception& e) {
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending NAMESPACE (error={})", e.what());
+        // TODO: add error handling in libquicr in calling function
+    }
+
     void Session::SendTrackStatus(ConnectionContext& conn_ctx, std::uint64_t request_id, const FullTrackName& tfn)
     try {
         SPDLOG_LOGGER_DEBUG(
@@ -2591,16 +2606,19 @@ namespace quicr {
 
         SendSubscribeNamespaceOk(conn_it->second, data_ctx_id);
 
-        // Fan out PUBLISH_NAMESPACE for matching namespaces.
+        // Fan out NAMESPACE for matching namespaces.
         for (const auto& name_space : response.namespaces) {
             const auto match = prefix.IsPrefixOf(name_space);
-            if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
+            if (match == std::partial_ordering::unordered || match == std::partial_ordering::greater) {
                 SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
                 continue;
             }
 
-            auto pub_ns_request_id = conn_it->second.GetNextRequestId();
-            SendPublishNamespace(conn_it->second, data_ctx_id, pub_ns_request_id, name_space);
+            const auto prefix_size = prefix.GetEntries().size();
+            const auto namespace_size = name_space.GetEntries().size();
+            auto suffix =
+              namespace_size == prefix_size ? TrackNamespace{} : name_space.GetSuffix(namespace_size - prefix_size);
+            SendNamespace(conn_it->second, data_ctx_id, suffix);
         }
     }
 
@@ -3366,8 +3384,6 @@ namespace quicr {
 
                 const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto track_namespace_prefix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
-                [[maybe_unused]] const auto subscribe_options =
-                  messages::Message::ParseField<messages::SubscribeOptions>(msg_bytes);
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 messages::Filter filter;
@@ -3384,6 +3400,36 @@ namespace quicr {
                   data_ctx_id,
                   track_namespace_prefix,
                   { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
+                return true;
+            }
+            case messages::ControlMessageType::kNamespace: {
+                const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+
+                const auto request_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
+                if (request_it == conn_ctx.request_id_by_data_ctx.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received NAMESPACE to unknown SUBSCRIBE_NAMESPACE conn_id: {} data_ctx_id: {}",
+                                       conn_ctx.connection_handle,
+                                       data_ctx_id);
+                    throw ProtocolViolationException("Received NAMESPACE to unknown SUBSCRIBE_NAMESPACE request");
+                }
+                const auto request_id = request_it->second;
+                const auto handler_it = conn_ctx.request_handlers.find(request_id);
+                if (handler_it == conn_ctx.request_handlers.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Missing SUBSCRIBE_NAMESPACE handler for request_id: {} conn_id: {} data_ctx_id: {}",
+                      request_id,
+                      conn_ctx.connection_handle,
+                      data_ctx_id);
+                    return true;
+                }
+                const auto handler = handler_it->second.Get<SubscribeNamespaceHandler>();
+                if (!handler) {
+                    SPDLOG_LOGGER_ERROR(logger_, "Unexpected handler type on NAMESPACE response");
+                    return true;
+                }
+                handler->NamespaceReceived(track_namespace_suffix);
                 return true;
             }
             case messages::ControlMessageType::kNamespaceDone: {

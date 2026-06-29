@@ -16,7 +16,7 @@ quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace
 
 quicr::SubscribeNamespaceHandler::~SubscribeNamespaceHandler()
 {
-    const auto& transport = transport_.lock();
+    const auto transport = GetTransport().lock();
     if (!transport) {
         return;
     }
@@ -70,4 +70,16 @@ void
 quicr::SubscribeNamespaceHandler::RequestUpdateReceived([[maybe_unused]] const messages::Parameters& params)
 {
     throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");
+}
+
+quicr::TrackNamespace
+quicr::SubscribeNamespaceHandler::ExpandSuffix(const TrackNamespace& suffix) const
+{
+    const auto& prefix_entries = GetPrefix().GetEntries();
+    const auto& suffix_entries = suffix.GetEntries();
+    std::vector<std::span<const uint8_t>> entries;
+    entries.reserve(prefix_entries.size() + suffix_entries.size());
+    entries.insert(entries.end(), prefix_entries.begin(), prefix_entries.end());
+    entries.insert(entries.end(), suffix_entries.begin(), suffix_entries.end());
+    return TrackNamespace{ std::span{ entries } };
 }

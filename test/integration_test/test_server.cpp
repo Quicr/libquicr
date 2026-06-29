@@ -204,7 +204,17 @@ TestServer::SubscribeNamespaceReceived(const std::uint64_t connection_handle,
                                        const TrackNamespace& prefix_namespace,
                                        const messages::SubscribeNamespaceAttributes& attributes)
 {
-    // TODO: Implement.
+    if (subscribe_namespace_promise_.has_value()) {
+        subscribe_namespace_promise_->set_value({ .connection_handle = connection_handle,
+                                                  .data_ctx_id = data_ctx_id,
+                                                  .prefix_namespace = prefix_namespace,
+                                                  .attributes = attributes });
+    }
+
+    const SubscribeNamespaceResponse response = { .reason_code = SubscribeNamespaceResponse::ReasonCode::kOk,
+                                                  .namespaces = known_published_namespaces_ };
+
+    ResolveSubscribeNamespace(connection_handle, data_ctx_id, attributes.request_id, prefix_namespace, response);
 }
 
 void

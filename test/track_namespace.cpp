@@ -45,6 +45,16 @@ TEST_CASE("Hash namespace")
     CHECK_EQ(ns_hash, h);
 }
 
+TEST_CASE("Empty namespace")
+{
+    TrackNamespace empty(std::vector<std::string>{});
+    TrackNamespace ns{ "example"s };
+
+    CHECK(empty.empty());
+    CHECK(empty.GetEntries().empty());
+    CHECK(empty.IsPrefixOf(ns) == std::partial_ordering::less);
+}
+
 TEST_CASE("Full match")
 {
     auto matching_tracks = FindTracks(kTracks, TrackNamespace{ "example"s, "chat555"s });
