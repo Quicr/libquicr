@@ -33,7 +33,7 @@ namespace quicr_test {
             return last_publish_received_sub_handler_;
         }
 
-        void PublishReceived(std::uint64_t connection_handle,
+        void PublishReceived(std::uint64_t connection_id,
                              uint64_t request_id,
                              const quicr::messages::PublishAttributes& publish_attributes,
                              std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;

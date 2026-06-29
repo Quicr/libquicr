@@ -42,7 +42,7 @@ TestServer::TestServer(const ServerConfig& config)
 }
 
 void
-TestServer::PublishReceived(const std::uint64_t connection_handle,
+TestServer::PublishReceived(const std::uint64_t connection_id,
                             const uint64_t request_id,
                             const messages::PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler)
@@ -85,9 +85,9 @@ TestServer::PublishReceived(const std::uint64_t connection_handle,
         }
     }
 
-    pub_subscribes_[track_alias][connection_handle] = sub_track_handler;
+    pub_subscribes_[track_alias][connection_id] = sub_track_handler;
 
-    ResolvePublish(connection_handle,
+    ResolvePublish(connection_id,
                    request_id,
                    publish_attributes,
                    { .reason_code = PublishResponse::ReasonCode::kOk },
@@ -95,13 +95,13 @@ TestServer::PublishReceived(const std::uint64_t connection_handle,
 }
 
 void
-TestServer::PublishDoneReceived(std::uint64_t connection_handle, uint64_t request_id)
+TestServer::PublishDoneReceived(std::uint64_t connection_id, uint64_t request_id)
 {
     std::lock_guard lock(state_mutex_);
 
     // Clean up publisher subscribe handlers
     for (auto& [track_alias, conn_map] : pub_subscribes_) {
-        auto it = conn_map.find(connection_handle);
+        auto it = conn_map.find(connection_id);
         if (it != conn_map.end() && it->second && it->second->GetRequestId() == request_id) {
             conn_map.erase(it);
             break;
@@ -110,14 +110,14 @@ TestServer::PublishDoneReceived(std::uint64_t connection_handle, uint64_t reques
 }
 
 void
-TestServer::SubscribeReceived(std::uint64_t connection_handle,
+TestServer::SubscribeReceived(std::uint64_t connection_id,
                               uint64_t request_id,
                               const FullTrackName& track_full_name,
                               const messages::SubscribeAttributes& subscribe_attributes)
 {
     std::lock_guard lock(state_mutex_);
 
-    const SubscribeDetails details = { connection_handle, request_id, track_full_name, subscribe_attributes };
+    const SubscribeDetails details = { connection_id, request_id, track_full_name, subscribe_attributes };
     if (subscribe_promise_.has_value()) {
         subscribe_promise_->set_value(details);
     }
@@ -139,7 +139,7 @@ TestServer::SubscribeReceived(std::uint64_t connection_handle,
                                                 std::static_pointer_cast<TestServer>(shared_from_this()));
 
     if (!subscribe_attributes.is_publisher_initiated) {
-        ResolveSubscribe(connection_handle,
+        ResolveSubscribe(connection_id,
                          request_id,
                          track_alias,
                          { .reason_code = RequestResponse::ReasonCode::kOk,
@@ -147,10 +147,10 @@ TestServer::SubscribeReceived(std::uint64_t connection_handle,
     }
 
     // Store the publish handler for this subscriber
-    subscribes_[track_alias][connection_handle] = pub_track_handler;
+    subscribes_[track_alias][connection_id] = pub_track_handler;
 
     // Bind the publish track handler to send data to the subscriber
-    BindPublisherTrack(connection_handle, connection_handle, request_id, pub_track_handler, false);
+    BindPublisherTrack(connection_id, connection_id, request_id, pub_track_handler, false);
 
     // Link any existing publisher subscribe handlers to forward to this subscriber
     auto pub_sub_it = pub_subscribes_.find(track_alias);
@@ -165,13 +165,13 @@ TestServer::SubscribeReceived(std::uint64_t connection_handle,
 }
 
 void
-TestServer::SubscribeTracksReceived(const std::uint64_t connection_handle,
+TestServer::SubscribeTracksReceived(const std::uint64_t connection_id,
                                     const std::uint64_t data_ctx_id,
                                     const TrackNamespace& prefix_namespace,
                                     const messages::SubscribeNamespaceAttributes& attributes)
 {
     if (subscribe_namespace_promise_.has_value()) {
-        subscribe_namespace_promise_->set_value({ connection_handle, data_ctx_id, prefix_namespace, attributes });
+        subscribe_namespace_promise_->set_value({ connection_id, data_ctx_id, prefix_namespace, attributes });
     }
 
     // Deliberately not prefix matching to allow testing bad case. Tests should only add tracks
@@ -180,10 +180,10 @@ TestServer::SubscribeTracksReceived(const std::uint64_t connection_handle,
                                                   .namespaces = known_published_namespaces_ };
 
     // Blindly accept it.
-    ResolveSubscribeTracks(connection_handle, data_ctx_id, attributes.request_id, prefix_namespace, response);
+    ResolveSubscribeTracks(connection_id, data_ctx_id, attributes.request_id, prefix_namespace, response);
 
     auto ns_handler = PublishNamespaceHandler::Create(prefix_namespace);
-    PublishNamespace(connection_handle, ns_handler, true);
+    PublishNamespace(connection_id, ns_handler, true);
 
     for (const auto track : known_published_tracks_) {
         auto handler =
@@ -195,11 +195,11 @@ TestServer::SubscribeTracksReceived(const std::uint64_t connection_handle,
         ns_handler->PublishTrack(handler);
     }
 
-    namespace_subscribers_[prefix_namespace][connection_handle] = ns_handler;
+    namespace_subscribers_[prefix_namespace][connection_id] = ns_handler;
 }
 
 void
-TestServer::SubscribeNamespaceReceived(const std::uint64_t connection_handle,
+TestServer::SubscribeNamespaceReceived(const std::uint64_t connection_id,
                                        const std::uint64_t data_ctx_id,
                                        const TrackNamespace& prefix_namespace,
                                        const messages::SubscribeNamespaceAttributes& attributes)
@@ -223,28 +223,28 @@ TestServer::AddKnownPublishedTrack(const FullTrackName& track,
 }
 
 void
-TestServer::PublishNamespaceReceived(const std::uint64_t connection_handle,
+TestServer::PublishNamespaceReceived(const std::uint64_t connection_id,
                                      const TrackNamespace& track_namespace,
                                      const PublishNamespaceAttributes& publish_announce_attributes)
 {
     if (publish_namespace_promise_.has_value()) {
-        publish_namespace_promise_->set_value({ connection_handle, track_namespace, publish_announce_attributes });
+        publish_namespace_promise_->set_value({ connection_id, track_namespace, publish_announce_attributes });
     }
 
     // Accept the publish namespace by responding with OK
     const PublishNamespaceResponse response = { .reason_code = PublishNamespaceResponse::ReasonCode::kOk };
-    ResolvePublishNamespace(connection_handle, publish_announce_attributes.request_id, track_namespace, {}, response);
+    ResolvePublishNamespace(connection_id, publish_announce_attributes.request_id, track_namespace, {}, response);
 }
 
 void
-TestServer::StandaloneFetchReceived(const std::uint64_t connection_handle,
+TestServer::StandaloneFetchReceived(const std::uint64_t connection_id,
                                     const uint64_t request_id,
                                     const FullTrackName& track_full_name,
                                     const messages::StandaloneFetchAttributes& attrs)
 {
     if (fetch_response_data_.empty()) {
         // No response data configured
-        ResolveFetch(connection_handle,
+        ResolveFetch(connection_id,
                      request_id,
                      attrs.priority,
                      attrs.group_order,
@@ -258,7 +258,7 @@ TestServer::StandaloneFetchReceived(const std::uint64_t connection_handle,
                                                   .object = fetch_response_data_.back().headers.object_id };
 
     // Accept the fetch
-    ResolveFetch(connection_handle,
+    ResolveFetch(connection_id,
                  request_id,
                  attrs.priority,
                  attrs.group_order,
@@ -271,7 +271,7 @@ TestServer::StandaloneFetchReceived(const std::uint64_t connection_handle,
                                   request_id,
                                   attrs.group_order.value_or(attrs.publisher_default_group_order),
                                   500);
-    BindFetchTrack(connection_handle, pub_fetch_handler);
+    BindFetchTrack(connection_id, pub_fetch_handler);
     for (size_t i = 0; i < fetch_response_data_.size(); ++i) {
         pub_fetch_handler->PublishObject(fetch_response_data_[i].headers, fetch_response_data_[i].payload);
     }

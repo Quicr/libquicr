@@ -67,7 +67,7 @@ extern "C"
      * @{
      */
 
-    typedef uint64_t qbridge_connection_handle_t;
+    typedef uint64_t qbridge_connection_id_t;
     typedef uint64_t qbridge_track_alias_t;
     typedef uint64_t qbridge_request_id_t;
     typedef uint64_t qbridge_group_id_t;

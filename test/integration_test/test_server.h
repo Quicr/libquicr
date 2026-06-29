@@ -112,7 +112,7 @@ namespace quicr_test {
 
         struct SubscribeDetails
         {
-            std::uint64_t connection_handle;
+            std::uint64_t connection_id;
             uint64_t request_id;
             quicr::FullTrackName track_full_name;
             quicr::messages::SubscribeAttributes subscribe_attributes;
@@ -120,7 +120,7 @@ namespace quicr_test {
 
         struct SubscribeNamespaceDetails
         {
-            std::uint64_t connection_handle;
+            std::uint64_t connection_id;
             std::uint64_t data_ctx_id{ 0 };
             quicr::TrackNamespace prefix_namespace;
             quicr::messages::SubscribeNamespaceAttributes attributes;
@@ -128,7 +128,7 @@ namespace quicr_test {
 
         struct PublishNamespaceDetails
         {
-            std::uint64_t connection_handle;
+            std::uint64_t connection_id;
             quicr::TrackNamespace track_namespace;
             quicr::PublishNamespaceAttributes attributes;
         };
@@ -200,55 +200,55 @@ namespace quicr_test {
             return {};
         }
 
-        void UnsubscribeNamespaceReceived([[maybe_unused]] std::uint64_t connection_handle,
+        void UnsubscribeNamespaceReceived([[maybe_unused]] std::uint64_t connection_id,
                                           [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override {};
 
-        void OnStreamClosed(const quicr::ConnectionHandle& connection_handle,
+        void OnStreamClosed(const std::uint64_t& connection_id,
                             std::uint64_t stream_id,
                             std::shared_ptr<quicr::StreamRxContext> rx_ctx,
-                            std::optional<quicr::DataContextId> data_ctx_id,
+                            std::optional<std::uint64_t> data_ctx_id,
                             quicr::StreamClosedFlag flag) override
         {
             {
                 std::lock_guard lock(state_mutex_);
                 closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
             }
-            Session::OnStreamClosed(connection_handle, stream_id, std::move(rx_ctx), data_ctx_id, flag);
+            Session::OnStreamClosed(connection_id, stream_id, std::move(rx_ctx), data_ctx_id, flag);
         }
 
-        void FetchCancelReceived([[maybe_unused]] std::uint64_t connection_handle,
+        void FetchCancelReceived([[maybe_unused]] std::uint64_t connection_id,
                                  [[maybe_unused]] uint64_t request_id) override
         {
         }
 
-        void StandaloneFetchReceived(std::uint64_t connection_handle,
+        void StandaloneFetchReceived(std::uint64_t connection_id,
                                      uint64_t request_id,
                                      const quicr::FullTrackName& track_full_name,
                                      const quicr::messages::StandaloneFetchAttributes& attrs) override;
 
-        void SubscribeReceived(std::uint64_t connection_handle,
+        void SubscribeReceived(std::uint64_t connection_id,
                                uint64_t request_id,
                                const quicr::FullTrackName& track_full_name,
                                const quicr::messages::SubscribeAttributes& subscribe_attributes) override;
 
-        void PublishReceived(std::uint64_t connection_handle,
+        void PublishReceived(std::uint64_t connection_id,
                              uint64_t request_id,
                              const quicr::messages::PublishAttributes& publish_attributes,
                              std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;
 
-        void PublishDoneReceived(std::uint64_t connection_handle, uint64_t request_id) override;
+        void PublishDoneReceived(std::uint64_t connection_id, uint64_t request_id) override;
 
-        void SubscribeTracksReceived(std::uint64_t connection_handle,
+        void SubscribeTracksReceived(std::uint64_t connection_id,
                                      std::uint64_t data_ctx_id,
                                      const quicr::TrackNamespace& prefix_namespace,
                                      const quicr::messages::SubscribeNamespaceAttributes& attributes) override;
 
-        void SubscribeNamespaceReceived(std::uint64_t connection_handle,
+        void SubscribeNamespaceReceived(std::uint64_t connection_id,
                                         std::uint64_t data_ctx_id,
                                         const quicr::TrackNamespace& prefix_namespace,
                                         const quicr::messages::SubscribeNamespaceAttributes& attributes) override;
 
-        void PublishNamespaceReceived(std::uint64_t connection_handle,
+        void PublishNamespaceReceived(std::uint64_t connection_id,
                                       const quicr::TrackNamespace& track_namespace,
                                       const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
 
@@ -281,10 +281,10 @@ namespace quicr_test {
           namespace_subscribers_;
         std::vector<FetchResponseData> fetch_response_data_;
 
-        // Subscriber publish handlers: [track_alias][connection_handle] -> PublishTrackHandler
+        // Subscriber publish handlers: [track_alias][connection_id] -> PublishTrackHandler
         std::map<std::uint64_t, std::map<std::uint64_t, std::shared_ptr<TestPublishTrackHandler>>> subscribes_;
 
-        // Publisher subscribe handlers: [track_alias][connection_handle] -> SubscribeTrackHandler
+        // Publisher subscribe handlers: [track_alias][connection_id] -> SubscribeTrackHandler
         std::map<std::uint64_t, std::map<std::uint64_t, std::shared_ptr<TestSubscribeTrackHandler>>> pub_subscribes_;
     };
 

@@ -24,9 +24,6 @@
 
 namespace quicr {
 
-    using TransportConnId = uint64_t; ///< Connection Id is a 64bit number that is used as a key to maps
-    using DataContextId = uint64_t;   ///< Data Context 64bit number that identifies a data flow/track/stream
-
     /**
      * Close Connection App Reasons
      */
@@ -258,13 +255,13 @@ namespace quicr {
             /**
              * @brief Callback notification that a stream has been closed by either FIN or RST.
              *
-             * @param connection_handle Transport context identifier mapped to the connection
+             * @param connection_id Transport context identifier mapped to the connection
              * @param stream_id         Transport stream id.
              * @param rx_ctx            Stream Rx context with the handler info.
              * @param data_ctx_id       Optional data context ID the stream belonged to
              * @param flag              Flag value for how the stream was closed. Values are FIN or RST
              */
-            virtual void OnStreamClosed(const std::uint64_t& connection_handle,
+            virtual void OnStreamClosed(const std::uint64_t& connection_id,
                                         std::uint64_t stream_id,
                                         std::shared_ptr<StreamRxContext> rx_ctx,
                                         std::optional<uint64_t> data_ctx_id,
@@ -351,7 +348,7 @@ namespace quicr {
          * @param conn_id           Connection ID to close
          * @param app_reason        Application reason to close the connection
          */
-        virtual void Close(const TransportConnId& conn_id,
+        virtual void Close(const std::uint64_t& conn_id,
                            AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose) = 0;
 
         /**

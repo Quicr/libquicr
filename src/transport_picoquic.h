@@ -95,8 +95,8 @@ namespace quicr {
             ~DataContext() = default;
 
           public:
-            DataContextId data_ctx_id{ 0 };     /// The ID of this context
-            TransportConnId conn_id{ 0 };       /// The connection ID this context is under
+            std::uint64_t data_ctx_id{ 0 };     /// The ID of this context
+            std::uint64_t conn_id{ 0 };         /// The connection ID this context is under
             bool is_bidir : 1 { false };        /// Indicates if the stream is bidir (true) or unidir (false)
             bool uses_reset_wait : 1 { false }; /// Indicates if data context can/uses reset wait strategy
             bool delete_on_empty{ false };      /// Instructs TX objects to be discarded on POP instead
@@ -295,10 +295,10 @@ namespace quicr {
         virtual ~PicoQuicTransport();
 
         TransportStatus Status() const override;
-        TransportConnId Start() override;
-        void Close(const TransportConnId& conn_id,
+        std::uint64_t Start() override;
+        void Close(const std::uint64_t& conn_id,
                    AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose) override;
-        void CloseInternal(const TransportConnId& conn_id,
+        void CloseInternal(const std::uint64_t& conn_id,
                            AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose);
 
         virtual bool GetPeerAddrInfo(const std::uint64_t& conn_id, sockaddr_storage* addr) override;

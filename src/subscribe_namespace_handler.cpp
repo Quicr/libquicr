@@ -27,7 +27,7 @@ quicr::SubscribeNamespaceHandler::~SubscribeNamespaceHandler()
      *       in unsubscribe of tracks
      */
     for (const auto& [_, handler] : handlers_) {
-        transport->UnsubscribeTrack(connection_handle_, handler);
+        transport->UnsubscribeTrack(connection_id_, handler);
     }
 #endif
 }

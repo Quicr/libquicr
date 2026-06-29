@@ -15,7 +15,6 @@ namespace quicr {
     using Byte = uint8_t;
     using Bytes = std::vector<Byte>;
     using BytesSpan = std::span<const Byte>;
-    using ConnectionHandle = uint64_t;
 
     template<class T>
         requires std::is_standard_layout_v<T>

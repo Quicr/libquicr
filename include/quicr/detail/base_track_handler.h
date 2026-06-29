@@ -226,7 +226,7 @@ namespace quicr {
         /**
          * @brief Get the connection ID
          */
-        uint64_t GetConnectionId() const noexcept { return connection_handle_; };
+        uint64_t GetConnectionId() const noexcept { return connection_id_; };
 
         /**
          * Received an OK for this handler's request.
@@ -261,12 +261,12 @@ namespace quicr {
          *
          * @details The MOQ Handler sets the connection ID
          */
-        void SetConnectionId(uint64_t connection_handle) { connection_handle_ = connection_handle; };
+        void SetConnectionId(uint64_t connection_id) { connection_id_ = connection_id; };
 
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
-        std::uint64_t connection_handle_{ 0 }; // QUIC transport connection ID
+        std::uint64_t connection_id_{ 0 }; // QUIC transport connection ID
 
         /**
          * request_id_ is the primary index/key for subscribe context/delegate storage.

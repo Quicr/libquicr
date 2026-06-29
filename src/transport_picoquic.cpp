@@ -1280,7 +1280,7 @@ PicoQuicTransport::CreateDataContext(const std::uint64_t conn_id,
 }
 
 void
-PicoQuicTransport::Close(const TransportConnId& conn_id, AppReasonForClose app_reason)
+PicoQuicTransport::Close(const std::uint64_t& conn_id, AppReasonForClose app_reason)
 {
     RunPqFunction([=, this]() {
         CloseInternal(conn_id, app_reason);
@@ -1290,7 +1290,7 @@ PicoQuicTransport::Close(const TransportConnId& conn_id, AppReasonForClose app_r
 }
 
 void
-PicoQuicTransport::CloseInternal(const TransportConnId& conn_id, AppReasonForClose app_reason)
+PicoQuicTransport::CloseInternal(const std::uint64_t& conn_id, AppReasonForClose app_reason)
 {
     std::lock_guard<std::mutex> _(state_mutex_);
     const auto conn_it = conn_context_.find(conn_id);
