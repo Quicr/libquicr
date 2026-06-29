@@ -28,7 +28,7 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
 }
 
 void
-TestClient::PublishReceived(quicr::ConnectionHandle connection_handle,
+TestClient::PublishReceived(std::uint64_t connection_handle,
                             uint64_t request_id,
                             const quicr::messages::PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> ns_handler)

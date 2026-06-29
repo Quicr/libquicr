@@ -1152,7 +1152,7 @@ namespace quicr {
         /*===================================================================*/
 
         void SendNamespace(ConnectionContext& conn_ctx,
-                           DataContextId data_ctx_id,
+                           std::uint64_t data_ctx_id,
                            const TrackNamespace& track_namespace_suffix);
 
         void SendSubscribeNamespace(ConnectionContext& conn_ctx,
