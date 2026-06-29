@@ -103,7 +103,7 @@ PQ_ConnDataForwarding(benchmark::State& state)
     state.SetItemsProcessed(items_count);
 }
 
-BENCHMARK(PQ_Push)->Iterations(kIterations)->Threads(1);
-BENCHMARK(PQ_Pop)->Iterations(kIterations)->Threads(1);
-BENCHMARK(PQ_PopFront)->Iterations(kIterations)->Threads(1);
-BENCHMARK(PQ_ConnDataForwarding)->Threads(1);
+BENCHMARK(PQ_Push)->Iterations(kIterations);
+BENCHMARK(PQ_Pop)->Iterations(kIterations);
+BENCHMARK(PQ_PopFront)->Iterations(kIterations);
+BENCHMARK(PQ_ConnDataForwarding);
