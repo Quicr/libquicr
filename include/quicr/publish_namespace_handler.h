@@ -11,12 +11,12 @@
 
 namespace quicr {
 
-    class Transport;
+    class Session;
 
     class PublishNamespaceHandler : public BaseTrackHandler
     {
       public:
-        using Error = std::pair<messages::ErrorCode, messages::ReasonPhrase>;
+        using Error = std::pair<messages::ErrorCode, Bytes>;
 
         /**
          * @brief  Status codes for the Publish track
@@ -112,9 +112,9 @@ namespace quicr {
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 
-        const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
+        const std::weak_ptr<Session>& GetTransport() const noexcept { return transport_; }
 
-        void SetTransport(const std::shared_ptr<Transport>& new_transport) noexcept { transport_ = new_transport; }
+        void SetTransport(const std::shared_ptr<Session>& new_transport) noexcept { transport_ = new_transport; }
 
         /**
          * @brief Get the status of the Publish
@@ -154,7 +154,9 @@ namespace quicr {
             SetStatus(Status::kError);
         }
 
-        void RequestOk(uint64_t, const messages::Parameters&) override { SetStatus(Status::kOk); }
+        void RequestOkReceived(const messages::Parameters&) override;
+
+        void RequestUpdateReceived(const messages::Parameters& params) override;
 
         void RequestError(messages::ErrorCode error_code, std::string reason) override
         {
@@ -169,14 +171,14 @@ namespace quicr {
         const TrackNamespace prefix_;
 
         /// Weak reference to the transport.
-        std::weak_ptr<Transport> transport_;
+        std::weak_ptr<Session> transport_;
 
         Status status_{ Status::kNotPublished };
 
         std::optional<Error> error_{};
 
-        // ConnectionHandle connection_handle_{ 0 };
+        // std::uint64_t connection_handle_{ 0 };
 
-        friend class Transport;
+        friend class Session;
     };
 }

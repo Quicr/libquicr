@@ -80,7 +80,7 @@ namespace quicr {
         messages::Location start_location_;
         messages::FetchEndLocation end_location_;
 
-        friend class Transport;
+        friend class Session;
     };
 
 } // namespace moq

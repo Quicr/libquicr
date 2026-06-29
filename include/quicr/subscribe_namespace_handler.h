@@ -11,12 +11,12 @@
 
 namespace quicr {
 
-    class Transport;
+    class Session;
 
     class SubscribeNamespaceHandler : public BaseTrackHandler
     {
       public:
-        using Error = std::pair<messages::ErrorCode, messages::ReasonPhrase>;
+        using Error = std::pair<messages::ErrorCode, Bytes>;
         enum class Mode
         {
             // Receive NAMESPACE notifications of matching namespaces.
@@ -84,10 +84,14 @@ namespace quicr {
          */
         constexpr Mode GetMode() const noexcept { return mode_; }
 
-      protected:
-        const std::weak_ptr<Transport>& GetTransport() const noexcept { return transport_; }
-        void SetTransport(const std::shared_ptr<Transport>& new_transport) noexcept { transport_ = new_transport; }
+        /**
+         * Fully qualify a track namespace suffix relative to the subscribed prefix.
+         * @param suffix The suffix to expand.
+         * @return The fully qualified track namespace.
+         */
+        TrackNamespace ExpandSuffix(const TrackNamespace& suffix) const;
 
+      protected:
         /**
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
@@ -112,7 +116,16 @@ namespace quicr {
             SetStatus(Status::kError);
         }
 
-        void RequestOk(uint64_t, const messages::Parameters&) override { SetStatus(Status::kOk); }
+        /**
+         * A notification of an available namespace. Only fired in kNamespaces mode.
+         * @param suffix The available namespace, as a suffix of the subscribed prefix. This can be fully-qualified
+         * using ExpandSuffix();
+         */
+        virtual void NamespaceReceived(const TrackNamespace& suffix) {}
+
+        void RequestOkReceived(const messages::Parameters&) override;
+
+        void RequestUpdateReceived(const messages::Parameters& params) override;
 
         void RequestError(messages::ErrorCode error_code, std::string reason) override
         {
@@ -129,15 +142,10 @@ namespace quicr {
         /// Filter value for namespace subscription.
         messages::Filter filter_;
 
-        /// Weak reference to the transport.
-        std::weak_ptr<Transport> transport_;
-
         Status status_{ Status::kNotSubscribed };
 
         std::optional<Error> error_{};
 
-        DataContextId data_ctx_id_{ 0 };
-
-        friend class Transport;
+        friend class Session;
     };
 }

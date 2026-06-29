@@ -107,3 +107,10 @@ TEST_CASE("UintVar Invalid Construction")
     CHECK_THROWS(quicr::UintVar(std::vector<uint8_t>{}));
     CHECK_THROWS(quicr::UintVar(std::vector<uint8_t>{ 0xFF, 0xFF }));
 }
+
+TEST_CASE("UintVar Single Byte")
+{
+    quicr::UintVar value(37);
+
+    CHECK_EQ(value.end() - value.begin(), 1);
+}

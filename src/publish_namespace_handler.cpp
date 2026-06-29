@@ -1,5 +1,6 @@
 #include "quicr/publish_namespace_handler.h"
-#include "quicr/detail/transport.h"
+#include "quicr/detail/parameters.h"
+#include "quicr/session.h"
 
 #include <ranges>
 
@@ -104,4 +105,18 @@ quicr::PublishNamespaceHandler::PublishObject(uint64_t track_alias,
     }
 
     return PublishTrackHandler::PublishObjectStatus::kInternalError;
+}
+
+void
+quicr::PublishNamespaceHandler::RequestOkReceived(const messages::Parameters& params)
+{
+    messages::ValidateParameters(params, {});
+    SetStatus(Status::kOk);
+}
+
+void
+quicr::PublishNamespaceHandler::RequestUpdateReceived(const messages::Parameters& params)
+{
+    // TODO: See moq-wg #1769.
+    throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");
 }

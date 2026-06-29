@@ -28,20 +28,13 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
 }
 
 void
-TestClient::NamespaceReceived([[maybe_unused]] const TrackNamespace& track_namespace)
-{
-    if (namespace_received_) {
-        namespace_received_->set_value(track_namespace);
-    }
-}
-
-void
 TestClient::PublishReceived(quicr::ConnectionHandle connection_handle,
                             uint64_t request_id,
                             const quicr::messages::PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> ns_handler)
 {
-    auto sub_handler = SubscribeTrackHandler::Create(publish_attributes.track_full_name, publish_attributes.priority);
+    auto sub_handler =
+      SubscribeTrackHandler::Create(publish_attributes.track_full_name, publish_attributes.default_publisher_priority);
     last_publish_received_sub_handler_ = sub_handler;
 
     if (publish_received_) {
@@ -56,7 +49,7 @@ TestClient::PublishReceived(quicr::ConnectionHandle connection_handle,
 }
 
 void
-TestClient::PublishNamespaceStatusChanged(quicr::messages::RequestID request_id, const PublishNamespaceStatus status)
+TestClient::PublishNamespaceStatusChanged(std::uint64_t request_id, const PublishNamespaceStatus status)
 {
     if (publish_namespace_status_changed_ && status == PublishNamespaceStatus::kOK) {
         publish_namespace_status_changed_->set_value(request_id);

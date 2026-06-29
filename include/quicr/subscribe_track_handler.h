@@ -60,7 +60,7 @@ namespace quicr {
             const std::uint8_t priority;
             const std::optional<messages::GroupOrder> group_order;
             const messages::Parameters parameters;
-            const messages::GroupId joining_start;
+            const std::uint64_t joining_start;
             const bool absolute;
         };
 
@@ -366,8 +366,8 @@ namespace quicr {
          */
         virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
 
-        void RequestUpdate(uint64_t request_id, const messages::Parameters& params) override;
-        void RequestOk(uint64_t request_id, const messages::Parameters& params) override;
+        void RequestUpdateReceived(const messages::Parameters& params) override;
+        void RequestOkReceived(const messages::Parameters& params) override;
 
         ///@}
 
@@ -433,7 +433,7 @@ namespace quicr {
         bool publisher_initiated_{ false };
         bool support_new_group_request_{ false };
 
-        friend class Transport;
+        friend class Session;
     };
 
 } // namespace moq

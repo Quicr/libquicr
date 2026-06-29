@@ -17,6 +17,12 @@ target_compile_options(quicr PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wall -pedantic -Wextra -Wmissing-declarations -Werror=switch>
 )
 
+if(NOT QUICR_BUILD_FUZZ)
+    target_compile_options(quicr PRIVATE
+        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>: -Wthread-safety -Werror=thread-safety>
+    )
+endif()
+
 target_sources(quicr PRIVATE
     base_track_handler.cpp
     ctrl_message_types.cpp
@@ -26,15 +32,14 @@ target_sources(quicr PRIVATE
     publish_fetch_handler.cpp
     publish_namespace_handler.cpp
     publish_track_handler.cpp
-    quic_transport.cpp
+    session.cpp
     subscribe_namespace_handler.cpp
     subscribe_track_handler.cpp
     transport_picoquic.cpp
-    transport.cpp
 )
 
 target_link_libraries(quicr PUBLIC
-    spdlog
+    spdlog::spdlog
     timeq
     picoquic-core
     picoquic-log

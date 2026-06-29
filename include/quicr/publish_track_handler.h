@@ -72,6 +72,8 @@ namespace quicr {
             kPendingAnnounceResponse,
             kAnnounceNotAuthorized,
             kNoSubscribers,
+            kUnsubscribed,
+            kDoneByFin,
             kSendingUnannounce, ///< In this state, callbacks will not be called
             kSubscriptionUpdated,
             kNewGroupRequested,
@@ -167,8 +169,8 @@ namespace quicr {
          */
         virtual void MetricsSampled(const PublishTrackMetrics& metrics);
 
-        void RequestUpdate(uint64_t request_id, const messages::Parameters& params) override;
-        void RequestOk(uint64_t request_id, const messages::Parameters& params) override;
+        void RequestUpdateReceived(const messages::Parameters& params) override;
+        void RequestOkReceived(const messages::Parameters& params) override;
 
         ///@}
 
@@ -425,7 +427,7 @@ namespace quicr {
         bool support_new_group_request_{ true }; /// TODO: For now, always support dynamic groups
         std::optional<uint64_t> pending_new_group_request_id_;
 
-        friend class Transport;
+        friend class Session;
     };
 
 } // namespace moq

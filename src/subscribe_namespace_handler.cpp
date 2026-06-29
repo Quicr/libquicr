@@ -1,6 +1,7 @@
 #include "quicr/subscribe_namespace_handler.h"
 #include "quicr/detail/messages.h"
-#include "quicr/detail/transport.h"
+#include "quicr/detail/parameters.h"
+#include "quicr/session.h"
 #include "quicr/subscribe_track_handler.h"
 
 quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix,
@@ -15,7 +16,7 @@ quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace
 
 quicr::SubscribeNamespaceHandler::~SubscribeNamespaceHandler()
 {
-    const auto& transport = transport_.lock();
+    const auto transport = GetTransport().lock();
     if (!transport) {
         return;
     }
@@ -56,4 +57,33 @@ quicr::SubscribeNamespaceHandler::StatusChanged(Status status)
         default:
             break;
     }
+}
+
+void
+quicr::SubscribeNamespaceHandler::RequestOkReceived(const messages::Parameters& params)
+{
+    messages::ValidateParameters(params, {});
+    SetStatus(Status::kOk);
+}
+
+void
+quicr::SubscribeNamespaceHandler::RequestUpdateReceived([[maybe_unused]] const messages::Parameters& params)
+{
+    throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");
+}
+
+quicr::TrackNamespace
+quicr::SubscribeNamespaceHandler::ExpandSuffix(const TrackNamespace& suffix) const
+{
+    std::vector<Bytes> entries;
+    entries.reserve(GetPrefix().GetEntries().size() + suffix.GetEntries().size());
+
+    for (const auto& entry : GetPrefix().GetEntries()) {
+        entries.emplace_back(entry.begin(), entry.end());
+    }
+
+    for (const auto& entry : suffix.GetEntries()) {
+        entries.emplace_back(entry.begin(), entry.end());
+    }
+    return { entries };
 }

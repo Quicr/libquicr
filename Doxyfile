@@ -953,7 +953,7 @@ WARN_LOGFILE           =
 # Note: If this tag is empty the current directory is searched.
 
 INPUT                  =  docs/api-main.md \
-                          include/quicr/detail/transport.h \
+                          include/quicr/session.h \
                           include/quicr/detail/uintvar.h \
                           include/quicr
 

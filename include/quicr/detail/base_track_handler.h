@@ -8,12 +8,13 @@
 #include "quicr/detail/ctrl_message_types.h"
 #include "quicr/track_name.h"
 
+#include <memory>
 #include <optional>
 #include <span>
 #include <vector>
 
 namespace quicr {
-    class Transport;
+    class Session;
 
     /**
      * @brief Track mode object of object published or received
@@ -86,10 +87,9 @@ namespace quicr {
         };
         ReasonCode reason_code;
 
-        std::optional<std::string> error_reason = std::nullopt;
+        std::optional<std::string> error_reason;
 
-        std::optional<messages::Location> largest_location = std::nullopt;
-        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+        const messages::PublishOkAttributes attributes;
     };
 
     struct SubscribeNamespaceResponse
@@ -147,7 +147,7 @@ namespace quicr {
     class BaseTrackHandler
     {
       public:
-        friend class Transport;
+        friend class Session;
 
         virtual ~BaseTrackHandler() = default;
 
@@ -191,6 +191,30 @@ namespace quicr {
         std::optional<uint64_t> GetRequestId() const noexcept { return request_id_; }
 
         /**
+         * @brief Sets the data context Id
+         * @param data_ctx_id               Data context Id for control messages
+         */
+        void SetDataContextId(std::uint64_t data_ctx_id) { data_ctx_id_ = data_ctx_id; }
+
+        /**
+         * @brief Return the data context Id
+         * @return Data context id if set
+         */
+        std::optional<std::uint64_t> GetDataContextId() const noexcept { return data_ctx_id_; }
+
+        /**
+         * @brief Set the stream ID for the bidir request control stream.
+         * @param request_stream_id Request stream's ID.
+         */
+        void SetRequestStreamId(uint64_t request_stream_id) { request_stream_id_ = request_stream_id; }
+
+        /**
+         * @brief Get the stream ID of the request control stream.
+         * @return Request stream's ID.
+         */
+        std::optional<uint64_t> GetRequestStreamId() const noexcept { return request_stream_id_; }
+
+        /**
          * @brief Get the full track name
          *
          * @details Gets the full track name
@@ -204,8 +228,18 @@ namespace quicr {
          */
         uint64_t GetConnectionId() const noexcept { return connection_handle_; };
 
-        virtual void RequestOk(uint64_t request_id, const messages::Parameters& params);
-        virtual void RequestUpdate(uint64_t request_id, const messages::Parameters& params);
+        /**
+         * Received an OK for this handler's request.
+         * @param params Parameters in the request.
+         */
+        virtual void RequestOkReceived(const messages::Parameters& params) = 0;
+
+        /**
+         * @brief Received an update for this handler's request.
+         * Implementations MUST call ResolveRequestUpdate to acknowledge the request.
+         * @param params The updated/new parameters for the request.
+         */
+        virtual void RequestUpdateReceived(const messages::Parameters& params) = 0;
 
         virtual void RequestError(messages::ErrorCode error_code, std::string reason);
 
@@ -214,9 +248,9 @@ namespace quicr {
          * Set the transport to use.
          * @param transport The new transport for the handler to use.
          */
-        void SetTransport(std::shared_ptr<Transport> transport);
+        void SetTransport(std::shared_ptr<Session> transport);
 
-        const std::weak_ptr<Transport>& GetTransport() const noexcept;
+        const std::weak_ptr<Session>& GetTransport() const noexcept;
 
         // --------------------------------------------------------------------------
         // Internal
@@ -232,7 +266,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Member variables
         // --------------------------------------------------------------------------
-        ConnectionHandle connection_handle_{ 0 }; // QUIC transport connection ID
+        std::uint64_t connection_handle_{ 0 }; // QUIC transport connection ID
 
         /**
          * request_id_ is the primary index/key for subscribe context/delegate storage.
@@ -242,7 +276,17 @@ namespace quicr {
          */
         std::optional<uint64_t> request_id_;
 
-        std::weak_ptr<Transport> transport_;
+        /**
+         * Data context ID (transport data context) that control messages are to be sent
+         */
+        std::optional<std::uint64_t> data_ctx_id_{ std::nullopt };
+
+        /**
+         * Stream ID of the bidirectional request control stream.
+         */
+        std::optional<uint64_t> request_stream_id_{ std::nullopt };
+
+        std::weak_ptr<Session> transport_;
     };
 
 } // namespace moq

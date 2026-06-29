@@ -3,7 +3,7 @@
 
 #include "quicr/publish_fetch_handler.h"
 
-#include "quicr/detail/transport.h"
+#include "quicr/session.h"
 
 namespace quicr {
     PublishTrackHandler::PublishObjectStatus PublishFetchHandler::PublishObject(

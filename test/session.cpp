@@ -3,6 +3,7 @@
 
 #include <doctest/doctest.h>
 
+#include <quicr/client.h>
 #include <quicr/config.h>
 #include <quicr/session.h>
 
