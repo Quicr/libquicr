@@ -571,19 +571,6 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Session::SendPublishNamespaceDone(ConnectionContext& conn_ctx, std::uint64_t request_id)
-    try {
-        SPDLOG_LOGGER_DEBUG(logger_, "Sending PUBLISH_NAMESPACE_DONE to conn_id: {}", conn_ctx.connection_handle);
-
-        SendCtrlMsg(conn_ctx,
-                    conn_ctx.tx_ctrl_data_ctx_id.value(),
-                    ControlMessageType::kPublishNamespaceDone,
-                    UintVar(request_id));
-    } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_NAMESPACE_DONE (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
-    }
-
     void Session::SendNamespace(ConnectionContext& conn_ctx,
                                 DataContextId data_ctx_id,
                                 const TrackNamespace& track_namespace_suffix)

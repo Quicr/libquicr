@@ -1147,8 +1147,6 @@ namespace quicr {
                                   std::uint64_t request_id,
                                   const TrackNamespace& track_namespace);
 
-        void SendPublishNamespaceDone(ConnectionContext& conn_ctx, std::uint64_t request_id);
-
         /*===================================================================*/
         // Subscribe Namespace
         /*===================================================================*/
