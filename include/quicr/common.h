@@ -78,7 +78,7 @@ namespace quicr {
      */
     struct PublishNamespaceAttributes
     {
-        uint64_t request_id{ 0 };
+        std::uint64_t request_id{ 0 };
     };
 
     /**

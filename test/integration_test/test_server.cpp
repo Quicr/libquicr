@@ -42,7 +42,7 @@ TestServer::TestServer(const ServerConfig& config)
 }
 
 void
-TestServer::PublishReceived(const ConnectionHandle connection_handle,
+TestServer::PublishReceived(const std::uint64_t connection_handle,
                             const uint64_t request_id,
                             const messages::PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler)
@@ -53,7 +53,7 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
     const auto track_alias = th.track_fullname_hash;
 
     // Is anyone interested in this prefix?
-    std::vector<ConnectionHandle> namespace_subscribers;
+    std::vector<std::uint64_t> namespace_subscribers;
 
     for (const auto& [_, interested] : namespace_subscribers_) {
         for (const auto& [conn_id, ns_handler] : interested) {
@@ -95,7 +95,7 @@ TestServer::PublishReceived(const ConnectionHandle connection_handle,
 }
 
 void
-TestServer::PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint64_t request_id)
+TestServer::PublishDoneReceived(std::uint64_t connection_handle, uint64_t request_id)
 {
     std::lock_guard lock(state_mutex_);
 
@@ -110,7 +110,7 @@ TestServer::PublishDoneReceived(quicr::ConnectionHandle connection_handle, uint6
 }
 
 void
-TestServer::SubscribeReceived(ConnectionHandle connection_handle,
+TestServer::SubscribeReceived(std::uint64_t connection_handle,
                               uint64_t request_id,
                               const FullTrackName& track_full_name,
                               const messages::SubscribeAttributes& subscribe_attributes)
@@ -165,8 +165,8 @@ TestServer::SubscribeReceived(ConnectionHandle connection_handle,
 }
 
 void
-TestServer::SubscribeTracksReceived(const ConnectionHandle connection_handle,
-                                    const DataContextId data_ctx_id,
+TestServer::SubscribeTracksReceived(const std::uint64_t connection_handle,
+                                    const std::uint64_t data_ctx_id,
                                     const TrackNamespace& prefix_namespace,
                                     const messages::SubscribeNamespaceAttributes& attributes)
 {
@@ -199,8 +199,8 @@ TestServer::SubscribeTracksReceived(const ConnectionHandle connection_handle,
 }
 
 void
-TestServer::SubscribeNamespaceReceived(const ConnectionHandle connection_handle,
-                                       const DataContextId data_ctx_id,
+TestServer::SubscribeNamespaceReceived(const std::uint64_t connection_handle,
+                                       const std::uint64_t data_ctx_id,
                                        const TrackNamespace& prefix_namespace,
                                        const messages::SubscribeNamespaceAttributes& attributes)
 {
@@ -223,7 +223,7 @@ TestServer::AddKnownPublishedTrack(const FullTrackName& track,
 }
 
 void
-TestServer::PublishNamespaceReceived(const ConnectionHandle connection_handle,
+TestServer::PublishNamespaceReceived(const std::uint64_t connection_handle,
                                      const TrackNamespace& track_namespace,
                                      const PublishNamespaceAttributes& publish_announce_attributes)
 {
@@ -237,7 +237,7 @@ TestServer::PublishNamespaceReceived(const ConnectionHandle connection_handle,
 }
 
 void
-TestServer::StandaloneFetchReceived(const ConnectionHandle connection_handle,
+TestServer::StandaloneFetchReceived(const std::uint64_t connection_handle,
                                     const uint64_t request_id,
                                     const FullTrackName& track_full_name,
                                     const messages::StandaloneFetchAttributes& attrs)
@@ -278,7 +278,7 @@ TestServer::StandaloneFetchReceived(const ConnectionHandle connection_handle,
 }
 
 void
-TestServer::NewGroupRequested(const quicr::FullTrackName& track_full_name, quicr::messages::GroupId group_id)
+TestServer::NewGroupRequested(const quicr::FullTrackName& track_full_name, std::uint64_t group_id)
 {
     std::lock_guard lock(state_mutex_);
     const auto th = quicr::TrackHash(track_full_name);

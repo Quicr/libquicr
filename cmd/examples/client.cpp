@@ -51,8 +51,7 @@ namespace qclient_vars {
     std::chrono::milliseconds subgroup_test_interval_ms(100);
     std::chrono::milliseconds playback_speed_ms(20);
     std::chrono::milliseconds cache_duration_ms(180000);
-    std::unordered_map<quicr::messages::TrackAlias, quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>>
-      cache;
+    std::unordered_map<std::uint64_t, quicr::Cache<std::uint64_t, std::set<CacheObject>>> cache;
     std::shared_ptr<timeq::threaded_tick_service> tick_service = std::make_shared<timeq::threaded_tick_service>();
     std::optional<sframe::MLSContext> mls_ctx = sframe::MLSContext(sframe::CipherSuite::AES_GCM_128_SHA256, 1);
     std::optional<std::filesystem::path> watch_path;
@@ -364,10 +363,9 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
         }
     }
 
-    PublishObjectStatus PublishObject(
-      const quicr::ObjectHeaders& object_headers,
-      quicr::BytesSpan data,
-      std::optional<quicr::messages::StreamHeaderProperties> stream_mode = std::nullopt) override
+    PublishObjectStatus PublishObject(const quicr::ObjectHeaders& object_headers,
+                                      quicr::BytesSpan data,
+                                      std::optional<quicr::messages::StreamHeaderProperties> = std::nullopt) override
     {
         auto track_alias = GetTrackAlias();
 
@@ -375,7 +373,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
         if (!qclient_vars::cache.contains(*track_alias)) {
             qclient_vars::cache.emplace(
               *track_alias,
-              quicr::Cache<quicr::messages::GroupId, std::set<CacheObject>>{
+              quicr::Cache<std::uint64_t, std::set<CacheObject>>{
                 static_cast<std::size_t>(qclient_vars::cache_duration_ms.count()), 1000, qclient_vars::tick_service });
         }
 
@@ -499,7 +497,7 @@ class MyClient : public quicr::Client
         SPDLOG_INFO("Received announce for namespace_hash: {}", th.track_namespace_hash);
     }
 
-    void PublishNamespaceDoneReceived(quicr::messages::RequestID rid) override
+    void PublishNamespaceDoneReceived(std::uint64_t rid) override
     {
         SPDLOG_INFO("Received unannounce for request_id: {}", rid);
     }
@@ -521,7 +519,7 @@ class MyClient : public quicr::Client
         return largest_location;
     }
 
-    void FetchReceived(quicr::ConnectionHandle connection_handle,
+    void FetchReceived(std::uint64_t connection_handle,
                        uint64_t request_id,
                        const quicr::FullTrackName& track_full_name,
                        std::uint8_t priority,
@@ -611,7 +609,7 @@ class MyClient : public quicr::Client
         retrieve_cache_thread.detach();
     }
 
-    void StandaloneFetchReceived(quicr::ConnectionHandle connection_handle,
+    void StandaloneFetchReceived(std::uint64_t connection_handle,
                                  uint64_t request_id,
                                  const quicr::FullTrackName& track_full_name,
                                  const quicr::messages::StandaloneFetchAttributes& attributes) override
@@ -625,7 +623,7 @@ class MyClient : public quicr::Client
                       attributes.end_location);
     }
 
-    void JoiningFetchReceived(quicr::ConnectionHandle connection_handle,
+    void JoiningFetchReceived(std::uint64_t connection_handle,
                               uint64_t request_id,
                               const quicr::FullTrackName& track_full_name,
                               const quicr::messages::JoiningFetchAttributes& attributes) override
@@ -650,7 +648,7 @@ class MyClient : public quicr::Client
                       { joining_start, std::nullopt });
     }
 
-    void PublishReceived(quicr::ConnectionHandle connection_handle,
+    void PublishReceived(std::uint64_t connection_handle,
                          uint64_t request_id,
                          const quicr::messages::PublishAttributes& publish_attributes,
                          [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override
@@ -1037,7 +1035,7 @@ DoPublisher(const std::string prefix_str,
 void
 DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                const std::shared_ptr<quicr::Client>& client,
-               bool use_announce,
+               [[maybe_unused]] bool use_announce,
                bool& stop)
 {
     auto track_handler = MyPublishTrackHandler::Create(
@@ -1232,7 +1230,6 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
 void
 DoSubscriber(const quicr::FullTrackName& full_track_name,
              const std::shared_ptr<quicr::Client>& client,
-             quicr::messages::FilterType filter_type,
              const bool& stop,
              const std::optional<std::uint64_t> join_fetch,
              const bool absolute)
@@ -1624,8 +1621,6 @@ main(int argc, char* argv[])
             }
         }
         if (enable_sub) {
-            auto filter_type = quicr::messages::FilterType::kTrackFilter;
-
             std::optional<std::uint64_t> joining_fetch;
             if (result.count("joining_fetch")) {
                 joining_fetch = result["joining_fetch"].as<uint64_t>();
@@ -1639,8 +1634,8 @@ main(int argc, char* argv[])
                 client->RequestTrackStatus(sub_track_name);
             }
 
-            sub_thread = std::thread(
-              DoSubscriber, sub_track_name, client, filter_type, std::ref(stop_threads), joining_fetch, absolute);
+            sub_thread =
+              std::thread(DoSubscriber, sub_track_name, client, std::ref(stop_threads), joining_fetch, absolute);
         }
         if (enable_fetch) {
             const auto& fetch_track_name = quicr::example::MakeFullTrackName(

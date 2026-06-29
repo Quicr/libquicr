@@ -28,7 +28,7 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
 }
 
 void
-TestClient::PublishReceived(quicr::ConnectionHandle connection_handle,
+TestClient::PublishReceived(std::uint64_t connection_handle,
                             uint64_t request_id,
                             const quicr::messages::PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> ns_handler)
@@ -49,7 +49,7 @@ TestClient::PublishReceived(quicr::ConnectionHandle connection_handle,
 }
 
 void
-TestClient::PublishNamespaceStatusChanged(quicr::messages::RequestID request_id, const PublishNamespaceStatus status)
+TestClient::PublishNamespaceStatusChanged(std::uint64_t request_id, const PublishNamespaceStatus status)
 {
     if (publish_namespace_status_changed_ && status == PublishNamespaceStatus::kOK) {
         publish_namespace_status_changed_->set_value(request_id);

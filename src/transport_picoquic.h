@@ -4,10 +4,10 @@
 #pragma once
 
 #include "quicr/detail/priority_queue.h"
-#include "quicr/detail/quic_transport_metrics.h"
 #include "quicr/detail/safe_queue.h"
 #include "quicr/detail/safe_time_queue.h"
 #include "quicr/detail/stream_buffer.h"
+#include "quicr/detail/transport_metrics.h"
 
 #include <timeq/time_queue.h>
 
@@ -61,9 +61,6 @@ namespace quicr {
     {
       public:
         const char* webtransport_alpn = "h3";
-
-        using BytesT = std::vector<uint8_t>;
-        using DataContextId = uint64_t;
 
         /**
          */
@@ -155,14 +152,14 @@ namespace quicr {
          */
         struct ConnectionContext
         {
-            TransportConnId conn_id{ 0 };     /// This connection ID
+            std::uint64_t conn_id{ 0 };       /// This connection ID
             picoquic_cnx_t* pq_cnx = nullptr; /// Picoquic connection/path context
             uint64_t last_stream_id{ 0 };     /// last stream Id
 
             bool mark_dgram_ready{ false };                       /// Instructs datagram to be marked ready/active
             TransportMode transport_mode{ TransportMode::kQuic }; /// Transport mode for this connection
 
-            DataContextId next_data_ctx_id{ 1 }; /// Next data context ID; zero is reserved for default context
+            std::uint64_t next_data_ctx_id{ 1 }; /// Next data context ID; zero is reserved for default context
 
             std::shared_ptr<PriorityQueue<ConnData>>
               dgram_tx_data; /// Datagram pending objects to be written to the network
@@ -192,13 +189,13 @@ namespace quicr {
             /**
              * Active data contexts (streams bidir/unidir and datagram)
              */
-            std::map<quicr::DataContextId, DataContext> active_data_contexts;
+            std::map<std::uint64_t, DataContext> active_data_contexts;
 
             /**
              * WebTransport stream ID to data context ID mapping
              * Used in WebTransport mode to look up data context for a stream
              */
-            std::map<uint64_t, DataContextId> wt_stream_to_data_ctx;
+            std::map<uint64_t, std::uint64_t> wt_stream_to_data_ctx;
 
             /// WebTransport HTTP/3 context for this connection (only used in WebTransport mode)
             /// - Server mode: created by h3zero_callback per connection
@@ -304,19 +301,19 @@ namespace quicr {
         void CloseInternal(const TransportConnId& conn_id,
                            AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose);
 
-        virtual bool GetPeerAddrInfo(const TransportConnId& conn_id, sockaddr_storage* addr) override;
+        virtual bool GetPeerAddrInfo(const std::uint64_t& conn_id, sockaddr_storage* addr) override;
 
-        DataContextId CreateDataContext(TransportConnId conn_id,
+        std::uint64_t CreateDataContext(std::uint64_t conn_id,
                                         bool use_reliable_transport,
                                         uint8_t priority,
                                         bool bidir) override;
 
-        void DeleteDataContext(const TransportConnId& conn_id,
-                               DataContextId data_ctx_id,
+        void DeleteDataContext(const std::uint64_t& conn_id,
+                               std::uint64_t data_ctx_id,
                                bool delete_on_empty = false) override;
 
-        TransportError Enqueue(const TransportConnId& conn_id,
-                               const DataContextId& data_ctx_id,
+        TransportError Enqueue(const std::uint64_t& conn_id,
+                               const std::uint64_t& data_ctx_id,
                                std::uint64_t stream_id,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                uint8_t priority,
@@ -324,25 +321,25 @@ namespace quicr {
                                uint32_t delay_ms,
                                EnqueueFlags flags) override;
 
-        std::shared_ptr<const std::vector<uint8_t>> Dequeue(TransportConnId conn_id,
-                                                            std::optional<DataContextId> data_ctx_id) override;
+        std::shared_ptr<const std::vector<uint8_t>> Dequeue(std::uint64_t conn_id,
+                                                            std::optional<std::uint64_t> data_ctx_id) override;
 
-        std::shared_ptr<StreamRxContext> GetStreamRxContext(TransportConnId conn_id, uint64_t stream_id) override;
+        std::shared_ptr<StreamRxContext> GetStreamRxContext(std::uint64_t conn_id, uint64_t stream_id) override;
 
-        int CloseWebTransportSession(TransportConnId conn_id,
+        int CloseWebTransportSession(std::uint64_t conn_id,
                                      uint32_t error_code,
                                      const char* error_msg = nullptr) override;
 
-        int DrainWebTransportSession(TransportConnId conn_id) override;
+        int DrainWebTransportSession(std::uint64_t conn_id) override;
 
-        void SetRemoteDataCtxId(TransportConnId conn_id,
-                                DataContextId data_ctx_id,
-                                DataContextId remote_data_ctx_id) override;
+        void SetRemoteDataCtxId(std::uint64_t conn_id,
+                                std::uint64_t data_ctx_id,
+                                std::uint64_t remote_data_ctx_id) override;
 
         /*
          * Internal public methods
          */
-        ConnectionContext* GetConnContext(const TransportConnId& conn_id);
+        ConnectionContext* GetConnContext(const std::uint64_t& conn_id);
         void SetStatus(TransportStatus status);
 
         /**
@@ -371,16 +368,16 @@ namespace quicr {
          *
          * @returns DataContext pointer to the created context, nullptr if invalid connection id
          */
-        DataContext* CreateDataContextBiDirRecv(TransportConnId conn_id, uint64_t stream_id);
+        DataContext* CreateDataContextBiDirRecv(std::uint64_t conn_id, uint64_t stream_id);
 
         ConnectionContext& CreateConnContext(picoquic_cnx_t* pq_cnx);
 
         void SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_ctx, size_t max_len);
         void SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_id, uint8_t* bytes_ctx, size_t max_len);
 
-        void OnConnectionStatus(TransportConnId conn_id, TransportStatus status);
+        void OnConnectionStatus(std::uint64_t conn_id, TransportStatus status);
 
-        void OnNewConnection(TransportConnId conn_id);
+        void OnNewConnection(std::uint64_t conn_id);
         void OnRecvDatagram(ConnectionContext* conn_ctx, uint8_t* bytes, size_t length);
         void OnRecvStreamBytes(ConnectionContext* conn_ctx,
                                DataContext* data_ctx,
@@ -388,7 +385,7 @@ namespace quicr {
                                int is_fin,
                                std::span<const uint8_t> bytes);
 
-        void OnStreamClosed(TransportConnId conn_id,
+        void OnStreamClosed(std::uint64_t conn_id,
                             uint64_t stream_id,
                             std::shared_ptr<StreamRxContext> rx_ctx,
                             std::optional<uint64_t> data_ctx_id,
@@ -407,7 +404,7 @@ namespace quicr {
          * @param stream_id         Stream ID to close
          * @param use_reset         True to close by RESET, false to close by FIN
          */
-        void CloseStream(TransportConnId conn_id, uint64_t data_ctx_id, uint64_t stream_id, bool use_reset) override;
+        void CloseStream(std::uint64_t conn_id, uint64_t data_ctx_id, uint64_t stream_id, bool use_reset) override;
 
         /**
          * @brief Deregister WebTransport context
@@ -452,7 +449,7 @@ namespace quicr {
          * @return stream ID if created
          * @throws PicoQuicException if unable to create stram
          */
-        std::uint64_t CreateStream(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority) override;
+        std::uint64_t CreateStream(std::uint64_t conn_id, std::uint64_t data_ctx_id, uint8_t priority) override;
 
         /**
          * @brief Erase local state for the given stream.
@@ -473,9 +470,9 @@ namespace quicr {
         TransportMode transport_mode{ TransportMode::kQuic };
 
       private:
-        void DeleteDataContextInternal(TransportConnId conn_id, DataContextId data_ctx_id, bool delete_on_empty);
+        void DeleteDataContextInternal(std::uint64_t conn_id, std::uint64_t data_ctx_id, bool delete_on_empty);
 
-        TransportConnId StartClient();
+        std::uint64_t StartClient();
         void Shutdown();
 
         void Server();
@@ -489,14 +486,14 @@ namespace quicr {
          * @details This method MUST only be called within the picoquic thread. Enqueue and other
          *      thread methods can call this via the pq_runner.
          */
-        void MarkStreamActive(TransportConnId conn_id, DataContextId data_ctx_id, std::uint64_t stream_id);
+        void MarkStreamActive(std::uint64_t conn_id, std::uint64_t data_ctx_id, std::uint64_t stream_id);
 
         /**
          * @brief Mark datagram ready
          * @details This method MUST only be called within the picoquic thread. Enqueue and other
          *      thread methods can call this via the pq_runner.
          */
-        void MarkDgramReady(TransportConnId conn_id);
+        void MarkDgramReady(std::uint64_t conn_id);
 
         /**
          * @brief Initialize WebTransport context
@@ -554,7 +551,7 @@ namespace quicr {
          * @param data_ctx_id   Data context id
          * @param priority      Priority of the stream
          */
-        std::uint64_t CreateStreamInternal(TransportConnId conn_id, DataContextId data_ctx_id, uint8_t priority);
+        std::uint64_t CreateStreamInternal(std::uint64_t conn_id, std::uint64_t data_ctx_id, uint8_t priority);
 
         /**
          * @brief App initiated Close stream
@@ -593,7 +590,7 @@ namespace quicr {
         TransportDelegate& delegate_;
         TransportConfig tconfig_;
 
-        std::map<TransportConnId, ConnectionContext> conn_context_;
+        std::map<std::uint64_t, ConnectionContext> conn_context_;
         std::shared_ptr<timeq::tick_service> tick_service_;
 
         // WebTransport configuration (server-wide, not per-connection)
