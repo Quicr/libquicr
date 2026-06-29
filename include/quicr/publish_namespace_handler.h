@@ -177,8 +177,6 @@ namespace quicr {
 
         std::optional<Error> error_{};
 
-        // std::uint64_t connection_id_{ 0 };
-
         friend class Session;
     };
 }

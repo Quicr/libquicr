@@ -559,7 +559,7 @@ namespace quicr {
         virtual void StandaloneFetchReceived(std::uint64_t connection_id,
                                              uint64_t request_id,
                                              const FullTrackName& track_full_name,
-                                             const quicr::messages::StandaloneFetchAttributes& attributes);
+                                             const messages::StandaloneFetchAttributes& attributes);
 
         /**
          * @brief Event to run on receiving a Joining Fetch request.
@@ -572,7 +572,7 @@ namespace quicr {
         virtual void JoiningFetchReceived(std::uint64_t connection_id,
                                           uint64_t request_id,
                                           const FullTrackName& track_full_name,
-                                          const quicr::messages::JoiningFetchAttributes& attributes);
+                                          const messages::JoiningFetchAttributes& attributes);
 
         /**
          * @brief Callback notification on receiving a FetchCancel message.
