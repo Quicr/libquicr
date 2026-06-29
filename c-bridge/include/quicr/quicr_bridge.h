@@ -63,19 +63,6 @@ extern "C"
     /** @} */
 
     /**
-     * @defgroup simple_types Simple Types
-     * @{
-     */
-
-    typedef uint64_t qbridge_connection_id_t;
-    typedef uint64_t qbridge_track_alias_t;
-    typedef uint64_t qbridge_request_id_t;
-    typedef uint64_t qbridge_group_id_t;
-    typedef uint64_t qbridge_object_id_t;
-
-    /** @} */
-
-    /**
      * @defgroup result_codes Result and Status Codes
      * @{
      */
@@ -204,12 +191,12 @@ extern "C"
      */
     typedef struct
     {
-        qbridge_group_id_t group_id;   /**< Group ID */
-        uint64_t subgroup_id;          /**< Subgroup ID */
-        qbridge_object_id_t object_id; /**< Object ID */
-        qbridge_priority_t priority;   /**< Priority level */
-        uint32_t ttl_ms;               /**< Time-to-live in milliseconds */
-        bool cacheable;                /**< Whether object is cacheable */
+        uint64_t group_id;           /**< Group ID */
+        uint64_t subgroup_id;        /**< Subgroup ID */
+        uint64_t object_id;          /**< Object ID */
+        qbridge_priority_t priority; /**< Priority level */
+        uint32_t ttl_ms;             /**< Time-to-live in milliseconds */
+        bool cacheable;              /**< Whether object is cacheable */
     } qbridge_object_headers_t;
 
     /**
@@ -333,8 +320,8 @@ extern "C"
      * @param result Result of publish operation
      * @param user_data User-provided data pointer
      */
-    typedef void (*qbridge_object_published_callback_t)(qbridge_group_id_t group_id,
-                                                        qbridge_object_id_t object_id,
+    typedef void (*qbridge_object_published_callback_t)(uint64_t group_id,
+                                                        uint64_t object_id,
                                                         qbridge_result_t result,
                                                         void* user_data);
 
@@ -686,7 +673,7 @@ extern "C"
      * @param track_name Full track name
      * @return Track alias hash value or 0 on failure
      */
-    qbridge_track_alias_t qbridge_compute_track_alias(const qbridge_full_track_name_t* track_name);
+    uint64_t qbridge_compute_track_alias(const qbridge_full_track_name_t* track_name);
 
     /** @} */
 
