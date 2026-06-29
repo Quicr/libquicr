@@ -75,15 +75,11 @@ quicr::SubscribeNamespaceHandler::RequestUpdateReceived([[maybe_unused]] const m
 quicr::TrackNamespace
 quicr::SubscribeNamespaceHandler::ExpandSuffix(const TrackNamespace& suffix) const
 {
-    std::vector<Bytes> entries;
-    entries.reserve(GetPrefix().GetEntries().size() + suffix.GetEntries().size());
-
-    for (const auto& entry : GetPrefix().GetEntries()) {
-        entries.emplace_back(entry.begin(), entry.end());
-    }
-
-    for (const auto& entry : suffix.GetEntries()) {
-        entries.emplace_back(entry.begin(), entry.end());
-    }
-    return { entries };
+    const auto& prefix_entries = GetPrefix().GetEntries();
+    const auto& suffix_entries = suffix.GetEntries();
+    std::vector<std::span<const uint8_t>> entries;
+    entries.reserve(prefix_entries.size() + suffix_entries.size());
+    entries.insert(entries.end(), prefix_entries.begin(), prefix_entries.end());
+    entries.insert(entries.end(), suffix_entries.begin(), suffix_entries.end());
+    return TrackNamespace{ std::span{ entries } };
 }

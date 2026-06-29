@@ -3422,6 +3422,7 @@ namespace quicr {
                       request_id,
                       conn_ctx.connection_handle,
                       data_ctx_id);
+                    return true;
                 }
                 const auto handler = handler_it->second.Get<SubscribeNamespaceHandler>();
                 if (!handler) {

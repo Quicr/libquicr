@@ -1031,6 +1031,47 @@ TEST_CASE("Integration - Subscribe Namespace with matching namespace")
     }
 }
 
+TEST_CASE("Integration - Subscribe Namespace with wildcard prefix")
+{
+    auto server = MakeTestServer();
+
+    auto test_wildcard = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        // Wildcard subscribe should match all.
+        TrackNamespace wildcard_prefix(std::vector<std::string>{});
+        TrackNamespace published_namespace(std::vector<std::string>{ "foo", "bar", "baz" });
+
+        // Verify the client receives the namespace (suffix == namespace in this case).
+        std::promise<TrackNamespace> namespace_promise;
+        std::future<TrackNamespace> namespace_future = namespace_promise.get_future();
+        server->AddKnownPublishedNamespace(published_namespace);
+
+        auto handler =
+          TestSubscribeNamespaceHandler::Create(wildcard_prefix, SubscribeNamespaceHandler::Mode::kNamespaces);
+        handler->SetNamespaceReceivedPromise(std::move(namespace_promise));
+        CHECK_NOTHROW(client->SubscribeNamespace(handler));
+        auto namespace_status = namespace_future.wait_for(kDefaultTimeout);
+        REQUIRE(namespace_status == std::future_status::ready);
+
+        // Got it?
+        const auto& received_namespace = namespace_future.get();
+        CHECK_EQ(received_namespace, published_namespace);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_wildcard("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_wildcard("https");
+    }
+}
+
 TEST_CASE("Integration - Subscribe Namespace with exact matching namespace")
 {
     auto server = MakeTestServer();
