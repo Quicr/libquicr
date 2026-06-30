@@ -126,26 +126,30 @@ namespace quicr {
          */
         TimeQueueReference Front() QUICR_REQUIRES(this)
         {
-            std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
+            TimeQueueReference front{ std::nullopt, 0 };
 
-            defer(RemoveGroupTimeQueue(remove_group_ids));
+            while (!(queues_.empty() || front.value.has_value())) {
+                auto& [_, groups] = *queues_.begin();
+                auto& [__, queue] = *groups.begin();
 
-            for (auto& [priority, queue] : queues_) {
-                for (auto& [group_id, tqueue] : queue) {
-                    auto elem = tqueue->front();
+                front = queue->front();
+                if (front.value.has_value()) {
+                    break;
+                }
 
-                    if (tqueue->empty() || !elem.value.has_value() || elem.expired) {
-                        remove_group_ids[priority].push_back(group_id);
-
-                        if (!elem.value.has_value()) // Only continue to next group if element doesn't have value
-                            continue;
+                if (queue->empty()) {
+                    if (free_tqueues_.size() < kMaxFreeTimeQueues) {
+                        free_tqueues_.push_back(std::move(queue));
                     }
+                    groups.erase(groups.begin());
+                }
 
-                    return elem;
+                if (groups.empty()) {
+                    queues_.erase(queues_.begin());
                 }
             }
 
-            return { std::nullopt, 0 };
+            return front;
         }
 
         /**
@@ -155,26 +159,31 @@ namespace quicr {
          */
         TimeQueueValueType PopFront() QUICR_REQUIRES(this)
         {
-            std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
+            TimeQueueValueType front{ std::nullopt, 0 };
 
-            defer(RemoveGroupTimeQueue(remove_group_ids));
+            while (!(queues_.empty() || front.value.has_value())) {
+                auto& [_, groups] = *queues_.begin();
+                auto& [__, queue] = *groups.begin();
 
-            for (auto& [priority, queue] : queues_) {
-                for (auto& [group_id, tqueue] : queue) {
-                    auto elem = tqueue->pop_front();
+                front = queue->pop_front();
 
-                    if (tqueue->empty() || !elem.value.has_value() || elem.expired) {
-                        remove_group_ids[priority].push_back(group_id);
-
-                        if (!elem.value.has_value()) // Only continue to next group if element doesn't have value
-                            continue;
+                if (queue->empty()) {
+                    if (free_tqueues_.size() < kMaxFreeTimeQueues) {
+                        free_tqueues_.push_back(std::move(queue));
                     }
+                    groups.erase(groups.begin());
+                }
 
-                    return elem;
+                if (groups.empty()) {
+                    queues_.erase(queues_.begin());
+                }
+
+                if (front.value.has_value()) {
+                    break;
                 }
             }
 
-            return { std::nullopt, 0 };
+            return front;
         }
 
         /**
@@ -182,27 +191,23 @@ namespace quicr {
          */
         void Pop() QUICR_REQUIRES(this)
         {
-            std::map<uint8_t, std::vector<uint64_t>> remove_group_ids;
-            defer(RemoveGroupTimeQueue(remove_group_ids));
+            if (queues_.empty()) {
+                return;
+            }
 
-            for (auto& [priority, queue] : queues_) {
-                remove_group_ids.clear();
-                for (auto& [group_id, tqueue] : queue) {
+            auto& [_, groups] = *queues_.begin();
+            auto& [__, queue] = *groups.begin();
 
-                    // Pop from the group timequeue that isn't empty
-                    if (tqueue->empty()) {
-                        remove_group_ids[priority].push_back(group_id);
-                        continue;
-                    }
-
-                    tqueue->pop();
-
-                    if (tqueue->empty()) {
-                        remove_group_ids[priority].push_back(group_id);
-                    }
-
-                    return;
+            queue->pop();
+            if (queue->empty()) {
+                if (free_tqueues_.size() < kMaxFreeTimeQueues) {
+                    free_tqueues_.push_back(std::move(queue));
                 }
+                groups.erase(groups.begin());
+            }
+
+            if (groups.empty()) {
+                queues_.erase(queues_.begin());
             }
         }
 
@@ -247,40 +252,6 @@ namespace quicr {
             for (int i = free_tqueues_.size(); i < kMinFreeTimeQueues; ++i) {
                 free_tqueues_.emplace_back(
                   std::make_shared<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_));
-            }
-        }
-
-        /**
-         * @brief Removes the group from the queues and adds the timequeue back to the free list
-         *
-         * @param priority      Queue priority
-         * @param group_ids     List of group Ids to remove
-         */
-        void RemoveGroupTimeQueue(uint8_t priority, const std::vector<uint64_t>& group_ids)
-        {
-            for (const auto& group_id : group_ids) {
-                auto grp_it = queues_[priority].find(group_id);
-
-                if (grp_it != queues_[priority].end()) {
-                    grp_it->second->clear();
-
-                    if (free_tqueues_.size() < kMaxFreeTimeQueues) {
-                        free_tqueues_.emplace_back(grp_it->second);
-                    }
-
-                    queues_[priority].erase(grp_it);
-                }
-            }
-        }
-
-        /**
-         * @brief Removes groups from the queues and adds the timequeue back to the free list
-         * @param groups        List of groups by priority to remove
-         */
-        void RemoveGroupTimeQueue(const std::map<uint8_t, std::vector<uint64_t>>& groups)
-        {
-            for (const auto& [pri, group_id] : groups) {
-                RemoveGroupTimeQueue(pri, group_id);
             }
         }
 

@@ -9,70 +9,6 @@ static auto tick_service = std::make_shared<timeq::threaded_tick_service>();
 constexpr size_t kIterations = 1'000'000;
 constexpr size_t kNumSubscribers = 10;
 
-template<typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-std::span<const uint8_t>
-BytesOf(const T& value)
-{
-    return std::span(reinterpret_cast<const uint8_t*>(&value), sizeof(value));
-}
-
-template<typename T, std::enable_if_t<std::is_integral<T>::value, bool> = true>
-T
-ValueOf(std::span<uint8_t const> value, bool host_order = true)
-{
-    T rval{ 0 };
-    auto rval_ptr = reinterpret_cast<uint8_t*>(&rval);
-
-    if (!host_order) {
-        for (size_t i = 0; i < sizeof(T); i++) {
-            rval_ptr[i] = value[i];
-        }
-    } else {
-        constexpr auto last = sizeof(T) - 1;
-        for (size_t i = 0; i < sizeof(T); i++) {
-            rval_ptr[i] = value[last - i];
-        }
-    }
-
-    return rval;
-}
-
-static void
-Encode(benchmark::State& state)
-{
-    int64_t items_count = 0;
-    uint64_t value = 1234;
-
-    for (auto _ : state) {
-        auto bytes = BytesOf(value);
-        benchmark::DoNotOptimize(bytes);
-        benchmark::ClobberMemory();
-
-        ++items_count;
-    }
-
-    state.SetItemsProcessed(items_count);
-}
-
-static void
-Decode(benchmark::State& state)
-{
-
-    int64_t items_count = 0;
-
-    std::vector<uint8_t> data = { 0x1, 0x2, 0x3, 0x4 };
-
-    for (auto _ : state) {
-        uint32_t bytes = ValueOf<uint32_t>({ data.begin(), data.end() });
-        benchmark::DoNotOptimize(bytes);
-        benchmark::ClobberMemory();
-
-        ++items_count;
-    }
-
-    state.SetItemsProcessed(items_count);
-}
-
 static void
 PQ_Push(benchmark::State& state)
 {
@@ -167,9 +103,7 @@ PQ_ConnDataForwarding(benchmark::State& state)
     state.SetItemsProcessed(items_count);
 }
 
-BENCHMARK(Encode);
-BENCHMARK(Decode);
-BENCHMARK(PQ_Push)->Iterations(kIterations)->Threads(1);
-BENCHMARK(PQ_Pop)->Iterations(kIterations)->Threads(1);
-BENCHMARK(PQ_PopFront)->Iterations(kIterations)->Threads(1);
-BENCHMARK(PQ_ConnDataForwarding)->Threads(1);
+BENCHMARK(PQ_Push)->Iterations(kIterations);
+BENCHMARK(PQ_Pop)->Iterations(kIterations);
+BENCHMARK(PQ_PopFront)->Iterations(kIterations);
+BENCHMARK(PQ_ConnDataForwarding);
