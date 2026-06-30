@@ -28,7 +28,7 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
 }
 
 void
-TestClient::PublishReceived(std::uint64_t connection_handle,
+TestClient::PublishReceived(std::uint64_t connection_id,
                             uint64_t request_id,
                             const quicr::messages::PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> ns_handler)
@@ -41,11 +41,8 @@ TestClient::PublishReceived(std::uint64_t connection_handle,
         publish_received_->set_value(publish_attributes.track_full_name);
     }
 
-    ResolvePublish(connection_handle,
-                   request_id,
-                   publish_attributes,
-                   { .reason_code = PublishResponse::ReasonCode::kOk },
-                   sub_handler);
+    ResolvePublish(
+      connection_id, request_id, publish_attributes, { .reason_code = PublishResponse::ReasonCode::kOk }, sub_handler);
 }
 
 void

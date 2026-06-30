@@ -497,9 +497,9 @@ class MyClient : public quicr::Client
         SPDLOG_INFO("Received announce for namespace_hash: {}", th.track_namespace_hash);
     }
 
-    void PublishNamespaceDoneReceived(std::uint64_t rid) override
+    void PublishNamespaceDoneReceived(std::uint64_t request_id) override
     {
-        SPDLOG_INFO("Received unannounce for request_id: {}", rid);
+        SPDLOG_INFO("Received unannounce for request_id: {}", request_id);
     }
 
     std::optional<quicr::messages::Location> GetLargestAvailable(const quicr::FullTrackName& track_full_name)
@@ -519,7 +519,7 @@ class MyClient : public quicr::Client
         return largest_location;
     }
 
-    void FetchReceived(std::uint64_t connection_handle,
+    void FetchReceived(std::uint64_t connection_id,
                        uint64_t request_id,
                        const quicr::FullTrackName& track_full_name,
                        std::uint8_t priority,
@@ -560,7 +560,7 @@ class MyClient : public quicr::Client
             reason_code = quicr::FetchResponse::ReasonCode::kInvalidRange;
         }
 
-        ResolveFetch(connection_handle,
+        ResolveFetch(connection_id,
                      request_id,
                      priority,
                      group_order,
@@ -579,10 +579,10 @@ class MyClient : public quicr::Client
         // TODO: Adjust the TTL
         auto pub_fetch_h = quicr::PublishFetchHandler::Create(
           track_full_name, priority, request_id, group_order.value_or(quicr::messages::GroupOrder::kAscending), 50000);
-        BindFetchTrack(connection_handle, pub_fetch_h);
+        BindFetchTrack(connection_id, pub_fetch_h);
 
         std::thread retrieve_cache_thread([=, cache_entries = std::move(cache_entries), this] {
-            defer(UnbindFetchTrack(connection_handle, pub_fetch_h));
+            defer(UnbindFetchTrack(connection_id, pub_fetch_h));
 
             for (const auto& entry : cache_entries) {
                 for (const auto& object : *entry) {
@@ -609,12 +609,12 @@ class MyClient : public quicr::Client
         retrieve_cache_thread.detach();
     }
 
-    void StandaloneFetchReceived(std::uint64_t connection_handle,
+    void StandaloneFetchReceived(std::uint64_t connection_id,
                                  uint64_t request_id,
                                  const quicr::FullTrackName& track_full_name,
                                  const quicr::messages::StandaloneFetchAttributes& attributes) override
     {
-        FetchReceived(connection_handle,
+        FetchReceived(connection_id,
                       request_id,
                       track_full_name,
                       attributes.priority,
@@ -623,7 +623,7 @@ class MyClient : public quicr::Client
                       attributes.end_location);
     }
 
-    void JoiningFetchReceived(std::uint64_t connection_handle,
+    void JoiningFetchReceived(std::uint64_t connection_id,
                               uint64_t request_id,
                               const quicr::FullTrackName& track_full_name,
                               const quicr::messages::JoiningFetchAttributes& attributes) override
@@ -639,7 +639,7 @@ class MyClient : public quicr::Client
             joining_start = attributes.joining_start;
         }
 
-        FetchReceived(connection_handle,
+        FetchReceived(connection_id,
                       request_id,
                       track_full_name,
                       attributes.priority,
@@ -648,7 +648,7 @@ class MyClient : public quicr::Client
                       { joining_start, std::nullopt });
     }
 
-    void PublishReceived(std::uint64_t connection_handle,
+    void PublishReceived(std::uint64_t connection_id,
                          uint64_t request_id,
                          const quicr::messages::PublishAttributes& publish_attributes,
                          [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override

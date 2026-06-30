@@ -1071,7 +1071,7 @@ extern "C"
         return QBRIDGE_OK;
     }
 
-    qbridge_track_alias_t qbridge_compute_track_alias(const qbridge_full_track_name_t* track_name)
+    uint64_t qbridge_compute_track_alias(const qbridge_full_track_name_t* track_name)
     {
         if (!track_name) {
             return 0;

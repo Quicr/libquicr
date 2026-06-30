@@ -13,6 +13,7 @@
 #include <timeq/tick_service.h>
 
 namespace quicr {
+#define FORCE_INLINE inline __attribute__((always_inline))
     template<typename K, typename T>
     class Cache
     {
@@ -21,7 +22,6 @@ namespace quicr {
         /*=======================================================================*/
 
         using TickType = timeq::tick_service::tick_type;
-        using IndexType = std::uint32_t;
 
         using BucketType = std::vector<K>;
         using ValueType = std::shared_ptr<T>;
@@ -139,7 +139,7 @@ namespace quicr {
         }
 
       protected:
-        inline void Advance()
+        FORCE_INLINE void Advance()
         {
             const TickType new_ticks = static_cast<uint64_t>(
               std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
@@ -168,7 +168,7 @@ namespace quicr {
         }
 
         template<typename Value>
-        inline void InternalInsert(const K& key, Value value, size_t ttl)
+        FORCE_INLINE void InternalInsert(const K& key, Value value, size_t ttl)
         {
             if (ttl > duration_) {
                 throw std::invalid_argument("TTL is greater than max duration");
@@ -179,7 +179,7 @@ namespace quicr {
             ttl /= interval_;
 
             Advance();
-            const IndexType future_index = (bucket_index_ + ttl - 1) % total_buckets_;
+            const std::uint32_t future_index = (bucket_index_ + ttl - 1) % total_buckets_;
 
             buckets_[future_index].push_back(key);
             cache_[key] = std::make_shared<T>(value);
@@ -196,7 +196,7 @@ namespace quicr {
         const size_t total_buckets_;
 
         /// The index in time of the current bucket.
-        IndexType bucket_index_{ 0 };
+        std::uint32_t bucket_index_{ 0 };
 
         /// Last calculated tick value.
         TickType current_ticks_{ 0 };
@@ -211,4 +211,5 @@ namespace quicr {
         std::shared_ptr<timeq::tick_service> tick_service_;
     };
 
+#undef FORCE_INLINE
 } // namespace quicr

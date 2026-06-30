@@ -164,7 +164,7 @@ namespace quicr {
         }
 
         // Publish handlers used to transmit track data
-        std::map<TrackFullNameHash, std::shared_ptr<PublishTrackHandler>> handlers_;
+        std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> handlers_;
 
       private:
         /// Prefix namespace for contained handlers.
@@ -176,8 +176,6 @@ namespace quicr {
         Status status_{ Status::kNotPublished };
 
         std::optional<Error> error_{};
-
-        // std::uint64_t connection_handle_{ 0 };
 
         friend class Session;
     };
