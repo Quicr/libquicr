@@ -302,7 +302,7 @@ namespace quicr {
             }
         };
 
-     /* Factory APIs */
+        /* Factory APIs */
 
         /**
          * @brief Create a new client transport based on the remote (server) host/ip

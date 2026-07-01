@@ -8,8 +8,8 @@
 #include "quicr/detail/messages.h"
 #include "quicr/detail/parameters.h"
 #include "quicr/detail/track_properties.h"
-#include "quicr/subscribe_namespace_handler.h"
 #include "quicr/detail/transport.h"
+#include "quicr/subscribe_namespace_handler.h"
 #include "transport_picoquic.h"
 
 #include <iomanip>
