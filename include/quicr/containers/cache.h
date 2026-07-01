@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <timeq/tick_service.h>
+
 #include <atomic>
 #include <chrono>
 #include <map>
@@ -10,10 +12,9 @@
 #include <stdexcept>
 #include <vector>
 
-#include <timeq/tick_service.h>
-
 namespace quicr {
 #define FORCE_INLINE inline __attribute__((always_inline))
+
     template<typename K, typename T>
     class Cache
     {

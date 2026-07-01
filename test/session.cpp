@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include "quicr/session.h"
+#include "quicr/client.h"
+#include "quicr/config.h"
+
 #include <doctest/doctest.h>
 
-#include <quicr/client.h>
-#include <quicr/config.h>
-#include <quicr/session.h>
-
 #include <memory>
+
 TEST_CASE("Multiple client creation")
 {
     CHECK_NOTHROW({

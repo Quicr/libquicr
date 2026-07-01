@@ -9,7 +9,6 @@
 #include <mutex>
 #include <optional>
 #include <queue>
-#include <unistd.h>
 
 namespace quicr {
 

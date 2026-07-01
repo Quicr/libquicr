@@ -3,11 +3,13 @@
 
 #pragma once
 
+#include "quicr/attributes.h"
 #include "quicr/common.h"
-#include "quicr/detail/attributes.h"
-#include "quicr/detail/ctrl_message_types.h"
+#include "quicr/messages/messages.h"
+#include "quicr/messages/parameters.h"
 #include "quicr/track_name.h"
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -15,17 +17,6 @@
 
 namespace quicr {
     class Session;
-
-    /**
-     * @brief Track mode object of object published or received
-     *
-     * @details QUIC stream handling mode used to send objects or how object was received
-     */
-    enum class TrackMode : uint8_t
-    {
-        kDatagram,
-        kStream,
-    };
 
     /**
      * @brief Response to received MOQT Request message
@@ -89,7 +80,7 @@ namespace quicr {
 
         std::optional<std::string> error_reason;
 
-        const messages::PublishOkAttributes attributes;
+        const PublishOkAttributes attributes;
     };
 
     struct SubscribeNamespaceResponse

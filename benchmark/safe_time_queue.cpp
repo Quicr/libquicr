@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <benchmark/benchmark.h>
+#include "quicr/containers/safe_time_queue.h"
 
-#include "quicr/detail/safe_time_queue.h"
+#include <benchmark/benchmark.h>
 
 static auto service = std::make_shared<timeq::threaded_tick_service>();
 

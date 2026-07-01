@@ -3,9 +3,8 @@
 
 #pragma once
 
-#include "safe_queue.h"
-#include "spdlog/logger.h"
-#include "stream_buffer.h"
+#include "containers/safe_queue.h"
+#include "containers/stream_buffer.h"
 #include "transport_metrics.h"
 
 #include <timeq/tick_service.h>

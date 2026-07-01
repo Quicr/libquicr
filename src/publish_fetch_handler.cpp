@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/publish_fetch_handler.h"
+#include "quicr/handlers/publish_fetch_handler.h"
 
 #include "quicr/session.h"
 

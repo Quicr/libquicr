@@ -1,12 +1,14 @@
 #pragma once
 
+#include "quicr/handlers/publish_track_handler.h"
+#include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/session.h"
+
+#include <spdlog/spdlog.h>
+
 #include <future>
 #include <map>
 #include <optional>
-
-#include <quicr/publish_track_handler.h>
-#include <quicr/session.h>
-#include <quicr/subscribe_track_handler.h>
 
 namespace quicr_test {
     class TestServer;
@@ -52,7 +54,7 @@ namespace quicr_test {
 
         void StatusChanged([[maybe_unused]] Status status) override {}
 
-        void StreamClosed(std::uint64_t stream_id, bool reset) override
+        void StreamClosed(std::uint64_t stream_id, [[maybe_unused]] bool reset) override
         {
             auto it = streams_.find(stream_id);
             if (it != streams_.end()) {
@@ -115,7 +117,7 @@ namespace quicr_test {
             std::uint64_t connection_id;
             uint64_t request_id;
             quicr::FullTrackName track_full_name;
-            quicr::messages::SubscribeAttributes subscribe_attributes;
+            quicr::SubscribeAttributes subscribe_attributes;
         };
 
         struct SubscribeNamespaceDetails
@@ -123,7 +125,7 @@ namespace quicr_test {
             std::uint64_t connection_id;
             std::uint64_t data_ctx_id{ 0 };
             quicr::TrackNamespace prefix_namespace;
-            quicr::messages::SubscribeNamespaceAttributes attributes;
+            quicr::SubscribeNamespaceAttributes attributes;
         };
 
         struct PublishNamespaceDetails
@@ -210,7 +212,7 @@ namespace quicr_test {
         void AddKnownPublishedTrack(const quicr::FullTrackName& track,
 
                                     const std::optional<quicr::messages::Location>& largest_location,
-                                    const quicr::messages::PublishAttributes& attributes);
+                                    const quicr::PublishAttributes& attributes);
 
       protected:
         std::vector<std::uint64_t> PublishNamespaceDoneReceived(std::uint64_t, std::uint64_t request_id) override
@@ -247,16 +249,16 @@ namespace quicr_test {
         void StandaloneFetchReceived(std::uint64_t connection_id,
                                      uint64_t request_id,
                                      const quicr::FullTrackName& track_full_name,
-                                     const quicr::messages::StandaloneFetchAttributes& attrs) override;
+                                     const quicr::StandaloneFetchAttributes& attrs) override;
 
         void SubscribeReceived(std::uint64_t connection_id,
                                uint64_t request_id,
                                const quicr::FullTrackName& track_full_name,
-                               const quicr::messages::SubscribeAttributes& subscribe_attributes) override;
+                               const quicr::SubscribeAttributes& subscribe_attributes) override;
 
         void PublishReceived(std::uint64_t connection_id,
                              uint64_t request_id,
-                             const quicr::messages::PublishAttributes& publish_attributes,
+                             const quicr::PublishAttributes& publish_attributes,
                              std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;
 
         void PublishDoneReceived(std::uint64_t connection_id, uint64_t request_id) override;
@@ -264,12 +266,12 @@ namespace quicr_test {
         void SubscribeTracksReceived(std::uint64_t connection_id,
                                      std::uint64_t data_ctx_id,
                                      const quicr::TrackNamespace& prefix_namespace,
-                                     const quicr::messages::SubscribeNamespaceAttributes& attributes) override;
+                                     const quicr::SubscribeNamespaceAttributes& attributes) override;
 
         void SubscribeNamespaceReceived(std::uint64_t connection_id,
                                         std::uint64_t data_ctx_id,
                                         const quicr::TrackNamespace& prefix_namespace,
-                                        const quicr::messages::SubscribeNamespaceAttributes& attributes) override;
+                                        const quicr::SubscribeNamespaceAttributes& attributes) override;
 
         void PublishNamespaceReceived(std::uint64_t connection_id,
                                       const quicr::TrackNamespace& track_namespace,
@@ -299,7 +301,7 @@ namespace quicr_test {
         {
             quicr::FullTrackName full_track_name;
             quicr::messages::Location start_location;
-            quicr::messages::PublishAttributes attributes;
+            quicr::PublishAttributes attributes;
         };
 
         std::vector<AvailableTrack> known_published_tracks_;

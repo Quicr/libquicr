@@ -35,16 +35,8 @@ namespace quicr_test {
 
         void PublishReceived(std::uint64_t connection_id,
                              uint64_t request_id,
-                             const quicr::messages::PublishAttributes& publish_attributes,
+                             const quicr::PublishAttributes& publish_attributes,
                              std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;
-
-        // Publish Namespace status changed.
-        void SetPublishNamespaceStatusChangedPromise(std::promise<std::uint64_t> promise)
-        {
-            publish_namespace_status_changed_ = std::move(promise);
-        }
-        void PublishNamespaceStatusChanged(std::uint64_t request_id,
-                                           const quicr::PublishNamespaceStatus status) override;
 
       private:
         std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;

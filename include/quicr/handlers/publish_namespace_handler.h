@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "quicr/publish_track_handler.h"
+#include "quicr/handlers/publish_track_handler.h"
 #include "quicr/track_name.h"
 
 #include <map>

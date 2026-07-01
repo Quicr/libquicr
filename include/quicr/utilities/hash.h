@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "detail/utilities.h"
+#include "quicr/utilities/bytes.h"
 
 #include <array>
 #include <concepts>

@@ -3,25 +3,22 @@
 
 #pragma once
 
-#include "quicr/detail/priority_queue.h"
-#include "quicr/detail/safe_queue.h"
-#include "quicr/detail/safe_time_queue.h"
-#include "quicr/detail/stream_buffer.h"
-#include "quicr/detail/transport_metrics.h"
+#include "quicr/containers/priority_queue.h"
+#include "quicr/containers/safe_queue.h"
+#include "quicr/containers/safe_time_queue.h"
+#include "quicr/containers/stream_buffer.h"
+#include "quicr/transport.h"
+#include "quicr/transport_metrics.h"
 
-#include <timeq/time_queue.h>
-
-#include <picoquic.h>
-#include <picoquic_config.h>
-#include <picoquic_packet_loop.h>
-#include <quicr/detail/transport.h>
-#include <spdlog/spdlog.h>
-#include <tls_api.h>
-
-// WebTransport headers
 #include <h3zero.h>
 #include <h3zero_common.h>
 #include <pico_webtransport.h>
+#include <picoquic.h>
+#include <picoquic_config.h>
+#include <picoquic_packet_loop.h>
+#include <spdlog/spdlog.h>
+#include <timeq/time_queue.h>
+#include <tls_api.h>
 
 #include <atomic>
 #include <chrono>

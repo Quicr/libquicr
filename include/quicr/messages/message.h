@@ -1,8 +1,11 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #pragma once
 
-#include "ctrl_message_types.h"
-#include "uintvar.h"
-#include "utilities.h"
+#include "quicr/messages/ctrl_message_types.h"
+#include "quicr/messages/uintvar.h"
+#include "quicr/utilities/bytes.h"
 
 #include <cstdint>
 #include <memory>

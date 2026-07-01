@@ -4,10 +4,10 @@
 #pragma once
 
 #include "quicr/common.h"
-#include "quicr/detail/ctrl_message_types.h"
-#include "quicr/object.h"
+#include "quicr/containers/stream_buffer.h"
+#include "quicr/messages/ctrl_message_types.h"
+#include "quicr/messages/object.h"
 #include "quicr/track_name.h"
-#include "stream_buffer.h"
 
 #include <map>
 #include <string>

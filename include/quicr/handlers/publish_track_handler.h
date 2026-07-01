@@ -3,12 +3,13 @@
 
 #pragma once
 
+#include "quicr/handlers/base_track_handler.h"
+#include "quicr/messages/messages.h"
+#include "quicr/messages/object.h"
+#include "quicr/metrics.h"
+
 #include <atomic>
 #include <functional>
-#include <quicr/detail/base_track_handler.h>
-#include <quicr/detail/messages.h>
-#include <quicr/metrics.h>
-#include <quicr/object.h>
 
 namespace quicr {
 
@@ -97,28 +98,7 @@ namespace quicr {
                             uint8_t default_priority,
                             uint32_t default_ttl,
                             std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt,
-                            messages::Location largest_location = { 0, 0 })
-          : BaseTrackHandler(full_track_name)
-          , default_track_mode_(track_mode)
-          , default_priority_(default_priority)
-          , default_ttl_(default_ttl)
-          , largest_location_(largest_location)
-        {
-            switch (track_mode) {
-                case TrackMode::kDatagram:
-                    if (stream_mode.has_value()) {
-                        throw std::invalid_argument("Datagram track mode should not specify a stream mode");
-                    }
-                    break;
-                case TrackMode::kStream:
-                    if (stream_mode.has_value()) {
-                        stream_mode_.emplace(*stream_mode);
-                    } else {
-                        stream_mode_.emplace(true, messages::SubgroupIdType::kExplicit, false, false);
-                    }
-                    break;
-            }
-        }
+                            messages::Location largest_location = { 0, 0 });
 
       public:
         /**

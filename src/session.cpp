@@ -2,15 +2,17 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/session.h"
-#include "quicr/detail/ctrl_message_types.h"
-#include "quicr/detail/joining_fetch_handler.h"
-#include "quicr/detail/message.h"
-#include "quicr/detail/messages.h"
-#include "quicr/detail/parameters.h"
-#include "quicr/detail/track_properties.h"
-#include "quicr/detail/transport.h"
-#include "quicr/subscribe_namespace_handler.h"
+#include "quicr/handlers/joining_fetch_handler.h"
+#include "quicr/handlers/subscribe_namespace_handler.h"
+#include "quicr/messages/ctrl_message_types.h"
+#include "quicr/messages/message.h"
+#include "quicr/messages/messages.h"
+#include "quicr/messages/parameters.h"
+#include "track_properties.h"
 #include "transport_picoquic.h"
+
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 
 #include <iomanip>
 #include <memory>
@@ -288,7 +290,7 @@ namespace quicr {
 
     uint64_t Session::RequestTrackStatus(std::uint64_t connection_id,
                                          const FullTrackName& track_full_name,
-                                         const messages::SubscribeAttributes&)
+                                         const SubscribeAttributes&)
     {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(connection_id);
@@ -641,7 +643,7 @@ namespace quicr {
 
     void Session::SendPublishOk(ConnectionContext& conn_ctx,
                                 std::uint64_t data_ctx_id,
-                                const messages::PublishOkAttributes& attributes)
+                                const PublishOkAttributes& attributes)
     try {
         // Attributes -> Parameters.
         auto params = Parameters{}
@@ -1584,14 +1586,14 @@ namespace quicr {
     void Session::StandaloneFetchReceived([[maybe_unused]] std::uint64_t connection_id,
                                           [[maybe_unused]] uint64_t request_id,
                                           [[maybe_unused]] const FullTrackName& track_full_name,
-                                          [[maybe_unused]] const quicr::messages::StandaloneFetchAttributes& attributes)
+                                          [[maybe_unused]] const quicr::StandaloneFetchAttributes& attributes)
     {
     }
 
     void Session::JoiningFetchReceived([[maybe_unused]] std::uint64_t connection_id,
                                        [[maybe_unused]] uint64_t request_id,
                                        [[maybe_unused]] const FullTrackName& track_full_name,
-                                       [[maybe_unused]] const quicr::messages::JoiningFetchAttributes& attributes)
+                                       [[maybe_unused]] const quicr::JoiningFetchAttributes& attributes)
     {
     }
 
@@ -2805,8 +2807,6 @@ namespace quicr {
 
     void Session::ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes) {}
 
-    void Session::PublishNamespaceStatusChanged(std::uint64_t request_id, const PublishNamespaceStatus status) {}
-
     void Session::PublishNamespaceReceived(const TrackNamespace& track_namespace,
                                            const PublishNamespaceAttributes& publish_namespace_attributes)
     {
@@ -2815,7 +2815,8 @@ namespace quicr {
     void Session::PublishNamespaceDoneReceived(std::uint64_t request_id) {}
 
     void Session::UnsubscribeReceived(std::uint64_t, uint64_t) {}
-    void Session::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&) {}
+
+    void Session::UnpublishedSubscribeReceived(const FullTrackName&, const SubscribeAttributes&) {}
 
     void Session::MetricsSampled(const ConnectionMetrics&) {}
 
@@ -2850,21 +2851,21 @@ namespace quicr {
     void Session::SubscribeNamespaceReceived(std::uint64_t,
                                              std::uint64_t,
                                              const TrackNamespace&,
-                                             const messages::SubscribeNamespaceAttributes&)
+                                             const SubscribeNamespaceAttributes&)
     {
     }
 
     void Session::SubscribeTracksReceived(std::uint64_t,
                                           std::uint64_t,
                                           const TrackNamespace&,
-                                          const messages::SubscribeNamespaceAttributes&)
+                                          const SubscribeNamespaceAttributes&)
     {
     }
 
     void Session::SubscribeReceived(std::uint64_t connection_id,
                                     uint64_t request_id,
                                     const FullTrackName& track_full_name,
-                                    const messages::SubscribeAttributes& subscribe_attributes)
+                                    const SubscribeAttributes& subscribe_attributes)
     {
     }
 
@@ -3477,7 +3478,7 @@ namespace quicr {
                         auto group_order =
                           parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
 
-                        messages::StandaloneFetchAttributes attrs = {
+                        StandaloneFetchAttributes attrs = {
                             .priority = priority,
                             .group_order = group_order,
                             .publisher_default_group_order = messages::GroupOrder::kAscending,
@@ -3513,7 +3514,7 @@ namespace quicr {
                         auto group_order =
                           parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
 
-                        messages::JoiningFetchAttributes attrs = {
+                        JoiningFetchAttributes attrs = {
                             .priority = priority,
                             .group_order = group_order,
                             .publisher_default_group_order = messages::GroupOrder::kAscending,

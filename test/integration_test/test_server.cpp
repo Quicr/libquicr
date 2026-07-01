@@ -1,8 +1,8 @@
 #include "test_server.h"
 
-#include "quicr/detail/base_track_handler.h"
-#include "quicr/publish_fetch_handler.h"
-#include "quicr/publish_namespace_handler.h"
+#include "quicr/handlers/base_track_handler.h"
+#include "quicr/handlers/publish_fetch_handler.h"
+#include "quicr/handlers/publish_namespace_handler.h"
 
 #include <ranges>
 
@@ -44,7 +44,7 @@ TestServer::TestServer(const ServerConfig& config)
 void
 TestServer::PublishReceived(const std::uint64_t connection_id,
                             const uint64_t request_id,
-                            const messages::PublishAttributes& publish_attributes,
+                            const PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler)
 {
     std::lock_guard lock(state_mutex_);
@@ -113,7 +113,7 @@ void
 TestServer::SubscribeReceived(std::uint64_t connection_id,
                               uint64_t request_id,
                               const FullTrackName& track_full_name,
-                              const messages::SubscribeAttributes& subscribe_attributes)
+                              const SubscribeAttributes& subscribe_attributes)
 {
     std::lock_guard lock(state_mutex_);
 
@@ -168,7 +168,7 @@ void
 TestServer::SubscribeTracksReceived(const std::uint64_t connection_id,
                                     const std::uint64_t data_ctx_id,
                                     const TrackNamespace& prefix_namespace,
-                                    const messages::SubscribeNamespaceAttributes& attributes)
+                                    const SubscribeNamespaceAttributes& attributes)
 {
     if (subscribe_namespace_promise_.has_value()) {
         subscribe_namespace_promise_->set_value({ connection_id, data_ctx_id, prefix_namespace, attributes });
@@ -202,7 +202,7 @@ void
 TestServer::SubscribeNamespaceReceived(const std::uint64_t connection_id,
                                        const std::uint64_t data_ctx_id,
                                        const TrackNamespace& prefix_namespace,
-                                       const messages::SubscribeNamespaceAttributes& attributes)
+                                       const SubscribeNamespaceAttributes& attributes)
 {
     // TODO: Implement.
 }
@@ -216,7 +216,7 @@ TestServer::AddKnownPublishedNamespace(const TrackNamespace& track_namespace)
 void
 TestServer::AddKnownPublishedTrack(const FullTrackName& track,
                                    const std::optional<messages::Location>& largest_location,
-                                   const messages::PublishAttributes& attributes)
+                                   const PublishAttributes& attributes)
 {
     known_published_tracks_.emplace_back(
       AvailableTrack{ track, largest_location.value_or(messages::Location{ 0, 0 }), attributes });
@@ -240,7 +240,7 @@ void
 TestServer::StandaloneFetchReceived(const std::uint64_t connection_id,
                                     const uint64_t request_id,
                                     const FullTrackName& track_full_name,
-                                    const messages::StandaloneFetchAttributes& attrs)
+                                    const StandaloneFetchAttributes& attrs)
 {
     if (fetch_response_data_.empty()) {
         // No response data configured

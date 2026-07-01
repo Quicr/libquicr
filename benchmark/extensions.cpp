@@ -1,6 +1,7 @@
+#include "quicr/containers/stream_buffer.h"
+#include "quicr/messages/messages.h"
+
 #include <benchmark/benchmark.h>
-#include <quicr/detail/messages.h>
-#include <quicr/detail/stream_buffer.h>
 
 using namespace quicr;
 using namespace quicr::messages;

@@ -3,8 +3,7 @@
 
 #pragma once
 
-#include "data_storage.h"
-#include "uintvar.h"
+#include "quicr/messages/uintvar.h"
 
 #include <algorithm>
 #include <any>

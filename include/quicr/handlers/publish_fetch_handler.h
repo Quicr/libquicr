@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <quicr/detail/messages.h>
-#include <quicr/publish_track_handler.h>
+#include "quicr/handlers/publish_track_handler.h"
+#include "quicr/messages/messages.h"
 
 namespace quicr {
     class PublishFetchHandler : public PublishTrackHandler
