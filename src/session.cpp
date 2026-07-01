@@ -1779,14 +1779,15 @@ namespace quicr {
 
     void Session::OnNewConnection(const std::uint64_t& conn_id, const TransportRemote& remote)
     {
-        auto [conn_ctx, is_new] = connections_.try_emplace(conn_id, ConnectionContext{});
-        conn_ctx->second.next_request_id = 1; // Server is odd, starting at 1
-
-        conn_ctx->second.connection_id = conn_id;
-
-        conn_ctx->second.tx_ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, false);
-        conn_ctx->second.tx_ctrl_stream_id =
-          quic_transport_->CreateStream(conn_id, conn_ctx->second.tx_ctrl_data_ctx_id.value(), 0);
+        ConnectionContext* conn_ctx;
+        {
+            std::lock_guard _(state_mutex_);
+            conn_ctx = &connections_.try_emplace(conn_id).first->second;
+        }
+        conn_ctx->next_request_id = 1; // Server is odd, starting at 1
+        conn_ctx->connection_id = conn_id;
+        conn_ctx->tx_ctrl_data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, false);
+        conn_ctx->tx_ctrl_stream_id = quic_transport_->CreateStream(conn_id, conn_ctx->tx_ctrl_data_ctx_id.value(), 0);
 
         NewConnectionAccepted(conn_id, { remote.host_or_ip, remote.port });
     }
