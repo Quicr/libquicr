@@ -326,7 +326,7 @@ namespace quicr {
                                          const FullTrackName& track_full_name,
                                          const messages::SubscribeAttributes&)
     {
-        std::lock_guard<std::mutex> _(state_mutex_);
+        std::lock_guard _(state_mutex_);
         auto conn_it = connections_.find(connection_id);
         if (conn_it == connections_.end()) {
             SPDLOG_LOGGER_ERROR(logger_, "RequestTrackStatus conn_id: {} does not exist.", connection_id);
@@ -826,7 +826,7 @@ namespace quicr {
                            handler->GetMode() == SubscribeNamespaceHandler::Mode::kNamespaces ? "namespaces"
                                                                                               : "tracks");
 
-        std::lock_guard<std::mutex> lock(state_mutex_);
+        std::lock_guard lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
@@ -867,7 +867,7 @@ namespace quicr {
         SPDLOG_LOGGER_INFO(
           logger_, "Unsubscribe namespace conn_id: {} prefix_hash: {}", conn_id, th.track_namespace_hash);
 
-        std::lock_guard<std::mutex> lock(state_mutex_);
+        std::lock_guard lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
@@ -990,7 +990,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {} track_alias: {}", conn_id, th.track_fullname_hash);
 
-        std::lock_guard<std::mutex> _(state_mutex_);
+        std::lock_guard _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
             SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {} does not exist.", conn_id);
@@ -1085,7 +1085,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_INFO(logger_, "Unsubscribe track conn_id: {} track_alias: {}", conn_id, th.track_fullname_hash);
 
-        std::lock_guard<std::mutex> lock(state_mutex_);
+        std::lock_guard lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
@@ -1103,7 +1103,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_INFO(logger_, "Subscribe track conn_id: {} hash: {}", conn_id, th.track_fullname_hash);
 
-        std::lock_guard<std::mutex> _(state_mutex_);
+        std::lock_guard _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
             SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {} does not exist.", conn_id);
@@ -1333,7 +1333,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_INFO(logger_, "Unpublish track conn_id: {} hash: {}", conn_id, th.track_fullname_hash);
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+        std::unique_lock lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
@@ -1403,7 +1403,7 @@ namespace quicr {
         auto th = TrackHash(tfn);
         SPDLOG_LOGGER_INFO(logger_, "Publish track conn_id: {} hash: {}", conn_id, th.track_fullname_hash);
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+        std::unique_lock lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
@@ -1474,7 +1474,7 @@ namespace quicr {
         auto prefix_hash = hash(ns_handler->GetPrefix());
         SPDLOG_LOGGER_INFO(logger_, "Publish namespace conn_id: {0} hash: {1}", conn_id, prefix_hash);
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+        std::unique_lock lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
@@ -1522,7 +1522,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_INFO(logger_, "PublishNamespaceDone (conn_id={}, prefix_hash={})", conn_id, prefix_hash);
 
-        std::lock_guard<std::mutex> lock(state_mutex_);
+        std::lock_guard lock(state_mutex_);
 
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
@@ -1627,7 +1627,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_INFO(logger_, "Fetch track conn_id: {} hash: {}", connection_id, th.track_fullname_hash);
 
-        std::lock_guard<std::mutex> _(state_mutex_);
+        std::lock_guard _(state_mutex_);
         auto conn_it = connections_.find(connection_id);
         if (conn_it == connections_.end()) {
             SPDLOG_LOGGER_ERROR(logger_, "Fetch track conn_id: {} does not exist.", connection_id);
@@ -1653,7 +1653,7 @@ namespace quicr {
 
     void Session::CancelFetchTrack(std::uint64_t connection_id, std::shared_ptr<FetchTrackHandler> track_handler)
     {
-        std::lock_guard<std::mutex> _(state_mutex_);
+        std::lock_guard _(state_mutex_);
         auto conn_it = connections_.find(connection_id);
         if (conn_it == connections_.end()) {
             SPDLOG_LOGGER_ERROR(logger_, "Fetch track conn_id: {} does not exist.", connection_id);
@@ -1800,7 +1800,7 @@ namespace quicr {
                 RemoveAllTracksForConnectionClose(conn_it->second);
                 ConnectionStatusChanged(conn_id, conn_status);
 
-                std::lock_guard<std::mutex> _(state_mutex_);
+                std::lock_guard _(state_mutex_);
                 connections_.erase(conn_it);
             }
         }
@@ -2070,7 +2070,7 @@ namespace quicr {
 
         if (data_ctx_id.has_value()) {
             try {
-                std::lock_guard<std::mutex> _(state_mutex_);
+                std::lock_guard _(state_mutex_);
                 auto conn_it = connections_.find(connection_id);
                 if (conn_it == connections_.end()) {
                     return;
@@ -2454,7 +2454,7 @@ namespace quicr {
 
     void Session::SetWebTransportMode(std::uint64_t conn_id, bool is_webtransport)
     {
-        std::lock_guard<std::mutex> _(state_mutex_);
+        std::lock_guard _(state_mutex_);
         auto conn_it = connections_.find(conn_id);
         if (conn_it != connections_.end()) {
             conn_it->second.is_webtransport = is_webtransport;
@@ -2921,7 +2921,7 @@ namespace quicr {
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+        std::unique_lock lock(state_mutex_);
         auto conn_it = connections_.find(connection_id);
         if (conn_it == connections_.end()) {
             SPDLOG_LOGGER_ERROR(logger_, "Subscribe track conn_id: {} does not exist.", connection_id);
