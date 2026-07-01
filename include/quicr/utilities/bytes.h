@@ -1,8 +1,11 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #pragma once
 
-#include <bit>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <type_traits>
 #include <vector>
 
