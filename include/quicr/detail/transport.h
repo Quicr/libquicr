@@ -4,6 +4,7 @@
 #pragma once
 
 #include "safe_queue.h"
+#include "spdlog/logger.h"
 #include "stream_buffer.h"
 #include "transport_metrics.h"
 
@@ -300,6 +301,47 @@ namespace quicr {
             {
             }
         };
+
+     /* Factory APIs */
+
+        /**
+         * @brief Create a new client transport based on the remote (server) host/ip
+         *
+         * @param[in] server        Transport remote server information
+         * @param[in] tcfg          Transport configuration
+         * @param[in] delegate      Implemented callback methods
+         * @param[in] tick_service  Shared pointer to the tick service to use
+         * @param[in] logger        Shared pointer to logger
+         *
+         * @return shared_ptr for the under lining transport.
+         */
+        static std::shared_ptr<ITransport> MakeClientTransport(const TransportRemote& server,
+                                                               const TransportConfig& tcfg,
+                                                               TransportDelegate& delegate,
+                                                               std::shared_ptr<timeq::tick_service> tick_service,
+                                                               std::shared_ptr<spdlog::logger> logger);
+
+        /**
+         * @brief Create a new server transport based on the remote (server) ip and port
+         *
+         * @details Server mode automatically supports BOTH raw QUIC (ALPN: moq-00) and
+         * WebTransport (ALPN: h3) simultaneously. The transport mode for each connection
+         * is determined dynamically based on the ALPN negotiated with each client during
+         * the TLS handshake.
+         *
+         * @param[in] server      Transport remote server information (server.proto is ignored)
+         * @param[in] tcfg        Transport configuration
+         * @param[in] delegate    Implemented callback methods
+         * @param[in] tick_service Shared pointer to tick service
+         * @param[in] logger      Shared pointer to logger
+         *
+         * @return shared_ptr for the underlying transport
+         */
+        static std::shared_ptr<ITransport> MakeServerTransport(const TransportRemote& server,
+                                                               const TransportConfig& tcfg,
+                                                               TransportDelegate& delegate,
+                                                               std::shared_ptr<timeq::tick_service> tick_service,
+                                                               std::shared_ptr<spdlog::logger> logger);
 
       public:
         virtual ~ITransport() = default;

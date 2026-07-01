@@ -35,6 +35,7 @@ target_sources(quicr PRIVATE
     session.cpp
     subscribe_namespace_handler.cpp
     subscribe_track_handler.cpp
+    transport.cpp
     transport_picoquic.cpp
 )
 

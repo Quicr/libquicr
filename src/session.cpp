@@ -9,6 +9,7 @@
 #include "quicr/detail/parameters.h"
 #include "quicr/detail/track_properties.h"
 #include "quicr/subscribe_namespace_handler.h"
+#include "quicr/detail/transport.h"
 #include "transport_picoquic.h"
 
 #include <iomanip>
@@ -29,43 +30,6 @@ namespace quicr {
             }
 
             return spdlog::stderr_color_mt(name);
-        }
-
-        /**
-         * @brief Create a new client transport based on the remote (server) host/ip
-         *
-         * @param[in] server        Transport remote server information
-         * @param[in] tcfg          Transport configuration
-         * @param[in] delegate      Implemented callback methods
-         * @param[in] tick_service  Shared pointer to the tick service to use
-         * @param[in] logger        Shared pointer to logger
-         *
-         * @return shared_ptr for the under lining transport.
-         */
-        std::shared_ptr<ITransport> MakeClientTransport(const TransportRemote& server,
-                                                        const TransportConfig& tcfg,
-                                                        ITransport::TransportDelegate& delegate,
-                                                        std::shared_ptr<timeq::tick_service> tick_service,
-                                                        std::shared_ptr<spdlog::logger> logger)
-        {
-            switch (server.proto) {
-                case TransportProtocol::kQuic:
-                    return std::make_shared<PicoQuicTransport>(
-                      server, tcfg, delegate, false, std::move(tick_service), std::move(logger), TransportMode::kQuic);
-                case TransportProtocol::kWebTransport:
-                    return std::make_shared<PicoQuicTransport>(server,
-                                                               tcfg,
-                                                               delegate,
-                                                               false,
-                                                               std::move(tick_service),
-                                                               std::move(logger),
-                                                               TransportMode::kWebTransport);
-                default:
-                    throw std::runtime_error("make_client_transport: Protocol not implemented");
-                    break;
-            }
-
-            return nullptr;
         }
 
         /**
@@ -275,7 +239,7 @@ namespace quicr {
             relay.path = path;
 
             quic_transport_ =
-              MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
+              ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
 
             auto conn_id = quic_transport_->Start();
 
@@ -1278,17 +1242,22 @@ namespace quicr {
         if (auto sub_handler = handler_it->second.Get<SubscribeTrackHandler>()) {
             sub_handler->SetStatus(is_reset ? SubscribeTrackHandler::Status::kDoneByReset
                                             : SubscribeTrackHandler::Status::kDoneByFin);
+            UnsubscribeReceived(connection_id, request_id);
+
             RemoveSubscribeTrack(conn_ctx, *sub_handler, false, false);
             conn_ctx.request_handlers.erase(handler_it);
             if (sub_handler->GetReceivedTrackAlias().has_value()) {
                 conn_ctx.sub_by_recv_track_alias.erase(sub_handler->GetReceivedTrackAlias().value());
             }
+
             conn_ctx.recv_req_id.erase(request_id);
             conn_ctx.ctrl_msg_buffer.erase(stream_id);
             return;
         }
 
         if (auto pub_handler = handler_it->second.Get<PublishTrackHandler>()) {
+            UnsubscribeReceived(connection_id, request_id);
+
             ClosePublishTrackLocal(conn_ctx, connection_id, *pub_handler, stream_id, is_reset);
             conn_ctx.request_handlers.erase(handler_it);
             conn_ctx.ctrl_msg_buffer.erase(stream_id);
@@ -2833,6 +2802,7 @@ namespace quicr {
 
     void Session::PublishNamespaceDoneReceived(std::uint64_t request_id) {}
 
+    void Session::UnsubscribeReceived(std::uint64_t, uint64_t) {}
     void Session::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&) {}
 
     void Session::MetricsSampled(const ConnectionMetrics&) {}
