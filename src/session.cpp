@@ -1094,10 +1094,7 @@ namespace quicr {
                           true);
     }
 
-    void Session::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
-                                       SubscribeTrackHandler& handler,
-                                       bool remove_handler,
-                                       bool send_unsubscribe)
+    void Session::RemoveSubscribeTrack(ConnectionContext& conn_ctx, SubscribeTrackHandler& handler, bool remove_handler)
     {
         auto handler_status = handler.GetStatus();
 
@@ -1108,7 +1105,7 @@ namespace quicr {
                 [[fallthrough]];
             case SubscribeTrackHandler::Status::kOk:
                 try {
-                    if (send_unsubscribe && not handler.IsPublisherInitiated() && not conn_ctx.closed) {
+                    if (not handler.IsPublisherInitiated() && not conn_ctx.closed) {
                         // TODO: Is it possible for these to not be sent at this point?
                         if (handler.GetDataContextId().has_value() && handler.GetRequestStreamId().has_value()) {
                             quic_transport_->CloseStream(
@@ -1205,15 +1202,20 @@ namespace quicr {
                                       std::uint64_t stream_id,
                                       StreamClosedFlag flag)
     {
+        std::unique_lock lock(state_mutex_);
+
         // Incoming PUBNS requests are not handler based.
         if (std::erase(conn_ctx.recv_publish_namespaces, request_id) > 0) {
+            conn_ctx.recv_req_id.erase(request_id);
+            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+
+            lock.unlock();
+
             if (client_mode_) {
                 PublishNamespaceDoneReceived(request_id);
             } else {
                 PublishNamespaceDoneReceived(connection_id, request_id);
             }
-            conn_ctx.recv_req_id.erase(request_id);
-            conn_ctx.ctrl_msg_buffer.erase(stream_id);
             return;
         }
 
@@ -1242,9 +1244,8 @@ namespace quicr {
         if (auto sub_handler = handler_it->second.Get<SubscribeTrackHandler>()) {
             sub_handler->SetStatus(is_reset ? SubscribeTrackHandler::Status::kDoneByReset
                                             : SubscribeTrackHandler::Status::kDoneByFin);
-            UnsubscribeReceived(connection_id, request_id);
 
-            RemoveSubscribeTrack(conn_ctx, *sub_handler, false, false);
+            RemoveSubscribeTrack(conn_ctx, *sub_handler, false);
             conn_ctx.request_handlers.erase(handler_it);
             if (sub_handler->GetReceivedTrackAlias().has_value()) {
                 conn_ctx.sub_by_recv_track_alias.erase(sub_handler->GetReceivedTrackAlias().value());
@@ -1252,15 +1253,22 @@ namespace quicr {
 
             conn_ctx.recv_req_id.erase(request_id);
             conn_ctx.ctrl_msg_buffer.erase(stream_id);
+
+            lock.unlock();
+            UnsubscribeReceived(connection_id, request_id);
+
             return;
         }
 
         if (auto pub_handler = handler_it->second.Get<PublishTrackHandler>()) {
-            UnsubscribeReceived(connection_id, request_id);
 
             ClosePublishTrackLocal(conn_ctx, connection_id, *pub_handler, stream_id, is_reset);
             conn_ctx.request_handlers.erase(handler_it);
             conn_ctx.ctrl_msg_buffer.erase(stream_id);
+
+            lock.unlock();
+            UnsubscribeReceived(connection_id, request_id);
+
             return;
         }
 
@@ -2040,7 +2048,7 @@ namespace quicr {
 
         if (data_ctx_id.has_value()) {
             try {
-                std::lock_guard<std::mutex> _(state_mutex_);
+                std::unique_lock lock(state_mutex_);
                 auto conn_it = connections_.find(connection_id);
                 if (conn_it == connections_.end()) {
                     return;
@@ -2052,6 +2060,8 @@ namespace quicr {
                 if (req_it != conn_ctx.request_id_by_data_ctx.end()) {
                     const auto request_id = req_it->second;
                     conn_ctx.request_id_by_data_ctx.erase(req_it);
+
+                    lock.unlock();
                     CloseRequestHandler(conn_ctx, connection_id, request_id, stream_id, flag);
                     return;
                 }
@@ -2059,6 +2069,7 @@ namespace quicr {
                 // This is a data stream.
                 const auto pub_it = conn_ctx.pub_tracks_by_data_ctx_id.find(*data_ctx_id);
                 if (pub_it != conn_ctx.pub_tracks_by_data_ctx_id.end()) {
+                    lock.unlock();
                     pub_it->second->StreamClosed(stream_id, flag == StreamClosedFlag::kReset);
                 }
             } catch (const std::exception& e) {

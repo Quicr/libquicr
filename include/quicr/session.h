@@ -1254,8 +1254,7 @@ namespace quicr {
 
         void RemoveSubscribeTrack(ConnectionContext& conn_ctx,
                                   SubscribeTrackHandler& handler,
-                                  bool remove_handler = true,
-                                  bool send_unsubscribe = true);
+                                  bool remove_handler = true);
 
         void RemoveSubscribeNamespace(ConnectionContext& conn_ctx,
                                       SubscribeNamespaceHandler& handler,
