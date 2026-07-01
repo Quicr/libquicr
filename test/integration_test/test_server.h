@@ -133,6 +133,18 @@ namespace quicr_test {
             quicr::PublishNamespaceAttributes attributes;
         };
 
+        struct UnsubscribeReceivedDetails
+        {
+            enum class HandlerType
+            {
+                kSubscribeTrack,
+                kPublishTrack,
+            };
+
+            uint64_t request_id;
+            HandlerType handler_type;
+        };
+
         // Data to respond with when a fetch is received
         struct FetchResponseData
         {
@@ -160,8 +172,19 @@ namespace quicr_test {
             publish_namespace_promise_ = std::move(promise);
         }
 
-        // Unsubscribe received.
+        // Unsubscribe received via PublishTrackHandler::StatusChanged.
         void SetUnsubscribePromise(std::promise<uint64_t> promise) { unsubscribe_promise_ = std::move(promise); }
+
+        // UnsubscribeReceived() server callback from CloseRequestHandler().
+        void SetUnsubscribeReceivedPromise(std::promise<UnsubscribeReceivedDetails> promise)
+        {
+            unsubscribe_received_promise_ = std::move(promise);
+        }
+
+        void SetExpectedUnsubscribeHandlerType(UnsubscribeReceivedDetails::HandlerType handler_type)
+        {
+            expected_unsubscribe_handler_type_ = handler_type;
+        }
 
         // PublishNamespaceDone received.
         void SetPublishNamespaceDonePromise(std::promise<uint64_t> promise)
@@ -254,6 +277,8 @@ namespace quicr_test {
 
         void NewGroupRequested(const quicr::FullTrackName& track_full_name, std::uint64_t group_id) override;
 
+        void UnsubscribeReceived(std::uint64_t connection_id, uint64_t request_id) override;
+
       public:
         std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
         std::optional<std::promise<uint64_t>> unsubscribe_promise_;
@@ -265,6 +290,8 @@ namespace quicr_test {
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
         std::optional<std::promise<uint64_t>> publish_namespace_done_promise_;
+        std::optional<std::promise<UnsubscribeReceivedDetails>> unsubscribe_received_promise_;
+        std::optional<UnsubscribeReceivedDetails::HandlerType> expected_unsubscribe_handler_type_;
         std::map<std::uint64_t, bool> closed_streams_;
         std::vector<quicr::TrackNamespace> known_published_namespaces_;
         std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;
