@@ -6,10 +6,20 @@
 #include <cstdint>
 #include <map>
 #include <optional>
-#include <quicr/detail/base_track_handler.h>
 
 namespace quicr {
     using Extensions = std::map<uint64_t, std::vector<std::vector<uint8_t>>>;
+
+    /**
+     * @brief Track mode object of object published or received
+     *
+     * @details QUIC stream handling mode used to send objects or how object was received
+     */
+    enum class TrackMode : uint8_t
+    {
+        kDatagram,
+        kStream,
+    };
 
     /**
      * @brief Status of object as reported by the publisher

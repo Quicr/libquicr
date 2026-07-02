@@ -3,24 +3,21 @@
 
 #pragma once
 
-#include "common.h"
-#include "config.h"
-#include "detail/attributes.h"
-#include "detail/message.h"
-#include "detail/messages.h"
-#include "detail/transport.h"
-#include "fetch_track_handler.h"
-#include "metrics.h"
-#include "publish_fetch_handler.h"
-#include "publish_namespace_handler.h"
-#include "publish_track_handler.h"
-#include "subscribe_namespace_handler.h"
-#include "subscribe_track_handler.h"
+#include "quicr/attributes.h"
+#include "quicr/common.h"
+#include "quicr/config.h"
+#include "quicr/handlers/fetch_track_handler.h"
+#include "quicr/handlers/publish_fetch_handler.h"
+#include "quicr/handlers/publish_namespace_handler.h"
+#include "quicr/handlers/publish_track_handler.h"
+#include "quicr/handlers/subscribe_namespace_handler.h"
+#include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/messages/message.h"
+#include "quicr/messages/messages.h"
+#include "quicr/metrics.h"
+#include "quicr/transport.h"
 
 #include <timeq/tick_service.h>
-
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <chrono>
@@ -28,6 +25,10 @@
 #include <span>
 #include <string>
 #include <string_view>
+
+namespace spdlog {
+    class logger;
+}
 
 namespace quicr {
 
@@ -244,7 +245,7 @@ namespace quicr {
          */
         void ResolvePublish(std::uint64_t connection_id,
                             uint64_t request_id,
-                            const messages::PublishAttributes& attributes,
+                            const PublishAttributes& attributes,
                             const PublishResponse& publish_response,
                             std::shared_ptr<SubscribeTrackHandler> handler);
 
@@ -275,7 +276,7 @@ namespace quicr {
          */
         uint64_t RequestTrackStatus(std::uint64_t connection_id,
                                     const FullTrackName& track_full_name,
-                                    const messages::SubscribeAttributes& subscribe_attributes);
+                                    const SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Get the status of the endpoint
@@ -545,7 +546,7 @@ namespace quicr {
          */
         virtual void PublishReceived(std::uint64_t connection_id,
                                      uint64_t request_id,
-                                     const messages::PublishAttributes& publish_attributes,
+                                     const PublishAttributes& publish_attributes,
                                      std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler);
 
         /**
@@ -559,7 +560,7 @@ namespace quicr {
         virtual void StandaloneFetchReceived(std::uint64_t connection_id,
                                              uint64_t request_id,
                                              const FullTrackName& track_full_name,
-                                             const messages::StandaloneFetchAttributes& attributes);
+                                             const StandaloneFetchAttributes& attributes);
 
         /**
          * @brief Event to run on receiving a Joining Fetch request.
@@ -572,7 +573,7 @@ namespace quicr {
         virtual void JoiningFetchReceived(std::uint64_t connection_id,
                                           uint64_t request_id,
                                           const FullTrackName& track_full_name,
-                                          const messages::JoiningFetchAttributes& attributes);
+                                          const JoiningFetchAttributes& attributes);
 
         /**
          * @brief Callback notification on receiving a FetchCancel message.
@@ -614,16 +615,6 @@ namespace quicr {
         virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes);
 
         /**
-         * @brief Notification on publish namespace status change
-         *
-         * @details Callback notification for a change in publish namespace status. Client mode only.
-         *
-         * @param request_id Request ID of the namespace being changed
-         * @param status     Publish namespace status
-         */
-        virtual void PublishNamespaceStatusChanged(std::uint64_t request_id, const PublishNamespaceStatus status);
-
-        /**
          * @brief Callback notification for announce received by subscribe namespace
          *
          * @details Client mode only. Called when a PUBLISH_NAMESPACE is received for a subscribed prefix.
@@ -656,7 +647,7 @@ namespace quicr {
          * @param subscribe_attributes Subscribe attributes received
          */
         virtual void UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
-                                                  const messages::SubscribeAttributes& subscribe_attributes);
+                                                  const SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -778,7 +769,7 @@ namespace quicr {
         virtual void SubscribeNamespaceReceived(std::uint64_t connection_id,
                                                 std::uint64_t data_ctx_id,
                                                 const TrackNamespace& prefix_namespace,
-                                                const messages::SubscribeNamespaceAttributes& attributes);
+                                                const SubscribeNamespaceAttributes& attributes);
 
         /**
          * @brief Callback notification for new subscribe tracks received
@@ -795,7 +786,7 @@ namespace quicr {
         virtual void SubscribeTracksReceived(std::uint64_t connection_id,
                                              std::uint64_t data_ctx_id,
                                              const TrackNamespace& prefix_namespace,
-                                             const messages::SubscribeNamespaceAttributes& attributes);
+                                             const SubscribeNamespaceAttributes& attributes);
 
         /**
          * @brief Callback notification for new subscribe received
@@ -813,7 +804,7 @@ namespace quicr {
         virtual void SubscribeReceived(std::uint64_t connection_id,
                                        uint64_t request_id,
                                        const FullTrackName& track_full_name,
-                                       const messages::SubscribeAttributes& subscribe_attributes);
+                                       const SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Callback notification on unsubscribe received
@@ -1195,7 +1186,7 @@ namespace quicr {
         void SendPublish(ConnectionContext& conn_ctx,
                          std::uint64_t data_ctx_id,
                          std::uint64_t request_id,
-                         const messages::PublishAttributes& publish);
+                         const PublishAttributes& publish);
 
         void SendPublishDone(ConnectionContext& conn_ctx,
                              std::uint64_t data_ctx_id,
@@ -1205,7 +1196,7 @@ namespace quicr {
 
         void SendPublishOk(ConnectionContext& conn_ctx,
                            std::uint64_t data_ctx_id,
-                           const messages::PublishOkAttributes& attributes);
+                           const PublishOkAttributes& attributes);
 
         std::optional<std::uint64_t> FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
                                                                        const TrackNamespace& track_namespace) const;

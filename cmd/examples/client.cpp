@@ -6,12 +6,12 @@
 
 #include <nlohmann/json.hpp>
 #include <oss/cxxopts.hpp>
-#include <quicr/cache.h>
 #include <quicr/client.h>
-#include <quicr/defer.h>
-#include <quicr/object.h>
-#include <quicr/publish_fetch_handler.h>
+#include <quicr/containers/cache.h>
+#include <quicr/handlers/publish_fetch_handler.h>
+#include <quicr/messages/object.h>
 #include <quicr/session.h>
+#include <quicr/utilities/defer.h>
 #include <sframe/sframe.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -612,7 +612,7 @@ class MyClient : public quicr::Client
     void StandaloneFetchReceived(std::uint64_t connection_id,
                                  uint64_t request_id,
                                  const quicr::FullTrackName& track_full_name,
-                                 const quicr::messages::StandaloneFetchAttributes& attributes) override
+                                 const quicr::StandaloneFetchAttributes& attributes) override
     {
         FetchReceived(connection_id,
                       request_id,
@@ -626,7 +626,7 @@ class MyClient : public quicr::Client
     void JoiningFetchReceived(std::uint64_t connection_id,
                               uint64_t request_id,
                               const quicr::FullTrackName& track_full_name,
-                              const quicr::messages::JoiningFetchAttributes& attributes) override
+                              const quicr::JoiningFetchAttributes& attributes) override
     {
         uint64_t joining_start = 0;
 
@@ -650,7 +650,7 @@ class MyClient : public quicr::Client
 
     void PublishReceived(std::uint64_t connection_id,
                          uint64_t request_id,
-                         const quicr::messages::PublishAttributes& publish_attributes,
+                         const quicr::PublishAttributes& publish_attributes,
                          [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override
     {
         auto th = quicr::TrackHash(publish_attributes.track_full_name);

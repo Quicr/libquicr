@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/message.h"
-#include "quicr/detail/messages.h"
+#include "quicr/messages/message.h"
+#include "quicr/messages/messages.h"
+#include "quicr/messages/parameters.h"
+
+#include <doctest/doctest.h>
 
 #include <any>
-#include <doctest/doctest.h>
 #include <functional>
 #include <limits>
 #include <memory>

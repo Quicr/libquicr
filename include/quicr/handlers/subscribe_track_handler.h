@@ -3,11 +3,11 @@
 
 #pragma once
 
-#include <quicr/detail/base_track_handler.h>
-#include <quicr/detail/ctrl_message_types.h>
-#include <quicr/detail/messages.h>
-#include <quicr/detail/stream_buffer.h>
-#include <quicr/metrics.h>
+#include "quicr/containers/stream_buffer.h"
+#include "quicr/handlers/base_track_handler.h"
+#include "quicr/messages/ctrl_message_types.h"
+#include "quicr/messages/messages.h"
+#include "quicr/metrics.h"
 
 namespace quicr {
 

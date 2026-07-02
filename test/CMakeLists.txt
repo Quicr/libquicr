@@ -9,7 +9,6 @@ add_executable(quicr_test
     main.cpp
     moq_ctrl_messages.cpp
     moq_data_messages.cpp
-    moq_test.cpp
     priority_queue.cpp
     session.cpp
     track_handlers.cpp

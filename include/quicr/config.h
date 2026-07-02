@@ -3,8 +3,9 @@
 
 #pragma once
 
+#include "quicr/transport.h"
 #include "quicr/version.h"
-#include <quicr/detail/transport.h>
+
 #include <string>
 
 namespace quicr {

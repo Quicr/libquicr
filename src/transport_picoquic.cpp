@@ -2,40 +2,29 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "transport_picoquic.h"
-#include "quicr/session.h"
 
-// PicoQuic.
+#include "quicr/containers/priority_queue.h"
+#include "quicr/containers/safe_queue.h"
+#include "quicr/containers/stream_buffer.h"
+#include "quicr/session.h"
+#include "quicr/transport_metrics.h"
+#include "quicr/utilities/defer.h"
+
 #include <autoqlog.h>
+#include <democlient.h>
+#include <h3zero_uri.h>
+#include <pico_webtransport.h>
 #include <picoquic.h>
+#include <picoquic_bbr.h>
 #include <picoquic_config.h>
 #include <picoquic_internal.h>
+#include <picoquic_newreno.h>
 #include <picoquic_packet_loop.h>
 #include <picoquic_utils.h>
 #include <picosocks.h>
 #include <spdlog/spdlog.h>
-#include <tls_api.h>
-
-// WebTransport includes
-#include <h3zero_uri.h>
-#include <pico_webtransport.h>
-
-// PicoHTTP includes
-#include <democlient.h>
-
-// Transport.
-#include <quicr/defer.h>
-#include <quicr/detail/priority_queue.h>
-#include <quicr/detail/safe_queue.h>
-#include <quicr/detail/stream_buffer.h>
-#include <quicr/detail/transport_metrics.h>
-#include <spdlog/logger.h>
 #include <timeq/time_queue.h>
-
-// System.
-#include "transport_picoquic.h"
-
-#include "picoquic_bbr.h"
-#include "picoquic_newreno.h"
+#include <tls_api.h>
 
 #include <arpa/inet.h>
 #include <cassert>

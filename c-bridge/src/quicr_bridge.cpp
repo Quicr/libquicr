@@ -11,11 +11,11 @@
 #include <quicr/client.h>
 #include <quicr/common.h>
 #include <quicr/config.h>
-#include <quicr/fetch_track_handler.h>
-#include <quicr/object.h>
-#include <quicr/publish_track_handler.h>
-#include <quicr/subscribe_namespace_handler.h>
-#include <quicr/subscribe_track_handler.h>
+#include <quicr/handlers/fetch_track_handler.h>
+#include <quicr/handlers/publish_track_handler.h>
+#include <quicr/handlers/subscribe_namespace_handler.h>
+#include <quicr/handlers/subscribe_track_handler.h>
+#include <quicr/messages/object.h>
 #include <quicr/track_name.h>
 
 #include <cstring>

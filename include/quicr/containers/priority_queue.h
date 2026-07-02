@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "quicr/detail/thread_safety.h"
+#include "quicr/utilities/thread_safety.h"
 
 #include <timeq/time_queue.h>
 
@@ -12,7 +12,6 @@
 #include <map>
 #include <mutex>
 #include <numeric>
-#include <quicr/defer.h>
 
 namespace quicr {
 

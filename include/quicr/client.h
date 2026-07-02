@@ -82,7 +82,7 @@ namespace quicr {
         }
 
         uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
-                                    const messages::SubscribeAttributes& subscribe_attributes = {})
+                                    const SubscribeAttributes& subscribe_attributes = {})
         {
             if (connection_id_) {
                 return Session::RequestTrackStatus(*connection_id_, track_full_name, subscribe_attributes);

@@ -1,8 +1,10 @@
-#include "quicr/subscribe_namespace_handler.h"
-#include "quicr/detail/messages.h"
-#include "quicr/detail/parameters.h"
+#include "quicr/handlers/subscribe_namespace_handler.h"
+#include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/messages/messages.h"
+#include "quicr/messages/parameters.h"
 #include "quicr/session.h"
-#include "quicr/subscribe_track_handler.h"
+
+#include <spdlog/spdlog.h>
 
 quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix,
                                                             const Mode mode,

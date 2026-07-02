@@ -1,4 +1,4 @@
-#include "quicr/detail/ctrl_message_types.h"
+#include "quicr/messages/ctrl_message_types.h"
 
 namespace quicr::messages {
 

@@ -1,13 +1,45 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/parameters.h"
+#include "quicr/handlers/publish_track_handler.h"
+
+#include "quicr/messages/messages.h"
+#include "quicr/messages/parameters.h"
 #include "quicr/session.h"
 
-#include <quicr/publish_track_handler.h>
+#include <spdlog/spdlog.h>
 
 namespace quicr {
+    PublishTrackHandler::PublishTrackHandler(const FullTrackName& full_track_name,
+                                             TrackMode track_mode,
+                                             uint8_t default_priority,
+                                             uint32_t default_ttl,
+                                             std::optional<messages::StreamHeaderProperties> stream_mode,
+                                             messages::Location largest_location)
+      : BaseTrackHandler(full_track_name)
+      , default_track_mode_(track_mode)
+      , default_priority_(default_priority)
+      , default_ttl_(default_ttl)
+      , largest_location_(largest_location)
+    {
+        switch (track_mode) {
+            case TrackMode::kDatagram:
+                if (stream_mode.has_value()) {
+                    throw std::invalid_argument("Datagram track mode should not specify a stream mode");
+                }
+                break;
+            case TrackMode::kStream:
+                if (stream_mode.has_value()) {
+                    stream_mode_.emplace(*stream_mode);
+                } else {
+                    stream_mode_.emplace(true, messages::SubgroupIdType::kExplicit, false, false);
+                }
+                break;
+        }
+    }
+
     void PublishTrackHandler::StatusChanged(Status) {}
+
     void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&) {}
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::ForwardPublishedData(

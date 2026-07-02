@@ -1,4 +1,4 @@
-#include "quicr/detail/base_track_handler.h"
+#include "quicr/handlers/base_track_handler.h"
 #include "quicr/session.h"
 
 namespace quicr {

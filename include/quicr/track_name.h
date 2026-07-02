@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "hash.h"
+#include "quicr/utilities/hash.h"
 
 #include <algorithm>
 #include <cstdint>

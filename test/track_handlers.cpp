@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <doctest/doctest.h>
+#include "quicr/common.h"
+#include "quicr/handlers/publish_track_handler.h"
+#include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/messages/messages.h"
 
-#include <quicr/common.h>
-#include <quicr/detail/messages.h>
-#include <quicr/publish_track_handler.h>
-#include <quicr/subscribe_track_handler.h>
+#include <doctest/doctest.h>
 
 class TestPublishTrackHandler : public quicr::PublishTrackHandler
 {

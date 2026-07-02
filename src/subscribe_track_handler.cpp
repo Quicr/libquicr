@@ -1,12 +1,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/subscribe_track_handler.h"
+#include "quicr/handlers/subscribe_track_handler.h"
 
-#include "quicr/detail/messages.h"
-#include "quicr/detail/parameters.h"
-#include "quicr/detail/stream_buffer.h"
+#include "quicr/containers/stream_buffer.h"
+#include "quicr/messages/messages.h"
+#include "quicr/messages/parameters.h"
 #include "quicr/session.h"
+
+#include <spdlog/spdlog.h>
 
 namespace quicr {
 
