@@ -431,7 +431,7 @@ TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client Uns
         CHECK_NOTHROW(client->UnsubscribeTrack(handler));
 
         REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
-        CHECK(server->WasStreamReset(request_stream_id) == true);
+        CHECK(server->WasStreamReset(request_stream_id));
 
         REQUIRE(unsub_received_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         const auto& details = unsub_received_future.get();
