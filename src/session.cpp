@@ -8,6 +8,7 @@
 #include "quicr/detail/messages.h"
 #include "quicr/detail/parameters.h"
 #include "quicr/detail/track_properties.h"
+#include "quicr/detail/transport.h"
 #include "quicr/subscribe_namespace_handler.h"
 #include "transport_picoquic.h"
 
@@ -29,43 +30,6 @@ namespace quicr {
             }
 
             return spdlog::stderr_color_mt(name);
-        }
-
-        /**
-         * @brief Create a new client transport based on the remote (server) host/ip
-         *
-         * @param[in] server        Transport remote server information
-         * @param[in] tcfg          Transport configuration
-         * @param[in] delegate      Implemented callback methods
-         * @param[in] tick_service  Shared pointer to the tick service to use
-         * @param[in] logger        Shared pointer to logger
-         *
-         * @return shared_ptr for the under lining transport.
-         */
-        std::shared_ptr<ITransport> MakeClientTransport(const TransportRemote& server,
-                                                        const TransportConfig& tcfg,
-                                                        ITransport::TransportDelegate& delegate,
-                                                        std::shared_ptr<timeq::tick_service> tick_service,
-                                                        std::shared_ptr<spdlog::logger> logger)
-        {
-            switch (server.proto) {
-                case TransportProtocol::kQuic:
-                    return std::make_shared<PicoQuicTransport>(
-                      server, tcfg, delegate, false, std::move(tick_service), std::move(logger), TransportMode::kQuic);
-                case TransportProtocol::kWebTransport:
-                    return std::make_shared<PicoQuicTransport>(server,
-                                                               tcfg,
-                                                               delegate,
-                                                               false,
-                                                               std::move(tick_service),
-                                                               std::move(logger),
-                                                               TransportMode::kWebTransport);
-                default:
-                    throw std::runtime_error("make_client_transport: Protocol not implemented");
-                    break;
-            }
-
-            return nullptr;
         }
 
         /**
@@ -275,7 +239,7 @@ namespace quicr {
             relay.path = path;
 
             quic_transport_ =
-              MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
+              ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
 
             auto conn_id = quic_transport_->Start();
 
@@ -1130,10 +1094,7 @@ namespace quicr {
                           true);
     }
 
-    void Session::RemoveSubscribeTrack(ConnectionContext& conn_ctx,
-                                       SubscribeTrackHandler& handler,
-                                       bool remove_handler,
-                                       bool send_unsubscribe)
+    void Session::RemoveSubscribeTrack(ConnectionContext& conn_ctx, SubscribeTrackHandler& handler, bool remove_handler)
     {
         auto handler_status = handler.GetStatus();
 
@@ -1144,7 +1105,7 @@ namespace quicr {
                 [[fallthrough]];
             case SubscribeTrackHandler::Status::kOk:
                 try {
-                    if (send_unsubscribe && not handler.IsPublisherInitiated() && not conn_ctx.closed) {
+                    if (not handler.IsPublisherInitiated() && not conn_ctx.closed) {
                         // TODO: Is it possible for these to not be sent at this point?
                         if (handler.GetDataContextId().has_value() && handler.GetRequestStreamId().has_value()) {
                             quic_transport_->CloseStream(
@@ -1241,15 +1202,20 @@ namespace quicr {
                                       std::uint64_t stream_id,
                                       StreamClosedFlag flag)
     {
+        std::unique_lock lock(state_mutex_);
+
         // Incoming PUBNS requests are not handler based.
         if (std::erase(conn_ctx.recv_publish_namespaces, request_id) > 0) {
+            conn_ctx.recv_req_id.erase(request_id);
+            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+
+            lock.unlock();
+
             if (client_mode_) {
                 PublishNamespaceDoneReceived(request_id);
             } else {
                 PublishNamespaceDoneReceived(connection_id, request_id);
             }
-            conn_ctx.recv_req_id.erase(request_id);
-            conn_ctx.ctrl_msg_buffer.erase(stream_id);
             return;
         }
 
@@ -1278,20 +1244,31 @@ namespace quicr {
         if (auto sub_handler = handler_it->second.Get<SubscribeTrackHandler>()) {
             sub_handler->SetStatus(is_reset ? SubscribeTrackHandler::Status::kDoneByReset
                                             : SubscribeTrackHandler::Status::kDoneByFin);
-            RemoveSubscribeTrack(conn_ctx, *sub_handler, false, false);
+
+            RemoveSubscribeTrack(conn_ctx, *sub_handler, false);
             conn_ctx.request_handlers.erase(handler_it);
             if (sub_handler->GetReceivedTrackAlias().has_value()) {
                 conn_ctx.sub_by_recv_track_alias.erase(sub_handler->GetReceivedTrackAlias().value());
             }
+
             conn_ctx.recv_req_id.erase(request_id);
             conn_ctx.ctrl_msg_buffer.erase(stream_id);
+
+            lock.unlock();
+            UnsubscribeReceived(connection_id, request_id);
+
             return;
         }
 
         if (auto pub_handler = handler_it->second.Get<PublishTrackHandler>()) {
+
             ClosePublishTrackLocal(conn_ctx, connection_id, *pub_handler, stream_id, is_reset);
             conn_ctx.request_handlers.erase(handler_it);
             conn_ctx.ctrl_msg_buffer.erase(stream_id);
+
+            lock.unlock();
+            UnsubscribeReceived(connection_id, request_id);
+
             return;
         }
 
@@ -2071,7 +2048,7 @@ namespace quicr {
 
         if (data_ctx_id.has_value()) {
             try {
-                std::lock_guard<std::mutex> _(state_mutex_);
+                std::unique_lock lock(state_mutex_);
                 auto conn_it = connections_.find(connection_id);
                 if (conn_it == connections_.end()) {
                     return;
@@ -2083,6 +2060,8 @@ namespace quicr {
                 if (req_it != conn_ctx.request_id_by_data_ctx.end()) {
                     const auto request_id = req_it->second;
                     conn_ctx.request_id_by_data_ctx.erase(req_it);
+
+                    lock.unlock();
                     CloseRequestHandler(conn_ctx, connection_id, request_id, stream_id, flag);
                     return;
                 }
@@ -2090,6 +2069,7 @@ namespace quicr {
                 // This is a data stream.
                 const auto pub_it = conn_ctx.pub_tracks_by_data_ctx_id.find(*data_ctx_id);
                 if (pub_it != conn_ctx.pub_tracks_by_data_ctx_id.end()) {
+                    lock.unlock();
                     pub_it->second->StreamClosed(stream_id, flag == StreamClosedFlag::kReset);
                 }
             } catch (const std::exception& e) {
@@ -2834,6 +2814,7 @@ namespace quicr {
 
     void Session::PublishNamespaceDoneReceived(std::uint64_t request_id) {}
 
+    void Session::UnsubscribeReceived(std::uint64_t, uint64_t) {}
     void Session::UnpublishedSubscribeReceived(const FullTrackName&, const messages::SubscribeAttributes&) {}
 
     void Session::MetricsSampled(const ConnectionMetrics&) {}

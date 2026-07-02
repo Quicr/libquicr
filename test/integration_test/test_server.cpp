@@ -278,6 +278,19 @@ TestServer::StandaloneFetchReceived(const std::uint64_t connection_id,
 }
 
 void
+TestServer::UnsubscribeReceived(const std::uint64_t, const uint64_t request_id)
+{
+    std::lock_guard lock(state_mutex_);
+    if (unsubscribe_received_promise_.has_value()) {
+        const auto handler_type =
+          expected_unsubscribe_handler_type_.value_or(UnsubscribeReceivedDetails::HandlerType::kSubscribeTrack);
+        unsubscribe_received_promise_->set_value({ .request_id = request_id, .handler_type = handler_type });
+        unsubscribe_received_promise_.reset();
+        expected_unsubscribe_handler_type_.reset();
+    }
+}
+
+void
 TestServer::NewGroupRequested(const quicr::FullTrackName& track_full_name, std::uint64_t group_id)
 {
     std::lock_guard lock(state_mutex_);

@@ -816,6 +816,16 @@ namespace quicr {
                                        const messages::SubscribeAttributes& subscribe_attributes);
 
         /**
+         * @brief Callback notification on unsubscribe received
+         *
+         * @details Server mode only.
+         *
+         * @param connection_handle Source connection ID
+         * @param request_id        Request ID received
+         */
+        virtual void UnsubscribeReceived(std::uint64_t connection_id, uint64_t request_id);
+
+        /**
          * @brief Callback notification on publish done received
          *
          * @details Server mode only.
@@ -1244,8 +1254,7 @@ namespace quicr {
 
         void RemoveSubscribeTrack(ConnectionContext& conn_ctx,
                                   SubscribeTrackHandler& handler,
-                                  bool remove_handler = true,
-                                  bool send_unsubscribe = true);
+                                  bool remove_handler = true);
 
         void RemoveSubscribeNamespace(ConnectionContext& conn_ctx,
                                       SubscribeNamespaceHandler& handler,

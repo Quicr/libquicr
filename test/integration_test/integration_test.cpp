@@ -400,6 +400,58 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
     }
 }
 
+TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client UnsubscribeTrack")
+{
+    auto server = MakeTestServer();
+
+    auto test_unsubscribe_received = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace({ "namespace" });
+        ftn.name = { 1, 2, 3 };
+        const auto handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+
+        std::promise<TestServer::SubscribeDetails> sub_promise;
+        std::future<TestServer::SubscribeDetails> sub_future = sub_promise.get_future();
+        server->SetSubscribePromise(std::move(sub_promise));
+
+        std::promise<TestServer::UnsubscribeReceivedDetails> unsub_received_promise;
+        std::future<TestServer::UnsubscribeReceivedDetails> unsub_received_future = unsub_received_promise.get_future();
+        server->SetUnsubscribeReceivedPromise(std::move(unsub_received_promise));
+        server->SetExpectedUnsubscribeHandlerType(TestServer::UnsubscribeReceivedDetails::HandlerType::kSubscribeTrack);
+
+        CHECK_NOTHROW(client->SubscribeTrack(handler));
+        REQUIRE(sub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto request_id = sub_future.get().request_id;
+        REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+        REQUIRE(handler->GetRequestStreamId().has_value());
+        const auto request_stream_id = handler->GetRequestStreamId().value();
+
+        CHECK_NOTHROW(client->UnsubscribeTrack(handler));
+
+        REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
+        CHECK(server->WasStreamReset(request_stream_id));
+
+        REQUIRE(unsub_received_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto& details = unsub_received_future.get();
+        CHECK_EQ(details.request_id, request_id);
+        CHECK(details.handler_type == TestServer::UnsubscribeReceivedDetails::HandlerType::kSubscribeTrack);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_unsubscribe_received("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_unsubscribe_received("https");
+    }
+}
+
 TEST_CASE("Integration - Publish namespace done resets the request stream")
 {
     auto server = MakeTestServer();
