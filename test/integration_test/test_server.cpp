@@ -278,7 +278,7 @@ TestServer::StandaloneFetchReceived(const std::uint64_t connection_id,
 }
 
 void
-TestServer::UnsubscribeReceived(const std::uint64_t connection_id, const uint64_t request_id)
+TestServer::UnsubscribeReceived(const std::uint64_t, const uint64_t request_id)
 {
     std::lock_guard lock(state_mutex_);
     if (unsubscribe_received_promise_.has_value()) {
@@ -288,7 +288,6 @@ TestServer::UnsubscribeReceived(const std::uint64_t connection_id, const uint64_
         unsubscribe_received_promise_.reset();
         expected_unsubscribe_handler_type_.reset();
     }
-    (void)connection_id;
 }
 
 void
