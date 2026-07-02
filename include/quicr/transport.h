@@ -22,6 +22,10 @@
 #include <sys/socket.h>
 #include <vector>
 
+namespace spdlog {
+    class logger;
+}
+
 namespace quicr {
 
     /**
