@@ -16,7 +16,7 @@ namespace quicr {
                                              uint32_t default_ttl,
                                              std::optional<messages::StreamHeaderProperties> stream_mode,
                                              messages::Location largest_location)
-      : BaseTrackHandler(full_track_name)
+      : TrackHandler(full_track_name)
       , default_track_mode_(track_mode)
       , default_priority_(default_priority)
       , default_ttl_(default_ttl)
@@ -48,7 +48,7 @@ namespace quicr {
       uint64_t subgroup_id,
       std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        auto transport = GetTransport().lock();
+        auto transport = GetSession().lock();
         uint64_t stream_id{ 0 };
 
         if (!transport) {
@@ -108,7 +108,7 @@ namespace quicr {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
-        ITransport::EnqueueFlags eflags;
+        Transport::EnqueueFlags eflags;
 
         if (group_id > largest_location_.group) {
             largest_location_.group = group_id;
@@ -165,7 +165,7 @@ namespace quicr {
       BytesSpan data,
       std::optional<messages::StreamHeaderProperties> stream_mode)
     {
-        auto transport = GetTransport().lock();
+        auto transport = GetSession().lock();
 
         if (!transport) {
             return PublishObjectStatus::kInternalError;
@@ -300,7 +300,7 @@ namespace quicr {
         publish_track_metrics_.bytes_published += data.size();
         publish_track_metrics_.objects_published++;
 
-        ITransport::EnqueueFlags eflags;
+        Transport::EnqueueFlags eflags;
 
         object_msg_buffer_.clear();
 
@@ -373,7 +373,7 @@ namespace quicr {
 
     void PublishTrackHandler::EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed)
     {
-        auto transport = GetTransport().lock();
+        auto transport = GetSession().lock();
 
         if (!transport) {
             return;
@@ -391,7 +391,7 @@ namespace quicr {
 
         object_msg_buffer_.clear();
 
-        ITransport::EnqueueFlags eflags;
+        Transport::EnqueueFlags eflags;
         eflags.use_reliable = true;
         eflags.close_stream = true;
         eflags.use_reset = !completed;
@@ -467,7 +467,7 @@ namespace quicr {
             SetStatus(Status::kNewGroupRequested);
         }
 
-        if (const auto transport = GetTransport().lock()) {
+        if (const auto transport = GetSession().lock()) {
             transport->ResolveRequestUpdate(
               GetConnectionId(), *GetRequestId(), { .error = std::nullopt, .params = {} });
         }

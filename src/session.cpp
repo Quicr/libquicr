@@ -50,11 +50,11 @@ namespace quicr {
          *
          * @return shared_ptr for the underlying transport
          */
-        std::shared_ptr<ITransport> MakeServerTransport(const TransportRemote& server,
-                                                        const TransportConfig& tcfg,
-                                                        ITransport::TransportDelegate& delegate,
-                                                        std::shared_ptr<timeq::tick_service> tick_service,
-                                                        std::shared_ptr<spdlog::logger> logger)
+        std::shared_ptr<Transport> MakeServerTransport(const TransportRemote& server,
+                                                       const TransportConfig& tcfg,
+                                                       Transport::TransportDelegate& delegate,
+                                                       std::shared_ptr<timeq::tick_service> tick_service,
+                                                       std::shared_ptr<spdlog::logger> logger)
         {
             // Server mode supports BOTH raw QUIC (moq-00) and WebTransport (h3) simultaneously.
             //
@@ -241,7 +241,7 @@ namespace quicr {
             relay.path = path;
 
             quic_transport_ =
-              ITransport::MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
+              Transport::MakeClientTransport(relay, client_config_.transport_config, *this, tick_service_, logger_);
 
             auto conn_id = quic_transport_->Start();
 
@@ -2455,7 +2455,7 @@ namespace quicr {
                                     const uint8_t priority,
                                     const uint32_t ttl_ms,
                                     const uint32_t delay_ms,
-                                    const ITransport::EnqueueFlags flags)
+                                    const Transport::EnqueueFlags flags)
     {
         return quic_transport_->Enqueue(
           conn_id, data_ctx_id, stream_id, std::move(bytes), priority, ttl_ms, delay_ms, flags);

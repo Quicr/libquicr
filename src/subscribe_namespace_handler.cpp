@@ -9,7 +9,7 @@
 quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix,
                                                             const Mode mode,
                                                             const messages::Filter& filter)
-  : BaseTrackHandler({ prefix, {} })
+  : TrackHandler({ prefix, {} })
   , mode_(mode)
   , prefix_(prefix)
   , filter_(std::move(filter))
@@ -18,7 +18,7 @@ quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace
 
 quicr::SubscribeNamespaceHandler::~SubscribeNamespaceHandler()
 {
-    const auto& transport = transport_.lock();
+    const auto& transport = GetSession().lock();
     if (!transport) {
         return;
     }

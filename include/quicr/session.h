@@ -39,7 +39,7 @@ namespace quicr {
      *   configuration. `Client` provides the single-connection convenience API for outbound clients.
      */
     class Session
-      : public ITransport::TransportDelegate
+      : public Transport::TransportDelegate
       , public std::enable_shared_from_this<Session>
     {
       public:
@@ -923,21 +923,21 @@ namespace quicr {
 
         static constexpr std::size_t kControlMessageBufferSize = 4096;
 
-        struct TrackHandler
+        struct DynamicTrackHandler
         {
-            std::shared_ptr<BaseTrackHandler> handler;
+            std::shared_ptr<TrackHandler> handler;
 
-            TrackHandler() = default;
-            ~TrackHandler() = default;
+            DynamicTrackHandler() = default;
+            ~DynamicTrackHandler() = default;
 
-            TrackHandler(const std::shared_ptr<BaseTrackHandler>& other_handler)
+            DynamicTrackHandler(const std::shared_ptr<TrackHandler>& other_handler)
               : handler(other_handler)
             {
             }
 
-            TrackHandler& operator=(const TrackHandler& other) = default;
+            DynamicTrackHandler& operator=(const DynamicTrackHandler& other) = default;
 
-            TrackHandler& operator=(const std::shared_ptr<BaseTrackHandler>& other_handler)
+            DynamicTrackHandler& operator=(const std::shared_ptr<TrackHandler>& other_handler)
             {
                 handler = other_handler;
                 return *this;
@@ -1002,7 +1002,7 @@ namespace quicr {
             std::vector<std::uint64_t> recv_publish_namespaces;
 
             /// Handlers by request ID
-            std::map<std::uint64_t, TrackHandler> request_handlers;
+            std::map<std::uint64_t, DynamicTrackHandler> request_handlers;
 
             /**
              * Data is received with a track alias that is set by the publisher. The map key
@@ -1287,7 +1287,7 @@ namespace quicr {
                                const uint8_t priority,
                                const uint32_t ttl_ms,
                                const uint32_t delay_ms,
-                               const ITransport::EnqueueFlags flags);
+                               const Transport::EnqueueFlags flags);
 
       private:
         // -------------------------------------------------------------------------------------------------
@@ -1305,7 +1305,7 @@ namespace quicr {
         Status status_{ Status::kNotReady };
 
         std::shared_ptr<timeq::tick_service> tick_service_;
-        std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
+        std::shared_ptr<Transport> quic_transport_; // **MUST** be last for proper order of destruction
 
         friend class PublishTrackHandler;
         friend class PublishFetchHandler;

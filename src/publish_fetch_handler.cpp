@@ -11,7 +11,7 @@ namespace quicr {
       const BytesSpan data,
       [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
-        auto transport = GetTransport().lock();
+        auto transport = GetSession().lock();
 
         if (!transport) {
             return PublishObjectStatus::kInternalError;
@@ -25,7 +25,7 @@ namespace quicr {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
-        ITransport::EnqueueFlags eflags;
+        Transport::EnqueueFlags eflags;
 
         std::uint64_t group_id = object_headers.group_id;
         std::uint64_t object_id = object_headers.object_id;

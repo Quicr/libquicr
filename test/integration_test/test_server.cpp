@@ -1,8 +1,8 @@
 #include "test_server.h"
 
-#include "quicr/handlers/base_track_handler.h"
 #include "quicr/handlers/publish_fetch_handler.h"
 #include "quicr/handlers/publish_namespace_handler.h"
+#include "quicr/handlers/track_handler.h"
 
 #include <ranges>
 
