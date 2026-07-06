@@ -367,7 +367,6 @@ namespace quicr {
         virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
 
         void RequestUpdateReceived(const messages::Parameters& params) override;
-        void RequestOkReceived(const messages::Parameters& params) override;
 
         ///@}
 
@@ -394,6 +393,8 @@ namespace quicr {
         SubscribeTrackMetrics subscribe_track_metrics_;
 
       protected:
+        void RequestOkReceived(const messages::Parameters& params) override;
+
         /**
          * @brief Set the subscribe status
          * @param status                Status of the subscribe

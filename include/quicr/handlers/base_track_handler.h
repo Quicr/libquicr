@@ -220,12 +220,6 @@ namespace quicr {
         uint64_t GetConnectionId() const noexcept { return connection_id_; };
 
         /**
-         * Received an OK for this handler's request.
-         * @param params Parameters in the request.
-         */
-        virtual void RequestOkReceived(const messages::Parameters& params) = 0;
-
-        /**
          * @brief Received an update for this handler's request.
          * Implementations MUST call ResolveRequestUpdate to acknowledge the request.
          * @param params The updated/new parameters for the request.
@@ -235,6 +229,12 @@ namespace quicr {
         virtual void RequestError(messages::ErrorCode error_code, std::string reason);
 
       protected:
+        /**
+         * Received an OK for this handler's request.
+         * @param params Parameters in the request.
+         */
+        virtual void RequestOkReceived(const messages::Parameters& params) = 0;
+
         /**
          * Set the transport to use.
          * @param transport The new transport for the handler to use.
