@@ -28,6 +28,8 @@ namespace spdlog {
 
 namespace quicr {
 
+    class Connection;
+
     /**
      * Close Connection App Reasons
      */
@@ -176,7 +178,7 @@ namespace quicr {
     };
 
     /**
-     * @brief ITransport interface
+     * @brief Transport interface
      *
      * @details A single threaded, async transport interface.
      * 	The transport implementations own the queues
@@ -193,7 +195,7 @@ namespace quicr {
      * 	in such cases applications needs to
      * 	take the burden of non-blocking flows.
      */
-    class ITransport
+    class Transport
     {
       public:
         /**
@@ -320,11 +322,11 @@ namespace quicr {
          *
          * @return shared_ptr for the under lining transport.
          */
-        static std::shared_ptr<ITransport> MakeClientTransport(const TransportRemote& server,
-                                                               const TransportConfig& tcfg,
-                                                               TransportDelegate& delegate,
-                                                               std::shared_ptr<timeq::tick_service> tick_service,
-                                                               std::shared_ptr<spdlog::logger> logger);
+        static std::shared_ptr<Transport> MakeClientTransport(const TransportRemote& server,
+                                                              const TransportConfig& tcfg,
+                                                              TransportDelegate& delegate,
+                                                              std::shared_ptr<timeq::tick_service> tick_service,
+                                                              std::shared_ptr<spdlog::logger> logger);
 
         /**
          * @brief Create a new server transport based on the remote (server) ip and port
@@ -342,14 +344,14 @@ namespace quicr {
          *
          * @return shared_ptr for the underlying transport
          */
-        static std::shared_ptr<ITransport> MakeServerTransport(const TransportRemote& server,
-                                                               const TransportConfig& tcfg,
-                                                               TransportDelegate& delegate,
-                                                               std::shared_ptr<timeq::tick_service> tick_service,
-                                                               std::shared_ptr<spdlog::logger> logger);
+        static std::shared_ptr<Transport> MakeServerTransport(const TransportRemote& server,
+                                                              const TransportConfig& tcfg,
+                                                              TransportDelegate& delegate,
+                                                              std::shared_ptr<timeq::tick_service> tick_service,
+                                                              std::shared_ptr<spdlog::logger> logger);
 
       public:
-        virtual ~ITransport() = default;
+        virtual ~Transport() = default;
 
         /**
          * @brief Status of the transport

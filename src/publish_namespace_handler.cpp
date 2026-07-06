@@ -7,14 +7,14 @@
 #include <ranges>
 
 quicr::PublishNamespaceHandler::PublishNamespaceHandler(const TrackNamespace& prefix)
-  : BaseTrackHandler({ prefix, {} })
+  : TrackHandler({ prefix, {} })
   , prefix_(prefix)
 {
 }
 
 quicr::PublishNamespaceHandler::~PublishNamespaceHandler()
 {
-    const auto& transport = transport_.lock();
+    const auto& transport = GetSession().lock();
     if (!transport) {
         return;
     }
@@ -76,7 +76,7 @@ quicr::PublishNamespaceHandler::PublishTrack(std::shared_ptr<PublishTrackHandler
 
     handlers_.emplace(TrackHash(handler->GetFullTrackName()).track_fullname_hash, handler);
 
-    const auto& transport = transport_.lock();
+    const auto& transport = GetSession().lock();
     if (!transport) {
         throw std::runtime_error("Cannot create publish track when transport is null");
     }
@@ -87,7 +87,7 @@ quicr::PublishNamespaceHandler::PublishTrack(std::shared_ptr<PublishTrackHandler
 void
 quicr::PublishNamespaceHandler::UnPublishTrack(std::shared_ptr<PublishTrackHandler> handler)
 {
-    const auto& transport = transport_.lock();
+    const auto& transport = GetSession().lock();
     if (!transport) {
         throw std::runtime_error("Cannot create publish track when transport is null");
     }

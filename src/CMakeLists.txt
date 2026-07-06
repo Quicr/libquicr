@@ -24,7 +24,7 @@ if(NOT QUICR_BUILD_FUZZ)
 endif()
 
 target_sources(quicr PRIVATE
-    base_track_handler.cpp
+    track_handler.cpp
     ctrl_message_types.cpp
     fetch_track_handler.cpp
     joining_fetch_handler.cpp

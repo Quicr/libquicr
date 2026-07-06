@@ -13,7 +13,7 @@ namespace quicr {
 
     class Session;
 
-    class SubscribeNamespaceHandler : public BaseTrackHandler
+    class SubscribeNamespaceHandler : public TrackHandler
     {
       public:
         using Error = std::pair<messages::ErrorCode, Bytes>;
@@ -85,9 +85,6 @@ namespace quicr {
         constexpr Mode GetMode() const noexcept { return mode_; }
 
       protected:
-        const std::weak_ptr<Session>& GetTransport() const noexcept { return transport_; }
-        void SetTransport(const std::shared_ptr<Session>& new_transport) noexcept { transport_ = new_transport; }
-
         /**
          * @brief Set the subscribe status
          * @param status                Status of the subscribe
@@ -130,9 +127,6 @@ namespace quicr {
 
         /// Filter value for namespace subscription.
         messages::Filter filter_;
-
-        /// Weak reference to the transport.
-        std::weak_ptr<Session> transport_;
 
         Status status_{ Status::kNotSubscribed };
 

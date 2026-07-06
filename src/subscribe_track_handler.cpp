@@ -209,7 +209,7 @@ namespace quicr {
 
     void SubscribeTrackHandler::Pause() noexcept
     {
-        auto transport = GetTransport().lock();
+        auto transport = GetSession().lock();
         if (!transport || status_ == Status::kPaused || status_ == Status::kNotConnected ||
             !GetDataContextId().has_value()) {
             return;
@@ -228,7 +228,7 @@ namespace quicr {
 
     void SubscribeTrackHandler::Resume() noexcept
     {
-        auto transport = GetTransport().lock();
+        auto transport = GetSession().lock();
         if (!transport || !GetDataContextId().has_value()) {
             return;
         }
@@ -250,7 +250,7 @@ namespace quicr {
 
     void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
     {
-        auto transport = GetTransport().lock();
+        auto transport = GetSession().lock();
         if (!transport || status_ != Status::kOk || !support_new_group_request_ || !GetDataContextId().has_value()) {
             return;
         }
@@ -291,7 +291,7 @@ namespace quicr {
                                            messages::ParameterType::kAuthorizationToken,
                                          });
             // TODO: AUTHORIZATION_TOKEN
-            if (const auto transport = GetTransport().lock()) {
+            if (const auto transport = GetSession().lock()) {
                 transport->ResolveRequestUpdate(
                   GetConnectionId(), *GetRequestId(), { .error = std::nullopt, .params = {} });
             }
