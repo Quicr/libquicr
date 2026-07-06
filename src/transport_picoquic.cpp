@@ -2201,10 +2201,15 @@ PicoQuicTransport::EmitMetrics()
     for (auto& [conn_id, conn_ctx] : conn_context_) {
         const auto sample_time = std::chrono::system_clock::now();
 
-        delegate_.OnConnectionMetricsSampled(sample_time, conn_id, conn_ctx.metrics);
+        cbNotifyQueue_.Push([this, sample_time, conn_id = conn_id, metrics = conn_ctx.metrics]() {
+            delegate_.OnConnectionMetricsSampled(sample_time, conn_id, metrics);
+        });
 
         for (auto& [data_ctx_id, data_ctx] : conn_ctx.active_data_contexts) {
-            delegate_.OnDataMetricsStampled(sample_time, conn_id, data_ctx_id, data_ctx.metrics);
+            cbNotifyQueue_.Push(
+              [this, sample_time, conn_id = conn_id, data_ctx_id = data_ctx_id, metrics = data_ctx.metrics]() {
+                  delegate_.OnDataMetricsStampled(sample_time, conn_id, data_ctx_id, metrics);
+              });
             data_ctx.metrics.ResetPeriod();
         }
 
