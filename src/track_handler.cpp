@@ -1,15 +1,15 @@
-#include "quicr/handlers/base_track_handler.h"
+#include "quicr/handlers/track_handler.h"
 #include "quicr/session.h"
 
 namespace quicr {
-    void BaseTrackHandler::SetTransport(std::shared_ptr<Session> transport)
+    void TrackHandler::SetTransport(std::shared_ptr<Session> transport)
     {
-        transport_ = transport;
+        session_ = transport;
     }
 
-    const std::weak_ptr<Session>& BaseTrackHandler::GetTransport() const noexcept
+    const std::weak_ptr<Session>& TrackHandler::GetSession() const noexcept
     {
-        return transport_;
+        return session_;
     }
 
     RequestResponse::ReasonCode RequestResponse::FromErrorCode(messages::ErrorCode error_code)
@@ -46,5 +46,5 @@ namespace quicr {
         return ReasonCode::kOk;
     }
 
-    void BaseTrackHandler::RequestError(messages::ErrorCode, std::string) {}
+    void TrackHandler::RequestError(messages::ErrorCode, std::string) {}
 }

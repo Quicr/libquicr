@@ -11,7 +11,7 @@ namespace quicr {
       const BytesSpan data,
       [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
-        auto transport = GetTransport().lock();
+        auto transport = GetSession().lock();
 
         if (!transport) {
             return PublishObjectStatus::kInternalError;
@@ -28,7 +28,7 @@ namespace quicr {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
-        ITransport::EnqueueFlags eflags;
+        Transport::EnqueueFlags eflags;
 
         std::uint16_t ttl = object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_;
         std::uint8_t priority =

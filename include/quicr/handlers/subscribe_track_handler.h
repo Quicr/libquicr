@@ -4,7 +4,7 @@
 #pragma once
 
 #include "quicr/containers/stream_buffer.h"
-#include "quicr/handlers/base_track_handler.h"
+#include "quicr/handlers/track_handler.h"
 #include "quicr/messages/ctrl_message_types.h"
 #include "quicr/messages/messages.h"
 #include "quicr/metrics.h"
@@ -27,7 +27,7 @@ namespace quicr {
      *
      *  This extends the base track handler to add subscribe handling
      */
-    class SubscribeTrackHandler : public BaseTrackHandler
+    class SubscribeTrackHandler : public TrackHandler
     {
       public:
         /**
@@ -86,7 +86,7 @@ namespace quicr {
                               const messages::Filter& filter = std::monostate{},
                               const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
                               bool publisher_initiated = false)
-          : BaseTrackHandler(full_track_name)
+          : TrackHandler(full_track_name)
           , priority_(priority)
           , group_order_(group_order)
           , filter_(filter)

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "quicr/handlers/base_track_handler.h"
+#include "quicr/handlers/track_handler.h"
 #include "quicr/messages/messages.h"
 #include "quicr/messages/object.h"
 #include "quicr/metrics.h"
@@ -21,7 +21,7 @@ namespace quicr {
      *
      *  This extends the base track handler to add publish (aka send) handling
      */
-    class PublishTrackHandler : public BaseTrackHandler
+    class PublishTrackHandler : public TrackHandler
     {
       public:
         /**

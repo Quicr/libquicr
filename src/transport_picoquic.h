@@ -54,7 +54,7 @@ namespace quicr {
         kWebTransport // WebTransport over HTTP/3 with h3 ALPN
     };
 
-    class PicoQuicTransport : public ITransport
+    class PicoQuicTransport : public Transport
     {
       public:
         const char* webtransport_alpn = "h3";
