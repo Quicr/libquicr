@@ -2200,19 +2200,28 @@ PicoQuicTransport::EmitMetrics()
 {
     for (auto& [conn_id, conn_ctx] : conn_context_) {
         const auto sample_time = std::chrono::system_clock::now();
+        const bool queue_space = cbNotifyQueue_.Size() < (tconfig_.callback_queue_size * 3) / 4;
 
-        cbNotifyQueue_.Push([this, sample_time, conn_id = conn_id, metrics = conn_ctx.metrics]() {
-            delegate_.OnConnectionMetricsSampled(sample_time, conn_id, metrics);
-        });
-
+        std::vector<std::pair<std::uint64_t, QuicDataContextMetrics>> data_metrics;
         for (auto& [data_ctx_id, data_ctx] : conn_ctx.active_data_contexts) {
-            cbNotifyQueue_.Push(
-              [this, sample_time, conn_id = conn_id, data_ctx_id = data_ctx_id, metrics = data_ctx.metrics]() {
-                  delegate_.OnDataMetricsStampled(sample_time, conn_id, data_ctx_id, metrics);
-              });
+            if (queue_space) {
+                data_metrics.emplace_back(data_ctx_id, data_ctx.metrics);
+            }
             data_ctx.metrics.ResetPeriod();
         }
 
+        if (queue_space) {
+            cbNotifyQueue_.Push([this,
+                                 sample_time,
+                                 conn_id = conn_id,
+                                 conn_metrics = conn_ctx.metrics,
+                                 data_metrics = std::move(data_metrics)]() {
+                delegate_.OnConnectionMetricsSampled(sample_time, conn_id, conn_metrics);
+                for (const auto& [data_ctx_id, metrics] : data_metrics) {
+                    delegate_.OnDataMetricsStampled(sample_time, conn_id, data_ctx_id, metrics);
+                }
+            });
+        }
         conn_ctx.metrics.ResetPeriod();
     }
 }
