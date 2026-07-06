@@ -1120,7 +1120,6 @@ namespace quicr {
         void SendRequestUpdate(const ConnectionContext& conn_ctx,
                                std::uint64_t data_ctx_id,
                                std::uint64_t request_id,
-                               std::uint64_t existing_request_id,
                                TrackHash th,
                                std::optional<std::uint64_t> end_group_id,
                                std::uint8_t priority,

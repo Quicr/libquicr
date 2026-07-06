@@ -455,7 +455,6 @@ namespace quicr {
     void Session::SendRequestUpdate(const ConnectionContext& conn_ctx,
                                     std::uint64_t data_ctx_id,
                                     std::uint64_t request_id,
-                                    std::uint64_t existing_request_id,
                                     [[maybe_unused]] quicr::TrackHash th,
                                     std::optional<std::uint64_t> end_group_id,
                                     std::uint8_t priority,
@@ -466,24 +465,17 @@ namespace quicr {
                         .Add(ParameterType::kForward, forward)
                         .AddOptional(ParameterType::kNewGroupRequest, end_group_id);
 
-        SPDLOG_LOGGER_DEBUG(
-          logger_,
-          "Sending REQUEST_UPDATE to conn_id: {} request_id: {} existing_id: {} track namespace hash: {} name "
-          "hash: {} forward: {} ngr: {}",
-          conn_ctx.connection_id,
-          request_id,
-          existing_request_id,
-          th.track_namespace_hash,
-          th.track_name_hash,
-          forward,
-          end_group_id.has_value());
+        SPDLOG_LOGGER_DEBUG(logger_,
+                            "Sending REQUEST_UPDATE to conn_id: {} request_id: {} track namespace hash: {} name "
+                            "hash: {} forward: {} ngr: {}",
+                            conn_ctx.connection_id,
+                            request_id,
+                            th.track_namespace_hash,
+                            th.track_name_hash,
+                            forward,
+                            end_group_id.has_value());
 
-        SendCtrlMsg(conn_ctx,
-                    data_ctx_id,
-                    ControlMessageType::kRequestUpdate,
-                    UintVar(request_id),
-                    UintVar(existing_request_id),
-                    params);
+        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kRequestUpdate, UintVar(request_id), params);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_UPDATE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -491,7 +483,7 @@ namespace quicr {
 
     void Session::SendRequestError(ConnectionContext& conn_ctx,
                                    std::uint64_t data_ctx_id,
-                                   uint64_t request_id,
+                                   [[maybe_unused]] uint64_t request_id,
                                    ErrorCode error,
                                    std::chrono::milliseconds retry_interval,
                                    const std::string& reason)
@@ -506,7 +498,6 @@ namespace quicr {
         SendCtrlMsg(conn_ctx,
                     data_ctx_id,
                     ControlMessageType::kRequestError,
-                    UintVar(request_id),
                     error,
                     UintVar(retry_interval.count()),
                     AsOwnedBytes(reason));
@@ -1089,7 +1080,6 @@ namespace quicr {
         SendRequestUpdate(conn_it->second,
                           track_handler->GetDataContextId().value(),
                           conn_it->second.GetNextRequestId(),
-                          track_handler->GetRequestId().value(),
                           th,
                           track_handler->pending_new_group_request_id_,
                           priority,
@@ -3238,7 +3228,16 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kRequestError: {
-                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto request_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
+                if (request_it == conn_ctx.request_id_by_data_ctx.end()) {
+                    SPDLOG_LOGGER_WARN(
+                      logger_,
+                      "Received REQUEST_ERROR for unknown request conn_id: {} data_ctx_id: {}, ignored",
+                      conn_ctx.connection_id,
+                      data_ctx_id);
+                    return true;
+                }
+                const auto request_id = request_it->second;
                 const auto error_code = messages::Message::ParseField<messages::ErrorCode>(msg_bytes);
                 [[maybe_unused]] const auto retry_interval = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
@@ -3594,19 +3593,28 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kRequestUpdate: {
-                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
-                const auto existing_request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto update_request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto request_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
+                if (request_it == conn_ctx.request_id_by_data_ctx.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received REQUEST_UPDATE on unknown request stream conn_id: {} data_ctx_id: {} "
+                                       "update_request_id: {}, ignored",
+                                       conn_ctx.connection_id,
+                                       data_ctx_id,
+                                       update_request_id);
+                    return true;
+                }
+                const auto request_id = request_it->second;
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 if (client_mode_) {
-                    auto track_it = conn_ctx.request_handlers.find(existing_request_id);
+                    auto track_it = conn_ctx.request_handlers.find(request_id);
                     if (track_it == conn_ctx.request_handlers.end()) {
                         SPDLOG_LOGGER_WARN(logger_,
                                            "Received REQUEST_UPDATE to unknown track conn_id: {} request_id: {}, "
-                                           "existing_request_id: {} ignored",
+                                           "ignored",
                                            conn_ctx.connection_id,
-                                           request_id,
-                                           existing_request_id);
+                                           request_id);
                         return true;
                     }
 
@@ -3614,7 +3622,8 @@ namespace quicr {
                     return true;
                 }
 
-                auto sub_ctx_it = conn_ctx.recv_req_id.find(existing_request_id);
+                // TODO: This should be migrated to the above pattern.
+                auto sub_ctx_it = conn_ctx.recv_req_id.find(request_id);
                 if (sub_ctx_it == conn_ctx.recv_req_id.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
                                        "Received subscribe_update for unknown subscription conn_id: {} request_id: {}",
@@ -3655,6 +3664,8 @@ namespace quicr {
                         pub.second->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
                     }
                 }
+
+                SendRequestUpdateOk(conn_ctx, data_ctx_id, std::nullopt, std::nullopt);
                 return true;
             }
             default: {
