@@ -217,7 +217,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         return streams_.size();
     }
 
-    std::uint64_t RequestUpdateOks() const noexcept { return request_update_oks; }
+    std::uint64_t RequestUpdateOks() const noexcept { return request_update_oks_; }
 
     /// @brief Set a promise to be fulfilled when a specific object count is reached
     void SetObjectCountPromise(std::size_t target_count, std::promise<void> promise)
@@ -260,7 +260,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     void RequestOkReceived(const messages::Parameters& params) override
     {
         SubscribeTrackHandler::RequestOkReceived(params);
-        ++request_update_oks;
+        ++request_update_oks_;
     }
 
   private:
@@ -268,7 +268,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     std::vector<ReceivedObject> received_objects_;
     std::size_t target_object_count_{ 0 };
     std::optional<std::promise<void>> object_count_promise_;
-    std::atomic<std::uint64_t> request_update_oks{ 0 };
+    std::atomic<std::uint64_t> request_update_oks_{ 0 };
 };
 
 TEST_CASE("Integration - Connection")
