@@ -293,10 +293,7 @@ class BridgePublishTrackHandler : public quicr::PublishTrackHandler
                 case Status::kNotAnnounced:
                     c_status = QBRIDGE_PUBLISH_STATUS_NOT_ANNOUNCED;
                     break;
-                case Status::kPendingAnnounceResponse:
-                    c_status = QBRIDGE_PUBLISH_STATUS_PENDING_ANNOUNCE_RESPONSE;
-                    break;
-                case Status::kAnnounceNotAuthorized:
+                case Status::kNotAuthorized:
                     c_status = QBRIDGE_PUBLISH_STATUS_ANNOUNCE_NOT_AUTHORIZED;
                     break;
                 case Status::kNoSubscribers:

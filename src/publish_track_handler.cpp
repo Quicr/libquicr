@@ -14,7 +14,7 @@ namespace quicr {
                                              TrackMode track_mode,
                                              uint8_t default_priority,
                                              uint32_t default_ttl,
-                                             std::optional<messages::StreamHeaderProperties> stream_mode,
+                                             std::optional<messages::StreamHeaderProperties> subgroup_properties,
                                              messages::Location largest_location)
       : BaseTrackHandler(full_track_name)
       , default_track_mode_(track_mode)
@@ -24,15 +24,15 @@ namespace quicr {
     {
         switch (track_mode) {
             case TrackMode::kDatagram:
-                if (stream_mode.has_value()) {
-                    throw std::invalid_argument("Datagram track mode should not specify a stream mode");
+                if (subgroup_properties.has_value()) {
+                    throw std::invalid_argument("Datagram track mode must not specify subgroup properties");
                 }
                 break;
             case TrackMode::kStream:
-                if (stream_mode.has_value()) {
-                    stream_mode_.emplace(*stream_mode);
+                if (subgroup_properties.has_value()) {
+                    subgroup_properties_.emplace(*subgroup_properties);
                 } else {
-                    stream_mode_.emplace(true, messages::SubgroupIdType::kExplicit, false, false);
+                    subgroup_properties_.emplace(true, messages::SubgroupIdType::kExplicit, false, false);
                 }
                 break;
         }
@@ -72,14 +72,12 @@ namespace quicr {
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNoSubscribers;
 
-            case Status::kPendingAnnounceResponse:
-                [[fallthrough]];
             case Status::kNotAnnounced:
                 [[fallthrough]];
             case Status::kNotConnected:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAnnounced;
-            case Status::kAnnounceNotAuthorized:
+            case Status::kNotAuthorized:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAuthorized;
             case Status::kNewGroupRequested:
@@ -163,7 +161,7 @@ namespace quicr {
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::PublishObject(
       const ObjectHeaders& object_headers,
       BytesSpan data,
-      std::optional<messages::StreamHeaderProperties> stream_mode)
+      std::optional<messages::StreamHeaderProperties> subgroup_properties)
     {
         auto transport = GetTransport().lock();
 
@@ -255,14 +253,12 @@ namespace quicr {
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNoSubscribers;
 
-            case Status::kPendingAnnounceResponse:
-                [[fallthrough]];
             case Status::kNotAnnounced:
                 [[fallthrough]];
             case Status::kNotConnected:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAnnounced;
-            case Status::kAnnounceNotAuthorized:
+            case Status::kNotAuthorized:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAuthorized;
             case Status::kNewGroupRequested: {
@@ -321,7 +317,7 @@ namespace quicr {
                 // use stream per subgroup, group change
                 eflags.use_reliable = true;
 
-                const auto properties = stream_mode.value_or(*GetStreamMode());
+                const auto properties = subgroup_properties.value_or(*GetSubgroupProperties());
                 if (is_stream_header_needed) {
                     messages::StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.properties.emplace(properties);

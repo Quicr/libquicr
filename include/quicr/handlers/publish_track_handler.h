@@ -13,53 +13,56 @@
 
 namespace quicr {
 
+    // TODO: Pick a name for your one "session peer". The endpoint you are connected to in the context of a Session.
+    // TODO: It's perhaps important to note that this handler is scoped to that context. A relay fanout would need N
+    // not 1.
+    // TODO: It does actually seem that the MoQ draft does use the word "peer" for this case.
+
     /**
-     * @brief MOQ track handler for published track
+     * @brief Supports publishing a track and objects to that track.
      *
-     * @details MOQ publish track handler defines all track related callbacks and
-     *  functions for publish. Track handler operates on a single track (namespace + name).
+     * @details Applications can use this handler to announce the existence of the given track (Session::PublishTrack)
+     * and subsequently publish objects using #PublishObject(). This handler is designed to be subclassed for full
+     * visibility into state, although it can be used directly.
      *
-     *  This extends the base track handler to add publish (aka send) handling
+     * @remarks It is safe to call any function from any application thread, although data plane calls
+     * (#PublishObject(), #ForwardPublishedData(), #EndSubgroup()) should not run concurrently in a given handler.
+     * Callback functions are fired from libquicr's single notification thread, are re-entrant safe, but should not
+     * block.
      */
     class PublishTrackHandler : public BaseTrackHandler
     {
       public:
         /**
-         * @brief Publish status codes
+         * @brief Possible results of a #PublishObject() or #ForwardPublishedData() call.
          */
+        // TODO: Some of these map 1:1 to a handler status. We could potentially simplify publish return codes (e.g
+        // TODO: kCannotPublish) at the cost of the app having to lookup the handler status to determine more detail.
         enum class PublishObjectStatus : uint8_t
         {
+            /// This object was successfully published.
             kOk = 0,
+            /// Internal library error. // TODO: Understand what these could be.
             kInternalError,
+            /// The publication of the track was refused.
             kNotAuthorized,
+            /// Track has not yet been published. (TODO: Should we use the word "announce" or "publish"?)
             kNotAnnounced,
+            /// No active subscribers, or the subscription has ended. TODO: This is where kUnsubscribed might make more
+            /// sense as a distinct status. The former can flip, the latter cannot.
             kNoSubscribers,
-            kObjectPayloadLengthExceeded,
-            kPreviousObjectTruncated,
-
-            kNoPreviousObject,
-            kObjectDataComplete,
-            kObjectContinuationDataNeeded,
-            kObjectDataIncomplete, ///< PublishObject() was called when continuation data remains
-
-            /// Indicates that the published object data is too large based on the object header payload size plus
-            /// any/all data that was sent already.
-            kObjectDataTooLarge,
-
-            /// Previous object payload has not been completed and new object cannot start in per-group track mode
-            /// unless new group is used.
-            kPreviousObjectNotCompleteMustStartNewGroup,
-
-            /// Previous object payload has not been completed and new object cannot start in per-track track mode
-            /// without creating a new track. This requires to unpublish and to publish track again.
-            kPreviousObjectNotCompleteMustStartNewTrack,
-
+            /// Cannot forward subgroup data until the first subgroup object has been fully published using
+            /// #PublishObject. See #ForwardPublishedData(). TODO: Name?
+            kObjectDataIncomplete,
+            /// Publication is paused and not currently forwarding objects.
             kPaused,
+            /// The publication of the track has not yet been accepted by the peer.
             kPendingPublishOk
+            // TODO: What about the REQUEST_ERROR case, where the publication is rejected by the peer.
         };
 
         /**
-         * @brief  Status codes for the publish track
+         * @brief Possible states the handler can be in.
          *
          * @note kOk is not the only status that means it is okay to publish.
          *      CanPublish() method should be used to determine if the status is okay to still publish or not.
@@ -67,18 +70,29 @@ namespace quicr {
          */
         enum class Status : uint8_t
         {
+            /// Normal operation.
             kOk = 0,
+            /// The connection is down.
             kNotConnected,
+            /// This publication has not been announced via Session::PublishTrack().
             kNotAnnounced,
-            kPendingAnnounceResponse,
-            kAnnounceNotAuthorized,
+            /// This publication has been rejected due to auth.
+            kNotAuthorized,
+            /// There is no downstream subscriber, but one may still arrive.
             kNoSubscribers,
+            /// The subscriber has terminated the request. This is a terminal state.
             kUnsubscribed,
+            // TODO: A FIN only is allowed in the context of a REQUEST_ERROR / FIN rejecting a PUBLISH, not during
+            // request lifetime.
             kDoneByFin,
-            kSendingUnannounce, ///< In this state, callbacks will not be called
+            /// The subscriber has updated their subscription request. Updated state is visible at entry of this state.
+            /// This state will be "consumed" on next publish, or any other state change.
             kSubscriptionUpdated,
+            /// The subscriber has requested that a new group be produced.
             kNewGroupRequested,
+            /// The publication is yet to be accepted or rejected.
             kPendingPublishOk,
+            /// The subscriber has requested objects not be forwarded to it.
             kPaused,
         };
 
@@ -88,16 +102,18 @@ namespace quicr {
          *
          * @param full_track_name       Full track name
          * @param track_mode            The track mode to operate using
-         * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
-         * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
-         * @param stream_mode           Stream to use when track mode is kStream.
-         * @param largest_location      Largest location to start the handler
+         * @param default_priority      Default priority for objects if not specified in ObjectHeaders
+         * @param default_ttl           Default TTL for objects if not specified in ObjectHeaders
+         * @param subgroup_properties   Default subgroup header framing to use when track mode is kStream. Must not
+         *                              be set for kDatagram. Defaults to explicit subgroup IDs with extensions
+         *                              enabled and per-subgroup priority
+         * @param largest_location      Largest location to start the handler from
          */
         PublishTrackHandler(const FullTrackName& full_track_name,
                             TrackMode track_mode,
                             uint8_t default_priority,
                             uint32_t default_ttl,
-                            std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt,
+                            std::optional<messages::StreamHeaderProperties> subgroup_properties = std::nullopt,
                             messages::Location largest_location = { 0, 0 });
 
       public:
@@ -120,8 +136,6 @@ namespace quicr {
               full_track_name, track_mode, default_priority, default_ttl, std::nullopt, largest_location));
         }
 
-        // TODO: Is this all the info needed for an alias calculation?
-
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
@@ -130,11 +144,12 @@ namespace quicr {
         ///@{
 
         /**
-         * @brief Notification of publish track status change
-         * @details Notification of a change to  publish track status, such as
-         *      when it's ready to publish or not ready to publish
+         * @brief The status of the publication has changed.
+         * @details Notification of a change to the handler's status, such as
+         *      when it's ready to publish or not ready to publish.
+         * @remarks This is fired on libquicr's callback thread. // TODO: Double check this is always true.
          *
-         * @param status        Indicates the status of being able to publish
+         * @param status The new status.
          */
         virtual void StatusChanged(Status status);
 
@@ -145,10 +160,15 @@ namespace quicr {
          *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
          *      for the new period.
          *
+         * @remarks This is fired on libquicr's callback thread.
+         *
          * @param metrics           Copy of the published metrics for the sample period
          */
         virtual void MetricsSampled(const PublishTrackMetrics& metrics);
 
+        // TODO: Does this callback need to be public? The reasoning it might not need to be is that parameters MUST
+        // be understood by libquicr in order to even parse them, and so we can resolve them all to their respective
+        // members instead, and then make a status callback (updated/ok) instead.
         void RequestUpdateReceived(const messages::Parameters& params) override;
 
         ///@}
@@ -183,32 +203,36 @@ namespace quicr {
         void SetDefaultTrackMode(const TrackMode track_mode) noexcept { default_track_mode_ = track_mode; }
 
         /**
-         * @brief Get the current stream mode.
-         * @return The current stream mode.
+         * @brief Get the default subgroup header framing used for kStream tracks.
+         * @return The default subgroup properties, or std::nullopt for a kDatagram track.
          */
-        constexpr std::optional<messages::StreamHeaderProperties> GetStreamMode() const noexcept
+        constexpr std::optional<messages::StreamHeaderProperties> GetSubgroupProperties() const noexcept
         {
-            return stream_mode_;
+            return subgroup_properties_;
         }
 
         /**
-         * @brief Get the publish status
+         * @brief Get the current status of the handler. Apps should respond to status changes via #StatusChanged() over
+         * observing #GetStatus() to avoid missing them.
          *
-         * @return Status of publish
+         * @return Current status of the handler.
          */
         Status GetStatus() const noexcept { return publish_status_.load(std::memory_order_acquire); }
 
         /**
-         * Get the largest location
+         * Get the largest location that been published on this track.
+         *
+         * // TODO: Should this be largest published or attempted to be published.
          *
          * @return the largest/current location
          */
         constexpr messages::Location GetLargestLocation() const noexcept { return largest_location_; }
 
+        // TODO: Likewise should this be public or we can just handle internally?
         /**
          * @brief Notification that a stream has been closed.
          * @param stream_id The ID of the stream being closed.
-         * @param reset     True if stream closed by reset
+         * @param reset     True if stream closed by reset, false if closed by FIN.
          *
          */
         virtual void StreamClosed(std::uint64_t stream_id, bool reset = false);
@@ -218,7 +242,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
 
         /**
-         * @brief Check if the state allows publishing or not
+         * @brief Check if the handler is currently allowing publishing of objects.
          *
          * @return true to indicate that the publisher can publish, false if the publisher cannot
          */
@@ -234,8 +258,12 @@ namespace quicr {
             }
         }
 
+        // TODO: Nobody ever updates this. It could be set at construction time, and internally set by libquicr when
+        // unset at the point of PublishTrack.
+        // TODO: This would make it "publically" immutable and remove this API surface.
+
         /**
-         * @brief Set the track alias
+         * @brief Optionally, set the track alias. If left unset, libquicr will generate one for this track.
          *
          * @param track_alias       MoQ track alias for track namespace+name
          */
@@ -251,37 +279,29 @@ namespace quicr {
         std::optional<uint64_t> GetTrackAlias() const noexcept { return track_alias_; }
 
         /**
-         * @brief Publish [full] object
+         * @brief Publish a complete object on this track.
          *
-         * @details Publish a full object. If not announced, it will be announced. Status will
-         *   indicate if there are no subscribers. In this case, the object will
-         *   not be sent.
+         * @details Serializes and enqueues a single object for delivery. The wire framing depends on the
+         *   handler's track mode:
+         *   - **kDatagram**: each object is sent as an independent ObjectDatagram. Its header framing is derived
+         *     per-object from the object itself (extensions, object ID, priority), so @p subgroup_properties does
+         *     not apply.
+         *   - **kStream**: objects are grouped into subgroup streams keyed by (group ID, subgroup ID). The first
+         *     object seen for a given subgroup opens a new stream and emits a StreamHeaderSubGroup; subsequent
+         *     objects for that subgroup are appended to it.
          *
-         * @note If data is less than ObjectHeaders::payload_length, the error kObjectDataIncomplete
-         *   will be returned and the object will not be sent.
+         * @param object_headers        Object headers; must include group and object IDs.
+         * @param data                  Complete payload for the object.
+         * @param subgroup_properties   Optional override of the subgroup header framing. Only valid in kStream mode,
+         *                              and only on the first object of a subgroup. When omitted, the handler's
+         *                              default is used.
          *
-         *   **Restrictions:**
-         *   - This method cannot be called twice with the same object header group and object IDs.
-         *   - In TrackMode::kStreamPerGroup, ObjectHeaders::group_id **MUST** be different than the previous
-         *     when calling this method when the previous has not been completed yet using PublishContinuationData().
-         *     If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be
-         *     returned and the object will not be sent. If new group ID is provided, then the previous object will
-         *     terminate with stream closure, resulting in the previous being truncated.
-         *   - In TrackMode::kStreamPerTrack, this method **CANNOT** be called until the previous object has been
-         *     completed using PublishContinuationData(). Calling this method before completing the previous
-         *     object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the
-         *     stream would remain unchanged. It is expected that the caller would send the remaining continuation data.
-         *
-         * @param object_headers        Object headers, must include group and object Ids
-         * @param data                  Full complete payload data for the object
-         * @param stream_mode           Subgroup header properties
-         *
-         * @returns Publish status of the publish
+         * @returns Status reflecting whether the object was published.
          */
         virtual PublishObjectStatus PublishObject(
           const ObjectHeaders& object_headers,
           BytesSpan data,
-          std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt);
+          std::optional<messages::StreamHeaderProperties> subgroup_properties = std::nullopt);
 
         /**
          * @brief Forward received object data to subscriber/relay/remote client
@@ -302,37 +322,7 @@ namespace quicr {
                                                  uint64_t subgroup_id,
                                                  std::shared_ptr<const std::vector<uint8_t>> data);
 
-        /**
-         * @brief Publish object to the announced track
-         *
-         * @details Publish a partial object. If not announced, it will be announced. Status will
-         *   indicate if there are no subscribers. In this case, the object will
-         *   not be sent.
-         *
-         *   **Restrictions:**
-         *   - In TrackMode::kStreamPerGroup, /::group_id **MUST** be different than the previous
-         *     when calling this method when the previous has not been completed yet using PublishContinuationData().
-         *     If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be
-         *     returned and the object will not be sent. If new group ID is provided, then the previous object will
-         *     terminate with stream closure, resulting in the previous being truncated.
-         *   - In TrackMode::kStreamPerTrack, this method **CANNOT** be called until the previous object has been
-         *     completed using PublishContinuationData(). Calling this method before completing the previous
-         *     object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the
-         *     stream would remain unchanged. It is expected that the caller would send the remaining continuation data.
-         *
-         * @note If data is less than ObjectHeaders::payload_length, then PublishObject()
-         *   should be called to send the remaining data.
-         *
-         * @param object_headers        Object headers, must include group and object Ids
-         * @param data                  Payload data for the object, must be <= object_headers.payload_length
-         *
-         * @returns Publish status of the publish
-         *    * PublishStatus::kObjectContinuationDataNeeded if the object payload data is not completed but it was
-         * sent,
-         *    * PublishStatus::kObjectDataComplete if the object data was sent and the data is complete,
-         *    * other PublishStatus
-         */
-        PublishObjectStatus PublishPartialObject(const ObjectHeaders& object_headers, BytesSpan data);
+        // TODO: Why is this virtual?
 
         /**
          * @brief Ends the subgroup as completed or not.
@@ -347,9 +337,12 @@ namespace quicr {
          */
         virtual void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true);
 
+        // TODO: We need an EndGroup API here.
+
+        // TODO: Internal? Laps does use for top-n pause though.
         /**
-         * @brief Set the publish status
-         * @param status                Status of publishing (aka publish objects)
+         * @brief Set the status of the handler and fire the #StatusChanged() callback.
+         * @param status The new status of the handler.
          */
         void SetStatus(Status status) noexcept
         {
@@ -363,6 +356,8 @@ namespace quicr {
         // --------------------------------------------------------------------------
         // Metrics
         // --------------------------------------------------------------------------
+
+        // TODO: Why is this public.
 
         /**
          * @brief Publish metrics for the track
@@ -383,7 +378,7 @@ namespace quicr {
         // --------------------------------------------------------------------------
         std::atomic<Status> publish_status_{ Status::kNotAnnounced };
         TrackMode default_track_mode_;
-        std::optional<messages::StreamHeaderProperties> stream_mode_;
+        std::optional<messages::StreamHeaderProperties> subgroup_properties_;
         uint8_t default_priority_; // Set by caller and is used when priority is not specified
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
@@ -408,6 +403,7 @@ namespace quicr {
         bool support_new_group_request_{ true }; /// TODO: For now, always support dynamic groups
         std::optional<uint64_t> pending_new_group_request_id_;
 
+        // TODO: If we're continuing with friend, we may as well move internal things to friend-called over public.
         friend class Session;
     };
 
