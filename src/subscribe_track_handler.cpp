@@ -209,27 +209,21 @@ namespace quicr {
 
     void SubscribeTrackHandler::Pause() noexcept
     {
-        auto transport = GetTransport().lock();
-        if (!transport || status_ == Status::kPaused || status_ == Status::kNotConnected ||
+        auto session = GetSession().lock();
+        if (!session || status_ == Status::kPaused || status_ == Status::kNotConnected ||
             !GetDataContextId().has_value()) {
             return;
         }
 
         status_ = Status::kPaused;
-        auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
-        transport->SendRequestUpdate(conn_ctx,
-                                     GetDataContextId().value(),
-                                     conn_ctx.GetNextRequestId(),
-                                     TrackHash(GetFullTrackName()),
-                                     std::nullopt,
-                                     GetPriority(),
-                                     false);
+        session->SendRequestUpdate(
+          GetDataContextId().value(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), false);
     }
 
     void SubscribeTrackHandler::Resume() noexcept
     {
-        auto transport = GetTransport().lock();
-        if (!transport || !GetDataContextId().has_value()) {
+        auto session = GetSession().lock();
+        if (!session || !GetDataContextId().has_value()) {
             return;
         }
 
@@ -238,31 +232,19 @@ namespace quicr {
         }
 
         status_ = Status::kOk;
-        auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
-        transport->SendRequestUpdate(conn_ctx,
-                                     GetDataContextId().value(),
-                                     conn_ctx.GetNextRequestId(),
-                                     TrackHash(GetFullTrackName()),
-                                     std::nullopt,
-                                     GetPriority(),
-                                     true);
+        session->SendRequestUpdate(
+          GetDataContextId().value(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), true);
     }
 
     void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
     {
-        auto transport = GetTransport().lock();
-        if (!transport || status_ != Status::kOk || !support_new_group_request_ || !GetDataContextId().has_value()) {
+        auto session = GetSession().lock();
+        if (!session || status_ != Status::kOk || !support_new_group_request_ || !GetDataContextId().has_value()) {
             return;
         }
 
-        auto& conn_ctx = transport->GetConnectionContext(GetConnectionId());
-        transport->SendRequestUpdate(conn_ctx,
-                                     GetDataContextId().value(),
-                                     conn_ctx.GetNextRequestId(),
-                                     TrackHash(GetFullTrackName()),
-                                     group_id,
-                                     GetPriority(),
-                                     true);
+        session->SendRequestUpdate(
+          GetDataContextId().value(), TrackHash(GetFullTrackName()), group_id, GetPriority(), true);
     }
 
     void SubscribeTrackHandler::StreamClosed(std::uint64_t stream_id, bool)
@@ -291,9 +273,8 @@ namespace quicr {
                                            messages::ParameterType::kAuthorizationToken,
                                          });
             // TODO: AUTHORIZATION_TOKEN
-            if (const auto transport = GetTransport().lock()) {
-                transport->ResolveRequestUpdate(
-                  GetConnectionId(), *GetRequestId(), { .error = std::nullopt, .params = {} });
+            if (const auto session = GetSession().lock()) {
+                session->ResolveRequestUpdate(*GetRequestId(), { .error = std::nullopt, .params = {} });
             }
             return;
         }

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "quicr/handlers/base_track_handler.h"
+#include "quicr/handlers/track_handler.h"
 #include "quicr/messages/messages.h"
 #include "quicr/messages/object.h"
 #include "quicr/metrics.h"
@@ -21,7 +21,7 @@ namespace quicr {
      *
      *  This extends the base track handler to add publish (aka send) handling
      */
-    class PublishTrackHandler : public BaseTrackHandler
+    class PublishTrackHandler : public TrackHandler
     {
       public:
         /**
@@ -362,7 +362,7 @@ namespace quicr {
             uint64_t stream_id{ 0 };
             uint64_t last_group_id{ 0 };
             uint64_t last_subgroup_id{ 0 };
-            std::optional<uint64_t> last_object_id;
+            std::optional<uint64_t> last_object_id{ std::nullopt };
         };
 
         // Key is group and subgroup id

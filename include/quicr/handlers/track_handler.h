@@ -135,18 +135,18 @@ namespace quicr {
      *
      * @details Base MoQ track handler
      */
-    class BaseTrackHandler
+    class TrackHandler : public std::enable_shared_from_this<TrackHandler>
     {
       public:
         friend class Session;
 
-        virtual ~BaseTrackHandler() = default;
+        virtual ~TrackHandler() = default;
 
         // --------------------------------------------------------------------------
         // Public API methods that normally should not be overridden
         // --------------------------------------------------------------------------
 
-        BaseTrackHandler() = delete;
+        TrackHandler() = delete;
 
       protected:
         /**
@@ -154,7 +154,7 @@ namespace quicr {
          *
          * @param full_track_name       Full track name struct
          */
-        BaseTrackHandler(const FullTrackName& full_track_name)
+        TrackHandler(const FullTrackName& full_track_name)
           : full_track_name_(full_track_name)
         {
         }
@@ -165,6 +165,18 @@ namespace quicr {
         // Public Virtual API callback event methods to be overridden
         // --------------------------------------------------------------------------
       public:
+        /**
+         * @brief Get the derived type of the track handler.
+         * @tparam T Derived type of the track handler.
+         * @return THe cast track handler as its derived type. Nullptr if the type is incorrect to the stored value.
+         */
+        template<typename T>
+            requires std::is_base_of_v<TrackHandler, T>
+        std::shared_ptr<T> Get()
+        {
+            return std::dynamic_pointer_cast<T>(shared_from_this());
+        }
+
         /**
          * @brief Sets the reqeust ID
          * @details MoQ instance sets the request id based on subscribe track method call. Request
@@ -241,7 +253,7 @@ namespace quicr {
          */
         void SetTransport(std::shared_ptr<Session> transport);
 
-        const std::weak_ptr<Session>& GetTransport() const noexcept;
+        const std::weak_ptr<Session>& GetSession() const noexcept;
 
         // --------------------------------------------------------------------------
         // Internal
@@ -277,7 +289,7 @@ namespace quicr {
          */
         std::optional<uint64_t> request_stream_id_{ std::nullopt };
 
-        std::weak_ptr<Session> transport_;
+        std::weak_ptr<Session> session_;
     };
 
 } // namespace moq

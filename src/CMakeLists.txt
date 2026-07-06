@@ -24,7 +24,6 @@ if(NOT QUICR_BUILD_FUZZ)
 endif()
 
 target_sources(quicr PRIVATE
-    base_track_handler.cpp
     ctrl_message_types.cpp
     fetch_track_handler.cpp
     joining_fetch_handler.cpp
@@ -32,11 +31,15 @@ target_sources(quicr PRIVATE
     publish_fetch_handler.cpp
     publish_namespace_handler.cpp
     publish_track_handler.cpp
+    session_manager.cpp
     session.cpp
     subscribe_namespace_handler.cpp
     subscribe_track_handler.cpp
-    transport.cpp
+    track_handler.cpp
     transport_picoquic.cpp
+    transport.cpp
+    connection.cpp
+    picoquic_connection.cpp
 )
 
 target_link_libraries(quicr PUBLIC

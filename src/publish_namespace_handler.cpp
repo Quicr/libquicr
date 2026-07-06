@@ -7,21 +7,21 @@
 #include <ranges>
 
 quicr::PublishNamespaceHandler::PublishNamespaceHandler(const TrackNamespace& prefix)
-  : BaseTrackHandler({ prefix, {} })
+  : TrackHandler({ prefix, {} })
   , prefix_(prefix)
 {
 }
 
 quicr::PublishNamespaceHandler::~PublishNamespaceHandler()
 {
-    const auto& transport = transport_.lock();
+    const auto& transport = GetSession().lock();
     if (!transport) {
         return;
     }
 
     for (const auto& [_, handler] : handlers_) {
         if (handler) {
-            transport->UnpublishTrack(GetConnectionId(), handler);
+            transport->UnpublishTrack(handler);
         }
     }
 }
@@ -76,23 +76,23 @@ quicr::PublishNamespaceHandler::PublishTrack(std::shared_ptr<PublishTrackHandler
 
     handlers_.emplace(TrackHash(handler->GetFullTrackName()).track_fullname_hash, handler);
 
-    const auto& transport = transport_.lock();
+    const auto& transport = GetSession().lock();
     if (!transport) {
         throw std::runtime_error("Cannot create publish track when transport is null");
     }
 
-    transport->PublishTrack(GetConnectionId(), std::move(handler));
+    transport->PublishTrack(std::move(handler));
 }
 
 void
 quicr::PublishNamespaceHandler::UnPublishTrack(std::shared_ptr<PublishTrackHandler> handler)
 {
-    const auto& transport = transport_.lock();
+    const auto& transport = GetSession().lock();
     if (!transport) {
         throw std::runtime_error("Cannot create publish track when transport is null");
     }
 
-    transport->UnpublishTrack(GetConnectionId(), handler);
+    transport->UnpublishTrack(handler);
     handlers_.erase(TrackHash(handler->GetFullTrackName()).track_fullname_hash);
 }
 
@@ -117,7 +117,7 @@ quicr::PublishNamespaceHandler::RequestOkReceived(const messages::Parameters& pa
 }
 
 void
-quicr::PublishNamespaceHandler::RequestUpdateReceived(const messages::Parameters& params)
+quicr::PublishNamespaceHandler::RequestUpdateReceived(const messages::Parameters&)
 {
     // TODO: See moq-wg #1769.
     throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");

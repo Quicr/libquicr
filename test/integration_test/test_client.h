@@ -1,12 +1,15 @@
-#include <quicr/client.h>
+#include <quicr/session.h>
 
 #include <future>
 
 namespace quicr_test {
-    class TestClient final : public quicr::Client
+    class TestClient final : public quicr::Session
     {
       public:
-        explicit TestClient(const quicr::ClientConfig& cfg);
+        explicit TestClient(const quicr::ClientConfig& cfg,
+                            std::shared_ptr<quicr::Transport> transport,
+                            std::shared_ptr<quicr::Connection> connection,
+                            std::shared_ptr<timeq::tick_service> tick_service);
 
         // Connection.
         void SetConnectedPromise(std::promise<quicr::ServerSetupAttributes> promise)
@@ -33,8 +36,7 @@ namespace quicr_test {
             return last_publish_received_sub_handler_;
         }
 
-        void PublishReceived(std::uint64_t connection_id,
-                             uint64_t request_id,
+        void PublishReceived(uint64_t request_id,
                              const quicr::PublishAttributes& publish_attributes,
                              std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;
 

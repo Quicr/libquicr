@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/session.h"
-#include "quicr/client.h"
 #include "quicr/config.h"
 
 #include <doctest/doctest.h>
@@ -12,21 +11,21 @@
 TEST_CASE("Multiple client creation")
 {
     CHECK_NOTHROW({
-        auto client = quicr::Client::Create(quicr::ClientConfig());
+        auto client = quicr::Session::Create(quicr::ClientConfig(), nullptr, nullptr, nullptr);
         client = nullptr;
-        client = quicr::Client::Create(quicr::ClientConfig());
+        client = quicr::Session::Create(quicr::ClientConfig(), nullptr, nullptr, nullptr);
     });
 }
 
 TEST_CASE("Construction")
 {
-    CHECK_NOTHROW(quicr::Client::Create(quicr::ClientConfig()));
+    CHECK_NOTHROW(quicr::Session::Create(quicr::ClientConfig(), nullptr, nullptr, nullptr));
 }
 
-struct BadClient : public quicr::Client
+struct BadClient : public quicr::Session
 {
     BadClient()
-      : quicr::Client(quicr::ClientConfig())
+      : quicr::Session(quicr::ClientConfig(), nullptr, nullptr, nullptr)
     {
     }
 };
@@ -34,5 +33,4 @@ struct BadClient : public quicr::Client
 TEST_CASE("Construction Non-shared")
 {
     BadClient client;
-    CHECK_THROWS(client.Start());
 }
