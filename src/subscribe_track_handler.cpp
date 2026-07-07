@@ -91,7 +91,6 @@ namespace quicr {
             }
 
             subscribe_track_metrics_.objects_received++;
-            subscribe_track_metrics_.bytes_received += obj.payload.size();
 
             try {
                 ObjectReceived(
