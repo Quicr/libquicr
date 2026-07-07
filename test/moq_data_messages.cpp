@@ -392,22 +392,28 @@ StreamHeaderEncodeDecode(StreamHeaderProperties type)
 
 TEST_CASE("StreamHeader Message encode/decode")
 {
+    CHECK_EQ(StreamHeaderProperties(false, SubgroupIdType::kIsZero, false, false, true).GetType(), 0x50);
+    CHECK(StreamHeaderProperties(0x50).first_object);
+
     const std::vector stream_headers = {
         // subgroup_id_mode = kIsZero
-        StreamHeaderProperties(false, SubgroupIdType::kIsZero, false, false),
-        StreamHeaderProperties(true, SubgroupIdType::kIsZero, false, false),
-        StreamHeaderProperties(false, SubgroupIdType::kIsZero, true, false),
-        StreamHeaderProperties(true, SubgroupIdType::kIsZero, true, false),
+        StreamHeaderProperties(false, SubgroupIdType::kIsZero, false, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kIsZero, false, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kIsZero, true, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kIsZero, true, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kIsZero, false, false, true),
         // subgroup_id_mode = kSetFromFirstObject
-        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, false, false),
-        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, false, false),
-        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, true, false),
-        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, true, false),
+        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, false, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, false, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, true, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, true, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, false, false, true),
         // subgroup_id_mode = kExplicit
-        StreamHeaderProperties(false, SubgroupIdType::kExplicit, false, false),
-        StreamHeaderProperties(true, SubgroupIdType::kExplicit, false, false),
-        StreamHeaderProperties(false, SubgroupIdType::kExplicit, true, false),
-        StreamHeaderProperties(true, SubgroupIdType::kExplicit, true, false),
+        StreamHeaderProperties(false, SubgroupIdType::kExplicit, false, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kExplicit, false, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kExplicit, true, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kExplicit, true, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kExplicit, true, false, true),
     };
     for (const auto& props : stream_headers) {
         CAPTURE(props.GetType());
@@ -536,20 +542,20 @@ TEST_CASE("StreamPerSubGroup Object Message encode/decode")
     // - default_priority: false (for now, matching original tests)
     const std::vector stream_headers = {
         // subgroup_id_mode = kIsZero
-        StreamHeaderProperties(false, SubgroupIdType::kIsZero, false, false),
-        StreamHeaderProperties(true, SubgroupIdType::kIsZero, false, false),
-        StreamHeaderProperties(false, SubgroupIdType::kIsZero, true, false),
-        StreamHeaderProperties(true, SubgroupIdType::kIsZero, true, false),
+        StreamHeaderProperties(false, SubgroupIdType::kIsZero, false, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kIsZero, false, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kIsZero, true, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kIsZero, true, false, false),
         // subgroup_id_mode = kSetFromFirstObject
-        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, false, false),
-        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, false, false),
-        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, true, false),
-        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, true, false),
+        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, false, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, false, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kSetFromFirstObject, true, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kSetFromFirstObject, true, false, false),
         // subgroup_id_mode = kExplicit
-        StreamHeaderProperties(false, SubgroupIdType::kExplicit, false, false),
-        StreamHeaderProperties(true, SubgroupIdType::kExplicit, false, false),
-        StreamHeaderProperties(false, SubgroupIdType::kExplicit, true, false),
-        StreamHeaderProperties(true, SubgroupIdType::kExplicit, true, false),
+        StreamHeaderProperties(false, SubgroupIdType::kExplicit, false, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kExplicit, false, false, false),
+        StreamHeaderProperties(false, SubgroupIdType::kExplicit, true, false, false),
+        StreamHeaderProperties(true, SubgroupIdType::kExplicit, true, false, false),
     };
     for (const auto& props : stream_headers) {
         CAPTURE(props.GetType());

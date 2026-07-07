@@ -185,6 +185,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         ObjectStatus status;
         std::vector<uint8_t> data;
         std::optional<Extensions> extensions;
+        std::optional<messages::StreamHeaderProperties> stream_mode;
     };
 
     static std::shared_ptr<TestSubscribeHandler> Create(const FullTrackName& full_track_name,
@@ -238,7 +239,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
 
     void ObjectReceived(const ObjectHeaders& object_headers,
                         BytesSpan data,
-                        std::optional<messages::StreamHeaderProperties>) override
+                        std::optional<messages::StreamHeaderProperties> stream_mode) override
     {
         std::lock_guard lock(mutex_);
         if (!data.empty()) {
@@ -247,7 +248,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
                                           .object_id = object_headers.object_id,
                                           .status = object_headers.status,
                                           .data = std::vector<uint8_t>(data.begin(), data.end()),
-                                          .extensions = object_headers.extensions });
+                                          .extensions = object_headers.extensions,
+                                          .stream_mode = stream_mode });
 
             // Check if we've reached the target count
             if (object_count_promise_.has_value() && received_objects_.size() >= target_object_count_) {
@@ -1406,23 +1408,26 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         REQUIRE(sub_ready);
 
         // Publishes objects with headers in payload.
-        auto publish_object = [&](uint64_t group_id, uint64_t subgroup_id, uint64_t object_id) {
-            std::vector payload = { static_cast<uint8_t>(group_id),
-                                    static_cast<uint8_t>(subgroup_id),
-                                    static_cast<uint8_t>(object_id) };
-            ObjectHeaders headers = { .group_id = group_id,
-                                      .object_id = object_id,
-                                      .subgroup_id = subgroup_id,
-                                      .payload_length = payload.size(),
-                                      .status = ObjectStatus::kAvailable,
-                                      .priority = 3,
-                                      .ttl = 1000,
-                                      .track_mode = TrackMode::kStream,
-                                      .extensions = std::nullopt,
-                                      .immutable_extensions = std::nullopt };
-            auto status = pub_handler->PublishObject(headers, payload);
-            REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
-        };
+        auto publish_object =
+          [&](uint64_t group_id, uint64_t subgroup_id, uint64_t object_id, bool first_object = true) {
+              std::vector payload = { static_cast<uint8_t>(group_id),
+                                      static_cast<uint8_t>(subgroup_id),
+                                      static_cast<uint8_t>(object_id) };
+              ObjectHeaders headers = { .group_id = group_id,
+                                        .object_id = object_id,
+                                        .subgroup_id = subgroup_id,
+                                        .payload_length = payload.size(),
+                                        .status = ObjectStatus::kAvailable,
+                                        .priority = 3,
+                                        .ttl = 1000,
+                                        .track_mode = TrackMode::kStream,
+                                        .extensions = std::nullopt,
+                                        .immutable_extensions = std::nullopt };
+              const messages::StreamHeaderProperties stream_mode(
+                true, messages::SubgroupIdType::kExplicit, false, false, first_object);
+              auto status = pub_handler->PublishObject(headers, payload, stream_mode);
+              REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
+          };
 
         // Subgroup 0.
         publish_object(0, 0, 0);
@@ -1432,8 +1437,8 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         publish_object(0, 1, 2);
         pub_handler->EndSubgroup(0, 1, true);
         // Subgroup 2.
-        publish_object(0, 2, 3);
-        publish_object(0, 2, 4);
+        publish_object(0, 2, 3, false);
+        publish_object(0, 2, 4, false);
         // Let's end on a new group.
         publish_object(1, 0, 0);
 
@@ -1448,6 +1453,9 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
             CHECK_EQ(obj.group_id, obj.data[0]);
             CHECK_EQ(obj.subgroup_id, obj.data[1]);
             CHECK_EQ(obj.object_id, obj.data[2]);
+            REQUIRE(obj.stream_mode.has_value());
+            const bool expected_first_object = obj.group_id != 0 || obj.subgroup_id != 2;
+            CHECK_EQ(obj.stream_mode->first_object, expected_first_object);
         }
     };
 

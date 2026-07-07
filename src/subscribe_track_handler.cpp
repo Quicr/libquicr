@@ -107,7 +107,8 @@ namespace quicr {
                     obj.extensions,
                     obj.immutable_extensions,
                   },
-                  obj.payload);
+                  obj.payload,
+                  s_hdr.properties);
 
                 *stream.next_object_id += 1;
             } catch (const std::exception& e) {
