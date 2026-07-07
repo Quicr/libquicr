@@ -263,8 +263,7 @@ namespace quicr {
         }
     };
 
-    constexpr uint64_t kMetricsIntervalUs = 5'000'000; /// Metrics interval for samples in microseconds
-    constexpr size_t kMaxMetricsSamplesQueue = 500;    /// Max metric samples pending to be written
+    constexpr size_t kMaxMetricsSamplesQueue = 500; /// Max metric samples pending to be written
 
     /// @endcond
 } // end namespace quicr

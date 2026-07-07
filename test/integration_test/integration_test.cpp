@@ -28,6 +28,8 @@ using namespace quicr_test;
 const std::string kIp = "127.0.0.1";
 constexpr uint16_t kPort = 12345;
 const std::string kServerId = "test-server";
+constexpr std::uint64_t kMetricsTestIntervalMs = 250;
+constexpr auto kMetricsTestTimeout = std::chrono::seconds(2);
 
 /// @brief Get test timeout from environment or use default
 /// @details Set LIBQUICR_TEST_TIMEOUT_MS environment variable to override (useful for CI)
@@ -174,13 +176,17 @@ MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
 std::shared_ptr<TestClient>
 MakeTestClient(const bool connect = true,
                const std::optional<std::string>& qlog_path = std::nullopt,
-               const std::string& protocol_scheme = "moq")
+               const std::string& protocol_scheme = "moq",
+               const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt)
 {
     // Connect a client.
     ClientConfig client_config;
     client_config.transport_config.debug = true;
     client_config.endpoint_id = "client";
     client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
+    if (metrics_sample_ms.has_value()) {
+        client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
+    }
     client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(kPort) + "/relay";
     if (qlog_path.has_value()) {
         client_config.transport_config.quic_qlog_path = *qlog_path;
@@ -408,7 +414,7 @@ TEST_CASE("Integration - Subscribe metrics report received payload")
     auto server = MakeTestServer(std::nullopt, 2);
 
     auto test_metrics = [&](const std::string& protocol_scheme) {
-        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
         auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "subscribe" }), { 1 } };
@@ -433,7 +439,7 @@ TEST_CASE("Integration - Subscribe metrics report received payload")
           [&subscribe_handler]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
         // Discard the first sample so publishing starts at the beginning of a sampling interval.
-        REQUIRE_EQ(initial_metrics_future.wait_for(std::chrono::seconds(7)), std::future_status::ready);
+        REQUIRE_EQ(initial_metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
         initial_metrics_future.get();
 
         std::promise<SubscribeTrackMetrics> metrics_promise;
@@ -453,7 +459,7 @@ TEST_CASE("Integration - Subscribe metrics report received payload")
             REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
         }
         REQUIRE_EQ(received_future.wait_for(kDefaultTimeout), std::future_status::ready);
-        REQUIRE_EQ(metrics_future.wait_for(std::chrono::seconds(7)), std::future_status::ready);
+        REQUIRE_EQ(metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
 
         // Check metrics emitted as expected.
         const auto metrics = metrics_future.get();
@@ -481,7 +487,7 @@ TEST_CASE("Integration - Publish metrics report transmitted objects")
     auto server = MakeTestServer();
 
     auto test_metrics = [&](const std::string& protocol_scheme) {
-        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "publish" }), { 1 } };
         auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
@@ -494,7 +500,7 @@ TEST_CASE("Integration - Publish metrics report transmitted objects")
         REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
 
         // Discard the first sample so publishing starts at the beginning of a sampling interval.
-        REQUIRE_EQ(initial_metrics_future.wait_for(std::chrono::seconds(7)), std::future_status::ready);
+        REQUIRE_EQ(initial_metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
         initial_metrics_future.get();
 
         std::promise<PublishTrackMetrics> metrics_promise;
@@ -514,7 +520,7 @@ TEST_CASE("Integration - Publish metrics report transmitted objects")
                                          .track_mode = TrackMode::kStream };
             REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
         }
-        REQUIRE_EQ(metrics_future.wait_for(std::chrono::seconds(7)), std::future_status::ready);
+        REQUIRE_EQ(metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
 
         // Check metrics are as expected.
         const auto metrics = metrics_future.get();
