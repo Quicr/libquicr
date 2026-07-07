@@ -1191,7 +1191,6 @@ namespace quicr {
         }
 
         if (handler.publish_data_ctx_id_ != 0) {
-            conn_ctx.pub_tracks_by_data_ctx_id.erase(handler.publish_data_ctx_id_);
             // TODO: is_reset should propagate down here?
             quic_transport_->DeleteDataContext(connection_id, handler.publish_data_ctx_id_);
             handler.publish_data_ctx_id_ = 0;
@@ -1440,10 +1439,9 @@ namespace quicr {
         track_handler->SetTransport(GetSharedPtr());
 
         // Hold ref to track handler
-        conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash][conn_id] = track_handler;
-        conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+        conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
     }
 
     void Session::PublishNamespace(std::uint64_t conn_id,
@@ -1690,7 +1688,6 @@ namespace quicr {
             }
         }
 
-        conn_ctx.pub_tracks_by_data_ctx_id.clear();
         conn_ctx.pub_tracks_by_name.clear();
         conn_ctx.recv_req_id.clear();
         conn_ctx.recv_publish_namespaces.clear();
@@ -2068,12 +2065,6 @@ namespace quicr {
                     return;
                 }
 
-                // This is a data stream.
-                const auto pub_it = conn_ctx.pub_tracks_by_data_ctx_id.find(*data_ctx_id);
-                if (pub_it != conn_ctx.pub_tracks_by_data_ctx_id.end()) {
-                    lock.unlock();
-                    pub_it->second->StreamClosed(stream_id, flag == StreamClosedFlag::kReset);
-                }
             } catch (const std::exception& e) {
                 SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream closed: {}", e.what());
             }
@@ -2342,7 +2333,6 @@ namespace quicr {
         }
 
         const auto& conn = conn_it->second;
-        const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);
 
         const auto req_it = conn.request_id_by_data_ctx.find(data_ctx_id);
         if (req_it != conn.request_id_by_data_ctx.end()) {
@@ -2949,7 +2939,6 @@ namespace quicr {
             // Hold onto track handler
             conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
             conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash][src_id] = track_handler;
-            conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = track_handler;
         }
 
         lock.unlock();
@@ -2993,8 +2982,6 @@ namespace quicr {
 
             conn_it->second.pub_tracks_by_name.erase(th.track_namespace_hash);
         }
-
-        conn_it->second.pub_tracks_by_data_ctx_id.erase(track_handler->publish_data_ctx_id_);
 
         quic_transport_->DeleteDataContext(connection_id, track_handler->publish_data_ctx_id_);
 
