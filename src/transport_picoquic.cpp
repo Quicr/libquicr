@@ -429,7 +429,7 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                 transport->pq_loop_prev_time = targ->current_time;
             }
 
-            if (targ->current_time - transport->pq_loop_metrics_prev_time >= kMetricsIntervalUs) {
+            if (targ->current_time - transport->pq_loop_metrics_prev_time >= transport->MetricsSampleIntervalUs()) {
                 // Use this time to clean up streams that have been closed
                 transport->RemoveClosedStreams();
 
