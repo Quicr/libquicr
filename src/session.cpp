@@ -1436,7 +1436,7 @@ namespace quicr {
                                              false);
 
         conn_it->second.request_id_by_data_ctx[track_handler->publish_data_ctx_id_] =
-                  track_handler->GetRequestId().value();
+          track_handler->GetRequestId().value();
 
         // Set this transport as the one for the publisher to use.
         track_handler->SetTransport(GetSharedPtr());
