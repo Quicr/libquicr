@@ -3,6 +3,8 @@
 
 #include <doctest/doctest.h>
 
+#include "quicr/containers/cache.h"
+
 #include <timeq/tick_service.h>
 
 // Compatibility shim until cache.h is migrated to timeq::tick_service directly.
@@ -22,8 +24,6 @@ namespace quicr {
         ~TickService() override = default;
     };
 } // namespace quicr
-
-#include <quicr/cache.h>
 
 using namespace quicr;
 

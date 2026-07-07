@@ -11,11 +11,11 @@
 #include <quicr/client.h>
 #include <quicr/common.h>
 #include <quicr/config.h>
-#include <quicr/fetch_track_handler.h>
-#include <quicr/object.h>
-#include <quicr/publish_track_handler.h>
-#include <quicr/subscribe_namespace_handler.h>
-#include <quicr/subscribe_track_handler.h>
+#include <quicr/handlers/fetch_track_handler.h>
+#include <quicr/handlers/publish_track_handler.h>
+#include <quicr/handlers/subscribe_namespace_handler.h>
+#include <quicr/handlers/subscribe_track_handler.h>
+#include <quicr/messages/object.h>
 #include <quicr/track_name.h>
 
 #include <cstring>
@@ -647,7 +647,7 @@ struct qbridge_fetch_track_handler
             const quicr::messages::FetchEndLocation end_location = { config->end_group_id,
                                                                      config->end_object_id == QBRIDGE_FETCH_END_OF_GROUP
                                                                        ? std::nullopt
-                                                                       : std::optional<quicr::messages::ObjectId>(
+                                                                       : std::optional<std::uint64_t>(
                                                                            config->end_object_id) };
 
             cpp_handler = BridgeFetchTrackHandler::Create(full_track_name,
@@ -1071,7 +1071,7 @@ extern "C"
         return QBRIDGE_OK;
     }
 
-    qbridge_track_alias_t qbridge_compute_track_alias(const qbridge_full_track_name_t* track_name)
+    uint64_t qbridge_compute_track_alias(const qbridge_full_track_name_t* track_name)
     {
         if (!track_name) {
             return 0;

@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <doctest/doctest.h>
+#include "quicr/containers/data_storage.h"
 
-#include "quicr/detail/data_storage.h"
+#include <doctest/doctest.h>
 
 TEST_CASE("DataStorage Construct")
 {

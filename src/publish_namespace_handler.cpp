@@ -1,6 +1,8 @@
-#include "quicr/publish_namespace_handler.h"
-#include "quicr/detail/parameters.h"
+#include "quicr/handlers/publish_namespace_handler.h"
+#include "quicr/messages/parameters.h"
 #include "quicr/session.h"
+
+#include <spdlog/spdlog.h>
 
 #include <ranges>
 

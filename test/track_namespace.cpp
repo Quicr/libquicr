@@ -1,7 +1,7 @@
-#include <doctest/doctest.h>
+#include "quicr/common.h"
+#include "quicr/track_name.h"
 
-#include <quicr/common.h>
-#include <quicr/track_name.h>
+#include <doctest/doctest.h>
 
 #include <map>
 #include <span>

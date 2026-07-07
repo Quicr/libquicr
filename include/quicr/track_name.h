@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "hash.h"
+#include "quicr/utilities/hash.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -305,11 +305,6 @@ struct std::hash<quicr::TrackNamespace>
 };
 
 namespace quicr {
-
-    using TrackNamespaceHash = uint64_t;
-    using TrackNameHash = uint64_t;
-    using TrackFullNameHash = uint64_t;
-
     /**
      * @brief Full track name struct
      *
@@ -346,8 +341,8 @@ namespace quicr {
 
     struct TrackHash
     {
-        TrackNamespaceHash track_namespace_hash = 0; // 64bit hash of namespace
-        TrackNameHash track_name_hash = 0;           // 64bit hash of name
+        std::uint64_t track_namespace_hash = 0; // 64bit hash of namespace
+        std::uint64_t track_name_hash = 0;      // 64bit hash of name
 
         uint64_t track_fullname_hash = 0; // 64bit hash of namespace+name
 

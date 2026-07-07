@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <quicr/common.h>
-#include <quicr/hash.h>
-#include <quicr/track_name.h>
-#include <string_view>
+#include "quicr/utilities/hash.h"
+#include "quicr/common.h"
+#include "quicr/track_name.h"
 
 #include <benchmark/benchmark.h>
+
+#include <string_view>
 
 using namespace quicr;
 using namespace std::string_literals;

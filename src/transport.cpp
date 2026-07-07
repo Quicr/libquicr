@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/transport.h"
+#include "quicr/transport.h"
 #include "transport_picoquic.h"
 
 #include <spdlog/logger.h>

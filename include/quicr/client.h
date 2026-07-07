@@ -22,14 +22,14 @@ namespace quicr {
         Status Start() override
         {
             auto result = StartTransport();
-            connection_handle_ = result.connection_handle;
+            connection_id_ = result.connection_id;
             return result.status;
         }
 
         void Stop() override
         {
             Session::Stop();
-            connection_handle_.reset();
+            connection_id_.reset();
         }
 
         using Session::CancelFetchTrack;
@@ -48,43 +48,44 @@ namespace quicr {
 
         void PublishNamespace(std::shared_ptr<PublishNamespaceHandler> handler)
         {
-            if (connection_handle_) {
-                Session::PublishNamespace(*connection_handle_, std::move(handler));
+            if (connection_id_) {
+                Session::PublishNamespace(*connection_id_, std::move(handler));
             }
         }
 
         void PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& handler)
         {
-            if (connection_handle_) {
-                Session::PublishNamespaceDone(*connection_handle_, handler);
+            if (connection_id_) {
+                Session::PublishNamespaceDone(*connection_id_, handler);
             }
         }
 
         void SubscribeNamespace(std::shared_ptr<SubscribeNamespaceHandler> handler)
         {
-            if (connection_handle_) {
-                Session::SubscribeNamespace(*connection_handle_, std::move(handler));
+            if (connection_id_) {
+                Session::SubscribeNamespace(*connection_id_, std::move(handler));
             }
         }
 
         void UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler)
         {
-            if (connection_handle_) {
-                Session::UnsubscribeNamespace(*connection_handle_, handler);
+            if (connection_id_) {
+                Session::UnsubscribeNamespace(*connection_id_, handler);
             }
         }
 
         void SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler)
         {
-            if (connection_handle_) {
-                Session::SubscribeTrack(*connection_handle_, std::move(track_handler));
+            if (connection_id_) {
+                Session::SubscribeTrack(*connection_id_, std::move(track_handler));
             }
         }
 
-        uint64_t RequestTrackStatus(const FullTrackName& track_full_name)
+        uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
+                                    const SubscribeAttributes& subscribe_attributes = {})
         {
-            if (connection_handle_) {
-                return Session::RequestTrackStatus(*connection_handle_, track_full_name);
+            if (connection_id_) {
+                return Session::RequestTrackStatus(*connection_id_, track_full_name, subscribe_attributes);
             }
 
             return 0;
@@ -92,40 +93,40 @@ namespace quicr {
 
         void UnsubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler)
         {
-            if (connection_handle_) {
-                Session::UnsubscribeTrack(*connection_handle_, std::move(track_handler));
+            if (connection_id_) {
+                Session::UnsubscribeTrack(*connection_id_, std::move(track_handler));
             }
         }
 
         void PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
         {
-            if (connection_handle_) {
-                Session::PublishTrack(*connection_handle_, std::move(track_handler));
+            if (connection_id_) {
+                Session::PublishTrack(*connection_id_, std::move(track_handler));
             }
         }
 
         void UnpublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
         {
-            if (connection_handle_) {
-                Session::UnpublishTrack(*connection_handle_, std::move(track_handler));
+            if (connection_id_) {
+                Session::UnpublishTrack(*connection_id_, std::move(track_handler));
             }
         }
 
         void FetchTrack(std::shared_ptr<FetchTrackHandler> track_handler)
         {
-            if (connection_handle_) {
-                Session::FetchTrack(*connection_handle_, std::move(track_handler));
+            if (connection_id_) {
+                Session::FetchTrack(*connection_id_, std::move(track_handler));
             }
         }
 
         void CancelFetchTrack(std::shared_ptr<FetchTrackHandler> track_handler)
         {
-            if (connection_handle_) {
-                Session::CancelFetchTrack(*connection_handle_, std::move(track_handler));
+            if (connection_id_) {
+                Session::CancelFetchTrack(*connection_id_, std::move(track_handler));
             }
         }
 
-        std::optional<ConnectionHandle> GetConnectionHandle() const noexcept { return connection_handle_; }
+        std::optional<std::uint64_t> GetConnectionHandle() const noexcept { return connection_id_; }
 
       protected:
         explicit Client(const ClientConfig& cfg)
@@ -139,7 +140,7 @@ namespace quicr {
         }
 
       private:
-        std::optional<ConnectionHandle> connection_handle_;
+        std::optional<std::uint64_t> connection_id_;
     };
 
 } // namespace quicr

@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/fetch_track_handler.h"
+#include "quicr/handlers/fetch_track_handler.h"
+
+#include <spdlog/spdlog.h>
 
 namespace quicr {
     void FetchTrackHandler::StreamDataRecv(bool is_start,
