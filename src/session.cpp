@@ -2312,7 +2312,6 @@ namespace quicr {
                                              const std::uint64_t conn_id,
                                              const QuicConnectionMetrics& quic_connection_metrics)
     {
-        // TODO: doesn't require lock right now, but might need to add lock
         auto conn_it = connections_.find(conn_id);
         if (conn_it == connections_.end()) {
             // Connection no longer exists, skip metrics sampling
