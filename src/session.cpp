@@ -2344,26 +2344,38 @@ namespace quicr {
         const auto& conn = conn_it->second;
         const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);
 
-        if (pub_th_it != conn.pub_tracks_by_data_ctx_id.end()) {
-            auto& pub_h = pub_th_it->second;
-            pub_h->publish_track_metrics_.last_sample_time =
-              sample_time.time_since_epoch() / std::chrono::microseconds(1);
+        const auto req_it = conn.request_id_by_data_ctx.find(data_ctx_id);
+        if (req_it != conn.request_id_by_data_ctx.end()) {
+            const auto req_handler_it = conn.request_handlers.find(req_it->second);
+            if (req_handler_it != conn.request_handlers.end()) {
+                if (auto h = req_handler_it->second.Get<SubscribeTrackHandler>();
+                    h && h->GetDataContextId() == data_ctx_id) {
 
-            pub_h->publish_track_metrics_.quic.tx_buffer_drops = quic_data_context_metrics.tx_buffer_drops;
-            pub_h->publish_track_metrics_.quic.tx_callback_ms = quic_data_context_metrics.tx_callback_ms;
-            pub_h->publish_track_metrics_.quic.tx_delayed_callback = quic_data_context_metrics.tx_delayed_callback;
-            pub_h->publish_track_metrics_.quic.tx_object_duration_us = quic_data_context_metrics.tx_object_duration_us;
-            pub_h->publish_track_metrics_.quic.tx_queue_discards = quic_data_context_metrics.tx_queue_discards;
-            pub_h->publish_track_metrics_.quic.tx_queue_expired = quic_data_context_metrics.tx_queue_expired;
-            pub_h->publish_track_metrics_.quic.tx_queue_size = quic_data_context_metrics.tx_queue_size;
-            pub_h->publish_track_metrics_.quic.tx_reset_wait = quic_data_context_metrics.tx_reset_wait;
+                    h->subscribe_track_metrics_.last_sample_time =
+                      sample_time.time_since_epoch() / std::chrono::microseconds(1);
 
-            pub_h->MetricsSampled(pub_h->publish_track_metrics_);
-        }
+                    h->subscribe_track_metrics_.bytes_received = quic_data_context_metrics.rx_stream_bytes;
 
-        for (const auto& [_, req] : conn.request_handlers) {
-            if (auto h = req.Get<SubscribeTrackHandler>(); h) {
-                h->MetricsSampled(h->subscribe_track_metrics_);
+                    h->MetricsSampled(h->subscribe_track_metrics_);
+
+                } else if (auto h = req_handler_it->second.Get<PublishTrackHandler>();
+                           h && h->GetDataContextId() == data_ctx_id) {
+
+                    h->publish_track_metrics_.last_sample_time =
+                      sample_time.time_since_epoch() / std::chrono::microseconds(1);
+
+                    h->publish_track_metrics_.quic.tx_buffer_drops = quic_data_context_metrics.tx_buffer_drops;
+                    h->publish_track_metrics_.quic.tx_callback_ms = quic_data_context_metrics.tx_callback_ms;
+                    h->publish_track_metrics_.quic.tx_delayed_callback = quic_data_context_metrics.tx_delayed_callback;
+                    h->publish_track_metrics_.quic.tx_object_duration_us =
+                      quic_data_context_metrics.tx_object_duration_us;
+                    h->publish_track_metrics_.quic.tx_queue_discards = quic_data_context_metrics.tx_queue_discards;
+                    h->publish_track_metrics_.quic.tx_queue_expired = quic_data_context_metrics.tx_queue_expired;
+                    h->publish_track_metrics_.quic.tx_queue_size = quic_data_context_metrics.tx_queue_size;
+                    h->publish_track_metrics_.quic.tx_reset_wait = quic_data_context_metrics.tx_reset_wait;
+
+                    h->MetricsSampled(h->publish_track_metrics_);
+                }
             }
         }
     }
