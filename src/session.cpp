@@ -2354,7 +2354,7 @@ namespace quicr {
                     h->subscribe_track_metrics_.last_sample_time =
                       sample_time.time_since_epoch() / std::chrono::microseconds(1);
 
-                    h->subscribe_track_metrics_.bytes_received = quic_data_context_metrics.rx_stream_bytes;
+                    h->subscribe_track_metrics_.bytes_received += quic_data_context_metrics.rx_stream_bytes;
 
                     h->MetricsSampled(h->subscribe_track_metrics_);
 
@@ -2364,15 +2364,15 @@ namespace quicr {
                     h->publish_track_metrics_.last_sample_time =
                       sample_time.time_since_epoch() / std::chrono::microseconds(1);
 
-                    h->publish_track_metrics_.quic.tx_buffer_drops = quic_data_context_metrics.tx_buffer_drops;
+                    h->publish_track_metrics_.quic.tx_buffer_drops += quic_data_context_metrics.tx_buffer_drops;
                     h->publish_track_metrics_.quic.tx_callback_ms = quic_data_context_metrics.tx_callback_ms;
-                    h->publish_track_metrics_.quic.tx_delayed_callback = quic_data_context_metrics.tx_delayed_callback;
+                    h->publish_track_metrics_.quic.tx_delayed_callback += quic_data_context_metrics.tx_delayed_callback;
                     h->publish_track_metrics_.quic.tx_object_duration_us =
                       quic_data_context_metrics.tx_object_duration_us;
-                    h->publish_track_metrics_.quic.tx_queue_discards = quic_data_context_metrics.tx_queue_discards;
-                    h->publish_track_metrics_.quic.tx_queue_expired = quic_data_context_metrics.tx_queue_expired;
+                    h->publish_track_metrics_.quic.tx_queue_discards += quic_data_context_metrics.tx_queue_discards;
+                    h->publish_track_metrics_.quic.tx_queue_expired += quic_data_context_metrics.tx_queue_expired;
                     h->publish_track_metrics_.quic.tx_queue_size = quic_data_context_metrics.tx_queue_size;
-                    h->publish_track_metrics_.quic.tx_reset_wait = quic_data_context_metrics.tx_reset_wait;
+                    h->publish_track_metrics_.quic.tx_reset_wait += quic_data_context_metrics.tx_reset_wait;
 
                     h->MetricsSampled(h->publish_track_metrics_);
                 }
