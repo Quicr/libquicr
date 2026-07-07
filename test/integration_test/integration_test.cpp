@@ -217,6 +217,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         return streams_.size();
     }
 
+    std::uint64_t RequestUpdateOks() const noexcept { return request_update_oks_; }
+
     /// @brief Set a promise to be fulfilled when a specific object count is reached
     void SetObjectCountPromise(std::size_t target_count, std::promise<void> promise)
     {
@@ -255,11 +257,18 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         }
     }
 
+    void RequestOkReceived(const messages::Parameters& params) override
+    {
+        SubscribeTrackHandler::RequestOkReceived(params);
+        ++request_update_oks_;
+    }
+
   private:
     mutable std::mutex mutex_;
     std::vector<ReceivedObject> received_objects_;
     std::size_t target_object_count_{ 0 };
     std::optional<std::promise<void>> object_count_promise_;
+    std::atomic<std::uint64_t> request_update_oks_{ 0 };
 };
 
 TEST_CASE("Integration - Connection")
@@ -303,7 +312,7 @@ TEST_CASE("Integration - Subscribe")
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
         const messages::Filter filter = messages::TrackFilter{ 1, 2, 3 };
-        const auto handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt, filter);
+        const auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt, filter);
 
         // When we subscribe, server should receive a subscribe.
         std::promise<TestServer::SubscribeDetails> promise;
@@ -326,6 +335,11 @@ TEST_CASE("Integration - Subscribe")
           WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
         CHECK(track_live);
         CHECK_EQ(handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
+
+        // Pause/resume should cause request updates and oks to roundtrip.
+        handler->Pause();
+        handler->Resume();
+        REQUIRE(WaitFor([&handler]() { return handler->RequestUpdateOks() == 2; }));
 
         // Test is complete, unsubscribe while we are connected.
         CHECK_NOTHROW(client->UnsubscribeTrack(handler));
