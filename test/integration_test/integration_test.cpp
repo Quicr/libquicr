@@ -289,7 +289,6 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         }
     }
 
-
     void MetricsSampled(const SubscribeTrackMetrics& metrics) override
     {
         std::lock_guard lock(mutex_);
@@ -297,6 +296,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
             metrics_promise_->set_value(metrics);
             metrics_promise_.reset();
         }
+    }
 
     void RequestOkReceived(const messages::Parameters& params) override
     {
