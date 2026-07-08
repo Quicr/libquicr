@@ -2352,7 +2352,7 @@ namespace quicr {
                     h->MetricsSampled(h->subscribe_track_metrics_);
 
                 } else if (auto h = req_handler_it->second.Get<PublishTrackHandler>();
-                           h && h->GetDataContextId() == data_ctx_id) {
+                           h && h->publish_data_ctx_id_ == data_ctx_id) {
 
                     h->publish_track_metrics_.last_sample_time =
                       sample_time.time_since_epoch() / std::chrono::microseconds(1);
