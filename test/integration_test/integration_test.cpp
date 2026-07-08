@@ -1408,39 +1408,43 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         REQUIRE(sub_ready);
 
         // Publishes objects with headers in payload.
-        auto publish_object =
-          [&](uint64_t group_id, uint64_t subgroup_id, uint64_t object_id, bool first_object = true) {
-              std::vector payload = { static_cast<uint8_t>(group_id),
-                                      static_cast<uint8_t>(subgroup_id),
-                                      static_cast<uint8_t>(object_id) };
-              ObjectHeaders headers = { .group_id = group_id,
-                                        .object_id = object_id,
-                                        .subgroup_id = subgroup_id,
-                                        .payload_length = payload.size(),
-                                        .status = ObjectStatus::kAvailable,
-                                        .priority = 3,
-                                        .ttl = 1000,
-                                        .track_mode = TrackMode::kStream,
-                                        .extensions = std::nullopt,
-                                        .immutable_extensions = std::nullopt };
-              const messages::StreamHeaderProperties stream_mode(
-                true, messages::SubgroupIdType::kExplicit, false, false, first_object);
-              auto status = pub_handler->PublishObject(headers, payload, stream_mode);
-              REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
-          };
+        auto publish_object = [&](uint64_t group_id,
+                                  uint64_t subgroup_id,
+                                  uint64_t object_id,
+                                  std::optional<bool> first_object = std::nullopt) {
+            std::vector payload = { static_cast<uint8_t>(group_id),
+                                    static_cast<uint8_t>(subgroup_id),
+                                    static_cast<uint8_t>(object_id) };
+            ObjectHeaders headers = { .group_id = group_id,
+                                      .object_id = object_id,
+                                      .subgroup_id = subgroup_id,
+                                      .payload_length = payload.size(),
+                                      .status = ObjectStatus::kAvailable,
+                                      .priority = 3,
+                                      .ttl = 1000,
+                                      .track_mode = TrackMode::kStream,
+                                      .extensions = std::nullopt,
+                                      .immutable_extensions = std::nullopt };
+            std::optional<messages::StreamHeaderProperties> stream_mode;
+            if (first_object.has_value()) {
+                stream_mode.emplace(true, messages::SubgroupIdType::kExplicit, false, false, *first_object);
+            }
+            auto status = pub_handler->PublishObject(headers, payload, stream_mode);
+            REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
+        };
 
         // Subgroup 0.
-        publish_object(0, 0, 0);
+        publish_object(0, 0, 0, true);
         publish_object(0, 0, 1);
         pub_handler->EndSubgroup(0, 0, true);
         // Subgroup 1.
-        publish_object(0, 1, 2);
+        publish_object(0, 1, 2, true);
         pub_handler->EndSubgroup(0, 1, true);
-        // Subgroup 2.
+        // Subgroup 2, replicating a relay mid-subgroup forward (non-original first object).
         publish_object(0, 2, 3, false);
-        publish_object(0, 2, 4, false);
+        publish_object(0, 2, 4);
         // Let's end on a new group.
-        publish_object(1, 0, 0);
+        publish_object(1, 0, 0, true);
 
         // Make sure we got everything.
         auto receive_status = all_received_future.wait_for(std::chrono::milliseconds(3000));
@@ -1453,9 +1457,17 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
             CHECK_EQ(obj.group_id, obj.data[0]);
             CHECK_EQ(obj.subgroup_id, obj.data[1]);
             CHECK_EQ(obj.object_id, obj.data[2]);
-            REQUIRE(obj.stream_mode.has_value());
-            const bool expected_first_object = obj.group_id != 0 || obj.subgroup_id != 2;
-            CHECK_EQ(obj.stream_mode->first_object, expected_first_object);
+            // Validate original first object roundtrip. The subgroup header is only set on
+            // first object of the subgroup stream (which may or may not be the subgroup's original first object).
+            const bool is_first_subgroup_object = (obj.group_id == 0 && obj.subgroup_id == 0 && obj.object_id == 0) ||
+                                                  (obj.group_id == 0 && obj.subgroup_id == 1 && obj.object_id == 2) ||
+                                                  (obj.group_id == 0 && obj.subgroup_id == 2 && obj.object_id == 3) ||
+                                                  (obj.group_id == 1 && obj.subgroup_id == 0 && obj.object_id == 0);
+            CHECK_EQ(obj.stream_mode.has_value(), is_first_subgroup_object);
+            if (obj.stream_mode.has_value()) {
+                const bool expected_original_first = obj.group_id != 0 || obj.subgroup_id != 2;
+                CHECK_EQ(obj.stream_mode->first_object, expected_original_first);
+            }
         }
     };
 

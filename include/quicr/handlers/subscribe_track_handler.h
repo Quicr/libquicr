@@ -282,7 +282,7 @@ namespace quicr {
          *
          * @param object_headers    Object headers, must include group and object Ids
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
-         * @param stream_mode       Subgroup header type
+         * @param stream_mode       If this is the first object of a subgroup, its properties.
          */
         virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
                                     [[maybe_unused]] BytesSpan data,
