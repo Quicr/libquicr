@@ -46,6 +46,7 @@ namespace quicr {
             kPendingResponse,
             kSendingUnsubscribe, ///< In this state, callbacks will not be called,
             kPaused,
+            kSubscriptionUpdated,
             kNewGroupRequested,
             kCancelled,
             kDoneByFin,
@@ -353,7 +354,7 @@ namespace quicr {
          *
          * @param status        Indicates status of the subscribe
          */
-        virtual void StatusChanged([[maybe_unused]] Status status) {}
+        virtual void StatusChanged(Status status);
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -365,8 +366,6 @@ namespace quicr {
          * @param metrics           Copy of the subscribed metrics for the sample period
          */
         virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
-
-        void RequestUpdateReceived(const messages::Parameters& params) override;
 
         ///@}
 
@@ -394,6 +393,8 @@ namespace quicr {
 
       protected:
         void RequestOkReceived(const messages::Parameters& params) override;
+
+        void RequestUpdateReceived(const messages::Parameters& params) override;
 
         /**
          * @brief Set the subscribe status

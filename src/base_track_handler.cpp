@@ -12,6 +12,24 @@ namespace quicr {
         return transport_;
     }
 
+    void BaseTrackHandler::ResolveRequestUpdate(const std::optional<quicr::RequestError>& error)
+    {
+        // Consume a pending request.
+        auto pending = pending_request_updates_.load(std::memory_order_acquire);
+        while (pending != 0) {
+            if (pending_request_updates_.compare_exchange_weak(
+                  pending, pending - 1, std::memory_order_acq_rel, std::memory_order_acquire)) {
+
+                // Resolve.
+                if (const auto transport = GetTransport().lock()) {
+                    transport->ResolveRequestUpdate(*this, error);
+                }
+                return;
+            }
+        }
+        throw std::logic_error("ResolveRequestUpdate called with no update pending");
+    }
+
     RequestResponse::ReasonCode RequestResponse::FromErrorCode(messages::ErrorCode error_code)
     {
         switch (error_code) {

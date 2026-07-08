@@ -38,7 +38,12 @@ namespace quicr {
         }
     }
 
-    void PublishTrackHandler::StatusChanged(Status) {}
+    void PublishTrackHandler::StatusChanged(Status status)
+    {
+        if (status == Status::kSubscriptionUpdated) {
+            ResolveRequestUpdate();
+        }
+    }
 
     void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&) {}
 
@@ -459,6 +464,7 @@ namespace quicr {
         // TODO: SUBGROUP_DELIVERY_TIMEOUT
         // TODO: SUBSCRIBER_PRIORITY
         // TODO: SUBSCRIPTION_FILTER
+
         if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
             SetStatus(*forward ? Status::kOk : Status::kPaused);
         }
@@ -467,10 +473,8 @@ namespace quicr {
             SetStatus(Status::kNewGroupRequested);
         }
 
-        if (const auto transport = GetTransport().lock()) {
-            transport->ResolveRequestUpdate(
-              GetConnectionId(), *GetRequestId(), { .error = std::nullopt, .params = {} });
-        }
+        ++pending_request_updates_;
+        StatusChanged(Status::kSubscriptionUpdated);
     }
 
     void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, bool reset)

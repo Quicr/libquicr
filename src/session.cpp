@@ -2722,41 +2722,37 @@ namespace quicr {
         }
     }
 
-    void Session::ResolveRequestUpdate(std::uint64_t connection_id,
-                                       std::uint64_t request_id,
-                                       const RequestUpdateResponse& response)
+    void Session::ResolveRequestUpdate(const BaseTrackHandler& handler, const std::optional<RequestError>& error)
     {
-        auto conn_it = connections_.find(connection_id);
-        if (conn_it == connections_.end()) {
+        const auto connection_id = handler.GetConnectionId();
+        const auto request_id = handler.GetRequestId();
+        const auto data_ctx_id = handler.GetDataContextId();
+        if (!request_id.has_value() || !data_ctx_id.has_value()) {
+            SPDLOG_LOGGER_ERROR(logger_, "ResolveRequestUpdate: Handler not setup");
             return;
         }
 
-        auto track_it = conn_it->second.request_handlers.find(request_id);
-        if (track_it == conn_it->second.request_handlers.end()) {
-            SPDLOG_LOGGER_ERROR(logger_, "Resolve REQUEST_UPDATE for request {} had no handler", request_id);
+        std::lock_guard _(state_mutex_);
+        const auto conn_it = connections_.find(connection_id);
+        if (conn_it == connections_.end() || conn_it->second.closed) {
+            SPDLOG_LOGGER_WARN(logger_, "ResolveRequestUpdate: Connection doesn't exist");
             return;
         }
 
-        SPDLOG_LOGGER_DEBUG(logger_, "Request Updated resolve req_id: {}", request_id);
-
-        const auto data_ctx_id = track_it->second.handler->GetDataContextId();
-        if (!data_ctx_id.has_value()) {
-            SPDLOG_LOGGER_WARN(logger_,
-                               "ResolveRequestUpdate missing handler data context conn_id: {} request_id: {}",
-                               connection_id,
-                               request_id);
+        // Ensure this handler is still live.
+        const auto handler_it = conn_it->second.request_handlers.find(*request_id);
+        if (handler_it == conn_it->second.request_handlers.end()) {
+            SPDLOG_LOGGER_WARN(logger_, "ResolveRequestUpdate: Stale handler");
             return;
         }
+        // TODO: Ensure the given handler matches handler_it? Should be impossible.
 
-        if (response.error.has_value()) {
-            SendRequestError(conn_it->second,
-                             *data_ctx_id,
-                             request_id,
-                             response.error->error_code,
-                             response.error->retry_interval,
-                             response.error->reason);
+        if (error.has_value()) {
+            // TODO: Implement redirect.
+            SendRequestError(
+              conn_it->second, *data_ctx_id, *request_id, error->code, error->retry_interval, error->reason);
         } else {
-            // TODO: Type the params in resolve, fill in here.
+            // TODO: These parameters might be set in certain request update oks.
             SendRequestUpdateOk(conn_it->second, *data_ctx_id, std::nullopt, std::nullopt);
         }
     }
@@ -3593,6 +3589,9 @@ namespace quicr {
             }
             case messages::ControlMessageType::kRequestUpdate: {
                 const auto update_request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
+
+                std::unique_lock lock(state_mutex_);
                 const auto request_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
                 if (request_it == conn_ctx.request_id_by_data_ctx.end()) {
                     SPDLOG_LOGGER_WARN(logger_,
@@ -3604,67 +3603,51 @@ namespace quicr {
                     return true;
                 }
                 const auto request_id = request_it->second;
-                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
-                if (client_mode_) {
-                    auto track_it = conn_ctx.request_handlers.find(request_id);
-                    if (track_it == conn_ctx.request_handlers.end()) {
-                        SPDLOG_LOGGER_WARN(logger_,
-                                           "Received REQUEST_UPDATE to unknown track conn_id: {} request_id: {}, "
-                                           "ignored",
-                                           conn_ctx.connection_id,
-                                           request_id);
+                const auto handler_it = conn_ctx.request_handlers.find(request_id);
+                if (handler_it == conn_ctx.request_handlers.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received REQUEST_UPDATE on unknown request stream conn_id: {} data_ctx_id: {}"
+                                       "request_id: {} update_request_id: {}, ignored",
+                                       conn_ctx.connection_id,
+                                       data_ctx_id,
+                                       request_id,
+                                       update_request_id);
+                    return true;
+                }
+                const auto handler = handler_it->second;
+
+                // Server session level NGR callback.
+                std::optional<std::pair<FullTrackName, std::uint64_t>> new_group_request;
+                if (!client_mode_) {
+                    const auto sub_ctx_it = conn_ctx.recv_req_id.find(request_id);
+                    if (sub_ctx_it == conn_ctx.recv_req_id.end()) {
+                        // TODO: This shouldn;t really be able to happen if we got this far already.
+                        SPDLOG_LOGGER_WARN(
+                          logger_,
+                          "Received REQUEST_UPDATE for unknown subscription conn_id: {} request_id: {}",
+                          conn_ctx.connection_id,
+                          request_id);
+                        SendRequestError(conn_ctx,
+                                         data_ctx_id,
+                                         request_id,
+                                         messages::ErrorCode::kDoesNotExist,
+                                         0ms,
+                                         "Subscription not found");
                         return true;
                     }
-
-                    track_it->second.handler->RequestUpdateReceived(parameters);
-                    return true;
-                }
-
-                // TODO: This should be migrated to the above pattern.
-                auto sub_ctx_it = conn_ctx.recv_req_id.find(request_id);
-                if (sub_ctx_it == conn_ctx.recv_req_id.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe_update for unknown subscription conn_id: {} request_id: {}",
-                                       conn_ctx.connection_id,
-                                       request_id);
-
-                    SendRequestError(conn_ctx,
-                                     data_ctx_id,
-                                     request_id,
-                                     messages::ErrorCode::kDoesNotExist,
-                                     0ms,
-                                     "Subscription not found");
-                    return true;
-                }
-
-                [[maybe_unused]] auto delivery_timeout =
-                  parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                [[maybe_unused]] auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
-                auto new_group_request_id =
-                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-
-                if (new_group_request_id.has_value()) {
-                    NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id.value());
-                }
-
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe_update to recv request_id: {} forward: {} ngr: {}",
-                                    request_id,
-                                    forward,
-                                    new_group_request_id.has_value());
-
-                for (const auto& pub :
-                     conn_ctx.pub_tracks_by_track_alias[sub_ctx_it->second.track_hash.track_fullname_hash]) {
-                    if (not forward) {
-                        pub.second->SetStatus(PublishTrackHandler::Status::kPaused);
-                    } else {
-                        pub.second->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
+                    if (const auto new_group_request_id =
+                          parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest)) {
+                        new_group_request = { sub_ctx_it->second.track_full_name, *new_group_request_id };
                     }
                 }
 
-                SendRequestUpdateOk(conn_ctx, data_ctx_id, std::nullopt, std::nullopt);
+                // Fire callbacks.
+                lock.unlock();
+                handler.handler->RequestUpdateReceived(parameters);
+                if (new_group_request.has_value()) {
+                    NewGroupRequested(new_group_request->first, new_group_request->second);
+                }
                 return true;
             }
             default: {

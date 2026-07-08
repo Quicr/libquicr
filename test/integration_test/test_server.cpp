@@ -22,6 +22,9 @@ TestPublishTrackHandler::StatusChanged(Status status)
             }
             break;
         }
+        case Status::kSubscriptionUpdated:
+            ResolveRequestUpdate();
+            break;
         case Status::kUnsubscribed: {
             if (const auto svr = server_.lock()) {
                 if (svr->unsubscribe_promise_.has_value()) {

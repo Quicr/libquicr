@@ -8,6 +8,8 @@
 
 #include <doctest/doctest.h>
 
+#include <stdexcept>
+
 class TestPublishTrackHandler : public quicr::PublishTrackHandler
 {
     TestPublishTrackHandler()
@@ -20,6 +22,12 @@ class TestPublishTrackHandler : public quicr::PublishTrackHandler
     {
         return std::shared_ptr<TestPublishTrackHandler>(new TestPublishTrackHandler());
     }
+
+    void StatusChanged(Status status) override { statuses.push_back(status); }
+
+    using quicr::PublishTrackHandler::RequestUpdateReceived;
+
+    std::vector<Status> statuses;
 };
 
 TEST_CASE("Create Track Handler")
@@ -35,6 +43,21 @@ TEST_CASE("Publish Track Handler CanPublish")
     CHECK_FALSE(handler->CanPublish());
 }
 
+TEST_CASE("Publish Track Handler updates don't override status")
+{
+    auto handler = TestPublishTrackHandler::Create();
+    const auto parameters = quicr::messages::Parameters{}
+                              .Add(quicr::messages::ParameterType::kSubscriberPriority, std::uint8_t{ 42 })
+                              .Add(quicr::messages::ParameterType::kForward, false);
+
+    handler->RequestUpdateReceived(parameters);
+
+    CHECK_EQ(handler->GetStatus(), quicr::PublishTrackHandler::Status::kPaused);
+    REQUIRE_EQ(handler->statuses.size(), 2);
+    CHECK_EQ(handler->statuses[0], quicr::PublishTrackHandler::Status::kPaused);
+    CHECK_EQ(handler->statuses[1], quicr::PublishTrackHandler::Status::kSubscriptionUpdated);
+}
+
 class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
@@ -48,15 +71,22 @@ class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
         std::optional<quicr::Extensions> immutable_extensions;
     };
 
-    TestSubscribeTrackHandler()
-      : SubscribeTrackHandler({ {}, {} }, 0, quicr::messages::GroupOrder::kAscending)
+    explicit TestSubscribeTrackHandler(bool publisher_initiated = false)
+      : SubscribeTrackHandler({ {}, {} },
+                              0,
+                              quicr::messages::GroupOrder::kAscending,
+                              {},
+                              std::nullopt,
+                              publisher_initiated)
     {
     }
 
-    static std::shared_ptr<TestSubscribeTrackHandler> Create()
+    static std::shared_ptr<TestSubscribeTrackHandler> Create(bool publisher_initiated = false)
     {
-        return std::shared_ptr<TestSubscribeTrackHandler>(new TestSubscribeTrackHandler());
+        return std::shared_ptr<TestSubscribeTrackHandler>(new TestSubscribeTrackHandler(publisher_initiated));
     }
+
+    void StatusChanged(Status status) override { statuses.push_back(status); }
 
     void ObjectStatusReceived(const uint64_t group_id,
                               const uint64_t object_id,
@@ -69,9 +99,48 @@ class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
         status_received_count++;
     }
 
+    using quicr::SubscribeTrackHandler::RequestUpdateReceived;
+
     std::optional<ReceivedStatus> last_status;
     int status_received_count{ 0 };
+    std::vector<Status> statuses;
 };
+
+TEST_CASE("Subscribe Track Handler updates don't override status")
+{
+    auto handler = TestSubscribeTrackHandler::Create(true);
+
+    handler->RequestUpdateReceived({});
+
+    CHECK_EQ(handler->GetStatus(), quicr::SubscribeTrackHandler::Status::kOk);
+    REQUIRE_EQ(handler->statuses.size(), 1);
+    CHECK_EQ(handler->statuses[0], quicr::SubscribeTrackHandler::Status::kSubscriptionUpdated);
+}
+
+TEST_CASE("Track Handler resolves exactly one update per received update")
+{
+    std::shared_ptr<quicr::BaseTrackHandler> handler;
+    std::function<void()> receive_update;
+    SUBCASE("Publish")
+    {
+        auto h = TestPublishTrackHandler::Create();
+        receive_update = [h] { h->RequestUpdateReceived({}); };
+        handler = h;
+    }
+    SUBCASE("Subscribe")
+    {
+        auto h = TestSubscribeTrackHandler::Create(true);
+        receive_update = [h] { h->RequestUpdateReceived({}); };
+        handler = h;
+    }
+
+    // Request arrives.
+    receive_update();
+    // Consume should work.
+    CHECK_NOTHROW(handler->ResolveRequestUpdate());
+    // Another consume should throw.
+    CHECK_THROWS_AS(handler->ResolveRequestUpdate(), std::logic_error);
+}
 
 TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kDoesNotExist")
 {

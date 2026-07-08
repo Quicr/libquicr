@@ -12,6 +12,13 @@
 
 namespace quicr {
 
+    void SubscribeTrackHandler::StatusChanged(Status status)
+    {
+        if (status == Status::kSubscriptionUpdated) {
+            ResolveRequestUpdate();
+        }
+    }
+
     void SubscribeTrackHandler::SupportNewGroupRequest(bool is_supported) noexcept
     {
         support_new_group_request_ = is_supported;
@@ -272,10 +279,8 @@ namespace quicr {
                                            messages::ParameterType::kAuthorizationToken,
                                          });
             // TODO: AUTHORIZATION_TOKEN
-            if (const auto transport = GetTransport().lock()) {
-                transport->ResolveRequestUpdate(
-                  GetConnectionId(), *GetRequestId(), { .error = std::nullopt, .params = {} });
-            }
+            ++pending_request_updates_;
+            StatusChanged(Status::kSubscriptionUpdated);
             return;
         }
 

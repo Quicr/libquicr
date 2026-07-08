@@ -149,8 +149,6 @@ namespace quicr {
          */
         virtual void MetricsSampled(const PublishTrackMetrics& metrics);
 
-        void RequestUpdateReceived(const messages::Parameters& params) override;
-
         ///@}
 
         // --------------------------------------------------------------------------
@@ -377,6 +375,8 @@ namespace quicr {
         // --------------------------------------------------------------------------
       protected:
         void RequestOkReceived(const messages::Parameters& params) override;
+
+        void RequestUpdateReceived(const messages::Parameters& params) override;
 
         // --------------------------------------------------------------------------
         // Member variables

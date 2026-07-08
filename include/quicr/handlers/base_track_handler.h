@@ -9,6 +9,7 @@
 #include "quicr/messages/parameters.h"
 #include "quicr/track_name.h"
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -17,6 +18,13 @@
 
 namespace quicr {
     class Session;
+
+    struct RequestError
+    {
+        messages::ErrorCode code;
+        std::chrono::milliseconds retry_interval;
+        std::string reason;
+    };
 
     /**
      * @brief Response to received MOQT Request message
@@ -220,11 +228,16 @@ namespace quicr {
         uint64_t GetConnectionId() const noexcept { return connection_id_; };
 
         /**
-         * @brief Received an update for this handler's request.
-         * Implementations MUST call ResolveRequestUpdate to acknowledge the request.
-         * @param params The updated/new parameters for the request.
+         * @brief Accept or reject a pending update.
+         * @param error nullopt to accept, otherwise reject with the given error.
+         *
+         * @remarks May be called synchronously from within the kSubscriptionUpdated callback, or later
+         * from any thread once the resolution is known, but updates MUST be resolved in order
+         * that they were received.
+         *
+         * @throws std::logic_error if there was no pending update to resolve.
          */
-        virtual void RequestUpdateReceived(const messages::Parameters& params) = 0;
+        void ResolveRequestUpdate(const std::optional<RequestError>& error = std::nullopt);
 
         virtual void RequestError(messages::ErrorCode error_code, std::string reason);
 
@@ -236,12 +249,21 @@ namespace quicr {
         virtual void RequestOkReceived(const messages::Parameters& params) = 0;
 
         /**
+         * @brief Received an update for this handler's request.
+         * Implementations MUST provide a means for ResolveRequestUpdate to acknowledge the request (status).
+         * @param params The updated/new parameters for the request.
+         */
+        virtual void RequestUpdateReceived(const messages::Parameters& params) = 0;
+
+        /**
          * Set the transport to use.
          * @param transport The new transport for the handler to use.
          */
         void SetTransport(std::shared_ptr<Session> transport);
 
         const std::weak_ptr<Session>& GetTransport() const noexcept;
+
+        std::atomic<std::uint64_t> pending_request_updates_{ 0 };
 
         // --------------------------------------------------------------------------
         // Internal

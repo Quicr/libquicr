@@ -312,18 +312,6 @@ namespace quicr {
             std::optional<Bytes> error_reason;
         };
 
-        struct RequestUpdateResponse
-        {
-            struct Error
-            {
-                const messages::ErrorCode error_code;
-                const std::chrono::milliseconds retry_interval;
-                const std::string reason;
-            };
-            const std::optional<Error> error;
-            const messages::Parameters params;
-        };
-
         // --BEGIN RESOLVE METHODS ---------------------------------------------------------------------------
         /** @name Resolve Methods
          *      Methods to accept or reject inbound requests. Most are used in server mode; `ResolveSubscribe()`
@@ -431,17 +419,6 @@ namespace quicr {
         void ResolvePublishNamespaceDone(std::uint64_t connection_id,
                                          std::uint64_t request_id,
                                          const std::vector<std::uint64_t>& subscribers);
-
-        /**
-         * @brief Accept or reject a request update
-         *
-         * @param connection_id         Source connection ID
-         * @param request_id            Request being updated
-         * @param response              Request update response
-         */
-        void ResolveRequestUpdate(std::uint64_t connection_id,
-                                  uint64_t request_id,
-                                  const RequestUpdateResponse& response);
 
         /**
          * @brief Accept or reject track status that was received
@@ -1202,6 +1179,8 @@ namespace quicr {
 
         std::uint64_t ResponseDataContext(const ConnectionContext& conn_ctx, std::uint64_t request_id) const;
 
+        void ResolveRequestUpdate(const BaseTrackHandler& handler, const std::optional<RequestError>& error);
+
         /*===================================================================*/
         // Track Status
         /*===================================================================*/
@@ -1310,6 +1289,7 @@ namespace quicr {
         std::shared_ptr<timeq::tick_service> tick_service_;
         std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
 
+        friend class BaseTrackHandler;
         friend class PublishTrackHandler;
         friend class PublishFetchHandler;
         friend class SubscribeTrackHandler;
