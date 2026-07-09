@@ -1434,17 +1434,17 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         };
 
         // Subgroup 0.
-        publish_object(0, 0, 0, true);
+        publish_object(0, 0, 0);
         publish_object(0, 0, 1);
         pub_handler->EndSubgroup(0, 0, true);
         // Subgroup 1.
-        publish_object(0, 1, 2, true);
+        publish_object(0, 1, 2);
         pub_handler->EndSubgroup(0, 1, true);
         // Subgroup 2, replicating a relay mid-subgroup forward (non-original first object).
         publish_object(0, 2, 3, false);
         publish_object(0, 2, 4);
         // Let's end on a new group.
-        publish_object(1, 0, 0, true);
+        publish_object(1, 0, 0);
 
         // Make sure we got everything.
         auto receive_status = all_received_future.wait_for(std::chrono::milliseconds(3000));
