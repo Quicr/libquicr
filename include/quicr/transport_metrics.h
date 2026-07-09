@@ -31,7 +31,7 @@ namespace quicr {
          */
         void AddValue(const uint64_t value)
         {
-            min = min ? std::min(min, value) : value;
+            min = value_count ? std::min(min, value) : value;
             max = std::max(max, value);
 
             value_sum += value;

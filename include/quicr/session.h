@@ -1021,9 +1021,6 @@ namespace quicr {
             /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
             std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias;
 
-            /// Published tracks by quic transport data context ID.
-            std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
-
             /// Fetch Publishers by request ID.
             std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
 

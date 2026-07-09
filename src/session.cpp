@@ -1181,7 +1181,6 @@ namespace quicr {
         }
 
         if (handler.publish_data_ctx_id_ != 0) {
-            conn_ctx.pub_tracks_by_data_ctx_id.erase(handler.publish_data_ctx_id_);
             // TODO: is_reset should propagate down here?
             quic_transport_->DeleteDataContext(connection_id, handler.publish_data_ctx_id_);
             handler.publish_data_ctx_id_ = 0;
@@ -1426,14 +1425,16 @@ namespace quicr {
                                              track_handler->default_priority_,
                                              false);
 
+        conn_it->second.request_id_by_data_ctx[track_handler->publish_data_ctx_id_] =
+          track_handler->GetRequestId().value();
+
         // Set this transport as the one for the publisher to use.
         track_handler->SetTransport(GetSharedPtr());
 
         // Hold ref to track handler
-        conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
         conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash][conn_id] = track_handler;
-        conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = std::move(track_handler);
+        conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
     }
 
     void Session::PublishNamespace(std::uint64_t conn_id,
@@ -1680,7 +1681,6 @@ namespace quicr {
             }
         }
 
-        conn_ctx.pub_tracks_by_data_ctx_id.clear();
         conn_ctx.pub_tracks_by_name.clear();
         conn_ctx.recv_req_id.clear();
         conn_ctx.recv_publish_namespaces.clear();
@@ -2058,12 +2058,6 @@ namespace quicr {
                     return;
                 }
 
-                // This is a data stream.
-                const auto pub_it = conn_ctx.pub_tracks_by_data_ctx_id.find(*data_ctx_id);
-                if (pub_it != conn_ctx.pub_tracks_by_data_ctx_id.end()) {
-                    lock.unlock();
-                    pub_it->second->StreamClosed(stream_id, flag == StreamClosedFlag::kReset);
-                }
             } catch (const std::exception& e) {
                 SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream closed: {}", e.what());
             }
@@ -2332,28 +2326,39 @@ namespace quicr {
         }
 
         const auto& conn = conn_it->second;
-        const auto& pub_th_it = conn.pub_tracks_by_data_ctx_id.find(data_ctx_id);
 
-        if (pub_th_it != conn.pub_tracks_by_data_ctx_id.end()) {
-            auto& pub_h = pub_th_it->second;
-            pub_h->publish_track_metrics_.last_sample_time =
-              sample_time.time_since_epoch() / std::chrono::microseconds(1);
+        const auto req_it = conn.request_id_by_data_ctx.find(data_ctx_id);
+        if (req_it != conn.request_id_by_data_ctx.end()) {
+            const auto req_handler_it = conn.request_handlers.find(req_it->second);
+            if (req_handler_it != conn.request_handlers.end()) {
+                if (auto h = req_handler_it->second.Get<SubscribeTrackHandler>();
+                    h && h->GetDataContextId() == data_ctx_id) {
 
-            pub_h->publish_track_metrics_.quic.tx_buffer_drops = quic_data_context_metrics.tx_buffer_drops;
-            pub_h->publish_track_metrics_.quic.tx_callback_ms = quic_data_context_metrics.tx_callback_ms;
-            pub_h->publish_track_metrics_.quic.tx_delayed_callback = quic_data_context_metrics.tx_delayed_callback;
-            pub_h->publish_track_metrics_.quic.tx_object_duration_us = quic_data_context_metrics.tx_object_duration_us;
-            pub_h->publish_track_metrics_.quic.tx_queue_discards = quic_data_context_metrics.tx_queue_discards;
-            pub_h->publish_track_metrics_.quic.tx_queue_expired = quic_data_context_metrics.tx_queue_expired;
-            pub_h->publish_track_metrics_.quic.tx_queue_size = quic_data_context_metrics.tx_queue_size;
-            pub_h->publish_track_metrics_.quic.tx_reset_wait = quic_data_context_metrics.tx_reset_wait;
+                    h->subscribe_track_metrics_.last_sample_time =
+                      sample_time.time_since_epoch() / std::chrono::microseconds(1);
 
-            pub_h->MetricsSampled(pub_h->publish_track_metrics_);
-        }
+                    h->subscribe_track_metrics_.bytes_received += quic_data_context_metrics.rx_stream_bytes;
 
-        for (const auto& [_, req] : conn.request_handlers) {
-            if (auto h = req.Get<SubscribeTrackHandler>(); h) {
-                h->MetricsSampled(h->subscribe_track_metrics_);
+                    h->MetricsSampled(h->subscribe_track_metrics_);
+
+                } else if (auto h = req_handler_it->second.Get<PublishTrackHandler>();
+                           h && h->publish_data_ctx_id_ == data_ctx_id) {
+
+                    h->publish_track_metrics_.last_sample_time =
+                      sample_time.time_since_epoch() / std::chrono::microseconds(1);
+
+                    h->publish_track_metrics_.quic.tx_buffer_drops += quic_data_context_metrics.tx_buffer_drops;
+                    h->publish_track_metrics_.quic.tx_callback_ms = quic_data_context_metrics.tx_callback_ms;
+                    h->publish_track_metrics_.quic.tx_delayed_callback += quic_data_context_metrics.tx_delayed_callback;
+                    h->publish_track_metrics_.quic.tx_object_duration_us =
+                      quic_data_context_metrics.tx_object_duration_us;
+                    h->publish_track_metrics_.quic.tx_queue_discards += quic_data_context_metrics.tx_queue_discards;
+                    h->publish_track_metrics_.quic.tx_queue_expired += quic_data_context_metrics.tx_queue_expired;
+                    h->publish_track_metrics_.quic.tx_queue_size = quic_data_context_metrics.tx_queue_size;
+                    h->publish_track_metrics_.quic.tx_reset_wait += quic_data_context_metrics.tx_reset_wait;
+
+                    h->MetricsSampled(h->publish_track_metrics_);
+                }
             }
         }
     }
@@ -2927,7 +2932,6 @@ namespace quicr {
             // Hold onto track handler
             conn_it->second.pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
             conn_it->second.pub_tracks_by_track_alias[th.track_fullname_hash][src_id] = track_handler;
-            conn_it->second.pub_tracks_by_data_ctx_id[track_handler->publish_data_ctx_id_] = track_handler;
         }
 
         lock.unlock();
@@ -2971,8 +2975,6 @@ namespace quicr {
 
             conn_it->second.pub_tracks_by_name.erase(th.track_namespace_hash);
         }
-
-        conn_it->second.pub_tracks_by_data_ctx_id.erase(track_handler->publish_data_ctx_id_);
 
         quic_transport_->DeleteDataContext(connection_id, track_handler->publish_data_ctx_id_);
 

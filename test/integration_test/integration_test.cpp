@@ -86,6 +86,15 @@ WaitFor(Predicate predicate,
     return predicate(); // Final check
 }
 
+static void
+CheckSampledMetric(const MinMaxAvg& metric)
+{
+    REQUIRE_GT(metric.value_count, 0);
+    CHECK_LE(metric.min, metric.avg);
+    CHECK_LE(metric.avg, metric.max);
+    CHECK_EQ(metric.avg, metric.value_sum / metric.value_count);
+}
+
 class CallbackPublishTrackHandler final : public PublishTrackHandler
 {
   public:
@@ -109,10 +118,27 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
         }
     }
 
+    void SetMetricsPromise(std::promise<PublishTrackMetrics> promise)
+    {
+        std::lock_guard lock(metrics_mutex_);
+        metrics_promise_ = std::move(promise);
+    }
+
+    void MetricsSampled(const PublishTrackMetrics& metrics) override
+    {
+        std::lock_guard lock(metrics_mutex_);
+        if (metrics_promise_.has_value()) {
+            metrics_promise_->set_value(metrics);
+            metrics_promise_.reset();
+        }
+    }
+
     uint64_t GetPublishDataContextId() const { return publish_data_ctx_id_; }
 
   private:
     const StatusCallback on_status_;
+    std::mutex metrics_mutex_;
+    std::optional<std::promise<PublishTrackMetrics>> metrics_promise_;
 };
 
 static std::shared_ptr<TestServer>
@@ -227,6 +253,12 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         object_count_promise_ = std::move(promise);
     }
 
+    void SetMetricsPromise(std::promise<SubscribeTrackMetrics> promise)
+    {
+        std::lock_guard lock(mutex_);
+        metrics_promise_ = std::move(promise);
+    }
+
   protected:
     TestSubscribeHandler(const FullTrackName& full_track_name,
                          std::uint8_t priority,
@@ -257,6 +289,15 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         }
     }
 
+    void MetricsSampled(const SubscribeTrackMetrics& metrics) override
+    {
+        std::lock_guard lock(mutex_);
+        if (metrics_promise_.has_value()) {
+            metrics_promise_->set_value(metrics);
+            metrics_promise_.reset();
+        }
+    }
+
     void RequestOkReceived(const messages::Parameters& params) override
     {
         SubscribeTrackHandler::RequestOkReceived(params);
@@ -268,6 +309,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     std::vector<ReceivedObject> received_objects_;
     std::size_t target_object_count_{ 0 };
     std::optional<std::promise<void>> object_count_promise_;
+    std::optional<std::promise<SubscribeTrackMetrics>> metrics_promise_;
     std::atomic<std::uint64_t> request_update_oks_{ 0 };
 };
 
@@ -358,6 +400,149 @@ TEST_CASE("Integration - Subscribe")
     {
         CAPTURE("WebTransport");
         test_subscribe("https");
+    }
+}
+
+TEST_CASE("Integration - Subscribe metrics report received payload")
+{
+    auto server = MakeTestServer(std::nullopt, 2);
+
+    auto test_metrics = [&](const std::string& protocol_scheme) {
+        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "subscribe" }), { 1 } };
+
+        auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
+        publisher->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
+
+        auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+
+        constexpr std::uint64_t to_publish = 5;
+        std::promise<void> received_promise;
+        auto received_future = received_promise.get_future();
+        subscribe_handler->SetObjectCountPromise(to_publish, std::move(received_promise));
+
+        std::promise<SubscribeTrackMetrics> initial_metrics_promise;
+        auto initial_metrics_future = initial_metrics_promise.get_future();
+        subscribe_handler->SetMetricsPromise(std::move(initial_metrics_promise));
+
+        subscriber->SubscribeTrack(subscribe_handler);
+        REQUIRE(WaitFor(
+          [&subscribe_handler]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        // Discard the first sample so publishing starts at the beginning of a sampling interval.
+        REQUIRE_EQ(initial_metrics_future.wait_for(std::chrono::seconds(7)), std::future_status::ready);
+        initial_metrics_future.get();
+
+        std::promise<SubscribeTrackMetrics> metrics_promise;
+        auto metrics_future = metrics_promise.get_future();
+        subscribe_handler->SetMetricsPromise(std::move(metrics_promise));
+
+        const std::vector<std::uint8_t> payload(1024, 0x5a);
+        for (std::uint64_t i = 0; i < to_publish; i++) {
+            const ObjectHeaders headers{ .group_id = 0,
+                                         .object_id = i,
+                                         .subgroup_id = 0,
+                                         .payload_length = payload.size(),
+                                         .status = ObjectStatus::kAvailable,
+                                         .priority = 3,
+                                         .ttl = 5000,
+                                         .track_mode = TrackMode::kStream };
+            REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        }
+        REQUIRE_EQ(received_future.wait_for(kDefaultTimeout), std::future_status::ready);
+        REQUIRE_EQ(metrics_future.wait_for(std::chrono::seconds(7)), std::future_status::ready);
+
+        // Check metrics emitted as expected.
+        const auto metrics = metrics_future.get();
+        CHECK_GT(metrics.last_sample_time, 0);
+        CHECK_EQ(metrics.objects_received, to_publish);
+        // TODO: This will only be request bytes since incoming object streams don't get tracked.
+        CHECK_GT(metrics.bytes_received, 0);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_metrics("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_metrics("https");
+    }
+}
+
+TEST_CASE("Integration - Publish metrics report transmitted objects")
+{
+    auto server = MakeTestServer();
+
+    auto test_metrics = [&](const std::string& protocol_scheme) {
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "publish" }), { 1 } };
+        auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
+
+        std::promise<PublishTrackMetrics> initial_metrics_promise;
+        auto initial_metrics_future = initial_metrics_promise.get_future();
+        publish_handler->SetMetricsPromise(std::move(initial_metrics_promise));
+
+        publisher->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
+
+        // Discard the first sample so publishing starts at the beginning of a sampling interval.
+        REQUIRE_EQ(initial_metrics_future.wait_for(std::chrono::seconds(7)), std::future_status::ready);
+        initial_metrics_future.get();
+
+        std::promise<PublishTrackMetrics> metrics_promise;
+        auto metrics_future = metrics_promise.get_future();
+        publish_handler->SetMetricsPromise(std::move(metrics_promise));
+
+        constexpr std::uint64_t to_publish = 5;
+        const std::vector<std::uint8_t> payload(1024, 0x5a);
+        for (std::uint64_t i = 0; i < to_publish; i++) {
+            const ObjectHeaders headers{ .group_id = 0,
+                                         .object_id = i,
+                                         .subgroup_id = 0,
+                                         .payload_length = payload.size(),
+                                         .status = ObjectStatus::kAvailable,
+                                         .priority = 3,
+                                         .ttl = 5000,
+                                         .track_mode = TrackMode::kStream };
+            REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        }
+        REQUIRE_EQ(metrics_future.wait_for(std::chrono::seconds(7)), std::future_status::ready);
+
+        // Check metrics are as expected.
+        const auto metrics = metrics_future.get();
+        CHECK_GT(metrics.last_sample_time, 0);
+        CHECK_EQ(metrics.objects_published, to_publish);
+        CHECK_EQ(metrics.bytes_published, payload.size() * to_publish);
+        CheckSampledMetric(metrics.quic.tx_queue_size);
+        CheckSampledMetric(metrics.quic.tx_object_duration_us);
+
+        // These metrics will be zero (correctly).
+        CHECK_EQ(metrics.objects_dropped_not_ok, 0);
+        CHECK_EQ(metrics.quic.tx_buffer_drops, 0);
+        CHECK_EQ(metrics.quic.tx_queue_discards, 0);
+        CHECK_EQ(metrics.quic.tx_queue_expired, 0);
+        CHECK_EQ(metrics.quic.tx_delayed_callback, 0);
+        CHECK_EQ(metrics.quic.tx_reset_wait, 0);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_metrics("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_metrics("https");
     }
 }
 
