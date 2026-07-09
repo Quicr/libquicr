@@ -616,7 +616,7 @@ namespace quicr {
                             "Sending PUBLISH to conn_id: {} request_id: {} track alias: {}",
                             conn_ctx.connection_id,
                             request_id,
-                            track_alias);
+                            publish.track_alias);
 
         SendCtrlMsg(conn_ctx,
                     data_ctx_id,
@@ -1369,7 +1369,12 @@ namespace quicr {
     {
         const auto tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
-        SPDLOG_LOGGER_INFO(logger_, "Publish track conn_id: {} hash: {}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_,
+                           "Publish track conn_id: {} hash: {} tfn: {} ({})",
+                           conn_id,
+                           th.track_fullname_hash,
+                           tfn.NamespaceStr(),
+                           tfn.NameStr());
 
         std::unique_lock<std::mutex> lock(state_mutex_);
 
