@@ -717,7 +717,8 @@ extern "C"
                  std::shared_ptr<quicr::Transport> transport,
                  std::shared_ptr<quicr::Connection> connection,
                  std::shared_ptr<timeq::tick_service> tick_service) {
-                  return BridgeClient::Create(cfg, std::move(transport), std::move(connection), std::move(tick_service));
+                  return BridgeClient::Create(
+                    cfg, std::move(transport), std::move(connection), std::move(tick_service));
               });
 
             if (!transport || !session) {
