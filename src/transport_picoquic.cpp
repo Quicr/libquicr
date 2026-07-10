@@ -2161,7 +2161,7 @@ PicoQuicTransport::OnStreamClosed(const std::shared_ptr<PicoQuicConnection>& con
                                   StreamClosedFlag flag)
 {
     SPDLOG_DEBUG("Stream {} closed for connection {}", stream_id, connection->GetID());
-    cbNotifyQueue_.Push([=, rx_ctx = std::move(rx_ctx), this]() {
+    cbNotifyQueue_.Push([=, rx_ctx = std::move(rx_ctx)]() {
         connection->OnStreamClosed(stream_id, std::move(rx_ctx), data_ctx_id, flag);
     });
 }
@@ -2169,14 +2169,13 @@ PicoQuicTransport::OnStreamClosed(const std::shared_ptr<PicoQuicConnection>& con
 void
 PicoQuicTransport::EmitMetrics()
 {
-    for (auto& [conn_id, connection] : connections_) {
-        const auto sample_time = std::chrono::system_clock::now();
+    for (const auto& [conn_id, connection] : connections_) {
         const bool queue_space = cbNotifyQueue_.Size() < (tconfig_.callback_queue_size * 3) / 4;
         if (queue_space) {
             const auto sample_time = std::chrono::system_clock::now();
-            cbNotifyQueue_.Push([=, this]() {
-                if (connection) {
-                    connection->SampleMetrics(sample_time);
+            cbNotifyQueue_.Push([=, c = connection]() {
+                if (c) {
+                    c->SampleMetrics(sample_time);
                 }
             });
         }
