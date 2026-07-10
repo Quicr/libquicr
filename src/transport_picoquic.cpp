@@ -1565,7 +1565,7 @@ PicoQuicTransport::DeleteDataContextInternal(const std::shared_ptr<PicoQuicConne
     SPDLOG_LOGGER_DEBUG(logger,
                         "Delete data context {} in conn_id: {} doe: {} / {} stream count: {}",
                         data_ctx_id,
-                        conn_id,
+                        connection->GetID(),
                         delete_on_empty,
                         data_ctx_it->second.delete_on_empty,
                         streams.size());
@@ -1915,7 +1915,8 @@ PicoQuicTransport::OnConnectionStatus(const std::shared_ptr<PicoQuicConnection>&
         return;
     }
 
-    SPDLOG_LOGGER_DEBUG(logger, "Connection changed conn_id: {} to status: {}", conn_id, static_cast<int>(status));
+    SPDLOG_LOGGER_DEBUG(
+      logger, "Connection changed conn_id: {} to status: {}", connection->GetID(), static_cast<int>(status));
 
     if (status == TransportStatus::kReady) {
         SPDLOG_LOGGER_INFO(logger, "Connection established to server {0}", connection->peer_addr_text);
@@ -2793,7 +2794,7 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
 
         SPDLOG_LOGGER_DEBUG(logger,
                             "conn_id: {0} data_ctx_id: {1} create new stream with stream_id: {2}",
-                            conn_id,
+                            connection->GetID(),
                             data_ctx_id,
                             pq_conn->last_stream_id);
 

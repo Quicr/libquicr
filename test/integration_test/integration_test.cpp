@@ -431,11 +431,12 @@ TEST_CASE("Integration - Subscribe")
 
 TEST_CASE("Integration - Subscribe metrics report received payload")
 {
-    auto server = MakeTestServer(std::nullopt, 2);
+    SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto test_metrics = [&](const std::string& protocol_scheme) {
-        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
-        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto subscriber = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
+        auto publisher = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "subscribe" }), { 1 } };
 
@@ -504,10 +505,11 @@ TEST_CASE("Integration - Subscribe metrics report received payload")
 
 TEST_CASE("Integration - Publish metrics report transmitted objects")
 {
-    auto server = MakeTestServer();
+    SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_metrics = [&](const std::string& protocol_scheme) {
-        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
+        auto publisher = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "publish" }), { 1 } };
         auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
