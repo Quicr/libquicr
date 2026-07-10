@@ -1583,7 +1583,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         auto sub_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
         std::promise<void> all_received_promise;
         auto all_received_future = all_received_promise.get_future();
-        constexpr std::size_t total_objects = 6;
+        constexpr std::size_t total_objects = 7;
         sub_handler->SetObjectCountPromise(total_objects, std::move(all_received_promise));
         subscriber_client->SubscribeTrack(sub_handler);
         const bool sub_ready =
@@ -1591,7 +1591,10 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         REQUIRE(sub_ready);
 
         // Publishes objects with headers in payload.
-        auto publish_object = [&](uint64_t group_id, uint64_t subgroup_id, uint64_t object_id) {
+        auto publish_object = [&](uint64_t group_id,
+                                  uint64_t subgroup_id,
+                                  uint64_t object_id,
+                                  std::optional<messages::SubgroupIdType> subgroup_id_mode = std::nullopt) {
             std::vector payload = { static_cast<uint8_t>(group_id),
                                     static_cast<uint8_t>(subgroup_id),
                                     static_cast<uint8_t>(object_id) };
@@ -1605,7 +1608,11 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
                                       .track_mode = TrackMode::kStream,
                                       .extensions = std::nullopt,
                                       .immutable_extensions = std::nullopt };
-            auto status = pub_handler->PublishObject(headers, payload);
+            std::optional<messages::StreamHeaderProperties> stream_mode;
+            if (subgroup_id_mode.has_value()) {
+                stream_mode.emplace(true, *subgroup_id_mode, false, false);
+            }
+            auto status = pub_handler->PublishObject(headers, payload, stream_mode);
             REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
         };
 
@@ -1619,6 +1626,8 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         // Subgroup 2.
         publish_object(0, 2, 3);
         publish_object(0, 2, 4);
+        // Subgroup 5, deriving its subgroup ID from its first object ID.
+        publish_object(0, 5, 5, messages::SubgroupIdType::kSetFromFirstObject);
         // Let's end on a new group.
         publish_object(1, 0, 0);
 
