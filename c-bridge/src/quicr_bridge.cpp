@@ -8,7 +8,6 @@
 
 #include "quicr/quicr_bridge.h"
 
-#include <quicr/client.h>
 #include <quicr/common.h>
 #include <quicr/config.h>
 #include <quicr/handlers/fetch_track_handler.h>
@@ -16,6 +15,8 @@
 #include <quicr/handlers/subscribe_namespace_handler.h>
 #include <quicr/handlers/subscribe_track_handler.h>
 #include <quicr/messages/object.h>
+#include <quicr/session.h>
+#include <quicr/session_manager.h>
 #include <quicr/track_name.h>
 
 #include <cstring>
@@ -192,12 +193,16 @@ namespace {
 /**
  * @brief Bridge client class extending quicr::Client
  */
-class BridgeClient : public quicr::Client
+class BridgeClient : public quicr::Session
 {
   public:
-    static std::shared_ptr<BridgeClient> Create(const quicr::ClientConfig& cfg)
+    static std::shared_ptr<BridgeClient> Create(const quicr::ClientConfig& cfg,
+                                                std::shared_ptr<quicr::Transport> transport,
+                                                std::shared_ptr<quicr::Connection> connection,
+                                                std::shared_ptr<timeq::tick_service> tick_service)
     {
-        return std::shared_ptr<BridgeClient>(new BridgeClient(cfg));
+        return std::shared_ptr<BridgeClient>(
+          new BridgeClient(cfg, std::move(transport), std::move(connection), std::move(tick_service)));
     }
 
     qbridge_connection_status_callback_t status_callback = nullptr;
@@ -207,8 +212,11 @@ class BridgeClient : public quicr::Client
     std::mutex callback_mutex;
 
   protected:
-    BridgeClient(const quicr::ClientConfig& config)
-      : quicr::Client(config)
+    BridgeClient(const quicr::ClientConfig& config,
+                 std::shared_ptr<quicr::Transport> transport,
+                 std::shared_ptr<quicr::Connection> connection,
+                 std::shared_ptr<timeq::tick_service> tick_service)
+      : quicr::Session(config, std::move(transport), std::move(connection), std::move(tick_service))
     {
     }
 
@@ -227,12 +235,15 @@ class BridgeClient : public quicr::Client
  */
 struct qbridge_client
 {
+    quicr::ClientConfig client_config;
+    std::unique_ptr<quicr::SessionManager> session_mgr;
+    std::shared_ptr<quicr::Transport> transport;
     std::shared_ptr<BridgeClient> cpp_client;
 
-    qbridge_client(const qbridge_client_config_t* config)
+    explicit qbridge_client(const qbridge_client_config_t* config)
+      : client_config(cpp_client_config_from_c(config))
+      , session_mgr(std::make_unique<quicr::SessionManager>())
     {
-        auto cpp_config = cpp_client_config_from_c(config);
-        cpp_client = BridgeClient::Create(cpp_config);
     }
 };
 
@@ -691,21 +702,48 @@ extern "C"
 
     qbridge_result_t qbridge_client_connect(qbridge_client_t* client)
     {
-        if (!client || !client->cpp_client) {
+        if (!client || !client->session_mgr) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto status = client->cpp_client->Start();
-        return (status == quicr::Session::Status::kConnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
+        if (client->cpp_client) {
+            return QBRIDGE_OK;
+        }
+
+        try {
+            auto [transport, session] = client->session_mgr->AddTransport(
+              client->client_config,
+              [](const quicr::ClientConfig& cfg,
+                 std::shared_ptr<quicr::Transport> transport,
+                 std::shared_ptr<quicr::Connection> connection,
+                 std::shared_ptr<timeq::tick_service> tick_service) {
+                  return BridgeClient::Create(cfg, std::move(transport), std::move(connection), std::move(tick_service));
+              });
+
+            if (!transport || !session) {
+                return QBRIDGE_ERROR_INTERNAL;
+            }
+
+            client->transport = std::move(transport);
+            client->cpp_client = std::static_pointer_cast<BridgeClient>(session);
+            return QBRIDGE_OK;
+        } catch (...) {
+            return QBRIDGE_ERROR_INTERNAL;
+        }
     }
 
     qbridge_result_t qbridge_client_disconnect(qbridge_client_t* client)
     {
-        if (!client || !client->cpp_client) {
+        if (!client) {
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        client->cpp_client->Stop();
+        if (client->transport && client->cpp_client) {
+            client->transport->Close(client->cpp_client->GetConnection());
+        }
+
+        client->cpp_client.reset();
+        client->transport.reset();
         return QBRIDGE_OK;
     }
 

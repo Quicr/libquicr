@@ -1,0 +1,72 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
+#include "quicr/config.h"
+
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <memory>
+
+namespace timeq {
+    struct tick_service;
+}
+
+namespace spdlog {
+    class logger;
+}
+
+namespace quicr {
+
+    class Connection;
+    class Session;
+    class Transport;
+    class TrackHandler;
+
+    class SessionManager
+    {
+      public:
+        using CreateClientSessionCallbackType =
+          std::function<std::shared_ptr<Session>(const ClientConfig& cfg,
+                                                 std::shared_ptr<Transport> transport,
+                                                 std::shared_ptr<Connection> connection,
+                                                 std::shared_ptr<timeq::tick_service> tick_service)>;
+        using CreateServerSessionCallbackType =
+          std::function<std::shared_ptr<Session>(const ServerConfig& cfg,
+                                                 std::shared_ptr<Transport> transport,
+                                                 std::shared_ptr<Connection> connection,
+                                                 std::shared_ptr<timeq::tick_service> tick_service)>;
+
+      public:
+        SessionManager();
+
+        SessionManager(std::shared_ptr<timeq::tick_service> tick_service);
+
+        ~SessionManager();
+
+        bool HasActiveSessions() const noexcept;
+
+        std::pair<std::shared_ptr<Transport>, std::shared_ptr<Session>> AddTransport(
+          const ClientConfig& config,
+          CreateClientSessionCallbackType&& create_session);
+
+        const std::shared_ptr<Transport>& AddTransport(
+          const ServerConfig& config,
+          CreateServerSessionCallbackType&& create_session,
+          std::function<void(const std::shared_ptr<Session>&)>&& on_new_session = nullptr);
+
+        void AddHandler(const std::shared_ptr<Session>& session, std::shared_ptr<TrackHandler> handler);
+
+        void RemoveHandler(const std::shared_ptr<Session>& session, const std::shared_ptr<TrackHandler>& handler);
+
+      private:
+        std::shared_ptr<timeq::tick_service> tick_service_;
+
+        std::shared_ptr<spdlog::logger> logger_;
+
+        std::map<std::uint64_t, std::shared_ptr<Transport>> transports_;
+
+        std::map<std::uint64_t, std::shared_ptr<Session>> sessions_;
+    };
+
+}

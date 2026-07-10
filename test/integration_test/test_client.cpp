@@ -5,8 +5,11 @@
 using namespace quicr;
 using namespace quicr_test;
 
-TestClient::TestClient(const ClientConfig& cfg)
-  : Client(cfg)
+TestClient::TestClient(const ClientConfig& cfg,
+                       std::shared_ptr<Transport> transport,
+                       std::shared_ptr<Connection> connection,
+                       std::shared_ptr<timeq::tick_service> tick_service)
+  : Session(cfg, std::move(transport), std::move(connection), std::move(tick_service))
 {
 }
 
@@ -28,8 +31,7 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& trac
 }
 
 void
-TestClient::PublishReceived(std::uint64_t connection_id,
-                            uint64_t request_id,
+TestClient::PublishReceived(uint64_t request_id,
                             const quicr::PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> ns_handler)
 {
@@ -41,6 +43,5 @@ TestClient::PublishReceived(std::uint64_t connection_id,
         publish_received_->set_value(publish_attributes.track_full_name);
     }
 
-    ResolvePublish(
-      connection_id, request_id, publish_attributes, { .reason_code = PublishResponse::ReasonCode::kOk }, sub_handler);
+    ResolvePublish(request_id, publish_attributes, { .reason_code = PublishResponse::ReasonCode::kOk }, sub_handler);
 }
