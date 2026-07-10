@@ -616,7 +616,7 @@ namespace quicr {
                             "Sending PUBLISH to conn_id: {} request_id: {} track alias: {}",
                             conn_ctx.connection_id,
                             request_id,
-                            track_alias);
+                            publish.track_alias);
 
         SendCtrlMsg(conn_ctx,
                     data_ctx_id,
@@ -1369,7 +1369,12 @@ namespace quicr {
     {
         const auto tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
-        SPDLOG_LOGGER_INFO(logger_, "Publish track conn_id: {} hash: {}", conn_id, th.track_fullname_hash);
+        SPDLOG_LOGGER_INFO(logger_,
+                           "Publish track conn_id: {} hash: {} tfn: {} ({})",
+                           conn_id,
+                           th.track_fullname_hash,
+                           tfn.NamespaceStr(),
+                           tfn.NameStr());
 
         std::unique_lock<std::mutex> lock(state_mutex_);
 
@@ -2924,6 +2929,7 @@ namespace quicr {
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
                                              track_handler->default_priority_,
                                              false);
+        conn_it->second.request_id_by_data_ctx[track_handler->publish_data_ctx_id_] = request_id;
 
         // Set this transport as the one for the publisher to use.
         track_handler->SetTransport(GetSharedPtr());
@@ -2976,6 +2982,7 @@ namespace quicr {
             conn_it->second.pub_tracks_by_name.erase(th.track_namespace_hash);
         }
 
+        conn_it->second.request_id_by_data_ctx.erase(track_handler->publish_data_ctx_id_);
         quic_transport_->DeleteDataContext(connection_id, track_handler->publish_data_ctx_id_);
 
         if (send_publish_done && track_handler->GetDataContextId().has_value()) {

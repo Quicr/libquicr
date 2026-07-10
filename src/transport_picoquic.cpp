@@ -1696,7 +1696,7 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
             SPDLOG_LOGGER_DEBUG(logger,
                                 "send_next_dgram has no data context conn_id: {0} data len: {1} dropping",
                                 conn_ctx->conn_id,
-                                out_data.value->get().data->size());
+                                out_data->get().data->size());
             conn_ctx->metrics.tx_dgram_drops++;
             return;
         }
