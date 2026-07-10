@@ -79,9 +79,6 @@ namespace quicr {
                 stream.next_object_id = obj.object_delta;
             }
 
-            stream.current_group_id = s_hdr.group_id;
-            stream.current_subgroup_id = s_hdr.subgroup_id.value();
-
             if (!s_hdr.subgroup_id.has_value()) {
                 if (obj.properties->subgroup_id_mode != messages::SubgroupIdType::kSetFromFirstObject) {
                     throw messages::ProtocolViolationException("Subgoup ID mismatch");
@@ -89,6 +86,9 @@ namespace quicr {
                 // Set the subgroup ID from the first object ID.
                 s_hdr.subgroup_id = stream.next_object_id;
             }
+
+            stream.current_group_id = s_hdr.group_id;
+            stream.current_subgroup_id = s_hdr.subgroup_id.value();
 
             subscribe_track_metrics_.objects_received++;
 
