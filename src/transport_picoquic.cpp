@@ -353,7 +353,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                 auto connection = transport->GetConnection(conn_id);
                 if (connection && connection->GetAPI() == Connection::API::kNativeQuic) {
                     transport->SetStatus(TransportStatus::kReady);
-                    transport->OnConnectionStatus(conn_id, TransportStatus::kReady);
+                    transport->OnConnectionStatus(connection, TransportStatus::kReady);
                 }
                 // WebTransport clients will get status updates via DefaultWebTransportCallback
             }
@@ -530,7 +530,7 @@ WtEventToString(picohttp_call_back_event_t wt_event)
 }
 
 // Helper to get connection context with logging on failure
-static const std::shared_ptr<PicoQuicConnection>&
+static std::shared_ptr<PicoQuicConnection>
 GetConnCtxForWT(PicoQuicTransport* transport, std::uint64_t conn_id, picohttp_call_back_event_t wt_event)
 {
     auto connection = transport->GetConnection(conn_id);
@@ -617,7 +617,9 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
         case picohttp_callback_connect_refused:
             transport->logger->warn("DefaultWT: {} for connection {}", WtEventToString(wt_event), conn_id);
-            transport->OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
+            if (auto connection = transport->GetConnection(conn_id)) {
+                transport->OnConnectionStatus(connection, TransportStatus::kDisconnected);
+            }
             break;
 
         case picohttp_callback_connect_accepted:
@@ -627,7 +629,9 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                                      stream_ctx->stream_id);
 
             transport->SetStatus(TransportStatus::kReady);
-            transport->OnConnectionStatus(conn_id, TransportStatus::kReady);
+            if (auto connection = transport->GetConnection(conn_id)) {
+                transport->OnConnectionStatus(connection, TransportStatus::kReady);
+            }
             break;
 
         case picohttp_callback_post_data:
@@ -680,8 +684,11 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             }
 
             // Store the h3zero_stream_ctx_t* for WebTransport streams
-            if (data_ctx && !data_ctx->streams.at(stream_id).wt_stream_ctx) {
-                data_ctx->streams.at(stream_id).wt_stream_ctx = stream_ctx;
+            if (data_ctx) {
+                auto stream_it = data_ctx->streams.find(stream_id);
+                if (stream_it != data_ctx->streams.end() && stream_it->second.wt_stream_ctx == nullptr) {
+                    stream_it->second.wt_stream_ctx = stream_ctx;
+                }
             }
 
             // Process received data
@@ -857,7 +864,9 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             transport->DeregisterWebTransport(cnx);
 
-            transport->OnConnectionStatus(conn_id, TransportStatus::kDisconnected);
+            if (auto connection = transport->GetConnection(conn_id)) {
+                transport->OnConnectionStatus(connection, TransportStatus::kDisconnected);
+            }
 
             break;
         }
@@ -1254,6 +1263,10 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
 {
     std::lock_guard<std::mutex> _(state_mutex_);
 
+    if (!connection) {
+        return;
+    }
+
     const auto pq_conn = std::static_pointer_cast<PicoQuicConnection>(connection);
 
     // Clear all stream TX queues and RX buffers to release shared pointers
@@ -1301,16 +1314,16 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
     // TODO(trigaux): Figure out if this logic can live exclusively in Transport here instead of spread to Session.
     switch (app_reason) {
         case AppReasonForClose::kRemoteRequestClose:
-            OnConnectionStatus(pq_conn->GetID(), TransportStatus::kRemoteRequestClose);
+            OnConnectionStatus(pq_conn, TransportStatus::kRemoteRequestClose);
             break;
         case AppReasonForClose::kIdleTimeout:
-            OnConnectionStatus(pq_conn->GetID(), TransportStatus::kIdleTimeout);
+            OnConnectionStatus(pq_conn, TransportStatus::kIdleTimeout);
             break;
         case AppReasonForClose::kShutdown:
-            OnConnectionStatus(pq_conn->GetID(), TransportStatus::kShutdown);
+            OnConnectionStatus(pq_conn, TransportStatus::kShutdown);
             break;
         default:
-            OnConnectionStatus(pq_conn->GetID(), TransportStatus::kRemoteRequestClose);
+            OnConnectionStatus(pq_conn, TransportStatus::kRemoteRequestClose);
             break;
     }
 
@@ -1889,17 +1902,20 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
 }
 
 void
-PicoQuicTransport::OnConnectionStatus(const std::uint64_t conn_id, const TransportStatus status)
+PicoQuicTransport::OnConnectionStatus(const std::shared_ptr<PicoQuicConnection>& connection,
+                                      const TransportStatus status)
 {
-    SPDLOG_LOGGER_DEBUG(logger, "Connection changed conn_id: {} to status: {}", conn_id, static_cast<int>(status));
+    if (!connection) {
+        return;
+    }
 
-    const auto& connection = GetConnection(conn_id);
+    SPDLOG_LOGGER_DEBUG(logger, "Connection changed conn_id: {} to status: {}", conn_id, static_cast<int>(status));
 
     if (status == TransportStatus::kReady) {
         SPDLOG_LOGGER_INFO(logger, "Connection established to server {0}", connection->peer_addr_text);
     }
 
-    cbNotifyQueue_.Push([=]() { connection->SetStatus(static_cast<Connection::Status>(status)); });
+    cbNotifyQueue_.Push([connection, status]() { connection->SetStatus(static_cast<Connection::Status>(status)); });
 }
 
 void
@@ -2063,7 +2079,7 @@ try {
                 picowt_release_capsule(&connection->wt_capsule);
 
                 // Notify the delegate that the connection is closing
-                OnConnectionStatus(connection->GetID(), TransportStatus::kDisconnected);
+                OnConnectionStatus(connection, TransportStatus::kDisconnected);
             }
         }
 
@@ -2467,7 +2483,7 @@ PicoQuicTransport::StartClient()
             picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
 
             // Create connection context and store per-connection WebTransport context first
-            connection = CreateConnection(cnx);
+            connection = CreateConnection(cnx, Connection::API::kWebTransport);
             connection->wt_h3_ctx = h3_ctx;
             connection->wt_control_stream_ctx = control_stream_ctx;
             connection->wt_h3_ctx_owned = true; // Client owns this and must free it
@@ -2601,12 +2617,6 @@ PicoQuicTransport::Shutdown()
 
     if (quic_network_thread_ctx_ != NULL) {
         SPDLOG_LOGGER_INFO(logger, "Closing transport picoquic thread");
-        picoquic_wake_up_network_thread(quic_network_thread_ctx_);
-
-        while (quic_network_thread_ctx_->thread_is_ready) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-
         picoquic_delete_network_thread(quic_network_thread_ctx_);
         quic_network_thread_ctx_ = nullptr;
     }
