@@ -112,14 +112,12 @@ namespace quicr {
       : tick_service_(std::make_shared<timeq::threaded_tick_service>())
       , logger_(SafeLoggerGet("QUICR"))
     {
-        logger_->set_level(spdlog::level::debug);
     }
 
     SessionManager::SessionManager(std::shared_ptr<timeq::tick_service> tick_service)
       : tick_service_(std::move(tick_service))
       , logger_(SafeLoggerGet("QUICR"))
     {
-        logger_->set_level(spdlog::level::debug);
     }
 
     SessionManager::~SessionManager()
