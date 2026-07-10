@@ -167,9 +167,14 @@ MakeTestServer(quicr::SessionManager& session_mgr,
 
     std::shared_ptr<TestServer> server;
 
+    // Shared across every per-connection TestServer instance created for this listening
+    // transport, so relaying between two different client connections (e.g. a publisher and
+    // a subscriber on separate connections) works the same way a real relay would.
+    auto shared_state = std::make_shared<TestServer::SharedState>();
+
     session_mgr.AddTransport(
       server_config,
-      [](auto config, auto... args) { return std::make_shared<TestServer>(config, args...); },
+      [shared_state](auto config, auto... args) { return std::make_shared<TestServer>(config, args..., shared_state); },
       [&](const auto& session) { server = std::static_pointer_cast<TestServer>(session); });
 
     return server;

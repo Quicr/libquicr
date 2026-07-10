@@ -1750,8 +1750,17 @@ namespace quicr {
     } catch (const TransportException& e) {
         SPDLOG_LOGGER_INFO(logger_, "OnRecvStream: connection or stream no longer exists (error={})", e.what());
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception on receiving stream. (error={})", e.what());
-        throw;
+        // NOTE: Whatever message was being processed when this was thrown (e.g. a control message) was not
+        // removed from its buffer, so the connection cannot make forward progress on that stream if left
+        // alone: any partially buffered data at the front will simply be retried (and fail again) the next
+        // time data arrives, or - if no more data ever arrives - the connection will silently hang forever
+        // instead of surfacing an error. Rather than letting that exception disappear into the transport's
+        // callback notifier (which only logs and ignores it), close the connection so the failure is visible
+        // and the peer is not left waiting indefinitely.
+        SPDLOG_LOGGER_ERROR(
+          logger_, "Caught exception on receiving stream, closing connection. (error={})", e.what());
+        current_connection_->metrics.invalid_ctrl_stream_msg++;
+        Disconnect();
 
         // TODO(tievens): Add metrics to track if this happens
     }
