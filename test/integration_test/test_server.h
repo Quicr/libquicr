@@ -8,7 +8,10 @@
 
 #include <future>
 #include <map>
+#include <mutex>
 #include <optional>
+#include <unordered_map>
+#include <vector>
 
 namespace quicr_test {
     class TestServer;
@@ -110,10 +113,47 @@ namespace quicr_test {
     class TestServer final : public quicr::Session
     {
       public:
+        struct AvailableTrack
+        {
+            quicr::FullTrackName full_track_name;
+            quicr::messages::Location start_location;
+            quicr::PublishAttributes attributes;
+        };
+
+        /**
+         * @brief State that must be shared across all per-connection TestServer instances
+         *        belonging to the same logical relay/server.
+         *
+         * @details Since the session rework, a new quicr::Session (and therefore a new
+         * TestServer) is created per accepted connection. Relaying data between two
+         * different client connections (e.g. a publisher on one connection and a
+         * subscriber on another) requires bridging state that outlives any single
+         * connection's TestServer instance. This struct holds that bridging state so it
+         * can be shared (via shared_ptr) across every TestServer created for the same
+         * listening transport.
+         */
+        struct SharedState
+        {
+            mutable std::mutex mutex;
+
+            std::vector<quicr::TrackNamespace> known_published_namespaces;
+            std::vector<AvailableTrack> known_published_tracks;
+
+            std::unordered_map<quicr::TrackNamespace, std::shared_ptr<quicr::PublishNamespaceHandler>>
+              namespace_subscribers;
+
+            // Subscriber publish handlers: [track_alias] -> PublishTrackHandler
+            std::map<std::uint64_t, std::shared_ptr<TestPublishTrackHandler>> subscribes;
+
+            // Publisher subscribe handlers: [track_alias] -> SubscribeTrackHandler
+            std::map<std::uint64_t, std::shared_ptr<TestSubscribeTrackHandler>> pub_subscribes;
+        };
+
         explicit TestServer(const quicr::ServerConfig& config,
                             std::shared_ptr<quicr::Transport> transport,
                             std::shared_ptr<quicr::Connection> connection,
-                            std::shared_ptr<timeq::tick_service> tick_service);
+                            std::shared_ptr<timeq::tick_service> tick_service,
+                            std::shared_ptr<SharedState> shared_state = nullptr);
 
         struct SubscribeDetails
         {
@@ -302,25 +342,12 @@ namespace quicr_test {
         std::optional<std::promise<UnsubscribeReceivedDetails>> unsubscribe_received_promise_;
         std::optional<UnsubscribeReceivedDetails::HandlerType> expected_unsubscribe_handler_type_;
         std::map<std::uint64_t, bool> closed_streams_;
-        std::vector<quicr::TrackNamespace> known_published_namespaces_;
         std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;
-        struct AvailableTrack
-        {
-            quicr::FullTrackName full_track_name;
-            quicr::messages::Location start_location;
-            quicr::PublishAttributes attributes;
-        };
-
-        std::vector<AvailableTrack> known_published_tracks_;
-        std::unordered_map<quicr::TrackNamespace, std::shared_ptr<quicr::PublishNamespaceHandler>>
-          namespace_subscribers_;
         std::vector<FetchResponseData> fetch_response_data_;
 
-        // Subscriber publish handlers: [track_alias] -> PublishTrackHandler
-        std::map<std::uint64_t, std::shared_ptr<TestPublishTrackHandler>> subscribes_;
-
-        // Publisher subscribe handlers: [track_alias] -> SubscribeTrackHandler
-        std::map<std::uint64_t, std::shared_ptr<TestSubscribeTrackHandler>> pub_subscribes_;
+        // Bridging state shared across all TestServer instances (one per connection)
+        // belonging to the same logical relay/server.
+        std::shared_ptr<SharedState> shared_state_;
     };
 
 }
