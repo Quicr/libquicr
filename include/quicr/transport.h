@@ -12,6 +12,7 @@
 #include <any>
 #include <chrono>
 #include <cstdlib>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
