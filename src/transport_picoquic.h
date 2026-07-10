@@ -192,7 +192,7 @@ namespace quicr {
 
         void SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_id, uint8_t* bytes_ctx, size_t max_len);
 
-        void OnConnectionStatus(std::uint64_t conn_id, TransportStatus status);
+        void OnConnectionStatus(const std::shared_ptr<PicoQuicConnection>& connection, TransportStatus status);
 
         void HandleNewConnection(const std::shared_ptr<PicoQuicConnection>& connection);
 

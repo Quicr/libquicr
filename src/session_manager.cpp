@@ -129,7 +129,14 @@ namespace quicr {
         }
 
         sessions_.clear();
+
+        for (const auto& [_, transport] : transports_) {
+            transport->Shutdown();
+        }
+
         transports_.clear();
+
+        spdlog::drop(logger_->name());
     }
 
     bool SessionManager::HasActiveSessions() const noexcept
