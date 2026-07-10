@@ -11,9 +11,9 @@ namespace quicr {
       const BytesSpan data,
       [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
-        auto transport = GetSession().lock();
+        auto session = GetSession().lock();
 
-        if (!transport) {
+        if (!session) {
             return PublishObjectStatus::kInternalError;
         }
 
@@ -42,14 +42,14 @@ namespace quicr {
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
 
-            stream_id_ = transport->CreateStream(GetConnectionId(), publish_data_ctx_id_, priority);
+            stream_id_ = session->CreateStream(publish_data_ctx_id_, priority);
 
             messages::FetchHeader fetch_hdr;
             fetch_hdr.request_id = *request_id;
             object_msg_buffer_ << fetch_hdr;
 
-            auto result = transport->Enqueue(
-              GetConnectionId(),
+            auto result = session->Enqueue(
+
               publish_data_ctx_id_,
               stream_id_,
               std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
@@ -78,8 +78,8 @@ namespace quicr {
         object.payload.assign(data.begin(), data.end());
         object_msg_buffer_ << object;
 
-        auto result = transport->Enqueue(
-          GetConnectionId(),
+        auto result = session->Enqueue(
+
           publish_data_ctx_id_,
           stream_id_,
           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),

@@ -197,117 +197,6 @@ namespace quicr {
     class Transport
     {
       public:
-        /**
-         * @brief Async Callback API on the transport
-         */
-        class TransportDelegate
-        {
-          public:
-            virtual ~TransportDelegate() = default;
-
-            /**
-             * @brief Event notification for connection status changes
-             *
-             * @details Called when the connection changes state/status
-             *
-             * @param[in] conn_id           Transport context Id
-             * @param[in] status 	    Transport Status value
-             */
-            virtual void OnConnectionStatus(const std::uint64_t& conn_id, TransportStatus status) = 0;
-
-            /**
-             * @brief Report arrival of a new connection
-             *
-             * @details Called when new connection is received. This is only used in
-             * server mode.
-             *
-             * @param[in] conn_id	Transport context identifier mapped to the connection
-             * @param[in] remote	Transport information for the connection
-             */
-            virtual void OnNewConnection(const std::uint64_t& conn_id, const TransportRemote& remote) = 0;
-
-            /**
-             * @brief Report a new data context created
-             *
-             * @details Report that a new data context was created for a new bi-directional
-             *  stream that was received. This method is not called for app created
-             *  data contexts.
-             *
-             * @param[in] conn_id	Transport context identifier mapped to the connection
-             * @param[in] data_ctx_id	Data context id for a new data context received by the transport
-             */
-            virtual void OnNewDataContext(const std::uint64_t& conn_id, const std::uint64_t& data_ctx_id) = 0;
-
-            /**
-             * @brief callback notification that data has been received and should be processed
-             *
-             * @param[in] conn_id 	Transport context identifier mapped to the connection
-             * @param[in] data_ctx_id	If known, Data context id that the data was received on
-             */
-            virtual void OnRecvDgram(const std::uint64_t& conn_id, std::optional<std::uint64_t> data_ctx_id) = 0;
-
-            /**
-             * @brief callback notification that data has been received and should be processed
-             *
-             * @param[in] conn_id 	Transport context identifier mapped to the connection
-             * @param[in] stream_id     Transport stream ID
-             * @param[in] data_ctx_id	If known, Data context id that the data was received on
-             * @param[in] is_bidir      True if the message is from a bidirectional stream
-             */
-            virtual void OnRecvStream(const std::uint64_t& conn_id,
-                                      uint64_t stream_id,
-                                      std::optional<std::uint64_t> data_ctx_id,
-                                      bool is_bidir = false) = 0;
-
-            /**
-             * @brief Callback notification that a stream has been closed by either FIN or RST.
-             *
-             * @param connection_id Transport context identifier mapped to the connection
-             * @param stream_id         Transport stream id.
-             * @param rx_ctx            Stream Rx context with the handler info.
-             * @param data_ctx_id       Optional data context ID the stream belonged to
-             * @param flag              Flag value for how the stream was closed. Values are FIN or RST
-             */
-            virtual void OnStreamClosed(const std::uint64_t& connection_id,
-                                        std::uint64_t stream_id,
-                                        std::shared_ptr<StreamRxContext> rx_ctx,
-                                        std::optional<uint64_t> data_ctx_id,
-                                        StreamClosedFlag flag) = 0;
-
-            /**
-             * @brief callback notification on connection metrics sampled
-             *
-             * @details This callback will be called when the connection metrics are sampled per connection
-             *
-             * @param sample_time                    Sample time in microseconds
-             * @param conn_id                        Connection ID for the metrics
-             * @param quic_connection_metrics        Connection specific metrics for sample period
-             */
-            virtual void OnConnectionMetricsSampled(
-              [[maybe_unused]] const MetricsTimeStamp sample_time,
-              [[maybe_unused]] const std::uint64_t conn_id,
-              [[maybe_unused]] const QuicConnectionMetrics& quic_connection_metrics)
-            {
-            }
-
-            /**
-             * @brief callback notification on data context metrics sampled
-             *
-             * @details This callback will be called when the data context metrics are sampled
-             *
-             * @param sample_time                   Sample time in microseconds
-             * @param conn_id                       Connection ID for metrics
-             * @param data_ctx_id                   Data context ID for metrics
-             * @param quic_data_context_metrics     Data context metrics for sample period
-             */
-            virtual void OnDataMetricsStampled([[maybe_unused]] const MetricsTimeStamp sample_time,
-                                               [[maybe_unused]] const std::uint64_t conn_id,
-                                               [[maybe_unused]] const std::uint64_t data_ctx_id,
-                                               [[maybe_unused]] const QuicDataContextMetrics& quic_data_context_metrics)
-            {
-            }
-        };
-
         /* Factory APIs */
 
         /**
@@ -315,7 +204,6 @@ namespace quicr {
          *
          * @param[in] server        Transport remote server information
          * @param[in] tcfg          Transport configuration
-         * @param[in] delegate      Implemented callback methods
          * @param[in] tick_service  Shared pointer to the tick service to use
          * @param[in] logger        Shared pointer to logger
          *
@@ -323,7 +211,6 @@ namespace quicr {
          */
         static std::shared_ptr<Transport> MakeClientTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
-                                                              TransportDelegate& delegate,
                                                               std::shared_ptr<timeq::tick_service> tick_service,
                                                               std::shared_ptr<spdlog::logger> logger);
 
@@ -337,7 +224,6 @@ namespace quicr {
          *
          * @param[in] server      Transport remote server information (server.proto is ignored)
          * @param[in] tcfg        Transport configuration
-         * @param[in] delegate    Implemented callback methods
          * @param[in] tick_service Shared pointer to tick service
          * @param[in] logger      Shared pointer to logger
          *
@@ -345,7 +231,6 @@ namespace quicr {
          */
         static std::shared_ptr<Transport> MakeServerTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
-                                                              TransportDelegate& delegate,
                                                               std::shared_ptr<timeq::tick_service> tick_service,
                                                               std::shared_ptr<spdlog::logger> logger);
 
@@ -370,7 +255,7 @@ namespace quicr {
          *
          * @return TransportContextId: identifying the connection
          */
-        virtual std::uint64_t Start() = 0;
+        virtual std::shared_ptr<Connection> Start() = 0;
 
         /**
          * @brief Create a data context
@@ -385,7 +270,7 @@ namespace quicr {
          *
          * @return std::uint64_t identifying the data context via the connection
          */
-        virtual std::uint64_t CreateDataContext(std::uint64_t conn_id,
+        virtual std::uint64_t CreateDataContext(const std::shared_ptr<Connection>& connection,
                                                 bool use_reliable_transport,
                                                 uint8_t priority = 1,
                                                 bool bidir = false) = 0;
@@ -396,7 +281,7 @@ namespace quicr {
          * @param conn_id           Connection ID to close
          * @param app_reason        Application reason to close the connection
          */
-        virtual void Close(const std::uint64_t& conn_id,
+        virtual void Close(const std::shared_ptr<Connection>& connection,
                            AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose) = 0;
 
         /**
@@ -406,7 +291,10 @@ namespace quicr {
          * @param stream_id         Stream ID to close
          * @param use_reset         True to close by RESET, false to close by FIN
          */
-        virtual void CloseStream(std::uint64_t conn_id, uint64_t data_ctx_id, uint64_t stream_id, bool use_reset) = 0;
+        virtual void CloseStream(const std::shared_ptr<Connection>& connection,
+                                 uint64_t data_ctx_id,
+                                 uint64_t stream_id,
+                                 bool use_reset) = 0;
 
         /**
          * @brief Delete data context
@@ -416,7 +304,7 @@ namespace quicr {
          * @param[in] conn_id                 Connection ID to create data context
          * @param[in] data_ctx_id             Data context ID to delete
          */
-        virtual void DeleteDataContext(const std::uint64_t& conn_id,
+        virtual void DeleteDataContext(const std::shared_ptr<Connection>& connection,
                                        std::uint64_t data_ctx_id,
                                        bool delete_on_empty = false) = 0;
 
@@ -428,19 +316,7 @@ namespace quicr {
          *
          * @returns True if the address was successfully returned, false otherwise
          */
-        virtual bool GetPeerAddrInfo(const std::uint64_t& context_id, sockaddr_storage* addr) = 0;
-
-        /**
-         * @brief Set the remote data context id
-         * @details sets the remote data context id for data objects transmitted
-         *
-         * @param conn_id                  Connection ID
-         * @param data_ctx_id              Local data context ID
-         * @param remote_data_ctx_id       Remote data context ID (learned via subscribe/publish)
-         */
-        virtual void SetRemoteDataCtxId(std::uint64_t conn_id,
-                                        std::uint64_t data_ctx_id,
-                                        std::uint64_t remote_data_ctx_id) = 0;
+        virtual bool GetPeerAddrInfo(const std::shared_ptr<Connection>& connection, sockaddr_storage* addr) = 0;
 
         /**
          * Enqueue flags
@@ -459,7 +335,7 @@ namespace quicr {
          * @details Add data to the transport queue. Data enqueued will be transmitted
          * when available.
          *
-         * @param[in] context_id    Identifying the connection
+         * @param[in] connection    Identifying the connection
          * @param[in] data_ctx_id   stream Id to send data on
          * @param[in] stream_id     Stream ID to send message on, Only used for unidir data contexts
          * @param[in] bytes	    Data to send/write
@@ -470,7 +346,7 @@ namespace quicr {
          *
          * @returns TransportError is returned indicating status of the operation
          */
-        virtual TransportError Enqueue(const std::uint64_t& context_id,
+        virtual TransportError Enqueue(const std::shared_ptr<Connection>& connection,
                                        const std::uint64_t& data_ctx_id,
                                        std::uint64_t stream_id,
                                        std::shared_ptr<const std::vector<uint8_t>> bytes,
@@ -490,7 +366,7 @@ namespace quicr {
          *
          * @returns std::nullopt if there is no data
          */
-        virtual std::shared_ptr<const std::vector<uint8_t>> Dequeue(std::uint64_t conn_id,
+        virtual std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<Connection>& connection,
                                                                     std::optional<std::uint64_t> data_ctx_id) = 0;
 
         /**
@@ -502,7 +378,8 @@ namespace quicr {
          * @returns Shared pointer to StreamRxContext
          * @throws TransportError for invalid connection or stream id
          */
-        virtual std::shared_ptr<StreamRxContext> GetStreamRxContext(std::uint64_t conn_id, uint64_t stream_id) = 0;
+        virtual std::shared_ptr<StreamRxContext> GetStreamRxContext(const std::shared_ptr<Connection>& connection,
+                                                                    uint64_t stream_id) = 0;
 
         /**
          * @brief Close a WebTransport session with error code and message
@@ -526,7 +403,7 @@ namespace quicr {
          *
          * @returns 0 on success, -1 on failure (e.g., not a WebTransport connection)
          */
-        virtual int CloseWebTransportSession(std::uint64_t conn_id,
+        virtual int CloseWebTransportSession(const std::shared_ptr<Connection>& connection,
                                              uint32_t error_code,
                                              const char* error_msg = nullptr) = 0;
 
@@ -553,7 +430,7 @@ namespace quicr {
          *
          * @returns 0 on success, -1 on failure (e.g., not a WebTransport connection)
          */
-        virtual int DrainWebTransportSession(std::uint64_t conn_id) = 0;
+        virtual int DrainWebTransportSession(const std::shared_ptr<Connection>& connection) = 0;
 
         /**
          * @brief Create a new stream.
@@ -564,6 +441,16 @@ namespace quicr {
          *
          * @returns The optionally created stream id. If no stream was created, returns nullopt.
          */
-        virtual std::uint64_t CreateStream(std::uint64_t conn_id, std::uint64_t data_ctx_id, uint8_t priority) = 0;
+        virtual std::uint64_t CreateStream(const std::shared_ptr<Connection>& connection,
+                                           std::uint64_t data_ctx_id,
+                                           uint8_t priority) = 0;
+
+        /**
+         * @brief Stop network threads and release transport resources.
+         */
+        virtual void Shutdown() {}
+
+      public:
+        std::function<void(std::shared_ptr<Connection>)> OnNewConnection;
     };
 } // namespace quicr
