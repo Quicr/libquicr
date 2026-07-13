@@ -1748,10 +1748,12 @@ TEST_CASE("Integration - Small data callbacks assemble")
 
 TEST_CASE("Integration - Failed publish does not create subgroup state")
 {
+    quicr::SessionManager session_mgr;
+
     // Setup a subscriber and publisher.
-    auto server = MakeTestServer(std::nullopt, 2);
-    auto subscriber = MakeTestClient();
-    auto publisher = MakeTestClient();
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto subscriber = MakeTestClient(session_mgr);
+    auto publisher = MakeTestClient(session_mgr);
     FullTrackName ftn;
     ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "paused_publish" });
     ftn.name = { 0x01 };

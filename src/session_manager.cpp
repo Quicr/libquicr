@@ -118,19 +118,15 @@ namespace quicr {
       , logger_(SafeLoggerGet("QUICR"))
     {
         on_connection_closed_ = [=, this](const auto& connection) {
+            connection->SetDelegate(nullptr);
+
             auto it = sessions_.find(connection->GetID());
             if (it == sessions_.end()) {
-                SPDLOG_LOGGER_ERROR(
-                  logger_,
-                  "Received ConnectionClose for connection that has no associated session (conn_id={})",
-                  connection->GetID());
+                SPDLOG_LOGGER_ERROR(logger_,
+                                    "Received Close for connection that has no associated session (conn_id={})",
+                                    connection->GetID());
                 return;
             }
-
-            const auto& [_, session] = *it;
-            session->Disconnect();
-
-            connection->SetDelegate(nullptr);
 
             sessions_.erase(it);
         };
