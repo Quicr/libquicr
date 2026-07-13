@@ -165,6 +165,25 @@ TestServer::SubscribeReceived(std::uint64_t connection_id,
 }
 
 void
+TestServer::TrackStatusReceived(std::uint64_t connection_id,
+                                std::uint64_t request_id,
+                                const FullTrackName& track_full_name,
+                                const TrackStatusAttributes& attributes)
+{
+    TrackStatusResponse response;
+    {
+        std::lock_guard lock(state_mutex_);
+        if (track_status_promise_.has_value()) {
+            track_status_promise_->set_value({ connection_id, request_id, track_full_name, attributes });
+            track_status_promise_.reset();
+        }
+        response = track_status_response_;
+    }
+
+    ResolveTrackStatus(connection_id, request_id, response);
+}
+
+void
 TestServer::SubscribeTracksReceived(const std::uint64_t connection_id,
                                     const std::uint64_t data_ctx_id,
                                     const TrackNamespace& prefix_namespace,

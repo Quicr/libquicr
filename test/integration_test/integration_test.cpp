@@ -342,6 +342,109 @@ TEST_CASE("Integration - Connection")
     }
 }
 
+TEST_CASE("Integration - Track status success uses a one-shot request stream")
+{
+    auto server = MakeTestServer();
+
+    auto test_track_status = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        const FullTrackName track{ TrackNamespace(std::vector<std::string>{ "track", "status" }), { 1, 2, 3 } };
+        const messages::Token token{ .alias_type = messages::Token::AliasType::kUseValue,
+                                     .token_type = 7,
+                                     .token_value = { 4, 5, 6 } };
+        const messages::Location largest{ .group = 11, .object = 13 };
+        auto properties = messages::TrackExtensions{}.Add(messages::ExtensionType::kDynamicGroups, true);
+
+        server->SetTrackStatusResponse({ .reason_code = RequestResponse::ReasonCode::kOk,
+                                         .largest_object = largest,
+                                         .track_properties = properties });
+
+        std::promise<TestServer::TrackStatusDetails> request_promise;
+        auto request_future = request_promise.get_future();
+        server->SetTrackStatusPromise(std::move(request_promise));
+
+        std::promise<TestClient::TrackStatusResult> response_promise;
+        auto response_future = response_promise.get_future();
+        client->SetTrackStatusResponsePromise(std::move(response_promise));
+
+        std::promise<bool> stream_closed_promise;
+        auto stream_closed_future = stream_closed_promise.get_future();
+        client->SetRequestStreamClosedPromise(std::move(stream_closed_promise));
+
+        const auto request_id = client->RequestTrackStatus(track, { .auth_tokens = token });
+
+        REQUIRE(request_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto request = request_future.get();
+        CHECK_EQ(request.request_id, request_id);
+        CHECK_EQ(request.track_full_name.name_space, track.name_space);
+        CHECK_EQ(request.track_full_name.name, track.name);
+        REQUIRE(request.attributes.auth_tokens.has_value());
+        CHECK_EQ(*request.attributes.auth_tokens, token);
+
+        REQUIRE(response_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto response = response_future.get();
+        CHECK_EQ(response.request_id, request_id);
+        CHECK_EQ(response.response.reason_code, RequestResponse::ReasonCode::kOk);
+        CHECK_EQ(response.response.largest_object, largest);
+        CHECK(response.response.track_properties.Get<bool>(messages::ExtensionType::kDynamicGroups));
+
+        REQUIRE(stream_closed_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_FALSE(stream_closed_future.get());
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_track_status("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_track_status("https");
+    }
+}
+
+TEST_CASE("Integration - Track status error finishes the one-shot request")
+{
+    auto server = MakeTestServer();
+
+    auto test_track_status_error = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+        const FullTrackName track{ TrackNamespace(std::vector<std::string>{ "missing" }), { 9 } };
+
+        server->SetTrackStatusResponse({ .reason_code = RequestResponse::ReasonCode::kDoesNotExist,
+                                         .error_reason = "Track does not exist",
+                                         .retry_interval = std::chrono::milliseconds{ 250 } });
+
+        std::promise<TestClient::TrackStatusResult> response_promise;
+        auto response_future = response_promise.get_future();
+        client->SetTrackStatusResponsePromise(std::move(response_promise));
+
+        std::promise<bool> stream_closed_promise;
+        auto stream_closed_future = stream_closed_promise.get_future();
+        client->SetRequestStreamClosedPromise(std::move(stream_closed_promise));
+
+        const auto request_id = client->RequestTrackStatus(track);
+
+        REQUIRE(response_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto response = response_future.get();
+        CHECK_EQ(response.request_id, request_id);
+        CHECK_EQ(response.response.reason_code, RequestResponse::ReasonCode::kDoesNotExist);
+        CHECK_EQ(response.response.error_reason, "Track does not exist");
+        CHECK_EQ(response.response.retry_interval, std::chrono::milliseconds{ 250 });
+        REQUIRE(stream_closed_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_FALSE(stream_closed_future.get());
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_track_status_error("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_track_status_error("https");
+    }
+}
+
 TEST_CASE("Integration - Subscribe")
 {
     auto server = MakeTestServer();

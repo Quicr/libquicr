@@ -290,7 +290,7 @@ namespace quicr {
 
     uint64_t Session::RequestTrackStatus(std::uint64_t connection_id,
                                          const FullTrackName& track_full_name,
-                                         const SubscribeAttributes&)
+                                         const TrackStatusAttributes& attributes)
     {
         std::lock_guard<std::mutex> _(state_mutex_);
         auto conn_it = connections_.find(connection_id);
@@ -300,65 +300,91 @@ namespace quicr {
         }
 
         auto request_id = conn_it->second.GetNextRequestId();
+        const auto data_ctx_id = quic_transport_->CreateDataContext(connection_id, true, 0, true);
+        quic_transport_->CreateStream(connection_id, data_ctx_id, 0);
 
-        SendTrackStatus(conn_it->second, request_id, track_full_name);
+        conn_it->second.request_id_by_data_ctx[data_ctx_id] = request_id;
+        conn_it->second.outbound_track_status_requests.insert(request_id);
+
+        SendTrackStatus(conn_it->second, data_ctx_id, request_id, track_full_name, attributes);
 
         return request_id;
     }
 
-    void Session::TrackStatusReceived(std::uint64_t, uint64_t, const FullTrackName&) {}
+    void Session::TrackStatusReceived(std::uint64_t connection_id,
+                                      uint64_t request_id,
+                                      const FullTrackName&,
+                                      const TrackStatusAttributes&)
+    {
+        ResolveTrackStatus(connection_id,
+                           request_id,
+                           { .reason_code = RequestResponse::ReasonCode::kNotSupported,
+                             .error_reason = "TRACK_STATUS is not supported" });
+    }
 
     void Session::ResolveTrackStatus(std::uint64_t connection_id,
                                      uint64_t request_id,
-                                     const RequestResponse& subscribe_response)
+                                     const TrackStatusResponse& response)
     {
+        std::lock_guard lock(state_mutex_);
         auto conn_it = connections_.find(connection_id);
         if (conn_it == connections_.end()) {
             SPDLOG_LOGGER_DEBUG(logger_, "ResolveTrackStatus conn_id: {} not found, ignoring", connection_id);
             return;
         }
 
-        switch (subscribe_response.reason_code) {
+        if (!conn_it->second.inbound_track_status_requests.contains(request_id)) {
+            SPDLOG_LOGGER_DEBUG(logger_,
+                                "ResolveTrackStatus request not found, ignoring conn_id: {} request_id: {}",
+                                connection_id,
+                                request_id);
+            return;
+        }
+
+        const auto data_ctx_id = ResponseDataContext(conn_it->second, request_id);
+        const auto send_error = [&](messages::ErrorCode error, std::string_view default_reason) {
+            SendRequestError(conn_it->second,
+                             data_ctx_id,
+                             request_id,
+                             error,
+                             response.retry_interval,
+                             response.error_reason.value_or(std::string(default_reason)),
+                             true);
+        };
+
+        switch (response.reason_code) {
             case RequestResponse::ReasonCode::kOk: {
-                // TODO: TrackProperties should be in the subscribe_response.
-                SendTrackStatusOk(conn_it->second,
-                                  ResponseDataContext(conn_it->second, request_id),
-                                  subscribe_response.largest_location,
-                                  TrackExtensions());
+                SendTrackStatusOk(conn_it->second, data_ctx_id, response.largest_object, response.track_properties);
                 break;
             }
             case RequestResponse::ReasonCode::kDoesNotExist:
-                SendRequestError(conn_it->second,
-                                 ResponseDataContext(conn_it->second, request_id),
-                                 request_id,
-                                 ErrorCode::kDoesNotExist,
-                                 0ms, // TODO: Figure out retry interval
-                                 subscribe_response.error_reason.has_value() ? *subscribe_response.error_reason
-                                                                             : "Track does not exist");
+                send_error(ErrorCode::kDoesNotExist, "Track does not exist");
                 break;
             case RequestResponse::ReasonCode::kUnauthorized:
-                SendRequestError(conn_it->second,
-                                 ResponseDataContext(conn_it->second, request_id),
-                                 request_id,
-                                 ErrorCode::kUnauthorized,
-                                 0ms, // TODO: Figure out retry interval
-                                 subscribe_response.error_reason.has_value() ? *subscribe_response.error_reason
-                                                                             : "Unauthorized");
+                send_error(ErrorCode::kUnauthorized, "Unauthorized");
+                break;
+            case RequestResponse::ReasonCode::kTimeout:
+                send_error(ErrorCode::kTimeout, "Timed out");
+                break;
+            case RequestResponse::ReasonCode::kNotSupported:
+                send_error(ErrorCode::kNotSupported, "Not supported");
+                break;
+            case RequestResponse::ReasonCode::kMalformedAuthToken:
+                send_error(ErrorCode::kMalformedAuthToken, "Malformed authorization token");
+                break;
+            case RequestResponse::ReasonCode::kExpiredAuthToken:
+                send_error(ErrorCode::kExpiredAuthToken, "Expired authorization token");
                 break;
             default:
-                SendRequestError(conn_it->second,
-                                 ResponseDataContext(conn_it->second, request_id),
-                                 request_id,
-                                 ErrorCode::kInternalError,
-                                 0ms,
-                                 "Internal error");
+                send_error(ErrorCode::kInternalError, "Internal error");
                 break;
         }
     }
 
     void Session::SendCtrlMsg(const ConnectionContext& conn_ctx,
                               std::uint64_t data_ctx_id,
-                              std::shared_ptr<const std::vector<uint8_t>> data)
+                              std::shared_ptr<const std::vector<uint8_t>> data,
+                              bool close_stream)
     {
         if (!conn_ctx.tx_ctrl_data_ctx_id.has_value()) {
             CloseConnection(conn_ctx.connection_id,
@@ -374,7 +400,7 @@ namespace quicr {
                                                0,
                                                2000,
                                                0,
-                                               { true, false, false, false });
+                                               { true, close_stream, false, false });
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -416,7 +442,8 @@ namespace quicr {
         SendRequestOk(conn_ctx,
                       data_ctx_id,
                       Parameters().AddOptional(ParameterType::kLargestObject, largest_object),
-                      track_properties);
+                      track_properties,
+                      true);
     }
 
     void Session::SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, std::uint64_t data_ctx_id)
@@ -439,14 +466,17 @@ namespace quicr {
     void Session::SendRequestOk(ConnectionContext& conn_ctx,
                                 std::uint64_t data_ctx_id,
                                 const messages::Parameters& params,
-                                const TrackExtensions& track_properties)
+                                const TrackExtensions& track_properties,
+                                bool close_stream)
     try {
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending REQUEST_OK to conn_id: {} request_id: {}",
                             conn_ctx.connection_id,
                             conn_ctx.request_id_by_data_ctx.at(data_ctx_id));
 
-        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kRequestOk, params, track_properties);
+        auto msg = messages::Message{}.PrependType(ControlMessageType::kRequestOk).ReserveLength();
+        msg.Append(params).Append(track_properties);
+        SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes(), close_stream);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_OK (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -486,7 +516,8 @@ namespace quicr {
                                    [[maybe_unused]] uint64_t request_id,
                                    ErrorCode error,
                                    std::chrono::milliseconds retry_interval,
-                                   const std::string& reason)
+                                   const std::string& reason,
+                                   bool close_stream)
     try {
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending REQUEST_ERROR to conn_id: {} request_id: {} error code: {} reason: {}",
@@ -495,12 +526,9 @@ namespace quicr {
                             static_cast<int>(error),
                             reason);
 
-        SendCtrlMsg(conn_ctx,
-                    data_ctx_id,
-                    ControlMessageType::kRequestError,
-                    error,
-                    UintVar(retry_interval.count()),
-                    AsOwnedBytes(reason));
+        auto msg = messages::Message{}.PrependType(ControlMessageType::kRequestError).ReserveLength();
+        msg.Append(error).Append(UintVar(retry_interval.count())).Append(AsOwnedBytes(reason));
+        SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes(), close_stream);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -528,19 +556,25 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Session::SendTrackStatus(ConnectionContext& conn_ctx, std::uint64_t request_id, const FullTrackName& tfn)
+    void Session::SendTrackStatus(ConnectionContext& conn_ctx,
+                                  std::uint64_t data_ctx_id,
+                                  std::uint64_t request_id,
+                                  const FullTrackName& tfn,
+                                  const TrackStatusAttributes& attributes)
     try {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending TRACK_STATUS to conn_id: {} request_id: {}", conn_ctx.connection_id, request_id);
 
+        auto params = Parameters{}.AddOptional(ParameterType::kAuthorizationToken, attributes.auth_tokens);
         SendCtrlMsg(conn_ctx,
-                    conn_ctx.tx_ctrl_data_ctx_id.value(),
+                    data_ctx_id,
                     ControlMessageType::kTrackStatus,
                     UintVar(request_id),
                     tfn.name_space,
-                    tfn.name);
+                    tfn.name,
+                    params);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Trac (error={})", e.what());
+        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending TRACK_STATUS (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -1214,6 +1248,8 @@ namespace quicr {
         if (handler_it == conn_ctx.request_handlers.end()) {
             SPDLOG_LOGGER_DEBUG(
               logger_, "Stream closed for unknown request_id conn_id: {} request_id: {}", connection_id, request_id);
+            conn_ctx.outbound_track_status_requests.erase(request_id);
+            conn_ctx.inbound_track_status_requests.erase(request_id);
             conn_ctx.recv_req_id.erase(request_id);
             conn_ctx.ctrl_msg_buffer.erase(stream_id);
             return;
@@ -1684,6 +1720,8 @@ namespace quicr {
         conn_ctx.pub_tracks_by_name.clear();
         conn_ctx.recv_req_id.clear();
         conn_ctx.recv_publish_namespaces.clear();
+        conn_ctx.outbound_track_status_requests.clear();
+        conn_ctx.inbound_track_status_requests.clear();
         conn_ctx.request_handlers.clear();
         conn_ctx.sub_by_recv_track_alias.clear();
     }
@@ -2801,6 +2839,8 @@ namespace quicr {
 
     void Session::ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes) {}
 
+    void Session::TrackStatusResponseReceived(std::uint64_t, std::uint64_t, const TrackStatusResponse&) {}
+
     void Session::PublishNamespaceReceived(const TrackNamespace& track_namespace,
                                            const PublishNamespaceAttributes& publish_namespace_attributes)
     {
@@ -3077,6 +3117,12 @@ namespace quicr {
                                         messages::ControlMessageType msg_type,
                                         BytesSpan msg_bytes)
     {
+        if (const auto request_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
+            request_it != conn_ctx.request_id_by_data_ctx.end() &&
+            conn_ctx.inbound_track_status_requests.contains(request_it->second)) {
+            throw ProtocolViolationException("TRACK_STATUS must be the only request message on its stream");
+        }
+
         switch (msg_type) {
             case messages::ControlMessageType::kSubscribe: {
                 const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
@@ -3213,8 +3259,22 @@ namespace quicr {
 
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_properties = Message::ParseField<messages::TrackExtensions>(msg_bytes);
-                // TODO: If track properties exist on anything other than TRACK_STATUS_OK, protocol violation. We can't
-                // tell here.
+
+                if (conn_ctx.outbound_track_status_requests.contains(request_id)) {
+                    ValidateParameters(parameters, { ParameterType::kLargestObject });
+                    TrackStatusResponseReceived(
+                      conn_ctx.connection_id,
+                      request_id,
+                      { .reason_code = RequestResponse::ReasonCode::kOk,
+                        .largest_object = parameters.GetOptional<Location>(ParameterType::kLargestObject),
+                        .track_properties = track_properties });
+                    return true;
+                }
+
+                if (track_properties.begin() != track_properties.end() ||
+                    !track_properties.immutable_extensions.empty()) {
+                    throw ProtocolViolationException("Track Properties are only valid in TRACK_STATUS_OK");
+                }
 
                 auto track_it = conn_ctx.request_handlers.find(request_id);
                 if (track_it == conn_ctx.request_handlers.end()) {
@@ -3240,12 +3300,21 @@ namespace quicr {
                 }
                 const auto request_id = request_it->second;
                 const auto error_code = messages::Message::ParseField<messages::ErrorCode>(msg_bytes);
-                [[maybe_unused]] const auto retry_interval = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto retry_interval = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
 
                 RequestResponse response{};
                 response.reason_code = RequestResponse::FromErrorCode(error_code);
                 response.error_reason = std::string(error_reason.begin(), error_reason.end());
+
+                if (conn_ctx.outbound_track_status_requests.contains(request_id)) {
+                    TrackStatusResponseReceived(conn_ctx.connection_id,
+                                                request_id,
+                                                { .reason_code = response.reason_code,
+                                                  .error_reason = std::move(response.error_reason),
+                                                  .retry_interval = std::chrono::milliseconds{ retry_interval } });
+                    return true;
+                }
 
                 if (client_mode_) {
                     auto track_it = conn_ctx.request_handlers.find(request_id);
@@ -3270,9 +3339,15 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kTrackStatus: {
+                if (conn_ctx.request_id_by_data_ctx.contains(data_ctx_id)) {
+                    throw ProtocolViolationException("TRACK_STATUS must be the first message on a request stream");
+                }
+
                 const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto track_namespace = messages::Message::ParseField<TrackNamespace>(msg_bytes);
                 const auto track_name = messages::Message::ParseField<Bytes>(msg_bytes);
+                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
+                ValidateParameters(parameters, { ParameterType::kAuthorizationToken });
 
                 auto tfn = FullTrackName{ track_namespace, track_name };
 
@@ -3282,9 +3357,17 @@ namespace quicr {
                                     request_id,
                                     th.track_fullname_hash);
 
+                conn_ctx.recv_req_id[request_id] = { .track_full_name = tfn,
+                                                     .track_hash = th,
+                                                     .data_ctx_id = data_ctx_id };
                 conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
+                conn_ctx.inbound_track_status_requests.insert(request_id);
 
-                TrackStatusReceived(conn_ctx.connection_id, request_id, tfn);
+                TrackStatusReceived(
+                  conn_ctx.connection_id,
+                  request_id,
+                  tfn,
+                  { .auth_tokens = parameters.GetOptional<Token>(ParameterType::kAuthorizationToken) });
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespace: {

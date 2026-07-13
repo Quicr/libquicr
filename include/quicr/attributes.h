@@ -115,4 +115,9 @@ namespace quicr {
         messages::Filter filter{ std::monostate{} };
     };
 
+    struct TrackStatusAttributes
+    {
+        std::optional<messages::Token> auth_tokens;
+    };
+
 }

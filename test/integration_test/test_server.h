@@ -135,6 +135,14 @@ namespace quicr_test {
             quicr::PublishNamespaceAttributes attributes;
         };
 
+        struct TrackStatusDetails
+        {
+            std::uint64_t connection_id;
+            std::uint64_t request_id;
+            quicr::FullTrackName track_full_name;
+            quicr::TrackStatusAttributes attributes;
+        };
+
         struct UnsubscribeReceivedDetails
         {
             enum class HandlerType
@@ -192,6 +200,16 @@ namespace quicr_test {
         void SetPublishNamespaceDonePromise(std::promise<uint64_t> promise)
         {
             publish_namespace_done_promise_ = std::move(promise);
+        }
+
+        void SetTrackStatusPromise(std::promise<TrackStatusDetails> promise)
+        {
+            track_status_promise_ = std::move(promise);
+        }
+
+        void SetTrackStatusResponse(quicr::TrackStatusResponse response)
+        {
+            track_status_response_ = std::move(response);
         }
 
         // True = reset, false = FIN, nullopt = not closed.
@@ -256,6 +274,11 @@ namespace quicr_test {
                                const quicr::FullTrackName& track_full_name,
                                const quicr::SubscribeAttributes& subscribe_attributes) override;
 
+        void TrackStatusReceived(std::uint64_t connection_id,
+                                 std::uint64_t request_id,
+                                 const quicr::FullTrackName& track_full_name,
+                                 const quicr::TrackStatusAttributes& attributes) override;
+
         void PublishReceived(std::uint64_t connection_id,
                              uint64_t request_id,
                              const quicr::PublishAttributes& publish_attributes,
@@ -292,6 +315,8 @@ namespace quicr_test {
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
         std::optional<std::promise<uint64_t>> publish_namespace_done_promise_;
+        std::optional<std::promise<TrackStatusDetails>> track_status_promise_;
+        quicr::TrackStatusResponse track_status_response_{};
         std::optional<std::promise<UnsubscribeReceivedDetails>> unsubscribe_received_promise_;
         std::optional<UnsubscribeReceivedDetails::HandlerType> expected_unsubscribe_handler_type_;
         std::map<std::uint64_t, bool> closed_streams_;

@@ -44,3 +44,28 @@ TestClient::PublishReceived(std::uint64_t connection_id,
     ResolvePublish(
       connection_id, request_id, publish_attributes, { .reason_code = PublishResponse::ReasonCode::kOk }, sub_handler);
 }
+
+void
+TestClient::TrackStatusResponseReceived([[maybe_unused]] std::uint64_t connection_id,
+                                        std::uint64_t request_id,
+                                        const TrackStatusResponse& response)
+{
+    if (track_status_response_) {
+        track_status_response_->set_value({ request_id, response });
+        track_status_response_.reset();
+    }
+}
+
+void
+TestClient::OnStreamClosed(const std::uint64_t& connection_id,
+                           std::uint64_t stream_id,
+                           std::shared_ptr<StreamRxContext> rx_ctx,
+                           std::optional<std::uint64_t> data_ctx_id,
+                           StreamClosedFlag flag)
+{
+    if (request_stream_closed_.has_value()) {
+        request_stream_closed_->set_value(flag == StreamClosedFlag::kReset);
+        request_stream_closed_.reset();
+    }
+    Session::OnStreamClosed(connection_id, stream_id, std::move(rx_ctx), data_ctx_id, flag);
+}

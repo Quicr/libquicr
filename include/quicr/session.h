@@ -22,6 +22,7 @@
 #include <atomic>
 #include <chrono>
 #include <map>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -31,6 +32,15 @@ namespace spdlog {
 }
 
 namespace quicr {
+
+    struct TrackStatusResponse
+    {
+        RequestResponse::ReasonCode reason_code{ RequestResponse::ReasonCode::kOk };
+        std::optional<std::string> error_reason;
+        std::chrono::milliseconds retry_interval{ 0 };
+        std::optional<messages::Location> largest_object;
+        messages::TrackExtensions track_properties;
+    };
 
     /**
      * @brief MoQ Session endpoint supporting connection-explicit operations
@@ -270,13 +280,13 @@ namespace quicr {
          *
          * @param connection_id             Source connection ID.
          * @param track_full_name           Track full name
-         * @param subscribe_attributes      Subscribe attributes for track status
+         * @param attributes                Request attributes
          *
          * * @returns Request ID that is used for the track status request
          */
         uint64_t RequestTrackStatus(std::uint64_t connection_id,
                                     const FullTrackName& track_full_name,
-                                    const SubscribeAttributes& subscribe_attributes);
+                                    const TrackStatusAttributes& attributes = {});
 
         /**
          * @brief Get the status of the endpoint
@@ -446,18 +456,11 @@ namespace quicr {
         /**
          * @brief Accept or reject track status that was received
          *
-         * @details Accept or reject track status received via TrackStatusReceived(). The MoQ Transport
-         *      will send the protocol message based on the RequestResponse. Per MOQT draft-14,
-         *      track status request, ok, and error are the same as subscribe
-         *
          * @param connection_id            Source connection ID
          * @param request_id               Request ID that was provided by TrackStatusReceived
-         * @param subscribe_response       Response to the track status request, either Ok or Error.
-         *                                 Largest loation should be set if kOk and there is content
+         * @param response                 Response to the track status request
          */
-        void ResolveTrackStatus(std::uint64_t connection_id,
-                                uint64_t request_id,
-                                const RequestResponse& subscribe_response);
+        void ResolveTrackStatus(std::uint64_t connection_id, uint64_t request_id, const TrackStatusResponse& response);
 
         ///@}
         // --END RESOLVE METHODS -----------------------------------------------------------------------------
@@ -592,10 +595,12 @@ namespace quicr {
          * @param connection_id     Source connection ID
          * @param request_id            Request ID received
          * @param track_full_name       Track full name
+         * @param attributes            Request attributes
          */
         virtual void TrackStatusReceived(std::uint64_t connection_id,
                                          uint64_t request_id,
-                                         const FullTrackName& track_full_name);
+                                         const FullTrackName& track_full_name,
+                                         const TrackStatusAttributes& attributes);
 
         ///@}
 
@@ -613,6 +618,17 @@ namespace quicr {
          * @param server_setup_attributes Server setup attributes received
          */
         virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes);
+
+        /**
+         * @brief Callback for a completed TRACK_STATUS request
+         *
+         * @param connection_id Source connection ID
+         * @param request_id Request ID
+         * @param response Response details
+         */
+        virtual void TrackStatusResponseReceived(std::uint64_t connection_id,
+                                                 std::uint64_t request_id,
+                                                 const TrackStatusResponse& response);
 
         /**
          * @brief Callback notification for announce received by subscribe namespace
@@ -998,6 +1014,11 @@ namespace quicr {
             /// Lookup request ID by carrying data context.
             std::map<std::uint64_t, std::uint64_t> request_id_by_data_ctx;
 
+            /// In flight outbound track status requests.
+            std::set<std::uint64_t> outbound_track_status_requests;
+            /// In flight inbound track status requests.
+            std::set<std::uint64_t> inbound_track_status_requests;
+
             /// Active inbound publish namespace notifications (not handler based).
             std::vector<std::uint64_t> recv_publish_namespaces;
 
@@ -1068,7 +1089,8 @@ namespace quicr {
 
         void SendCtrlMsg(const ConnectionContext& conn_ctx,
                          std::uint64_t data_ctx_id,
-                         std::shared_ptr<const std::vector<uint8_t>> data);
+                         std::shared_ptr<const std::vector<uint8_t>> data,
+                         bool close_stream = false);
 
         template<typename... Fields>
         void SendCtrlMsg(const ConnectionContext& conn_ctx,
@@ -1112,7 +1134,8 @@ namespace quicr {
         void SendRequestOk(ConnectionContext& conn_ctx,
                            std::uint64_t data_ctx_id,
                            const messages::Parameters& params,
-                           const messages::TrackExtensions& track_properties = {});
+                           const messages::TrackExtensions& track_properties = {},
+                           bool close_stream = false);
 
         void SendRequestUpdate(const ConnectionContext& conn_ctx,
                                std::uint64_t data_ctx_id,
@@ -1127,7 +1150,8 @@ namespace quicr {
                               std::uint64_t request_id,
                               messages::ErrorCode error,
                               std::chrono::milliseconds retry_interval,
-                              const std::string& reason);
+                              const std::string& reason,
+                              bool close_stream = false);
 
         /*===================================================================*/
         // Publish Namespace
@@ -1203,7 +1227,11 @@ namespace quicr {
         // Track Status
         /*===================================================================*/
 
-        void SendTrackStatus(ConnectionContext& conn_ctx, std::uint64_t request_id, const FullTrackName& tfn);
+        void SendTrackStatus(ConnectionContext& conn_ctx,
+                             std::uint64_t data_ctx_id,
+                             std::uint64_t request_id,
+                             const FullTrackName& tfn,
+                             const TrackStatusAttributes& attributes);
 
         /*===================================================================*/
         // Fetch
