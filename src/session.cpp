@@ -337,7 +337,6 @@ namespace quicr {
     }
 
     void Session::SendRequestUpdate(const std::uint64_t data_ctx_id,
-                                    std::uint64_t request_id,
                                     [[maybe_unused]] quicr::TrackHash th,
                                     std::optional<std::uint64_t> end_group_id,
                                     std::uint8_t priority,
@@ -352,13 +351,14 @@ namespace quicr {
                             "Sending REQUEST_UPDATE to conn_id: {} request_id: {} track namespace hash: {} name "
                             "hash: {} forward: {} ngr: {}",
                             current_connection_->GetID(),
-                            request_id,
+                            current_connection_->GetNextRequestID(),
                             th.track_namespace_hash,
                             th.track_name_hash,
                             forward,
                             end_group_id.has_value());
 
-        SendCtrlMsg(data_ctx_id, ControlMessageType::kRequestUpdate, UintVar(request_id), params);
+        SendCtrlMsg(
+          data_ctx_id, ControlMessageType::kRequestUpdate, UintVar(current_connection_->GetNextRequestID()), params);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_UPDATE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -898,12 +898,8 @@ namespace quicr {
             return;
         }
 
-        SendRequestUpdate(track_handler->GetDataContextId().value(),
-                          current_connection_->GetNextRequestID(),
-                          th,
-                          track_handler->pending_new_group_request_id_,
-                          priority,
-                          true);
+        SendRequestUpdate(
+          track_handler->GetDataContextId().value(), th, track_handler->pending_new_group_request_id_, priority, true);
     }
 
     void Session::RemoveSubscribeTrack(SubscribeTrackHandler& handler, bool remove_handler)
@@ -2076,7 +2072,7 @@ namespace quicr {
         }
     }
 
-    void Session::OnNewDataContext(const std::uint64_t&) {}
+    void Session::OnNewDataContext(std::uint64_t) {}
 
     std::shared_ptr<Session> Session::GetSharedPtr()
     {
@@ -2087,7 +2083,7 @@ namespace quicr {
         return shared_from_this();
     }
 
-    TransportError Session::Enqueue(const std::uint64_t& data_ctx_id,
+    TransportError Session::Enqueue(std::uint64_t data_ctx_id,
                                     std::uint64_t stream_id,
                                     std::shared_ptr<const std::vector<uint8_t>> bytes,
                                     const uint8_t priority,

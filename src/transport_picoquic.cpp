@@ -1952,8 +1952,6 @@ PicoQuicTransport::HandleNewConnection(const std::shared_ptr<PicoQuicConnection>
         picoquic_set_priority_limit_for_bypass(connection->pq_cnx, tconfig_.quic_priority_limit);
     }
 
-    connection->SetStartingRequestID(1); // Server is odd, starting at 1
-
     SetupServerControlStream(connection);
 
     if (OnNewConnection) {

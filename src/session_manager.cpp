@@ -109,8 +109,7 @@ namespace quicr {
     }
 
     SessionManager::SessionManager()
-      : tick_service_(std::make_shared<timeq::threaded_tick_service>())
-      , logger_(SafeLoggerGet("QUICR"))
+      : SessionManager(std::make_shared<timeq::threaded_tick_service>())
     {
     }
 
@@ -118,6 +117,23 @@ namespace quicr {
       : tick_service_(std::move(tick_service))
       , logger_(SafeLoggerGet("QUICR"))
     {
+        on_connection_closed_ = [=, this](const auto& connection) {
+            auto it = sessions_.find(connection->GetID());
+            if (it == sessions_.end()) {
+                SPDLOG_LOGGER_ERROR(
+                  logger_,
+                  "Received ConnectionClose for connection that has no associated session (conn_id={})",
+                  connection->GetID());
+                return;
+            }
+
+            const auto& [_, session] = *it;
+            session->Disconnect();
+
+            connection->SetDelegate(nullptr);
+
+            sessions_.erase(it);
+        };
     }
 
     SessionManager::~SessionManager()
@@ -166,6 +182,8 @@ namespace quicr {
 
         auto transport = Transport::MakeClientTransport(relay, config.transport_config, tick_service_, logger_);
 
+        transport->OnConnectionClosed = on_connection_closed_;
+
         auto [transport_it, _] = transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
         auto connection = transport->Start();
         auto session = create_session ? create_session(config, transport, connection, tick_service_)
@@ -193,17 +211,23 @@ namespace quicr {
 
         auto transport = Transport::MakeServerTransport(server, config.transport_config, tick_service_, logger_);
 
-        transport->OnNewConnection = [=, this, on_new_session = std::move(on_new_session)](auto&& connection) {
+        transport->OnNewConnection = [=,
+                                      this,
+                                      on_new_session = std::move(on_new_session),
+                                      wtransport = std::weak_ptr(transport)](const auto& connection) {
+            auto transport = wtransport.lock();
             auto session = create_session ? create_session(config, transport, connection, tick_service_)
                                           : Session::Create(config, transport, connection, tick_service_);
             connection->SetDelegate(session);
 
-            const auto& s = sessions_[reinterpret_cast<std::uint64_t>(session.get())] = std::move(session);
+            const auto& s = sessions_[connection->GetID()] = std::move(session);
 
             if (on_new_session) {
                 on_new_session(s);
             }
         };
+
+        transport->OnConnectionClosed = on_connection_closed_;
 
         auto [transport_it, _] = transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
 

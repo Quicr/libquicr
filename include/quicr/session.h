@@ -792,7 +792,7 @@ namespace quicr {
 
         void OnConnectionStatus(Connection::Status status) override;
 
-        void OnNewDataContext(const std::uint64_t& data_ctx_id) override;
+        void OnNewDataContext(std::uint64_t data_ctx_id) override;
 
         void OnRecvStream(uint64_t stream_id,
                           std::optional<std::uint64_t> data_ctx_id,
@@ -863,7 +863,6 @@ namespace quicr {
                            const messages::TrackExtensions& track_properties = {});
 
         void SendRequestUpdate(const std::uint64_t data_ctx_id,
-                               std::uint64_t request_id,
                                TrackHash th,
                                std::optional<std::uint64_t> end_group_id,
                                std::uint8_t priority,
@@ -995,7 +994,7 @@ namespace quicr {
 
         std::uint64_t CreateStream(std::uint64_t data_ctx_id, uint8_t priority);
 
-        TransportError Enqueue(const std::uint64_t& data_ctx_id,
+        TransportError Enqueue(std::uint64_t data_ctx_id,
                                std::uint64_t stream_id,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                const uint8_t priority,

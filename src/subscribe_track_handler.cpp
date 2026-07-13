@@ -197,12 +197,8 @@ namespace quicr {
 
         status_ = Status::kPaused;
         auto& connection = session->GetConnection();
-        session->SendRequestUpdate(GetDataContextId().value(),
-                                   connection->GetNextRequestID(),
-                                   TrackHash(GetFullTrackName()),
-                                   std::nullopt,
-                                   GetPriority(),
-                                   false);
+        session->SendRequestUpdate(
+          GetDataContextId().value(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), false);
     }
 
     void SubscribeTrackHandler::Resume() noexcept
@@ -218,12 +214,8 @@ namespace quicr {
 
         status_ = Status::kOk;
         auto& connection = session->GetConnection();
-        session->SendRequestUpdate(GetDataContextId().value(),
-                                   connection->GetNextRequestID(),
-                                   TrackHash(GetFullTrackName()),
-                                   std::nullopt,
-                                   GetPriority(),
-                                   true);
+        session->SendRequestUpdate(
+          GetDataContextId().value(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), true);
     }
 
     void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
@@ -234,12 +226,8 @@ namespace quicr {
         }
 
         auto& connection = session->GetConnection();
-        session->SendRequestUpdate(GetDataContextId().value(),
-                                   connection->GetNextRequestID(),
-                                   TrackHash(GetFullTrackName()),
-                                   group_id,
-                                   GetPriority(),
-                                   true);
+        session->SendRequestUpdate(
+          GetDataContextId().value(), TrackHash(GetFullTrackName()), group_id, GetPriority(), true);
     }
 
     void SubscribeTrackHandler::StreamClosed(std::uint64_t stream_id, bool)
