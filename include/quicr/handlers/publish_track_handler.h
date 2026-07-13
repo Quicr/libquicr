@@ -303,38 +303,6 @@ namespace quicr {
                                                  std::shared_ptr<const std::vector<uint8_t>> data);
 
         /**
-         * @brief Publish object to the announced track
-         *
-         * @details Publish a partial object. If not announced, it will be announced. Status will
-         *   indicate if there are no subscribers. In this case, the object will
-         *   not be sent.
-         *
-         *   **Restrictions:**
-         *   - In TrackMode::kStreamPerGroup, /::group_id **MUST** be different than the previous
-         *     when calling this method when the previous has not been completed yet using PublishContinuationData().
-         *     If group id is not different, the PublishStatus::kPreviousObjectNotCompleteMustStartNewGroup will be
-         *     returned and the object will not be sent. If new group ID is provided, then the previous object will
-         *     terminate with stream closure, resulting in the previous being truncated.
-         *   - In TrackMode::kStreamPerTrack, this method **CANNOT** be called until the previous object has been
-         *     completed using PublishContinuationData(). Calling this method before completing the previous
-         *     object remaining data will result in PublishStatus::kObjectDataIncomplete. No data would be sent and the
-         *     stream would remain unchanged. It is expected that the caller would send the remaining continuation data.
-         *
-         * @note If data is less than ObjectHeaders::payload_length, then PublishObject()
-         *   should be called to send the remaining data.
-         *
-         * @param object_headers        Object headers, must include group and object Ids
-         * @param data                  Payload data for the object, must be <= object_headers.payload_length
-         *
-         * @returns Publish status of the publish
-         *    * PublishStatus::kObjectContinuationDataNeeded if the object payload data is not completed but it was
-         * sent,
-         *    * PublishStatus::kObjectDataComplete if the object data was sent and the data is complete,
-         *    * other PublishStatus
-         */
-        PublishObjectStatus PublishPartialObject(const ObjectHeaders& object_headers, BytesSpan data);
-
-        /**
          * @brief Ends the subgroup as completed or not.
          *
          * @details APP MUST call this to end subgroups, otherwise they will linger. If
