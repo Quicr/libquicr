@@ -68,7 +68,7 @@ namespace quicr {
              * @param[in] conn_id	Transport context identifier mapped to the connection
              * @param[in] data_ctx_id	Data context id for a new data context received by the transport
              */
-            virtual void OnNewDataContext(const std::uint64_t& data_ctx_id) = 0;
+            virtual void OnNewDataContext(std::uint64_t data_ctx_id) = 0;
 
             /**
              * @brief callback notification that data has been received and should be processed
@@ -170,7 +170,7 @@ namespace quicr {
          *
          * @param[in] data_ctx_id	Data context id for a new data context received by the transport
          */
-        virtual void OnNewDataContext(const std::uint64_t& data_ctx_id);
+        virtual void OnNewDataContext(std::uint64_t data_ctx_id);
 
         /**
          * @brief callback notification that data has been received and should be processed

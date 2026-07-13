@@ -453,6 +453,7 @@ namespace quicr {
         virtual void Shutdown() {}
 
       public:
-        std::function<void(std::shared_ptr<Connection>)> OnNewConnection;
+        std::function<void(const std::shared_ptr<Connection>&)> OnNewConnection;
+        std::function<void(const std::shared_ptr<Connection>&)> OnConnectionClosed;
     };
 } // namespace quicr

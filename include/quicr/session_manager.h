@@ -67,6 +67,8 @@ namespace quicr {
         std::map<std::uint64_t, std::shared_ptr<Transport>> transports_;
 
         std::map<std::uint64_t, std::shared_ptr<Session>> sessions_;
+
+        std::function<void(const std::shared_ptr<Connection>&)> on_connection_closed_;
     };
 
 }

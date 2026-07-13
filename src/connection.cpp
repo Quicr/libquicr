@@ -86,7 +86,7 @@ namespace quicr {
         }
     }
 
-    void Connection::OnNewDataContext(const std::uint64_t& data_ctx_id)
+    void Connection::OnNewDataContext(std::uint64_t data_ctx_id)
     {
         if (auto delegate = delegate_.lock()) {
             delegate->OnNewDataContext(data_ctx_id);
