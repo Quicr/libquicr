@@ -356,9 +356,7 @@ TEST_CASE("Integration - Track status success uses a one-shot request stream")
         const messages::Location largest{ .group = 11, .object = 13 };
         auto properties = messages::TrackExtensions{}.Add(messages::ExtensionType::kDynamicGroups, true);
 
-        server->SetTrackStatusResponse({ .reason_code = RequestResponse::ReasonCode::kOk,
-                                         .largest_object = largest,
-                                         .track_properties = properties });
+        server->SetTrackStatusResponse({ .largest_object = largest, .track_properties = properties });
 
         std::promise<TestServer::TrackStatusDetails> request_promise;
         auto request_future = request_promise.get_future();
@@ -385,7 +383,7 @@ TEST_CASE("Integration - Track status success uses a one-shot request stream")
         REQUIRE(response_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         const auto response = response_future.get();
         CHECK_EQ(response.request_id, request_id);
-        CHECK_EQ(response.response.reason_code, RequestResponse::ReasonCode::kOk);
+        CHECK_FALSE(response.response.error.has_value());
         CHECK_EQ(response.response.largest_object, largest);
         CHECK(response.response.track_properties.Get<bool>(messages::ExtensionType::kDynamicGroups));
 
@@ -411,9 +409,9 @@ TEST_CASE("Integration - Track status error finishes the one-shot request")
         auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
         const FullTrackName track{ TrackNamespace(std::vector<std::string>{ "missing" }), { 9 } };
 
-        server->SetTrackStatusResponse({ .reason_code = RequestResponse::ReasonCode::kDoesNotExist,
-                                         .error_reason = "Track does not exist",
-                                         .retry_interval = std::chrono::milliseconds{ 250 } });
+        server->SetTrackStatusResponse({ .error = RequestError{ .error_code = messages::ErrorCode::kDoesNotExist,
+                                                                .retry_interval = std::chrono::milliseconds{ 250 },
+                                                                .reason = "Track does not exist" } });
 
         std::promise<TestClient::TrackStatusResult> response_promise;
         auto response_future = response_promise.get_future();
@@ -428,9 +426,10 @@ TEST_CASE("Integration - Track status error finishes the one-shot request")
         REQUIRE(response_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         const auto response = response_future.get();
         CHECK_EQ(response.request_id, request_id);
-        CHECK_EQ(response.response.reason_code, RequestResponse::ReasonCode::kDoesNotExist);
-        CHECK_EQ(response.response.error_reason, "Track does not exist");
-        CHECK_EQ(response.response.retry_interval, std::chrono::milliseconds{ 250 });
+        REQUIRE(response.response.error.has_value());
+        CHECK_EQ(response.response.error->error_code, messages::ErrorCode::kDoesNotExist);
+        CHECK_EQ(response.response.error->reason, "Track does not exist");
+        CHECK_EQ(response.response.error->retry_interval, std::chrono::milliseconds{ 250 });
         REQUIRE(stream_closed_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         CHECK_FALSE(stream_closed_future.get());
     };

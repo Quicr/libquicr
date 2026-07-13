@@ -33,11 +33,16 @@ namespace spdlog {
 
 namespace quicr {
 
+    struct RequestError
+    {
+        messages::ErrorCode error_code;
+        std::chrono::milliseconds retry_interval{ 0 };
+        std::string reason;
+    };
+
     struct TrackStatusResponse
     {
-        RequestResponse::ReasonCode reason_code{ RequestResponse::ReasonCode::kOk };
-        std::optional<std::string> error_reason;
-        std::chrono::milliseconds retry_interval{ 0 };
+        std::optional<RequestError> error;
         std::optional<messages::Location> largest_object;
         messages::TrackExtensions track_properties;
     };
@@ -324,13 +329,7 @@ namespace quicr {
 
         struct RequestUpdateResponse
         {
-            struct Error
-            {
-                const messages::ErrorCode error_code;
-                const std::chrono::milliseconds retry_interval;
-                const std::string reason;
-            };
-            const std::optional<Error> error;
+            const std::optional<RequestError> error;
             const messages::Parameters params;
         };
 
@@ -620,7 +619,7 @@ namespace quicr {
         virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes);
 
         /**
-         * @brief Callback for a completed TRACK_STATUS request
+         * @brief Callback for a track status response arriving
          *
          * @param connection_id Source connection ID
          * @param request_id Request ID

@@ -318,8 +318,8 @@ namespace quicr {
     {
         ResolveTrackStatus(connection_id,
                            request_id,
-                           { .reason_code = RequestResponse::ReasonCode::kNotSupported,
-                             .error_reason = "TRACK_STATUS is not supported" });
+                           { .error = RequestError{ .error_code = messages::ErrorCode::kNotSupported,
+                                                    .reason = "TRACK_STATUS is not supported" } });
     }
 
     void Session::ResolveTrackStatus(std::uint64_t connection_id,
@@ -342,43 +342,18 @@ namespace quicr {
         }
 
         const auto data_ctx_id = ResponseDataContext(conn_it->second, request_id);
-        const auto send_error = [&](messages::ErrorCode error, std::string_view default_reason) {
+        if (response.error.has_value()) {
             SendRequestError(conn_it->second,
                              data_ctx_id,
                              request_id,
-                             error,
-                             response.retry_interval,
-                             response.error_reason.value_or(std::string(default_reason)),
+                             response.error->error_code,
+                             response.error->retry_interval,
+                             response.error->reason,
                              true);
-        };
-
-        switch (response.reason_code) {
-            case RequestResponse::ReasonCode::kOk: {
-                SendTrackStatusOk(conn_it->second, data_ctx_id, response.largest_object, response.track_properties);
-                break;
-            }
-            case RequestResponse::ReasonCode::kDoesNotExist:
-                send_error(ErrorCode::kDoesNotExist, "Track does not exist");
-                break;
-            case RequestResponse::ReasonCode::kUnauthorized:
-                send_error(ErrorCode::kUnauthorized, "Unauthorized");
-                break;
-            case RequestResponse::ReasonCode::kTimeout:
-                send_error(ErrorCode::kTimeout, "Timed out");
-                break;
-            case RequestResponse::ReasonCode::kNotSupported:
-                send_error(ErrorCode::kNotSupported, "Not supported");
-                break;
-            case RequestResponse::ReasonCode::kMalformedAuthToken:
-                send_error(ErrorCode::kMalformedAuthToken, "Malformed authorization token");
-                break;
-            case RequestResponse::ReasonCode::kExpiredAuthToken:
-                send_error(ErrorCode::kExpiredAuthToken, "Expired authorization token");
-                break;
-            default:
-                send_error(ErrorCode::kInternalError, "Internal error");
-                break;
+            return;
         }
+
+        SendTrackStatusOk(conn_it->second, data_ctx_id, response.largest_object, response.track_properties);
     }
 
     void Session::SendCtrlMsg(const ConnectionContext& conn_ctx,
@@ -3265,8 +3240,7 @@ namespace quicr {
                     TrackStatusResponseReceived(
                       conn_ctx.connection_id,
                       request_id,
-                      { .reason_code = RequestResponse::ReasonCode::kOk,
-                        .largest_object = parameters.GetOptional<Location>(ParameterType::kLargestObject),
+                      { .largest_object = parameters.GetOptional<Location>(ParameterType::kLargestObject),
                         .track_properties = track_properties });
                     return true;
                 }
@@ -3301,18 +3275,16 @@ namespace quicr {
                 const auto request_id = request_it->second;
                 const auto error_code = messages::Message::ParseField<messages::ErrorCode>(msg_bytes);
                 const auto retry_interval = messages::Message::ParseField<std::uint64_t>(msg_bytes);
-                const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
-
-                RequestResponse response{};
-                response.reason_code = RequestResponse::FromErrorCode(error_code);
-                response.error_reason = std::string(error_reason.begin(), error_reason.end());
+                const auto error_reason_bytes = messages::Message::ParseField<Bytes>(msg_bytes);
+                auto error_reason = std::string(error_reason_bytes.begin(), error_reason_bytes.end());
 
                 if (conn_ctx.outbound_track_status_requests.contains(request_id)) {
-                    TrackStatusResponseReceived(conn_ctx.connection_id,
-                                                request_id,
-                                                { .reason_code = response.reason_code,
-                                                  .error_reason = std::move(response.error_reason),
-                                                  .retry_interval = std::chrono::milliseconds{ retry_interval } });
+                    TrackStatusResponseReceived(
+                      conn_ctx.connection_id,
+                      request_id,
+                      { .error = RequestError{ .error_code = error_code,
+                                               .retry_interval = std::chrono::milliseconds{ retry_interval },
+                                               .reason = std::move(error_reason) } });
                     return true;
                 }
 
@@ -3327,7 +3299,7 @@ namespace quicr {
                         return true;
                     }
 
-                    track_it->second.handler->RequestError(error_code, response.error_reason.value());
+                    track_it->second.handler->RequestError(error_code, error_reason);
                     return true;
                 }
 
@@ -3335,7 +3307,7 @@ namespace quicr {
                                     "Received track status error request_id: {} error code: {} reason: {}",
                                     request_id,
                                     static_cast<std::uint64_t>(error_code),
-                                    response.error_reason.value());
+                                    error_reason);
                 return true;
             }
             case messages::ControlMessageType::kTrackStatus: {
