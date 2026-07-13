@@ -666,7 +666,7 @@ namespace quicr {
 
     void Session::SendSubscribeOk(ConnectionContext& conn_ctx,
                                   std::uint64_t data_ctx_id,
-                                  uint64_t request_id,
+                                  [[maybe_unused]] uint64_t request_id,
                                   uint64_t track_alias,
                                   uint64_t expires,
                                   const std::optional<Location>& largest_location,
@@ -686,13 +686,7 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending SUBSCRIBE OK to conn_id: {} request_id: {}", conn_ctx.connection_id, request_id);
 
-        SendCtrlMsg(conn_ctx,
-                    data_ctx_id,
-                    ControlMessageType::kSubscribeOk,
-                    UintVar(request_id),
-                    UintVar(track_alias),
-                    params,
-                    extensions);
+        SendCtrlMsg(conn_ctx, data_ctx_id, ControlMessageType::kSubscribeOk, UintVar(track_alias), params, extensions);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeOk (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -3169,7 +3163,16 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kSubscribeOk: {
-                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto request_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
+                if (request_it == conn_ctx.request_id_by_data_ctx.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received SUBSCRIBE_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
+                                       conn_ctx.connection_id,
+                                       data_ctx_id);
+                    return true;
+                }
+                const auto request_id = request_it->second;
+
                 const auto track_alias = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
