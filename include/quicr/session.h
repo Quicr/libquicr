@@ -22,7 +22,6 @@
 #include <atomic>
 #include <chrono>
 #include <map>
-#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -1014,9 +1013,9 @@ namespace quicr {
             std::map<std::uint64_t, std::uint64_t> request_id_by_data_ctx;
 
             /// In flight outbound track status requests.
-            std::set<std::uint64_t> outbound_track_status_requests;
+            std::vector<std::uint64_t> outbound_track_status_requests;
             /// In flight inbound track status requests.
-            std::set<std::uint64_t> inbound_track_status_requests;
+            std::vector<std::uint64_t> inbound_track_status_requests;
 
             /// Active inbound publish namespace notifications (not handler based).
             std::vector<std::uint64_t> recv_publish_namespaces;

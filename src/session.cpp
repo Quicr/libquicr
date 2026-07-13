@@ -14,6 +14,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <iomanip>
 #include <memory>
 #include <sstream>
@@ -304,7 +305,7 @@ namespace quicr {
         quic_transport_->CreateStream(connection_id, data_ctx_id, 0);
 
         conn_it->second.request_id_by_data_ctx[data_ctx_id] = request_id;
-        conn_it->second.outbound_track_status_requests.insert(request_id);
+        conn_it->second.outbound_track_status_requests.push_back(request_id);
 
         SendTrackStatus(conn_it->second, data_ctx_id, request_id, track_full_name, attributes);
 
@@ -333,7 +334,8 @@ namespace quicr {
             return;
         }
 
-        if (!conn_it->second.inbound_track_status_requests.contains(request_id)) {
+        if (std::ranges::find(conn_it->second.inbound_track_status_requests, request_id) ==
+            conn_it->second.inbound_track_status_requests.end()) {
             SPDLOG_LOGGER_DEBUG(logger_,
                                 "ResolveTrackStatus request not found, ignoring conn_id: {} request_id: {}",
                                 connection_id,
@@ -1223,8 +1225,8 @@ namespace quicr {
         if (handler_it == conn_ctx.request_handlers.end()) {
             SPDLOG_LOGGER_DEBUG(
               logger_, "Stream closed for unknown request_id conn_id: {} request_id: {}", connection_id, request_id);
-            conn_ctx.outbound_track_status_requests.erase(request_id);
-            conn_ctx.inbound_track_status_requests.erase(request_id);
+            std::erase(conn_ctx.outbound_track_status_requests, request_id);
+            std::erase(conn_ctx.inbound_track_status_requests, request_id);
             conn_ctx.recv_req_id.erase(request_id);
             conn_ctx.ctrl_msg_buffer.erase(stream_id);
             return;
@@ -3094,7 +3096,8 @@ namespace quicr {
     {
         if (const auto request_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
             request_it != conn_ctx.request_id_by_data_ctx.end() &&
-            conn_ctx.inbound_track_status_requests.contains(request_it->second)) {
+            std::ranges::find(conn_ctx.inbound_track_status_requests, request_it->second) !=
+              conn_ctx.inbound_track_status_requests.end()) {
             throw ProtocolViolationException("TRACK_STATUS must be the only request message on its stream");
         }
 
@@ -3235,7 +3238,8 @@ namespace quicr {
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_properties = Message::ParseField<messages::TrackExtensions>(msg_bytes);
 
-                if (conn_ctx.outbound_track_status_requests.contains(request_id)) {
+                if (std::ranges::find(conn_ctx.outbound_track_status_requests, request_id) !=
+                    conn_ctx.outbound_track_status_requests.end()) {
                     ValidateParameters(parameters, { ParameterType::kLargestObject });
                     TrackStatusResponseReceived(
                       conn_ctx.connection_id,
@@ -3278,7 +3282,8 @@ namespace quicr {
                 const auto error_reason_bytes = messages::Message::ParseField<Bytes>(msg_bytes);
                 auto error_reason = std::string(error_reason_bytes.begin(), error_reason_bytes.end());
 
-                if (conn_ctx.outbound_track_status_requests.contains(request_id)) {
+                if (std::ranges::find(conn_ctx.outbound_track_status_requests, request_id) !=
+                    conn_ctx.outbound_track_status_requests.end()) {
                     TrackStatusResponseReceived(
                       conn_ctx.connection_id,
                       request_id,
@@ -3333,7 +3338,7 @@ namespace quicr {
                                                      .track_hash = th,
                                                      .data_ctx_id = data_ctx_id };
                 conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
-                conn_ctx.inbound_track_status_requests.insert(request_id);
+                conn_ctx.inbound_track_status_requests.push_back(request_id);
 
                 TrackStatusReceived(
                   conn_ctx.connection_id,
