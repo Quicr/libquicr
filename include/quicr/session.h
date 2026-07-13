@@ -1093,6 +1093,7 @@ namespace quicr {
         template<typename... Fields>
         void SendCtrlMsg(const ConnectionContext& conn_ctx,
                          std::uint64_t data_ctx_id,
+                         bool close_stream,
                          messages::ControlMessageType type,
                          Fields&&... args)
         {
@@ -1100,7 +1101,16 @@ namespace quicr {
 
             (msg.Append(args), ...);
 
-            SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes());
+            SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes(), close_stream);
+        }
+
+        template<typename... Fields>
+        void SendCtrlMsg(const ConnectionContext& conn_ctx,
+                         std::uint64_t data_ctx_id,
+                         messages::ControlMessageType type,
+                         Fields&&... args)
+        {
+            SendCtrlMsg(conn_ctx, data_ctx_id, false, type, args...);
         }
 
         void SendSetup(ConnectionContext& conn_ctx);

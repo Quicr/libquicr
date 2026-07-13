@@ -451,9 +451,7 @@ namespace quicr {
                             conn_ctx.connection_id,
                             conn_ctx.request_id_by_data_ctx.at(data_ctx_id));
 
-        auto msg = messages::Message{}.PrependType(ControlMessageType::kRequestOk).ReserveLength();
-        msg.Append(params).Append(track_properties);
-        SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes(), close_stream);
+        SendCtrlMsg(conn_ctx, data_ctx_id, close_stream, ControlMessageType::kRequestOk, params, track_properties);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_OK (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -503,9 +501,13 @@ namespace quicr {
                             static_cast<int>(error),
                             reason);
 
-        auto msg = messages::Message{}.PrependType(ControlMessageType::kRequestError).ReserveLength();
-        msg.Append(error).Append(UintVar(retry_interval.count())).Append(AsOwnedBytes(reason));
-        SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes(), close_stream);
+        SendCtrlMsg(conn_ctx,
+                    data_ctx_id,
+                    close_stream,
+                    ControlMessageType::kRequestError,
+                    error,
+                    UintVar(retry_interval.count()),
+                    AsOwnedBytes(reason));
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
