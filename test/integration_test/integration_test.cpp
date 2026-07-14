@@ -1561,6 +1561,53 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
     }
 }
 
+TEST_CASE("Integration - Failed publish does not create subgroup state")
+{
+    // Setup a publisher.
+    auto server = MakeTestServer();
+    auto publisher = MakeTestClient();
+    FullTrackName ftn;
+    ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "paused_publish" });
+    ftn.name = { 0x01 };
+    auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+    publisher->PublishTrack(pub_handler);
+    REQUIRE(WaitFor([&pub_handler]() { return pub_handler->CanPublish(); }));
+
+    // Pause.
+    pub_handler->SetStatus(PublishTrackHandler::Status::kPaused);
+
+    // Publish an object against paused handler.
+    constexpr uint64_t group_id = 0;
+    constexpr uint64_t subgroup_id = 0;
+    const std::vector<uint8_t> payload{ 0x01 };
+    const ObjectHeaders headers{ .group_id = group_id,
+                                 .object_id = 0,
+                                 .subgroup_id = subgroup_id,
+                                 .payload_length = payload.size(),
+                                 .status = ObjectStatus::kAvailable,
+                                 .priority = 128,
+                                 .ttl = 1000,
+                                 .track_mode = TrackMode::kStream };
+    REQUIRE_EQ(pub_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kPaused);
+
+    // Unpause.
+    pub_handler->SetStatus(PublishTrackHandler::Status::kOk);
+
+    // If the caller attempts to forward the next object in the subgroup as though the first passed, we should fail
+    // due to no stream state setup.
+    messages::StreamSubGroupObject next_object;
+    next_object.object_delta = 0;
+    next_object.object_status = ObjectStatus::kAvailable;
+    next_object.payload = payload;
+    const auto stream_mode = pub_handler->GetStreamMode();
+    next_object.properties.emplace(stream_mode.value());
+    Bytes encoded_object;
+    encoded_object << next_object;
+    const auto status = pub_handler->ForwardPublishedData(
+      false, group_id, subgroup_id, std::make_shared<const std::vector<uint8_t>>(std::move(encoded_object)));
+    CHECK_EQ(status, PublishTrackHandler::PublishObjectStatus::kInternalError);
+}
+
 TEST_CASE("Integration - New subgroup preserves object IDs")
 {
     auto server = MakeTestServer(std::nullopt, 2);
