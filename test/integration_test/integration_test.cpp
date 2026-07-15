@@ -445,7 +445,6 @@ TEST_CASE("Integration - Subscribe metrics report received payload")
             const ObjectHeaders headers{ .group_id = 0,
                                          .object_id = i,
                                          .subgroup_id = 0,
-                                         .payload_length = payload.size(),
                                          .status = ObjectStatus::kAvailable,
                                          .priority = 3,
                                          .ttl = 5000,
@@ -507,7 +506,6 @@ TEST_CASE("Integration - Publish metrics report transmitted objects")
             const ObjectHeaders headers{ .group_id = 0,
                                          .object_id = i,
                                          .subgroup_id = 0,
-                                         .payload_length = payload.size(),
                                          .status = ObjectStatus::kAvailable,
                                          .priority = 3,
                                          .ttl = 5000,
@@ -744,7 +742,6 @@ TEST_CASE("Integration - Handlers with no transport")
         const auto handler = PublishTrackHandler::Create(FullTrackName(), TrackMode::kStream, 0, 0, { 0, 0 });
         ObjectHeaders headers = { .group_id = 0,
                                   .object_id = 0,
-                                  .payload_length = 1,
                                   .status = ObjectStatus::kAvailable,
                                   .priority = 0,
                                   .ttl = 100,
@@ -819,7 +816,7 @@ TEST_CASE("Group ID Gap")
 
         REQUIRE(pub->CanPublish());
         const auto payload = std::vector<std::uint8_t>(1);
-        ObjectHeaders headers{ .group_id = 0, .object_id = 0, .payload_length = payload.size() };
+        ObjectHeaders headers{ .group_id = 0, .object_id = 0 };
         REQUIRE_EQ(pub->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
         headers.group_id = expected_gap + 1;
         REQUIRE_EQ(pub->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
@@ -1277,7 +1274,6 @@ TEST_CASE("Integration - Fetch object roundtrip" * doctest::skip())
             response_data.headers.status = ObjectStatus::kAvailable;
             response_data.headers.priority = 5;
             response_data.payload = { static_cast<uint8_t>(object) };
-            response_data.headers.payload_length = response_data.payload.size();
             cached.push_back(response_data);
         }
 
@@ -1387,7 +1383,6 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
             ObjectHeaders headers = { .group_id = group_id,
                                       .object_id = object_id,
                                       .subgroup_id = subgroup_id,
-                                      .payload_length = payload.size(),
                                       .status = ObjectStatus::kAvailable,
                                       .priority = 3,
                                       .ttl = 1000,
@@ -1598,7 +1593,6 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
             ObjectHeaders headers = { .group_id = group_id,
                                       .object_id = object_id,
                                       .subgroup_id = subgroup_id,
-                                      .payload_length = payload.size(),
                                       .status = ObjectStatus::kAvailable,
                                       .priority = 3,
                                       .ttl = 1000,

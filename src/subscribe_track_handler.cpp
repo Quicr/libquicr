@@ -98,7 +98,6 @@ namespace quicr {
                     s_hdr.group_id,
                     stream.next_object_id.value(),
                     s_hdr.subgroup_id.value(),
-                    obj.payload.size(),
                     obj.object_status,
                     s_hdr.priority,
                     std::nullopt,
@@ -172,7 +171,6 @@ namespace quicr {
                     msg.group_id,
                     msg.object_id,
                     0, // datagrams don't have subgroups
-                    msg.payload.size(),
                     ObjectStatus::kAvailable,
                     msg.priority,
                     std::nullopt,

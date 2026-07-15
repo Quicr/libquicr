@@ -67,7 +67,6 @@ namespace quicr_test {
                 quicr::ObjectHeaders object_headers;
                 object_headers.group_id = it->second.current_group_id;
                 object_headers.subgroup_id = it->second.current_subgroup_id;
-                object_headers.payload_length = 0;
                 object_headers.ttl = 5000; // TODO: Revisit TTL for end of subgroup/stream
                 object_headers.object_id =
                   it->second.next_object_id.has_value() ? it->second.next_object_id.value() : 1;

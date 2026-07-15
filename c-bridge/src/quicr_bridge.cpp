@@ -957,7 +957,6 @@ extern "C"
         cpp_headers.object_id = object->headers.object_id;
         cpp_headers.priority = static_cast<uint8_t>(object->headers.priority);
         cpp_headers.ttl = object->headers.ttl_ms;
-        cpp_headers.payload_length = object->payload.length;
         cpp_headers.status = quicr::ObjectStatus::kAvailable;
 
         // Create data span
@@ -986,7 +985,6 @@ extern "C"
         cpp_headers.object_id = headers->object_id;
         cpp_headers.priority = static_cast<uint8_t>(headers->priority);
         cpp_headers.ttl = headers->ttl_ms;
-        cpp_headers.payload_length = data_len;
         cpp_headers.status = quicr::ObjectStatus::kAvailable;
 
         // Create data span

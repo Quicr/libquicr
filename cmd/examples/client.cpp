@@ -744,7 +744,6 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
                 .group_id = moq_j["groupID"],
                 .object_id = moq_j["objectID"],
                 .subgroup_id = moq_j["subGroup"],
-                .payload_length = moq_j["dataLength"],
                 .status = quicr::ObjectStatus::kAvailable,
                 .priority = moq_j["publisherPriority"],
                 .ttl = std::nullopt,
@@ -753,11 +752,11 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
                 .immutable_extensions = std::nullopt,
             };
 
+            std::size_t data_length = moq_j["dataLength"];
             std::size_t data_offset = moq_j["dataOffset"];
 
             auto& msg = messages.emplace_back(std::make_pair(hdr, quicr::Bytes{}));
-            msg.second.assign(std::next(data.begin(), data_offset),
-                              std::next(data.begin(), data_offset + hdr.payload_length));
+            msg.second.assign(std::next(data.begin(), data_offset), std::next(data.begin(), data_offset + data_length));
         }
     }
 
@@ -860,10 +859,11 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
 
                 SPDLOG_INFO("Publishing file {} ({} bytes) group_id: {}", watch_path.string(), data.size(), group_id);
 
-                quicr::ObjectHeaders obj_headers = {
-                    group_id,         object_id,      subgroup_id,  data.size(),  quicr::ObjectStatus::kAvailable,
-                    128 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
-                };
+                quicr::ObjectHeaders obj_headers = { group_id,         object_id,
+                                                     subgroup_id,      quicr::ObjectStatus::kAvailable,
+                                                     128 /*priority*/, 3000 /* ttl */,
+                                                     std::nullopt,     std::nullopt,
+                                                     std::nullopt };
 
                 try {
                     if (track_handler->CanPublish()) {
@@ -936,8 +936,8 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
         }
 
         quicr::ObjectHeaders obj_headers = {
-            group_id,         object_id++,    subgroup_id,  msg.size(),   quicr::ObjectStatus::kAvailable,
-            128 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
+            group_id,     object_id++,  subgroup_id, quicr::ObjectStatus::kAvailable, 128 /*priority*/, 3000 /* ttl */,
+            std::nullopt, std::nullopt, std::nullopt
         };
 
         try {
@@ -1095,7 +1095,6 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
         quicr::ObjectHeaders headers = { .group_id = group_id,
                                          .object_id = object_id,
                                          .subgroup_id = subgroup_id,
-                                         .payload_length = msg.size(),
                                          .status = quicr::ObjectStatus::kAvailable,
                                          .priority = 128,
                                          .ttl = 3000,

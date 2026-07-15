@@ -57,7 +57,6 @@ namespace quicr {
                 ObjectReceived({ obj.group_id,
                                  obj.object_id,
                                  obj.subgroup_id,
-                                 obj.payload.size(),
                                  obj.object_status,
                                  obj.publisher_priority,
                                  std::nullopt,
