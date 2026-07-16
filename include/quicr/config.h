@@ -5,6 +5,7 @@
 
 #include "quicr/version.h"
 
+#include <cstdint>
 #include <string>
 
 namespace quicr {
