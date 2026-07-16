@@ -2280,25 +2280,6 @@ namespace quicr {
         SendPublishNamespace(*sub_data_ctx_id, current_connection_->GetNextRequestID(), track_namespace);
     }
 
-    void Session::ResolvePublishNamespaceDone(std::uint64_t request_id, const std::vector<std::uint64_t>& subscribers)
-    {
-        // TODO: Figure this out now that Session/Connections(s) are separated from each other. Maybe
-        // SessionManager?
-        SPDLOG_LOGGER_ERROR(logger_, "ResolvePublishNamespaceDone is unimplemented until we can coordinate Sessions");
-
-        // for (const auto& sub_conn_handle : subscribers) {
-        //     auto req_it = it->second.request_handlers.find(request_id);
-        //     if (req_it != it->second.request_handlers.end()) {
-        //         const auto data_ctx_id = req_it->second.handler->GetDataContextId();
-        //         const auto request_stream_id = req_it->second.handler->GetRequestStreamId();
-        //         if (data_ctx_id.has_value() && request_stream_id.has_value()) {
-        //             quic_transport_->CloseStream(sub_conn_handle, *data_ctx_id, *request_stream_id, true);
-        //         }
-        //         it->second.request_handlers.erase(req_it);
-        //     }
-        // }
-    }
-
     void Session::ResolveRequestUpdate(std::uint64_t request_id, const RequestUpdateResponse& response)
     {
         auto track_it = request_handlers.find(request_id);
@@ -2376,15 +2357,6 @@ namespace quicr {
     void Session::MetricsSampled(const ConnectionMetrics&) {}
 
     // -- Server Callbacks --
-
-    void Session::NewConnectionAccepted([[maybe_unused]] const ConnectionRemoteInfo& remote)
-    {
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "New connection conn_id: {} remote ip: {} port: {}",
-                            current_connection_->GetID(),
-                            remote.ip,
-                            remote.port);
-    }
 
     void Session::ClientSetupReceived(const ClientSetupAttributes&) {}
 
