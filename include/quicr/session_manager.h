@@ -44,8 +44,6 @@ namespace quicr {
 
         ~SessionManager();
 
-        bool HasActiveSessions() const noexcept;
-
         std::pair<std::shared_ptr<Transport>, std::shared_ptr<Session>> AddTransport(
           const ClientConfig& config,
           CreateClientSessionCallbackType&& create_session);

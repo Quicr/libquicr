@@ -241,7 +241,6 @@ namespace quicr {
         bool is_stream_header_needed{ false };
         uint64_t group_id_delta{ 0 };
         uint64_t object_id_delta{ 0 };
-        uint64_t prior_object_id_gap{ 0 };
         uint64_t stream_id{ 0 };
 
         if (default_track_mode_ == TrackMode::kStream) {
@@ -466,7 +465,7 @@ namespace quicr {
         }
     }
 
-    void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, bool reset)
+    void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, [[maybe_unused]] bool reset)
     {
         for (auto group_it = stream_info_by_group_.begin(); group_it != stream_info_by_group_.end();) {
             for (auto subgroup_it = group_it->second.begin(); subgroup_it != group_it->second.end();) {
