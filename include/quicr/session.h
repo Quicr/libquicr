@@ -4,7 +4,6 @@
 #pragma once
 
 #include "quicr/attributes.h"
-#include "quicr/common.h"
 #include "quicr/config.h"
 #include "quicr/connection.h"
 #include "quicr/handlers/fetch_track_handler.h"

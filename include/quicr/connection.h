@@ -20,6 +20,14 @@ namespace quicr {
     class SubscribeTrackHandler;
     class TrackHandler;
 
+    struct StreamRxContext;
+
+    enum class StreamClosedFlag : uint8_t
+    {
+        kFin,
+        kReset,
+    };
+
     class Connection
     {
       public:

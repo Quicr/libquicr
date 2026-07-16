@@ -8,7 +8,6 @@
 
 #include "quicr/quicr_bridge.h"
 
-#include <quicr/common.h>
 #include <quicr/config.h>
 #include <quicr/handlers/fetch_track_handler.h>
 #include <quicr/handlers/publish_track_handler.h>
