@@ -225,7 +225,7 @@ TestServer::PublishNamespaceReceived(const TrackNamespace& track_namespace,
 
     // Accept the publish namespace by responding with OK
     const PublishNamespaceResponse response = { .reason_code = PublishNamespaceResponse::ReasonCode::kOk };
-    ResolvePublishNamespace(publish_announce_attributes.request_id, track_namespace, {}, response);
+    ResolvePublishNamespace(publish_announce_attributes.request_id, track_namespace, response);
 }
 
 void

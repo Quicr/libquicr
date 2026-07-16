@@ -149,17 +149,6 @@ namespace quicr {
         spdlog::drop(logger_->name());
     }
 
-    bool SessionManager::HasActiveSessions() const noexcept
-    {
-        for (const auto& [_, session] : sessions_) {
-            if (session->GetStatus() == Session::Status::kReady) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     std::pair<std::shared_ptr<Transport>, std::shared_ptr<Session>> SessionManager::AddTransport(
       const ClientConfig& config,
       CreateClientSessionCallbackType&& create_session)
@@ -181,13 +170,18 @@ namespace quicr {
         transport->OnConnectionClosed = on_connection_closed_;
 
         auto [transport_it, _] = transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
+
         auto connection = transport->Start();
+        if (!connection) {
+            return { transport_it->second, nullptr };
+        }
+
         auto session = create_session ? create_session(config, transport, connection, tick_service_)
                                       : Session::Create(config, transport, connection, tick_service_);
 
         connection->SetDelegate(session);
 
-        return { transport_it->second, sessions_[reinterpret_cast<std::uint64_t>(session.get())] = std::move(session) };
+        return { transport_it->second, sessions_[connection->GetID()] = std::move(session) };
     }
 
     const std::shared_ptr<Transport>& SessionManager::AddTransport(

@@ -389,12 +389,10 @@ namespace quicr {
          *
          * @param request_id         Request ID received for the announce request
          * @param track_namespace    Track namespace
-         * @param subscribers        Subscriber connection handles that should be sent the announce
          * @param announce_response  Response for the announcement
          */
         void ResolvePublishNamespace(uint64_t request_id,
                                      const TrackNamespace& track_namespace,
-                                     const std::vector<std::uint64_t>& subscribers,
                                      const PublishNamespaceResponse& announce_response);
 
         /**
