@@ -395,16 +395,6 @@ namespace quicr {
                                      const PublishNamespaceResponse& announce_response);
 
         /**
-         * @brief Finalize the publish namespace done received
-         *
-         * @details Server mode only. Sends Publish Namespace Done to SUBSCRIBE_NAMESPACE requestors.
-         *
-         * @param request_id        Request ID of the namespace that is done
-         * @param subscribers       Subscriber connection handles that should be sent a done message
-         */
-        void ResolvePublishNamespaceDone(std::uint64_t request_id, const std::vector<std::uint64_t>& subscribers);
-
-        /**
          * @brief Accept or reject a request update
          *
          * @param request_id            Request being updated
@@ -607,15 +597,6 @@ namespace quicr {
          *      Callbacks invoked in server mode unless noted otherwise.
          */
         ///@{
-
-        /**
-         * @brief Callback notification on new connection
-         *
-         * @details Server mode only. Callback notification that a new connection has been accepted.
-         *
-         * @param remote              Transport remote connection information
-         */
-        virtual void NewConnectionAccepted(const ConnectionRemoteInfo& remote);
 
         /**
          * @brief Callback on client setup message
