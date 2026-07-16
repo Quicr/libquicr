@@ -362,7 +362,7 @@ namespace quicr {
             uint64_t stream_id{ 0 };
             uint64_t last_group_id{ 0 };
             uint64_t last_subgroup_id{ 0 };
-            std::optional<uint64_t> last_object_id;
+            std::optional<uint64_t> last_object_id{ std::nullopt };
         };
 
         // Key is group and subgroup id

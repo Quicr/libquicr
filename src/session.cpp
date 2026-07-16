@@ -1489,17 +1489,10 @@ namespace quicr {
                 }
                 break;
             case Connection::Status::kRemoteRequestClose:
-                current_connection_->closed = true;
-                remove_connection = true;
-                break;
-
+                [[fallthrough]];
             case Connection::Status::kIdleTimeout:
-                current_connection_->closed = true;
-                remove_connection = true;
-                break;
-
+                [[fallthrough]];
             case Connection::Status::kDisconnected: {
-                current_connection_->closed = true;
                 remove_connection = true;
                 break;
             }
@@ -2241,47 +2234,30 @@ namespace quicr {
 
     void Session::ResolvePublishNamespace(uint64_t request_id,
                                           const TrackNamespace& track_namespace,
-                                          const std::vector<std::uint64_t>& subscribers,
                                           const PublishNamespaceResponse& response)
     {
-        auto th = TrackHash({ track_namespace, {} });
-        auto fanout_subscribe_namespace_requestors = [&] {
-            for (const auto& sub_conn_handle : subscribers) {
-                const auto sub_data_ctx_id = FindSubscribeNamespaceDataContext(track_namespace);
-                if (!sub_data_ctx_id.has_value()) {
-                    SPDLOG_LOGGER_WARN(
-                      logger_, "No subscribe namespace data context for fan-out conn_id: {}", sub_conn_handle);
-                    continue;
-                }
-
-                auto next_request_id = current_connection_->GetNextRequestID();
-                SendPublishNamespace(*sub_data_ctx_id, next_request_id, track_namespace);
-            }
-        };
-
-        // TODO: Figure out this case
-        // if (!connection_id) {
-        //     fanout_subscribe_namespace_requestors();
-        //     return;
-        // }
-
-        switch (response.reason_code) {
-            case PublishNamespaceResponse::ReasonCode::kOk: {
-                std::uint64_t response_data_ctx_id = ResponseDataContext(request_id);
-                const auto pub_ns_it = request_handlers.find(request_id);
-                if (pub_ns_it != request_handlers.end() && pub_ns_it->second->GetDataContextId().has_value()) {
-                    response_data_ctx_id = *pub_ns_it->second->GetDataContextId();
-                }
-
-                SendPublishNamespaceOk(response_data_ctx_id);
-
-                fanout_subscribe_namespace_requestors();
-                break;
-            }
-            default: {
-                // TODO: Send announce error
-            }
+        if (response.reason_code != PublishNamespaceResponse::ReasonCode::kOk) {
+            // TODO: Send announce error
+            return;
         }
+
+        std::uint64_t response_data_ctx_id = ResponseDataContext(request_id);
+        const auto pub_ns_it = request_handlers.find(request_id);
+        if (pub_ns_it != request_handlers.end() && pub_ns_it->second->GetDataContextId().has_value()) {
+            response_data_ctx_id = *pub_ns_it->second->GetDataContextId();
+        }
+
+        SendPublishNamespaceOk(response_data_ctx_id);
+
+        const auto sub_data_ctx_id = FindSubscribeNamespaceDataContext(track_namespace);
+        if (!sub_data_ctx_id.has_value()) {
+            SPDLOG_LOGGER_WARN(logger_,
+                               "No subscribe namespace data context for publish namespace conn_id: {}",
+                               current_connection_->GetID());
+            return;
+        }
+
+        SendPublishNamespace(*sub_data_ctx_id, current_connection_->GetNextRequestID(), track_namespace);
     }
 
     void Session::ResolvePublishNamespaceDone(std::uint64_t request_id, const std::vector<std::uint64_t>& subscribers)

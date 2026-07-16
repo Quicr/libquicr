@@ -196,7 +196,6 @@ namespace quicr {
         }
 
         status_ = Status::kPaused;
-        auto& connection = session->GetConnection();
         session->SendRequestUpdate(
           GetDataContextId().value(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), false);
     }
@@ -213,7 +212,6 @@ namespace quicr {
         }
 
         status_ = Status::kOk;
-        auto& connection = session->GetConnection();
         session->SendRequestUpdate(
           GetDataContextId().value(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), true);
     }
@@ -225,7 +223,6 @@ namespace quicr {
             return;
         }
 
-        auto& connection = session->GetConnection();
         session->SendRequestUpdate(
           GetDataContextId().value(), TrackHash(GetFullTrackName()), group_id, GetPriority(), true);
     }
