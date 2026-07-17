@@ -31,7 +31,7 @@ namespace quicr {
          */
         void AddValue(const uint64_t value)
         {
-            min = min ? std::min(min, value) : value;
+            min = value_count ? std::min(min, value) : value;
             max = std::max(max, value);
 
             value_sum += value;
@@ -263,8 +263,7 @@ namespace quicr {
         }
     };
 
-    constexpr uint64_t kMetricsIntervalUs = 5'000'000; /// Metrics interval for samples in microseconds
-    constexpr size_t kMaxMetricsSamplesQueue = 500;    /// Max metric samples pending to be written
+    constexpr size_t kMaxMetricsSamplesQueue = 500; /// Max metric samples pending to be written
 
     /// @endcond
 } // end namespace quicr

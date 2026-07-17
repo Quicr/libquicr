@@ -338,6 +338,7 @@ namespace quicr {
          */
         ConnectionContext* GetConnContext(const std::uint64_t& conn_id);
         void SetStatus(TransportStatus status);
+        std::uint64_t MetricsSampleIntervalUs() const { return tconfig_.metrics_sample_ms * 1'000; }
 
         /**
          * @brief Accept an incoming WebTransport connection

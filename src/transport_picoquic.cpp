@@ -429,7 +429,7 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                 transport->pq_loop_prev_time = targ->current_time;
             }
 
-            if (targ->current_time - transport->pq_loop_metrics_prev_time >= kMetricsIntervalUs) {
+            if (targ->current_time - transport->pq_loop_metrics_prev_time >= transport->MetricsSampleIntervalUs()) {
                 // Use this time to clean up streams that have been closed
                 transport->RemoveClosedStreams();
 
@@ -1696,7 +1696,7 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
             SPDLOG_LOGGER_DEBUG(logger,
                                 "send_next_dgram has no data context conn_id: {0} data len: {1} dropping",
                                 conn_ctx->conn_id,
-                                out_data.value->get().data->size());
+                                out_data->get().data->size());
             conn_ctx->metrics.tx_dgram_drops++;
             return;
         }

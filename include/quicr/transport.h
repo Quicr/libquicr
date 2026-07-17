@@ -120,6 +120,7 @@ namespace quicr {
         bool ssl_keylog{ false };         ///< Enable SSL key logging for QUIC connections
         std::size_t socket_buffer_size{ 1'000'000 }; ///< QUIC UDP socket buffer size
         uint32_t callback_queue_size{ 2000 };        ///< Callback function queue size for callbacks
+        uint64_t metrics_sample_ms{ 5000 };          ///< Metrics sampling interval in milliseconds
     };
 
     /// Stream action that should be done by send/receive processing
