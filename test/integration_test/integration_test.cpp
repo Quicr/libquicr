@@ -217,6 +217,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         ObjectStatus status;
         std::vector<uint8_t> data;
         std::optional<Extensions> extensions;
+        std::optional<messages::StreamHeaderProperties> stream_mode;
     };
 
     static std::shared_ptr<TestSubscribeHandler> Create(const FullTrackName& full_track_name,
@@ -276,7 +277,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
 
     void ObjectReceived(const ObjectHeaders& object_headers,
                         BytesSpan data,
-                        std::optional<messages::StreamHeaderProperties>) override
+                        std::optional<messages::StreamHeaderProperties> stream_mode) override
     {
         std::lock_guard lock(mutex_);
         if (!data.empty()) {
@@ -285,7 +286,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
                                           .object_id = object_headers.object_id,
                                           .status = object_headers.status,
                                           .data = std::vector<uint8_t>(data.begin(), data.end()),
-                                          .extensions = object_headers.extensions });
+                                          .extensions = object_headers.extensions,
+                                          .stream_mode = stream_mode });
 
             // Check if we've reached the target count
             if (object_count_promise_.has_value() && received_objects_.size() >= target_object_count_) {
@@ -1682,6 +1684,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         auto publish_object = [&](uint64_t group_id,
                                   uint64_t subgroup_id,
                                   uint64_t object_id,
+                                  bool first_object = true,
                                   std::optional<messages::SubgroupIdType> subgroup_id_mode = std::nullopt) {
             std::vector payload = { static_cast<uint8_t>(group_id),
                                     static_cast<uint8_t>(subgroup_id),
@@ -1697,9 +1700,11 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
                                       .extensions = std::nullopt,
                                       .immutable_extensions = std::nullopt };
             std::optional<messages::StreamHeaderProperties> stream_mode;
-            if (subgroup_id_mode.has_value()) {
-                stream_mode.emplace(true, *subgroup_id_mode, false, false);
-            }
+            stream_mode.emplace(true,
+                                subgroup_id_mode.has_value() ? *subgroup_id_mode : messages::SubgroupIdType::kExplicit,
+                                false,
+                                false,
+                                first_object);
             auto status = pub_handler->PublishObject(headers, payload, stream_mode);
             REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
         };
@@ -1711,11 +1716,11 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         // Subgroup 1.
         publish_object(0, 1, 2);
         pub_handler->EndSubgroup(0, 1, true);
-        // Subgroup 2.
-        publish_object(0, 2, 3);
+        // Subgroup 2, replicating a relay mid-subgroup forward (non-original first object).
+        publish_object(0, 2, 3, false);
         publish_object(0, 2, 4);
         // Subgroup 5, deriving its subgroup ID from its first object ID.
-        publish_object(0, 5, 5, messages::SubgroupIdType::kSetFromFirstObject);
+        publish_object(0, 5, 5, true, messages::SubgroupIdType::kSetFromFirstObject);
         // Let's end on a new group.
         publish_object(1, 0, 0);
 
@@ -1730,6 +1735,18 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
             CHECK_EQ(obj.group_id, obj.data[0]);
             CHECK_EQ(obj.subgroup_id, obj.data[1]);
             CHECK_EQ(obj.object_id, obj.data[2]);
+            // Validate original first object roundtrip. The subgroup header is only set on
+            // first object of the subgroup stream (which may or may not be the subgroup's original first object).
+            const bool is_first_subgroup_object = (obj.group_id == 0 && obj.subgroup_id == 0 && obj.object_id == 0) ||
+                                                  (obj.group_id == 0 && obj.subgroup_id == 1 && obj.object_id == 2) ||
+                                                  (obj.group_id == 0 && obj.subgroup_id == 2 && obj.object_id == 3) ||
+                                                  (obj.group_id == 0 && obj.subgroup_id == 5 && obj.object_id == 5) ||
+                                                  (obj.group_id == 1 && obj.subgroup_id == 0 && obj.object_id == 0);
+            CHECK_EQ(obj.stream_mode.has_value(), is_first_subgroup_object);
+            if (obj.stream_mode.has_value()) {
+                const bool expected_original_first = obj.group_id != 0 || obj.subgroup_id != 2;
+                CHECK_EQ(obj.stream_mode->first_object, expected_original_first);
+            }
         }
     };
 

@@ -32,7 +32,7 @@ namespace quicr {
                 if (stream_mode.has_value()) {
                     stream_mode_.emplace(*stream_mode);
                 } else {
-                    stream_mode_.emplace(true, messages::SubgroupIdType::kExplicit, false, false);
+                    stream_mode_.emplace(true, messages::SubgroupIdType::kExplicit, false, false, true);
                 }
                 break;
         }

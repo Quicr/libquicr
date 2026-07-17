@@ -57,6 +57,10 @@ namespace quicr {
         auto& obj = stream.buffer.GetAnyB<messages::StreamSubGroupObject>();
         obj.properties.emplace(*s_hdr.properties);
         if (stream.buffer >> obj) {
+            std::optional<messages::StreamHeaderProperties> stream_properties;
+            if (!stream.next_object_id.has_value()) {
+                stream_properties.emplace(*s_hdr.properties);
+            }
 
             SPDLOG_TRACE("Received stream_subgroup_object priority: {} stream_id: {} track_alias: {} "
                          "group: {} subgroup: {} object: {} data size: {} type: {}",
@@ -106,7 +110,8 @@ namespace quicr {
                     obj.extensions,
                     obj.immutable_extensions,
                   },
-                  obj.payload);
+                  obj.payload,
+                  std::move(stream_properties));
 
                 *stream.next_object_id += 1;
             } catch (const std::exception& e) {
