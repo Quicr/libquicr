@@ -116,14 +116,17 @@ namespace quicr::messages {
         const bool first_object;
 
         static constexpr std::uint8_t kExtensionsBit = 0x01;
-        static constexpr std::uint8_t kSubgroupIdBit = 0x06;
+        static constexpr std::uint8_t kSubgroupIdMask = 0x06;
         static constexpr std::uint8_t kEndOfGroupBit = 0x08;
+        static constexpr std::uint8_t kTypeBit = 0x10;
         static constexpr std::uint8_t kDefaultPriorityBit = 0x20;
         static constexpr std::uint8_t kFirstObjectBit = 0x40;
+        static constexpr std::uint64_t kAllowedBitsMask =
+          kExtensionsBit | kSubgroupIdMask | kEndOfGroupBit | kTypeBit | kDefaultPriorityBit | kFirstObjectBit;
 
         explicit constexpr StreamHeaderProperties(const std::uint64_t type)
           : extensions(type & kExtensionsBit)
-          , subgroup_id_mode(static_cast<SubgroupIdType>((type & kSubgroupIdBit) >> 1))
+          , subgroup_id_mode(static_cast<SubgroupIdType>((type & kSubgroupIdMask) >> 1))
           , end_of_group(type & kEndOfGroupBit)
           , default_priority(type & kDefaultPriorityBit)
           , first_object(type & kFirstObjectBit)
@@ -151,7 +154,7 @@ namespace quicr::messages {
 
         constexpr std::uint64_t GetType() const
         {
-            std::uint64_t type = 0b00010000;
+            std::uint64_t type = kTypeBit;
             if (extensions) {
                 type |= kExtensionsBit;
             }
@@ -170,13 +173,8 @@ namespace quicr::messages {
 
         static constexpr bool IsValid(const std::uint64_t type) noexcept
         {
-            if ((type & 0b10010000) != 0b00010000) {
-                return false;
-            }
-            if ((type & 0x06) == 0x06) {
-                return false;
-            }
-            return true;
+            return (type & ~kAllowedBitsMask) == 0 && (type & kTypeBit) != 0 &&
+                   (type & kSubgroupIdMask) != kSubgroupIdMask;
         }
     };
 
