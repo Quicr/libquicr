@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/utilities/hash.h"
-#include "quicr/common.h"
 #include "quicr/track_name.h"
 
 #include <benchmark/benchmark.h>

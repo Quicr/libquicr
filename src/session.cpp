@@ -25,6 +25,9 @@ namespace quicr {
     using namespace quicr::messages;
     using namespace std::chrono_literals;
 
+    constexpr uint64_t kSubscribeExpires = 0;  ///< Never expires
+    constexpr int kReadLoopMaxPerStream = 100; ///< Support packet/frame bursts, but do not allow starving other streams
+
     namespace {
         std::shared_ptr<spdlog::logger> SafeLoggerGet(const std::string& name)
         {
