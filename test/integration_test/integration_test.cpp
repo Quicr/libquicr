@@ -145,7 +145,8 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
 
 static std::shared_ptr<TestServer>
 MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
-               std::optional<std::size_t> max_connections = std::nullopt)
+               std::optional<std::size_t> max_connections = std::nullopt,
+               std::optional<std::uint64_t> initial_max_stream_data = std::nullopt)
 {
     // Run the server.
     ServerConfig server_config;
@@ -161,6 +162,9 @@ MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
     }
     if (max_connections.has_value()) {
         server_config.transport_config.max_connections = *max_connections;
+    }
+    if (initial_max_stream_data.has_value()) {
+        server_config.transport_config.initial_max_stream_data = *initial_max_stream_data;
     }
     auto server = std::make_shared<TestServer>(server_config);
     const auto starting = server->Start();
