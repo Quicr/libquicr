@@ -205,8 +205,6 @@ namespace quicr {
 
         // TODO: Move these to be private.
       public:
-        bool closed{ false };
-
         ///< Connection metrics
         ConnectionMetrics metrics{};
 

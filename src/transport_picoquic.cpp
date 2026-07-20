@@ -56,7 +56,7 @@
 
 using namespace quicr;
 
-constexpr const char* moqt_alpn = "moqt-18";
+constexpr const char* kMoqtAlpn = "moqt-18";
 
 /* ============================================================================
  * PicoQuic Callbacks
@@ -923,7 +923,7 @@ PqAlpnSelectCb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t count)
     }
 
     // Define supported ALPNs
-    const char* moq_alpn = moqt_alpn;
+    const char* moq_alpn = kMoqtAlpn;
     const char* h3_alpn = "h3";
     size_t moq_len = strlen(moq_alpn);
     size_t h3_len = strlen(h3_alpn);
@@ -1418,7 +1418,7 @@ PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::API api)
             if (strcmp(negotiated_alpn, webtransport_alpn) == 0) {
                 api = Connection::API::kWebTransport;
                 SPDLOG_LOGGER_INFO(logger, "Server connection using WebTransport (ALPN: {})", negotiated_alpn);
-            } else if (strcmp(negotiated_alpn, moqt_alpn) == 0) {
+            } else if (strcmp(negotiated_alpn, kMoqtAlpn) == 0) {
                 api = Connection::API::kNativeQuic;
                 SPDLOG_LOGGER_INFO(logger, "Server connection using raw QUIC (ALPN: {})", negotiated_alpn);
             } else {
@@ -2527,7 +2527,7 @@ PicoQuicTransport::StartClient()
                                  wt_config_->path.c_str(),
                                  DefaultWebTransportCallback,
                                  this,
-                                 moqt_alpn);
+                                 kMoqtAlpn);
             if (ret != 0) {
                 SPDLOG_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
                 notify_caller(1);
@@ -2968,7 +2968,7 @@ PicoQuicTransport::GetAlpn() const
             return webtransport_alpn;
         case Connection::API::kNativeQuic:
         default:
-            return moqt_alpn;
+            return kMoqtAlpn;
     }
 }
 
@@ -3050,7 +3050,7 @@ PicoQuicTransport::SetupWebTransportConnection(picoquic_cnx_t* cnx)
                              wt_config_->path.c_str(),
                              DefaultWebTransportCallback,
                              this,
-                             moqt_alpn);
+                             kMoqtAlpn);
         if (ret != 0) {
             SPDLOG_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
             return ret;
