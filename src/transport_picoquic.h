@@ -196,8 +196,6 @@ namespace quicr {
 
         void HandleNewConnection(const std::shared_ptr<PicoQuicConnection>& connection);
 
-        void SetupServerControlStream(const std::shared_ptr<PicoQuicConnection>& connection);
-
         void OnRecvDatagram(const std::shared_ptr<PicoQuicConnection>& conn_ctx, uint8_t* bytes, size_t length);
 
         void OnRecvStreamBytes(const std::shared_ptr<PicoQuicConnection>& conn_ctx,
@@ -296,6 +294,8 @@ namespace quicr {
         bool is_unidirectional{ false };
         bool debug{ false };
         Connection::API connection_api{ Connection::API::kNativeQuic };
+        std::thread::id pq_event_thread_id;
+        std::thread::id pq_runner_thread_id;
 
       private:
         void DeleteDataContextInternal(const std::shared_ptr<PicoQuicConnection>& connection,

@@ -6,27 +6,9 @@ namespace quicr {
 
     Connection::Connection(std::uint64_t id, API api)
       : id{ id }
-      , api{ api }
+      , api_{ api }
       , status_{ Status::kConnecting }
     {
-    }
-
-    Connection::Connection(const Connection& other)
-      : next_request_id(other.next_request_id.load(std::memory_order_seq_cst))
-    {
-    }
-
-    std::uint64_t Connection::GetNextRequestID()
-    {
-        std::uint64_t rid = next_request_id;
-        next_request_id += 2;
-
-        return rid;
-    }
-
-    void Connection::SetStartingRequestID(std::uint64_t starting_id)
-    {
-        next_request_id = starting_id;
     }
 
     std::uint64_t Connection::GetID() const noexcept
@@ -36,7 +18,7 @@ namespace quicr {
 
     Connection::API Connection::GetAPI() const noexcept
     {
-        return api;
+        return api_;
     }
 
     void Connection::SetStatus(Status new_status)
