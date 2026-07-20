@@ -192,10 +192,6 @@ namespace quicr {
 
     void Session::Disconnect()
     {
-        if (!current_connection_ || current_connection_->closed) {
-            return;
-        }
-
         current_connection_->SetDelegate(nullptr);
 
         if (quic_transport_) {
@@ -909,7 +905,7 @@ namespace quicr {
                 [[fallthrough]];
             case SubscribeTrackHandler::Status::kOk:
                 try {
-                    if (not handler.IsPublisherInitiated() && not current_connection_->closed) {
+                    if (not handler.IsPublisherInitiated()) {
                         // TODO: Is it possible for these to not be sent at this point?
                         if (handler.GetDataContextId().has_value() && handler.GetRequestStreamId().has_value()) {
                             quic_transport_->CloseStream(
@@ -945,7 +941,7 @@ namespace quicr {
         switch (handler.GetStatus()) {
             case SubscribeNamespaceHandler::Status::kOk:
                 try {
-                    if (send_unsubscribe && not current_connection_->closed && handler.GetDataContextId().has_value()) {
+                    if (send_unsubscribe && handler.GetDataContextId().has_value()) {
                         SendUnsubscribeNamespace(handler.GetDataContextId().value(), handler.GetPrefix());
                     }
                 } catch (const std::exception& e) {
