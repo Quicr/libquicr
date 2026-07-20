@@ -8,8 +8,8 @@
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/safe_time_queue.h"
 #include "quicr/containers/stream_buffer.h"
+#include "quicr/metrics.h"
 #include "quicr/transport.h"
-#include "quicr/transport_metrics.h"
 
 #include <h3zero.h>
 #include <h3zero_common.h>
@@ -83,7 +83,7 @@ namespace quicr {
 
             SafeQueue<std::function<int()>> picoquic_runner_queue;
             SafeQueue<StreamMarkActiveInfo> stream_mark_active_queue;
-            SafeQueue<ConnectionContext*> datagram_mark_active_queue;
+            SafeQueue<std::weak_ptr<PicoQuicConnection>> datagram_mark_active_queue;
 
             uint64_t pq_loop_prev_time{ 0 };
             uint64_t pq_loop_metrics_prev_time{ 0 };
@@ -222,8 +222,6 @@ namespace quicr {
 
         void HandleNewConnection(const std::shared_ptr<PicoQuicConnection>& connection);
 
-        void SetupServerControlStream(const std::shared_ptr<PicoQuicConnection>& connection);
-
         void OnRecvDatagram(const std::shared_ptr<PicoQuicConnection>& conn_ctx, uint8_t* bytes, size_t length);
 
         void OnRecvStreamBytes(const std::shared_ptr<PicoQuicConnection>& conn_ctx,
@@ -323,19 +321,14 @@ namespace quicr {
          */
         void ProcessMarkActive(Shard& shard);
 
-        /**
-         * @brief Process Mark Stream and Datagram connections active
-         * @note The queue contains references to connection and stream contexts. Before removing
-         *      streams, data context, and/or connections this method MUST be called.
-         */
-        void ProcessMarkActive(Shard& shard);
-
       public:
         std::shared_ptr<spdlog::logger> logger;
         bool is_server_mode;
         bool is_unidirectional{ false };
         bool debug{ false };
         Connection::API connection_api{ Connection::API::kNativeQuic };
+        std::thread::id pq_event_thread_id;
+        std::thread::id pq_runner_thread_id;
 
       private:
         void DeleteDataContextInternal(const std::shared_ptr<PicoQuicConnection>& connection,
@@ -346,7 +339,6 @@ namespace quicr {
         std::optional<std::size_t> GetConnShardIdx(const std::uint64_t& conn_id);
 
         std::shared_ptr<Connection> StartClient();
-        void Shutdown();
 
         /// Create a picoquic instance for the current config.
         picoquic_quic_t* CreateQuicInstance(uint64_t current_time);

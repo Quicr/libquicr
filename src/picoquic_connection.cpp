@@ -5,10 +5,9 @@
 
 #include "quicr/metrics.h"
 #include "quicr/session.h"
-#include "quicr/transport_metrics.h"
 
 void
-quicr::PicoQuicConnection::SampleMetrics(const MetricsTimeStamp sample_time)
+quicr::PicoQuicConnection::SampleMetrics(const MetricsTimeStamp& sample_time)
 {
     auto delegate = delegate_.lock();
     if (!delegate) {

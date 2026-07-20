@@ -7,7 +7,8 @@
 #include "quicr/containers/priority_queue.h"
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/safe_time_queue.h"
-#include "quicr/transport_metrics.h"
+#include "quicr/metrics.h"
+#include "quicr/transport.h"
 
 #include <pico_webtransport.h>
 #include <picoquic.h>
@@ -129,7 +130,7 @@ namespace quicr {
 
         virtual ~PicoQuicConnection() = default;
 
-        void SampleMetrics(const MetricsTimeStamp sample_time) override;
+        void SampleMetrics(const MetricsTimeStamp& sample_time) override;
 
       public:
         /// Picoquic connection/path context

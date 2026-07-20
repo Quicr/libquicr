@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <vector>
 
 namespace quicr {
@@ -19,6 +20,14 @@ namespace quicr {
     class PublishTrackHandler;
     class SubscribeTrackHandler;
     class TrackHandler;
+
+    struct StreamRxContext;
+
+    enum class StreamClosedFlag : uint8_t
+    {
+        kFin,
+        kReset,
+    };
 
     class Connection
     {
@@ -57,18 +66,6 @@ namespace quicr {
              * @param[in] status 	    Transport Status value
              */
             virtual void OnConnectionStatus(Status status) = 0;
-
-            /**
-             * @brief Report a new data context created
-             *
-             * @details Report that a new data context was created for a new bi-directional
-             *  stream that was received. This method is not called for app created
-             *  data contexts.
-             *
-             * @param[in] conn_id	Transport context identifier mapped to the connection
-             * @param[in] data_ctx_id	Data context id for a new data context received by the transport
-             */
-            virtual void OnNewDataContext(std::uint64_t data_ctx_id) = 0;
 
             /**
              * @brief callback notification that data has been received and should be processed
@@ -130,17 +127,9 @@ namespace quicr {
       public:
         Connection(std::uint64_t id, API api = API::kNativeQuic);
 
-        Connection(const Connection& other);
+        Connection(const Connection& other) = default;
 
         virtual ~Connection() = default;
-
-        /**
-         * @brief Get the next request ID to use. IDs increase by 2.
-         * @returns The next request ID.
-         */
-        std::uint64_t GetNextRequestID();
-
-        void SetStartingRequestID(std::uint64_t starting_id);
 
         std::uint64_t GetID() const noexcept;
 
@@ -148,9 +137,11 @@ namespace quicr {
 
         void SetStatus(Status new_status);
 
+        Status GetStatus() const noexcept { return status_; }
+
         void SetDelegate(const std::shared_ptr<Delegate>& session);
 
-        virtual void SampleMetrics(const MetricsTimeStamp sample_time) = 0;
+        virtual void SampleMetrics(const MetricsTimeStamp& sample_time) = 0;
 
         /**
          * @brief Event notification for connection status changes
@@ -160,17 +151,6 @@ namespace quicr {
          * @param[in] status 	    Transport Status value
          */
         virtual void OnStatusChanged(Status status);
-
-        /**
-         * @brief Report a new data context created
-         *
-         * @details Report that a new data context was created for a new bi-directional
-         *  stream that was received. This method is not called for app created
-         *  data contexts.
-         *
-         * @param[in] data_ctx_id	Data context id for a new data context received by the transport
-         */
-        virtual void OnNewDataContext(std::uint64_t data_ctx_id);
 
         /**
          * @brief callback notification that data has been received and should be processed
@@ -205,34 +185,14 @@ namespace quicr {
 
         // TODO: Move these to be private.
       public:
-        std::optional<std::uint64_t> tx_ctrl_data_ctx_id;
-
-        std::optional<std::uint64_t> tx_ctrl_stream_id;
-
-        std::optional<std::uint64_t> rx_ctrl_stream_id;
-
-        ///< True if both client and server setup messages have completed
-        bool setup_complete{ false };
-
-        bool closed{ false };
-
-        ///< Control message buffers for streams.
-        std::map<std::uint64_t, InitialStreamData> stream_buffers;
-
         ///< Connection metrics
         ConnectionMetrics metrics{};
 
       protected:
         std::uint64_t id{ 0 };
 
-        /**
-         * Next Connection request Id. This value is shifted left when setting Request Id.
-         * The least significant bit is used to indicate client (0) vs server (1).
-         */
-        std::atomic<uint64_t> next_request_id{ 0 };
-
         /// The API the connection uses. Default is Native Quic.
-        API api = API::kNativeQuic;
+        API api_{ API::kNativeQuic };
 
         Status status_;
 

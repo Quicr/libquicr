@@ -25,6 +25,9 @@ namespace quicr {
     using namespace quicr::messages;
     using namespace std::chrono_literals;
 
+    constexpr uint64_t kSubscribeExpires = 0;  ///< Never expires
+    constexpr int kReadLoopMaxPerStream = 100; ///< Support packet/frame bursts, but do not allow starving other streams
+
     namespace {
         std::shared_ptr<spdlog::logger> SafeLoggerGet(const std::string& name)
         {
@@ -64,17 +67,6 @@ namespace quicr {
                            std::to_string(location.line()) + ", " + location.file_name() + ")")
       , Error(error)
     {
-    }
-
-    [[maybe_unused]]
-    static std::string ToHex(std::vector<uint8_t> data)
-    {
-        std::stringstream hex(std::ios_base::out);
-        hex.flags(std::ios::hex);
-        for (const auto& byte : data) {
-            hex << std::setw(2) << std::setfill('0') << int(byte);
-        }
-        return hex.str();
     }
 
     static std::optional<std::tuple<std::string, uint16_t, TransportProtocol, std::string>> ParseConnectUri(
@@ -165,6 +157,7 @@ namespace quicr {
                      std::shared_ptr<timeq::tick_service> tick_service)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
+      , next_request_id_(0)
       , client_mode_(true)
       , logger_(SafeLoggerGet("QUICR_CLIENT"))
       , server_config_({})
@@ -182,6 +175,7 @@ namespace quicr {
                      std::shared_ptr<timeq::tick_service> tick_service)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
+      , next_request_id_(1)
       , client_mode_(false)
       , logger_(SafeLoggerGet("QUICR_SERVER"))
       , server_config_(cfg)
@@ -189,6 +183,9 @@ namespace quicr {
       , tick_service_(std::move(tick_service))
       , quic_transport_(std::move(transport))
     {
+        tx_ctrl_data_ctx_id_ = quic_transport_->CreateDataContext(current_connection_, true, 0, false);
+        tx_ctrl_stream_id_ = quic_transport_->CreateStream(current_connection_, tx_ctrl_data_ctx_id_.value(), 0);
+
         SPDLOG_LOGGER_INFO(
           logger_, "Created MoQ Session in server mode listening on {}:{}", cfg.server_bind_ip, cfg.server_port);
         Init();
@@ -214,14 +211,12 @@ namespace quicr {
                 logger_->set_level(spdlog::level::debug);
             }
         }
+
+        OnConnectionStatus(current_connection_->GetStatus());
     }
 
     void Session::Disconnect()
     {
-        if (!current_connection_ || current_connection_->closed) {
-            return;
-        }
-
         current_connection_->SetDelegate(nullptr);
 
         if (quic_transport_) {
@@ -233,7 +228,7 @@ namespace quicr {
     {
         std::lock_guard<std::mutex> _(state_mutex_);
 
-        auto request_id = current_connection_->GetNextRequestID();
+        auto request_id = GetNextRequestID();
 
         SendTrackStatus(request_id, track_full_name);
 
@@ -276,7 +271,7 @@ namespace quicr {
 
     void Session::SendCtrlMsg(std::uint64_t data_ctx_id, std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        if (!current_connection_->tx_ctrl_data_ctx_id.has_value()) {
+        if (!tx_ctrl_data_ctx_id_.has_value()) {
             throw ProtocolViolationException("Control bidir data context not created");
         }
 
@@ -315,7 +310,7 @@ namespace quicr {
         } else {
             setup_options.Add(SetupOptionType::kEndpointId, server_config_.endpoint_id);
         }
-        SendCtrlMsg(current_connection_->tx_ctrl_data_ctx_id.value(), ControlMessageType::kSetup, setup_options);
+        SendCtrlMsg(tx_ctrl_data_ctx_id_.value(), ControlMessageType::kSetup, setup_options);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Setup (error={})", e.what());
         throw e;
@@ -374,14 +369,13 @@ namespace quicr {
                             "Sending REQUEST_UPDATE to conn_id: {} request_id: {} track namespace hash: {} name "
                             "hash: {} forward: {} ngr: {}",
                             current_connection_->GetID(),
-                            current_connection_->GetNextRequestID(),
+                            GetNextRequestID(),
                             th.track_namespace_hash,
                             th.track_name_hash,
                             forward,
                             end_group_id.has_value());
 
-        SendCtrlMsg(
-          data_ctx_id, ControlMessageType::kRequestUpdate, UintVar(current_connection_->GetNextRequestID()), params);
+        SendCtrlMsg(data_ctx_id, ControlMessageType::kRequestUpdate, UintVar(GetNextRequestID()), params);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_UPDATE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -429,7 +423,7 @@ namespace quicr {
         SPDLOG_LOGGER_DEBUG(
           logger_, "Sending TRACK_STATUS to conn_id: {} request_id: {}", current_connection_->GetID(), request_id);
 
-        SendCtrlMsg(current_connection_->tx_ctrl_data_ctx_id.value(),
+        SendCtrlMsg(tx_ctrl_data_ctx_id_.value(),
                     ControlMessageType::kTrackStatus,
                     UintVar(request_id),
                     tfn.name_space,
@@ -656,7 +650,7 @@ namespace quicr {
 
         std::lock_guard<std::mutex> lock(state_mutex_);
 
-        handler->SetRequestId(current_connection_->GetNextRequestID());
+        handler->SetRequestId(GetNextRequestID());
         handler->SetTransport(GetSharedPtr());
 
         if (auto [_, is_new] = request_handlers.try_emplace(handler->GetRequestId().value(), handler); !is_new) {
@@ -803,7 +797,7 @@ namespace quicr {
 
         if (!track_handler->IsPublisherInitiated()) {
             // increment and get the next request id if not initiated by publisher, which request Id is reused
-            track_handler->SetRequestId(current_connection_->GetNextRequestID());
+            track_handler->SetRequestId(GetNextRequestID());
 
         } else {
             if (!track_handler->GetReceivedTrackAlias().has_value()) {
@@ -860,7 +854,7 @@ namespace quicr {
                 // Make a joining fetch handler.
                 const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(
                   track_handler, info.group_order.value_or(messages::GroupOrder::kAscending));
-                const auto fetch_rid = current_connection_->GetNextRequestID();
+                const auto fetch_rid = GetNextRequestID();
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Subscribe with joining fetch conn_id: {} track_alias: {} subscribe id: {} "
                                    "joining subscribe id: {}",
@@ -941,7 +935,7 @@ namespace quicr {
                 [[fallthrough]];
             case SubscribeTrackHandler::Status::kOk:
                 try {
-                    if (not handler.IsPublisherInitiated() && not current_connection_->closed) {
+                    if (not handler.IsPublisherInitiated()) {
                         // TODO: Is it possible for these to not be sent at this point?
                         if (handler.GetDataContextId().has_value() && handler.GetRequestStreamId().has_value()) {
                             quic_transport_->CloseStream(
@@ -977,7 +971,7 @@ namespace quicr {
         switch (handler.GetStatus()) {
             case SubscribeNamespaceHandler::Status::kOk:
                 try {
-                    if (send_unsubscribe && not current_connection_->closed && handler.GetDataContextId().has_value()) {
+                    if (send_unsubscribe && handler.GetDataContextId().has_value()) {
                         SendUnsubscribeNamespace(handler.GetDataContextId().value(), handler.GetPrefix());
                     }
                 } catch (const std::exception& e) {
@@ -1204,7 +1198,7 @@ namespace quicr {
 
         std::unique_lock<std::mutex> lock(state_mutex_);
 
-        track_handler->SetRequestId(current_connection_->GetNextRequestID());
+        track_handler->SetRequestId(GetNextRequestID());
 
         if (!track_handler->GetTrackAlias().has_value()) {
             track_handler->SetTrackAlias(th.track_fullname_hash);
@@ -1268,7 +1262,7 @@ namespace quicr {
         std::unique_lock<std::mutex> lock(state_mutex_);
 
         if (!passive) {
-            ns_handler->SetRequestId(current_connection_->GetNextRequestID());
+            ns_handler->SetRequestId(GetNextRequestID());
 
             SPDLOG_LOGGER_INFO(logger_, "Publishing to namespace hash: {0} sending ANNOUNCE message", prefix_hash);
 
@@ -1393,7 +1387,7 @@ namespace quicr {
 
         std::lock_guard<std::mutex> _(state_mutex_);
 
-        track_handler->SetRequestId(current_connection_->GetNextRequestID());
+        track_handler->SetRequestId(GetNextRequestID());
         track_handler->SetConnectionId(current_connection_->GetID());
         track_handler->SetTransport(GetSharedPtr());
 
@@ -1494,10 +1488,9 @@ namespace quicr {
                 if (client_mode_) {
                     SPDLOG_LOGGER_INFO(logger_, "Connection established, creating bi-dir stream and sending SETUP");
 
-                    current_connection_->tx_ctrl_data_ctx_id =
-                      quic_transport_->CreateDataContext(current_connection_, true, 0, false);
-                    current_connection_->tx_ctrl_stream_id = quic_transport_->CreateStream(
-                      current_connection_, current_connection_->tx_ctrl_data_ctx_id.value(), 0);
+                    tx_ctrl_data_ctx_id_ = quic_transport_->CreateDataContext(current_connection_, true, 0, false);
+                    tx_ctrl_stream_id_ =
+                      quic_transport_->CreateStream(current_connection_, tx_ctrl_data_ctx_id_.value(), 0);
 
                     SendSetup();
 
@@ -1573,7 +1566,7 @@ namespace quicr {
             const bool is_request_stream = is_bidir;
 
             // Single unidirection recv control stream.
-            bool is_control_stream = !is_request_stream && stream_id == current_connection_->rx_ctrl_stream_id;
+            bool is_control_stream = !is_request_stream && stream_id == rx_ctrl_stream_id_;
 
             // Get message type if new stream
             if (rx_ctx->is_new && !is_request_stream && !is_control_stream) {
@@ -1607,7 +1600,7 @@ namespace quicr {
                 // This might be incoming control stream arriving.
                 if (static_cast<ControlMessageType>(*initial_stream_type) == ControlMessageType::kSetup) {
                     is_control_stream = true;
-                    current_connection_->rx_ctrl_stream_id = stream_id;
+                    rx_ctrl_stream_id_ = stream_id;
                     initial_buffer.source_buffers.clear();
                 }
             }
@@ -1616,7 +1609,7 @@ namespace quicr {
             if (is_control_stream || is_request_stream) {
                 if (!initial_data_buffered) {
                     // Append.
-                    current_connection_->stream_buffers[stream_id].buffer.Push(data);
+                    stream_buffers[stream_id].buffer.Push(data);
                     rx_ctx->data_queue.PopFront();
                 }
 
@@ -1704,7 +1697,7 @@ namespace quicr {
                         if (!track_alias.has_value()) {
                             continue; // Need more bytes, will try again.
                         }
-                        parsed_header = OnRecvSubgroup(*track_alias, *rx_ctx, stream_id, conn_ctx);
+                        parsed_header = OnRecvSubgroup(*track_alias, *rx_ctx, stream_id);
                         break;
                     }
                     case StreamMessageType::kFetchHeader: {
@@ -1713,7 +1706,7 @@ namespace quicr {
                         if (!request_id.has_value()) {
                             continue; // Need more bytes, will try again.
                         }
-                        parsed_header = OnRecvFetch(*request_id, *rx_ctx, stream_id, conn_ctx);
+                        parsed_header = OnRecvFetch(*request_id, *rx_ctx, stream_id);
                         break;
                     }
                     default:
@@ -1801,10 +1794,7 @@ namespace quicr {
 
         {
             std::lock_guard lock(state_mutex_);
-            const auto conn_it = connections_.find(connection_id);
-            if (conn_it != connections_.end()) {
-                conn_it->second.stream_buffers.erase(stream_id);
-            }
+            stream_buffers.erase(stream_id);
         }
 
         if (data_ctx_id.has_value()) {
@@ -1833,14 +1823,12 @@ namespace quicr {
             if ((stream_id & 2) == 0) { // bidir
                 switch (flag) {
                     case StreamClosedFlag::kFin:
-                        if (current_connection_->tx_ctrl_stream_id.has_value() &&
-                            current_connection_->tx_ctrl_stream_id == stream_id) {
+                        if (tx_ctrl_stream_id_.has_value() && tx_ctrl_stream_id_ == stream_id) {
                             throw ProtocolViolationException("Primary control stream FIN");
                         }
                         break;
                     case StreamClosedFlag::kReset:
-                        if (current_connection_->tx_ctrl_stream_id.has_value() &&
-                            current_connection_->tx_ctrl_stream_id == stream_id) {
+                        if (tx_ctrl_stream_id_.has_value() && tx_ctrl_stream_id_ == stream_id) {
                             throw ProtocolViolationException("Primary control stream RESET");
                         }
                         break;
@@ -1885,10 +1873,7 @@ namespace quicr {
         }
     }
 
-    bool Session::OnRecvSubgroup(std::uint64_t track_alias,
-                                 StreamRxContext& rx_ctx,
-                                 std::uint64_t stream_id,
-                                 std::shared_ptr<const std::vector<uint8_t>> data) const
+    bool Session::OnRecvSubgroup(std::uint64_t track_alias, StreamRxContext& rx_ctx, std::uint64_t stream_id)
     {
         auto sub_it = sub_by_recv_track_alias.find(track_alias);
         if ((sub_it == sub_by_recv_track_alias.end() || sub_it->second == nullptr)) {
@@ -1916,10 +1901,7 @@ namespace quicr {
         return true;
     }
 
-    bool Session::OnRecvFetch(std::uint64_t request_id,
-                              StreamRxContext& rx_ctx,
-                              std::uint64_t stream_id,
-                              std::shared_ptr<const std::vector<uint8_t>> data) const
+    bool Session::OnRecvFetch(std::uint64_t request_id, StreamRxContext& rx_ctx, std::uint64_t stream_id)
     {
         const auto fetch_it = request_handlers.find(request_id);
         if (fetch_it == request_handlers.end()) {
@@ -2077,8 +2059,6 @@ namespace quicr {
         }
     }
 
-    void Session::OnNewDataContext(std::uint64_t) {}
-
     std::shared_ptr<Session> Session::GetSharedPtr()
     {
         if (!weak_from_this().lock()) {
@@ -2086,6 +2066,14 @@ namespace quicr {
         }
 
         return shared_from_this();
+    }
+
+    std::uint64_t Session::GetNextRequestID()
+    {
+        std::uint64_t rid = next_request_id_;
+        next_request_id_ += 2;
+
+        return rid;
     }
 
     TransportError Session::Enqueue(std::uint64_t data_ctx_id,
@@ -2184,7 +2172,7 @@ namespace quicr {
                 continue;
             }
 
-            auto pub_ns_request_id = current_connection_->GetNextRequestID();
+            auto pub_ns_request_id = GetNextRequestID();
             SendPublishNamespace(data_ctx_id, pub_ns_request_id, name_space);
         }
     }
@@ -2209,7 +2197,7 @@ namespace quicr {
                 continue;
             }
 
-            auto pub_ns_request_id = current_connection_->GetNextRequestID();
+            auto pub_ns_request_id = GetNextRequestID();
             SendPublishNamespace(data_ctx_id, pub_ns_request_id, name_space);
         }
     }
@@ -2277,7 +2265,7 @@ namespace quicr {
             return;
         }
 
-        SendPublishNamespace(*sub_data_ctx_id, current_connection_->GetNextRequestID(), track_namespace);
+        SendPublishNamespace(*sub_data_ctx_id, GetNextRequestID(), track_namespace);
     }
 
     void Session::ResolveRequestUpdate(std::uint64_t request_id, const RequestUpdateResponse& response)
@@ -2338,7 +2326,7 @@ namespace quicr {
             return recv_it->second.data_ctx_id;
         }
 
-        return current_connection_->tx_ctrl_data_ctx_id.value();
+        return tx_ctrl_data_ctx_id_.value();
     }
 
     // -- Client Callbacks --
@@ -2550,7 +2538,6 @@ namespace quicr {
                 SPDLOG_LOGGER_INFO(
                   logger_, "Setup received conn_id: {} from: {}", current_connection_->GetID(), endpoint_id);
 
-                current_connection_->setup_complete = true;
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {
@@ -2919,16 +2906,6 @@ namespace quicr {
                 const auto end_location = messages::Message::ParseField<messages::Location>(msg_bytes);
                 [[maybe_unused]] const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
-
-                const auto request_it = request_id_by_data_ctx.find(data_ctx_id);
-                if (request_it == request_id_by_data_ctx.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received FETCH_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
-                                       current_connection_->GetID(),
-                                       data_ctx_id);
-                    return true;
-                }
-                const auto request_id = request_it->second;
 
                 const auto request_it = request_id_by_data_ctx.find(data_ctx_id);
                 if (request_it == request_id_by_data_ctx.end()) {

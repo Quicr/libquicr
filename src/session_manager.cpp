@@ -108,17 +108,53 @@ namespace quicr {
         }
     }
 
+    std::shared_ptr<Session> SessionManager::Callbacks::CreateClientSession(
+      const ClientConfig& cfg,
+      std::shared_ptr<Transport> transport,
+      std::shared_ptr<Connection> connection,
+      std::shared_ptr<timeq::tick_service> tick_service)
+    {
+        return Session::Create(cfg, std::move(transport), std::move(connection), std::move(tick_service));
+    }
+
+    std::shared_ptr<Session> SessionManager::Callbacks::CreateServerSession(
+      const ServerConfig& cfg,
+      std::shared_ptr<Transport> transport,
+      std::shared_ptr<Connection> connection,
+      std::shared_ptr<timeq::tick_service> tick_service)
+    {
+        return Session::Create(cfg, std::move(transport), std::move(connection), std::move(tick_service));
+    }
+
+    void SessionManager::Callbacks::OnNewServerSession(const std::shared_ptr<Session>& new_session) {}
+
+    void SessionManager::Callbacks::OnSessionRemoved(const std::shared_ptr<Session>& session) {}
+
     SessionManager::SessionManager()
-      : SessionManager(std::make_shared<timeq::threaded_tick_service>())
+      : SessionManager(std::make_shared<Callbacks>(), std::make_shared<timeq::threaded_tick_service>())
+    {
+    }
+
+    SessionManager::SessionManager(std::shared_ptr<Callbacks> callbacks)
+      : SessionManager(std::move(callbacks), std::make_shared<timeq::threaded_tick_service>())
     {
     }
 
     SessionManager::SessionManager(std::shared_ptr<timeq::tick_service> tick_service)
-      : tick_service_(std::move(tick_service))
+      : SessionManager(std::make_shared<Callbacks>(), std::move(tick_service))
+    {
+    }
+
+    SessionManager::SessionManager(std::shared_ptr<Callbacks> callbacks,
+                                   std::shared_ptr<timeq::tick_service> tick_service)
+      : callbacks_(std::move(callbacks))
+      , tick_service_(std::move(tick_service))
       , logger_(SafeLoggerGet("QUICR"))
     {
-        on_connection_closed_ = [=, this](const auto& connection) {
+        on_connection_closed_ = [this](const auto& connection) {
             connection->SetDelegate(nullptr);
+
+            std::lock_guard<std::mutex> lock(mutex_);
 
             auto it = sessions_.find(connection->GetID());
             if (it == sessions_.end()) {
@@ -128,35 +164,27 @@ namespace quicr {
                 return;
             }
 
+            callbacks_->OnSessionRemoved(it->second);
+
             sessions_.erase(it);
         };
     }
 
     SessionManager::~SessionManager()
     {
-        for (const auto& [_, session] : sessions_) {
-            session->Disconnect();
-        }
-
-        sessions_.clear();
-
         for (const auto& [_, transport] : transports_) {
             transport->Shutdown();
         }
 
-        transports_.clear();
-
         spdlog::drop(logger_->name());
     }
 
-    std::pair<std::shared_ptr<Transport>, std::shared_ptr<Session>> SessionManager::AddTransport(
-      const ClientConfig& config,
-      CreateClientSessionCallbackType&& create_session)
+    std::weak_ptr<Session> SessionManager::AddTransport(const ClientConfig& config)
     {
         TransportRemote relay;
         auto parse_result = ParseConnectUri(config.connect_uri);
         if (!parse_result) {
-            return { nullptr, nullptr };
+            return {};
         }
 
         auto [address, port, protocol, path] = parse_result.value();
@@ -169,25 +197,29 @@ namespace quicr {
 
         transport->OnConnectionClosed = on_connection_closed_;
 
-        auto [transport_it, _] = transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
+        std::shared_ptr<Transport> transport_ptr;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            auto [transport_it, _] =
+              transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
+            transport_ptr = transport_it->second;
+        }
 
         auto connection = transport->Start();
         if (!connection) {
-            return { transport_it->second, nullptr };
+            return {};
         }
 
-        auto session = create_session ? create_session(config, transport, connection, tick_service_)
-                                      : Session::Create(config, transport, connection, tick_service_);
+        auto session = callbacks_->CreateClientSession(config, transport, connection, tick_service_);
 
         connection->SetDelegate(session);
 
-        return { transport_it->second, sessions_[connection->GetID()] = std::move(session) };
+        std::lock_guard lock(mutex_);
+
+        return { sessions_[connection->GetID()] = session };
     }
 
-    const std::shared_ptr<Transport>& SessionManager::AddTransport(
-      const ServerConfig& config,
-      CreateServerSessionCallbackType&& create_session,
-      std::function<void(const std::shared_ptr<Session>&)>&& on_new_session)
+    void SessionManager::AddTransport(const ServerConfig& config)
     {
         TransportRemote server;
         server.host_or_ip = config.server_bind_ip;
@@ -201,29 +233,30 @@ namespace quicr {
 
         auto transport = Transport::MakeServerTransport(server, config.transport_config, tick_service_, logger_);
 
-        transport->OnNewConnection = [=,
-                                      this,
-                                      on_new_session = std::move(on_new_session),
-                                      wtransport = std::weak_ptr(transport)](const auto& connection) {
+        transport->OnNewConnection = [=, this, wtransport = std::weak_ptr(transport)](const auto& connection) {
             auto transport = wtransport.lock();
-            auto session = create_session ? create_session(config, transport, connection, tick_service_)
-                                          : Session::Create(config, transport, connection, tick_service_);
+            auto session = callbacks_->CreateServerSession(config, transport, connection, tick_service_);
             connection->SetDelegate(session);
 
-            const auto& s = sessions_[connection->GetID()] = std::move(session);
-
-            if (on_new_session) {
-                on_new_session(s);
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                sessions_[connection->GetID()] = session;
             }
+
+            callbacks_->OnNewServerSession(session);
         };
 
         transport->OnConnectionClosed = on_connection_closed_;
 
-        auto [transport_it, _] = transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
+        std::shared_ptr<Transport> transport_ptr;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            auto [transport_it, _] =
+              transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
+            transport_ptr = transport_it->second;
+        }
 
         transport->Start();
-
-        return transport_it->second;
     }
 
     void SessionManager::AddHandler(const std::shared_ptr<Session>& session, std::shared_ptr<TrackHandler> handler)

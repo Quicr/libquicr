@@ -1575,14 +1575,38 @@ main(int argc, char* argv[])
     try {
         bool stop_threads{ false };
 
-        quicr::SessionManager session_mgr(qclient_vars::tick_service);
-        auto [_, session] =
-          session_mgr.AddTransport(config, [&](auto cfg, auto transport, auto connection, auto tick_service) {
-              return MyClient::Create(
-                cfg, std::move(transport), std::move(connection), std::move(tick_service), stop_threads);
-          });
+        struct ClientSessionCallbacks : quicr::SessionManager::Callbacks
+        {
+            ClientSessionCallbacks(bool& stop_threads)
+              : stop_threads_(stop_threads)
+            {
+            }
 
-        auto client = std::static_pointer_cast<MyClient>(session);
+            virtual ~ClientSessionCallbacks() = default;
+
+            virtual std::shared_ptr<quicr::Session> CreateClientSession(
+              const quicr::ClientConfig& cfg,
+              std::shared_ptr<quicr::Transport> transport,
+              std::shared_ptr<quicr::Connection> connection,
+              std::shared_ptr<timeq::tick_service> tick_service) override
+            {
+                return MyClient::Create(
+                  cfg, std::move(transport), std::move(connection), std::move(tick_service), stop_threads_);
+            }
+
+          private:
+            bool& stop_threads_;
+        };
+
+        quicr::SessionManager session_mgr(std::make_shared<ClientSessionCallbacks>(stop_threads),
+                                          qclient_vars::tick_service);
+
+        auto session = session_mgr.AddTransport(config);
+
+        auto client = std::static_pointer_cast<MyClient>(session.lock());
+        if (!client) {
+            return EXIT_FAILURE;
+        }
 
         while (not stop_threads) {
             if (client->GetStatus() == MyClient::Status::kReady) {
