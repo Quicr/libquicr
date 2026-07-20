@@ -46,7 +46,7 @@ namespace quicr {
 
         std::pair<std::shared_ptr<Transport>, std::shared_ptr<Session>> AddTransport(
           const ClientConfig& config,
-          CreateClientSessionCallbackType&& create_session);
+          CreateClientSessionCallbackType&& create_session = nullptr);
 
         const std::shared_ptr<Transport>& AddTransport(
           const ServerConfig& config,
