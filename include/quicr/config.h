@@ -3,12 +3,38 @@
 
 #pragma once
 
-#include "quicr/transport.h"
 #include "quicr/version.h"
 
+#include <cstdint>
 #include <string>
 
 namespace quicr {
+    /**
+     * Transport configuration parameters
+     */
+    struct TransportConfig
+    {
+        std::string tls_cert_filename;               ///< QUIC TLS certificate to use
+        std::string tls_key_filename;                ///< QUIC TLS private key to use
+        uint32_t time_queue_init_queue_size{ 1000 }; ///< Initial queue size to reserve upfront
+        uint32_t time_queue_max_duration{ 2000 };    ///< Max duration for the time queue in milliseconds
+        uint32_t time_queue_bucket_interval{ 500 };  ///< The bucket interval in milliseconds
+        uint32_t time_queue_rx_size{ 1000 };         ///< Receive queue size
+        bool debug{ false };                         ///< Enable debug logging/processing
+        uint64_t quic_cwin_minimum{ 131072 };        ///< QUIC congestion control minimum size (default is 128k)
+        uint32_t quic_wifi_shadow_rtt_us{ 20000 };   ///< QUIC wifi shadow RTT in microseconds
+        uint64_t idle_timeout_ms{ 30000 };           ///< Idle timeout for transport connection(s) in milliseconds
+        bool use_reset_wait_strategy{ false };       ///< Use Reset and wait strategy for congestion control
+        bool use_bbr{ true };                        ///< Use BBR if true, NewReno if false
+        std::string quic_qlog_path;                  ///< If present, log QUIC LOG file to this path
+        uint8_t quic_priority_limit{ 0 }; ///< Lowest priority that will not be bypassed from pacing/CC in picoquic
+        std::size_t max_connections{ 1 }; ///< Max number of active QUIC connections per QUIC instance
+        bool ssl_keylog{ false };         ///< Enable SSL key logging for QUIC connections
+        std::size_t socket_buffer_size{ 1'000'000 }; ///< QUIC UDP socket buffer size
+        uint32_t callback_queue_size{ 2000 };        ///< Callback function queue size for callbacks
+        uint64_t metrics_sample_ms{ 5000 };          ///< Metrics sampling interval in milliseconds
+        uint64_t initial_max_stream_data{ 0 };
+    };
 
     struct Config
     {
