@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "quicr/common.h"
 #include "quicr/messages/uintvar.h"
 #include "quicr/track_name.h"
 

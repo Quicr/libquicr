@@ -7,6 +7,7 @@
 #include "quicr/containers/priority_queue.h"
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/safe_time_queue.h"
+#include "quicr/transport.h"
 #include "quicr/transport_metrics.h"
 
 #include <pico_webtransport.h>
