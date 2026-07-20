@@ -984,6 +984,21 @@ namespace quicr {
       private:
         std::shared_ptr<Connection> current_connection_;
 
+        std::optional<std::uint64_t> rx_ctrl_stream_id_;
+
+        std::optional<std::uint64_t> tx_ctrl_data_ctx_id_;
+
+        std::optional<std::uint64_t> tx_ctrl_stream_id_;
+
+        ///< Control message buffers for streams.
+        std::map<std::uint64_t, InitialStreamData> stream_buffers;
+
+        /**
+         * Next Connection request Id. This value is shifted left when setting Request Id.
+         * The least significant bit is used to indicate client (0) vs server (1).
+         */
+        std::atomic<uint64_t> next_request_id_;
+
         std::map<std::uint64_t, SubscribeContext> recv_req_id;
 
         /// Lookup request ID by carrying data context.

@@ -130,7 +130,7 @@ namespace quicr {
 
         virtual ~PicoQuicConnection() = default;
 
-        void SampleMetrics(const MetricsTimeStamp sample_time) override;
+        void SampleMetrics(const MetricsTimeStamp& sample_time) override;
 
       public:
         /// Picoquic connection/path context

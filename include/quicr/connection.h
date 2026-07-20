@@ -138,17 +138,9 @@ namespace quicr {
       public:
         Connection(std::uint64_t id, API api = API::kNativeQuic);
 
-        Connection(const Connection& other);
+        Connection(const Connection& other) = default;
 
         virtual ~Connection() = default;
-
-        /**
-         * @brief Get the next request ID to use. IDs increase by 2.
-         * @returns The next request ID.
-         */
-        std::uint64_t GetNextRequestID();
-
-        void SetStartingRequestID(std::uint64_t starting_id);
 
         std::uint64_t GetID() const noexcept;
 
@@ -158,7 +150,7 @@ namespace quicr {
 
         void SetDelegate(const std::shared_ptr<Delegate>& session);
 
-        virtual void SampleMetrics(const MetricsTimeStamp sample_time) = 0;
+        virtual void SampleMetrics(const MetricsTimeStamp& sample_time) = 0;
 
         /**
          * @brief Event notification for connection status changes
@@ -213,19 +205,7 @@ namespace quicr {
 
         // TODO: Move these to be private.
       public:
-        std::optional<std::uint64_t> tx_ctrl_data_ctx_id;
-
-        std::optional<std::uint64_t> tx_ctrl_stream_id;
-
-        std::optional<std::uint64_t> rx_ctrl_stream_id;
-
-        ///< True if both client and server setup messages have completed
-        bool setup_complete{ false };
-
         bool closed{ false };
-
-        ///< Control message buffers for streams.
-        std::map<std::uint64_t, InitialStreamData> stream_buffers;
 
         ///< Connection metrics
         ConnectionMetrics metrics{};
@@ -233,14 +213,8 @@ namespace quicr {
       protected:
         std::uint64_t id{ 0 };
 
-        /**
-         * Next Connection request Id. This value is shifted left when setting Request Id.
-         * The least significant bit is used to indicate client (0) vs server (1).
-         */
-        std::atomic<uint64_t> next_request_id{ 0 };
-
         /// The API the connection uses. Default is Native Quic.
-        API api = API::kNativeQuic;
+        API api_{ API::kNativeQuic };
 
         Status status_;
 

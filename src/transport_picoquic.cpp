@@ -95,6 +95,8 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
         return PICOQUIC_ERROR_UNEXPECTED_ERROR;
     }
 
+    transport->pq_event_thread_id = std::this_thread::get_id();
+
     switch (fin_or_event) {
 
         case picoquic_callback_prepare_datagram: {
@@ -148,8 +150,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
 
             if (data_ctx == NULL) {
                 // picoquic calls this again even after reset/fin, here we ignore it
-                SPDLOG_LOGGER_INFO(
-                  transport->logger, "conn_id: {0} stream_id: {1} context is null", conn_id, stream_id);
+                SPDLOG_LOGGER_INFO(transport->logger, "conn_id: {} stream_id: {} context is null", conn_id, stream_id);
                 break;
             }
 
@@ -190,7 +191,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                 transport->OnRecvStreamBytes(connection, data_ctx, stream_id, is_fin, std::span{ bytes, length });
 
                 if (is_fin) {
-                    SPDLOG_LOGGER_DEBUG(transport->logger, "Received FIN for stream {0}", stream_id);
+                    SPDLOG_LOGGER_DEBUG(transport->logger, "Received FIN for stream {}", stream_id);
 
                     picoquic_reset_stream_ctx(pq_cnx, stream_id);
 
@@ -215,13 +216,13 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
         case picoquic_callback_stop_sending:
             // Stop sending is basically a reset initiated by the other side. MOQT suggests to RESET on this
             SPDLOG_LOGGER_DEBUG(
-              transport->logger, "Received STOP_SENDING stream conn_id: {0} stream_id: {1}", conn_id, stream_id);
+              transport->logger, "Received STOP_SENDING stream conn_id: {} stream_id: {}", conn_id, stream_id);
             picoquic_reset_stream(pq_cnx, stream_id, 0);
             [[fallthrough]];
 
         case picoquic_callback_stream_reset: {
             SPDLOG_LOGGER_DEBUG(
-              transport->logger, "Received RESET stream conn_id: {0} stream_id: {1}", conn_id, stream_id);
+              transport->logger, "Received RESET stream conn_id: {} stream_id: {}", conn_id, stream_id);
 
             picoquic_reset_stream_ctx(pq_cnx, stream_id);
 
@@ -276,8 +277,8 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
 
             SPDLOG_LOGGER_INFO(
               transport->logger,
-              "Pacing rate changed; conn_id: {0} rate Kbps: {1} cwin_bytes: {2} rtt_us: {3} rate Kbps: {4} cwin_bytes: "
-              "{5} rtt_us: {6} rtt_max: {7} rtt_sample: {8} lost_pkts: {9} bytes_in_transit: {10} recv_rate_Kbps: {11}",
+              "Pacing rate changed; conn_id: {} rate Kbps: {} cwin_bytes: {} rtt_us: {} rate Kbps: {} cwin_bytes: "
+              "{} rtt_us: {} rtt_max: {} rtt_sample: {} lost_pkts: {} bytes_in_transit: {} recv_rate_Kbps: {}",
               conn_id,
               stream_id * 8 / 1000,
               cwin_bytes,
@@ -294,7 +295,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
         }
 
         case picoquic_callback_application_close:
-            SPDLOG_LOGGER_INFO(transport->logger, "Application closed conn_id: {0}", conn_id);
+            SPDLOG_LOGGER_INFO(transport->logger, "Application closed conn_id: {}", conn_id);
             [[fallthrough]];
         case picoquic_callback_close: {
             uint64_t app_reason_code = picoquic_get_application_error(pq_cnx);
@@ -366,7 +367,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
         }
 
         default:
-            SPDLOG_LOGGER_DEBUG(transport->logger, "Got event {0}", static_cast<int>(fin_or_event));
+            SPDLOG_LOGGER_DEBUG(transport->logger, "Got event {}", static_cast<int>(fin_or_event));
             break;
     }
 
@@ -384,6 +385,8 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
         std::cerr << "picoquic transport was called with NULL transport" << '\n';
         return PICOQUIC_ERROR_UNEXPECTED_ERROR;
     }
+
+    transport->pq_runner_thread_id = std::this_thread::get_id();
 
     if (transport->Status() == TransportStatus::kDisconnected) {
         return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
@@ -470,7 +473,7 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
 
                 while (close_cnx != NULL) {
                     SPDLOG_LOGGER_INFO(
-                      transport->logger, "Closing connection id {0}", reinterpret_cast<uint64_t>(close_cnx));
+                      transport->logger, "Closing connection id {}", reinterpret_cast<uint64_t>(close_cnx));
                     transport->CloseInternal(transport->GetConnection(reinterpret_cast<uint64_t>(close_cnx)),
                                              AppReasonForClose::kShutdown);
                     close_cnx = picoquic_get_next_cnx(close_cnx);
@@ -537,8 +540,8 @@ GetConnCtxForWT(PicoQuicTransport* transport, std::uint64_t conn_id, picohttp_ca
 {
     auto connection = transport->GetConnection(conn_id);
     if (!connection) {
-        transport->logger->warn(
-          "DefaultWT: {} No connection context for conn_id {}", WtEventToString(wt_event), conn_id);
+        SPDLOG_LOGGER_WARN(
+          transport->logger, "DefaultWT: {} No connection context for conn_id {}", WtEventToString(wt_event), conn_id);
     }
     return connection;
 }
@@ -597,14 +600,17 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
     switch (wt_event) {
         case picohttp_callback_connecting:
             // Called when initiating WebTransport connect
-            transport->logger->trace("DefaultWT: {} for connection {}", WtEventToString(wt_event), conn_id);
+            SPDLOG_LOGGER_TRACE(
+              transport->logger, "DefaultWT: {} for connection {}", WtEventToString(wt_event), conn_id);
             break;
 
         case picohttp_callback_connect:
             /* A connect has been received on this stream, and could be accepted.
              */
-            transport->logger->trace(
-              "DefaultWT: {} connect received on path for connection {}", WtEventToString(wt_event), conn_id);
+            SPDLOG_LOGGER_TRACE(transport->logger,
+                                "DefaultWT: {} connect received on path for connection {}",
+                                WtEventToString(wt_event),
+                                conn_id);
 
             if (transport->is_server_mode) {
                 // Accept the incoming WebTransport connection
@@ -612,23 +618,26 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                 // and reports OnNewConnection() callback
                 ret = transport->AcceptWebTransportConnection(cnx, bytes, length, stream_ctx);
                 if (ret != 0) {
-                    transport->logger->error("DefaultWT: Failed to accept WebTransport connection {}", conn_id);
+                    SPDLOG_LOGGER_ERROR(
+                      transport->logger, "DefaultWT: Failed to accept WebTransport connection {}", conn_id);
                 }
             }
             break;
 
         case picohttp_callback_connect_refused:
-            transport->logger->warn("DefaultWT: {} for connection {}", WtEventToString(wt_event), conn_id);
+            SPDLOG_LOGGER_WARN(
+              transport->logger, "DefaultWT: {} for connection {}", WtEventToString(wt_event), conn_id);
             if (auto connection = transport->GetConnection(conn_id)) {
                 transport->OnConnectionStatus(connection, TransportStatus::kDisconnected);
             }
             break;
 
         case picohttp_callback_connect_accepted:
-            transport->logger->trace("DefaultWT: {} for connection {}, h3 stream {}",
-                                     WtEventToString(wt_event),
-                                     conn_id,
-                                     stream_ctx->stream_id);
+            SPDLOG_LOGGER_TRACE(transport->logger,
+                                "DefaultWT: {} for connection {}, h3 stream {}",
+                                WtEventToString(wt_event),
+                                conn_id,
+                                stream_ctx->stream_id);
 
             transport->SetStatus(TransportStatus::kReady);
             if (auto connection = transport->GetConnection(conn_id)) {
@@ -640,7 +649,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         case picohttp_callback_post_fin: {
             // Data received on a stream - similar to picoquic_callback_stream_data in PqEventCb
             if (!stream_ctx) {
-                transport->logger->trace("DefaultWT: {} with null stream_ctx", WtEventToString(wt_event));
+                SPDLOG_LOGGER_TRACE(transport->logger, "DefaultWT: {} with null stream_ctx", WtEventToString(wt_event));
                 return -1;
             }
 
@@ -648,16 +657,20 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             bool is_fin = (wt_event == picohttp_callback_post_fin);
 
             if (is_fin) {
-                transport->logger->debug(
-                  "DefaultWT: {} conn_id: {} stream_id: {} FIN", WtEventToString(wt_event), conn_id, stream_id);
+                SPDLOG_LOGGER_DEBUG(transport->logger,
+                                    "DefaultWT: {} conn_id: {} stream_id: {} FIN",
+                                    WtEventToString(wt_event),
+                                    conn_id,
+                                    stream_id);
             }
 
-            transport->logger->trace("DefaultWT: {} received {} bytes on stream {} for connection {}, is_fin {}",
-                                     WtEventToString(wt_event),
-                                     length,
-                                     stream_id,
-                                     conn_id,
-                                     is_fin);
+            SPDLOG_LOGGER_TRACE(transport->logger,
+                                "DefaultWT: {} received {} bytes on stream {} for connection {}, is_fin {}",
+                                WtEventToString(wt_event),
+                                length,
+                                stream_id,
+                                conn_id,
+                                is_fin);
 
             auto connection = GetConnCtxForWT(transport, conn_id, wt_event);
             if (!connection) {
@@ -699,10 +712,11 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             }
 
             if (is_fin) {
-                transport->logger->trace("DefaultWT: {} Received FIN for connection{}, stream {}",
-                                         WtEventToString(wt_event),
-                                         conn_id,
-                                         stream_id);
+                SPDLOG_LOGGER_TRACE(transport->logger,
+                                    "DefaultWT: {} Received FIN for connection{}, stream {}",
+                                    WtEventToString(wt_event),
+                                    conn_id,
+                                    stream_id);
 
                 picoquic_reset_stream_ctx(cnx, stream_id);
 
@@ -725,14 +739,17 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         case picohttp_callback_provide_data: {
             // Stack is ready to send data on a stream - similar to picoquic_callback_prepare_to_send in PqEventCb
             if (!stream_ctx) {
-                transport->logger->warn("DefaultWT: {} with null stream_ctx", WtEventToString(wt_event));
+                SPDLOG_LOGGER_WARN(transport->logger, "DefaultWT: {} with null stream_ctx", WtEventToString(wt_event));
                 return -1;
             }
 
             uint64_t stream_id = stream_ctx->stream_id;
 
-            transport->logger->trace(
-              "DefaultWT: {} for connection {}, h3 stream {}", WtEventToString(wt_event), conn_id, stream_id);
+            SPDLOG_LOGGER_TRACE(transport->logger,
+                                "DefaultWT: {} for connection {}, h3 stream {}",
+                                WtEventToString(wt_event),
+                                conn_id,
+                                stream_id);
 
             auto connection = GetConnCtxForWT(transport, conn_id, wt_event);
             if (!connection) {
@@ -742,8 +759,8 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             auto data_ctx = GetDataCtxForWT(connection, stream_id);
             if (data_ctx == nullptr) {
                 // No data context, nothing to send
-                transport->logger->trace(
-                  "DefaultWT: {} no data_ctx for stream {}", WtEventToString(wt_event), stream_id);
+                SPDLOG_LOGGER_TRACE(
+                  transport->logger, "DefaultWT: {} no data_ctx for stream {}", WtEventToString(wt_event), stream_id);
                 break;
             }
 
@@ -754,8 +771,11 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             data_ctx->metrics.tx_stream_cb++;
 
-            transport->logger->trace(
-              "DefaultWT: {} Invoking to send stream bytes on stream {}", WtEventToString(wt_event), length, stream_id);
+            SPDLOG_LOGGER_TRACE(transport->logger,
+                                "DefaultWT: {} Invoking to send stream bytes on stream {}",
+                                WtEventToString(wt_event),
+                                length,
+                                stream_id);
 
             // Send stream bytes - this will call picoquic_provide_stream_data_buffer internally
             transport->SendStreamBytes(data_ctx, stream_id, bytes, length);
@@ -764,8 +784,11 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
         case picohttp_callback_post_datagram: {
             // Datagram received
-            transport->logger->trace(
-              "DefaultWT: {} received {} bytes for connection {}", WtEventToString(wt_event), length, conn_id);
+            SPDLOG_LOGGER_TRACE(transport->logger,
+                                "DefaultWT: {} received {} bytes for connection {}",
+                                WtEventToString(wt_event),
+                                length,
+                                conn_id);
 
             if (auto connection = GetConnCtxForWT(transport, conn_id, wt_event)) {
                 transport->OnRecvDatagram(connection, bytes, length);
@@ -789,14 +812,17 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         case picohttp_callback_reset: {
             // Stream has been abandoned
             if (!stream_ctx) {
-                transport->logger->warn("DefaultWT: {} with null stream_ctx", WtEventToString(wt_event));
+                SPDLOG_LOGGER_WARN(transport->logger, "DefaultWT: {} with null stream_ctx", WtEventToString(wt_event));
                 return -1;
             }
 
             uint64_t stream_id = stream_ctx->stream_id;
 
-            transport->logger->debug(
-              "DefaultWT: {} for stream {} on connection {}", WtEventToString(wt_event), stream_id, conn_id);
+            SPDLOG_LOGGER_DEBUG(transport->logger,
+                                "DefaultWT: {} for stream {} on connection {}",
+                                WtEventToString(wt_event),
+                                stream_id,
+                                conn_id);
 
             if (auto connection = transport->GetConnection(conn_id)) {
                 auto rx_buf_it = connection->rx_stream_buffer.find(stream_id);
@@ -823,14 +849,17 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
         case picohttp_callback_stop_sending: {
             // Peer wants to abandon receiving on the stream
             if (!stream_ctx) {
-                transport->logger->warn("DefaultWT: {} with null stream_ctx", WtEventToString(wt_event));
+                SPDLOG_LOGGER_WARN(transport->logger, "DefaultWT: {} with null stream_ctx", WtEventToString(wt_event));
                 return -1;
             }
 
             uint64_t stream_id = stream_ctx->stream_id;
 
-            transport->logger->debug(
-              "DefaultWT: {} for stream {} on connection {}", WtEventToString(wt_event), stream_id, conn_id);
+            SPDLOG_LOGGER_DEBUG(transport->logger,
+                                "DefaultWT: {} for stream {} on connection {}",
+                                WtEventToString(wt_event),
+                                stream_id,
+                                conn_id);
 
             if (auto connection = transport->GetConnection(conn_id)) {
                 auto rx_buf_it = connection->rx_stream_buffer.find(stream_id);
@@ -856,13 +885,15 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
         case picohttp_callback_free:
             // Clean up the stream
-            transport->logger->debug("DefaultWT: {} callback for connection {}", WtEventToString(wt_event), conn_id);
+            SPDLOG_LOGGER_DEBUG(
+              transport->logger, "DefaultWT: {} callback for connection {}", WtEventToString(wt_event), conn_id);
             break;
 
         case picohttp_callback_deregister: {
             // The app context has been removed from the registry.
             // Its references should be removed from streams belonging to this session.
-            transport->logger->debug("DefaultWT: {} callback for connection {}", WtEventToString(wt_event), conn_id);
+            SPDLOG_LOGGER_DEBUG(
+              transport->logger, "DefaultWT: {} callback for connection {}", WtEventToString(wt_event), conn_id);
 
             transport->DeregisterWebTransport(cnx);
 
@@ -1046,7 +1077,7 @@ PicoQuicTransport::Start()
     picoquic_set_default_priority(quic_ctx_, 2);
     picoquic_set_default_datagram_priority(quic_ctx_, 1);
 
-    SPDLOG_LOGGER_INFO(logger, "Setting idle timeout to {0}ms", tconfig_.idle_timeout_ms);
+    SPDLOG_LOGGER_INFO(logger, "Setting idle timeout to {}ms", tconfig_.idle_timeout_ms);
 
     picoquic_runner_queue_.SetLimit(tconfig_.callback_queue_size);
 
@@ -1054,7 +1085,7 @@ PicoQuicTransport::Start()
     cbNotifyThread_ = std::thread(&PicoQuicTransport::CbNotifier, this);
 
     if (!tconfig_.quic_qlog_path.empty()) {
-        SPDLOG_LOGGER_INFO(logger, "Enabling qlog using '{0}' path", tconfig_.quic_qlog_path);
+        SPDLOG_LOGGER_INFO(logger, "Enabling qlog using '{}' path", tconfig_.quic_qlog_path);
         picoquic_set_qlog(quic_ctx_, tconfig_.quic_qlog_path.c_str());
     }
 
@@ -1062,11 +1093,11 @@ PicoQuicTransport::Start()
 
     if (is_server_mode) {
 
-        SPDLOG_LOGGER_INFO(logger, "Starting server, listening on {0}:{1}", serverInfo_.host_or_ip, serverInfo_.port);
+        SPDLOG_LOGGER_INFO(logger, "Starting server, listening on {}:{}", serverInfo_.host_or_ip, serverInfo_.port);
         Server();
 
     } else {
-        SPDLOG_LOGGER_INFO(logger, "Connecting to server {0}:{1}", serverInfo_.host_or_ip, serverInfo_.port);
+        SPDLOG_LOGGER_INFO(logger, "Connecting to server {}:{}", serverInfo_.host_or_ip, serverInfo_.port);
 
         if (ClientLoop()) {
             return StartClient();
@@ -1429,7 +1460,7 @@ PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::API api)
     }
 
     if (is_new) {
-        SPDLOG_LOGGER_INFO(logger, "Created new connection context for conn_id: {0}", connection->GetID());
+        SPDLOG_LOGGER_INFO(logger, "Created new connection context for conn_id: {}", connection->GetID());
 
         connection->dgram_rx_data->SetLimit(tconfig_.time_queue_rx_size);
         connection->dgram_tx_data = std::make_shared<PriorityQueue<ConnData>>(tconfig_.time_queue_max_duration,
@@ -1500,7 +1531,7 @@ PicoQuicTransport::CreateDataContextBiDirRecv(std::uint64_t conn_id, uint64_t st
 
     const auto conn_it = connections_.find(conn_id);
     if (conn_it == connections_.end()) {
-        SPDLOG_LOGGER_ERROR(logger, "Invalid conn_id: {0}, cannot create data context", conn_id);
+        SPDLOG_LOGGER_ERROR(logger, "Invalid conn_id: {}, cannot create data context", conn_id);
         return nullptr;
     }
 
@@ -1519,7 +1550,7 @@ PicoQuicTransport::CreateDataContextBiDirRecv(std::uint64_t conn_id, uint64_t st
         data_ctx_it->second.streams[stream_id] = std::move(stream);
 
         SPDLOG_LOGGER_INFO(logger,
-                           "Created new bidir data context conn_id: {0} data_ctx_id: {1} stream_id: {2}",
+                           "Created new bidir data context conn_id: {} data_ctx_id: {} stream_id: {}",
                            conn_id,
                            data_ctx_it->second.data_ctx_id,
                            stream_id);
@@ -1656,7 +1687,7 @@ PicoQuicTransport::SendNextDatagram(const std::shared_ptr<PicoQuicConnection>& c
         const auto data_ctx_it = connection->active_data_contexts.find(out_data->get().data_ctx_id);
         if (data_ctx_it == connection->active_data_contexts.end()) {
             SPDLOG_LOGGER_DEBUG(logger,
-                                "send_next_dgram has no data context conn_id: {0} data len: {1} dropping",
+                                "send_next_dgram has no data context conn_id: {} data len: {} dropping",
                                 connection->GetID(),
                                 out_data->get().data->size());
             connection->metrics.tx_dgram_drops++;
@@ -1665,7 +1696,7 @@ PicoQuicTransport::SendNextDatagram(const std::shared_ptr<PicoQuicConnection>& c
 
         if (out_data->get().data == nullptr || out_data->get().data->size() == 0) {
             SPDLOG_LOGGER_ERROR(logger,
-                                "conn_id: {0} data_ctx_id: {1} has ZERO data size",
+                                "conn_id: {} data_ctx_id: {} has ZERO data size",
                                 data_ctx_it->second.conn_id,
                                 data_ctx_it->second.data_ctx_id);
             connection->dgram_tx_data->Pop();
@@ -1892,7 +1923,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
     if (buf == NULL) {
         // Error allocating memory to write
         SPDLOG_LOGGER_ERROR(logger,
-                            "conn_id: {0} data_ctx_id: {1} priority: {2} unable to allocate pq buffer size: {3}",
+                            "conn_id: {} data_ctx_id: {} priority: {} unable to allocate pq buffer size: {}",
                             data_ctx->conn_id,
                             data_ctx->data_ctx_id,
                             static_cast<int>(stream_ctx.priority),
@@ -1921,7 +1952,7 @@ PicoQuicTransport::OnConnectionStatus(const std::shared_ptr<PicoQuicConnection>&
       logger, "Connection changed conn_id: {} to status: {}", connection->GetID(), static_cast<int>(status));
 
     if (status == TransportStatus::kReady) {
-        SPDLOG_LOGGER_INFO(logger, "Connection established to server {0}", connection->peer_addr_text);
+        SPDLOG_LOGGER_INFO(logger, "Connection established to server {}", connection->peer_addr_text);
     }
 
     cbNotifyQueue_.Push([connection, status]() { connection->SetStatus(static_cast<Connection::Status>(status)); });
@@ -1931,7 +1962,7 @@ void
 PicoQuicTransport::HandleNewConnection(const std::shared_ptr<PicoQuicConnection>& connection)
 {
     SPDLOG_LOGGER_INFO(logger,
-                       "New Connection {0} port: {1} conn_id: {2}",
+                       "New Connection {} port: {} conn_id: {}",
                        connection->peer_addr_text,
                        connection->peer_port,
                        connection->GetID());
@@ -1956,27 +1987,13 @@ PicoQuicTransport::HandleNewConnection(const std::shared_ptr<PicoQuicConnection>
 
     if (tconfig_.quic_priority_limit > 0) {
         SPDLOG_LOGGER_INFO(
-          logger, "Setting priority bypass limit to {0}", static_cast<int>(tconfig_.quic_priority_limit));
+          logger, "Setting priority bypass limit to {}", static_cast<int>(tconfig_.quic_priority_limit));
         picoquic_set_priority_limit_for_bypass(connection->pq_cnx, tconfig_.quic_priority_limit);
     }
-
-    SetupServerControlStream(connection);
 
     if (OnNewConnection) {
         OnNewConnection(connection);
     }
-}
-
-void
-PicoQuicTransport::SetupServerControlStream(const std::shared_ptr<PicoQuicConnection>& connection)
-{
-    if (connection->tx_ctrl_stream_id.has_value()) {
-        return;
-    }
-
-    const auto data_ctx_id = CreateDataContext(connection, true, 0, false);
-    connection->tx_ctrl_data_ctx_id = data_ctx_id;
-    connection->tx_ctrl_stream_id = CreateStreamInternal(connection, data_ctx_id, 0);
 }
 
 void
@@ -1987,7 +2004,7 @@ try {
     }
 
     if (connection == nullptr) {
-        SPDLOG_LOGGER_WARN(logger, "DGRAM received with NULL connection context; dropping length: {0}", length);
+        SPDLOG_LOGGER_WARN(logger, "DGRAM received with NULL connection context; dropping length: {}", length);
         return;
     }
 
@@ -1996,12 +2013,12 @@ try {
     connection->metrics.rx_dgrams_bytes += length;
 
     if (cbNotifyQueue_.Size() > 1000) {
-        SPDLOG_LOGGER_INFO(logger, "on_recv_datagram cbNotifyQueue size {0}", cbNotifyQueue_.Size());
+        SPDLOG_LOGGER_INFO(logger, "on_recv_datagram cbNotifyQueue size {}", cbNotifyQueue_.Size());
     }
 
     if (connection->dgram_rx_data->Size() < 10 &&
         !cbNotifyQueue_.Push([=, this]() { connection->OnRecvDgram(std::nullopt); })) {
-        SPDLOG_LOGGER_ERROR(logger, "conn_id: {0} DGRAM notify queue is full", connection->GetID());
+        SPDLOG_LOGGER_ERROR(logger, "conn_id: {} DGRAM notify queue is full", connection->GetID());
     }
 } catch (const std::exception& e) {
     SPDLOG_LOGGER_ERROR(logger, "Caught exception in OnRecvDatagram. (error={})", e.what());
@@ -2136,7 +2153,7 @@ try {
             })) {
 
             SPDLOG_LOGGER_ERROR(
-              logger, "conn_id: {0} stream_id: {1} notify queue is full", connection->GetID(), stream_id);
+              logger, "conn_id: {} stream_id: {} notify queue is full", connection->GetID(), stream_id);
         }
 
     } else {
@@ -2145,7 +2162,7 @@ try {
         if (!cbNotifyQueue_.Push(
               [=, this]() { connection->OnRecvStream(stream_id, std::nullopt, (stream_id & 2) == 0); })) {
             SPDLOG_LOGGER_ERROR(
-              logger, "conn_id: {0} stream_id: {1} notify queue is full", connection->GetID(), stream_id);
+              logger, "conn_id: {} stream_id: {} notify queue is full", connection->GetID(), stream_id);
         }
     }
 } catch (const std::exception& e) {
@@ -2349,7 +2366,7 @@ PicoQuicTransport::CheckConnsForCongestion()
                 connection->is_congested = false;
                 connection->not_congested_gauge = 0;
                 SPDLOG_LOGGER_DEBUG(
-                  logger, "CC: conn_id: {0} congested_count: {1} is no longer congested.", conn_id, congested_count);
+                  logger, "CC: conn_id: {} congested_count: {} is no longer congested.", conn_id, congested_count);
             } else {
                 connection->not_congested_gauge++;
             }
@@ -2428,7 +2445,7 @@ PicoQuicTransport::StartClient()
         ret = picoquic_get_server_address(serverInfo_.host_or_ip.c_str(), serverInfo_.port, &server_address, &is_name);
         if (ret != 0 || server_address.ss_family == 0) {
             SPDLOG_LOGGER_ERROR(
-              logger, "Failed to resolve server: {0} port: {1}", serverInfo_.host_or_ip, serverInfo_.port);
+              logger, "Failed to resolve server: {} port: {}", serverInfo_.host_or_ip, serverInfo_.port);
             notify_caller(1);
             return 0;
         }
@@ -2544,7 +2561,7 @@ PicoQuicTransport::StartClient()
 
         if (tconfig_.quic_priority_limit > 0) {
             SPDLOG_LOGGER_INFO(
-              logger, "Setting priority bypass limit to {0}", static_cast<int>(tconfig_.quic_priority_limit));
+              logger, "Setting priority bypass limit to {}", static_cast<int>(tconfig_.quic_priority_limit));
             picoquic_set_priority_limit_for_bypass(cnx, tconfig_.quic_priority_limit);
         } else {
             SPDLOG_LOGGER_INFO(logger, "No priority bypass");
@@ -2792,7 +2809,7 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
         stream_id = pq_conn->last_stream_id;
 
         SPDLOG_LOGGER_DEBUG(logger,
-                            "conn_id: {0} data_ctx_id: {1} create new stream with stream_id: {2}",
+                            "conn_id: {} data_ctx_id: {} create new stream with stream_id: {}",
                             connection->GetID(),
                             data_ctx_id,
                             pq_conn->last_stream_id);
@@ -2888,6 +2905,11 @@ PicoQuicTransport::EraseStreamState(const std::shared_ptr<PicoQuicConnection>& c
 void
 PicoQuicTransport::RunPqFunction(std::function<int()>&& function)
 {
+    if (std::this_thread::get_id() == pq_event_thread_id || std::this_thread::get_id() == pq_runner_thread_id) {
+        function();
+        return;
+    }
+
     bool should_wake = picoquic_runner_queue_.Empty();
     picoquic_runner_queue_.Push(std::move(function));
 
