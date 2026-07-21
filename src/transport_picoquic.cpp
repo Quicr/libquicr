@@ -2423,13 +2423,12 @@ PicoQuicTransport::StartClient()
         std::condition_variable cv;
         std::mutex mtx;
         std::uint64_t conn_id{ 0 };
+        std::shared_ptr<PicoQuicConnection> connection;
     };
     auto state = std::make_shared<SharedState>();
     std::unique_lock lock(state->mtx);
 
-    std::shared_ptr<PicoQuicConnection> connection;
-
-    RunPqFunction([this, state, &connection]() {
+    RunPqFunction([this, state]() {
         auto notify_caller = [state](uint64_t id) {
             std::lock_guard _(state->mtx);
             state->conn_id = id;
@@ -2483,7 +2482,7 @@ PicoQuicTransport::StartClient()
             }
 
             SPDLOG_LOGGER_INFO(logger, "StartClient: Creating connection context");
-            connection = CreateConnection(cnx);
+            state->connection = CreateConnection(cnx);
 
         } else if (connection_api == Connection::API::kWebTransport) {
             h3zero_callback_ctx_t* h3_ctx = nullptr;
@@ -2506,24 +2505,24 @@ PicoQuicTransport::StartClient()
             picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
 
             // Create connection context and store per-connection WebTransport context first
-            connection = CreateConnection(cnx, Connection::API::kWebTransport);
-            connection->wt_h3_ctx = h3_ctx;
-            connection->wt_control_stream_ctx = control_stream_ctx;
-            connection->wt_h3_ctx_owned = true; // Client owns this and must free it
-            connection->wt_authority = serverInfo_.host_or_ip + ":" + std::to_string(serverInfo_.port);
+            state->connection = CreateConnection(cnx, Connection::API::kWebTransport);
+            state->connection->wt_h3_ctx = h3_ctx;
+            state->connection->wt_control_stream_ctx = control_stream_ctx;
+            state->connection->wt_h3_ctx_owned = true; // Client owns this and must free it
+            state->connection->wt_authority = serverInfo_.host_or_ip + ":" + std::to_string(serverInfo_.port);
 
             SPDLOG_LOGGER_INFO(logger,
                                "StartClient:Webtransport Connect: Control Stream ID: {}, "
                                "authority: {}, path: {}",
                                control_stream_ctx->stream_id,
-                               connection->wt_authority,
+                               state->connection->wt_authority,
                                wt_config_->path);
 
             // Initiate the WebTransport connect
             ret = picowt_connect(cnx,
                                  h3_ctx,
                                  control_stream_ctx,
-                                 connection->wt_authority.c_str(),
+                                 state->connection->wt_authority.c_str(),
                                  wt_config_->path.c_str(),
                                  DefaultWebTransportCallback,
                                  this,
@@ -2555,7 +2554,7 @@ PicoQuicTransport::StartClient()
                                "StartClient:Webtransport (after connect): Control Stream ID: {}, "
                                "authority: {}, path: {}",
                                control_stream_ctx->stream_id,
-                               connection->wt_authority,
+                               state->connection->wt_authority,
                                wt_config_->path);
         }
 
@@ -2583,7 +2582,7 @@ PicoQuicTransport::StartClient()
         return 0;
     }
 
-    return connection;
+    return state->connection;
 }
 
 bool
