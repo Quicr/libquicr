@@ -316,7 +316,6 @@ namespace quicr::messages {
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, FetchHeader&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, FetchHeader&);
 
     Bytes& operator<<(Bytes& buffer, const FetchHeader& msg)
     {
@@ -436,7 +435,6 @@ namespace quicr::messages {
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, FetchObject&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, FetchObject&);
 
     //
     // Object
@@ -565,7 +563,6 @@ namespace quicr::messages {
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, ObjectDatagram&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, ObjectDatagram&);
 
     Bytes& operator<<(Bytes& buffer, const ObjectDatagramStatus& msg)
     {
@@ -681,7 +678,6 @@ namespace quicr::messages {
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, ObjectDatagramStatus&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, ObjectDatagramStatus&);
 
     Bytes& operator<<(Bytes& buffer, const StreamHeaderSubGroup& msg)
     {
@@ -789,7 +785,6 @@ namespace quicr::messages {
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, StreamHeaderSubGroup&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, StreamHeaderSubGroup&);
 
     Bytes& operator<<(Bytes& buffer, const StreamSubGroupObject& msg)
     {
@@ -888,6 +883,5 @@ namespace quicr::messages {
     }
 
     template bool operator>> <StreamBuffer<uint8_t>>(StreamBuffer<uint8_t>&, StreamSubGroupObject&);
-    template bool operator>> <SafeStreamBuffer<uint8_t>>(SafeStreamBuffer<uint8_t>&, StreamSubGroupObject&);
 
 }
