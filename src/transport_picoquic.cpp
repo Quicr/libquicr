@@ -1381,6 +1381,11 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
     }
 
     picoquic_close(pq_conn->pq_cnx, static_cast<uint64_t>(app_reason));
+
+    if (OnConnectionClosed) {
+        OnConnectionClosed(connection);
+    }
+
     connections_.erase(connection->GetID());
 }
 
