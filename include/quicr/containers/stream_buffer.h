@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <any>
 #include <cstring>
-#include <mutex>
 #include <optional>
 #include <span>
 #include <type_traits>
@@ -17,14 +16,7 @@
 namespace quicr {
 #define FORCE_INLINE inline __attribute__((always_inline))
 
-    struct NullMutex
-    {
-        constexpr void lock() {}
-        constexpr void unlock() {}
-        constexpr bool try_lock() { return true; }
-    };
-
-    template<typename T, class Mutex = NullMutex, class Allocator = std::allocator<T>>
+    template<typename T, class Allocator = std::allocator<T>>
     class StreamBuffer
     {
         using BufferT = std::vector<T, Allocator>;
@@ -139,7 +131,6 @@ namespace quicr {
                 return {};
             }
 
-            std::lock_guard _(rw_lock_);
             return { buffer_.data() + read_offset_, 1 };
         }
 
@@ -150,17 +141,29 @@ namespace quicr {
          *
          * @returns span of bytes, or empty span if no data or length unavailable
          */
-        std::span<const T> Front(std::uint32_t length) noexcept
+        std::span<const T> Front(std::size_t length) noexcept
         {
             if (Empty()) {
                 return {};
             }
 
-            std::lock_guard _(rw_lock_);
-
             const auto logical_size = buffer_.size() - read_offset_;
             return logical_size < length ? std::span<const T>{}
                                          : std::span<const T>{ buffer_.data() + read_offset_, length };
+        }
+
+        /**
+         * @brief All readable data bytes in the stream buffer
+         *
+         * @returns span of all bytes
+         */
+        std::span<const T> Data() noexcept
+        {
+            if (Empty()) {
+                return {};
+            }
+
+            return { buffer_.data() + read_offset_, buffer_.size() - read_offset_ };
         }
 
         void Pop()
@@ -169,17 +172,15 @@ namespace quicr {
                 return;
             }
 
-            std::lock_guard _(rw_lock_);
             PopInternal(1);
         }
 
-        void Pop(std::uint32_t length)
+        void Pop(std::size_t length)
         {
             if (length == 0 || Empty()) {
                 return;
             }
 
-            std::lock_guard _(rw_lock_);
             PopInternal(length);
         }
 
@@ -190,15 +191,13 @@ namespace quicr {
          *
          * @return True if data length is available, false if not.
          */
-        bool Available(std::uint32_t length) const noexcept
+        bool Available(std::size_t length) const noexcept
         {
             return length == 0 || (read_offset_ < buffer_.size() && buffer_.size() - read_offset_ >= length);
         }
 
         void Push(const T& value)
         {
-            std::lock_guard _(rw_lock_);
-
             CompactFrontIfNeeded();
 
             buffer_.push_back(value);
@@ -206,8 +205,6 @@ namespace quicr {
 
         void Push(T&& value)
         {
-            std::lock_guard _(rw_lock_);
-
             CompactFrontIfNeeded();
 
             buffer_.push_back(std::move(value));
@@ -215,8 +212,6 @@ namespace quicr {
 
         void Push(std::span<const T> value)
         {
-            std::lock_guard _(rw_lock_);
-
             CompactFrontIfNeeded();
 
             buffer_.insert(buffer_.end(), value.begin(), value.end());
@@ -224,8 +219,6 @@ namespace quicr {
 
         void PushLengthBytes(std::span<const T> value)
         {
-            std::lock_guard _(rw_lock_);
-
             CompactFrontIfNeeded();
 
             UintVar len(static_cast<uint64_t>(value.size()));
@@ -268,10 +261,8 @@ namespace quicr {
                 return std::nullopt;
             }
 
-            std::lock_guard _(rw_lock_);
-
             const auto& uv_msb = buffer_[read_offset_];
-            uint64_t uv_len = UintVar::Size(uv_msb);
+            std::size_t uv_len = UintVar::Size(uv_msb);
 
             const auto logical_size = buffer_.size() - read_offset_;
             if (logical_size >= uv_len) {
@@ -302,10 +293,8 @@ namespace quicr {
                 return std::nullopt;
             }
 
-            std::lock_guard _(rw_lock_);
-
             const auto& uv_msb = buffer_[read_offset_];
-            uint64_t uv_len = UintVar::Size(uv_msb);
+            std::size_t uv_len = UintVar::Size(uv_msb);
 
             auto logical_size = buffer_.size() - read_offset_;
             if (logical_size >= uv_len) {
@@ -353,7 +342,7 @@ namespace quicr {
             read_offset_ = 0;
         }
 
-        FORCE_INLINE void PopInternal(std::uint32_t length)
+        FORCE_INLINE void PopInternal(std::size_t length)
         {
             if (read_offset_ >= buffer_.size() || length >= buffer_.size() - read_offset_) {
                 buffer_.clear();
@@ -366,16 +355,12 @@ namespace quicr {
 
       private:
         BufferT buffer_;
-        Mutex rw_lock_;
         std::any parsed_data_;                     /// Working buffer for parsed data
         std::any parsed_dataB_;                    /// Second Working buffer for parsed data
         std::optional<uint64_t> parsed_data_type_; /// working buffer type value
         std::size_t read_offset_{ 0 };
         std::size_t compact_threshold_{ 4096 };
     };
-
-    template<class T, class Allocator = std::allocator<T>>
-    using SafeStreamBuffer = StreamBuffer<T, std::mutex, Allocator>;
 
 #undef FORCE_INLINE
 }

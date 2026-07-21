@@ -62,7 +62,7 @@ ExtensionsDeserialize(benchmark::State& state)
 
     for ([[maybe_unused]] const auto& _ : state) {
         // Create a stream buffer from the serialized data
-        auto stream_buffer = SafeStreamBuffer<uint8_t>();
+        auto stream_buffer = StreamBuffer<uint8_t>();
         stream_buffer.Push(std::span<const uint8_t>(serialized_data));
 
         // Parse the extensions
@@ -111,7 +111,7 @@ ExtensionsRoundTrip(benchmark::State& state)
         SerializeExtensions(serialized_data, original_extensions, original_immutable);
 
         // Deserialize
-        auto stream_buffer = SafeStreamBuffer<uint8_t>();
+        auto stream_buffer = StreamBuffer<uint8_t>();
         stream_buffer.Push(std::span<const uint8_t>(serialized_data));
 
         std::optional<std::size_t> extension_headers_length;
