@@ -150,7 +150,7 @@ namespace quicr {
          *
          * @returns span of bytes, or empty span if no data or length unavailable
          */
-        std::span<const T> Front(std::uint32_t length) noexcept
+        std::span<const T> Front(std::size_t length) noexcept
         {
             if (Empty()) {
                 return {};
@@ -163,6 +163,20 @@ namespace quicr {
                                          : std::span<const T>{ buffer_.data() + read_offset_, length };
         }
 
+        /**
+         * @brief All readable data bytes in the stream buffer
+         *
+         * @returns span of all bytes
+         */
+        std::span<const T> Data() noexcept
+        {
+            if (Empty()) {
+                return {};
+            }
+
+            return { buffer_.data() + read_offset_, buffer_.size() - read_offset_ };
+        }
+
         void Pop()
         {
             if (Empty()) {
@@ -173,7 +187,7 @@ namespace quicr {
             PopInternal(1);
         }
 
-        void Pop(std::uint32_t length)
+        void Pop(std::size_t length)
         {
             if (length == 0 || Empty()) {
                 return;
@@ -190,7 +204,7 @@ namespace quicr {
          *
          * @return True if data length is available, false if not.
          */
-        bool Available(std::uint32_t length) const noexcept
+        bool Available(std::size_t length) const noexcept
         {
             return length == 0 || (read_offset_ < buffer_.size() && buffer_.size() - read_offset_ >= length);
         }
@@ -271,7 +285,7 @@ namespace quicr {
             std::lock_guard _(rw_lock_);
 
             const auto& uv_msb = buffer_[read_offset_];
-            uint64_t uv_len = UintVar::Size(uv_msb);
+            std::size_t uv_len = UintVar::Size(uv_msb);
 
             const auto logical_size = buffer_.size() - read_offset_;
             if (logical_size >= uv_len) {
@@ -305,7 +319,7 @@ namespace quicr {
             std::lock_guard _(rw_lock_);
 
             const auto& uv_msb = buffer_[read_offset_];
-            uint64_t uv_len = UintVar::Size(uv_msb);
+            std::size_t uv_len = UintVar::Size(uv_msb);
 
             auto logical_size = buffer_.size() - read_offset_;
             if (logical_size >= uv_len) {
@@ -353,7 +367,7 @@ namespace quicr {
             read_offset_ = 0;
         }
 
-        FORCE_INLINE void PopInternal(std::uint32_t length)
+        FORCE_INLINE void PopInternal(std::size_t length)
         {
             if (read_offset_ >= buffer_.size() || length >= buffer_.size() - read_offset_) {
                 buffer_.clear();
