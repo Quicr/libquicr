@@ -6,6 +6,7 @@
 #include "quicr/attributes.h"
 #include "quicr/common.h"
 #include "quicr/config.h"
+#include "quicr/containers/stream_buffer.h"
 #include "quicr/handlers/fetch_track_handler.h"
 #include "quicr/handlers/publish_fetch_handler.h"
 #include "quicr/handlers/publish_namespace_handler.h"
@@ -972,11 +973,8 @@ namespace quicr {
             bool closed{ false };
             uint64_t client_version{ 0 };
 
-            struct CtrlMsgBuffer
-            {
-                std::vector<uint8_t> data; ///< Control message buffer
-            };
-            std::map<uint64_t, CtrlMsgBuffer> ctrl_msg_buffer; ///< Control message buffer
+            /// Received data holders for streams: control, request.
+            std::map<uint64_t, StreamBuffer<uint8_t>> stream_buffers;
 
             /** Next Connection request Id. This value is shifted left when setting Request Id.
              * The least significant bit is used to indicate client (0) vs server (1).

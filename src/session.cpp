@@ -1198,7 +1198,7 @@ namespace quicr {
         // Incoming PUBNS requests are not handler based.
         if (std::erase(conn_ctx.recv_publish_namespaces, request_id) > 0) {
             conn_ctx.recv_req_id.erase(request_id);
-            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            conn_ctx.stream_buffers.erase(stream_id);
 
             lock.unlock();
 
@@ -1215,7 +1215,7 @@ namespace quicr {
             SPDLOG_LOGGER_DEBUG(
               logger_, "Stream closed for unknown request_id conn_id: {} request_id: {}", connection_id, request_id);
             conn_ctx.recv_req_id.erase(request_id);
-            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            conn_ctx.stream_buffers.erase(stream_id);
             return;
         }
 
@@ -1243,7 +1243,7 @@ namespace quicr {
             }
 
             conn_ctx.recv_req_id.erase(request_id);
-            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            conn_ctx.stream_buffers.erase(stream_id);
 
             lock.unlock();
             UnsubscribeReceived(connection_id, request_id);
@@ -1255,7 +1255,7 @@ namespace quicr {
 
             ClosePublishTrackLocal(conn_ctx, connection_id, *pub_handler, stream_id, is_reset);
             conn_ctx.request_handlers.erase(handler_it);
-            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            conn_ctx.stream_buffers.erase(stream_id);
 
             lock.unlock();
             UnsubscribeReceived(connection_id, request_id);
@@ -1267,7 +1267,7 @@ namespace quicr {
             RemoveSubscribeNamespace(conn_ctx, *ns_handler, false, false);
             conn_ctx.request_handlers.erase(handler_it);
             conn_ctx.recv_req_id.erase(request_id);
-            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            conn_ctx.stream_buffers.erase(stream_id);
             return;
         }
 
@@ -1275,7 +1275,7 @@ namespace quicr {
             pub_ns_handler->SetStatus(PublishNamespaceHandler::Status::kNotPublished);
             conn_ctx.request_handlers.erase(handler_it);
             conn_ctx.recv_req_id.erase(request_id);
-            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            conn_ctx.stream_buffers.erase(stream_id);
             return;
         }
 
@@ -1284,13 +1284,13 @@ namespace quicr {
                                               : FetchTrackHandler::Status::kDoneByFin);
             conn_ctx.request_handlers.erase(handler_it);
             conn_ctx.recv_req_id.erase(request_id);
-            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+            conn_ctx.stream_buffers.erase(stream_id);
             return;
         }
 
         conn_ctx.request_handlers.erase(handler_it);
         conn_ctx.recv_req_id.erase(request_id);
-        conn_ctx.ctrl_msg_buffer.erase(stream_id);
+        conn_ctx.stream_buffers.erase(stream_id);
     }
 
     void Session::UnpublishTrack(std::uint64_t conn_id, const std::shared_ptr<PublishTrackHandler>& track_handler)
@@ -1869,8 +1869,8 @@ namespace quicr {
 
             // Control or request handling.
             if (is_control_stream || is_request_stream) {
-                auto& ctrl_msg_buffer = conn_ctx.ctrl_msg_buffer[stream_id];
-                ctrl_msg_buffer.data.insert(ctrl_msg_buffer.data.end(), data.begin(), data.end());
+                auto& stream_buffer = conn_ctx.stream_buffers[stream_id];
+                stream_buffer.Push(data);
 
                 rx_ctx->data_queue.PopFront();
                 rx_ctx->is_new = false;
@@ -1879,47 +1879,50 @@ namespace quicr {
                                     "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
                                     conn_id,
                                     stream_id,
-                                    ctrl_msg_buffer.data.size());
+                                    stream_buffer.Size());
 
-                while (ctrl_msg_buffer.data.size() > 0) {
-                    if (ctrl_msg_buffer.data.size() < UintVar::Size(ctrl_msg_buffer.data.front())) {
+                while (!stream_buffer.Empty()) {
+                    auto message_view = stream_buffer.Data();
+
+                    // Type.
+                    const auto size = UintVar::Size(message_view.front());
+                    if (message_view.size() < size) {
                         i = kReadLoopMaxPerStream - 4;
                         break;
                     }
+                    const auto decoded_type = static_cast<std::uint64_t>(UintVar(message_view.first(size)));
+                    const auto msg_type = static_cast<ControlMessageType>(decoded_type);
+                    message_view = message_view.subspan(size);
 
-                    const auto type_sz = UintVar::Size(ctrl_msg_buffer.data.front());
-                    const auto msg_type = static_cast<ControlMessageType>(static_cast<uint64_t>(
-                      UintVar({ ctrl_msg_buffer.data.data(), ctrl_msg_buffer.data.data() + type_sz })));
-
-                    uint16_t payload_len = 0;
-
-                    if (ctrl_msg_buffer.data.size() < type_sz + sizeof(payload_len)) {
+                    // Length.
+                    std::uint16_t payload_len;
+                    if (message_view.size() < sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
                         break;
                     }
-
-                    std::memcpy(&payload_len, ctrl_msg_buffer.data.data() + type_sz, sizeof(payload_len));
+                    std::memcpy(&payload_len, message_view.data(), sizeof(payload_len));
                     payload_len = SwapBytes(payload_len);
+                    message_view = message_view.subspan(sizeof(payload_len));
 
-                    const auto message_size = type_sz + sizeof(payload_len) + payload_len;
-                    if (ctrl_msg_buffer.data.size() < message_size) {
+                    // Payload.
+                    if (message_view.size() < payload_len) {
                         i = kReadLoopMaxPerStream - 4;
                         break;
                     }
+                    const auto payload = message_view.first(payload_len);
+                    message_view = message_view.subspan(payload_len);
 
-                    const auto payload_begin = ctrl_msg_buffer.data.begin() + type_sz + sizeof(payload_len);
-                    const auto payload_end = payload_begin + payload_len;
-
+                    // Consume completed message.
+                    const auto message_size = stream_buffer.Size() - message_view.size();
                     bool processed = false;
                     try {
                         if (is_control_stream) {
-                            processed = ProcessCtrlMessage(conn_ctx, msg_type, { payload_begin, payload_end });
+                            processed = ProcessCtrlMessage(conn_ctx, msg_type, payload);
                         } else if (is_request_stream) {
                             if (!data_ctx_id.has_value()) {
                                 throw std::invalid_argument("Missing data ctx id");
                             }
-                            processed =
-                              ProcessRequestMessage(conn_ctx, *data_ctx_id, msg_type, { payload_begin, payload_end });
+                            processed = ProcessRequestMessage(conn_ctx, *data_ctx_id, msg_type, payload);
                         }
                     } catch (const std::exception& e) {
                         SPDLOG_LOGGER_ERROR(logger_,
@@ -1935,13 +1938,9 @@ namespace quicr {
                                         "Control message cannot be parsed");
                     }
 
-                    if (processed) {
-                        ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
-                                                   ctrl_msg_buffer.data.begin() + message_size);
-                    } else {
+                    stream_buffer.Pop(message_size);
+                    if (!processed) {
                         conn_ctx.metrics.invalid_ctrl_stream_msg++;
-                        ctrl_msg_buffer.data.erase(ctrl_msg_buffer.data.begin(),
-                                                   ctrl_msg_buffer.data.begin() + message_size);
                     }
                 }
                 continue;
@@ -2080,7 +2079,7 @@ namespace quicr {
                             CloseConnection(
                               connection_id, TerminationReason::kProtocolViolation, "Primary control stream FIN");
                         } else {
-                            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+                            conn_ctx.stream_buffers.erase(stream_id);
                         }
 
                         break;
@@ -2089,7 +2088,7 @@ namespace quicr {
                             CloseConnection(
                               connection_id, TerminationReason::kProtocolViolation, "Primary control stream RESET");
                         } else {
-                            conn_ctx.ctrl_msg_buffer.erase(stream_id);
+                            conn_ctx.stream_buffers.erase(stream_id);
                         }
                         break;
                 }
