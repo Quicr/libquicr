@@ -192,6 +192,7 @@ namespace quicr {
 
     void Session::Disconnect()
     {
+        SetStatus(Status::kNotConnected);
         current_connection_->SetDelegate(nullptr);
 
         if (quic_transport_) {

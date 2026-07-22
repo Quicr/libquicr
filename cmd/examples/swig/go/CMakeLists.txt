@@ -1,0 +1,163 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
+cmake_minimum_required(VERSION 3.13)
+
+# Builds the SWIG Go bindings for libquicr (from ../../../../swig/quicr.i)
+# and a tiny Go program that exercises them, all driven by CMake so that
+# `cmake --build` alone reproduces what running swig/go by hand does.
+#
+# Both SWIG and a Go toolchain are optional dependencies of the rest of the
+# project, so this whole example is skipped (with a message, not an error)
+# if either is missing.
+
+find_package(SWIG 4.0 QUIET)
+find_program(GO_EXECUTABLE go)
+
+if(NOT SWIG_FOUND OR NOT GO_EXECUTABLE)
+    message(STATUS "Skipping SWIG Go example (qgoclient): SWIG and/or the Go toolchain were not found")
+    return()
+endif()
+
+cmake_policy(SET CMP0086 NEW)
+include(UseSWIG)
+
+# Directory layout under the build tree:
+#   gopkg/quicr/   the generated `quicr` Go package (quicr.go + friends,
+#                  plus the two small companion files generated below)
+#   app/           a throwaway copy of main.go + its own go.mod, so `go
+#                  build` sees a normal, self-contained module directory
+set(QUICR_GO_PKG_DIR ${CMAKE_CURRENT_BINARY_DIR}/gopkg/quicr)
+set(QUICR_GO_APP_DIR ${CMAKE_CURRENT_BINARY_DIR}/app)
+file(MAKE_DIRECTORY ${QUICR_GO_PKG_DIR})
+file(MAKE_DIRECTORY ${QUICR_GO_APP_DIR})
+
+set_property(SOURCE ${PROJECT_SOURCE_DIR}/swig/quicr.i PROPERTY CPLUSPLUS ON)
+set(CMAKE_SWIG_FLAGS -intgosize 64)
+set(CMAKE_SWIG_OUTDIR ${QUICR_GO_PKG_DIR})
+
+# CMAKE_SWIG_OUTDIR only controls where the generated quicr.go proxy file
+# goes; SWIG_OUTFILE_DIR (defaulting to CMAKE_SWIG_OUTDIR if unset) governs
+# the generated wrap .cxx. They must differ here: cgo auto-compiles every
+# .c/.cc/.cxx file it finds sitting in a package directory, and we need it
+# to leave the wrap file alone (it's already built into quicr_go.dylib by
+# CMake below) while still picking up quicr.go.
+set(SWIG_OUTFILE_DIR ${CMAKE_CURRENT_BINARY_DIR}/wrap)
+
+# UseSWIG derives the `-I...` flags it passes to the swig executable itself
+# (as opposed to the flags used to *compile* the generated wrapper) from
+# this directory-scoped property, not from target_include_directories().
+include_directories(${CMAKE_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include)
+
+swig_add_library(quicr_go
+    LANGUAGE go
+    TYPE SHARED
+    SOURCES ${PROJECT_SOURCE_DIR}/swig/quicr.i
+)
+
+set_target_properties(quicr_go PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS OFF
+    LIBRARY_OUTPUT_DIRECTORY ${QUICR_GO_PKG_DIR}
+    RUNTIME_OUTPUT_DIRECTORY ${QUICR_GO_PKG_DIR}
+    # cgo links quicr_go.dylib by the absolute path we give it in
+    # cgo_link.go below, but the *runtime* dependency reference an
+    # executable records is the library's own embedded install name, not
+    # that path. CMake's default install name (@rpath/quicr_go.dylib)
+    # would need an -rpath the Go linker never gets to add, so bake the
+    # real absolute path in instead. (Apple-only property; harmless
+    # no-op elsewhere. The matching -rpath added to cgo_link.go's LDFLAGS
+    # below covers the equivalent SONAME-less case on Linux.)
+    INSTALL_NAME_DIR ${QUICR_GO_PKG_DIR}
+)
+
+# quicr_go only needs to link quicr itself: because it's a real CMake
+# target (unlike a manual swig/g++ invocation), CMake resolves every one of
+# quicr's transitive PUBLIC dependencies (spdlog, timeq, picoquic, picotls,
+# sframe, OpenSSL/mbedTLS, fmt, ...) automatically.
+target_link_libraries(quicr_go PRIVATE quicr)
+
+if(APPLE)
+    # quicrGO_wrap.cxx calls a `cgo_panic_<suffix>` hook that SWIG's Go
+    # module generates as an `//export`ed Go function inside quicr.go
+    # itself - it only exists once cgo compiles that file, which happens
+    # later, as part of `go build` (see main Go example's build step
+    # below), not here. Apple's linker refuses to produce a shared library
+    # with any undefined symbol unless told otherwise; deferring this one
+    # to a flat-namespace runtime lookup (resolved against the final Go
+    # binary's own image, which does define it) mirrors exactly what
+    # Python extension modules on macOS already rely on for the same
+    # reason. GNU ld (Linux) already permits undefined symbols in shared
+    # objects by default, so no equivalent flag is needed there.
+    target_link_options(quicr_go PRIVATE -undefined dynamic_lookup)
+endif()
+
+if(LINT)
+    include(Lint)
+    lint(quicr_go)
+endif()
+
+# quicr.go's cgo preamble only *declares* the wrapper's exported C
+# functions; it carries no linker flags. This file supplies the one
+# needed: the path to the quicr_go shared library that actually
+# implements them. Written with file(GENERATE) rather than checked into
+# source because it must embed quicr_go's real build output path, which
+# is only known via generator expression.
+file(GENERATE
+    OUTPUT ${QUICR_GO_PKG_DIR}/cgo_link.go
+    CONTENT "// Code generated by CMake at configure time. DO NOT EDIT.
+package quicr
+
+/*
+#cgo LDFLAGS: $<TARGET_FILE:quicr_go> -Wl,-rpath,$<TARGET_FILE_DIR:quicr_go>
+*/
+import \"C\"
+"
+)
+
+# Go's module resolution needs every package directory - including this
+# generated one - to have its own go.mod.
+file(GENERATE
+    OUTPUT ${QUICR_GO_PKG_DIR}/go.mod
+    CONTENT "module quicr
+
+go 1.21
+"
+)
+
+configure_file(main.go ${QUICR_GO_APP_DIR}/main.go COPYONLY)
+
+# `replace` points the app module directly at the generated package
+# directory above instead of requiring it to be fetched/published.
+file(GENERATE
+    OUTPUT ${QUICR_GO_APP_DIR}/go.mod
+    CONTENT "module qgoclient
+
+go 1.21
+
+require quicr v0.0.0
+
+replace quicr => ${QUICR_GO_PKG_DIR}
+"
+)
+
+set(QUICR_GO_BINARY ${CMAKE_CURRENT_BINARY_DIR}/qgoclient)
+
+add_custom_command(
+    OUTPUT ${QUICR_GO_BINARY}
+    COMMAND ${CMAKE_COMMAND} -E env CGO_ENABLED=1
+            ${GO_EXECUTABLE} build -o ${QUICR_GO_BINARY} .
+    WORKING_DIRECTORY ${QUICR_GO_APP_DIR}
+    DEPENDS
+        quicr_go
+        $<TARGET_FILE:quicr_go>
+        ${QUICR_GO_APP_DIR}/main.go
+        ${QUICR_GO_APP_DIR}/go.mod
+        ${QUICR_GO_PKG_DIR}/go.mod
+        ${QUICR_GO_PKG_DIR}/cgo_link.go
+    COMMENT "Building Go SWIG example (qgoclient)"
+    VERBATIM
+)
+
+add_custom_target(qgoclient_build ALL DEPENDS ${QUICR_GO_BINARY})
