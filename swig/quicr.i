@@ -10,39 +10,13 @@
    in every class into a director on its own. */
 %module(directors="1") quicr
 
-/* SWIG cannot wrap nested classes/structs directly for most target
-   languages (Warning 325), which then breaks base-class resolution for
-   types that inherit from a nested type (Warning 402). Flattening makes
-   SWIG treat nested types as ordinary top-level types. */
 %feature("flatnested");
 
-/* <stdint.i> is SWIG's own official, language-agnostic library file
-   declaring the real typedef chain behind the ISO C99 fixed-width integer
-   types (uint8_t/uint16_t/uint32_t/uint64_t/...) - the same kind of ready-
-   made building block <std_string.i>/<std_vector.i>/<std_pair.i> below
-   are. It has to come before every other %include/%template in this
-   section (in fact, before anything anywhere in this file that names one
-   of these types, direcly or via a template argument): std::vector<uint8_t>
-   right below, for instance, needs SWIG to already know what uint8_t
-   *is* while it's being instantiated, not after - getting this backwards
-   doesn't produce a warning or an error, it just silently leaves
-   std::vector<uint8_t>::Get()/Set() (and every other already-templated
-   use elsewhere below) resolved against SWIG's generic, otherwise-
-   unusable placeholder handling instead of a real Go integer, exactly
-   like every other ordering mistake this file's own top-of-file comment
-   warns about. */
 %include <stdint.i>
-
-/* ---- Generic STL type maps --------------------------------------------
-   These %include directives are language-agnostic: SWIG automatically
-   resolves <std_string.i>/<std_vector.i>/<std_pair.i> against the active
-   target language's own subdirectory of its library path (e.g.
-   .../go/std_vector.i vs .../python/std_vector.i) based on which backend
-   (-go, -python, ...) is passed on the command line, so this file itself
-   never needs to name a specific language. */
 %include <std_string.i>
 %include <std_vector.i>
 %include <std_pair.i>
+%include <std_except.i>
 
 /* std::string converts to/from the target language's native string type
    automatically via std_string.i above; std::vector<T> instead needs an
@@ -53,86 +27,40 @@
 %template(StringVector) std::vector<std::string>;
 %template(UInt64Vector) std::vector<uint64_t>;
 
-/* Go has no built-in typemap for std::vector<T> the way std_string.i gives
-   std::string (that's what the StringVector proxy above is for), so
-   without this, Go callers constructing a TrackNamespace from labels have
-   to build a StringVector by hand and Add() each one. This typemap lets
-   them instead pass a native []string directly wherever
-   const std::vector<std::string>& is expected. It only needs to exist for
-   Go: every other target language here already gets this for free from
-   std_vector.i's own per-language typemaps (e.g. Python converts a plain
-   list automatically), so guard it to avoid changing their behavior.
-
-   It relies on two facts about SWIG's Go backend: a Go []string argument
-   arrives in the wrapper as a _goslice_ (`{ void* array; intgo len; intgo
-   cap; }`), and Go's native string header is `{ pointer; length }` - the
-   same layout as SWIG's own _gostring_ (`{ char *p; intgo n; }`). That
-   makes a []string's backing array exactly an array of _gostring_, so it
-   can be cast and read directly here with no callback into Go needed. */
-#ifdef SWIGGO
-%typemap(gotype) const std::vector<std::string>& "[]string"
-
-%typemap(in) const std::vector<std::string>& (std::vector<std::string> temp) {
-    intgo i;
-    const _gostring_* elems = (const _gostring_*)$input.array;
-    temp.reserve((size_t)$input.len);
-    for (i = 0; i < (intgo)$input.len; ++i) {
-        temp.push_back(std::string(elems[i].p, (size_t)elems[i].n));
-    }
-    $1 = &temp;
+/* quicr::Bytes (quicr/utilities/bytes.h: `using Bytes = std::vector<Byte>;`)
+   is a plain alias, invisible to SWIG's own parser unless told about it
+   here too (the real header is only ever %{ #include %}'d, never
+   %include'd - see that block's own comment below) - session.h's
+   PublishNamespaceResponse::error_reason field below is declared as
+   std::optional<Bytes>, and without this SWIG resolves that per-field
+   "Bytes" the same way it resolves every other type this file never
+   declares to it (e.g. messages::ErrorCode): as an distinct, unrelated,
+   totally opaque type of its own, *not* as this exact vector<uint8_t>
+   already wrapped as ByteVector above. */
+namespace quicr {
+    using Bytes = std::vector<uint8_t>;
 }
-#endif
 
-/* NOTE ON ORDER: throughout this file, both the %{ %} raw-code block below
-   and the %include directives further down deliberately appear in
-   dependency order (e.g. track_name.h before connection.h/session.h), and
-   every %ignore/%rename/%nodefaultctor directive is placed *before* the
-   %include of the header it targets. SWIG resolves unqualified type names
-   (e.g. `MetricsTimeStamp`/`ConnectionMetrics` used inside
-   `namespace quicr { ... }`) and feature directives based on what it has
-   already parsed, so a header that *uses* a type must be processed after
-   the header that *defines* it, and a directive that modifies a
-   declaration must be processed before that declaration - even though a
-   real C++ compiler is order-agnostic here thanks to #pragma once and
-   normal header/translation-unit semantics. Getting either kind of order
-   wrong surfaces as "unknown type name"/"use of undeclared identifier"
-   errors when compiling the generated wrapper (not as SWIG warnings), or as
-   directives silently not applying, so both are easy to miss. */
 %{
+#include "quicr/utilities/bytes.h"
+
 #include "quicr/config.h"
 #include "quicr/track_name.h"
 #include "quicr/transport_metrics.h"
 #include "quicr/metrics.h"
 #include "quicr/transport.h"
 #include "quicr/attributes.h"
+
+#include "quicr/messages/ctrl_message_types.h"
 #include "quicr/messages/object.h"
+namespace messages = quicr::messages;
+
+using Bytes = quicr::Bytes;
+using BytesSpan = quicr::BytesSpan;
+
 #include "quicr/handlers/track_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
 #include "quicr/handlers/publish_track_handler.h"
-
-/* Generated wrapper code re-emits struct member types using whatever
-   partial qualification appears in the header (e.g. `messages::Foo`,
-   valid C++ when written inside `namespace quicr { ... }` since
-   `quicr::messages` is a child namespace). SWIG doesn't requalify these
-   to `quicr::messages::Foo` when copying them into the global-scope
-   wrapper functions it generates, so the emitted code fails to compile.
-   A namespace alias at global scope gives the literal spelling SWIG
-   emits a valid meaning without touching any library headers. */
-namespace messages = quicr::messages;
-
-/* Same requalification problem as `messages::Foo` above, but for a plain
-   `using` alias declared directly inside `namespace quicr { ... }`
-   (quicr/utilities/bytes.h): generated code for TrackNamespace's
-   begin()/end() (which return Bytes::iterator) emits the bare `Bytes`
-   token at global scope. A global alias resolves it the same way. */
-using Bytes = quicr::Bytes;
-
-/* Same requalification problem as `Bytes` just above, but for
-   quicr::BytesSpan (quicr/utilities/bytes.h): SubscribeTrackHandler/
-   PublishTrackHandler (hand-declared further below, inside
-   `namespace quicr { ... }`) use the bare `BytesSpan` spelling, which
-   SWIG re-emits verbatim at global scope in the generated wrapper. */
-using BytesSpan = quicr::BytesSpan;
 
 #include "quicr/connection.h"
 #include "quicr/session_manager.h"
@@ -141,109 +69,14 @@ using BytesSpan = quicr::BytesSpan;
 
 %include "quicr/config.h"
 
-/* quicr::BytesSpan (quicr/utilities/bytes.h: `using BytesSpan =
-   std::span<const Byte>;`) is the payload type for every publish/receive
-   object callback (PublishTrackHandler::PublishObject(),
-   SubscribeTrackHandler::ObjectReceived()/PartialObjectReceived()). SWIG's
-   Go module has no notion of std::span at all (it isn't declared to SWIG
-   anywhere in this file - std::span's own template shape can't be taught
-   to SWIG the way std::vector/std::string/std::optional above are,
-   because unlike those, SWIG can't generate a constructor/no-arg-ctor
-   wrapper for a *non-owning view* type). Both typemaps below key off this
-   exact type spelling and marshal it by hand instead:
-     - `gotype`/`in` (Go calling PublishObject(): a []byte the caller
-       already owns) reads directly out of the incoming _goslice_ the same
-       way the []string typemap above reads a _gostring_ array - no copy,
-       no callback into Go, since the BytesSpan only needs to be valid for
-       the duration of the call.
-     - `directorin` (C++ calling ObjectReceived() on a Go-overridden
-       director - see %feature("director") near SubscribeTrackHandler
-       below) is the reverse direction and can't avoid a copy: the C++
-       object backing the span is only guaranteed valid for the duration
-       of this one call (see ObjectReceived's own "invalidated after
-       return" warning), but the Go slice handed to the override can
-       outlive it (e.g. if the Go code stores it for later), so the data
-       has to be copied into its own allocation - std_string.i's
-       string/AllocateString/CopyString pattern (near the []string
-       typemap's own comment, above %include "quicr/config.h") is doing
-       exactly this same "copy into a language-agnostic {ptr,len} struct
-       now, let the other side turn it into a real, independently-owned
-       value later" dance, just for a std::string's `_gostring_` instead
-       of a byte slice's `_goslice_` - both structs share the same
-       {pointer, length}-headed layout SWIG's Go runtime already relies
-       on, so the fragments below mirror AllocateString/CopyString/
-       swigCopyString almost verbatim.
-
-   NOTE: unlike the []string typemap above, this isn't guarded with
-   #ifdef SWIGGO/#endif - every %typemap key used below (gotype,
-   directorin, godirectorin) is itself already Go-specific by name (a
-   non-Go backend simply never looks at a "gotype"/"godirectorin"
-   typemap), with the sole exception of the plain %typemap(in), which
-   only ever fires for this exact quicr::BytesSpan type regardless of
-   target language and simply wouldn't be reached by a non-Go backend
-   generating its own (different) typemap for the same type first. Go is
-   the only target language wired up in cmd/examples today regardless -
-   see the shared_ptr comment further below for the same reasoning
-   applied there.
-
-   This has to live outside (after) the %{ %} raw preamble block just
-   above: that block is pasted verbatim into the generated wrapper's C++
-   preamble, so any %typemap/%fragment directive placed inside it (as
-   this one originally was) is read as *literal text*, not a SWIG
-   directive - its embedded %{ %} fragment bodies then get misread as the
-   raw block's own closing %}, corrupting the rest of the file's #ifdef/
-   %{/%} bookkeeping well past this point.
-
-   The bare forward declaration below (never completed into a real class
-   anywhere) matters just as much as the typemaps themselves: without it,
-   SWIG has never seen *any* declaration - typedef, class, or otherwise -
-   naming quicr::BytesSpan before ObjectReceived()/PublishObject() use it
-   further down, and (same "opaque, otherwise-unusable placeholder"
-   fallback documented throughout this file for every other not-yet-
-   taught type) auto-invents its own unknown-type handling that never
-   consults a same-named %typemap at all - the exact same reason
-   std_string.i itself forward-declares `class string;` right next to its
-   own %typemap(gotype) for the same reason, one directory up in SWIG's
-   own library. */
-namespace quicr {
-    class BytesSpan;
-}
-%typemap(gotype) quicr::BytesSpan "[]byte"
-
-%typemap(in) quicr::BytesSpan {
-    $1 = quicr::BytesSpan(static_cast<const uint8_t*>($input.array), (size_t)$input.len);
-}
-
-%fragment("AllocateByteSlice", "runtime") %{
-static _goslice_ Swig_AllocateByteSlice(const void *p, size_t l) {
-  _goslice_ ret;
-  ret.array = malloc(l);
-  memcpy(ret.array, p, l);
-  ret.len = (intgo)l;
-  ret.cap = (intgo)l;
-  return ret;
-}
-%}
-
-%fragment("CopyByteSlice", "go_runtime") %{
-type swig_goslice_hdr struct { array uintptr; len int; cap int }
-func swigCopyByteSlice(s []byte) []byte {
-  h := *(*swig_goslice_hdr)(unsafe.Pointer(&s))
-  r := make([]byte, h.len)
-  if h.len > 0 {
-    copy(r, unsafe.Slice((*byte)(unsafe.Pointer(h.array)), h.len))
-  }
-  Swig_free(h.array)
-  return r
-}
-%}
-
-%typemap(directorin, fragment="AllocateByteSlice") quicr::BytesSpan {
-    $input = Swig_AllocateByteSlice($1.data(), $1.size());
-}
-
-%typemap(godirectorin, fragment="CopyByteSlice") quicr::BytesSpan
-%{ $result = swigCopyByteSlice($input) %}
+/* Every Go-specific typemap quicr.i needs (const std::vector<std::string>&
+   <-> []string, quicr::BytesSpan <-> []byte, ...) lives in its own file -
+   see go_typemaps.i's own top-of-file comment for why - so this interface
+   file itself never has to name a specific target language anywhere else. */
+#ifdef SWIGGO
+%include "go/type_extensions.i"
+%include "go/typemaps.i"
+#endif
 
 /* ---- std:: type-system stand-ins ---------------------------------------
    We deliberately avoid %include-ing the real STL headers (they pull in far
@@ -307,38 +140,8 @@ namespace std {
     };
 }
 
-/* quicr::messages::GroupOrder and quicr::messages::Location are real types
-   declared in quicr/messages/ctrl_message_types.h - a large header full of
-   MOQT wire-message types (Parameters, every control message struct, ...)
-   we don't want to pull into the bindings wholesale, since it's an
-   implementation detail of the control-plane protocol, not itself part of
-   the public API surface this interface wraps. Both types are already
-   used by value in several already-wrapped structs below (e.g.
-   RequestResponse.publisher_default_group_order/largest_location in
-   track_handler.h, PublishAttributes/SubscribeAttributes in attributes.h)
-   - without a real declaration, SWIG has never actually known what either
-   type *is*: every field/parameter mentioning one has silently fallen back
-   to SWIG's generic "opaque, otherwise-unusable placeholder class" handling
-   (no constructor, no accessors, no way to construct or compare a value) -
-   the same class of problem %go_shared_ptr worked around for
-   std::shared_ptr (see the comment near session_manager.h), just quieter,
-   since SWIG doesn't warn about silently under-specifying an already-
-   unknown type.
-
-   These minimal, real declarations - mirroring the real header exactly,
-   minus the defaulted C++20 `operator<=>` (SWIG can't wrap it any more than
-   it could TrackNamespace::IsPrefixOf() above; ignored the same way) - give
-   SWIG enough to generate genuine, usable value types from here on: an
-   ordinary Go enum for GroupOrder (like TransportStatus/SessionStatus
-   already are), and a real accessor-bearing struct for Location. This fixes
-   every already-wrapped place either type appears, not just the new
-   track-handler surface added later in this file. */
 %ignore quicr::messages::Location::operator<=>;
 
-/* Same "SWIG can't wrap C++ operator syntax" limitation as the free
-   TrackNamespace comparison operators above (Warning 503), just for a
-   member operator instead of a friend function this time - %rename works
-   the same way for either. */
 %rename(Equals) quicr::messages::Location::operator==;
 
 namespace quicr {
@@ -369,76 +172,9 @@ namespace std {
     template<class T> struct hash;
 }
 
-/* Bigger, previously-unnoticed gap than either the messages::GroupOrder/
-   Location one just above, or the one this comment originally described:
-   this file has never actually taught SWIG what uint8_t/uint16_t/uint32_t/
-   uint64_t (bare *or* std::-qualified) really are. Every fixed-width
-   integer typedef is used constantly throughout the already-wrapped
-   surface (e.g. Transport::CreateDataContext()/Enqueue(), TrackHash's
-   fields, %template(UInt64Vector) std::vector<uint64_t> above) - since
-   SWIG was never told these names resolve to real primitive C types, *all*
-   of them have silently been falling back to the exact same "opaque,
-   otherwise-unusable placeholder class" handling documented above for
-   messages::GroupOrder/Location: e.g. UInt64Vector's own Get()/Set()
-   element type, or CreateDataContext()'s connection-ID return value, were
-   never actually real Go integers. This is a much wider-reaching instance
-   of the same root problem, just silent for even longer because it's
-   spread across dozens of already-"working" (zero-SWIG-warning) methods
-   rather than concentrated on a couple of named types.
-
-   <stdint.i> (included near the top of this file, before anything that
-   could need it - see the comment there) is SWIG's own official,
-   language-agnostic library file for exactly this (the ISO C99 fixed-
-   width integer typedefs) - the same kind of ready-made building block as
-   <std_string.i>/<std_pair.i> above. It only declares the bare, global-
-   namespace spelling though; std::uint8_t/std::uint16_t/std::uint32_t/
-   std::uint64_t (the qualified spelling SubscribeTrackHandler::Create()'s
-   `priority` parameter and quite a few already-wrapped fields, e.g.
-   TrackHash's track_namespace_hash, actually use) still need an explicit
-   alias to that real typedef chain, same reasoning as the
-   messages::GroupOrder/Location fix above. This fixes every field/
-   parameter using the std::-qualified spelling throughout this file, not
-   just the new track-handler surface below. */
-namespace std {
-    typedef ::uint8_t uint8_t;
-    typedef ::uint16_t uint16_t;
-    typedef ::uint32_t uint32_t;
-    typedef ::uint64_t uint64_t;
-}
 %ignore std::hash<quicr::TrackNamespace>;
 %ignore std::hash<quicr::FullTrackName>;
 
-/* std::optional<T> has never been taught to SWIG either - same "silently
-   falls back to an opaque, otherwise-unusable placeholder class" problem
-   as messages::GroupOrder/Location and the fixed-width integers above,
-   just for a container instead of a plain value type. It's used *very*
-   widely (TrackHandler::GetRequestId()/GetDataContextId()/
-   GetRequestStreamId(), every ReasonCode struct's error_reason/
-   largest_location, SubscribeTrackHandler::GetGroupOrder()/
-   GetLatestLocation(), ObjectHeaders::priority/ttl/track_mode, ...), so
-   fixing it generically here - once - is far less work than special-casing
-   every call site, and fixes every one of them at once.
-
-   Go has no built-in notion of "no value" for anything but a pointer/
-   interface (both of which are nilable already), so a real
-   std::optional<T> can't just become a Go `*T`/`T` the way std::string
-   becomes a plain Go string - SWIG would need to either heap-allocate a T
-   to point a `*T` at (extra allocation + a nil check that still has
-   nothing to do with the real optional-ness) or silently return T's own
-   zero value (indistinguishable from "present, but zero"). Both are worse
-   than just giving Go the same two-step "check, then read" API
-   std::optional<T> itself has in C++: HasValue() and Value(), mirroring
-   has_value()/value() below via the global %rename further down. This
-   needs a real (if partial) declaration of std::optional rather than an
-   opaque stand-in precisely so SWIG generates working bodies for both -
-   an opaque class with no declared members would give the same
-   unusable-placeholder result this is fixing.
-
-   Only instantiated below for the T's actually needed by the surface
-   wrapped so far; add another %template line here (not a new typemap)
-   the next time a not-yet-covered std::optional<T> shows up anywhere else
-   in this file - the typemap/rename machinery is already generic across
-   every T. */
 %rename("HasValue") has_value;
 %rename("Value") value;
 namespace std {
@@ -450,37 +186,24 @@ namespace std {
         const T& value() const;
     };
 }
-%template(OptionalUInt8) std::optional<uint8_t>;
-%template(OptionalUInt16) std::optional<uint16_t>;
-%template(OptionalUInt32) std::optional<uint32_t>;
-%template(OptionalUInt64) std::optional<uint64_t>;
+/* uint8_t/uint16_t/uint32_t/uint64_t/bool/std::chrono::milliseconds are
+   *not* %template'd here: go/typemaps.i's %go_optional_scalar (applied to
+   each of those further up, right after the go/typemaps.i %include near
+   the top of this file) already gives std::optional<T> a real, native
+   Go *T for every one of them - a plain nil-able pointer instead of yet
+   another has_value()/value() wrapper class/interface - so there's
+   nothing left for %template to usefully add for those specific T's. */
 %template(OptionalString) std::optional<std::string>;
 %template(OptionalGroupOrder) std::optional<quicr::messages::GroupOrder>;
 %template(OptionalLocation) std::optional<quicr::messages::Location>;
 
-/* Assignment operators don't map to a useful idiom in most target
-   languages (their native `=` on the generated proxy object never calls
-   these anyway), so ignore them explicitly rather than letting SWIG emit
-   an "operator= ignored" warning for something we never intended to wrap. */
 %ignore quicr::TrackNamespace::operator=;
 %ignore quicr::TrackHash::operator=;
 
-/* Move constructor: most SWIG target languages have no C++ move-semantics
-   concept; the copy constructor (kept) is used instead. Ignoring it
-   explicitly silences the "shadowed by copy constructor" warning. */
 %ignore quicr::TrackNamespace::TrackNamespace(TrackNamespace&&);
 
-/* IsPrefixOf() returns std::partial_ordering, a C++20 comparison-category
-   type with no default constructor and no meaningful equivalent in any
-   SWIG target language; SWIG would otherwise generate a wrapper that
-   default-constructs one, which fails to compile. */
 %ignore quicr::TrackNamespace::IsPrefixOf;
 
-/* Comparison operators on TrackNamespace are declared as `friend`
-   non-member functions, so they live in ::quicr, not
-   ::quicr::TrackNamespace, and SWIG can't wrap C++ operator syntax for any
-   target language (Warning 503) - give them plain, portable identifiers
-   usable from any target language instead of ignoring them outright. */
 %rename(TrackNamespaceEquals) quicr::operator==(const TrackNamespace&, const TrackNamespace&);
 %rename(TrackNamespaceNotEquals) quicr::operator!=(const TrackNamespace&, const TrackNamespace&);
 %rename(TrackNamespaceLess) quicr::operator<(const TrackNamespace&, const TrackNamespace&);
@@ -488,36 +211,13 @@ namespace std {
 %rename(TrackNamespaceLessOrEqual) quicr::operator<=(const TrackNamespace&, const TrackNamespace&);
 %rename(TrackNamespaceGreaterOrEqual) quicr::operator>=(const TrackNamespace&, const TrackNamespace&);
 
-/* TrackNamespace(const std::vector<std::vector<uint8_t>>&) and
-   TrackNamespace(const std::vector<std::string>&) are both wrapped through
-   %template'd vector proxy classes above; some target languages'
-   overload-dispatch precedence can't tell those two proxy types apart
-   (Warning 509, one silently shadows the other). Give the byte-vector
-   overload its own name so both remain callable everywhere. */
 %rename(FromByteEntries) quicr::TrackNamespace::TrackNamespace(const std::vector<std::vector<uint8_t>>&);
 
-/* begin()/end() are each overloaded on const-ness (returning
-   Bytes::iterator vs Bytes::const_iterator). Most target languages have no
-   notion of a const-qualified overload to dispatch on, so SWIG always
-   keeps the non-const version and drops the const one (Warning 516).
-   Ignoring the const overloads explicitly documents that this is
-   intentional rather than leaving it to SWIG's default tie-breaking. */
 %ignore quicr::TrackNamespace::begin() const;
 %ignore quicr::TrackNamespace::end() const;
 
 %include "quicr/track_name.h"
 
-/* FullTrackName is a plain aggregate (see track_name.h) with only a
-   compiler-generated default constructor - name_space/name are ordinary
-   public fields, set via the SetName_space()/SetName() setters SWIG
-   already generates for them. SetName() takes a ByteVector though (the
-   %template'd std::vector<uint8_t> proxy), which has no bulk-load from a
-   native byte string/slice in any target language - just the one-
-   element-at-a-time Add()/Set() std::vector<T> proxies always get. Add a
-   convenience setter that reuses the BytesSpan/[]byte typemap already
-   built above (see the BytesSpan comment near the top of this file) so
-   Go can just write `ftn.SetNameBytes([]byte("track1"))` directly instead
-   of looping over a ByteVector by hand. */
 %extend quicr::FullTrackName {
     void SetNameBytes(quicr::BytesSpan bytes)
     {
@@ -533,11 +233,24 @@ namespace std {
 %ignore quicr::UdpDataContextMetrics::operator<=>;
 
 %include "quicr/transport_metrics.h"
+
+/* UdpConnectionMetrics/QuicConnectionMetrics/UdpDataContextMetrics/
+   QuicDataContextMetrics are real classes (not scalars), so - unlike
+   uint8_t/uint16_t/uint32_t/uint64_t/bool/std::chrono::milliseconds just
+   above - they stay on the has_value()/value() wrapper-class pattern
+   rather than %go_optional_scalar's native-pointer one: without one of
+   these %template names, each would otherwise fall back to the same
+   unusable, auto-mangled "Std_optional_Sl_..._Sg_" proxy name every other
+   never-%template'd std::optional<T> in this file gets (e.g. see
+   OptionalBytes/OptionalRequestUpdateResponseError further below). */
+%template(OptionalUdpConnectionMetrics) std::optional<quicr::UdpConnectionMetrics>;
+%template(OptionalQuicConnectionMetrics) std::optional<quicr::QuicConnectionMetrics>;
+%template(OptionalUdpDataContextMetrics) std::optional<quicr::UdpDataContextMetrics>;
+%template(OptionalQuicDataContextMetrics) std::optional<quicr::QuicDataContextMetrics>;
+
 %include "quicr/metrics.h"
 
-/* TransportException derives from std::runtime_error (Warning 401 without
-   this stand-in); we only need enough of the interface for SWIG's base-
-   class resolution to succeed, not a full wrapping of std::exception. */
+// Suppress Warning 401
 namespace std {
     class exception {};
     class runtime_error : public exception {
@@ -546,22 +259,10 @@ namespace std {
     };
 }
 
-/* StreamRxContext::data_queue is an internal SafeQueue<> used by the
-   transport implementation. We don't %include containers/safe_queue.h
-   (it's an implementation detail, not part of the public API surface we
-   want in bindings), so SWIG has no type information for SafeQueue.
-   Ignoring just this field avoids pulling that header in while leaving the
-   rest of StreamRxContext wrapped normally. */
 %ignore quicr::StreamRxContext::data_queue;
 
 %include "quicr/transport.h"
 
-/* These aggregate structs have `const` members with no default initializer,
-   so they have no default constructor in real C++ (the compiler implicitly
-   deletes it). SWIG doesn't notice this and generates a default-constructor
-   wrapper anyway, which fails to compile. The structs remain usable as
-   parameter/return types; only the (nonexistent) default constructor
-   wrapper is suppressed. */
 %nodefaultctor quicr::ClientSetupAttributes;
 %nodefaultctor quicr::ServerSetupAttributes;
 %nodefaultctor quicr::PublishOkAttributes;
@@ -706,6 +407,17 @@ namespace quicr {
         class StreamHeaderProperties {};
     }
 }
+%template(OptionalStreamHeaderProperties) std::optional<quicr::messages::StreamHeaderProperties>;
+
+%typemap(in) std::optional<quicr::messages::StreamHeaderProperties> ($&1_type argp)
+%{
+    argp = ($&1_ltype)$input;
+    if (argp == NULL) {
+        _swig_gopanic("Attempt to dereference null std::optional< quicr::messages::StreamHeaderProperties >");
+    }
+    $1.~optional();
+    new (&$1) std::optional<quicr::messages::StreamHeaderProperties>(*argp);
+%}
 
 /* SubscribeTrackHandler/PublishTrackHandler are hand-declared here rather
    than %include-d from their real headers (quicr/handlers/
@@ -1118,6 +830,17 @@ func AddServerTransport(m SessionManager, config ServerConfig) Transport {
 %nodefaultctor quicr::Session::RequestUpdateResponse::Error;
 
 %include "quicr/session.h"
+
+/* Both PublishNamespaceResponse::error_reason (std::optional<Bytes>) and
+   RequestUpdateResponse::error (std::optional<RequestUpdateResponse::
+   Error>) are only fully known to SWIG once quicr/session.h above has
+   actually been parsed (RequestUpdateResponse::Error is a type nested
+   inside a class %include'd above, so unlike OptionalBytes there's no
+   way to instantiate this one any earlier) - same has_value()/value()
+   wrapper-class reasoning as OptionalUdpConnectionMetrics/etc. near
+   transport_metrics.h above applies to both. */
+%template(OptionalBytes) std::optional<quicr::Bytes>;
+%template(OptionalRequestUpdateResponseError) std::optional<quicr::Session::RequestUpdateResponse::Error>;
 
 /* GetTransport() itself (from the real header, returning
    `const std::shared_ptr<Transport>&`) stays wrapped as-is - like every

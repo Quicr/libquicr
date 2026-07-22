@@ -36,10 +36,12 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
-	"sync/atomic"
+	"strings"
 	"syscall"
 	"time"
 
@@ -55,17 +57,15 @@ import (
 // NewDirectorSubscribeTrackHandler() happens to have a matching method,
 // and calls it if so.
 type subscriber struct {
-	received atomic.Uint64
 }
 
-func (s *subscriber) ObjectReceived(headers quicr.ObjectHeaders, data []byte, _ quicr.Std_optional_Sl_quicr_messages_StreamHeaderProperties_Sg_) {
-	n := s.received.Add(1)
-	fmt.Printf("subscriber: received object #%d group=%d object=%d payload=%q\n",
-		n, headers.GetGroup_id(), headers.GetObject_id(), string(data))
+func (s *subscriber) ObjectReceived(headers quicr.ObjectHeaders, data []byte, _ quicr.OptionalStreamHeaderProperties) {
+	slog.Info(fmt.Sprintf("received object: group=%d object=%d payload=%q",
+		headers.GetGroup_id(), headers.GetObject_id(), string(data)))
 }
 
 func (s *subscriber) StatusChanged(status quicr.QuicrSubscribeTrackHandlerStatus) {
-	fmt.Printf("subscriber: status changed to %d\n", status)
+	slog.Info(fmt.Sprintf("subscriber: status changed to %d", status))
 }
 
 // publisher only overrides StatusChanged for a bit of visibility into the
@@ -126,16 +126,16 @@ func newObjectHeaders(groupID, objectID uint64, payloadLen int) quicr.ObjectHead
 }
 
 func main() {
+	trackFlag := flag.String("track", "", "/ separated tuple of strings")
+	trackNameFlag := flag.String("track_name", "", "Track name")
+	usePubFlag := flag.Bool("publish", false, "This client is a publisher, and will create a PublishTrackHandler.")
+
+	flag.Parse()
+
 	fmt.Println("libquicr SWIG Go example")
 
-	namespace := quicr.NewTrackNamespace([]string{"conference", "room1"})
+	namespace := quicr.NewTrackNamespace(strings.Split(*trackFlag, "/"))
 	fmt.Printf("track namespace:      %s\n", namespace.Str())
-
-	duplicate := quicr.NewTrackNamespace([]string{"conference", "room1"})
-	different := quicr.NewTrackNamespace([]string{"conference", "room2"})
-	fmt.Printf("namespace == itself:   %v\n", quicr.TrackNamespaceEquals(namespace, duplicate))
-	fmt.Printf("namespace == other:    %v\n", quicr.TrackNamespaceEquals(namespace, different))
-	fmt.Printf("namespace < other:     %v\n", quicr.TrackNamespaceLess(namespace, different))
 
 	config := quicr.NewClientConfig()
 	config.SetEndpoint_id("qgoclient")
@@ -157,9 +157,7 @@ func main() {
 
 	var (
 		handlersAdded bool
-		sub           *subscriber
-		subHandler    quicr.SubscribeTrackHandler
-		pubHandler    quicr.PublishTrackHandler
+		handler    quicr.TrackHandler
 		nextObjectID  uint64
 	)
 
@@ -169,7 +167,7 @@ func main() {
 		case <-sigCh:
 			fmt.Println("\ninterrupted, disconnecting...")
 			if handlersAdded {
-				removeTrackHandlers(manager, session, subHandler, pubHandler)
+				manager.RemoveTrackHandler(session, handler)
 			}
 			gracefulDisconnect(transport, session)
 			return
@@ -177,31 +175,31 @@ func main() {
 		case <-ticker.C:
 			tStatus := transport.Status()
 			sStatus := session.GetStatus()
-			fmt.Printf("transport.Status(): %-2d  session.GetStatus(): %-2d\n", tStatus, sStatus)
 
 			if !handlersAdded && sStatus == quicr.SessionStatus_kReady {
-				sub = &subscriber{}
-				subHandler = quicr.NewDirectorSubscribeTrackHandler(
-					sub,
-					newFullTrackName([]string{"conference", "room1"}, "video"),
-					0, // priority
-					quicr.NewOptionalGroupOrder())
-				pubHandler = quicr.NewDirectorPublishTrackHandler(
-					&publisher{},
-					newFullTrackName([]string{"conference", "room1"}, "video"),
-					quicr.TrackMode_kStream,
-					0,   // default priority
-					500) // default ttl (ms)
-
-				manager.AddTrackHandler(session, subHandler)
-				manager.AddTrackHandler(session, pubHandler)
+				if usePubFlag != nil && *usePubFlag {
+					handler = quicr.NewDirectorPublishTrackHandler(
+						&publisher{},
+						newFullTrackName(strings.Split(*trackFlag, "/"), *trackNameFlag),
+						quicr.TrackMode_kStream,
+						0,   // default priority
+						500) // default ttl (ms)
+					manager.AddTrackHandler(session, handler)
+				} else {
+					handler = quicr.NewDirectorSubscribeTrackHandler(
+						&subscriber{},
+						newFullTrackName(strings.Split(*trackFlag, "/"), *trackNameFlag),
+						0, // priority
+						quicr.NewOptionalGroupOrder())
+					manager.AddTrackHandler(session, handler)
+				}
 				handlersAdded = true
 				fmt.Println("session ready: subscribe+publish handlers added")
 			}
 
-			if handlersAdded && sStatus == quicr.SessionStatus_kReady {
+			if handlersAdded && sStatus == quicr.SessionStatus_kReady && usePubFlag != nil && *usePubFlag{
 				payload := []byte(fmt.Sprintf("hello #%d", nextObjectID))
-				status := pubHandler.PublishObject(newObjectHeaders(0, nextObjectID, len(payload)), payload)
+				status := handler.(quicr.PublishTrackHandler).PublishObject(newObjectHeaders(0, nextObjectID, len(payload)), payload)
 				fmt.Printf("publisher: PublishObject(#%d) -> status %d\n", nextObjectID, status)
 				nextObjectID++
 			}
@@ -212,11 +210,6 @@ func main() {
 			}
 		}
 	}
-}
-
-func removeTrackHandlers(manager quicr.SessionManager, session quicr.Session, subHandler quicr.SubscribeTrackHandler, pubHandler quicr.PublishTrackHandler) {
-	manager.RemoveTrackHandler(session, subHandler)
-	manager.RemoveTrackHandler(session, pubHandler)
 }
 
 func gracefulDisconnect(transport quicr.Transport, session quicr.Session) {
