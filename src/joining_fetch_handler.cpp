@@ -30,6 +30,11 @@ namespace quicr {
             stream.buffer.Push(*data);
         }
 
+        TryParseStreamBufferData(stream);
+    }
+
+    void JoiningFetchHandler::TryParseStreamBufferData(StreamContext& stream)
+    {
         stream.buffer.InitAnyB<messages::FetchObject>();
         auto& obj = stream.buffer.GetAnyB<messages::FetchObject>();
 
