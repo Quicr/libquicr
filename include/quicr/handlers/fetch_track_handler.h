@@ -76,6 +76,8 @@ namespace quicr {
                             uint64_t stream_id,
                             std::shared_ptr<const std::vector<uint8_t>> data) override;
 
+        void TryParseStreamBufferData(StreamContext& stream) override;
+
       private:
         messages::Location start_location_;
         messages::FetchEndLocation end_location_;
