@@ -37,3 +37,4 @@ endif()
 
 add_subdirectory(swig/go)
 add_subdirectory(swig/python)
+add_subdirectory(swig/csharp)

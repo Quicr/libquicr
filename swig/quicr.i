@@ -71,6 +71,11 @@ using BytesSpan = quicr::BytesSpan;
 %include "python/typemaps.i"
 #endif
 
+#ifdef SWIGCSHARP
+%include "csharp/type_extensions.i"
+%include "csharp/typemaps.i"
+#endif
+
 /* Minimal forward declarations teaching SWIG's type system just enough
    about a few std:: types to stop it misreading our headers, without
    %include-ing the real (much larger) STL headers. Nothing here is
