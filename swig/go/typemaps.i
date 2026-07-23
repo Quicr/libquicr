@@ -1,3 +1,8 @@
+/* Go-specific %typemap/%fragment definitions - counterpart to
+ * go/type_extensions.i's %extend/%feature/%rename/%insert half. Only
+ * ever %include'd under #ifdef SWIGGO in quicr.i.
+ */
+
 %typemap(gotype) const std::vector<std::string>& "[]string"
 
 %typemap(in) const std::vector<std::string>& (std::vector<std::string> temp) {
@@ -43,6 +48,9 @@ func swigCopyByteSlice(s []byte) []byte {
 }
 %}
 
+/* directorin copies BytesSpan's backing storage into a fresh Go []byte
+   (rather than aliasing it) since it's only valid for the duration of
+   the call that produced it. */
 %typemap(directorin, fragment="AllocateByteSlice") quicr::BytesSpan {
     $input = Swig_AllocateByteSlice($1.data(), $1.size());
 }
@@ -51,60 +59,26 @@ func swigCopyByteSlice(s []byte) []byte {
 %{ $result = swigCopyByteSlice($input) %}
 
 /* ---- std::optional<T> -> native Go pointer (*T), for scalar T ----------
-   SWIG's Go module has no built-in notion of std::optional at all (see
-   quicr.i's own "HasValue"/"Value" %rename + %template(OptionalXxx)
-   pattern for the fallback used everywhere else in this file): left
-   alone, every std::optional<T> instantiation that's never given one of
-   those %template names falls back to an auto-mangled, unusable proxy
-   class name (e.g. "Std_optional_Sl_bool_Sg_") - and even the ones that
-   *do* get a friendly %template name still only expose has_value()/
-   value() as ordinary method calls on an extra wrapper class/interface,
-   never a real, idiomatic, nil-able Go pointer the way a plain C++
-   pointer or reference parameter already does elsewhere in this file
-   (see e.g. quicr::Transport* below).
-
-   For a scalar T (an ordinary fixed-width integer or bool - the actual
-   common case for every currently-unwrapped optional in this API:
-   priority/ttl/request_id/track_alias/data_ctx_id/forward/...), this
-   macro instead makes std::optional<T> cross as a genuine, freshly Go-
-   allocated *GOTYPE that's nil exactly when the C++ optional is empty -
-   nothing else in this file does this for a value (as opposed to
-   pointer/class) C++ type, so unlike BytesSpan/[]byte above, there's no
-   existing SWIG-shipped precedent to lean on; this was worked out and
-   verified end-to-end (both directions, including the empty/nil case)
-   against SWIG 4.4.1's actual Go code generator before being adopted
-   here - see the "in"/"out"/"goout" bodies below for how each direction
-   actually crosses the cgo boundary:
-
-     - "in" (Go calling a function that takes std::optional<T>): Go
-       passes the real address of its own *GOTYPE (or a nil, i.e. a null
-       address) directly across cgo - exactly the same "pass a Go pointer
-       into C for the duration of one call" pattern SWIG's own go.swg
-       already uses for a plain (non-const) `int&` parameter, just
-       applied to an optional instead of a mandatory reference.
-
-     - "out"/"goout" (a function returning std::optional<T> back to Go):
-       C++ can't hand Go a pointer into its own stack/heap the way "in"
-       does in reverse (that memory doesn't outlive the call), so this
-       instead malloc()s a tiny {size, val} box only when the optional
-       actually has a value (mirroring go.swg's own SWIGTYPE (CLASS::*)
-       out/goout pair almost exactly, just keyed on "has a value" rather
-       than "is a non-null member pointer"), and the "goout" Go code
-       copies that box's bytes into a real, freshly Go-allocated (and
-       therefore GC-tracked) T before freeing it - never handing Go a
-       pointer into non-Go-owned memory to keep around.
-
-   GOTYPE must be one of the small set of Go scalar type names SWIG's own
-   Go backend already recognizes by name when they appear after a
-   leading "*" in a %typemap(gotype) string (this is *not* a naming
-   convention this file invented - it's the same lexical recognition
-   go.swg's own built-in `int&`/`long&`/... typemaps rely on for their own
-   "*int"/"*int64"/... gotypes): bool, byte/uint8, int8, int16, uint16,
-   int, uint, int64, uint64, float32, float64. CTYPE is the real C++
-   scalar type (e.g. uint8_t) - it only has to be exactly as wide as
-   GOTYPE; this macro never assumes anything about *how* SWIG's own
-   internal bookkeeping represents that width, only about what its own
-   "in"/"out" bodies read/write via an explicit pointer cast to CTYPE. */
+ * SWIG's Go module has no built-in std::optional support: without this,
+ * every std::optional<T> falls back to either an auto-mangled, unusable
+ * proxy class name, or (with a %template name) a has_value()/value()
+ * wrapper class - never a real, nil-able Go pointer.
+ *
+ * This macro instead makes std::optional<T> cross as a freshly
+ * Go-allocated *GOTYPE, nil exactly when the C++ optional is empty:
+ *   - "in": Go passes the address of its own *GOTYPE (or nil) across cgo
+ *     for the duration of the call, the same way SWIG's go.swg handles a
+ *     plain `int&` parameter.
+ *   - "out"/"goout": C++ malloc()s a tiny {size, val} box when the
+ *     optional has a value; "goout" copies it into a fresh,
+ *     GC-tracked Go value and frees the box - Go never keeps a pointer
+ *     into non-Go-owned memory.
+ *
+ * GOTYPE must be one of the Go scalar names SWIG's Go backend recognizes
+ * after a leading "*" in a %typemap(gotype) string (bool, byte/uint8,
+ * int8, int16, uint16, int, uint, int64, uint64, float32, float64).
+ * CTYPE is the real C++ scalar type; it only has to be exactly as wide as
+ * GOTYPE. */
 %fragment("Swig_OptionalBox", "runtime") %{
 struct Swig_optional_box { intgo size; void *val; };
 %}
@@ -147,27 +121,13 @@ struct Swig_optional_box { intgo size; void *val; };
 %}
 
 /* ---- same thing again, but for std::optional<CTYPE>* -------------------
-   Every "in"/"out"/"goout" triple above only ever fires for a *by-value*
-   std::optional<CTYPE> - which covers every ordinary function parameter/
-   return in this API, but not a plain public `std::optional<CTYPE> foo;`
-   *struct field* (e.g. ObjectHeaders::priority/ttl below): lacking
-   %naturalvar (see quicr.i's own %naturalvar comment for why turning
-   that on for every class wholesale isn't the fix here either - it
-   doesn't change any of this), SWIG's default for a struct field whose
-   type is some class it doesn't otherwise recognize is to synthesize a
-   getter/setter pair that hands Go a raw, direct pointer at the field's
-   own storage (`&arg1->foo`) and typemaps *that pointer type* instead -
-   i.e. std::optional<CTYPE>*, not std::optional<CTYPE> - so without this
-   second block every scalar-optional field falls back to SWIG's own
-   builtin generic "SWIGTYPE *" default instead of anything above: a
-   gotype of "*" + whatever %typemap(gotype) is registered for
-   std::optional<CTYPE> (i.e. "*" + "*"#GOTYPE), which is where the
-   "**uint8 instead of *uint8" field-getter bug this was actually caught
-   by came from. Same nil/box semantics as the by-value trio above,
-   just with one extra pointer indirection on the C++ side to read
-   through (or, for "in", a same-function-scope local to point *at*,
-   since SWIG's synthesized field setter always assigns through `*arg2`
-   - see $1's local-variable declaration below). */
+ * The by-value "in"/"out"/"goout" trio above only fires for a by-value
+ * std::optional<CTYPE> parameter/return, not a struct field (e.g.
+ * ObjectHeaders::priority/ttl): SWIG synthesizes field getters/setters
+ * against a raw std::optional<CTYPE>* instead, which needs its own
+ * gotype/in/out/goout registered here or it falls back to SWIG's generic
+ * "SWIGTYPE *" default. Same nil/box semantics, with one extra pointer
+ * indirection. */
 %typemap(gotype) std::optional< CTYPE > * "*"#GOTYPE
 
 %typemap(in) std::optional< CTYPE > * (std::optional< CTYPE > swig_tmp)
@@ -214,15 +174,10 @@ struct Swig_optional_box { intgo size; void *val; };
 %go_optional_scalar(uint64, uint64_t)
 %go_optional_scalar(bool, bool)
 
-/* std::chrono::milliseconds isn't itself a scalar (it's a
-   std::chrono::duration specialization), so it can't use the memcpy-
-   based %go_optional_scalar macro above unmodified - std::chrono::
-   milliseconds's in-memory representation isn't required by the standard
-   to be a bare int64_t the way it practically always is, so this reads/
-   writes it through its own .count()/constructor instead of reinterpreting
-   raw bytes. There's no existing Go "milliseconds" type anywhere in this
-   API to preserve, so a plain *int64 (a count of milliseconds, same as
-   std::chrono::milliseconds::rep) is the natural, idiomatic Go shape. */
+/* std::chrono::milliseconds isn't a scalar, so it can't reuse
+   %go_optional_scalar's memcpy-based approach unmodified - this reads/
+   writes it through .count()/its constructor instead. Crosses as a plain
+   *int64 (a millisecond count). */
 %typemap(gotype) std::optional< std::chrono::milliseconds > "*int64"
 
 %typemap(in) std::optional< std::chrono::milliseconds >
@@ -259,12 +214,10 @@ struct Swig_optional_box { intgo size; void *val; };
     }
 %}
 
-/* Same std::optional<CTYPE>* struct-field story as %go_optional_scalar's
-   own pointer-variant block above (see its comment there for the full
-   explanation) - PublishAttributes::max_cache_duration/delivery_timeout
-   and PublishOkAttributes::subgroup_delivery_timeout/object_delivery_
-   timeout below are all plain std::optional<std::chrono::milliseconds>
-   fields, so they need this too. */
+/* Same struct-field story as %go_optional_scalar's own pointer variant
+   above - PublishAttributes::max_cache_duration/delivery_timeout and
+   PublishOkAttributes::subgroup_delivery_timeout/object_delivery_timeout
+   are all std::optional<std::chrono::milliseconds> fields needing this. */
 %typemap(gotype) std::optional< std::chrono::milliseconds > * "*int64"
 
 %typemap(in) std::optional< std::chrono::milliseconds > * (std::optional< std::chrono::milliseconds > swig_tmp)
@@ -302,4 +255,23 @@ struct Swig_optional_box { intgo size; void *val; };
             $result = v
         }
     }
+%}
+
+/* ---- std::optional<quicr::messages::StreamHeaderProperties> ------------
+ * SWIG's default %typemap(in) for a plain by-value SWIGTYPE parameter
+ * hits a deleted-copy-assignment error for this const-only type. go.swg's
+ * default has the same bug, via the same copy-assignment shape, so it
+ * needs this placement-new-based override instead. python/typemaps.i
+ * needs its own, differently-shaped override for the same underlying
+ * reason (Go's cgo ABI hands $input across as an already-a-pointer raw
+ * value, so Python's SWIG_ConvertPtr-based approach doesn't apply here,
+ * and vice versa). */
+%typemap(in) std::optional<quicr::messages::StreamHeaderProperties> ($&1_type argp)
+%{
+    argp = ($&1_ltype)$input;
+    if (argp == NULL) {
+        _swig_gopanic("Attempt to dereference null std::optional< quicr::messages::StreamHeaderProperties >");
+    }
+    $1.~optional();
+    new (&$1) std::optional<quicr::messages::StreamHeaderProperties>(*argp);
 %}

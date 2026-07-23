@@ -36,3 +36,4 @@ if(LINT)
 endif()
 
 add_subdirectory(swig/go)
+add_subdirectory(swig/python)

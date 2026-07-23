@@ -38,7 +38,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
@@ -60,12 +59,12 @@ type subscriber struct {
 }
 
 func (s *subscriber) ObjectReceived(headers quicr.ObjectHeaders, data []byte, _ quicr.OptionalStreamHeaderProperties) {
-	slog.Info(fmt.Sprintf("received object: group=%d object=%d payload=%q",
-		headers.GetGroup_id(), headers.GetObject_id(), string(data)))
+	fmt.Printf("received object: group=%d object=%d payload=%q\n",
+		headers.GetGroup_id(), headers.GetObject_id(), string(data))
 }
 
 func (s *subscriber) StatusChanged(status quicr.QuicrSubscribeTrackHandlerStatus) {
-	slog.Info(fmt.Sprintf("subscriber: status changed to %d", status))
+	fmt.Printf("subscriber: status changed to %d\n", status)
 }
 
 // publisher only overrides StatusChanged for a bit of visibility into the

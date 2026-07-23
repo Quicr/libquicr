@@ -140,7 +140,7 @@ methods forward straight to Go. The first argument (`&subscriber{}`/
 `&publisher{}` above) is any Go value; SWIG's generated dispatch checks
 whether it happens to implement a method with the right name and
 signature (e.g. `ObjectReceived(quicr.ObjectHeaders, []byte,
-quicr.Std_optional_Sl_quicr_messages_StreamHeaderProperties_Sg_)`) and, if
+quicr.OptionalStreamHeaderProperties)`) and, if
 so, calls it directly - no interface to declare and no base type to embed,
 just a plain Go struct with matching methods (see `subscriber`/`publisher`
 in `main.go`). Real C++ virtual dispatch does the rest: when the library
@@ -240,11 +240,10 @@ shows up in the generated Go package). See the `AddTrackHandler()`/
 for the full explanation.
 
 `ObjectReceived()`'s third parameter (`stream_mode`, a
-`std::optional<messages::StreamHeaderProperties>`) is typed against a
-deliberately opaque, field-less stand-in for `messages::
-StreamHeaderProperties` in `quicr.i` - just enough for the method
-signature to parse and the director override to resolve correctly, not a
-real, usable wrapping of that type. `main.go` ignores this parameter
-entirely (see the subscriber's `ObjectReceived()` in `main.go`); see
-`swig/SWIG_WARNINGS.md` for this and every other tracked-but-not-yet-fixed
-gap in the current bindings.
+`std::optional<messages::StreamHeaderProperties>`) is a real, usable
+`quicr.OptionalStreamHeaderProperties` (`GetExtensions()`/
+`GetSubgroup_id_mode()`/`GetEnd_of_group()`/`GetDefault_priority()`, or
+`nil` when the optional is empty) - `main.go`'s own `subscriber.
+ObjectReceived()` just doesn't happen to read it, purely to keep this
+example minimal. See `swig/SWIG_WARNINGS.md` for the full list of tracked
+gaps still remaining in the current bindings.
