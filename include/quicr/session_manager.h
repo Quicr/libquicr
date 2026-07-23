@@ -7,6 +7,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 
 namespace timeq {
     struct tick_service;
@@ -48,7 +49,7 @@ namespace quicr {
           const ClientConfig& config,
           CreateClientSessionCallbackType&& create_session = nullptr);
 
-        const std::shared_ptr<Transport>& AddTransport(
+        std::shared_ptr<Transport> AddTransport(
           const ServerConfig& config,
           CreateServerSessionCallbackType&& create_session,
           std::function<void(const std::shared_ptr<Session>&)>&& on_new_session = nullptr);
@@ -61,6 +62,8 @@ namespace quicr {
         std::shared_ptr<timeq::tick_service> tick_service_;
 
         std::shared_ptr<spdlog::logger> logger_;
+
+        std::mutex mutex_;
 
         std::map<std::uint64_t, std::shared_ptr<Transport>> transports_;
 
