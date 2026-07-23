@@ -1294,9 +1294,9 @@ PicoQuicTransport::Close(const std::shared_ptr<Connection>& connection, AppReaso
 void
 PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, AppReasonForClose app_reason)
 {
-    std::lock_guard<std::mutex> _(state_mutex_);
+    std::unique_lock<std::mutex> lock(state_mutex_);
 
-    if (!connection) {
+    if (!connection || !connections_.contains(connection->GetID())) {
         return;
     }
 
@@ -1376,11 +1376,13 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
 
     picoquic_close(pq_conn->pq_cnx, static_cast<uint64_t>(app_reason));
 
+    connections_.erase(connection->GetID());
+
+    lock.unlock();
+
     if (OnConnectionClosed) {
         OnConnectionClosed(connection);
     }
-
-    connections_.erase(connection->GetID());
 }
 
 /* ============================================================================
