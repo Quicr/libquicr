@@ -6,7 +6,7 @@
 #include "quicr/config.h"
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/stream_buffer.h"
-#include "quicr/transport_metrics.h"
+#include "quicr/metrics.h"
 
 #include <timeq/tick_service.h>
 
