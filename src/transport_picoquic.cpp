@@ -1785,9 +1785,31 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
 
     CheckCallbackDelta(data_ctx);
 
-    std::lock_guard _(*stream_ctx.tx_data);
-
     const auto& connection = GetConnection(data_ctx->conn_id);
+
+    bool should_reset = false;
+    defer({
+        const bool empty = [&] {
+            std::lock_guard _(*stream_ctx.tx_data);
+            return stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
+        }();
+
+        if (should_reset) {
+            CloseStream(connection, data_ctx->data_ctx_id, stream_id, true);
+            if (data_ctx->delete_on_empty && empty) {
+                DeleteDataContextInternal(connection, data_ctx->data_ctx_id, false);
+            }
+            return;
+        }
+
+        if (data_ctx->delete_on_empty && empty) {
+            DeleteDataContextInternal(connection, data_ctx->data_ctx_id, false);
+        } else if (stream_ctx.close_on_empty && empty) {
+            CloseStream(connection, data_ctx->data_ctx_id, stream_id, false);
+        }
+    });
+
+    std::lock_guard _(*stream_ctx.tx_data);
 
     if (data_ctx != nullptr && stream_ctx.tx_reset_wait_discard) { // Drop TX objects till next reset/new stream
 
@@ -1817,25 +1839,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
             }
         }
     }
-
-    bool should_reset = false;
-    defer({
-        const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
-
-        if (should_reset) {
-            CloseStream(connection, data_ctx->data_ctx_id, stream_id, true);
-            if (data_ctx->delete_on_empty && empty) {
-                DeleteDataContextInternal(connection, data_ctx->data_ctx_id, false);
-            }
-            return;
-        }
-
-        if (data_ctx->delete_on_empty && empty) {
-            DeleteDataContextInternal(connection, data_ctx->data_ctx_id, false);
-        } else if (stream_ctx.close_on_empty && empty) {
-            CloseStream(connection, data_ctx->data_ctx_id, stream_id, false);
-        }
-    });
 
     if (stream_ctx.tx_object == nullptr) {
         SPDLOG_LOGGER_TRACE(logger,
