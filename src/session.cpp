@@ -1792,10 +1792,7 @@ namespace quicr {
 
         {
             std::lock_guard lock(state_mutex_);
-            const auto conn_it = connections_.find(connection_id);
-            if (conn_it != connections_.end()) {
-                conn_it->second.stream_buffers.erase(stream_id);
-            }
+            stream_buffers.erase(stream_id);
         }
 
         if (data_ctx_id.has_value()) {

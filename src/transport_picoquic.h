@@ -8,8 +8,8 @@
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/safe_time_queue.h"
 #include "quicr/containers/stream_buffer.h"
+#include "quicr/metrics.h"
 #include "quicr/transport.h"
-#include "quicr/transport_metrics.h"
 
 #include <h3zero.h>
 #include <h3zero_common.h>
