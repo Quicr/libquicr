@@ -115,7 +115,7 @@ if(BUILD_TESTING)
     endif()
 
     if(QUICR_BUILD_EXAMPLES)
-       add_subdirectory(cmd)
+       add_subdirectory(examples)
     endif()
 endif()
 

@@ -177,9 +177,14 @@ namespace quicr {
 
         const std::shared_ptr<Connection>& GetConnection() const noexcept { return current_connection_; }
 
-        const std::shared_ptr<Transport>& GetTransport() const noexcept { return quic_transport_; }
-
         const std::shared_ptr<timeq::tick_service>& GetTickService() const noexcept { return tick_service_; }
+
+        Status GetStatus() const noexcept { return status_; }
+
+        /**
+         * @brief Close the underlying transport connection and detach this session as delegate.
+         */
+        void Disconnect();
 
         /*===================================================================*/
         // Public API MoQ Instance API methods
@@ -252,25 +257,6 @@ namespace quicr {
         void UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler);
 
         /**
-         * @brief Accept or reject publish that was received
-         *
-         * @details Accept or reject publish received via PublishReceived(). The MoQ Transport
-         *      will send the protocol message based on the PublishResponse
-         *      This method will SubscribeTrack() using the handler passed and the
-         *      attributes provided.
-         *
-         * @param request_id                Request ID
-         * @param attributes                Attributes for the accepted publish
-         * @param publish_response          response for the publish
-         * @param handler                   Constructed SubscribeTrackHandler to subscribe track using
-         *                                  Clients set this, relay/server does not need to.
-         */
-        void ResolvePublish(uint64_t request_id,
-                            const PublishAttributes& attributes,
-                            const PublishResponse& publish_response,
-                            std::shared_ptr<SubscribeTrackHandler> handler);
-
-        /**
          * @brief Fetch track
          *
          * @param track_handler         Track handler used for fetching
@@ -290,28 +276,10 @@ namespace quicr {
          * @param track_full_name           Track full name
          * @param subscribe_attributes      Subscribe attributes for track status
          *
-         * * @returns Request ID that is used for the track status request
+         * @returns Request ID that is used for the track status request
          */
-        uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
-                                    const SubscribeAttributes& subscribe_attributes);
-
-        /**
-         * @brief Get the status of the endpoint
-         *
-         * @return Status of the endpoint
-         */
-        Status GetStatus() const noexcept { return status_; }
-
-        /**
-         * @brief Close the underlying transport connection and detach this session as delegate.
-         */
-        void Disconnect();
-
-        /**
-         * @brief Set the WebTransport flag for a connection
-         * @param is_webtransport True if this is a WebTransport connection
-         */
-        void SetWebTransportMode(bool is_webtransport);
+        std::uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
+                                         const SubscribeAttributes& subscribe_attributes);
 
         // --BEGIN RESOLVE METHODS ---------------------------------------------------------------------------
         /** @name Resolve Methods
@@ -319,6 +287,25 @@ namespace quicr {
          *      is also used when acting as a publisher in client mode.
          */
         ///@{
+
+        /**
+         * @brief Accept or reject publish that was received
+         *
+         * @details Accept or reject publish received via PublishReceived(). The MoQ Transport
+         *      will send the protocol message based on the PublishResponse
+         *      This method will SubscribeTrack() using the handler passed and the
+         *      attributes provided.
+         *
+         * @param request_id                Request ID
+         * @param attributes                Attributes for the accepted publish
+         * @param publish_response          response for the publish
+         * @param handler                   Constructed SubscribeTrackHandler to subscribe track using
+         *                                  Clients set this, relay/server does not need to.
+         */
+        void ResolvePublish(uint64_t request_id,
+                            const PublishAttributes& attributes,
+                            const PublishResponse& publish_response,
+                            std::shared_ptr<SubscribeTrackHandler> handler);
 
         /**
          * @brief Accept or reject a subscribe that was received
@@ -830,8 +817,11 @@ namespace quicr {
                                const messages::TrackExtensions& track_properties);
 
         void SendSubscribeNamespaceOk(std::uint64_t data_ctx_id);
+
         void SendSubscribeTracksOk(std::uint64_t data_ctx_id) { SendSubscribeNamespaceOk(data_ctx_id); }
+
         void SendPublishNamespaceOk(std::uint64_t data_ctx_id) { SendSubscribeNamespaceOk(data_ctx_id); }
+
         void SendRequestUpdateOk(std::uint64_t data_ctx_id,
                                  std::optional<std::uint64_t> expires,
                                  const std::optional<messages::Location>& largest_object);
