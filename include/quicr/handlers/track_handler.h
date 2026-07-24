@@ -169,12 +169,14 @@ namespace quicr {
          * @tparam T Derived type of the track handler.
          * @return THe cast track handler as its derived type. Nullptr if the type is incorrect to the stored value.
          */
+#ifndef SWIG
         template<typename T>
             requires std::is_base_of_v<TrackHandler, T>
         std::shared_ptr<T> Get()
         {
             return std::dynamic_pointer_cast<T>(shared_from_this());
         }
+#endif
 
         /**
          * @brief Sets the reqeust ID

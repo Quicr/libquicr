@@ -8,7 +8,6 @@
 #include <string>
 
 namespace quicr {
-    using namespace quicr;
     using MetricsTimeStampUs = uint64_t; ///< Metrics timestamp in microseconds from epoch 1970
 
     struct ConnectionMetrics

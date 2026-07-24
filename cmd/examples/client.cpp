@@ -1582,6 +1582,11 @@ main(int argc, char* argv[])
                 cfg, std::move(transport), std::move(connection), std::move(tick_service), stop_threads);
           });
 
+        if (!session) {
+            std::cerr << "AddTransport returned a null session (connection failed or timed out)" << std::endl;
+            return EXIT_FAILURE;
+        }
+
         auto client = std::static_pointer_cast<MyClient>(session);
 
         while (not stop_threads) {

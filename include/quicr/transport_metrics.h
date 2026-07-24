@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "quicr/containers/safe_queue.h"
-
 #include <chrono>
+#include <cstdint>
+#include <optional>
 
 namespace quicr {
     /*
@@ -20,7 +20,7 @@ namespace quicr {
         uint64_t value_sum{ 0 };   /// Accumulating sum of values in period
         uint64_t value_count{ 0 }; /// Number of values in period
 
-        constexpr auto operator<=>(const MinMaxAvg&) const = default;
+        constexpr std::strong_ordering operator<=>(const MinMaxAvg&) const = default;
 
         /**
          * @brief  Add value to period
@@ -84,7 +84,7 @@ namespace quicr {
         uint64_t tx_dgram_spurious{ 0 }; ///< count of picoquic callback for late/delayed dgram acks
         uint64_t tx_dgram_drops{ 0 };    ///< count of drops due to data context missing
 
-        auto operator<=>(const QuicConnectionMetrics&) const = default;
+        std::strong_ordering operator<=>(const QuicConnectionMetrics&) const = default;
 
         /**
          * @brief Reset metrics for period
@@ -125,7 +125,7 @@ namespace quicr {
         uint64_t tx_stream_objects{ 0 }; /// count of stream objects sent
         uint64_t tx_stream_bytes{ 0 };   /// count of stream bytes sent
 
-        constexpr auto operator<=>(const QuicDataContextMetrics&) const = default;
+        constexpr std::strong_ordering operator<=>(const QuicDataContextMetrics&) const = default;
 
         /**
          * @brief Reset metrics for period
@@ -153,7 +153,7 @@ namespace quicr {
         uint64_t rx_bytes{ 0 };   /// count of bytes received
         uint64_t rx_objects{ 0 }; /// count of objects received
 
-        constexpr auto operator<=>(const UdpDataContextMetrics&) const = default;
+        constexpr std::strong_ordering operator<=>(const UdpDataContextMetrics&) const = default;
     };
 
     struct UdpConnectionMetrics
