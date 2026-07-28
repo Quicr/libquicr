@@ -973,7 +973,7 @@ namespace quicr {
             bool closed{ false };
             uint64_t client_version{ 0 };
 
-            /// Received data holders for streams: control, request.
+            /// Received data holders for streams: control, request, unrouted data.
             std::map<uint64_t, StreamBuffer<uint8_t>> stream_buffers;
 
             /** Next Connection request Id. This value is shifted left when setting Request Id.
@@ -1264,17 +1264,14 @@ namespace quicr {
 
         uint64_t GetNextRequestId();
 
-        bool OnRecvSubgroup(messages::StreamHeaderProperties properties,
-                            std::vector<uint8_t>::const_iterator cursor_it,
+        bool OnRecvSubgroup(std::uint64_t track_alias,
                             StreamRxContext& rx_ctx,
                             std::uint64_t stream_id,
-                            ConnectionContext& conn_ctx,
-                            std::shared_ptr<const std::vector<uint8_t>> data) const;
-        bool OnRecvFetch(std::vector<uint8_t>::const_iterator cursor_it,
+                            ConnectionContext& conn_ctx) const;
+        bool OnRecvFetch(std::uint64_t request_id,
                          StreamRxContext& rx_ctx,
                          std::uint64_t stream_id,
-                         ConnectionContext& conn_ctx,
-                         std::shared_ptr<const std::vector<uint8_t>> data) const;
+                         ConnectionContext& conn_ctx) const;
 
         std::uint64_t CreateStream(std::uint64_t conn, std::uint64_t data_ctx_id, uint8_t priority);
 

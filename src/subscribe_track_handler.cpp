@@ -24,44 +24,50 @@ namespace quicr {
     {
     }
 
-    void SubscribeTrackHandler::StreamDataRecv(bool is_start,
-                                               uint64_t stream_id,
-                                               std::shared_ptr<const std::vector<uint8_t>> data)
+    void SubscribeTrackHandler::StreamDataRecv(uint64_t stream_id, StreamBuffer<uint8_t>&& initial_buffer)
     {
-        auto& stream = streams_[stream_id];
-
-        if (is_start) {
-            stream.buffer.Clear();
-
-            stream.buffer.InitAny<messages::StreamHeaderSubGroup>();
-            stream.buffer.Push(*data);
-
-            // Expect that on initial start of stream, there is enough data to process the stream headers
-
-            auto& s_hdr = stream.buffer.GetAny<messages::StreamHeaderSubGroup>();
-            if (not(stream.buffer >> s_hdr)) {
-                SPDLOG_ERROR("Not enough data to process new stream headers, stream is invalid");
-                // TODO: Add metrics to track this
-                return;
-            }
-        } else {
-            stream.buffer.Push(*data);
+        auto [it, inserted] = streams_.try_emplace(stream_id, std::move(initial_buffer));
+        if (!inserted) {
+            SPDLOG_ERROR("StreamDataRecv got new stream for existing Stream ID {}", stream_id);
+            return;
         }
+        TryParseStreamBufferData(it->second);
+    }
 
-        TryParseStreamBufferData(stream);
+    void SubscribeTrackHandler::StreamDataRecv(uint64_t stream_id, std::shared_ptr<const std::vector<uint8_t>> data)
+    {
+        const auto it = streams_.find(stream_id);
+        if (it == streams_.end()) {
+            SPDLOG_ERROR("StreamDataRecv had no stream for expected Stream ID {}", stream_id);
+            return;
+        }
+        it->second.buffer.Push(*data);
+        TryParseStreamBufferData(it->second);
     }
 
     void SubscribeTrackHandler::TryParseStreamBufferData(StreamContext& stream)
     {
         auto& s_hdr = stream.buffer.GetAny<messages::StreamHeaderSubGroup>();
-
-        if (not stream.buffer.AnyHasValueB()) {
-            stream.buffer.InitAnyB<messages::StreamSubGroupObject>();
+        if (not(stream.buffer >> s_hdr)) {
+            return;
         }
 
-        auto& obj = stream.buffer.GetAnyB<messages::StreamSubGroupObject>();
-        obj.properties.emplace(*s_hdr.properties);
-        if (stream.buffer >> obj) {
+        // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
+        if (s_hdr.priority.has_value()) {
+            SetPriority(*s_hdr.priority);
+        }
+
+        while (not stream.buffer.Empty()) {
+            if (not stream.buffer.AnyHasValueB()) {
+                stream.buffer.InitAnyB<messages::StreamSubGroupObject>();
+            }
+
+            auto& obj = stream.buffer.GetAnyB<messages::StreamSubGroupObject>();
+            obj.properties.emplace(*s_hdr.properties);
+            if (not(stream.buffer >> obj)) {
+                return;
+            }
+
             std::optional<messages::StreamHeaderProperties> stream_properties;
             if (!stream.next_object_id.has_value()) {
                 stream_properties.emplace(*s_hdr.properties);
@@ -122,7 +128,7 @@ namespace quicr {
                 SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());
             }
 
-            stream.buffer.ResetAnyB<messages::StreamSubGroupObject>();
+            stream.buffer.ResetAnyB();
         }
     }
 
