@@ -8,6 +8,10 @@
 namespace quicr {
     void FetchTrackHandler::TryParseStreamBufferData(StreamContext& stream)
     {
+        if (not stream.buffer.AnyHasValue()) {
+            stream.buffer.InitAny<messages::FetchHeader>();
+        }
+
         auto& f_hdr = stream.buffer.GetAny<messages::FetchHeader>();
         if (not(stream.buffer >> f_hdr)) {
             return;

@@ -1970,7 +1970,6 @@ namespace quicr {
                   logger_, "Received stream message type: 0x{:02x} ({})", *initial_stream_type, *initial_stream_type);
 
                 bool parsed_header = false;
-                auto& initial_buffer = conn_ctx.stream_buffers.at(stream_id);
                 switch (GetStreamMessageType(*initial_stream_type)) {
                     case StreamMessageType::kSubgroupHeader: {
                         // Subgroup needs at least track alias decoded before handoff.
@@ -1978,7 +1977,6 @@ namespace quicr {
                         if (!track_alias.has_value()) {
                             continue; // Need more bytes, will try again.
                         }
-                        initial_buffer.InitAny<StreamHeaderSubGroup>(*initial_stream_type);
                         parsed_header = OnRecvSubgroup(*track_alias, *rx_ctx, stream_id, conn_ctx);
                         break;
                     }
@@ -1988,7 +1986,6 @@ namespace quicr {
                         if (!request_id.has_value()) {
                             continue; // Need more bytes, will try again.
                         }
-                        initial_buffer.InitAny<FetchHeader>(*initial_stream_type);
                         parsed_header = OnRecvFetch(*request_id, *rx_ctx, stream_id, conn_ctx);
                         break;
                     }

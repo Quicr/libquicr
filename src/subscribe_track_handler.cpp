@@ -47,6 +47,10 @@ namespace quicr {
 
     void SubscribeTrackHandler::TryParseStreamBufferData(StreamContext& stream)
     {
+        if (not stream.buffer.AnyHasValue()) {
+            stream.buffer.InitAny<messages::StreamHeaderSubGroup>();
+        }
+
         auto& s_hdr = stream.buffer.GetAny<messages::StreamHeaderSubGroup>();
         if (not(stream.buffer >> s_hdr)) {
             return;
