@@ -34,6 +34,11 @@ namespace quicr {
             stream.buffer.Push(*data);
         }
 
+        TryParseStreamBufferData(stream);
+    }
+
+    void FetchTrackHandler::TryParseStreamBufferData(StreamContext& stream)
+    {
         if (not stream.buffer.AnyHasValueB()) {
             stream.buffer.InitAnyB<messages::FetchObject>();
         }

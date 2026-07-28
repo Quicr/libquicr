@@ -48,6 +48,11 @@ namespace quicr {
             stream.buffer.Push(*data);
         }
 
+        TryParseStreamBufferData(stream);
+    }
+
+    void SubscribeTrackHandler::TryParseStreamBufferData(StreamContext& stream)
+    {
         auto& s_hdr = stream.buffer.GetAny<messages::StreamHeaderSubGroup>();
 
         if (not stream.buffer.AnyHasValueB()) {
@@ -62,10 +67,9 @@ namespace quicr {
                 stream_properties.emplace(*s_hdr.properties);
             }
 
-            SPDLOG_TRACE("Received stream_subgroup_object priority: {} stream_id: {} track_alias: {} "
+            SPDLOG_TRACE("Received stream_subgroup_object priority: {} track_alias: {} "
                          "group: {} subgroup: {} object: {} data size: {} type: {}",
                          s_hdr.priority,
-                         stream_id,
                          s_hdr.track_alias,
                          s_hdr.group_id,
                          s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,

@@ -26,6 +26,9 @@ namespace quicr {
                             uint64_t stream_id,
                             std::shared_ptr<const std::vector<uint8_t>> data) override;
 
+      protected:
+        void TryParseStreamBufferData(StreamContext& stream) override;
+
       private:
         std::shared_ptr<SubscribeTrackHandler> joining_subscribe_;
     };

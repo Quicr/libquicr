@@ -414,6 +414,13 @@ namespace quicr {
             uint64_t current_subgroup_id{ 0 };
         };
 
+        /**
+         * @brief When new data arrives, attempt to parse any complete messages.
+         * @details The stream buffer may contain zero or more objects and/or incomplete data.
+         * @param stream Context of stream with newly arrived data.
+         */
+        virtual void TryParseStreamBufferData(StreamContext& stream);
+
         std::optional<uint64_t> pending_new_group_request_id_;
         bool is_fetch_handler_{ false };
         std::map<std::uint64_t, StreamContext> streams_;

@@ -1016,6 +1016,12 @@ PicoQuicTransport::Start()
     local_tp_options_.max_ack_delay = 100000;
     local_tp_options_.min_ack_delay = 1000;
 
+    if (tconfig_.initial_max_stream_data > 0) {
+        local_tp_options_.initial_max_stream_data_uni = tconfig_.initial_max_stream_data;
+        local_tp_options_.initial_max_stream_data_bidi_local = tconfig_.initial_max_stream_data;
+        local_tp_options_.initial_max_stream_data_bidi_remote = tconfig_.initial_max_stream_data;
+    }
+
     picoquic_set_default_handshake_timeout(quic_ctx_, (tconfig_.idle_timeout_ms * 1000) / 2);
     picoquic_set_default_tp(quic_ctx_, &local_tp_options_);
 
