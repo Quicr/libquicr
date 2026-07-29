@@ -136,23 +136,7 @@ namespace quicr {
 
     SessionManager::~SessionManager()
     {
-        std::map<std::uint64_t, std::shared_ptr<Session>> sessions_snapshot;
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            sessions_snapshot = sessions_;
-        }
-
-        for (const auto& [_, session] : sessions_snapshot) {
-            session->Disconnect();
-        }
-
-        std::map<std::uint64_t, std::shared_ptr<Transport>> transports;
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            transports = std::move(transports_);
-        }
-
-        for (const auto& [_, transport] : transports) {
+        for (const auto& [_, transport] : transports_) {
             transport->Shutdown();
         }
 

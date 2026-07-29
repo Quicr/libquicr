@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <cstring>
 #include <ctime>
+#include <future>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -1290,11 +1291,25 @@ PicoQuicTransport::CreateDataContext(const std::shared_ptr<Connection>& connecti
 void
 PicoQuicTransport::Close(const std::shared_ptr<Connection>& connection, AppReasonForClose app_reason)
 {
+    if (std::this_thread::get_id() == pq_event_thread_id || std::this_thread::get_id() == pq_runner_thread_id) {
+        CloseInternal(connection, app_reason);
+        return;
+    }
+
+    auto done = std::make_shared<std::promise<void>>();
+    auto future = done->get_future();
+
     RunPqFunction([=, this]() {
         CloseInternal(connection, app_reason);
+        done->set_value();
 
         return 0;
     });
+
+    // TODO: Maybe this timeout should be configurable?
+    if (future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
+        SPDLOG_LOGGER_ERROR(logger, "Timed out waiting for connection to close (conn_id={})", connection->GetID());
+    }
 }
 
 void
@@ -2647,6 +2662,20 @@ PicoQuicTransport::Shutdown()
 
     stop_ = true;
 
+    std::vector<std::shared_ptr<Connection>> connections_to_close;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+
+        connections_to_close.reserve(connections_.size());
+        for (const auto& [_, connection] : connections_) {
+            connections_to_close.push_back(connection);
+        }
+    }
+
+    for (const auto& connection : connections_to_close) {
+        Close(connection, AppReasonForClose::kShutdown);
+    }
+
     if (quic_network_thread_ctx_ != NULL) {
         SPDLOG_LOGGER_INFO(logger, "Closing transport picoquic thread");
         picoquic_delete_network_thread(quic_network_thread_ctx_);
@@ -2919,6 +2948,10 @@ PicoQuicTransport::RunPqFunction(std::function<int()>&& function)
         return;
     }
 
+    /*
+     * FIXME: the queue locks Empty and Push independently, so you can get a situation where this returns false, and
+     * then is empty a moment later, so this Push will not wake the thread.
+     */
     bool should_wake = picoquic_runner_queue_.Empty();
     picoquic_runner_queue_.Push(std::move(function));
 
