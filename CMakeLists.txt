@@ -83,9 +83,16 @@ include(CPM)
 
 set(CPM_USE_LOCAL_PACKAGES ON)
 
+include(CheckIncludeFileCXX)
+check_include_file_cxx(format HAVE_STD_FORMAT)
+if (NOT HAVE_STD_FORMAT)
+    CPMAddPackage("gh:fmtlib/fmt@12.2.0")
+endif()
+
 CPMAddPackage("gh:gabime/spdlog@1.17.0")
 
 add_subdirectory(dependencies)
+
 
 #=============================================================================#
 # Build the library

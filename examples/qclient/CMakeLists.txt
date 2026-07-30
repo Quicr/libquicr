@@ -28,8 +28,6 @@ set_target_properties(qclient
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
 
-target_compile_definitions(qclient PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
-
 if(LINT)
         include(Lint)
         Lint(qclient)

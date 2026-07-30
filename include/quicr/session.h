@@ -27,11 +27,9 @@
 #include <string>
 #include <string_view>
 
-namespace spdlog {
-    class logger;
-}
-
 namespace quicr {
+
+    class Logger;
 
     /**
      * @brief Response to a received subscribe or track status request
@@ -759,7 +757,7 @@ namespace quicr {
 
         const bool client_mode_;
 
-        std::shared_ptr<spdlog::logger> logger_;
+        std::shared_ptr<Logger> logger_;
 
         bool stop_{ false };
 

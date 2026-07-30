@@ -3,11 +3,10 @@
 
 #include "quicr/handlers/publish_track_handler.h"
 
+#include "quicr/log.h"
 #include "quicr/messages/messages.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
-
-#include <spdlog/spdlog.h>
 
 namespace quicr {
     PublishTrackHandler::PublishTrackHandler(const FullTrackName& full_track_name,
@@ -347,12 +346,12 @@ namespace quicr {
             }
         }
 
-        SPDLOG_TRACE("Published conn_id: {} object stream_id: {} group: {} subgroup: {} object: {}",
+        QUICR_TRACE("Published conn_id: {} object stream_id: {} group: {} subgroup: {} object: {}",
 
-                     subgroup_it->second.stream_id,
-                     object_headers.group_id,
-                     object_headers.subgroup_id,
-                     object_headers.object_id);
+                    subgroup_it->second.stream_id,
+                    object_headers.group_id,
+                    object_headers.subgroup_id,
+                    object_headers.object_id);
         auto result = transport->Enqueue(
 
           publish_data_ctx_id_,

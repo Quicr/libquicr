@@ -1,10 +1,9 @@
 #include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/log.h"
 #include "quicr/messages/messages.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
-
-#include <spdlog/spdlog.h>
 
 quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix,
                                                             const Mode mode,
@@ -41,19 +40,19 @@ quicr::SubscribeNamespaceHandler::StatusChanged(Status status)
 
     switch (status) {
         case Status::kOk:
-            SPDLOG_TRACE("Subscription to namespace with hash: {} status changed to OK", th.track_namespace_hash);
+            QUICR_TRACE("Subscription to namespace with hash: {} status changed to OK", th.track_namespace_hash);
             break;
         case Status::kNotSubscribed:
-            SPDLOG_TRACE("Subscription to namespace with hash: {} status changed to NOT_SUBSCRIBED",
-                         th.track_namespace_hash);
+            QUICR_TRACE("Subscription to namespace with hash: {} status changed to NOT_SUBSCRIBED",
+                        th.track_namespace_hash);
             break;
         case Status::kError:
             if (error_ != std::nullopt) {
-                SPDLOG_ERROR("Subscription to namespace with hash: {} status changed to ERROR: {}",
-                             th.track_namespace_hash,
-                             std::string(error_->second.begin(), error_->second.end()));
+                QUICR_ERROR("Subscription to namespace with hash: {} status changed to ERROR: {}",
+                            th.track_namespace_hash,
+                            std::string(error_->second.begin(), error_->second.end()));
             } else {
-                SPDLOG_ERROR("Subscription to namespace with hash: {} status changed to unknown ERROR");
+                QUICR_ERROR("Subscription to namespace with hash: {} status changed to unknown ERROR");
             }
             break;
         default:

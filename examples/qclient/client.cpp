@@ -8,14 +8,13 @@
 #include <oss/cxxopts.hpp>
 #include <quicr/containers/cache.h>
 #include <quicr/handlers/publish_fetch_handler.h>
+#include <quicr/log.h>
 #include <quicr/messages/object.h>
 #include <quicr/session.h>
 #include <quicr/session_callbacks.h>
 #include <quicr/session_manager.h>
 #include <quicr/utilities/defer.h>
 #include <sframe/sframe.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
 #include <timeq/tick_service.h>
 
 #include <filesystem>
@@ -172,7 +171,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
             moq_fs_.open(dir / (name_str + ".moq"), std::ios::in | std::ios::out | std::ios::trunc);
             moq_fs_ << json::array();
 
-            SPDLOG_INFO("Creating recording files for track name {} in directory {}", name_str, dir.string());
+            QUICR_INFO("Creating recording files for track name {} in directory {}", name_str, dir.string());
         }
     }
 
@@ -224,17 +223,17 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
 
         std::string msg(data.begin(), data.end());
 
-        SPDLOG_INFO("Received message: {} Group:{}, Subgroup: {} Object:{} - {}",
-                    ext.str(),
-                    hdr.group_id,
-                    hdr.subgroup_id,
-                    hdr.object_id,
-                    msg);
+        QUICR_INFO("Received message: {} Group:{}, Subgroup: {} Object:{} - {}",
+                   ext.str(),
+                   hdr.group_id,
+                   hdr.subgroup_id,
+                   hdr.object_id,
+                   msg);
 
         if (qclient_vars::new_group_request_id.has_value() && not new_group_requested_) {
-            SPDLOG_INFO("Track alias: {} requesting new group {}",
-                        GetTrackAlias().value(),
-                        qclient_vars::new_group_request_id.value());
+            QUICR_INFO("Track alias: {} requesting new group {}",
+                       GetTrackAlias().value(),
+                       qclient_vars::new_group_request_id.value());
             RequestNewGroup(qclient_vars::new_group_request_id.value());
             new_group_requested_ = true;
         }
@@ -245,7 +244,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         switch (status) {
             case Status::kOk: {
                 if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
+                    QUICR_INFO("Track alias: {0} is ready to read", track_alias.value());
                 }
             } break;
 
@@ -328,38 +327,38 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
     {
         auto track_alias_opt = GetTrackAlias();
         if (!track_alias_opt.has_value()) {
-            SPDLOG_WARN("StatusChanged called but track alias not available, status: {}", static_cast<int>(status));
+            QUICR_WARN("StatusChanged called but track alias not available, status: {}", static_cast<int>(status));
             return;
         }
         const auto alias = track_alias_opt.value();
         switch (status) {
             case Status::kOk: {
-                SPDLOG_INFO("Publish track alias: {0} is ready to send", alias);
+                QUICR_INFO("Publish track alias: {0} is ready to send", alias);
                 break;
             }
             case Status::kNoSubscribers: {
-                SPDLOG_INFO("Publish track alias: {0} has no subscribers", alias);
+                QUICR_INFO("Publish track alias: {0} has no subscribers", alias);
                 break;
             }
             case Status::kNewGroupRequested: {
-                SPDLOG_INFO("Publish track alias: {0} has new group request", alias);
+                QUICR_INFO("Publish track alias: {0} has new group request", alias);
                 break;
             }
             case Status::kSubscriptionUpdated: {
-                SPDLOG_INFO("Publish track alias: {0} has updated subscription", alias);
+                QUICR_INFO("Publish track alias: {0} has updated subscription", alias);
                 break;
             }
             case Status::kPaused: {
-                SPDLOG_INFO("Publish track alias: {0} is paused", alias);
+                QUICR_INFO("Publish track alias: {0} is paused", alias);
                 break;
             }
             case Status::kPendingPublishOk: {
-                SPDLOG_INFO("Publish track alias: {0} is pending publish ok", alias);
+                QUICR_INFO("Publish track alias: {0} is pending publish ok", alias);
                 break;
             }
 
             default:
-                SPDLOG_INFO("Publish track alias: {0} has status {1}", alias, static_cast<int>(status));
+                QUICR_INFO("Publish track alias: {0} has status {1}", alias, static_cast<int>(status));
                 break;
         }
     }
@@ -420,7 +419,7 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
                         std::optional<quicr::messages::StreamHeaderProperties>) override
     {
         std::string msg(data.begin(), data.end());
-        SPDLOG_INFO(
+        QUICR_INFO(
           "Received fetched object group_id: {} object_id: {} value: {}", headers.group_id, headers.object_id, msg);
     }
 
@@ -429,21 +428,21 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
         switch (status) {
             case Status::kOk: {
                 if (auto track_alias = GetTrackAlias(); track_alias.has_value()) {
-                    SPDLOG_INFO("Track alias: {0} is ready to read", track_alias.value());
+                    QUICR_INFO("Track alias: {0} is ready to read", track_alias.value());
                 }
             } break;
 
             case Status::kError: {
-                SPDLOG_INFO("Fetch failed");
+                QUICR_INFO("Fetch failed");
                 break;
             }
             case Status::kDoneByFin: {
-                SPDLOG_INFO("Fetch completed");
+                QUICR_INFO("Fetch completed");
                 break;
             }
 
             case Status::kDoneByReset: {
-                SPDLOG_INFO("Fetch failed");
+                QUICR_INFO("Fetch failed");
                 break;
             }
             default:
@@ -470,17 +469,17 @@ class MyClient : public quicr::Session::ClientCallbacks
     {
         switch (status) {
             case quicr::Session::Status::kReady:
-                SPDLOG_INFO("Connection ready");
+                QUICR_INFO("Connection ready");
                 moq_example::connected = true;
                 moq_example::cv.notify_all();
                 break;
             case quicr::Session::Status::kConnecting:
                 break;
             case quicr::Session::Status::kPendingServerSetup:
-                SPDLOG_INFO("Connection connected and now pending server setup");
+                QUICR_INFO("Connection connected and now pending server setup");
                 break;
             default:
-                SPDLOG_INFO("Connection failed {0}", static_cast<int>(status));
+                QUICR_INFO("Connection failed {0}", static_cast<int>(status));
                 moq_example::terminate = true;
                 moq_example::termination_reason = "Connection failed";
                 moq_example::cv.notify_all();
@@ -493,9 +492,9 @@ class MyClient : public quicr::Session::ClientCallbacks
     quicr::Reply<void, int> ServerSetupReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
                                                 const quicr::ServerSetupAttributes& server_setup_attributes) override
     {
-        SPDLOG_INFO("Server setup received from '{}' (MOQT version: {})",
-                    server_setup_attributes.server_id,
-                    server_setup_attributes.moqt_version);
+        QUICR_INFO("Server setup received from '{}' (MOQT version: {})",
+                   server_setup_attributes.server_id,
+                   server_setup_attributes.moqt_version);
         return {};
     }
 
@@ -504,7 +503,7 @@ class MyClient : public quicr::Session::ClientCallbacks
       const quicr::FullTrackName& track_full_name,
       [[maybe_unused]] const quicr::SubscribeAttributes& subscribe_attributes) override
     {
-        SPDLOG_INFO("Received subscribe for a track that is not currently published: {}", track_full_name.NameStr());
+        QUICR_INFO("Received subscribe for a track that is not currently published: {}", track_full_name.NameStr());
         return {};
     }
 
@@ -514,7 +513,7 @@ class MyClient : public quicr::Session::ClientCallbacks
       [[maybe_unused]] const quicr::PublishNamespaceAttributes& publish_namespace_attributes) override
     {
         auto th = quicr::TrackHash({ track_namespace, {} });
-        SPDLOG_INFO("Received announce for namespace_hash: {}", th.track_namespace_hash);
+        QUICR_INFO("Received announce for namespace_hash: {}", th.track_namespace_hash);
         return {};
     }
 
@@ -525,7 +524,7 @@ class MyClient : public quicr::Session::ClientCallbacks
       std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override
     {
         auto th = quicr::TrackHash(publish_attributes.track_full_name);
-        SPDLOG_INFO(
+        QUICR_INFO(
           "Received PUBLISH from relay for track namespace_hash: {} name_hash: {} track_hash: {} request_id: {} ns: {}",
           th.track_namespace_hash,
           th.track_name_hash,
@@ -584,7 +583,7 @@ class MyClient : public quicr::Session::ClientCallbacks
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       std::uint64_t request_id) override
     {
-        SPDLOG_INFO("Fetch cancelled for request_id: {}", request_id);
+        QUICR_INFO("Fetch cancelled for request_id: {}", request_id);
         return {};
     }
 
@@ -594,7 +593,7 @@ class MyClient : public quicr::Session::ClientCallbacks
       const quicr::FullTrackName& track_full_name) override
     {
         const auto largest_location = GetLargestAvailable(track_full_name);
-        SPDLOG_INFO("Track status requested request_id: {} track: {}", request_id, track_full_name.NameStr());
+        QUICR_INFO("Track status requested request_id: {} track: {}", request_id, track_full_name.NameStr());
         return quicr::RequestResponse{ false, largest_location, quicr::messages::GroupOrder::kAscending };
     }
 
@@ -647,10 +646,10 @@ class MyClient : public quicr::Session::ClientCallbacks
                                                                           "No objects available for fetch");
         }
 
-        SPDLOG_INFO("Fetch received request id: {} largest group: {} object: {}",
-                    request_id,
-                    largest_location->group,
-                    largest_location->object);
+        QUICR_INFO("Fetch received request id: {} largest group: {} object: {}",
+                   request_id,
+                   largest_location->group,
+                   largest_location->object);
 
         if (start.group > end.group || largest_location->group < start.group) {
             return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(quicr::FetchErrorCode::kInvalidRange,
@@ -687,7 +686,7 @@ class MyClient : public quicr::Session::ClientCallbacks
                         return;
                     }
 
-                    SPDLOG_DEBUG(
+                    QUICR_DEBUG(
                       "Fetch sending group: {} object: {}", object.headers.group_id, object.headers.object_id);
 
                     pub_fetch_h->PublishObject(object.headers, object.data);
@@ -732,7 +731,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
                    const std::shared_ptr<quicr::PublishTrackHandler> track_handler,
                    bool& stop)
 {
-    SPDLOG_INFO("Started publisher track");
+    QUICR_INFO("Started publisher track");
 
     const auto& full_track_name = track_handler->GetFullTrackName();
 
@@ -780,7 +779,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
 
     while (not stop) {
         if ((!published_track) && (session->GetStatus() == quicr::Session::Status::kReady)) {
-            SPDLOG_INFO("Publish track ");
+            QUICR_INFO("Publish track ");
             session->PublishTrack(track_handler);
             published_track = true;
         }
@@ -795,11 +794,11 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
                     object_id = 0;
                     subgroup_id = 0;
                 }
-                SPDLOG_INFO("New Group Requested: Now using group {0}", group_id);
+                QUICR_INFO("New Group Requested: Now using group {0}", group_id);
 
                 break;
             case MyPublishTrackHandler::Status::kSubscriptionUpdated:
-                SPDLOG_INFO("subscribe updated");
+                QUICR_INFO("subscribe updated");
                 break;
             case MyPublishTrackHandler::Status::kNoSubscribers:
                 // Start a new group when a subscriber joins
@@ -816,15 +815,15 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
         }
 
         if (!sending) {
-            SPDLOG_INFO("--------------------------------------------------------------------------");
+            QUICR_INFO("--------------------------------------------------------------------------");
 
             if (qclient_vars::publish_clock) {
-                SPDLOG_INFO(" Publishing clock timestamp every second");
+                QUICR_INFO(" Publishing clock timestamp every second");
             } else {
-                SPDLOG_INFO(" Type message and press enter to send");
+                QUICR_INFO(" Type message and press enter to send");
             }
 
-            SPDLOG_INFO("--------------------------------------------------------------------------");
+            QUICR_INFO("--------------------------------------------------------------------------");
             sending = true;
         }
 
@@ -863,7 +862,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
 
                 std::ifstream file(watch_path, std::ios::binary);
                 if (!file) {
-                    SPDLOG_WARN("Failed to read watch file: {}", watch_path.string());
+                    QUICR_WARN("Failed to read watch file: {}", watch_path.string());
                     std::this_thread::sleep_for(poll_tick);
                     continue;
                 }
@@ -875,7 +874,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
                 object_id = 0;
                 subgroup_id = 0;
 
-                SPDLOG_INFO("Publishing file {} ({} bytes) group_id: {}", watch_path.string(), data.size(), group_id);
+                QUICR_INFO("Publishing file {} ({} bytes) group_id: {}", watch_path.string(), data.size(), group_id);
 
                 quicr::ObjectHeaders obj_headers = {
                     group_id,         object_id,      subgroup_id,  data.size(),  quicr::ObjectStatus::kAvailable,
@@ -887,11 +886,11 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
                         auto status = track_handler->PublishObject(
                           obj_headers, { reinterpret_cast<uint8_t*>(data.data()), data.size() });
                         if (status != decltype(status)::kOk) {
-                            SPDLOG_WARN("PublishObject returned status={}", static_cast<int>(status));
+                            QUICR_WARN("PublishObject returned status={}", static_cast<int>(status));
                         }
                     }
                 } catch (const std::exception& e) {
-                    SPDLOG_ERROR("Exception publishing watch file: {}", e.what());
+                    QUICR_ERROR("Exception publishing watch file: {}", e.what());
                 }
 
                 last_publish = now;
@@ -904,7 +903,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
             const auto [hdr, msg] = messages.front();
             messages.pop_front();
 
-            SPDLOG_INFO("Send message: {0}", std::string(msg.begin(), msg.end()));
+            QUICR_INFO("Send message: {0}", std::string(msg.begin(), msg.end()));
 
             try {
                 auto status = track_handler->PublishObject(hdr, msg);
@@ -913,7 +912,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
                                              std::to_string(static_cast<int>(status)));
                 }
             } catch (const std::exception& e) {
-                SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+                QUICR_ERROR("Caught exception trying to publish. (error={})", e.what());
             }
 
             std::this_thread::sleep_for(qclient_vars::playback_speed_ms);
@@ -944,12 +943,12 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = quicr::example::GetTimeStr();
-            SPDLOG_INFO("Group:{0} Object:{1}, Msg:{2}", group_id, object_id, msg);
+            QUICR_INFO("Group:{0} Object:{1}, Msg:{2}", group_id, object_id, msg);
         } else { // stdin
             if (!getline(std::cin, msg)) {
                 break;
             }
-            SPDLOG_INFO("Send message: {0}", msg);
+            QUICR_INFO("Send message: {0}", msg);
         }
 
         quicr::ObjectHeaders obj_headers = {
@@ -963,20 +962,20 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
                   track_handler->PublishObject(obj_headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
 
                 if (status == decltype(status)::kPaused) {
-                    SPDLOG_INFO("Publish is paused");
+                    QUICR_INFO("Publish is paused");
                 } else if (status == decltype(status)::kNoSubscribers) {
-                    SPDLOG_INFO("Publish has no subscribers");
+                    QUICR_INFO("Publish has no subscribers");
                 } else if (status != decltype(status)::kOk) {
                     throw std::runtime_error("PublishObject returned status=" +
                                              std::to_string(static_cast<int>(status)));
                 }
             }
         } catch (const std::exception& e) {
-            SPDLOG_ERROR("Caught exception trying to publish. (error={})", e.what());
+            QUICR_ERROR("Caught exception trying to publish. (error={})", e.what());
         }
     }
 
-    SPDLOG_INFO("Publisher done track");
+    QUICR_INFO("Publisher done track");
 }
 
 void
@@ -1016,7 +1015,7 @@ DoPublisher(const std::string prefix_str,
     std::this_thread::sleep_for(1s);
 
     if (ns_handler->GetStatus() != MyPublisherNamespaceHandler::Status::kOk) {
-        SPDLOG_ERROR("Did not get Publish Namespace OK for prefix, exiting...");
+        QUICR_ERROR("Did not get Publish Namespace OK for prefix, exiting...");
         return;
     }
 
@@ -1062,14 +1061,14 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
         track_handler->SetTrackAlias(*qclient_vars::track_alias);
     }
 
-    SPDLOG_INFO("Started subgroup/stream test publisher");
+    QUICR_INFO("Started subgroup/stream test publisher");
 
     bool published_track{ false };
 
     // Wait for connection and publish track
     while (not stop) {
         if ((!published_track) && (session->GetStatus() == quicr::Session::Status::kReady)) {
-            SPDLOG_INFO("Publish track for subgroup test");
+            QUICR_INFO("Publish track for subgroup test");
             session->PublishTrack(track_handler);
             published_track = true;
             break;
@@ -1087,13 +1086,13 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    SPDLOG_INFO("--------------------------------------------------------------------------");
-    SPDLOG_INFO(" Subgroup/Stream Test: {} groups, {} subgroups, {} messages/phase",
-                qclient_vars::subgroup_test_num_groups,
-                qclient_vars::subgroup_test_num_subgroups,
-                qclient_vars::subgroup_test_messages_per_phase);
-    SPDLOG_INFO(" Test will repeat until stopped (Ctrl+C)");
-    SPDLOG_INFO("--------------------------------------------------------------------------");
+    QUICR_INFO("--------------------------------------------------------------------------");
+    QUICR_INFO(" Subgroup/Stream Test: {} groups, {} subgroups, {} messages/phase",
+               qclient_vars::subgroup_test_num_groups,
+               qclient_vars::subgroup_test_num_subgroups,
+               qclient_vars::subgroup_test_messages_per_phase);
+    QUICR_INFO(" Test will repeat until stopped (Ctrl+C)");
+    QUICR_INFO("--------------------------------------------------------------------------");
 
     const std::size_t num_groups = qclient_vars::subgroup_test_num_groups;
     const std::size_t num_subgroups = qclient_vars::subgroup_test_num_subgroups;
@@ -1126,20 +1125,20 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                   track_handler->PublishObject(headers, { reinterpret_cast<uint8_t*>(msg.data()), msg.size() });
 
                 if (status == decltype(status)::kOk) {
-                    SPDLOG_INFO("Published: group={} subgroup={} object={} end_subgroup={} end_group={}",
-                                group_id,
-                                subgroup_id,
-                                object_id,
-                                end_of_subgroup,
-                                end_of_group);
+                    QUICR_INFO("Published: group={} subgroup={} object={} end_subgroup={} end_group={}",
+                               group_id,
+                               subgroup_id,
+                               object_id,
+                               end_of_subgroup,
+                               end_of_group);
                 } else if (status == decltype(status)::kNoSubscribers) {
-                    SPDLOG_WARN("No subscribers for group={} subgroup={}", group_id, subgroup_id);
+                    QUICR_WARN("No subscribers for group={} subgroup={}", group_id, subgroup_id);
                 } else {
-                    SPDLOG_ERROR("Publish failed with status={}", static_cast<int>(status));
+                    QUICR_ERROR("Publish failed with status={}", static_cast<int>(status));
                 }
             }
         } catch (const std::exception& e) {
-            SPDLOG_ERROR("Exception publishing: {}", e.what());
+            QUICR_ERROR("Exception publishing: {}", e.what());
         }
     };
 
@@ -1149,7 +1148,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
     // Repeat the test until stopped
     while (!stop) {
         iteration++;
-        SPDLOG_INFO("========== Starting Test Iteration {} ==========", iteration);
+        QUICR_INFO("========== Starting Test Iteration {} ==========", iteration);
 
         // Track object IDs per group+subgroup (reset each iteration)
         std::map<std::pair<uint64_t, uint64_t>, uint64_t> next_object_id;
@@ -1179,8 +1178,8 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
             // TODO(tievens): See if this is needed or if it is a hangover from a previous iteration.
             [[maybe_unused]] bool is_last_subgroup = (phase == num_subgroups - 1);
 
-            SPDLOG_INFO("=== Iteration {} Phase {} ===", iteration, phase + 1);
-            SPDLOG_INFO(
+            QUICR_INFO("=== Iteration {} Phase {} ===", iteration, phase + 1);
+            QUICR_INFO(
               "Publishing {} messages to {} active subgroups per group", messages_per_phase, num_subgroups - phase);
 
             // Publish messages_per_phase messages to all active subgroups
@@ -1206,7 +1205,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                 active_subgroups[group].erase(subgroup_to_close);
             }
 
-            SPDLOG_INFO(
+            QUICR_INFO(
               "Closed subgroup {} in all groups. {} subgroups remain.", subgroup_to_close, active_subgroups[0].size());
         }
 
@@ -1217,15 +1216,15 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
             total_messages += messages_for_subgroup * num_groups;
         }
 
-        SPDLOG_INFO("=== Iteration {} Complete ===", iteration);
-        SPDLOG_INFO("Messages published this iteration: {}", total_messages);
-        SPDLOG_INFO("Groups used: {} - {}", base_group_id, base_group_id + num_groups - 1);
+        QUICR_INFO("=== Iteration {} Complete ===", iteration);
+        QUICR_INFO("Messages published this iteration: {}", total_messages);
+        QUICR_INFO("Groups used: {} - {}", base_group_id, base_group_id + num_groups - 1);
 
         // Move to next set of group IDs for next iteration
         base_group_id += num_groups;
 
         // Brief pause between iterations
-        SPDLOG_INFO("Pausing before next iteration...");
+        QUICR_INFO("Pausing before next iteration...");
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
@@ -1235,7 +1234,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
     session->UnpublishTrack(track_handler);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    SPDLOG_INFO("Subgroup test publisher done after {} iterations", iteration);
+    QUICR_INFO("Subgroup test publisher done after {} iterations", iteration);
     moq_example::terminate = true;
     moq_example::cv.notify_all();
 }
@@ -1258,13 +1257,13 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, joining_fetch);
     track_handler->SetPriority(128);
 
-    SPDLOG_INFO("Started subscriber");
+    QUICR_INFO("Started subscriber");
 
     bool subscribe_track{ false };
 
     while (not stop) {
         if ((!subscribe_track) && (session->GetStatus() == quicr::Session::Status::kReady)) {
-            SPDLOG_INFO("Subscribing to track");
+            QUICR_INFO("Subscribing to track");
             session->SubscribeTrack(track_handler);
             subscribe_track = true;
         }
@@ -1276,7 +1275,7 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    SPDLOG_INFO("Subscriber done track");
+    QUICR_INFO("Subscriber done track");
     moq_example::terminate = true;
 }
 
@@ -1293,17 +1292,17 @@ DoFetch(const quicr::FullTrackName& full_track_name,
 {
     auto track_handler = MyFetchTrackHandler::Create(full_track_name, start_location, end_location);
 
-    SPDLOG_INFO("Started fetch start: {}.{} end: {}.{}",
-                start_location.group,
-                start_location.object,
-                end_location.group,
-                end_location.object.has_value() ? std::to_string(end_location.object.value()) : "to_end");
+    QUICR_INFO("Started fetch start: {}.{} end: {}.{}",
+               start_location.group,
+               start_location.object,
+               end_location.group,
+               end_location.object.has_value() ? std::to_string(end_location.object.value()) : "to_end");
 
     bool fetch_track{ false };
 
     while (not stop) {
         if ((!fetch_track) && (session->GetStatus() == quicr::Session::Status::kReady)) {
-            SPDLOG_INFO("Fetching track");
+            QUICR_INFO("Fetching track");
             session->FetchTrack(track_handler);
             fetch_track = true;
         }
@@ -1311,7 +1310,7 @@ DoFetch(const quicr::FullTrackName& full_track_name,
         if (track_handler->GetStatus() == quicr::FetchTrackHandler::Status::kPendingResponse) {
             // do nothing...
         } else if (!fetch_track || (track_handler->GetStatus() != quicr::FetchTrackHandler::Status::kOk)) {
-            SPDLOG_DEBUG("GetStatus() != quicr::FetchTrackHandler::Status::kOk {}", (int)track_handler->GetStatus());
+            QUICR_DEBUG("GetStatus() != quicr::FetchTrackHandler::Status::kOk {}", (int)track_handler->GetStatus());
             moq_example::terminate = true;
             moq_example::cv.notify_all();
             break;
@@ -1342,12 +1341,12 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     }
 
     if (cli_opts.count("debug") && cli_opts["debug"].as<bool>() == true) {
-        SPDLOG_INFO("setting debug level");
-        spdlog::set_level(spdlog::level::debug);
+        QUICR_INFO("setting debug level");
+        quicr::Logger::GetDefault()->SetLevel(quicr::Logger::Level::Debug);
     }
 
     if (cli_opts.count("version") && cli_opts["version"].as<bool>() == true) {
-        SPDLOG_INFO("QuicR library version: {}", QUICR_VERSION);
+        QUICR_INFO("QuicR library version: {}", QUICR_VERSION);
         exit(0);
     }
 
@@ -1359,33 +1358,33 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
             name_str += name + ",";
         }
 
-        SPDLOG_INFO("Publisher enabled using track namespace: {0} name: {1}",
-                    cli_opts["pub_namespace"].as<std::string>(),
-                    name_str);
+        QUICR_INFO("Publisher enabled using track namespace: {0} name: {1}",
+                   cli_opts["pub_namespace"].as<std::string>(),
+                   name_str);
     }
 
     if (cli_opts.count("use_announce")) {
         use_announce = true;
-        SPDLOG_INFO("Publisher will use announce flow");
+        QUICR_INFO("Publisher will use announce flow");
     }
 
     if (cli_opts.count("clock") && cli_opts["clock"].as<bool>() == true) {
-        SPDLOG_INFO("Running in clock publish mode");
+        QUICR_INFO("Running in clock publish mode");
         qclient_vars::publish_clock = true;
     }
 
     if (cli_opts.count("sub_namespace") && cli_opts.count("sub_name")) {
         enable_sub = true;
-        SPDLOG_INFO("Subscriber enabled using track namespace: {0} name: {1}",
-                    cli_opts["sub_namespace"].as<std::string>(),
-                    cli_opts["sub_name"].as<std::string>());
+        QUICR_INFO("Subscriber enabled using track namespace: {0} name: {1}",
+                   cli_opts["sub_namespace"].as<std::string>(),
+                   cli_opts["sub_name"].as<std::string>());
     }
 
     if (cli_opts.count("fetch_namespace") && cli_opts.count("fetch_name")) {
         enable_fetch = true;
-        SPDLOG_INFO("Subscriber enabled using track namespace: {0} name: {1}",
-                    cli_opts["fetch_namespace"].as<std::string>(),
-                    cli_opts["fetch_name"].as<std::string>());
+        QUICR_INFO("Subscriber enabled using track namespace: {0} name: {1}",
+                   cli_opts["fetch_namespace"].as<std::string>(),
+                   cli_opts["fetch_name"].as<std::string>());
     }
 
     if (cli_opts.count("track_alias")) {
@@ -1393,7 +1392,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     }
 
     if (cli_opts.count("record")) {
-        SPDLOG_WARN("!!! RECORDING !!!");
+        QUICR_WARN("!!! RECORDING !!!");
         qclient_vars::record = true;
     }
 
@@ -1402,7 +1401,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     }
 
     if (cli_opts.count("gaps") && cli_opts["gaps"].as<bool>() == true) {
-        SPDLOG_INFO("Adding gaps to group and objects");
+        QUICR_INFO("Adding gaps to group and objects");
         qclient_vars::add_gaps = true;
     }
 
@@ -1417,7 +1416,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     if (cli_opts.count("subgroup_test")) {
         qclient_vars::subgroup_test = true;
         qclient_vars::publish_clock = true; // Enable clock mode for timing
-        SPDLOG_INFO("Subgroup/stream test mode enabled");
+        QUICR_INFO("Subgroup/stream test mode enabled");
     }
 
     if (cli_opts.count("subgroup_num_groups")) {
@@ -1447,7 +1446,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
 
     if (cli_opts.count("watch")) {
         qclient_vars::watch_path = cli_opts["watch"].as<std::string>();
-        SPDLOG_INFO("Watch mode enabled for file: {}", qclient_vars::watch_path->string());
+        QUICR_INFO("Watch mode enabled for file: {}", qclient_vars::watch_path->string());
     }
 
     if (cli_opts.count("watch_interval_ms")) {
@@ -1455,7 +1454,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     }
 
     if (cli_opts.count("ssl_keylog") && cli_opts["ssl_keylog"].as<bool>() == true) {
-        SPDLOG_INFO("SSL Keylog enabled");
+        QUICR_INFO("SSL Keylog enabled");
     }
 
     if (cli_opts.count("mls_key")) {
@@ -1479,10 +1478,10 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
             size_t scheme_end = config.connect_uri.find("://");
             if (scheme_end != std::string::npos) {
                 config.connect_uri = "https://" + config.connect_uri.substr(scheme_end + 3);
-                SPDLOG_INFO("Using WebTransport with URL: {}", config.connect_uri);
+                QUICR_INFO("Using WebTransport with URL: {}", config.connect_uri);
             }
         } else if (!config.connect_uri.starts_with("https://")) {
-            SPDLOG_WARN("WebTransport requires https:// URL scheme");
+            QUICR_WARN("WebTransport requires https:// URL scheme");
         }
     } else if (transport_type == "quic") {
         // Convert URL scheme to moq:// for raw QUIC if needed
@@ -1490,11 +1489,11 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
             size_t scheme_end = config.connect_uri.find("://");
             if (scheme_end != std::string::npos) {
                 config.connect_uri = "moq://" + config.connect_uri.substr(scheme_end + 3);
-                SPDLOG_INFO("Using raw QUIC with URL: {}", config.connect_uri);
+                QUICR_INFO("Using raw QUIC with URL: {}", config.connect_uri);
             }
         }
     } else {
-        SPDLOG_ERROR("Invalid transport type: {}. Valid options: quic, webtransport", transport_type);
+        QUICR_ERROR("Invalid transport type: {}. Valid options: quic, webtransport", transport_type);
         exit(-1);
     }
 
@@ -1603,13 +1602,13 @@ main(int argc, char* argv[])
         while (not stop_threads) {
             const auto status = session->GetStatus();
             if (status == quicr::Session::Status::kReady) {
-                SPDLOG_INFO("Connected to server");
+                QUICR_INFO("Connected to server");
                 break;
             }
 
             if (status == quicr::Session::Status::kFailedToConnect || status == quicr::Session::Status::kNotConnected ||
                 status == quicr::Session::Status::kInternalError || status == quicr::Session::Status::kInvalidParams) {
-                SPDLOG_ERROR("Connection failed with status {}", static_cast<int>(status));
+                QUICR_ERROR("Connection failed with status {}", static_cast<int>(status));
                 stop_threads = true;
                 moq_example::terminate = true;
                 moq_example::termination_reason = "Connection failed";
@@ -1629,9 +1628,9 @@ main(int argc, char* argv[])
 
             auto th = quicr::TrackHash(prefix_ns);
 
-            SPDLOG_INFO("Sending subscribe announces for prefix '{}' namespace_hash: {}",
-                        result["sub_announces"].as<std::string>(),
-                        th.track_namespace_hash);
+            QUICR_INFO("Sending subscribe announces for prefix '{}' namespace_hash: {}",
+                       result["sub_announces"].as<std::string>(),
+                       th.track_namespace_hash);
 
             session->SubscribeNamespace(MySubscribeNamespaceHandler::Create(
               prefix_ns.name_space, quicr::SubscribeNamespaceHandler::Mode::kTracks));
@@ -1688,7 +1687,7 @@ main(int argc, char* argv[])
         moq_example::cv.wait(lock, [&]() { return moq_example::terminate; });
 
         stop_threads = true;
-        SPDLOG_INFO("Stopping threads...");
+        QUICR_INFO("Stopping threads...");
 
         if (pub_thread.joinable()) {
             pub_thread.join();
@@ -1702,7 +1701,7 @@ main(int argc, char* argv[])
             fetch_thread.join();
         }
 
-        SPDLOG_INFO("Client done");
+        QUICR_INFO("Client done");
         std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     } catch (const std::invalid_argument& e) {
@@ -1716,7 +1715,7 @@ main(int argc, char* argv[])
         result_code = EXIT_FAILURE;
     }
 
-    SPDLOG_INFO("Exit");
+    QUICR_INFO("Exit");
 
     return result_code;
 }
