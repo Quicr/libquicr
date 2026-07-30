@@ -45,11 +45,11 @@ namespace quicr {
 
         ~SessionManager();
 
-        std::pair<std::shared_ptr<Transport>, std::shared_ptr<Session>> AddTransport(
+        std::pair<std::weak_ptr<Transport>, std::weak_ptr<Session>> AddTransport(
           const ClientConfig& config,
           CreateClientSessionCallbackType&& create_session = nullptr);
 
-        std::shared_ptr<Transport> AddTransport(
+        std::weak_ptr<Transport> AddTransport(
           const ServerConfig& config,
           CreateServerSessionCallbackType&& create_session,
           std::function<void(const std::shared_ptr<Session>&)>&& on_new_session = nullptr);

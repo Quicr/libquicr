@@ -276,23 +276,6 @@ TestServer::JoiningFetchReceived(const uint64_t request_id,
         joining_fetch_promise_.reset();
     }
 
-    ResolveFetch(request_id,
-                 attrs.priority,
-                 attrs.group_order,
-                 { .reason_code = FetchResponse::ReasonCode::kInternalError,
-                   .error_reason = "No joining fetch test response configured" });
-}
-
-void
-TestServer::JoiningFetchReceived(const uint64_t request_id,
-                                 const FullTrackName& track_full_name,
-                                 const JoiningFetchAttributes& attrs)
-{
-    if (joining_fetch_promise_.has_value()) {
-        joining_fetch_promise_->set_value({ GetConnection()->GetID(), request_id, track_full_name, attrs });
-        joining_fetch_promise_.reset();
-    }
-
     if (!fetch_response_data_.empty()) {
         messages::Location largest_location{};
         for (const auto& response : fetch_response_data_) {

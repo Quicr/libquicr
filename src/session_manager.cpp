@@ -143,14 +143,14 @@ namespace quicr {
         spdlog::drop(logger_->name());
     }
 
-    std::pair<std::shared_ptr<Transport>, std::shared_ptr<Session>> SessionManager::AddTransport(
+    std::pair<std::weak_ptr<Transport>, std::weak_ptr<Session>> SessionManager::AddTransport(
       const ClientConfig& config,
       CreateClientSessionCallbackType&& create_session)
     {
         TransportRemote relay;
         auto parse_result = ParseConnectUri(config.connect_uri);
         if (!parse_result) {
-            return { nullptr, nullptr };
+            return {};
         }
 
         auto [address, port, protocol, path] = parse_result.value();
@@ -173,7 +173,7 @@ namespace quicr {
 
         auto connection = transport->Start();
         if (!connection) {
-            return { transport_ptr, nullptr };
+            return { transport_ptr, {} };
         }
 
         auto session = create_session ? create_session(config, transport, connection, tick_service_)
@@ -189,7 +189,7 @@ namespace quicr {
         return { transport_ptr, session };
     }
 
-    std::shared_ptr<Transport> SessionManager::AddTransport(
+    std::weak_ptr<Transport> SessionManager::AddTransport(
       const ServerConfig& config,
       CreateServerSessionCallbackType&& create_session,
       std::function<void(const std::shared_ptr<Session>&)>&& on_new_session)

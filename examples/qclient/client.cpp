@@ -1582,7 +1582,10 @@ main(int argc, char* argv[])
                 cfg, std::move(transport), std::move(connection), std::move(tick_service), stop_threads);
           });
 
-        auto client = std::static_pointer_cast<MyClient>(session);
+        auto client = std::static_pointer_cast<MyClient>(session.lock());
+        if (!client) {
+            return EXIT_FAILURE;
+        }
 
         while (not stop_threads) {
             if (client->GetStatus() == MyClient::Status::kReady) {
