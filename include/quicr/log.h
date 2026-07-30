@@ -38,9 +38,18 @@ namespace quicr {
         void Log(Level level, std::string_view msg, std::source_location = std::source_location::current());
 
         template<typename... Args>
-        void Log(std::source_location location, Level level, std::string_view msg, Args&&... args)
-        {
-            Log(level, std_or_fmt::vformat(msg, std_or_fmt::make_format_args(args...)), location);
+        void Log(std::source_location location,
+                 Level level,
+                 std::conditional_t<sizeof...(Args) == 0, std::string_view, std_or_fmt::format_string<Args...>> msg,
+                 Args&&... args)
+        try {
+            if constexpr (sizeof...(Args) == 0) {
+                Log(level, msg, location);
+            } else {
+                Log(level, std_or_fmt::vformat(msg.get(), std_or_fmt::make_format_args(args...)), location);
+            }
+        } catch (const std::exception& e) {
+            Log(Level::Error, std_or_fmt::format("log failed to format (error={})", e.what()), location);
         }
 
       private:

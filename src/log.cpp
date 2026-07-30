@@ -19,10 +19,15 @@ namespace quicr {
         void SetLevel(Logger::Level max_level) { logger_->set_level(ConvertLevelType(max_level)); }
 
         void Log(Logger::Level level, std::string_view msg, std::source_location location)
-        {
+        try {
             logger_->log(spdlog::source_loc(location.file_name(), location.line(), location.function_name()),
                          ConvertLevelType(level),
                          msg);
+        } catch (const std::exception& e) {
+            logger_->log(spdlog::source_loc(location.file_name(), location.line(), location.function_name()),
+                         spdlog::level::err,
+                         "log failed to format (error={})",
+                         e.what());
         }
 
       private:

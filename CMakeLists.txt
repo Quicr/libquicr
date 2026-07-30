@@ -85,7 +85,20 @@ set(CPM_USE_LOCAL_PACKAGES ON)
 
 include(CheckIncludeFileCXX)
 check_include_file_cxx(format HAVE_STD_FORMAT)
-if (NOT HAVE_STD_FORMAT)
+if (HAVE_STD_FORMAT)
+    include(CheckCXXSourceCompiles)
+    check_cxx_source_compiles("
+        #include <format>
+        #include <string>
+        int main() {
+            std::string fmt = \"Hello {}\";
+            std::string result = std::vformat(fmt, std::make_format_args(\"World\"););
+            return 0;
+        }
+    " VFORMAT_COMPILES)
+endif()
+
+if (NOT HAS_STD_FORMAT OR NOT VFORMAT_COMPILES)
     CPMAddPackage("gh:fmtlib/fmt#12.2.0")
 endif()
 
