@@ -207,7 +207,9 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     auto [_, session] = session_mgr.AddTransport(
       client_config, [](auto config, auto... args) { return std::make_shared<TestClient>(config, args...); });
 
-    auto client = std::static_pointer_cast<TestClient>(session);
+    CHECK_NE(session.lock(), nullptr);
+
+    auto client = std::static_pointer_cast<TestClient>(session.lock());
     if (connect) {
         // Wait for client to be connected instead of fixed sleep
         const bool connected = WaitFor([&client]() {
@@ -767,10 +769,12 @@ TEST_CASE("Integration - Fetch")
 
 TEST_CASE("Integration - Joining Fetch")
 {
-    auto server = MakeTestServer();
+    quicr::SessionManager session_mgr;
+
+    auto server = MakeTestServer(session_mgr);
 
     auto test_joining_fetch = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
         const FullTrackName ftn{ TrackNamespace({ "namespace" }), { 1, 2, 3 } };
         const SubscribeTrackHandler::JoiningFetch joining_fetch{
             .priority = 4,
@@ -1712,10 +1716,12 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
 
 TEST_CASE("Integration - Small data callbacks assemble")
 {
+    quicr::SessionManager session_mgr;
+
     // Create with 1 byte window.
-    auto server = MakeTestServer(std::nullopt, 2, 1);
-    auto subscriber = MakeTestClient();
-    auto publisher = MakeTestClient();
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2, 1);
+    auto subscriber = MakeTestClient(session_mgr);
+    auto publisher = MakeTestClient(session_mgr);
 
     // Pub.
     const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "small", "callbacks" }), { 1 } };

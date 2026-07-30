@@ -951,15 +951,9 @@ namespace quicr {
 
         uint64_t GetNextRequestID();
 
-        bool OnRecvSubgroup(std::uint64_t track_alias,
-                            StreamRxContext& rx_ctx,
-                            std::uint64_t stream_id,
-                            std::shared_ptr<const std::vector<uint8_t>> data) const;
-        bool OnRecvFetch(std::uint64_t request_id,
-                         StreamRxContext& rx_ctx,
-                         std::uint64_t stream_id,
+        bool OnRecvSubgroup(std::uint64_t track_alias, StreamRxContext& rx_ctx, std::uint64_t stream_id);
 
-                         std::shared_ptr<const std::vector<uint8_t>> data) const;
+        bool OnRecvFetch(std::uint64_t request_id, StreamRxContext& rx_ctx, std::uint64_t stream_id);
 
         std::uint64_t CreateStream(std::uint64_t data_ctx_id, uint8_t priority);
 

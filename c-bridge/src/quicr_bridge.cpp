@@ -720,12 +720,12 @@ extern "C"
                     cfg, std::move(transport), std::move(connection), std::move(tick_service));
               });
 
-            if (!transport || !session) {
+            if (!transport.lock() || !session.lock()) {
                 return QBRIDGE_ERROR_INTERNAL;
             }
 
-            client->transport = std::move(transport);
-            client->cpp_client = std::static_pointer_cast<BridgeClient>(session);
+            client->transport = transport.lock();
+            client->cpp_client = std::static_pointer_cast<BridgeClient>(session.lock());
             return QBRIDGE_OK;
         } catch (...) {
             return QBRIDGE_ERROR_INTERNAL;

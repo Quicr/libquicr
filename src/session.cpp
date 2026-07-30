@@ -1695,7 +1695,7 @@ namespace quicr {
                         if (!track_alias.has_value()) {
                             continue; // Need more bytes, will try again.
                         }
-                        parsed_header = OnRecvSubgroup(*track_alias, *rx_ctx, stream_id, conn_ctx);
+                        parsed_header = OnRecvSubgroup(*track_alias, *rx_ctx, stream_id);
                         break;
                     }
                     case StreamMessageType::kFetchHeader: {
@@ -1704,7 +1704,7 @@ namespace quicr {
                         if (!request_id.has_value()) {
                             continue; // Need more bytes, will try again.
                         }
-                        parsed_header = OnRecvFetch(*request_id, *rx_ctx, stream_id, conn_ctx);
+                        parsed_header = OnRecvFetch(*request_id, *rx_ctx, stream_id);
                         break;
                     }
                     default:
@@ -1871,10 +1871,7 @@ namespace quicr {
         }
     }
 
-    bool Session::OnRecvSubgroup(std::uint64_t track_alias,
-                                 StreamRxContext& rx_ctx,
-                                 std::uint64_t stream_id,
-                                 std::shared_ptr<const std::vector<uint8_t>> data) const
+    bool Session::OnRecvSubgroup(std::uint64_t track_alias, StreamRxContext& rx_ctx, std::uint64_t stream_id)
     {
         auto sub_it = sub_by_recv_track_alias.find(track_alias);
         if ((sub_it == sub_by_recv_track_alias.end() || sub_it->second == nullptr)) {
@@ -1902,10 +1899,7 @@ namespace quicr {
         return true;
     }
 
-    bool Session::OnRecvFetch(std::uint64_t request_id,
-                              StreamRxContext& rx_ctx,
-                              std::uint64_t stream_id,
-                              std::shared_ptr<const std::vector<uint8_t>> data) const
+    bool Session::OnRecvFetch(std::uint64_t request_id, StreamRxContext& rx_ctx, std::uint64_t stream_id)
     {
         const auto fetch_it = request_handlers.find(request_id);
         if (fetch_it == request_handlers.end()) {
@@ -2912,16 +2906,6 @@ namespace quicr {
                 const auto end_location = messages::Message::ParseField<messages::Location>(msg_bytes);
                 [[maybe_unused]] const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
-
-                const auto request_it = request_id_by_data_ctx.find(data_ctx_id);
-                if (request_it == request_id_by_data_ctx.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received FETCH_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
-                                       current_connection_->GetID(),
-                                       data_ctx_id);
-                    return true;
-                }
-                const auto request_id = request_it->second;
 
                 const auto request_it = request_id_by_data_ctx.find(data_ctx_id);
                 if (request_it == request_id_by_data_ctx.end()) {
