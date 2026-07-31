@@ -1861,7 +1861,7 @@ namespace quicr {
                 initial_cursor = initial_buffer.buffer.Data();
                 initial_stream_type = TryDecodeUintV(initial_cursor);
                 if (!initial_stream_type.has_value()) {
-                    SPDLOG_LOGGER_WARN(
+                    SPDLOG_LOGGER_DEBUG(
                       logger_,
                       "New stream {} bidir: {} does not have enough bytes to process start of stream yet",
                       stream_id,
