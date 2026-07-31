@@ -1,7 +1,7 @@
 #pragma once
 
 #include <version>
-#ifdef __cpp_lib_format
+#ifdef QUICR_HAVE_STD_FORMAT
 #include <format>
 namespace std_or_fmt = std;
 #else

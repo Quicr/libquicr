@@ -55,8 +55,8 @@ target_link_libraries(quicr PRIVATE
     picohttp-core
 )
 
-if (NOT HAVE_STD_FORMAT)
-    target_link_libraries(quicr PUBLIC fmt::fmt-header-only)
+if (NOT HAS_STD_VFORMAT)
+    target_link_libraries(quicr PUBLIC fmt::fmt)
 endif()
 
 target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include)
