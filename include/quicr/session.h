@@ -974,7 +974,7 @@ namespace quicr {
             uint64_t client_version{ 0 };
 
             /// Received data holders for streams: control, request, unrouted data.
-            std::map<uint64_t, StreamBuffer<uint8_t>> stream_buffers;
+            std::map<uint64_t, InitialStreamData> stream_buffers;
 
             /** Next Connection request Id. This value is shifted left when setting Request Id.
              * The least significant bit is used to indicate client (0) vs server (1).

@@ -1853,11 +1853,12 @@ namespace quicr {
                 // Store arriving data into stream's buffer.
                 rx_ctx->data_queue.PopFront();
                 auto& initial_buffer = conn_ctx.stream_buffers[stream_id];
-                initial_buffer.Push(data);
+                initial_buffer.buffer.Push(data);
+                initial_buffer.source_buffers.push_back(std::move(*data_opt));
                 initial_data_buffered = true;
 
                 // Attempt to peek what type this message is.
-                initial_cursor = initial_buffer.Data();
+                initial_cursor = initial_buffer.buffer.Data();
                 initial_stream_type = TryDecodeUintV(initial_cursor);
                 if (!initial_stream_type.has_value()) {
                     SPDLOG_LOGGER_WARN(
@@ -1873,13 +1874,14 @@ namespace quicr {
                                     conn_id,
                                     stream_id,
                                     is_bidir,
-                                    initial_buffer.Size(),
+                                    initial_buffer.buffer.Size(),
                                     *initial_stream_type);
 
                 // This might be incoming control stream arriving.
                 if (static_cast<ControlMessageType>(*initial_stream_type) == ControlMessageType::kSetup) {
                     is_control_stream = true;
                     conn_ctx.rx_ctrl_stream_id = stream_id;
+                    initial_buffer.source_buffers.clear();
                 }
             }
 
@@ -1887,13 +1889,13 @@ namespace quicr {
             if (is_control_stream || is_request_stream) {
                 if (!initial_data_buffered) {
                     // Append.
-                    conn_ctx.stream_buffers[stream_id].Push(data);
+                    conn_ctx.stream_buffers[stream_id].buffer.Push(data);
                     rx_ctx->data_queue.PopFront();
                 }
 
                 rx_ctx->is_new = false;
 
-                auto& stream_buffer = conn_ctx.stream_buffers.at(stream_id);
+                auto& stream_buffer = conn_ctx.stream_buffers.at(stream_id).buffer;
 
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",

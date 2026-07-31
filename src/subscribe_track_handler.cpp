@@ -24,9 +24,9 @@ namespace quicr {
     {
     }
 
-    void SubscribeTrackHandler::StreamDataRecv(uint64_t stream_id, StreamBuffer<uint8_t>&& initial_buffer)
+    void SubscribeTrackHandler::StreamDataRecv(uint64_t stream_id, InitialStreamData&& initial_buffer)
     {
-        auto [it, inserted] = streams_.try_emplace(stream_id, std::move(initial_buffer));
+        auto [it, inserted] = streams_.try_emplace(stream_id, std::move(initial_buffer.buffer));
         if (!inserted) {
             SPDLOG_ERROR("StreamDataRecv got new stream for existing Stream ID {}", stream_id);
             return;

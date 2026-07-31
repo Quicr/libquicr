@@ -129,7 +129,7 @@ TEST_CASE("Subscribe Track Handler receives every object buffered on a stream")
     // Mirror the session handoff: the stream type stays in the buffer for the handler to parse.
     quicr::StreamBuffer<uint8_t> buffer;
     buffer.Push(SerializeSubgroup(properties));
-    handler->StreamDataRecv(0, std::move(buffer));
+    handler->StreamDataRecv(0, { std::move(buffer), {} });
 
     REQUIRE_EQ(handler->received_objects.size(), 2);
 
@@ -155,7 +155,7 @@ TEST_CASE("Subscribe Track Handler resumes parsing across single byte chunks")
 
     quicr::StreamBuffer<uint8_t> buffer;
     buffer.Push(bytes.front());
-    handler->StreamDataRecv(0, std::move(buffer));
+    handler->StreamDataRecv(0, { std::move(buffer), {} });
 
     for (auto it = std::next(bytes.begin()); it != bytes.end(); ++it) {
         handler->StreamDataRecv(0, std::make_shared<std::vector<uint8_t>>(1, *it));
