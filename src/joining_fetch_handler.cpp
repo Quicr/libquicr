@@ -33,9 +33,14 @@ namespace quicr {
                 continue;
             }
 
-            QUICR_TRACE("Received fetch_object subscribe_id: {} priority: {} "
+            const auto resolved = serialization_state_.Decode(std::move(obj));
+            if (!resolved.has_value()) {
+                stream.buffer.ResetAnyB();
+                continue;
+            }
+
+            QUICR_TRACE("Received fetch_object priority: {} "
                         "group_id: {} subgroup_id: {} object_id: {} data size: {}",
-                        *GetSubscribeId(),
                         *resolved->headers.priority,
                         resolved->headers.group_id,
                         resolved->headers.subgroup_id,

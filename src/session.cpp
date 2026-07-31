@@ -2000,7 +2000,7 @@ namespace quicr {
 
                 QUICR_LOGGER_TRACE(logger_,
                                    "Received object datagram conn_id: {} data_ctx_id: {} "
-                                   "track_alias: {} group_id: {4} object_id: {5} data size: {6}",
+                                   "track_alias: {} data size: {}",
                                    current_connection_->GetID(),
                                    (data_ctx_id ? *data_ctx_id : 0),
                                    track_alias,

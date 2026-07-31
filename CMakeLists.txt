@@ -98,7 +98,7 @@ if (HAVE_STD_FORMAT)
     " VFORMAT_COMPILES)
 endif()
 
-if (NOT HAS_STD_FORMAT OR NOT VFORMAT_COMPILES)
+if (NOT VFORMAT_COMPILES)
     CPMAddPackage("gh:fmtlib/fmt#12.2.0")
 endif()
 

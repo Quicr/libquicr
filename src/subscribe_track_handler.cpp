@@ -79,10 +79,10 @@ namespace quicr {
 
             QUICR_TRACE("Received stream_subgroup_object priority: {} track_alias: {} "
                         "group: {} subgroup: {} object: {} data size: {} type: {}",
-                        s_hdr.priority,
+                        s_hdr.priority.value_or(-1),
                         s_hdr.track_alias,
                         s_hdr.group_id,
-                        s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,
+                        s_hdr.subgroup_id.value_or(-1),
                         obj.object_delta,
                         obj.payload.size(),
                         static_cast<int>(obj.object_status));
@@ -172,11 +172,7 @@ namespace quicr {
         // Data.
         messages::ObjectDatagram msg;
         if (dgram_buffer_ >> msg) {
-            QUICR_TRACE("Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
-                        "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
-                        conn_id,
-                        (data_ctx_id ? *data_ctx_id : 0),
-                        msg.subscribe_id,
+            QUICR_TRACE("Received object datagram (track_alias={}, group_id={}, object_id={}, data size={})",
                         msg.track_alias,
                         msg.group_id,
                         msg.object_id,
