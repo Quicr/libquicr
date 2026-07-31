@@ -68,6 +68,7 @@ namespace quicr {
 #define QUICR_LOG_WARN 3
 #define QUICR_LOG_ERROR 4
 #define QUICR_LOG_CRITICAL 5
+#define QUICR_LOG_OFF 6
 
 #ifndef QUICR_ACTIVE_LOG_LEVEL
 #ifdef NDEBUG
