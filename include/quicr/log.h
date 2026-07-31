@@ -5,7 +5,7 @@
 #include <format>
 namespace std_or_fmt = std;
 #else
-#include <fmt/core.h>
+#include <fmt/format.h>
 namespace std_or_fmt = fmt;
 #endif
 #include <memory>
