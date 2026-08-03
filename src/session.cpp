@@ -308,7 +308,9 @@ namespace quicr {
 
     Session::Status Session::StopTransport()
     {
-        return Status();
+        quic_transport_.reset();
+        status_ = Status::kNotReady;
+        return status_;
     }
 
     uint64_t Session::RequestTrackStatus(std::uint64_t connection_id,
