@@ -859,6 +859,7 @@ namespace quicr {
     }
 
     void Session::SendFetch(ConnectionContext& conn_ctx,
+                            uint64_t data_ctx_id,
                             uint64_t request_id,
                             const FullTrackName& tfn,
                             std::uint8_t priority,
@@ -880,7 +881,7 @@ namespace quicr {
                         .AddOptional(ParameterType::kGroupOrder, group_order);
 
         SendCtrlMsg(conn_ctx,
-                    conn_ctx.tx_ctrl_data_ctx_id.value(),
+                    data_ctx_id,
                     ControlMessageType::kFetch,
                     UintVar(request_id),
                     messages::FetchType::kStandalone,
@@ -895,6 +896,7 @@ namespace quicr {
     }
 
     void Session::SendJoiningFetch(ConnectionContext& conn_ctx,
+                                   uint64_t data_ctx_id,
                                    uint64_t request_id,
                                    std::uint8_t priority,
                                    std::optional<messages::GroupOrder> group_order,
@@ -912,7 +914,7 @@ namespace quicr {
                         .AddOptional(ParameterType::kGroupOrder, group_order);
 
         SendCtrlMsg(conn_ctx,
-                    conn_ctx.tx_ctrl_data_ctx_id.value(),
+                    data_ctx_id,
                     ControlMessageType::kFetch,
                     UintVar(request_id),
                     absolute ? FetchType::kAbsoluteJoiningFetch : FetchType::kRelativeJoiningFetch,
@@ -925,7 +927,7 @@ namespace quicr {
     }
 
     void Session::SendFetchOk(ConnectionContext& conn_ctx,
-                              uint64_t request_id,
+                              uint64_t data_ctx_id,
                               GroupOrder publisher_default_group_order,
                               bool end_of_track,
                               Location largest_location)
@@ -940,14 +942,8 @@ namespace quicr {
                             .Add(ExtensionType::kDefaultPublisherPriority, 1)
                             .Add(ExtensionType::kDynamicGroups, true);
 
-        SendCtrlMsg(conn_ctx,
-                    conn_ctx.tx_ctrl_data_ctx_id.value(),
-                    ControlMessageType::kFetchOk,
-                    UintVar(request_id),
-                    end_of_track,
-                    largest_location,
-                    params,
-                    extensions);
+        SendCtrlMsg(
+          conn_ctx, data_ctx_id, ControlMessageType::kFetchOk, end_of_track, largest_location, params, extensions);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchOk (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -1044,8 +1040,16 @@ namespace quicr {
                                    th.track_fullname_hash,
                                    fetch_rid,
                                    *track_handler->GetRequestId());
-                conn_it->second.request_handlers[fetch_rid] = std::move(joining_fetch_handler);
+                joining_fetch_handler->SetRequestId(fetch_rid);
+                joining_fetch_handler->SetConnectionId(conn_id);
+                joining_fetch_handler->SetTransport(GetSharedPtr());
+                const auto data_ctx_id = quic_transport_->CreateDataContext(conn_id, true, 0, true);
+                joining_fetch_handler->SetDataContextId(data_ctx_id);
+                joining_fetch_handler->SetRequestStreamId(quic_transport_->CreateStream(conn_id, data_ctx_id, 0));
+                conn_it->second.request_id_by_data_ctx[data_ctx_id] = fetch_rid;
+                conn_it->second.request_handlers[fetch_rid] = joining_fetch_handler;
                 SendJoiningFetch(conn_it->second,
+                                 data_ctx_id,
                                  fetch_rid,
                                  info.priority,
                                  info.group_order,
@@ -1625,6 +1629,8 @@ namespace quicr {
         }
 
         track_handler->SetRequestId(conn_it->second.GetNextRequestId());
+        track_handler->SetConnectionId(connection_id);
+        track_handler->SetTransport(GetSharedPtr());
 
         SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {}", *track_handler->GetRequestId());
 
@@ -1638,7 +1644,12 @@ namespace quicr {
         const auto request_id = *track_handler->GetRequestId();
         conn_it->second.request_handlers[*track_handler->GetRequestId()] = track_handler;
 
-        SendFetch(conn_it->second, request_id, tfn, priority, group_order, start_location, end_location);
+        const auto data_ctx_id = quic_transport_->CreateDataContext(connection_id, true, 0, true);
+        track_handler->SetDataContextId(data_ctx_id);
+        track_handler->SetRequestStreamId(quic_transport_->CreateStream(connection_id, data_ctx_id, 0));
+        conn_it->second.request_id_by_data_ctx[data_ctx_id] = request_id;
+
+        SendFetch(conn_it->second, data_ctx_id, request_id, tfn, priority, group_order, start_location, end_location);
     }
 
     void Session::CancelFetchTrack(std::uint64_t connection_id, std::shared_ptr<FetchTrackHandler> track_handler)
@@ -2631,7 +2642,7 @@ namespace quicr {
 
     void Session::ResolveFetch(std::uint64_t connection_id,
                                uint64_t request_id,
-                               std::uint8_t priority,
+                               [[maybe_unused]] std::uint8_t priority,
                                std::optional<messages::GroupOrder> group_order,
                                const FetchResponse& response)
     {
@@ -2642,12 +2653,22 @@ namespace quicr {
             return;
         }
 
+        const auto request_it = conn_it->second.recv_req_id.find(request_id);
+        if (request_it == conn_it->second.recv_req_id.end() || request_it->second.data_ctx_id == 0) {
+            SPDLOG_LOGGER_ERROR(logger_,
+                                "Cannot resolve FETCH without its request stream conn_id: {} request_id: {}",
+                                connection_id,
+                                request_id);
+            return;
+        }
+        const auto data_ctx_id = request_it->second.data_ctx_id;
+
         switch (response.reason_code) {
             case FetchResponse::ReasonCode::kOk:
                 SendFetchOk(conn_it->second,
-                            request_id,
+                            data_ctx_id,
                             response.publisher_default_group_order,
-                            priority,
+                            false,
                             response.largest_location.value());
                 return;
 
@@ -2658,8 +2679,6 @@ namespace quicr {
             default:
                 break;
         }
-
-        const auto data_ctx_id = ResponseDataContext(conn_it->second, request_id);
 
         SendRequestError(conn_it->second,
                          data_ctx_id,
@@ -3445,11 +3464,20 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kFetchOk: {
-                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 [[maybe_unused]] const auto end_of_track = messages::Message::ParseField<std::uint8_t>(msg_bytes);
                 const auto end_location = messages::Message::ParseField<messages::Location>(msg_bytes);
                 [[maybe_unused]] const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
+
+                const auto request_it = conn_ctx.request_id_by_data_ctx.find(data_ctx_id);
+                if (request_it == conn_ctx.request_id_by_data_ctx.end()) {
+                    SPDLOG_LOGGER_WARN(logger_,
+                                       "Received FETCH_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
+                                       conn_ctx.connection_id,
+                                       data_ctx_id);
+                    return true;
+                }
+                const auto request_id = request_it->second;
 
                 auto fetch_it = conn_ctx.request_handlers.find(request_id);
                 if (fetch_it == conn_ctx.request_handlers.end()) {
@@ -3487,6 +3515,14 @@ namespace quicr {
                         const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                         FullTrackName tfn{ track_namespace, track_name };
+                        const auto th = TrackHash(tfn);
+
+                        conn_ctx.recv_req_id[request_id] = {
+                            .track_full_name = tfn,
+                            .track_hash = th,
+                            .data_ctx_id = data_ctx_id,
+                        };
+                        conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
 
                         messages::FetchEndLocation end_location;
                         end_location.group = end.group;
@@ -3531,6 +3567,14 @@ namespace quicr {
                         }
 
                         FullTrackName tfn = subscribe_state->second.track_full_name;
+                        const auto th = TrackHash(tfn);
+
+                        conn_ctx.recv_req_id[request_id] = {
+                            .track_full_name = tfn,
+                            .track_hash = th,
+                            .data_ctx_id = data_ctx_id,
+                        };
+                        conn_ctx.request_id_by_data_ctx[data_ctx_id] = request_id;
 
                         auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                         auto group_order =
