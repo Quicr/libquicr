@@ -22,9 +22,9 @@ namespace quicr {
          */
         FetchTrackHandler(const FullTrackName& full_track_name,
                           const std::uint8_t priority,
-                          const std::optional<messages::GroupOrder> group_order,
                           const messages::Location& start_location,
-                          const messages::FetchEndLocation& end_location)
+                          const messages::FetchEndLocation& end_location,
+                          const messages::GroupOrder group_order = messages::GroupOrder::kAscending)
           : SubscribeTrackHandler(full_track_name,
                                   priority,
                                   group_order,
@@ -34,6 +34,7 @@ namespace quicr {
                                   })
           , start_location_(start_location)
           , end_location_(end_location)
+          , serialization_state_(group_order)
         {
             is_fetch_handler_ = true;
         }
@@ -50,14 +51,15 @@ namespace quicr {
          *
          * @returns Shared pointer to a Fetch track handler.
          */
-        static std::shared_ptr<FetchTrackHandler> Create(const FullTrackName& full_track_name,
-                                                         const std::uint8_t priority,
-                                                         const std::optional<messages::GroupOrder> group_order,
-                                                         const messages::Location& start_location,
-                                                         const messages::FetchEndLocation& end_location)
+        static std::shared_ptr<FetchTrackHandler> Create(
+          const FullTrackName& full_track_name,
+          const std::uint8_t priority,
+          const messages::Location& start_location,
+          const messages::FetchEndLocation& end_location,
+          const messages::GroupOrder group_order = messages::GroupOrder::kAscending)
         {
             return std::shared_ptr<FetchTrackHandler>(
-              new FetchTrackHandler(full_track_name, priority, group_order, start_location, end_location));
+              new FetchTrackHandler(full_track_name, priority, start_location, end_location, group_order));
         }
 
         /**
@@ -78,6 +80,7 @@ namespace quicr {
       private:
         messages::Location start_location_;
         messages::FetchEndLocation end_location_;
+        messages::FetchObjectSerializationState serialization_state_;
 
         friend class Session;
     };

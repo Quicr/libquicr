@@ -10,6 +10,7 @@ namespace quicr {
     {
         if (not stream.buffer.AnyHasValue()) {
             stream.buffer.InitAny<messages::FetchHeader>();
+            serialization_state_ = messages::FetchObjectSerializationState(*GetGroupOrder());
         }
 
         auto& f_hdr = stream.buffer.GetAny<messages::FetchHeader>();
@@ -27,26 +28,22 @@ namespace quicr {
                 return;
             }
 
+            const auto resolved = serialization_state_.Decode(std::move(obj));
+            if (!resolved.has_value()) {
+                stream.buffer.ResetAnyB();
+                continue;
+            }
+
             SPDLOG_TRACE("Received fetch_object subscribe_id: {} priority: {} "
                          "group_id: {} subgroup_id: {} object_id: {} data size: {}",
                          *GetSubscribeId(),
-                         obj.publisher_priority,
-                         obj.group_id,
-                         obj.subgroup_id,
-                         obj.object_id,
-                         obj.payload.size());
+                         *resolved->headers.priority,
+                         resolved->headers.group_id,
+                         resolved->headers.subgroup_id,
+                         resolved->headers.object_id,
+                         resolved->payload.size());
             try {
-                joining_subscribe_->ObjectReceived({ obj.group_id,
-                                                     obj.object_id,
-                                                     obj.subgroup_id,
-                                                     obj.payload.size(),
-                                                     obj.object_status,
-                                                     obj.publisher_priority,
-                                                     std::nullopt,
-                                                     TrackMode::kStream,
-                                                     std::move(obj.extensions),
-                                                     std::move(obj.immutable_extensions) },
-                                                   obj.payload);
+                joining_subscribe_->ObjectReceived(resolved->headers, resolved->payload);
             } catch (const std::exception& e) {
                 SPDLOG_ERROR("Caught exception trying to receive Joining Fetch object. (error={})", e.what());
             }

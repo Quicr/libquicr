@@ -17,6 +17,7 @@ namespace quicr {
                             uint32_t ttl)
           : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, ttl)
           , group_order_(group_order)
+          , serialization_state_(group_order)
         {
             SetRequestId(subscribe_id);
         }
@@ -39,6 +40,7 @@ namespace quicr {
 
       private:
         messages::GroupOrder group_order_;
+        messages::FetchObjectSerializationState serialization_state_;
         bool sent_first_header_{ false };
         uint64_t stream_id_{ 0 }; /// Stream ID for fetch, set on sent_first_header
     };

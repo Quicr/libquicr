@@ -726,7 +726,7 @@ TEST_CASE("Integration - Fetch")
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
-        const auto handler = FetchTrackHandler::Create(ftn, 0, std::nullopt, { 0, 0 }, { 0, std::nullopt });
+        const auto handler = FetchTrackHandler::Create(ftn, 0, { 0, 0 }, { 0, std::nullopt });
         client->FetchTrack(handler);
 
         REQUIRE(handler->GetDataContextId().has_value());
@@ -756,12 +756,25 @@ TEST_CASE("Integration - Joining Fetch")
         const FullTrackName ftn{ TrackNamespace({ "namespace" }), { 1, 2, 3 } };
         const SubscribeTrackHandler::JoiningFetch joining_fetch{
             .priority = 4,
-            .group_order = messages::GroupOrder::kDescending,
+            .group_order = messages::GroupOrder::kAscending,
             .parameters = {},
             .joining_start = 2,
             .absolute = true,
         };
-        const auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt, std::monostate{}, joining_fetch);
+        const auto handler =
+          TestSubscribeHandler::Create(ftn, 0, messages::GroupOrder::kDescending, std::monostate{}, joining_fetch);
+
+        std::vector<TestServer::FetchResponseData> cached;
+        for (const auto group_id : { 10, 12 }) {
+            TestServer::FetchResponseData response{};
+            response.headers.group_id = group_id;
+            response.headers.object_id = 0;
+            response.headers.priority = 5;
+            response.payload = { static_cast<std::uint8_t>(group_id) };
+            response.headers.payload_length = response.payload.size();
+            cached.push_back(response);
+        }
+        server->SetFetchResponseData(cached);
 
         std::promise<TestServer::SubscribeDetails> subscribe_promise;
         auto subscribe_future = subscribe_promise.get_future();
@@ -785,6 +798,12 @@ TEST_CASE("Integration - Joining Fetch")
         CHECK_EQ(fetch.attributes.group_order, joining_fetch.group_order);
         CHECK_EQ(fetch.attributes.joining_start, joining_fetch.joining_start);
         CHECK_FALSE(fetch.attributes.relative);
+
+        REQUIRE(WaitFor([&handler]() { return handler->GetReceivedCount() == 2; }));
+        const auto objects = handler->GetReceivedObjects();
+        REQUIRE_EQ(objects.size(), 2);
+        CHECK_EQ(objects[0].group_id, 10);
+        CHECK_EQ(objects[1].group_id, 12);
     };
 
     SUBCASE("Raw QUIC")
@@ -828,7 +847,7 @@ TEST_CASE("Integration - Handlers with no transport")
 
     // Fetch.
     {
-        const auto handler = FetchTrackHandler::Create(FullTrackName(), 0, std::nullopt, { 0, 0 }, { 0, std::nullopt });
+        const auto handler = FetchTrackHandler::Create(FullTrackName(), 0, { 0, 0 }, { 0, std::nullopt });
         handler->Pause();
         handler->Resume();
         handler->RequestNewGroup();
@@ -1282,21 +1301,22 @@ class TestFetchTrackHandler final : public FetchTrackHandler
 
     TestFetchTrackHandler(const FullTrackName& full_track_name,
                           const std::uint8_t priority,
-                          const std::optional<messages::GroupOrder> group_order,
                           const messages::Location& start_location,
-                          const messages::FetchEndLocation& end_location)
-      : FetchTrackHandler(full_track_name, priority, group_order, start_location, end_location)
+                          const messages::FetchEndLocation& end_location,
+                          const messages::GroupOrder group_order = messages::GroupOrder::kAscending)
+      : FetchTrackHandler(full_track_name, priority, start_location, end_location, group_order)
     {
     }
 
-    static std::shared_ptr<TestFetchTrackHandler> Create(const FullTrackName& full_track_name,
-                                                         const std::uint8_t priority,
-                                                         const std::optional<messages::GroupOrder> group_order,
-                                                         const messages::Location& start_location,
-                                                         const messages::FetchEndLocation& end_location)
+    static std::shared_ptr<TestFetchTrackHandler> Create(
+      const FullTrackName& full_track_name,
+      const std::uint8_t priority,
+      const messages::Location& start_location,
+      const messages::FetchEndLocation& end_location,
+      const messages::GroupOrder group_order = messages::GroupOrder::kAscending)
     {
         return std::make_shared<TestFetchTrackHandler>(
-          full_track_name, priority, group_order, start_location, end_location);
+          full_track_name, priority, start_location, end_location, group_order);
     }
 
     void ObjectReceived(const ObjectHeaders& headers,
@@ -1335,26 +1355,49 @@ TEST_CASE("Integration - Fetch object roundtrip")
         ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "namespace" });
         ftn.name = { 1, 2, 3 };
 
-        // Set up test data with specific values for all fields
-        std::vector<TestServer::FetchResponseData> cached;
-        constexpr std::uint64_t fetch_group = 100;
-        constexpr std::uint64_t max_object = 100;
-        for (std::uint64_t object = 0; object <= max_object; object++) {
-            TestServer::FetchResponseData response_data{};
-            response_data.headers.group_id = fetch_group;
-            response_data.headers.subgroup_id = 0;
-            response_data.headers.object_id = object;
-            response_data.headers.status = ObjectStatus::kAvailable;
-            response_data.headers.priority = 5;
-            response_data.payload = { static_cast<uint8_t>(object) };
-            response_data.headers.payload_length = response_data.payload.size();
-            cached.push_back(response_data);
-        }
+        std::vector<TestServer::FetchResponseData> cached(6);
+        cached[0].headers = { .group_id = 100,
+                              .object_id = 0,
+                              .subgroup_id = 0,
+                              .payload_length = 1,
+                              .priority = 5,
+                              .track_mode = TrackMode::kStream };
+        cached[0].payload = { 0 };
+        cached[1].headers = cached[0].headers;
+        cached[1].headers.object_id = 1;
+        cached[1].payload = { 1 };
+        cached[2].headers = { .group_id = 100,
+                              .object_id = 3,
+                              .subgroup_id = 1,
+                              .payload_length = 0,
+                              .priority = 7,
+                              .track_mode = TrackMode::kStream };
+        cached[3].headers = { .group_id = 102,
+                              .object_id = 0,
+                              .subgroup_id = 1,
+                              .payload_length = 1,
+                              .priority = 7,
+                              .track_mode = TrackMode::kStream };
+        cached[3].payload = { 2 };
+        cached[4].headers = { .group_id = 102,
+                              .object_id = 1,
+                              .subgroup_id = 0,
+                              .payload_length = 1,
+                              .priority = 4,
+                              .track_mode = TrackMode::kDatagram };
+        cached[4].payload = { 3 };
+        cached[5].headers = { .group_id = 103,
+                              .object_id = 0,
+                              .subgroup_id = 3,
+                              .payload_length = 1,
+                              .priority = 4,
+                              .track_mode = TrackMode::kStream,
+                              .extensions = Extensions{ { 1, { { 0xAA } } } } };
+        cached[5].payload = { 4 };
 
         server->SetFetchResponseData(cached);
 
-        auto fetch_handler =
-          TestFetchTrackHandler::Create(ftn, 0, std::nullopt, { fetch_group, 0 }, { fetch_group, std::nullopt });
+        auto fetch_handler = TestFetchTrackHandler::Create(ftn, 0, { 100, 0 }, { 103, std::nullopt });
 
         client->FetchTrack(fetch_handler);
 
@@ -1368,14 +1411,19 @@ TEST_CASE("Integration - Fetch object roundtrip")
         REQUIRE_EQ(fetch_handler->GetReceivedCount(), expected_count);
         REQUIRE(all_received);
 
-        // Verify each object's payload matches its object_id
         const auto received_objects = fetch_handler->GetReceivedObjects();
         CHECK_EQ(received_objects.size(), expected_count);
-        for (const auto& received : received_objects) {
-            CHECK_EQ(received.headers.group_id, fetch_group);
-            CHECK_EQ(received.headers.subgroup_id, 0);
-            const std::vector expected_payload = { static_cast<uint8_t>(received.headers.object_id) };
-            CHECK_EQ(received.payload, expected_payload);
+        for (std::size_t i = 0; i < received_objects.size(); ++i) {
+            const auto& received = received_objects[i];
+            const auto& expected = cached[i];
+            CHECK_EQ(received.headers.group_id, expected.headers.group_id);
+            CHECK_EQ(received.headers.subgroup_id, expected.headers.subgroup_id);
+            CHECK_EQ(received.headers.object_id, expected.headers.object_id);
+            CHECK_EQ(received.headers.status, ObjectStatus::kAvailable);
+            CHECK_EQ(received.headers.priority, expected.headers.priority);
+            CHECK_EQ(received.headers.track_mode, expected.headers.track_mode);
+            CHECK_EQ(received.headers.extensions, expected.headers.extensions);
+            CHECK_EQ(received.payload, expected.payload);
         }
     };
 

@@ -19,6 +19,9 @@ namespace quicr {
 
         bool is_stream_header_needed{ !sent_first_header_ };
         sent_first_header_ = true;
+        if (is_stream_header_needed) {
+            serialization_state_ = messages::FetchObjectSerializationState(group_order_);
+        }
 
         const auto request_id = GetRequestId();
         if (!request_id.has_value()) {
@@ -27,8 +30,6 @@ namespace quicr {
 
         ITransport::EnqueueFlags eflags;
 
-        std::uint64_t group_id = object_headers.group_id;
-        std::uint64_t object_id = object_headers.object_id;
         std::uint16_t ttl = object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_;
         std::uint8_t priority =
           object_headers.priority.has_value() ? object_headers.priority.value() : default_priority_;
@@ -68,14 +69,8 @@ namespace quicr {
             }
         }
 
-        messages::FetchObject object{};
-        object.group_id = group_id;
-        object.subgroup_id = object_headers.subgroup_id;
-        object.object_id = object_id;
-        object.publisher_priority = priority;
-        object.extensions = object_headers.extensions;
-        object.immutable_extensions = object_headers.immutable_extensions;
-        object.payload.assign(data.begin(), data.end());
+        auto next_serialization_state = serialization_state_;
+        auto object = next_serialization_state.Encode(object_headers, priority, data);
         object_msg_buffer_ << object;
 
         auto result = transport->Enqueue(
@@ -91,6 +86,7 @@ namespace quicr {
         if (result != TransportError::kNone) {
             throw TransportException(result);
         }
+        serialization_state_ = std::move(next_serialization_state);
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }

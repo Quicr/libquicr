@@ -14,11 +14,13 @@ namespace quicr {
     class JoiningFetchHandler : public SubscribeTrackHandler
     {
       public:
-        explicit JoiningFetchHandler(std::shared_ptr<SubscribeTrackHandler> joining_subscribe)
+        explicit JoiningFetchHandler(std::shared_ptr<SubscribeTrackHandler> joining_subscribe,
+                                     messages::GroupOrder group_order = messages::GroupOrder::kAscending)
           : SubscribeTrackHandler(joining_subscribe->GetFullTrackName(),
                                   joining_subscribe->GetPriority(),
-                                  joining_subscribe->GetGroupOrder(),
+                                  group_order,
                                   joining_subscribe->GetFilter())
+          , serialization_state_(group_order)
           , joining_subscribe_(std::move(joining_subscribe))
         {
         }
@@ -27,6 +29,7 @@ namespace quicr {
         void TryParseStreamBufferData(StreamContext& stream) override;
 
       private:
+        messages::FetchObjectSerializationState serialization_state_;
         std::shared_ptr<SubscribeTrackHandler> joining_subscribe_;
     };
 

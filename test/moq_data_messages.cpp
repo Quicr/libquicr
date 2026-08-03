@@ -590,32 +590,34 @@ FetchStreamEncodeDecode(ExtensionTest extensions, bool empty_payload)
 
     // stream all the objects
     buffer.clear();
-    auto objects = std::vector<messages::FetchObject>{};
-    // send 10 objects
-    for (size_t i = 0; i < 10; i++) {
-        auto obj = messages::FetchObject{};
-        obj.group_id = 0x1234;
-        obj.subgroup_id = 0x5678;
-        obj.object_id = 0x9012;
-        obj.publisher_priority = 127;
+    std::vector<ObjectHeaders> expected_headers;
+    std::vector<Bytes> expected_payloads;
+    FetchObjectSerializationState send_state(GroupOrder::kAscending);
+    FetchObjectSerializationState receive_state(GroupOrder::kAscending);
 
-        if (empty_payload) {
-            obj.object_status = ObjectStatus::kDoesNotExist;
-        } else {
-            obj.payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
+    for (size_t i = 0; i < 10; i++) {
+        ObjectHeaders headers{};
+        headers.group_id = 0x1234;
+        headers.subgroup_id = 0x5678;
+        headers.object_id = 0x9012 + i;
+        headers.priority = 127;
+        headers.track_mode = TrackMode::kStream;
+        Bytes payload;
+        if (!empty_payload) {
+            payload = { 0x1, 0x2, 0x3, 0x4, 0x5 };
         }
+        headers.payload_length = payload.size();
 
         if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kMutable) {
-            obj.extensions = kOptionalExtensions;
-        } else {
-            obj.extensions = std::nullopt;
+            headers.extensions = kOptionalExtensions;
         }
         if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable) {
-            obj.immutable_extensions = kOptionalExtensions;
-        } else {
-            obj.immutable_extensions = std::nullopt;
+            headers.immutable_extensions = kOptionalExtensions;
         }
-        objects.push_back(obj);
+
+        const auto obj = send_state.Encode(headers, *headers.priority, BytesSpan(payload));
+        expected_headers.push_back(headers);
+        expected_payloads.push_back(payload);
         buffer << obj;
     }
 
@@ -628,27 +630,27 @@ FetchStreamEncodeDecode(ExtensionTest extensions, bool empty_payload)
         if (!done) {
             continue;
         }
-        CHECK_EQ(obj_out.group_id, objects[object_count].group_id);
-        CHECK_EQ(obj_out.subgroup_id, objects[object_count].subgroup_id);
-        CHECK_EQ(obj_out.object_id, objects[object_count].object_id);
-        CHECK_EQ(obj_out.publisher_priority, objects[object_count].publisher_priority);
-        if (empty_payload) {
-            CHECK_EQ(obj_out.object_status, objects[object_count].object_status);
-        } else {
-            CHECK(obj_out.payload.size() > 0);
-            CHECK_EQ(obj_out.payload, objects[object_count].payload);
-        }
-        CompareExtensions(objects[object_count].extensions,
-                          obj_out.extensions,
+        const auto decoded = receive_state.Decode(std::move(obj_out));
+        REQUIRE(decoded.has_value());
+        CHECK_EQ(decoded->headers.group_id, expected_headers[object_count].group_id);
+        CHECK_EQ(decoded->headers.subgroup_id, expected_headers[object_count].subgroup_id);
+        CHECK_EQ(decoded->headers.object_id, expected_headers[object_count].object_id);
+        CHECK_EQ(decoded->headers.priority, expected_headers[object_count].priority);
+        CHECK_EQ(decoded->headers.status, ObjectStatus::kAvailable);
+        CHECK_EQ(decoded->headers.payload_length, expected_headers[object_count].payload_length);
+        CHECK_EQ(decoded->payload, expected_payloads[object_count]);
+        CompareExtensions(expected_headers[object_count].extensions,
+                          decoded->headers.extensions,
                           extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kImmutable);
-        CHECK_EQ(obj_out.immutable_extensions, objects[object_count].immutable_extensions);
-        // got one object
+        CHECK_EQ(decoded->headers.immutable_extensions, expected_headers[object_count].immutable_extensions);
+
         object_count++;
         obj_out = {};
         in_buffer.Pop(in_buffer.Size());
     }
 
-    CHECK_EQ(object_count, objects.size());
+    CHECK_EQ(object_count, expected_headers.size());
+    CHECK_EQ(object_count, expected_payloads.size());
 }
 
 TEST_CASE("Fetch Stream Message encode/decode")
@@ -657,6 +659,201 @@ TEST_CASE("Fetch Stream Message encode/decode")
          { ExtensionTest::kNone, ExtensionTest::kMutable, ExtensionTest::kImmutable, ExtensionTest::kBoth }) {
         FetchStreamEncodeDecode(ext, true);
         FetchStreamEncodeDecode(ext, false);
+    }
+}
+
+TEST_CASE("Fetch object group deltas follow group order")
+{
+    const auto check_group_transition =
+      [](const GroupOrder group_order, const std::uint64_t first_group, const std::uint64_t second_group) {
+          FetchObjectSerializationState send_state(group_order);
+          FetchObjectSerializationState receive_state(group_order);
+
+          ObjectHeaders first{};
+          first.group_id = first_group;
+          first.subgroup_id = 4;
+          first.object_id = 7;
+          first.priority = 9;
+          first.track_mode = TrackMode::kStream;
+          auto first_object = send_state.Encode(first, *first.priority, {});
+          const auto first_decoded = receive_state.Decode(std::move(first_object));
+          REQUIRE(first_decoded.has_value());
+          CHECK_EQ(first_decoded->headers.group_id, first.group_id);
+          CHECK_EQ(first_decoded->headers.object_id, first.object_id);
+
+          ObjectHeaders second = first;
+          second.group_id = second_group;
+          second.object_id = 0;
+          auto second_object = send_state.Encode(second, *second.priority, {});
+          REQUIRE(second_object.group_id_delta.has_value());
+          CHECK_EQ(*second_object.group_id_delta, 1);
+          REQUIRE(second_object.object_id_delta.has_value());
+          CHECK_EQ(*second_object.object_id_delta, second.object_id);
+
+          const auto second_decoded = receive_state.Decode(std::move(second_object));
+          REQUIRE(second_decoded.has_value());
+          CHECK_EQ(second_decoded->headers.group_id, second.group_id);
+          CHECK_EQ(second_decoded->headers.object_id, second.object_id);
+      };
+
+    SUBCASE("Ascending")
+    {
+        check_group_transition(GroupOrder::kAscending, 10, 12);
+    }
+    SUBCASE("Descending")
+    {
+        check_group_transition(GroupOrder::kDescending, 12, 10);
+    }
+}
+
+TEST_CASE("Fetch object preserves datagram forwarding preference")
+{
+    FetchObjectSerializationState send_state(GroupOrder::kAscending);
+    FetchObjectSerializationState receive_state(GroupOrder::kAscending);
+    ObjectHeaders headers{};
+    headers.group_id = 3;
+    headers.object_id = 5;
+    headers.priority = 7;
+    headers.track_mode = TrackMode::kDatagram;
+    const Bytes payload{ 1, 2, 3 };
+
+    auto object = send_state.Encode(headers, *headers.priority, BytesSpan(payload));
+    REQUIRE(object.properties.has_value());
+    CHECK(object.properties->datagram);
+    CHECK_FALSE(object.subgroup_id.has_value());
+
+    const auto decoded = receive_state.Decode(std::move(object));
+    REQUIRE(decoded.has_value());
+    CHECK_EQ(decoded->headers.group_id, headers.group_id);
+    CHECK_EQ(decoded->headers.object_id, headers.object_id);
+    CHECK_EQ(decoded->headers.track_mode, TrackMode::kDatagram);
+}
+
+TEST_CASE("Fetch end-of-range updates prior location only")
+{
+    FetchObjectSerializationState send_state(GroupOrder::kAscending);
+    FetchObjectSerializationState receive_state(GroupOrder::kAscending);
+    ObjectHeaders first{};
+    first.group_id = 10;
+    first.subgroup_id = 4;
+    first.object_id = 7;
+    first.priority = 9;
+    first.track_mode = TrackMode::kStream;
+    auto first_object = send_state.Encode(first, *first.priority, {});
+    REQUIRE(receive_state.Decode(std::move(first_object)).has_value());
+
+    FetchObject marker{};
+    marker.properties.emplace(FetchSerializationProperties::kEndOfNonExistentRange);
+    marker.group_id_delta = 20;
+    marker.object_id_delta = 8;
+    Bytes marker_buffer;
+    marker_buffer << marker;
+    StreamBuffer<uint8_t> marker_stream;
+    marker_stream.Push(marker_buffer);
+    FetchObject decoded_marker{};
+    const bool marker_decoded = marker_stream >> decoded_marker;
+    REQUIRE(marker_decoded);
+    CHECK_FALSE(receive_state.Decode(std::move(decoded_marker)).has_value());
+
+    FetchObject next{};
+    next.properties.emplace(FetchSerializationProperties::SubgroupIdMode::kPrior, false, false, false, false, false);
+    const auto decoded = receive_state.Decode(std::move(next));
+    REQUIRE(decoded.has_value());
+    CHECK_EQ(decoded->headers.group_id, 20);
+    CHECK_EQ(decoded->headers.object_id, 9);
+    CHECK_EQ(decoded->headers.subgroup_id, first.subgroup_id);
+    CHECK_EQ(decoded->headers.priority, first.priority);
+}
+
+TEST_CASE("Fetch object rejects missing prior fields")
+{
+    FetchObject object{};
+
+    SUBCASE("Group ID")
+    {
+        object.properties.emplace(FetchSerializationProperties::SubgroupIdMode::kZero, true, false, true, false, false);
+        object.object_id_delta = 0;
+        object.publisher_priority = 1;
+    }
+    SUBCASE("Object ID")
+    {
+        object.properties.emplace(FetchSerializationProperties::SubgroupIdMode::kZero, false, true, true, false, false);
+        object.group_id_delta = 0;
+        object.publisher_priority = 1;
+    }
+    SUBCASE("Subgroup ID")
+    {
+        object.properties.emplace(FetchSerializationProperties::SubgroupIdMode::kPrior, true, true, true, false, false);
+        object.group_id_delta = 0;
+        object.object_id_delta = 0;
+        object.publisher_priority = 1;
+    }
+    SUBCASE("Publisher Priority")
+    {
+        object.properties.emplace(FetchSerializationProperties::SubgroupIdMode::kZero, true, true, false, false, false);
+        object.group_id_delta = 0;
+        object.object_id_delta = 0;
+    }
+
+    FetchObjectSerializationState state(GroupOrder::kAscending);
+    CHECK_THROWS_AS(state.Decode(std::move(object)), ProtocolViolationException);
+}
+
+TEST_CASE("Fetch object rejects invalid flags and delta overflow")
+{
+    SUBCASE("Undefined serialization value")
+    {
+        CHECK_THROWS_AS(FetchSerializationProperties(0x80), ProtocolViolationException);
+    }
+    SUBCASE("Object ID overflow")
+    {
+        FetchObjectSerializationState state(GroupOrder::kAscending);
+        FetchObject first{};
+        first.properties.emplace(FetchSerializationProperties::SubgroupIdMode::kZero, true, true, true, false, false);
+        first.group_id_delta = 0;
+        first.object_id_delta = 1;
+        first.publisher_priority = 1;
+        REQUIRE(state.Decode(std::move(first)).has_value());
+
+        FetchObject overflow{};
+        overflow.properties.emplace(
+          FetchSerializationProperties::SubgroupIdMode::kZero, true, false, false, false, false);
+        overflow.object_id_delta = std::numeric_limits<std::uint64_t>::max();
+        CHECK_THROWS_AS(state.Decode(std::move(overflow)), ProtocolViolationException);
+    }
+    SUBCASE("Ascending Group ID overflow")
+    {
+        FetchObjectSerializationState state(GroupOrder::kAscending);
+        FetchObject first{};
+        first.properties.emplace(FetchSerializationProperties::SubgroupIdMode::kZero, true, true, true, false, false);
+        first.group_id_delta = std::numeric_limits<std::uint64_t>::max() - 1;
+        first.object_id_delta = 0;
+        first.publisher_priority = 1;
+        REQUIRE(state.Decode(std::move(first)).has_value());
+
+        FetchObject overflow{};
+        overflow.properties.emplace(
+          FetchSerializationProperties::SubgroupIdMode::kZero, true, true, false, false, false);
+        overflow.group_id_delta = 1;
+        overflow.object_id_delta = 0;
+        CHECK_THROWS_AS(state.Decode(std::move(overflow)), ProtocolViolationException);
+    }
+    SUBCASE("Descending Group ID underflow")
+    {
+        FetchObjectSerializationState state(GroupOrder::kDescending);
+        FetchObject first{};
+        first.properties.emplace(FetchSerializationProperties::SubgroupIdMode::kZero, true, true, true, false, false);
+        first.group_id_delta = 1;
+        first.object_id_delta = 0;
+        first.publisher_priority = 1;
+        REQUIRE(state.Decode(std::move(first)).has_value());
+
+        FetchObject underflow{};
+        underflow.properties.emplace(
+          FetchSerializationProperties::SubgroupIdMode::kZero, true, true, false, false, false);
+        underflow.group_id_delta = 1;
+        underflow.object_id_delta = 0;
+        CHECK_THROWS_AS(state.Decode(std::move(underflow)), ProtocolViolationException);
     }
 }
 
@@ -731,13 +928,15 @@ TEST_CASE("Immutable Extensions Nesting")
     };
 
     FetchObject msg;
-    msg.group_id = 1;
-    msg.subgroup_id = 2;
-    msg.object_id = 3;
-    msg.publisher_priority = 4;
-    msg.immutable_extensions = nested_immutable;
-    msg.payload_len = 0;
-    msg.object_status = ObjectStatus::kAvailable;
+    ObjectHeaders headers{};
+    headers.group_id = 1;
+    headers.subgroup_id = 2;
+    headers.object_id = 3;
+    headers.priority = 4;
+    headers.track_mode = TrackMode::kStream;
+    headers.immutable_extensions = nested_immutable;
+    FetchObjectSerializationState state(GroupOrder::kAscending);
+    msg = state.Encode(headers, *headers.priority, {});
 
     // Serialization should throw ProtocolViolationException
     Bytes buffer;

@@ -401,7 +401,7 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
     MyFetchTrackHandler(const quicr::FullTrackName& full_track_name,
                         quicr::messages::Location start_location,
                         quicr::messages::FetchEndLocation end_location)
-      : FetchTrackHandler(full_track_name, 3, quicr::messages::GroupOrder::kAscending, start_location, end_location)
+      : FetchTrackHandler(full_track_name, 3, start_location, end_location)
     {
     }
 
