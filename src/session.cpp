@@ -35,9 +35,11 @@ namespace quicr {
         }
 
         /**
-         * Try parse uintvar from the front of the span, incrementing past on success.
-         * @param data Span to parse from.
-         * @return Extracted uintvar value, if any.
+         * @brief Try to decode a uintvar from the front of a span, advancing past it on success.
+         *
+         * @param data Span to decode from, advanced past the value when one is decoded.
+         *
+         * @return Decoded value, or nullopt when the span holds fewer bytes than the value needs.
          */
         std::optional<std::uint64_t> TryDecodeUintV(BytesSpan& data) noexcept
         {
@@ -1917,21 +1919,22 @@ namespace quicr {
                     const auto resolved_msg_type = static_cast<ControlMessageType>(*message_type);
 
                     // Payload length.
-                    if (cursor.size() < sizeof(std::uint16_t)) {
+                    std::uint16_t payload_len;
+                    if (cursor.size() < sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
                         break;
                     }
-                    std::uint16_t payload_len;
                     std::memcpy(&payload_len, cursor.data(), sizeof(payload_len));
                     payload_len = SwapBytes(payload_len);
+                    cursor = cursor.subspan(sizeof(payload_len));
 
                     // Payload.
-                    cursor = cursor.subspan(sizeof(payload_len));
                     if (cursor.size() < payload_len) {
                         i = kReadLoopMaxPerStream - 4;
                         break;
                     }
                     const auto payload = cursor.first(payload_len);
+                    // Consume completed message.
                     const auto message_size = message_data.size() - cursor.size() + payload_len;
 
                     bool processed = false;
@@ -2067,8 +2070,12 @@ namespace quicr {
     {
         SPDLOG_LOGGER_DEBUG(logger_, "Stream {} closed", stream_id);
 
-        if (const auto conn_it = connections_.find(connection_id); conn_it != connections_.end()) {
-            conn_it->second.stream_buffers.erase(stream_id);
+        {
+            std::lock_guard lock(state_mutex_);
+            const auto conn_it = connections_.find(connection_id);
+            if (conn_it != connections_.end()) {
+                conn_it->second.stream_buffers.erase(stream_id);
+            }
         }
 
         if (data_ctx_id.has_value()) {
@@ -2108,7 +2115,6 @@ namespace quicr {
                             CloseConnection(
                               connection_id, TerminationReason::kProtocolViolation, "Primary control stream FIN");
                         }
-
                         break;
                     case StreamClosedFlag::kReset:
                         if (conn_ctx.tx_ctrl_stream_id.has_value() && conn_ctx.tx_ctrl_stream_id == stream_id) {
