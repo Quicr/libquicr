@@ -1907,18 +1907,18 @@ namespace quicr {
 
                 // Parse control messages out of this stream data.
                 while (!stream_buffer.Empty()) {
-                    const auto message_data = stream_buffer.Data();
-                    auto cursor = message_data;
+                    const auto message_view = stream_buffer.Data();
+                    auto cursor = message_view;
 
                     // Type.
-                    const auto message_type = TryDecodeUintV(cursor);
-                    if (!message_type.has_value()) {
+                    const auto decoded_type = TryDecodeUintV(cursor);
+                    if (!decoded_type.has_value()) {
                         i = kReadLoopMaxPerStream - 4;
                         break;
                     }
-                    const auto resolved_msg_type = static_cast<ControlMessageType>(*message_type);
+                    const auto msg_type = static_cast<ControlMessageType>(*decoded_type);
 
-                    // Payload length.
+                    // Length.
                     std::uint16_t payload_len;
                     if (cursor.size() < sizeof(payload_len)) {
                         i = kReadLoopMaxPerStream - 4;
@@ -1935,22 +1935,22 @@ namespace quicr {
                     }
                     const auto payload = cursor.first(payload_len);
                     // Consume completed message.
-                    const auto message_size = message_data.size() - cursor.size() + payload_len;
+                    const auto message_size = message_view.size() - cursor.size() + payload_len;
 
                     bool processed = false;
                     try {
                         if (is_control_stream) {
-                            processed = ProcessCtrlMessage(conn_ctx, resolved_msg_type, payload);
+                            processed = ProcessCtrlMessage(conn_ctx, msg_type, payload);
                         } else if (is_request_stream) {
                             if (!data_ctx_id.has_value()) {
                                 throw std::invalid_argument("Missing data ctx id");
                             }
-                            processed = ProcessRequestMessage(conn_ctx, *data_ctx_id, resolved_msg_type, payload);
+                            processed = ProcessRequestMessage(conn_ctx, *data_ctx_id, msg_type, payload);
                         }
                     } catch (const std::exception& e) {
                         SPDLOG_LOGGER_ERROR(logger_,
                                             "Caught exception trying to process control message. (type={}, error={})",
-                                            static_cast<int>(resolved_msg_type),
+                                            static_cast<int>(msg_type),
                                             e.what());
                         CloseConnection(
                           conn_ctx.connection_id, messages::TerminationReason::kProtocolViolation, e.what());
@@ -1961,10 +1961,10 @@ namespace quicr {
                                         "Control message cannot be parsed");
                     }
 
+                    stream_buffer.Pop(message_size);
                     if (!processed) {
                         conn_ctx.metrics.invalid_ctrl_stream_msg++;
                     }
-                    stream_buffer.Pop(message_size);
                 }
                 continue;
             } // end of control message processing
