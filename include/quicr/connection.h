@@ -149,6 +149,8 @@ namespace quicr {
 
         void SetStatus(Status new_status);
 
+        Status GetStatus() const noexcept { return status_; }
+
         void SetDelegate(const std::shared_ptr<Delegate>& session);
 
         virtual void SampleMetrics(const MetricsTimeStamp& sample_time) = 0;

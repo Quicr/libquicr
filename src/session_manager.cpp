@@ -181,12 +181,9 @@ namespace quicr {
 
         connection->SetDelegate(session);
 
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            sessions_[connection->GetID()] = session;
-        }
+        std::lock_guard lock(mutex_);
 
-        return { transport_ptr, session };
+        return { transport_ptr, sessions_[connection->GetID()] = session };
     }
 
     std::weak_ptr<Transport> SessionManager::AddTransport(

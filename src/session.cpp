@@ -211,6 +211,8 @@ namespace quicr {
                 logger_->set_level(spdlog::level::debug);
             }
         }
+
+        OnConnectionStatus(current_connection_->GetStatus());
     }
 
     void Session::Disconnect()
