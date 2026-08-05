@@ -22,9 +22,6 @@ namespace quicr {
           , joining_subscribe_(std::move(joining_subscribe))
         {
         }
-        void StreamDataRecv(bool is_start,
-                            uint64_t stream_id,
-                            std::shared_ptr<const std::vector<uint8_t>> data) override;
 
       protected:
         void TryParseStreamBufferData(StreamContext& stream) override;

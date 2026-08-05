@@ -1633,6 +1633,42 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
     }
 }
 
+TEST_CASE("Integration - Small data callbacks assemble")
+{
+    // Create with 1 byte window.
+    auto server = MakeTestServer(std::nullopt, 2, 1);
+    auto subscriber = MakeTestClient();
+    auto publisher = MakeTestClient();
+
+    // Pub.
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "small", "callbacks" }), { 1 } };
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 5000, { 0, 0 });
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+    // Sub.
+    auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+    std::promise<void> received_promise;
+    auto received_future = received_promise.get_future();
+    subscribe_handler->SetObjectCountPromise(1, std::move(received_promise));
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(
+      WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    // Roundtrip.
+    const std::vector<std::uint8_t> payload(64, 0x5a);
+    const ObjectHeaders headers{ .group_id = 0,
+                                 .object_id = 0,
+                                 .subgroup_id = 0,
+                                 .payload_length = payload.size(),
+                                 .status = ObjectStatus::kAvailable,
+                                 .priority = 3,
+                                 .ttl = 5000,
+                                 .track_mode = TrackMode::kStream };
+    REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+    CHECK(received_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+}
+
 TEST_CASE("Integration - Failed publish does not create subgroup state")
 {
     // Setup a subscriber and publisher.

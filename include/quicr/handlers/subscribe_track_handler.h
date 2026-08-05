@@ -11,6 +11,14 @@
 
 namespace quicr {
 
+    struct InitialStreamData
+    {
+        // Accumulated stream data up to handoff.
+        StreamBuffer<uint8_t> buffer;
+        // Original data pointers used to construct stream buffer.
+        std::vector<std::shared_ptr<const std::vector<uint8_t>>> source_buffers;
+    };
+
     /**
      * @brief MOQ track handler for subscribed track
      *
@@ -313,14 +321,19 @@ namespace quicr {
          * @brief Notification of received stream data slice
          *
          * @details Event notification to provide the caller the raw data received on a stream
+         * @param stream_id       Stream ID data was received on
+         * @param initial_buffer  Initial buffered stream data from start of stream
+         */
+        virtual void StreamDataRecv(uint64_t stream_id, InitialStreamData&& initial_buffer);
+
+        /**
+         * @brief Notification of received stream data slice
          *
-         * @param is_start    True to indicate if this data is the start of a new stream
+         * @details Event notification to provide the caller the raw data received on a stream
          * @param stream_id   Stream ID data was received on
          * @param data        Shared pointer to the data received
          */
-        virtual void StreamDataRecv(bool is_start,
-                                    uint64_t stream_id,
-                                    std::shared_ptr<const std::vector<uint8_t>> data);
+        virtual void StreamDataRecv(uint64_t stream_id, std::shared_ptr<const std::vector<uint8_t>> data);
 
         /**
          * @brief Notification of received datagram data
