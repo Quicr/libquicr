@@ -1208,6 +1208,7 @@ namespace quicr {
         /*===================================================================*/
 
         void SendFetch(ConnectionContext& conn_ctx,
+                       std::uint64_t data_ctx_id,
                        std::uint64_t request_id,
                        const FullTrackName& tfn,
                        std::uint8_t priority,
@@ -1216,6 +1217,7 @@ namespace quicr {
                        const messages::FetchEndLocation& end_location);
 
         void SendJoiningFetch(ConnectionContext& conn_ctx,
+                              std::uint64_t data_ctx_id,
                               std::uint64_t request_id,
                               std::uint8_t priority,
                               std::optional<messages::GroupOrder> group_order,
@@ -1224,7 +1226,7 @@ namespace quicr {
                               bool absolute);
 
         void SendFetchOk(ConnectionContext& conn_ctx,
-                         std::uint64_t request_id,
+                         std::uint64_t data_ctx_id,
                          messages::GroupOrder publisher_default_group_order,
                          bool end_of_track,
                          messages::Location end_location);

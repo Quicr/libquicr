@@ -227,10 +227,11 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     static std::shared_ptr<TestSubscribeHandler> Create(const FullTrackName& full_track_name,
                                                         std::uint8_t priority,
                                                         std::optional<messages::GroupOrder> group_order,
-                                                        const messages::Filter& filter = std::monostate{})
+                                                        const messages::Filter& filter = std::monostate{},
+                                                        const std::optional<JoiningFetch>& joining_fetch = std::nullopt)
     {
         return std::shared_ptr<TestSubscribeHandler>(
-          new TestSubscribeHandler(full_track_name, priority, group_order, filter));
+          new TestSubscribeHandler(full_track_name, priority, group_order, filter, joining_fetch));
     }
 
     /// @brief Get all received objects
@@ -274,8 +275,9 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     TestSubscribeHandler(const FullTrackName& full_track_name,
                          std::uint8_t priority,
                          std::optional<messages::GroupOrder> group_order,
-                         const messages::Filter& filter)
-      : SubscribeTrackHandler(full_track_name, priority, group_order, filter)
+                         const messages::Filter& filter,
+                         const std::optional<JoiningFetch>& joining_fetch)
+      : SubscribeTrackHandler(full_track_name, priority, group_order, filter, joining_fetch)
     {
     }
 
@@ -726,6 +728,10 @@ TEST_CASE("Integration - Fetch")
         ftn.name = { 1, 2, 3 };
         const auto handler = FetchTrackHandler::Create(ftn, 0, std::nullopt, { 0, 0 }, { 0, std::nullopt });
         client->FetchTrack(handler);
+
+        REQUIRE(handler->GetDataContextId().has_value());
+        REQUIRE(handler->GetRequestStreamId().has_value());
+        REQUIRE(handler->GetRequestId().has_value());
     };
 
     SUBCASE("Raw QUIC")
@@ -738,6 +744,59 @@ TEST_CASE("Integration - Fetch")
     {
         CAPTURE("WebTransport");
         test_fetch("https");
+    }
+}
+
+TEST_CASE("Integration - Joining Fetch")
+{
+    auto server = MakeTestServer();
+
+    auto test_joining_fetch = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+        const FullTrackName ftn{ TrackNamespace({ "namespace" }), { 1, 2, 3 } };
+        const SubscribeTrackHandler::JoiningFetch joining_fetch{
+            .priority = 4,
+            .group_order = messages::GroupOrder::kDescending,
+            .parameters = {},
+            .joining_start = 2,
+            .absolute = true,
+        };
+        const auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt, std::monostate{}, joining_fetch);
+
+        std::promise<TestServer::SubscribeDetails> subscribe_promise;
+        auto subscribe_future = subscribe_promise.get_future();
+        server->SetSubscribePromise(std::move(subscribe_promise));
+
+        std::promise<TestServer::JoiningFetchDetails> fetch_promise;
+        auto fetch_future = fetch_promise.get_future();
+        server->SetJoiningFetchPromise(std::move(fetch_promise));
+
+        client->SubscribeTrack(handler);
+
+        REQUIRE(subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto subscribe = subscribe_future.get();
+        REQUIRE(fetch_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto fetch = fetch_future.get();
+
+        CHECK_EQ(fetch.track_full_name.name_space, ftn.name_space);
+        CHECK_EQ(fetch.track_full_name.name, ftn.name);
+        CHECK_EQ(fetch.attributes.joining_request_id, subscribe.request_id);
+        CHECK_EQ(fetch.attributes.priority, joining_fetch.priority);
+        CHECK_EQ(fetch.attributes.group_order, joining_fetch.group_order);
+        CHECK_EQ(fetch.attributes.joining_start, joining_fetch.joining_start);
+        CHECK_FALSE(fetch.attributes.relative);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_joining_fetch("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_joining_fetch("https");
     }
 }
 
@@ -1266,8 +1325,7 @@ class TestFetchTrackHandler final : public FetchTrackHandler
     std::vector<ReceivedObject> received_objects_;
 };
 
-// TODO: Re-enable when FETCH migrated.
-TEST_CASE("Integration - Fetch object roundtrip" * doctest::skip())
+TEST_CASE("Integration - Fetch object roundtrip")
 {
     const auto server = MakeTestServer();
     auto test_fetch_roundtrip = [&](const std::string& protocol_scheme) {
@@ -1299,6 +1357,8 @@ TEST_CASE("Integration - Fetch object roundtrip" * doctest::skip())
           TestFetchTrackHandler::Create(ftn, 0, std::nullopt, { fetch_group, 0 }, { fetch_group, std::nullopt });
 
         client->FetchTrack(fetch_handler);
+
+        REQUIRE(WaitFor([&fetch_handler]() { return fetch_handler->GetStatus() == FetchTrackHandler::Status::kOk; }));
 
         // Wait for all objects to be received
         const auto expected_count = cached.size();
