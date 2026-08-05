@@ -175,7 +175,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
 
                     // Create bidir stream if it wasn't initiated by this instance (remote initiated it)
                     if (((stream_id & 0x1) == 1 && !transport->is_server_mode) ||
-                        ((stream_id & 0x0) == 0 && transport->is_server_mode)) {
+                        ((stream_id & 0x1) == 0 && transport->is_server_mode)) {
 
                         // Create the data context for new bidir streams created by remote side
                         data_ctx = transport->CreateDataContextBiDirRecv(conn_id, stream_id);
@@ -686,7 +686,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                 if ((stream_id & 0x2) == 0) {
                     // Create bidir stream if it wasn't initiated by this instance (remote initiated it)
                     if (((stream_id & 0x1) == 1 && !transport->is_server_mode) ||
-                        ((stream_id & 0x0) == 0 && transport->is_server_mode)) {
+                        ((stream_id & 0x1) == 0 && transport->is_server_mode)) {
 
                         // Create the data context for new bidir streams created by remote side
                         data_ctx = transport->CreateDataContextBiDirRecv(conn_id, stream_id);
@@ -2948,16 +2948,8 @@ PicoQuicTransport::RunPqFunction(std::function<int()>&& function)
         return;
     }
 
-    /*
-     * FIXME: the queue locks Empty and Push independently, so you can get a situation where this returns false, and
-     * then is empty a moment later, so this Push will not wake the thread.
-     */
-    bool should_wake = picoquic_runner_queue_.Empty();
     picoquic_runner_queue_.Push(std::move(function));
-
-    if (should_wake) {
-        picoquic_wake_up_network_thread(quic_network_thread_ctx_);
-    }
+    picoquic_wake_up_network_thread(quic_network_thread_ctx_);
 }
 
 void
