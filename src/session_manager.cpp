@@ -102,26 +102,29 @@ namespace quicr {
 
     void SessionManager::Callbacks::OnSessionRemoved(const std::shared_ptr<Session>& session) {}
 
-    SessionManager::SessionManager()
-      : SessionManager(std::make_shared<Callbacks>(), std::make_shared<timeq::threaded_tick_service>())
+    SessionManager::SessionManager(std::shared_ptr<Logger> logger)
+      : SessionManager(std::make_shared<Callbacks>(),
+                       std::make_shared<timeq::threaded_tick_service>(),
+                       std::move(logger))
     {
     }
 
-    SessionManager::SessionManager(std::shared_ptr<Callbacks> callbacks)
-      : SessionManager(std::move(callbacks), std::make_shared<timeq::threaded_tick_service>())
+    SessionManager::SessionManager(std::shared_ptr<Callbacks> callbacks, std::shared_ptr<Logger> logger)
+      : SessionManager(std::move(callbacks), std::make_shared<timeq::threaded_tick_service>(), std::move(logger))
     {
     }
 
-    SessionManager::SessionManager(std::shared_ptr<timeq::tick_service> tick_service)
-      : SessionManager(std::make_shared<Callbacks>(), std::move(tick_service))
+    SessionManager::SessionManager(std::shared_ptr<timeq::tick_service> tick_service, std::shared_ptr<Logger> logger)
+      : SessionManager(std::make_shared<Callbacks>(), std::move(tick_service), std::move(logger))
     {
     }
 
     SessionManager::SessionManager(std::shared_ptr<Callbacks> callbacks,
-                                   std::shared_ptr<timeq::tick_service> tick_service)
+                                   std::shared_ptr<timeq::tick_service> tick_service,
+                                   std::shared_ptr<Logger> logger)
       : callbacks_(std::move(callbacks))
       , tick_service_(std::move(tick_service))
-      , logger_(Logger::Create("QUICR"))
+      , logger_(std::move(logger))
     {
         on_connection_closed_ = [this](const auto& connection) {
             connection->SetDelegate(nullptr);
@@ -181,7 +184,7 @@ namespace quicr {
             return {};
         }
 
-        auto session = Session::Create(config, transport, connection, std::move(callbacks), tick_service_);
+        auto session = Session::Create(config, transport, connection, std::move(callbacks), tick_service_, logger_);
 
         connection->SetDelegate(session);
 
@@ -207,7 +210,7 @@ namespace quicr {
         transport->OnNewConnection =
           [=, this, wtransport = std::weak_ptr(transport), callbacks = std::move(callbacks)](const auto& connection) {
               auto transport = wtransport.lock();
-              auto session = Session::Create(config, transport, connection, callbacks, tick_service_);
+              auto session = Session::Create(config, transport, connection, callbacks, tick_service_, logger_);
               connection->SetDelegate(session);
 
               {

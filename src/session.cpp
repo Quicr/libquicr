@@ -211,13 +211,14 @@ namespace quicr {
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
                      std::shared_ptr<ClientCallbacks> callbacks,
-                     std::shared_ptr<timeq::tick_service> tick_service)
+                     std::shared_ptr<timeq::tick_service> tick_service,
+                     std::shared_ptr<Logger> logger)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
       , callbacks_(std::move(callbacks))
       , next_request_id_(0)
       , client_mode_(true)
-      , logger_(Logger::Create("QUICR_CLIENT"))
+      , logger_(std::move(logger))
       , server_config_({})
       , client_config_(cfg)
       , tick_service_(std::move(tick_service))
@@ -231,13 +232,14 @@ namespace quicr {
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
                      std::shared_ptr<ServerCallbacks> callbacks,
-                     std::shared_ptr<timeq::tick_service> tick_service)
+                     std::shared_ptr<timeq::tick_service> tick_service,
+                     std::shared_ptr<Logger> logger)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
       , callbacks_(std::move(callbacks))
       , next_request_id_(1)
       , client_mode_(false)
-      , logger_(Logger::Create("QUICR_SERVER"))
+      , logger_(std::move(logger))
       , server_config_(cfg)
       , client_config_({})
       , tick_service_(std::move(tick_service))
@@ -259,13 +261,17 @@ namespace quicr {
             // client init items
 
             if (client_config_.transport_config.debug) {
-                logger_->SetLevel(Logger::Level::Debug);
+                if (logger_) {
+                    logger_->SetLevel(Logger::Level::Debug);
+                }
             }
         } else {
             // Server init items
 
             if (server_config_.transport_config.debug) {
-                logger_->SetLevel(Logger::Level::Debug);
+                if (logger_) {
+                    logger_->SetLevel(Logger::Level::Debug);
+                }
             }
         }
 
@@ -1067,13 +1073,13 @@ namespace quicr {
                       }
 
                       const auto& [code, reason] = result.error();
-                      SPDLOG_LOGGER_ERROR(self->logger_,
-                                          "Publish namespace done failed conn_id: {} request_id: {} code: {} "
-                                          "reason: {}",
-                                          self->current_connection_->GetID(),
-                                          request_id,
-                                          static_cast<std::uint64_t>(code),
-                                          reason.value_or("unknown"));
+                      QUICR_LOGGER_ERROR(self->logger_,
+                                         "Publish namespace done failed conn_id: {} request_id: {} code: {} "
+                                         "reason: {}",
+                                         self->current_connection_->GetID(),
+                                         request_id,
+                                         static_cast<std::uint64_t>(code),
+                                         reason.value_or("unknown"));
                   });
             }
             return;
@@ -1123,13 +1129,13 @@ namespace quicr {
                       }
 
                       const auto& [code, reason] = result.error();
-                      SPDLOG_LOGGER_ERROR(self->logger_,
-                                          "Unsubscribe of subscribe track failed conn_id: {} request_id: {} code: {} "
-                                          "reason: {}",
-                                          self->current_connection_->GetID(),
-                                          request_id,
-                                          code,
-                                          reason.value_or("unknown"));
+                      QUICR_LOGGER_ERROR(self->logger_,
+                                         "Unsubscribe of subscribe track failed conn_id: {} request_id: {} code: {} "
+                                         "reason: {}",
+                                         self->current_connection_->GetID(),
+                                         request_id,
+                                         code,
+                                         reason.value_or("unknown"));
                   });
             }
 
@@ -1150,13 +1156,13 @@ namespace quicr {
                       }
 
                       const auto& [code, reason] = result.error();
-                      SPDLOG_LOGGER_ERROR(self->logger_,
-                                          "Unsubscribe of publish track failed conn_id: {} request_id: {} code: {} "
-                                          "reason: {}",
-                                          self->current_connection_->GetID(),
-                                          request_id,
-                                          code,
-                                          reason.value_or("unknown"));
+                      QUICR_LOGGER_ERROR(self->logger_,
+                                         "Unsubscribe of publish track failed conn_id: {} request_id: {} code: {} "
+                                         "reason: {}",
+                                         self->current_connection_->GetID(),
+                                         request_id,
+                                         code,
+                                         reason.value_or("unknown"));
                   });
             }
 
@@ -1909,7 +1915,7 @@ namespace quicr {
 
         const auto stream_it = stream_buffers.find(stream_id);
         if (stream_it == stream_buffers.end()) {
-            SPDLOG_LOGGER_ERROR(logger_, "Missing expected pending stream buffer");
+            QUICR_LOGGER_ERROR(logger_, "Missing expected pending stream buffer");
             return false;
         }
         auto initial_buffer = std::move(stream_it->second);
@@ -1938,7 +1944,7 @@ namespace quicr {
         if (auto h = fetch_it->second->Get<SubscribeTrackHandler>()) {
             const auto stream_it = stream_buffers.find(stream_id);
             if (stream_it == stream_buffers.end()) {
-                SPDLOG_LOGGER_ERROR(logger_, "Missing expected pending stream buffer");
+                QUICR_LOGGER_ERROR(logger_, "Missing expected pending stream buffer");
                 return false;
             }
             auto initial_buffer = std::move(stream_it->second);
@@ -2008,7 +2014,11 @@ namespace quicr {
 
                 auto handler = static_cast<SubscribeTrackHandler*>(sub_it->second.get());
 
-                handler->DgramDataRecv(data);
+                try {
+                    handler->DgramDataRecv(data);
+                } catch (const std::exception& e) {
+                    QUICR_LOGGER_ERROR(logger_, "Caught exception in ObjectStatusReceived. (error={})", e.what());
+                }
             } else if (data) {
                 current_connection_->metrics.rx_dgram_decode_failed++;
 
@@ -2115,10 +2125,10 @@ namespace quicr {
     {
         const auto request_it = recv_req_id.find(request_id);
         if (request_it == recv_req_id.end() || request_it->second.data_ctx_id == 0) {
-            SPDLOG_LOGGER_ERROR(logger_,
-                                "Cannot resolve FETCH without its request stream conn_id: {} request_id: {}",
-                                current_connection_->GetID(),
-                                request_id);
+            QUICR_LOGGER_ERROR(logger_,
+                               "Cannot resolve FETCH without its request stream conn_id: {} request_id: {}",
+                               current_connection_->GetID(),
+                               request_id);
             return;
         }
         const auto data_ctx_id = request_it->second.data_ctx_id;
@@ -2338,11 +2348,11 @@ namespace quicr {
                               }
 
                               const auto& [code, reason] = result.error();
-                              SPDLOG_LOGGER_ERROR(self->logger_,
-                                                  "Server setup rejected conn_id: {} code: {} reason: {}",
-                                                  self->current_connection_->GetID(),
-                                                  code,
-                                                  reason.value_or("unknown"));
+                              QUICR_LOGGER_ERROR(self->logger_,
+                                                 "Server setup rejected conn_id: {} code: {} reason: {}",
+                                                 self->current_connection_->GetID(),
+                                                 code,
+                                                 reason.value_or("unknown"));
                           });
                     }
                 } else {
@@ -2351,12 +2361,12 @@ namespace quicr {
                           .Resolve([self = GetSharedPtr()](const auto& result) {
                               if (!result) {
                                   const auto& [code, reason] = result.error();
-                                  SPDLOG_LOGGER_ERROR(self->logger_,
-                                                      "Client setup rejected, not sending SETUP conn_id: {} code: {} "
-                                                      "reason: {}",
-                                                      self->current_connection_->GetID(),
-                                                      code,
-                                                      reason.value_or("unknown"));
+                                  QUICR_LOGGER_ERROR(self->logger_,
+                                                     "Client setup rejected, not sending SETUP conn_id: {} code: {} "
+                                                     "reason: {}",
+                                                     self->current_connection_->GetID(),
+                                                     code,
+                                                     reason.value_or("unknown"));
                                   return;
                               }
 
@@ -2496,12 +2506,12 @@ namespace quicr {
                               // Save the latest state for joining fetch.
                               auto req_it = self->recv_req_id.find(request_id);
                               if (req_it == self->recv_req_id.end()) {
-                                  SPDLOG_LOGGER_WARN(self->logger_,
-                                                     "Resolve subscribe has no request_id: {} conn_id: {} "
-                                                     "track_alias: {}",
-                                                     request_id,
-                                                     self->current_connection_->GetID(),
-                                                     th.track_fullname_hash);
+                                  QUICR_LOGGER_WARN(self->logger_,
+                                                    "Resolve subscribe has no request_id: {} conn_id: {} "
+                                                    "track_alias: {}",
+                                                    request_id,
+                                                    self->current_connection_->GetID(),
+                                                    th.track_fullname_hash);
                                   return;
                               }
 
@@ -2528,13 +2538,13 @@ namespace quicr {
                                 }
 
                                 const auto& [code, reason] = new_group_result.error();
-                                SPDLOG_LOGGER_ERROR(self->logger_,
-                                                    "New group request on subscribe failed request_id: {} group_id: {} "
-                                                    "code: {} reason: {}",
-                                                    request_id,
-                                                    *new_group_request_id,
-                                                    code,
-                                                    reason.value_or("unknown"));
+                                QUICR_LOGGER_ERROR(self->logger_,
+                                                   "New group request on subscribe failed request_id: {} group_id: {} "
+                                                   "code: {} reason: {}",
+                                                   request_id,
+                                                   *new_group_request_id,
+                                                   code,
+                                                   reason.value_or("unknown"));
                             });
                       });
                 }
@@ -2544,10 +2554,10 @@ namespace quicr {
             case messages::ControlMessageType::kSubscribeOk: {
                 const auto request_it = request_id_by_data_ctx.find(data_ctx_id);
                 if (request_it == request_id_by_data_ctx.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received SUBSCRIBE_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
-                                       current_connection_->GetID(),
-                                       data_ctx_id);
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received SUBSCRIBE_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
+                                      current_connection_->GetID(),
+                                      data_ctx_id);
                     return true;
                 }
                 const auto request_id = request_it->second;
@@ -2741,10 +2751,9 @@ namespace quicr {
 
                           const auto sub_data_ctx_id = self->FindSubscribeNamespaceDataContext(track_namespace);
                           if (!sub_data_ctx_id.has_value()) {
-                              SPDLOG_LOGGER_WARN(
-                                self->logger_,
-                                "No subscribe namespace data context for publish namespace conn_id: {}",
-                                self->current_connection_->GetID());
+                              QUICR_LOGGER_WARN(self->logger_,
+                                                "No subscribe namespace data context for publish namespace conn_id: {}",
+                                                self->current_connection_->GetID());
                               return;
                           }
 
@@ -2813,7 +2822,7 @@ namespace quicr {
                         for (const auto& name_space : result.value()) {
                             const auto match = track_namespace_prefix.IsPrefixOf(name_space);
                             if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
-                                SPDLOG_LOGGER_WARN(self->logger_, "Dropping non prefix match");
+                                QUICR_LOGGER_WARN(self->logger_, "Dropping non prefix match");
                                 continue;
                             }
 
@@ -2841,11 +2850,11 @@ namespace quicr {
                           }
 
                           const auto& [code, reason] = result.error();
-                          SPDLOG_LOGGER_ERROR(self->logger_,
-                                              "Unsubscribe namespace failed conn_id: {} code: {} reason: {}",
-                                              self->current_connection_->GetID(),
-                                              code,
-                                              reason.value_or("unknown"));
+                          QUICR_LOGGER_ERROR(self->logger_,
+                                             "Unsubscribe namespace failed conn_id: {} code: {} reason: {}",
+                                             self->current_connection_->GetID(),
+                                             code,
+                                             reason.value_or("unknown"));
                       });
                 }
                 return true;
@@ -2895,12 +2904,12 @@ namespace quicr {
                               }
 
                               const auto& [code, reason] = result.error();
-                              SPDLOG_LOGGER_ERROR(self->logger_,
-                                                  "Publish done failed conn_id: {} request_id: {} code: {} reason: {}",
-                                                  self->current_connection_->GetID(),
-                                                  request_id,
-                                                  code,
-                                                  reason.value_or("unknown"));
+                              QUICR_LOGGER_ERROR(self->logger_,
+                                                 "Publish done failed conn_id: {} request_id: {} code: {} reason: {}",
+                                                 self->current_connection_->GetID(),
+                                                 request_id,
+                                                 code,
+                                                 reason.value_or("unknown"));
                           });
                     }
                 }
@@ -2923,10 +2932,10 @@ namespace quicr {
 
                 const auto request_it = request_id_by_data_ctx.find(data_ctx_id);
                 if (request_it == request_id_by_data_ctx.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received FETCH_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
-                                       current_connection_->GetID(),
-                                       data_ctx_id);
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received FETCH_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
+                                      current_connection_->GetID(),
+                                      data_ctx_id);
                     return true;
                 }
                 const auto request_id = request_it->second;

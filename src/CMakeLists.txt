@@ -49,7 +49,6 @@ target_link_libraries(quicr PUBLIC
 )
 
 target_link_libraries(quicr PRIVATE
-    spdlog::spdlog
     picoquic-core
     picoquic-log
     picohttp-core

@@ -3,7 +3,6 @@
 
 #include "quicr/handlers/publish_track_handler.h"
 
-#include "quicr/log.h"
 #include "quicr/messages/messages.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
@@ -346,12 +345,6 @@ namespace quicr {
             }
         }
 
-        QUICR_TRACE("Published conn_id: {} object stream_id: {} group: {} subgroup: {} object: {}",
-                    session->GetConnection()->GetID(),
-                    stream_id,
-                    object_headers.group_id,
-                    object_headers.subgroup_id,
-                    object_headers.object_id);
         auto result = session->Enqueue(
 
           publish_data_ctx_id_,

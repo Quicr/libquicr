@@ -81,8 +81,6 @@ endif()
 
 include(CPM)
 
-set(CPM_USE_LOCAL_PACKAGES ON)
-
 include(CheckIncludeFileCXX)
 check_include_file_cxx(format HAVE_STD_FORMAT)
 if (HAVE_STD_FORMAT)
@@ -106,13 +104,10 @@ endif()
 if (NOT HAS_STD_VFORMAT)
     message(STATUS "Using fmt::format")
     CPMAddPackage("gh:fmtlib/fmt#12.2.0")
-    set(SPDLOG_FMT_EXTERNAL ON)
 else()
     add_compile_definitions(QUICR_HAVE_STD_FORMAT)
     message(STATUS "Using std::format")
 endif()
-
-CPMAddPackage("gh:gabime/spdlog@1.17.0")
 
 add_subdirectory(dependencies)
 

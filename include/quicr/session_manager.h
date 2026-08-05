@@ -36,13 +36,15 @@ namespace quicr {
         };
 
       public:
-        SessionManager();
+        SessionManager(std::shared_ptr<Logger> logger = nullptr);
 
-        SessionManager(std::shared_ptr<Callbacks> callbacks);
+        SessionManager(std::shared_ptr<Callbacks> callbacks, std::shared_ptr<Logger> logger = nullptr);
 
-        SessionManager(std::shared_ptr<timeq::tick_service> tick_service);
+        SessionManager(std::shared_ptr<timeq::tick_service> tick_service, std::shared_ptr<Logger> logger = nullptr);
 
-        SessionManager(std::shared_ptr<Callbacks> callbacks, std::shared_ptr<timeq::tick_service> tick_service);
+        SessionManager(std::shared_ptr<Callbacks> callbacks,
+                       std::shared_ptr<timeq::tick_service> tick_service,
+                       std::shared_ptr<Logger> logger = nullptr);
 
         ~SessionManager();
 

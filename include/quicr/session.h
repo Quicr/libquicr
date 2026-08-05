@@ -162,10 +162,15 @@ namespace quicr {
                                                std::shared_ptr<Transport> transport,
                                                std::shared_ptr<Connection> connection,
                                                std::shared_ptr<ClientCallbacks> callbacks,
-                                               std::shared_ptr<timeq::tick_service> tick_service)
+                                               std::shared_ptr<timeq::tick_service> tick_service,
+                                               std::shared_ptr<Logger> logger = nullptr)
         {
-            return std::shared_ptr<Session>(new Session(
-              cfg, std::move(transport), std::move(connection), std::move(callbacks), std::move(tick_service)));
+            return std::shared_ptr<Session>(new Session(cfg,
+                                                        std::move(transport),
+                                                        std::move(connection),
+                                                        std::move(callbacks),
+                                                        std::move(tick_service),
+                                                        std::move(logger)));
         }
 
         /**
@@ -177,10 +182,15 @@ namespace quicr {
                                                std::shared_ptr<Transport> transport,
                                                std::shared_ptr<Connection> connection,
                                                std::shared_ptr<ServerCallbacks> callbacks,
-                                               std::shared_ptr<timeq::tick_service> tick_service)
+                                               std::shared_ptr<timeq::tick_service> tick_service,
+                                               std::shared_ptr<Logger> logger = nullptr)
         {
-            return std::shared_ptr<Session>(new Session(
-              cfg, std::move(transport), std::move(connection), std::move(callbacks), std::move(tick_service)));
+            return std::shared_ptr<Session>(new Session(cfg,
+                                                        std::move(transport),
+                                                        std::move(connection),
+                                                        std::move(callbacks),
+                                                        std::move(tick_service),
+                                                        std::move(logger)));
         }
 
         virtual ~Session();
@@ -188,6 +198,8 @@ namespace quicr {
         const std::shared_ptr<Connection>& GetConnection() const noexcept { return current_connection_; }
 
         const std::shared_ptr<timeq::tick_service>& GetTickService() const noexcept { return tick_service_; }
+
+        const std::shared_ptr<Logger>& GetLogger() const noexcept { return logger_; }
 
         Status GetStatus() const noexcept { return status_; }
 
@@ -437,14 +449,18 @@ namespace quicr {
          * @param cfg MoQ Client Configuration
          */
         Session(const ClientConfig& cfg,
+
                 std::shared_ptr<Transport> transport,
+
                 std::shared_ptr<Connection> connection,
-                std::shared_ptr<ClientCallbacks> callbacks)
+                std::shared_ptr<ClientCallbacks> callbacks,
+                std::shared_ptr<Logger> logger)
           : Session(cfg,
                     std::move(transport),
                     std::move(connection),
                     std::move(callbacks),
-                    std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us))
+                    std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us),
+                    std::move(logger))
         {
         }
 
@@ -454,14 +470,18 @@ namespace quicr {
          * @param cfg MoQ Server Configuration
          */
         Session(const ServerConfig& cfg,
+
                 std::shared_ptr<Transport> transport,
+
                 std::shared_ptr<Connection> connection,
-                std::shared_ptr<ServerCallbacks> callbacks)
+                std::shared_ptr<ServerCallbacks> callbacks,
+                std::shared_ptr<Logger> logger)
           : Session(cfg,
                     std::move(transport),
                     std::move(connection),
                     std::move(callbacks),
-                    std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us))
+                    std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us),
+                    std::move(logger))
         {
         }
 
@@ -475,7 +495,8 @@ namespace quicr {
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ClientCallbacks> callbacks,
-                std::shared_ptr<timeq::tick_service> tick_service);
+                std::shared_ptr<timeq::tick_service> tick_service,
+                std::shared_ptr<Logger> logger);
 
         /**
          * @brief Server mode constructor with explicit tick service
@@ -487,7 +508,8 @@ namespace quicr {
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ServerCallbacks> callbacks,
-                std::shared_ptr<timeq::tick_service> tick_service);
+                std::shared_ptr<timeq::tick_service> tick_service,
+                std::shared_ptr<Logger> logger);
 
         void OnStreamClosed(std::uint64_t stream_id,
                             std::shared_ptr<StreamRxContext> rx_ctx,

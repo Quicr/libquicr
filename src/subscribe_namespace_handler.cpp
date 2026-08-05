@@ -36,28 +36,6 @@ quicr::SubscribeNamespaceHandler::~SubscribeNamespaceHandler()
 void
 quicr::SubscribeNamespaceHandler::StatusChanged(Status status)
 {
-    auto th = quicr::TrackHash({ GetPrefix(), {} });
-
-    switch (status) {
-        case Status::kOk:
-            QUICR_TRACE("Subscription to namespace with hash: {} status changed to OK", th.track_namespace_hash);
-            break;
-        case Status::kNotSubscribed:
-            QUICR_TRACE("Subscription to namespace with hash: {} status changed to NOT_SUBSCRIBED",
-                        th.track_namespace_hash);
-            break;
-        case Status::kError:
-            if (error_ != std::nullopt) {
-                QUICR_ERROR("Subscription to namespace with hash: {} status changed to ERROR: {}",
-                            th.track_namespace_hash,
-                            std::string(error_->second.begin(), error_->second.end()));
-            } else {
-                QUICR_ERROR("Subscription to namespace with hash: {} status changed to unknown ERROR");
-            }
-            break;
-        default:
-            break;
-    }
 }
 
 void
