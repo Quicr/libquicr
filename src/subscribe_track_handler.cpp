@@ -122,8 +122,8 @@ namespace quicr {
                     s_hdr.priority,
                     std::nullopt,
                     TrackMode::kStream,
-                    obj.extensions,
-                    obj.immutable_extensions,
+                    std::move(obj.extensions),
+                    std::move(obj.immutable_extensions),
                   },
                   obj.payload,
                   std::move(stream_properties));
@@ -161,8 +161,8 @@ namespace quicr {
                       status_msg.object_id,
                       status_msg.priority.value_or(priority_), // TODO: This should be publisher priority.
                       status_msg.status,
-                      status_msg.extensions,
-                      status_msg.immutable_extensions);
+                      std::move(status_msg.extensions),
+                      std::move(status_msg.immutable_extensions));
                 } catch (const std::exception& e) {
                     SPDLOG_ERROR("Caught exception in ObjectStatusReceived. (error={})", e.what());
                 }
@@ -197,8 +197,8 @@ namespace quicr {
                     msg.priority,
                     std::nullopt,
                     TrackMode::kDatagram,
-                    msg.extensions,
-                    msg.immutable_extensions,
+                    std::move(msg.extensions),
+                    std::move(msg.immutable_extensions),
                   },
                   std::move(msg.payload));
             } catch (const std::exception& e) {
