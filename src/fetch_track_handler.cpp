@@ -48,8 +48,8 @@ namespace quicr {
                                  obj.publisher_priority,
                                  std::nullopt,
                                  TrackMode::kStream,
-                                 obj.extensions,
-                                 obj.immutable_extensions },
+                                 std::move(obj.extensions),
+                                 std::move(obj.immutable_extensions) },
                                obj.payload);
             } catch (const std::exception& e) {
                 SPDLOG_ERROR("Caught exception trying to receive Fetch object. (error={})", e.what());
