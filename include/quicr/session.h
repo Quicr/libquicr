@@ -758,8 +758,6 @@ namespace quicr {
 
         void OnConnectionStatus(Connection::Status status) override;
 
-        void OnNewDataContext(std::uint64_t data_ctx_id) override;
-
         void OnRecvStream(uint64_t stream_id,
                           std::optional<std::uint64_t> data_ctx_id,
                           const bool is_bidir = false) override;

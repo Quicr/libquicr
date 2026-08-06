@@ -2059,8 +2059,6 @@ namespace quicr {
         }
     }
 
-    void Session::OnNewDataContext(std::uint64_t) {}
-
     std::shared_ptr<Session> Session::GetSharedPtr()
     {
         if (!weak_from_this().lock()) {

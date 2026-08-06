@@ -68,18 +68,6 @@ namespace quicr {
             virtual void OnConnectionStatus(Status status) = 0;
 
             /**
-             * @brief Report a new data context created
-             *
-             * @details Report that a new data context was created for a new bi-directional
-             *  stream that was received. This method is not called for app created
-             *  data contexts.
-             *
-             * @param[in] conn_id	Transport context identifier mapped to the connection
-             * @param[in] data_ctx_id	Data context id for a new data context received by the transport
-             */
-            virtual void OnNewDataContext(std::uint64_t data_ctx_id) = 0;
-
-            /**
              * @brief callback notification that data has been received and should be processed
              *
              * @param[in] conn_id 	Transport context identifier mapped to the connection
@@ -163,17 +151,6 @@ namespace quicr {
          * @param[in] status 	    Transport Status value
          */
         virtual void OnStatusChanged(Status status);
-
-        /**
-         * @brief Report a new data context created
-         *
-         * @details Report that a new data context was created for a new bi-directional
-         *  stream that was received. This method is not called for app created
-         *  data contexts.
-         *
-         * @param[in] data_ctx_id	Data context id for a new data context received by the transport
-         */
-        virtual void OnNewDataContext(std::uint64_t data_ctx_id);
 
         /**
          * @brief callback notification that data has been received and should be processed
