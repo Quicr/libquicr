@@ -325,6 +325,13 @@ namespace quicr::messages {
     }
 
     FetchSerializationProperties::FetchSerializationProperties(const std::uint64_t value)
+      : end_of_range(std::nullopt)
+      , subgroup_id_mode(std::nullopt)
+      , object_id_delta_present(false)
+      , group_id_delta_present(false)
+      , priority_present(false)
+      , properties_present(false)
+      , datagram(false)
     {
         if (value == kEndOfNonExistentRange) {
             end_of_range = EndOfRange::kNonExistent;
@@ -621,7 +628,7 @@ namespace quicr::messages {
             assert(msg.group_id_delta.has_value());
             buffer << UintVar(*msg.group_id_delta);
         }
-        if (!properties.datagram &&
+        if (!properties.end_of_range.has_value() && !properties.datagram &&
             properties.subgroup_id_mode == FetchSerializationProperties::SubgroupIdMode::kExplicit) {
             assert(msg.subgroup_id.has_value());
             buffer << UintVar(*msg.subgroup_id);
@@ -671,7 +678,7 @@ namespace quicr::messages {
                 [[fallthrough]];
             }
             case 2: {
-                if (!msg.properties->datagram &&
+                if (!msg.properties->end_of_range.has_value() && !msg.properties->datagram &&
                     msg.properties->subgroup_id_mode == FetchSerializationProperties::SubgroupIdMode::kExplicit) {
                     std::uint64_t subgroup_id;
                     if (!ParseUintVField(buffer, subgroup_id)) {
