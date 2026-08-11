@@ -1179,7 +1179,12 @@ namespace quicr {
 
         std::uint64_t ResponseDataContext(const ConnectionContext& conn_ctx, std::uint64_t request_id) const;
 
-        void ResolveRequestUpdate(const BaseTrackHandler& handler, const std::optional<RequestError>& error);
+        std::shared_ptr<BaseTrackHandler> ResolveRequestUpdate(const BaseTrackHandler& handler,
+                                                               const std::optional<RequestError>& error);
+
+        void DispatchRequestUpdateCompletion(std::shared_ptr<BaseTrackHandler> handler,
+                                             bool rejected,
+                                             bool apply_next) const;
 
         /*===================================================================*/
         // Track Status

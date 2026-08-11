@@ -664,6 +664,7 @@ namespace quicr::messages {
         kGoingAway,
         kExpired,
         kTooFarBehind,
+        kUpdateFailed = 0x8,
     };
 
     Bytes& operator<<(Bytes& buffer, PublishDoneStatusCode value);

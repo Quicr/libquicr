@@ -134,12 +134,15 @@ TestServer::SubscribeReceived(std::uint64_t connection_id,
                                 : 5000;
 
     // Create a publish track handler to send objects to this subscriber
-    auto pub_track_handler =
-      std::make_shared<TestPublishTrackHandler>(track_full_name,
-                                                TrackMode::kStream,
-                                                subscribe_attributes.priority,
-                                                ttl,
-                                                std::static_pointer_cast<TestServer>(shared_from_this()));
+    auto pub_track_handler = std::move(next_subscribe_publish_handler_);
+    if (!pub_track_handler) {
+        pub_track_handler =
+          std::make_shared<TestPublishTrackHandler>(track_full_name,
+                                                    TrackMode::kStream,
+                                                    subscribe_attributes.priority,
+                                                    ttl,
+                                                    std::static_pointer_cast<TestServer>(shared_from_this()));
+    }
 
     if (!subscribe_attributes.is_publisher_initiated) {
         ResolveSubscribe(connection_id,

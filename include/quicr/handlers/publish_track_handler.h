@@ -376,7 +376,9 @@ namespace quicr {
       protected:
         void RequestOkReceived(const messages::Parameters& params) override;
 
-        void RequestUpdateReceived(const messages::Parameters& params) override;
+        void ApplyRequestUpdate(const messages::Parameters& params) override;
+
+        void RequestUpdateRejected() override;
 
         // --------------------------------------------------------------------------
         // Member variables

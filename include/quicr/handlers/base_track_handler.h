@@ -9,9 +9,10 @@
 #include "quicr/messages/parameters.h"
 #include "quicr/track_name.h"
 
-#include <atomic>
 #include <cstdint>
+#include <deque>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <vector>
@@ -253,7 +254,19 @@ namespace quicr {
          * Implementations MUST provide a means for ResolveRequestUpdate to acknowledge the request (status).
          * @param params The updated/new parameters for the request.
          */
-        virtual void RequestUpdateReceived(const messages::Parameters& params) = 0;
+        void RequestUpdateReceived(const messages::Parameters& params);
+
+        /**
+         * @brief Apply the active update to this handler.
+         * @param params The updated/new parameters for the request.
+         */
+        virtual void ApplyRequestUpdate(const messages::Parameters& params) = 0;
+
+        /**
+         * @brief Handle request termination after a rejected update.
+         * @remarks Called on the notifier thread.
+         */
+        virtual void RequestUpdateRejected() {}
 
         /**
          * Set the transport to use.
@@ -263,12 +276,27 @@ namespace quicr {
 
         const std::weak_ptr<Session>& GetTransport() const noexcept;
 
-        std::atomic<std::uint64_t> pending_request_updates_{ 0 };
-
         // --------------------------------------------------------------------------
         // Internal
         // --------------------------------------------------------------------------
       private:
+        // Request update queue support.
+        enum class RequestUpdateState : std::uint8_t
+        {
+            // No update pending.
+            kIdle,
+            // An update has been applied and is awaiting resolution.
+            kAwaitingResolution,
+            // The current update is being resolved.
+            kResolving,
+            // A queued update is waiting to be applied.
+            kPendingApply,
+            // An update was rejected, the request is over.
+            kTerminal,
+        };
+        void ApplyNextRequestUpdate();
+        void ClearRequestUpdates();
+
         /**
          * @brief Set the connection ID
          *
@@ -300,6 +328,11 @@ namespace quicr {
         std::optional<uint64_t> request_stream_id_{ std::nullopt };
 
         std::weak_ptr<Session> transport_;
+
+        // Request update queuing.
+        std::mutex request_update_mutex_;
+        std::deque<messages::Parameters> pending_request_updates_;
+        RequestUpdateState request_update_state_{ RequestUpdateState::kIdle };
     };
 
 } // namespace moq

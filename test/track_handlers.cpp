@@ -58,6 +58,47 @@ TEST_CASE("Publish Track Handler updates don't override status")
     CHECK_EQ(handler->statuses[1], quicr::PublishTrackHandler::Status::kSubscriptionUpdated);
 }
 
+TEST_CASE("Publish Track Handler abandons queued request updates without a transport")
+{
+    auto handler = TestPublishTrackHandler::Create();
+    const auto pause = quicr::messages::Parameters{}.Add(quicr::messages::ParameterType::kForward, false);
+    const auto resume = quicr::messages::Parameters{}.Add(quicr::messages::ParameterType::kForward, true);
+
+    handler->RequestUpdateReceived(pause);
+    handler->RequestUpdateReceived(resume);
+
+    CHECK_EQ(handler->GetStatus(), quicr::PublishTrackHandler::Status::kPaused);
+    REQUIRE_EQ(handler->statuses.size(), 2);
+
+    handler->ResolveRequestUpdate();
+
+    CHECK_EQ(handler->GetStatus(), quicr::PublishTrackHandler::Status::kPaused);
+    CHECK_EQ(handler->statuses.size(), 2);
+    CHECK_THROWS_AS(handler->ResolveRequestUpdate(), std::logic_error);
+}
+
+TEST_CASE("Publish Track Handler rejection clears queued request updates")
+{
+    auto handler = TestPublishTrackHandler::Create();
+    const auto pause = quicr::messages::Parameters{}.Add(quicr::messages::ParameterType::kForward, false);
+    const auto resume = quicr::messages::Parameters{}.Add(quicr::messages::ParameterType::kForward, true);
+
+    handler->RequestUpdateReceived(pause);
+    handler->RequestUpdateReceived(resume);
+
+    handler->ResolveRequestUpdate(quicr::RequestError{
+      .code = quicr::messages::ErrorCode::kUnauthorized,
+      .retry_interval = std::chrono::milliseconds::zero(),
+      .reason = "rejected",
+    });
+
+    CHECK_EQ(handler->GetStatus(), quicr::PublishTrackHandler::Status::kPaused);
+    const auto status_count = handler->statuses.size();
+    handler->RequestUpdateReceived(resume);
+    CHECK_EQ(handler->statuses.size(), status_count);
+    CHECK_THROWS_AS(handler->ResolveRequestUpdate(), std::logic_error);
+}
+
 class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:

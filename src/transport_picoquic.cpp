@@ -2735,6 +2735,12 @@ PicoQuicTransport::CbNotifier()
     SPDLOG_LOGGER_INFO(logger, "Done with transport callback notifier thread");
 }
 
+void
+PicoQuicTransport::Dispatch(std::function<void()> callback)
+{
+    cbNotifyQueue_.Push(std::move(callback));
+}
+
 std::uint64_t
 PicoQuicTransport::CreateStream(std::uint64_t conn_id, std::uint64_t data_ctx_id, uint8_t priority)
 {

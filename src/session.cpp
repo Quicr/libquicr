@@ -2722,38 +2722,79 @@ namespace quicr {
         }
     }
 
-    void Session::ResolveRequestUpdate(const BaseTrackHandler& handler, const std::optional<RequestError>& error)
+    std::shared_ptr<BaseTrackHandler> Session::ResolveRequestUpdate(const BaseTrackHandler& handler,
+                                                                    const std::optional<RequestError>& error)
     {
         const auto connection_id = handler.GetConnectionId();
         const auto request_id = handler.GetRequestId();
         const auto data_ctx_id = handler.GetDataContextId();
         if (!request_id.has_value() || !data_ctx_id.has_value()) {
             SPDLOG_LOGGER_ERROR(logger_, "ResolveRequestUpdate: Handler not setup");
+            return nullptr;
+        }
+
+        TrackHandler live_handler;
+        {
+            std::lock_guard lock(state_mutex_);
+            const auto conn_it = connections_.find(connection_id);
+            if (conn_it == connections_.end() || conn_it->second.closed) {
+                SPDLOG_LOGGER_WARN(logger_, "ResolveRequestUpdate: Connection doesn't exist");
+            } else {
+                const auto handler_it = conn_it->second.request_handlers.find(*request_id);
+                if (handler_it == conn_it->second.request_handlers.end()) {
+                    SPDLOG_LOGGER_WARN(logger_, "ResolveRequestUpdate: Stale handler");
+                } else if (handler_it->second.handler.get() != &handler) {
+                    SPDLOG_LOGGER_WARN(logger_, "ResolveRequestUpdate: Handler has been replaced");
+                } else {
+                    live_handler = handler_it->second;
+
+                    if (error.has_value()) {
+                        // TODO: Implement redirect.
+                        SendRequestError(conn_it->second,
+                                         *data_ctx_id,
+                                         *request_id,
+                                         error->code,
+                                         error->retry_interval,
+                                         error->reason);
+                        if (live_handler.Get<PublishTrackHandler>()) {
+                            SendPublishDone(conn_it->second,
+                                            *data_ctx_id,
+                                            *request_id,
+                                            messages::PublishDoneStatusCode::kUpdateFailed,
+                                            error->reason);
+                        }
+                    } else {
+                        // TODO: These parameters might be set in certain request update oks.
+                        SendRequestUpdateOk(conn_it->second, *data_ctx_id, std::nullopt, std::nullopt);
+                    }
+                }
+            }
+        }
+
+        return live_handler.handler;
+    }
+
+    void Session::DispatchRequestUpdateCompletion(std::shared_ptr<BaseTrackHandler> handler,
+                                                  bool rejected,
+                                                  bool apply_next) const
+    {
+        assert(!(rejected && apply_next));
+
+        if (!quic_transport_) {
+            SPDLOG_LOGGER_ERROR(logger_, "DispatchRequestUpdateCompletion: No quic_transport");
+            handler->ClearRequestUpdates();
             return;
         }
 
-        std::lock_guard _(state_mutex_);
-        const auto conn_it = connections_.find(connection_id);
-        if (conn_it == connections_.end() || conn_it->second.closed) {
-            SPDLOG_LOGGER_WARN(logger_, "ResolveRequestUpdate: Connection doesn't exist");
+        if (rejected) {
+            // TODO: Possibly this one shouldn't blindly dispatch, depends on what handlers need to do.
+            quic_transport_->Dispatch([handler = std::move(handler)] { handler->RequestUpdateRejected(); });
             return;
         }
 
-        // Ensure this handler is still live.
-        const auto handler_it = conn_it->second.request_handlers.find(*request_id);
-        if (handler_it == conn_it->second.request_handlers.end()) {
-            SPDLOG_LOGGER_WARN(logger_, "ResolveRequestUpdate: Stale handler");
-            return;
-        }
-        // TODO: Ensure the given handler matches handler_it? Should be impossible.
-
-        if (error.has_value()) {
-            // TODO: Implement redirect.
-            SendRequestError(
-              conn_it->second, *data_ctx_id, *request_id, error->code, error->retry_interval, error->reason);
-        } else {
-            // TODO: These parameters might be set in certain request update oks.
-            SendRequestUpdateOk(conn_it->second, *data_ctx_id, std::nullopt, std::nullopt);
+        if (apply_next) {
+            // Dispatch to replicate arrival.
+            quic_transport_->Dispatch([handler = std::move(handler)] { handler->ApplyNextRequestUpdate(); });
         }
     }
 

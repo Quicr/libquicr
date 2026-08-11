@@ -270,7 +270,7 @@ namespace quicr {
         // TODO: LARGEST_OBJECT
     }
 
-    void SubscribeTrackHandler::RequestUpdateReceived(const messages::Parameters& params)
+    void SubscribeTrackHandler::ApplyRequestUpdate(const messages::Parameters& params)
     {
         if (IsPublisherInitiated()) {
             // Publish can rev keys but nothing else.
@@ -279,7 +279,6 @@ namespace quicr {
                                            messages::ParameterType::kAuthorizationToken,
                                          });
             // TODO: AUTHORIZATION_TOKEN
-            ++pending_request_updates_;
             StatusChanged(Status::kSubscriptionUpdated);
             return;
         }

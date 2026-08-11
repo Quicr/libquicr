@@ -117,7 +117,7 @@ quicr::PublishNamespaceHandler::RequestOkReceived(const messages::Parameters& pa
 }
 
 void
-quicr::PublishNamespaceHandler::RequestUpdateReceived(const messages::Parameters& params)
+quicr::PublishNamespaceHandler::ApplyRequestUpdate(const messages::Parameters& params)
 {
     // TODO: See moq-wg #1769.
     throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");

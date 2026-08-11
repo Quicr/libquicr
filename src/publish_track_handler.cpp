@@ -456,7 +456,7 @@ namespace quicr {
         }
     }
 
-    void PublishTrackHandler::RequestUpdateReceived(const messages::Parameters& params)
+    void PublishTrackHandler::ApplyRequestUpdate(const messages::Parameters& params)
     {
         // The subscriber can update their subscription with lots of details.
         // TODO: AUTHORIZATION_TOKEN
@@ -473,8 +473,12 @@ namespace quicr {
             SetStatus(Status::kNewGroupRequested);
         }
 
-        ++pending_request_updates_;
         StatusChanged(Status::kSubscriptionUpdated);
+    }
+
+    void PublishTrackHandler::RequestUpdateRejected()
+    {
+        SetStatus(Status::kUnsubscribed);
     }
 
     void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, bool reset)
