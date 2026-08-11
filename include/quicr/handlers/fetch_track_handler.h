@@ -72,9 +72,8 @@ namespace quicr {
          */
         constexpr const messages::FetchEndLocation& GetEndLocation() const noexcept { return end_location_; }
 
-        void StreamDataRecv(bool is_start,
-                            uint64_t stream_id,
-                            std::shared_ptr<const std::vector<uint8_t>> data) override;
+      protected:
+        void TryParseStreamBufferData(StreamContext& stream) override;
 
       private:
         messages::Location start_location_;

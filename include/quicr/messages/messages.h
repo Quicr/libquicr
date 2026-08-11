@@ -111,17 +111,25 @@ namespace quicr::messages {
         // If true, the priority field is omitted and the subgroup inherits the publisher priority.
         // If false, the priority field is present and the subgroup has its own priority.
         const bool default_priority;
+        // If true, this is the original first object of this subgroup.
+        // If false, this may be the first object on the subgroup, but there are missing priors.
+        const bool first_object;
 
         static constexpr std::uint8_t kExtensionsBit = 0x01;
-        static constexpr std::uint8_t kSubgroupIdBit = 0x06;
+        static constexpr std::uint8_t kSubgroupIdMask = 0x06;
         static constexpr std::uint8_t kEndOfGroupBit = 0x08;
+        static constexpr std::uint8_t kTypeBit = 0x10;
         static constexpr std::uint8_t kDefaultPriorityBit = 0x20;
+        static constexpr std::uint8_t kFirstObjectBit = 0x40;
+        static constexpr std::uint64_t kAllowedBitsMask =
+          kExtensionsBit | kSubgroupIdMask | kEndOfGroupBit | kTypeBit | kDefaultPriorityBit | kFirstObjectBit;
 
         explicit constexpr StreamHeaderProperties(const std::uint64_t type)
           : extensions(type & kExtensionsBit)
-          , subgroup_id_mode(static_cast<SubgroupIdType>((type & kSubgroupIdBit) >> 1))
+          , subgroup_id_mode(static_cast<SubgroupIdType>((type & kSubgroupIdMask) >> 1))
           , end_of_group(type & kEndOfGroupBit)
           , default_priority(type & kDefaultPriorityBit)
+          , first_object(type & kFirstObjectBit)
         {
             if (!IsValid(type)) {
                 throw ProtocolViolationException("Invalid stream header type");
@@ -131,11 +139,13 @@ namespace quicr::messages {
         constexpr StreamHeaderProperties(const bool extensions,
                                          const SubgroupIdType subgroup_id_mode,
                                          const bool end_of_group,
-                                         const bool default_priority)
+                                         const bool default_priority,
+                                         const bool first_object)
           : extensions(extensions)
           , subgroup_id_mode(subgroup_id_mode)
           , end_of_group(end_of_group)
           , default_priority(default_priority)
+          , first_object(first_object)
         {
             if (subgroup_id_mode == SubgroupIdType::kReserved) {
                 throw ProtocolViolationException("Subgroup ID mode cannot be kReserved");
@@ -144,7 +154,7 @@ namespace quicr::messages {
 
         constexpr std::uint64_t GetType() const
         {
-            std::uint64_t type = 0b00010000;
+            std::uint64_t type = kTypeBit;
             if (extensions) {
                 type |= kExtensionsBit;
             }
@@ -155,18 +165,16 @@ namespace quicr::messages {
             if (default_priority) {
                 type |= kDefaultPriorityBit;
             }
+            if (first_object) {
+                type |= kFirstObjectBit;
+            }
             return type;
         }
 
         static constexpr bool IsValid(const std::uint64_t type) noexcept
         {
-            if ((type & 0b11010000) != 0b00010000) {
-                return false;
-            }
-            if ((type & 0x06) == 0x06) {
-                return false;
-            }
-            return true;
+            return (type & ~kAllowedBitsMask) == 0 && (type & kTypeBit) != 0 &&
+                   (type & kSubgroupIdMask) != kSubgroupIdMask;
         }
     };
 

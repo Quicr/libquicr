@@ -154,6 +154,14 @@ namespace quicr_test {
             std::vector<uint8_t> payload;
         };
 
+        struct JoiningFetchDetails
+        {
+            std::uint64_t connection_id;
+            std::uint64_t request_id;
+            quicr::FullTrackName track_full_name;
+            quicr::JoiningFetchAttributes attributes;
+        };
+
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
@@ -214,6 +222,11 @@ namespace quicr_test {
         // Set up data to respond with when a fetch is received
         void SetFetchResponseData(std::vector<FetchResponseData> data) { fetch_response_data_ = std::move(data); }
 
+        void SetJoiningFetchPromise(std::promise<JoiningFetchDetails> promise)
+        {
+            joining_fetch_promise_ = std::move(promise);
+        }
+
         void AddKnownPublishedNamespace(const quicr::TrackNamespace& track_namespace);
         void AddKnownPublishedTrack(const quicr::FullTrackName& track,
 
@@ -257,6 +270,11 @@ namespace quicr_test {
                                      const quicr::FullTrackName& track_full_name,
                                      const quicr::StandaloneFetchAttributes& attrs) override;
 
+        void JoiningFetchReceived(std::uint64_t connection_id,
+                                  uint64_t request_id,
+                                  const quicr::FullTrackName& track_full_name,
+                                  const quicr::JoiningFetchAttributes& attrs) override;
+
         void SubscribeReceived(std::uint64_t connection_id,
                                uint64_t request_id,
                                const quicr::FullTrackName& track_full_name,
@@ -297,6 +315,7 @@ namespace quicr_test {
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
+        std::optional<std::promise<JoiningFetchDetails>> joining_fetch_promise_;
         std::optional<std::promise<uint64_t>> publish_namespace_done_promise_;
         std::optional<std::promise<UnsubscribeReceivedDetails>> unsubscribe_received_promise_;
         std::optional<UnsubscribeReceivedDetails::HandlerType> expected_unsubscribe_handler_type_;

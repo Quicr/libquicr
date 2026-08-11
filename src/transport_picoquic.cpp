@@ -429,7 +429,7 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                 transport->pq_loop_prev_time = targ->current_time;
             }
 
-            if (targ->current_time - transport->pq_loop_metrics_prev_time >= kMetricsIntervalUs) {
+            if (targ->current_time - transport->pq_loop_metrics_prev_time >= transport->MetricsSampleIntervalUs()) {
                 // Use this time to clean up streams that have been closed
                 transport->RemoveClosedStreams();
 
@@ -1015,6 +1015,12 @@ PicoQuicTransport::Start()
     local_tp_options_.max_idle_timeout = tconfig_.idle_timeout_ms;
     local_tp_options_.max_ack_delay = 100000;
     local_tp_options_.min_ack_delay = 1000;
+
+    if (tconfig_.initial_max_stream_data > 0) {
+        local_tp_options_.initial_max_stream_data_uni = tconfig_.initial_max_stream_data;
+        local_tp_options_.initial_max_stream_data_bidi_local = tconfig_.initial_max_stream_data;
+        local_tp_options_.initial_max_stream_data_bidi_remote = tconfig_.initial_max_stream_data;
+    }
 
     picoquic_set_default_handshake_timeout(quic_ctx_, (tconfig_.idle_timeout_ms * 1000) / 2);
     picoquic_set_default_tp(quic_ctx_, &local_tp_options_);
@@ -1696,7 +1702,7 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
             SPDLOG_LOGGER_DEBUG(logger,
                                 "send_next_dgram has no data context conn_id: {0} data len: {1} dropping",
                                 conn_ctx->conn_id,
-                                out_data.value->get().data->size());
+                                out_data->get().data->size());
             conn_ctx->metrics.tx_dgram_drops++;
             return;
         }

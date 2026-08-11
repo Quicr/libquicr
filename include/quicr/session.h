@@ -6,6 +6,7 @@
 #include "quicr/attributes.h"
 #include "quicr/common.h"
 #include "quicr/config.h"
+#include "quicr/containers/stream_buffer.h"
 #include "quicr/handlers/fetch_track_handler.h"
 #include "quicr/handlers/publish_fetch_handler.h"
 #include "quicr/handlers/publish_namespace_handler.h"
@@ -949,11 +950,8 @@ namespace quicr {
             bool closed{ false };
             uint64_t client_version{ 0 };
 
-            struct CtrlMsgBuffer
-            {
-                std::vector<uint8_t> data; ///< Control message buffer
-            };
-            std::map<uint64_t, CtrlMsgBuffer> ctrl_msg_buffer; ///< Control message buffer
+            /// Received data holders for streams: control, request, unrouted data.
+            std::map<uint64_t, InitialStreamData> stream_buffers;
 
             /** Next Connection request Id. This value is shifted left when setting Request Id.
              * The least significant bit is used to indicate client (0) vs server (1).
@@ -997,9 +995,6 @@ namespace quicr {
 
             /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
             std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias;
-
-            /// Published tracks by quic transport data context ID.
-            std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_tracks_by_data_ctx_id;
 
             /// Fetch Publishers by request ID.
             std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
@@ -1197,6 +1192,7 @@ namespace quicr {
         /*===================================================================*/
 
         void SendFetch(ConnectionContext& conn_ctx,
+                       std::uint64_t data_ctx_id,
                        std::uint64_t request_id,
                        const FullTrackName& tfn,
                        std::uint8_t priority,
@@ -1205,6 +1201,7 @@ namespace quicr {
                        const messages::FetchEndLocation& end_location);
 
         void SendJoiningFetch(ConnectionContext& conn_ctx,
+                              std::uint64_t data_ctx_id,
                               std::uint64_t request_id,
                               std::uint8_t priority,
                               std::optional<messages::GroupOrder> group_order,
@@ -1213,7 +1210,7 @@ namespace quicr {
                               bool absolute);
 
         void SendFetchOk(ConnectionContext& conn_ctx,
-                         std::uint64_t request_id,
+                         std::uint64_t data_ctx_id,
                          messages::GroupOrder publisher_default_group_order,
                          bool end_of_track,
                          messages::Location end_location);
@@ -1253,17 +1250,14 @@ namespace quicr {
 
         uint64_t GetNextRequestId();
 
-        bool OnRecvSubgroup(messages::StreamHeaderProperties properties,
-                            std::vector<uint8_t>::const_iterator cursor_it,
+        bool OnRecvSubgroup(std::uint64_t track_alias,
                             StreamRxContext& rx_ctx,
                             std::uint64_t stream_id,
-                            ConnectionContext& conn_ctx,
-                            std::shared_ptr<const std::vector<uint8_t>> data) const;
-        bool OnRecvFetch(std::vector<uint8_t>::const_iterator cursor_it,
+                            ConnectionContext& conn_ctx) const;
+        bool OnRecvFetch(std::uint64_t request_id,
                          StreamRxContext& rx_ctx,
                          std::uint64_t stream_id,
-                         ConnectionContext& conn_ctx,
-                         std::shared_ptr<const std::vector<uint8_t>> data) const;
+                         ConnectionContext& conn_ctx) const;
 
         std::uint64_t CreateStream(std::uint64_t conn, std::uint64_t data_ctx_id, uint8_t priority);
 

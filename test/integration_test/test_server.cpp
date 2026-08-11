@@ -284,6 +284,25 @@ TestServer::StandaloneFetchReceived(const std::uint64_t connection_id,
 }
 
 void
+TestServer::JoiningFetchReceived(const std::uint64_t connection_id,
+                                 const uint64_t request_id,
+                                 const FullTrackName& track_full_name,
+                                 const JoiningFetchAttributes& attrs)
+{
+    if (joining_fetch_promise_.has_value()) {
+        joining_fetch_promise_->set_value({ connection_id, request_id, track_full_name, attrs });
+        joining_fetch_promise_.reset();
+    }
+
+    ResolveFetch(connection_id,
+                 request_id,
+                 attrs.priority,
+                 attrs.group_order,
+                 { .reason_code = FetchResponse::ReasonCode::kInternalError,
+                   .error_reason = "No joining fetch test response configured" });
+}
+
+void
 TestServer::UnsubscribeReceived(const std::uint64_t, const uint64_t request_id)
 {
     std::lock_guard lock(state_mutex_);

@@ -11,6 +11,14 @@
 
 namespace quicr {
 
+    struct InitialStreamData
+    {
+        // Accumulated stream data up to handoff.
+        StreamBuffer<uint8_t> buffer;
+        // Original data pointers used to construct stream buffer.
+        std::vector<std::shared_ptr<const std::vector<uint8_t>>> source_buffers;
+    };
+
     /**
      * @brief MOQ track handler for subscribed track
      *
@@ -283,7 +291,7 @@ namespace quicr {
          *
          * @param object_headers    Object headers, must include group and object Ids
          * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
-         * @param stream_mode       Subgroup header type
+         * @param stream_mode       If this is the first object of a subgroup, its properties.
          */
         virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
                                     [[maybe_unused]] BytesSpan data,
@@ -314,14 +322,19 @@ namespace quicr {
          * @brief Notification of received stream data slice
          *
          * @details Event notification to provide the caller the raw data received on a stream
+         * @param stream_id       Stream ID data was received on
+         * @param initial_buffer  Initial buffered stream data from start of stream
+         */
+        virtual void StreamDataRecv(uint64_t stream_id, InitialStreamData&& initial_buffer);
+
+        /**
+         * @brief Notification of received stream data slice
          *
-         * @param is_start    True to indicate if this data is the start of a new stream
+         * @details Event notification to provide the caller the raw data received on a stream
          * @param stream_id   Stream ID data was received on
          * @param data        Shared pointer to the data received
          */
-        virtual void StreamDataRecv(bool is_start,
-                                    uint64_t stream_id,
-                                    std::shared_ptr<const std::vector<uint8_t>> data);
+        virtual void StreamDataRecv(uint64_t stream_id, std::shared_ptr<const std::vector<uint8_t>> data);
 
         /**
          * @brief Notification of received datagram data
@@ -414,6 +427,13 @@ namespace quicr {
             uint64_t current_group_id{ 0 };
             uint64_t current_subgroup_id{ 0 };
         };
+
+        /**
+         * @brief When new data arrives, attempt to parse any complete messages.
+         * @details The stream buffer may contain zero or more objects and/or incomplete data.
+         * @param stream Context of stream with newly arrived data.
+         */
+        virtual void TryParseStreamBufferData(StreamContext& stream);
 
         std::optional<uint64_t> pending_new_group_request_id_;
         bool is_fetch_handler_{ false };

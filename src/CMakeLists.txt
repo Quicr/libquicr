@@ -47,6 +47,7 @@ target_link_libraries(quicr PUBLIC
     picohttp-core
 )
 
+target_compile_definitions(quicr PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include)
 
 if(LINT)
