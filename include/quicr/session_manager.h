@@ -29,38 +29,47 @@ namespace quicr {
     class SessionManager
     {
       public:
-        using CreateClientSessionCallbackType =
-          std::function<std::shared_ptr<Session>(const ClientConfig& cfg,
-                                                 std::shared_ptr<Transport> transport,
-                                                 std::shared_ptr<Connection> connection,
-                                                 std::shared_ptr<timeq::tick_service> tick_service)>;
-        using CreateServerSessionCallbackType =
-          std::function<std::shared_ptr<Session>(const ServerConfig& cfg,
-                                                 std::shared_ptr<Transport> transport,
-                                                 std::shared_ptr<Connection> connection,
-                                                 std::shared_ptr<timeq::tick_service> tick_service)>;
+        struct Callbacks
+        {
+            virtual ~Callbacks() = default;
+
+            virtual std::shared_ptr<Session> CreateClientSession(const ClientConfig& cfg,
+                                                                 std::shared_ptr<Transport> transport,
+                                                                 std::shared_ptr<Connection> connection,
+                                                                 std::shared_ptr<timeq::tick_service> tick_service);
+
+            virtual std::shared_ptr<Session> CreateServerSession(const ServerConfig& cfg,
+                                                                 std::shared_ptr<Transport> transport,
+                                                                 std::shared_ptr<Connection> connection,
+                                                                 std::shared_ptr<timeq::tick_service> tick_service);
+
+            virtual void OnNewServerSession(const std::shared_ptr<Session>& new_session);
+
+            virtual void OnSessionRemoved(const std::shared_ptr<Session>& session);
+        };
 
       public:
         SessionManager();
 
+        SessionManager(std::shared_ptr<Callbacks> callbacks);
+
         SessionManager(std::shared_ptr<timeq::tick_service> tick_service);
+
+        SessionManager(std::shared_ptr<Callbacks> callbacks, std::shared_ptr<timeq::tick_service> tick_service);
 
         ~SessionManager();
 
-        std::pair<std::weak_ptr<Transport>, std::weak_ptr<Session>> AddTransport(
-          const ClientConfig& config,
-          CreateClientSessionCallbackType&& create_session = nullptr);
+        std::weak_ptr<Session> AddTransport(const ClientConfig& config);
 
-        std::weak_ptr<Transport> AddTransport(
-          const ServerConfig& config,
-          CreateServerSessionCallbackType&& create_session,
-          std::function<void(const std::shared_ptr<Session>&)>&& on_new_session = nullptr);
+        void AddTransport(const ServerConfig& config);
 
         void AddHandler(const std::shared_ptr<Session>& session, std::shared_ptr<TrackHandler> handler);
 
         void RemoveHandler(const std::shared_ptr<Session>& session, const std::shared_ptr<TrackHandler>& handler);
 
       private:
+        std::shared_ptr<Callbacks> callbacks_;
+
         std::shared_ptr<timeq::tick_service> tick_service_;
 
         std::shared_ptr<spdlog::logger> logger_;
