@@ -255,6 +255,13 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         return streams_.size();
     }
 
+    // Did we get a REQUEST_ERROR?
+    bool RequestErrorReceived() const
+    {
+        std::lock_guard lock(mutex_);
+        return request_error_.has_value();
+    }
+
     std::uint64_t RequestUpdateOks() const noexcept { return request_update_oks_; }
 
     /// @brief Set a promise to be fulfilled when a specific object count is reached
@@ -312,6 +319,12 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         }
     }
 
+    void RequestError(messages::ErrorCode error_code, std::string) override
+    {
+        std::lock_guard lock(mutex_);
+        request_error_ = error_code;
+    }
+
     void RequestOkReceived(const messages::Parameters& params) override
     {
         SubscribeTrackHandler::RequestOkReceived(params);
@@ -321,6 +334,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
   private:
     mutable std::mutex mutex_;
     std::vector<ReceivedObject> received_objects_;
+    std::optional<messages::ErrorCode> request_error_;
     std::size_t target_object_count_{ 0 };
     std::optional<std::promise<void>> object_count_promise_;
     std::optional<std::promise<SubscribeTrackMetrics>> metrics_promise_;
@@ -591,9 +605,13 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
         // Unsubscribe.
         CHECK_NOTHROW(client->UnsubscribeTrack(handler));
 
-        // The request stream should be reset.
+        // The peer should see that we closed our SUBSCRIBE request stream with RESET.
         REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
         CHECK(server->WasStreamReset(request_stream_id) == true);
+
+        // We should see that the peer RESET their side in response.
+        REQUIRE(WaitFor([&]() { return client->CheckStreamState(request_stream_id).has_value(); }));
+        CHECK(client->CheckStreamState(request_stream_id) == true);
 
         // Callback should fire.
         REQUIRE(unsub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
@@ -662,6 +680,47 @@ TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client Uns
     {
         CAPTURE("WebTransport");
         test_unsubscribe_received("https");
+    }
+}
+
+TEST_CASE("Integration - Rejected request closes both stream directions")
+{
+    auto test_rejection = [](const std::string& protocol_scheme) {
+        auto server = MakeTestServer();
+
+        // Setup to blanket reject the request.
+        server->SetSubscribeResponse(
+          { .reason_code = RequestResponse::ReasonCode::kDoesNotExist, .error_reason = "Track does not exist" });
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        // Subscribe and get our request's stream ID.
+        const FullTrackName ftn{ TrackNamespace({ "missing" }), { 1 } };
+        auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
+        CHECK_NOTHROW(client->SubscribeTrack(handler));
+        REQUIRE(handler->GetRequestStreamId().has_value());
+        const auto request_stream_id = *handler->GetRequestStreamId();
+
+        // Ensure we get REQUEST_ERROR from the peer before any stream closure.
+        REQUIRE(WaitFor([&handler] { return handler->RequestErrorReceived(); }));
+
+        // The peer should now have FIN'd their side.
+        REQUIRE(WaitFor([&] { return client->CheckStreamState(request_stream_id).has_value(); }));
+        CHECK(client->CheckStreamState(request_stream_id) == false);
+
+        // We should now have RESET our side in response.
+        REQUIRE(WaitFor([&] { return server->WasStreamReset(request_stream_id).has_value(); }));
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_rejection("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_rejection("https");
     }
 }
 

@@ -1066,7 +1066,8 @@ namespace quicr {
 
         void SendCtrlMsg(const ConnectionContext& conn_ctx,
                          std::uint64_t data_ctx_id,
-                         std::shared_ptr<const std::vector<uint8_t>> data);
+                         std::shared_ptr<const std::vector<uint8_t>> data,
+                         bool close_stream = false);
 
         template<typename... Fields>
         void SendCtrlMsg(const ConnectionContext& conn_ctx,
@@ -1125,7 +1126,8 @@ namespace quicr {
                               std::uint64_t request_id,
                               messages::ErrorCode error,
                               std::chrono::milliseconds retry_interval,
-                              const std::string& reason);
+                              const std::string& reason,
+                              bool close_stream = true);
 
         /*===================================================================*/
         // Publish Namespace

@@ -165,6 +165,12 @@ namespace quicr_test {
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
+        void SetSubscribeResponse(quicr::RequestResponse response)
+        {
+            std::lock_guard lock(state_mutex_);
+            subscribe_response_ = std::move(response);
+        }
+
         // Set up promise for subscribe namespace event
         void SetSubscribeNamespacePromise(std::promise<SubscribeNamespaceDetails> promise)
         {
@@ -247,7 +253,7 @@ namespace quicr_test {
                             std::optional<std::uint64_t> data_ctx_id,
                             quicr::StreamClosedFlag flag) override
         {
-            {
+            if (flag != quicr::StreamClosedFlag::kStopSending) {
                 std::lock_guard lock(state_mutex_);
                 closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
             }
@@ -307,6 +313,7 @@ namespace quicr_test {
         mutable std::mutex state_mutex_;
 
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
+        quicr::RequestResponse subscribe_response_{ .reason_code = quicr::RequestResponse::ReasonCode::kOk };
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
         std::optional<std::promise<JoiningFetchDetails>> joining_fetch_promise_;

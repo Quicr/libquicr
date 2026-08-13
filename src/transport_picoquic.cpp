@@ -203,7 +203,6 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                     if (data_ctx != nullptr) {
                         transport->OnStreamClosed(
                           conn_id, stream_id, nullptr, data_ctx->data_ctx_id, StreamClosedFlag::kFin);
-                        transport->DeleteDataContext(conn_id, data_ctx->data_ctx_id, false);
                     }
                 }
             }
@@ -219,6 +218,8 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
             [[fallthrough]];
 
         case picoquic_callback_stream_reset: {
+            const auto close_flag = fin_or_event == picoquic_callback_stop_sending ? StreamClosedFlag::kStopSending
+                                                                                   : StreamClosedFlag::kReset;
             SPDLOG_LOGGER_DEBUG(
               transport->logger, "Received RESET stream conn_id: {0} stream_id: {1}", conn_id, stream_id);
 
@@ -228,8 +229,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                 const auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
                 if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                     rx_buf_it->second.closed = true;
-                    transport->OnStreamClosed(
-                      conn_id, stream_id, rx_buf_it->second.rx_ctx, std::nullopt, StreamClosedFlag::kReset);
+                    transport->OnStreamClosed(conn_id, stream_id, rx_buf_it->second.rx_ctx, std::nullopt, close_flag);
                 }
             }
 
@@ -242,7 +242,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
                   stream_id);
 
                 // Cleanup the reset stream.
-                transport->OnStreamClosed(conn_id, stream_id, nullptr, data_ctx->data_ctx_id, StreamClosedFlag::kReset);
+                transport->OnStreamClosed(conn_id, stream_id, nullptr, data_ctx->data_ctx_id, close_flag);
                 if (auto conn_ctx = transport->GetConnContext(conn_id)) {
                     transport->EraseStreamState(*conn_ctx, data_ctx, stream_id);
                 }
@@ -827,12 +827,12 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                 if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
                     rx_buf_it->second.closed = true;
                     transport->OnStreamClosed(
-                      conn_id, stream_id, rx_buf_it->second.rx_ctx, std::nullopt, StreamClosedFlag::kReset);
+                      conn_id, stream_id, rx_buf_it->second.rx_ctx, std::nullopt, StreamClosedFlag::kStopSending);
                 }
 
                 if (const auto data_ctx = GetDataCtxForWT(conn_ctx, stream_id)) {
                     transport->OnStreamClosed(
-                      conn_id, stream_id, nullptr, data_ctx->data_ctx_id, StreamClosedFlag::kReset);
+                      conn_id, stream_id, nullptr, data_ctx->data_ctx_id, StreamClosedFlag::kStopSending);
                 }
 
                 ClearDataCtxStream(conn_ctx, stream_id);
@@ -1021,7 +1021,6 @@ PicoQuicTransport::Start()
         local_tp_options_.initial_max_stream_data_bidi_local = tconfig_.initial_max_stream_data;
         local_tp_options_.initial_max_stream_data_bidi_remote = tconfig_.initial_max_stream_data;
     }
-
     picoquic_set_default_handshake_timeout(quic_ctx_, (tconfig_.idle_timeout_ms * 1000) / 2);
     picoquic_set_default_tp(quic_ctx_, &local_tp_options_);
 
@@ -1650,7 +1649,7 @@ PicoQuicTransport::DeleteDataContextInternal(std::uint64_t conn_id, std::uint64_
         }
 
         for (const auto& stream_id : stream_ids) {
-            CloseStream(conn_it->second, &data_ctx_it->second, stream_id, false);
+            CloseStream(conn_it->second, &data_ctx_it->second, stream_id, StreamOperation::kFin);
         }
 
         conn_it->second.active_data_contexts.erase(data_ctx_it);
@@ -1828,7 +1827,7 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
         const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
 
         if (should_reset) {
-            CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, true);
+            CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, StreamOperation::kReset);
             if (data_ctx->delete_on_empty && empty) {
                 DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
             }
@@ -1836,9 +1835,9 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
         }
 
         if (data_ctx->delete_on_empty && empty) {
-            DeleteDataContextInternal(data_ctx->conn_id, data_ctx->data_ctx_id, false);
+            DeleteDataContext(data_ctx->conn_id, data_ctx->data_ctx_id, false);
         } else if (stream_ctx.close_on_empty && empty) {
-            CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, false);
+            CloseStream(data_ctx->conn_id, data_ctx->data_ctx_id, stream_id, StreamOperation::kFin);
         }
     });
 
@@ -1905,8 +1904,8 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
             stream_ctx.tx_object = std::move(obj.value->data);
 
         } else {
-            picoquic_provide_stream_data_buffer(
-              bytes_ctx, 0, stream_ctx.close_on_empty, not stream_ctx.tx_data->Empty());
+            const bool send_fin = stream_ctx.close_on_empty || data_ctx->delete_on_empty;
+            picoquic_provide_stream_data_buffer(bytes_ctx, 0, send_fin, not stream_ctx.tx_data->Empty());
             return;
         }
     }
@@ -1930,7 +1929,8 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
 
     uint8_t* buf = nullptr;
 
-    buf = picoquic_provide_stream_data_buffer(bytes_ctx, data_len, 0, is_still_active);
+    const bool send_fin = !is_still_active && (stream_ctx.close_on_empty || data_ctx->delete_on_empty);
+    buf = picoquic_provide_stream_data_buffer(bytes_ctx, data_len, send_fin, is_still_active);
 
     if (buf == NULL) {
         // Error allocating memory to write
@@ -2856,9 +2856,11 @@ PicoQuicTransport::CreateStreamInternal(std::uint64_t conn_id, std::uint64_t dat
 }
 
 void
-PicoQuicTransport::CloseStream(std::uint64_t conn_id, uint64_t data_ctx_id, uint64_t stream_id, bool use_reset)
+PicoQuicTransport::CloseStream(std::uint64_t conn_id, uint64_t data_ctx_id, uint64_t stream_id, StreamOperation mode)
 {
-    RunPqFunction([this, conn_id = conn_id, data_ctx_id = data_ctx_id, stream_id, use_reset]() {
+    CheckCloseStream(stream_id, is_server_mode, mode);
+
+    RunPqFunction([this, conn_id = conn_id, data_ctx_id = data_ctx_id, stream_id, mode]() {
         auto conn_ctx = GetConnContext(conn_id);
         if (!conn_ctx) {
             return 1;
@@ -2866,9 +2868,9 @@ PicoQuicTransport::CloseStream(std::uint64_t conn_id, uint64_t data_ctx_id, uint
 
         auto data_ctx = conn_ctx->active_data_contexts.find(data_ctx_id);
         if (data_ctx == conn_ctx->active_data_contexts.end()) {
-            CloseStream(*conn_ctx, nullptr, stream_id, use_reset);
+            CloseStream(*conn_ctx, nullptr, stream_id, mode);
         } else {
-            CloseStream(*conn_ctx, std::addressof(data_ctx->second), stream_id, use_reset);
+            CloseStream(*conn_ctx, std::addressof(data_ctx->second), stream_id, mode);
         }
         return 0;
     });
@@ -2878,24 +2880,46 @@ void
 PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx,
                                DataContext* data_ctx,
                                std::uint64_t stream_id,
-                               const bool use_reset)
+                               StreamOperation mode)
 {
+    CheckCloseStream(stream_id, is_server_mode, mode);
+
     if (data_ctx) {
         if (!data_ctx->streams.contains(stream_id)) {
-            SPDLOG_ERROR("Failed to close stream as it does not exist (conn_id={}, data_ctx_id={}, stream_id={})",
-                         conn_ctx.conn_id,
-                         data_ctx->data_ctx_id,
-                         stream_id);
-            return;
+            SPDLOG_LOGGER_DEBUG(logger,
+                                "Closing stream after local state was removed (conn_id={}, data_ctx_id={}, "
+                                "stream_id={})",
+                                conn_ctx.conn_id,
+                                data_ctx->data_ctx_id,
+                                stream_id);
         }
     }
 
     SPDLOG_LOGGER_DEBUG(logger, "conn_id: {} closing stream stream_id: {}", conn_ctx.conn_id, stream_id);
 
-    if (use_reset) {
-        picoquic_reset_stream_ctx(conn_ctx.pq_cnx, stream_id);
-        picoquic_reset_stream(conn_ctx.pq_cnx, stream_id, 0);
-    } else {
+    const auto error_code =
+      mode == StreamOperation::kReset ? 0 : static_cast<std::uint64_t>(messages::StreamResetError::kCancelled);
+
+    if (mode == StreamOperation::kStopSending || mode == StreamOperation::kCancel) {
+        picoquic_stop_sending(conn_ctx.pq_cnx, stream_id, error_code);
+    }
+
+    if (mode == StreamOperation::kReset || mode == StreamOperation::kCancel) {
+        h3zero_stream_ctx_t* wt_stream_ctx = nullptr;
+        if (data_ctx) {
+            const auto stream_it = data_ctx->streams.find(stream_id);
+            if (stream_it != data_ctx->streams.end()) {
+                wt_stream_ctx = stream_it->second.wt_stream_ctx;
+            }
+        }
+
+        if (conn_ctx.transport_mode == TransportMode::kWebTransport && wt_stream_ctx) {
+            picowt_reset_stream(conn_ctx.pq_cnx, wt_stream_ctx, error_code);
+        } else {
+            picoquic_reset_stream_ctx(conn_ctx.pq_cnx, stream_id);
+            picoquic_reset_stream(conn_ctx.pq_cnx, stream_id, error_code);
+        }
+    } else if (mode == StreamOperation::kFin) {
         // TODO: PQ doesn't have a method to call to FIN a stream correctly, so we FIN it in SendStreamBytes()
 
         // Below doesn't work correctly, results in loss of data inflight
@@ -2903,13 +2927,17 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx,
         picoquic_add_to_stream(conn_ctx.pq_cnx, stream_id, &empty, 0, 1);
     }
 
-    EraseStreamState(conn_ctx, data_ctx, stream_id);
+    if (mode == StreamOperation::kFin || mode == StreamOperation::kReset || mode == StreamOperation::kCancel) {
+        EraseStreamState(conn_ctx, data_ctx, stream_id);
+    }
 
-    const auto rx_buf_it = conn_ctx.rx_stream_buffer.find(stream_id);
-    if (rx_buf_it != conn_ctx.rx_stream_buffer.end()) {
-        std::lock_guard<std::mutex> _(state_mutex_);
+    if (mode == StreamOperation::kFin || mode == StreamOperation::kReset) {
+        const auto rx_buf_it = conn_ctx.rx_stream_buffer.find(stream_id);
+        if (rx_buf_it != conn_ctx.rx_stream_buffer.end()) {
+            std::lock_guard<std::mutex> _(state_mutex_);
 
-        conn_ctx.rx_stream_buffer.erase(rx_buf_it);
+            conn_ctx.rx_stream_buffer.erase(rx_buf_it);
+        }
     }
 }
 

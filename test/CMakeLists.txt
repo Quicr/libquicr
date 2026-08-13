@@ -13,6 +13,7 @@ add_executable(quicr_test
     session.cpp
     track_handlers.cpp
     track_namespace.cpp
+    transport.cpp
     transport_metrics.cpp
     uintvar.cpp
 )

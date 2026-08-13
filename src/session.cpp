@@ -381,7 +381,8 @@ namespace quicr {
 
     void Session::SendCtrlMsg(const ConnectionContext& conn_ctx,
                               std::uint64_t data_ctx_id,
-                              std::shared_ptr<const std::vector<uint8_t>> data)
+                              std::shared_ptr<const std::vector<uint8_t>> data,
+                              bool close_stream)
     {
         if (!conn_ctx.tx_ctrl_data_ctx_id.has_value()) {
             CloseConnection(conn_ctx.connection_id,
@@ -397,7 +398,7 @@ namespace quicr {
                                                0,
                                                2000,
                                                0,
-                                               { true, false, false, false });
+                                               { true, close_stream, false, false });
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -509,7 +510,8 @@ namespace quicr {
                                    [[maybe_unused]] uint64_t request_id,
                                    ErrorCode error,
                                    std::chrono::milliseconds retry_interval,
-                                   const std::string& reason)
+                                   const std::string& reason,
+                                   bool close_stream)
     try {
         SPDLOG_LOGGER_DEBUG(logger_,
                             "Sending REQUEST_ERROR to conn_id: {} request_id: {} error code: {} reason: {}",
@@ -518,12 +520,11 @@ namespace quicr {
                             static_cast<int>(error),
                             reason);
 
-        SendCtrlMsg(conn_ctx,
-                    data_ctx_id,
-                    ControlMessageType::kRequestError,
-                    error,
-                    UintVar(retry_interval.count()),
-                    AsOwnedBytes(reason));
+        messages::Message msg = messages::Message{}.PrependType(ControlMessageType::kRequestError).ReserveLength();
+        msg.Append(error);
+        msg.Append(UintVar(retry_interval.count()));
+        msg.Append(AsOwnedBytes(reason));
+        SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes(), close_stream);
     } catch (const std::exception& e) {
         SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -1113,23 +1114,29 @@ namespace quicr {
         auto handler_status = handler.GetStatus();
 
         switch (handler_status) {
-            case SubscribeTrackHandler::Status::kDoneByFin:
-                [[fallthrough]];
-            case SubscribeTrackHandler::Status::kDoneByReset:
-                [[fallthrough]];
             case SubscribeTrackHandler::Status::kOk:
                 try {
                     if (not handler.IsPublisherInitiated() && not conn_ctx.closed) {
                         // TODO: Is it possible for these to not be sent at this point?
                         if (handler.GetDataContextId().has_value() && handler.GetRequestStreamId().has_value()) {
-                            quic_transport_->CloseStream(
-                              conn_ctx.connection_id, *handler.GetDataContextId(), *handler.GetRequestStreamId(), true);
+                            quic_transport_->CloseStream(conn_ctx.connection_id,
+                                                         *handler.GetDataContextId(),
+                                                         *handler.GetRequestStreamId(),
+                                                         StreamOperation::kCancel);
+                            quic_transport_->DeleteDataContext(
+                              conn_ctx.connection_id, *handler.GetDataContextId(), false);
                         }
                     }
                 } catch (const std::exception& e) {
                     SPDLOG_LOGGER_ERROR(logger_, "Failed to send unsubscribe: {}", e.what());
                 }
 
+                handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+                break;
+
+            case SubscribeTrackHandler::Status::kDoneByFin:
+                [[fallthrough]];
+            case SubscribeTrackHandler::Status::kDoneByReset:
                 handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                 break;
 
@@ -1239,10 +1246,25 @@ namespace quicr {
             return;
         }
 
-        const bool is_reset = flag == StreamClosedFlag::kReset;
+        const bool is_reset = flag != StreamClosedFlag::kFin;
 
         if (const auto data_ctx_id = handler_it->second.handler->GetDataContextId()) {
             conn_ctx.request_id_by_data_ctx.erase(*data_ctx_id);
+
+            switch (flag) {
+                case StreamClosedFlag::kFin:
+                    quic_transport_->CloseStream(connection_id, *data_ctx_id, stream_id, StreamOperation::kFin);
+                    quic_transport_->DeleteDataContext(connection_id, *data_ctx_id, false);
+                    break;
+                case StreamClosedFlag::kReset:
+                    quic_transport_->CloseStream(connection_id, *data_ctx_id, stream_id, StreamOperation::kReset);
+                    quic_transport_->DeleteDataContext(connection_id, *data_ctx_id, false);
+                    break;
+                case StreamClosedFlag::kStopSending:
+                    // The transport resets the send direction in response to STOP_SENDING.
+                    quic_transport_->DeleteDataContext(connection_id, *data_ctx_id, false);
+                    break;
+            }
         }
 
         SPDLOG_LOGGER_INFO(logger_,
@@ -1532,7 +1554,8 @@ namespace quicr {
             return;
         }
 
-        quic_transport_->CloseStream(conn_id, *data_ctx_id, *request_stream_id, true);
+        quic_transport_->CloseStream(conn_id, *data_ctx_id, *request_stream_id, StreamOperation::kCancel);
+        quic_transport_->DeleteDataContext(conn_id, *data_ctx_id, false);
         conn_it->second.request_handlers.erase(track_handler->GetRequestId().value());
     }
 
@@ -2050,11 +2073,12 @@ namespace quicr {
                 } else {
                     SPDLOG_LOGGER_ERROR(
                       logger_,
-                      "Received data on existing stream_id: {} with no handler anymore, resetting stream",
+                      "Received data on existing stream_id: {} with no handler anymore, stopping stream receive",
                       stream_id);
 
                     if (data_ctx_id.has_value()) {
-                        quic_transport_->CloseStream(conn_id, data_ctx_id.value(), stream_id, true);
+                        quic_transport_->CloseStream(
+                          conn_id, data_ctx_id.value(), stream_id, StreamOperation::kStopSending);
                     }
                 }
             }
@@ -2097,7 +2121,6 @@ namespace quicr {
                 const auto req_it = conn_ctx.request_id_by_data_ctx.find(*data_ctx_id);
                 if (req_it != conn_ctx.request_id_by_data_ctx.end()) {
                     const auto request_id = req_it->second;
-                    conn_ctx.request_id_by_data_ctx.erase(req_it);
 
                     lock.unlock();
                     CloseRequestHandler(conn_ctx, connection_id, request_id, stream_id, flag);
@@ -2107,7 +2130,6 @@ namespace quicr {
             } catch (const std::exception& e) {
                 SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream closed: {}", e.what());
             }
-            return;
         }
 
         try {
@@ -2127,6 +2149,8 @@ namespace quicr {
                             CloseConnection(
                               connection_id, TerminationReason::kProtocolViolation, "Primary control stream RESET");
                         }
+                        break;
+                    case StreamClosedFlag::kStopSending:
                         break;
                 }
 
@@ -2153,6 +2177,8 @@ namespace quicr {
                                     handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
                                 }
                                 handler->StreamClosed(stream_id, true);
+                                break;
+                            case StreamClosedFlag::kStopSending:
                                 break;
                         }
                     }
@@ -2738,7 +2764,9 @@ namespace quicr {
                 const auto data_ctx_id = req_it->second.handler->GetDataContextId();
                 const auto request_stream_id = req_it->second.handler->GetRequestStreamId();
                 if (data_ctx_id.has_value() && request_stream_id.has_value()) {
-                    quic_transport_->CloseStream(sub_conn_handle, *data_ctx_id, *request_stream_id, true);
+                    quic_transport_->CloseStream(
+                      sub_conn_handle, *data_ctx_id, *request_stream_id, StreamOperation::kCancel);
+                    quic_transport_->DeleteDataContext(sub_conn_handle, *data_ctx_id, false);
                 }
                 it->second.request_handlers.erase(req_it);
             }
@@ -2777,7 +2805,8 @@ namespace quicr {
                              request_id,
                              response.error->error_code,
                              response.error->retry_interval,
-                             response.error->reason);
+                             response.error->reason,
+                             false);
         } else {
             // TODO: Type the params in resolve, fill in here.
             SendRequestUpdateOk(conn_it->second, *data_ctx_id, std::nullopt, std::nullopt);
@@ -3690,7 +3719,8 @@ namespace quicr {
                                      request_id,
                                      messages::ErrorCode::kDoesNotExist,
                                      0ms,
-                                     "Subscription not found");
+                                     "Subscription not found",
+                                     false);
                     return true;
                 }
 
