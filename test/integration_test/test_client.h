@@ -9,7 +9,7 @@ namespace quicr {
 }
 
 namespace quicr_test {
-    class TestClient final : public quicr::ClientSessionCallbacks
+    class TestClient final : public quicr::Session::ClientCallbacks
     {
       public:
         // Connection.

@@ -162,7 +162,7 @@ namespace quicr {
     }
 
     std::weak_ptr<Session> SessionManager::AddTransport(const ClientConfig& config,
-                                                        std::shared_ptr<ClientSessionCallbacks> callbacks)
+                                                        std::shared_ptr<Session::ClientCallbacks> callbacks)
     {
         TransportRemote relay;
         auto parse_result = ParseConnectUri(config.connect_uri);
@@ -202,7 +202,7 @@ namespace quicr {
         return { sessions_[connection->GetID()] = session };
     }
 
-    void SessionManager::AddTransport(const ServerConfig& config, std::shared_ptr<ServerSessionCallbacks> callbacks)
+    void SessionManager::AddTransport(const ServerConfig& config, std::shared_ptr<Session::ServerCallbacks> callbacks)
     {
         TransportRemote server;
         server.host_or_ip = config.server_bind_ip;

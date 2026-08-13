@@ -5,9 +5,11 @@
 
 namespace quicr {
 
-    // -- SessionCallbacks --------------------------------------------------------------------
+    // -- Session::Callbacks --------------------------------------------------------------------
 
-    Expected<const PublishResponse, Error<PublishErrorCode>> SessionCallbacks::PublishReceived(
+    void Session::Callbacks::StatusChanged(const std::shared_ptr<Session>&, Status) {}
+
+    Expected<const PublishResponse, Error<PublishErrorCode>> Session::Callbacks::PublishReceived(
       const std::shared_ptr<Session>&,
       std::uint64_t,
       const PublishAttributes&,
@@ -16,7 +18,7 @@ namespace quicr {
         return Unexpected<Error<PublishErrorCode>>(PublishErrorCode::kNotSupported, "Publish is not supported");
     }
 
-    Expected<void, Error<PublishNamespaceErrorCode>> SessionCallbacks::PublishNamespaceReceived(
+    Expected<void, Error<PublishNamespaceErrorCode>> Session::Callbacks::PublishNamespaceReceived(
       const std::shared_ptr<Session>&,
       const TrackNamespace&,
       const PublishNamespaceAttributes&)
@@ -24,7 +26,7 @@ namespace quicr {
         return {};
     }
 
-    Expected<const FetchResponse, Error<FetchErrorCode>> SessionCallbacks::StandaloneFetchReceived(
+    Expected<const FetchResponse, Error<FetchErrorCode>> Session::Callbacks::StandaloneFetchReceived(
       const std::shared_ptr<Session>&,
       std::uint64_t,
       const FullTrackName&,
@@ -33,7 +35,7 @@ namespace quicr {
         return Unexpected<Error<FetchErrorCode>>(FetchErrorCode::kInternalError, "Fetch is not supported");
     }
 
-    Expected<const FetchResponse, Error<FetchErrorCode>> SessionCallbacks::JoiningFetchReceived(
+    Expected<const FetchResponse, Error<FetchErrorCode>> Session::Callbacks::JoiningFetchReceived(
       const std::shared_ptr<Session>&,
       std::uint64_t,
       const FullTrackName&,
@@ -42,61 +44,56 @@ namespace quicr {
         return Unexpected<Error<FetchErrorCode>>(FetchErrorCode::kInternalError, "Fetch is not supported");
     }
 
-    Expected<void, Error<FetchErrorCode>> SessionCallbacks::FetchCancelReceived(const std::shared_ptr<Session>&,
-                                                                                std::uint64_t)
+    Expected<void, Error<FetchErrorCode>> Session::Callbacks::FetchCancelReceived(const std::shared_ptr<Session>&,
+                                                                                  std::uint64_t)
     {
         return {};
     }
 
-    Expected<RequestResponse, Error<RequestErrorCode>> SessionCallbacks::TrackStatusReceived(
-      const std::shared_ptr<Session>&,
-      std::uint64_t,
-      const FullTrackName&)
+    Expected<RequestResponse, Error<RequestErrorCode>>
+    Session::Callbacks::TrackStatusReceived(const std::shared_ptr<Session>&, std::uint64_t, const FullTrackName&)
     {
         return RequestResponse{};
     }
 
-    // -- ClientSessionCallbacks ---------------------------------------------------------------
+    // -- Session::ClientCallbacks ---------------------------------------------------------------
 
-    Expected<void, Error<int>> ClientSessionCallbacks::ServerSetupReceived(const std::shared_ptr<Session>&,
-                                                                           const ServerSetupAttributes&)
+    Expected<void, Error<int>> Session::ClientCallbacks::ServerSetupReceived(const std::shared_ptr<Session>&,
+                                                                             const ServerSetupAttributes&)
     {
         return {};
     }
 
-    Expected<void, Error<int>> ClientSessionCallbacks::UnpublishedSubscribeReceived(const std::shared_ptr<Session>&,
-                                                                                    const FullTrackName&,
-                                                                                    const SubscribeAttributes&)
+    Expected<void, Error<int>> Session::ClientCallbacks::UnpublishedSubscribeReceived(const std::shared_ptr<Session>&,
+                                                                                      const FullTrackName&,
+                                                                                      const SubscribeAttributes&)
     {
         return {};
     }
 
-    // -- ServerSessionCallbacks ---------------------------------------------------------------
+    // -- Session::ServerCallbacks ---------------------------------------------------------------
 
-    void
-    ServerSessionCallbacks::OnStreamClosed(std::uint64_t, StreamClosedFlag)
-    {
-    }
+    void Session::ServerCallbacks::OnStreamClosed(std::uint64_t, StreamClosedFlag) {}
 
-    Expected<void, Error<int>> ServerSessionCallbacks::ClientSetupReceived(const std::shared_ptr<Session>&,
-                                                                           const ClientSetupAttributes&)
+    Expected<void, Error<int>> Session::ServerCallbacks::ClientSetupReceived(const std::shared_ptr<Session>&,
+                                                                             const ClientSetupAttributes&)
     {
         return {};
     }
 
     Expected<std::vector<std::uint64_t>, Error<PublishNamespaceErrorCode>>
-    ServerSessionCallbacks::PublishNamespaceDoneReceived(const std::shared_ptr<Session>&, std::uint64_t)
+    Session::ServerCallbacks::PublishNamespaceDoneReceived(const std::shared_ptr<Session>&, std::uint64_t)
     {
         return std::vector<std::uint64_t>{};
     }
 
-    Expected<void, Error<int>> ServerSessionCallbacks::UnsubscribeNamespaceReceived(const std::shared_ptr<Session>&,
-                                                                                    const TrackNamespace&)
+    Expected<void, Error<int>> Session::ServerCallbacks::UnsubscribeNamespaceReceived(const std::shared_ptr<Session>&,
+                                                                                      const TrackNamespace&)
     {
         return {};
     }
 
-    Expected<std::vector<TrackNamespace>, Error<RequestErrorCode>> ServerSessionCallbacks::SubscribeNamespaceReceived(
+    Expected<std::vector<TrackNamespace>, Error<RequestErrorCode>> Session::ServerCallbacks::SubscribeNamespaceReceived(
       const std::shared_ptr<Session>&,
       std::uint64_t,
       const TrackNamespace&,
@@ -105,7 +102,7 @@ namespace quicr {
         return std::vector<TrackNamespace>{};
     }
 
-    Expected<std::vector<TrackNamespace>, Error<RequestErrorCode>> ServerSessionCallbacks::SubscribeTracksReceived(
+    Expected<std::vector<TrackNamespace>, Error<RequestErrorCode>> Session::ServerCallbacks::SubscribeTracksReceived(
       const std::shared_ptr<Session>&,
       std::uint64_t,
       const TrackNamespace&,
@@ -114,7 +111,7 @@ namespace quicr {
         return std::vector<TrackNamespace>{};
     }
 
-    Expected<RequestResponse, Error<RequestErrorCode>> ServerSessionCallbacks::SubscribeReceived(
+    Expected<RequestResponse, Error<RequestErrorCode>> Session::ServerCallbacks::SubscribeReceived(
       const std::shared_ptr<Session>&,
       std::uint64_t,
       const FullTrackName&,
@@ -123,19 +120,19 @@ namespace quicr {
         return RequestResponse{};
     }
 
-    Expected<void, Error<int>> ServerSessionCallbacks::UnsubscribeReceived(const std::shared_ptr<Session>&,
-                                                                           std::uint64_t)
+    Expected<void, Error<int>> Session::ServerCallbacks::UnsubscribeReceived(const std::shared_ptr<Session>&,
+                                                                             std::uint64_t)
     {
         return {};
     }
 
-    Expected<void, Error<int>> ServerSessionCallbacks::PublishDoneReceived(const std::shared_ptr<Session>&,
-                                                                           std::uint64_t)
+    Expected<void, Error<int>> Session::ServerCallbacks::PublishDoneReceived(const std::shared_ptr<Session>&,
+                                                                             std::uint64_t)
     {
         return {};
     }
 
-    Expected<void, Error<int>> ServerSessionCallbacks::NewGroupRequested(const FullTrackName&, std::uint64_t)
+    Expected<void, Error<int>> Session::ServerCallbacks::NewGroupRequested(const FullTrackName&, std::uint64_t)
     {
         return {};
     }

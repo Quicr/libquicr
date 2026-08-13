@@ -10,6 +10,7 @@
 #include <quicr/handlers/publish_fetch_handler.h>
 #include <quicr/messages/object.h>
 #include <quicr/session.h>
+#include <quicr/session_callbacks.h>
 #include <quicr/session_manager.h>
 #include <quicr/utilities/defer.h>
 #include <sframe/sframe.h>
@@ -455,14 +456,39 @@ class MyFetchTrackHandler : public quicr::FetchTrackHandler
  * @brief MoQ client callbacks
  * @details Implementation of the client-mode session callbacks used by the MoQ Client
  */
-class MyClient : public quicr::ClientSessionCallbacks
+class MyClient : public quicr::Session::ClientCallbacks
 {
     MyClient() = default;
 
   public:
     static std::shared_ptr<MyClient> Create() { return std::shared_ptr<MyClient>(new MyClient()); }
 
-    // -- quicr::ClientSessionCallbacks --------------------------------------------------------
+    // -- quicr::Session::Callbacks (base, used in client mode) ---------------------------------
+
+    void StatusChanged([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
+                       quicr::Session::Status status) override
+    {
+        switch (status) {
+            case quicr::Session::Status::kReady:
+                SPDLOG_INFO("Connection ready");
+                moq_example::connected = true;
+                moq_example::cv.notify_all();
+                break;
+            case quicr::Session::Status::kConnecting:
+                break;
+            case quicr::Session::Status::kPendingServerSetup:
+                SPDLOG_INFO("Connection connected and now pending server setup");
+                break;
+            default:
+                SPDLOG_INFO("Connection failed {0}", static_cast<int>(status));
+                moq_example::terminate = true;
+                moq_example::termination_reason = "Connection failed";
+                moq_example::cv.notify_all();
+                break;
+        }
+    }
+
+    // -- quicr::Session::ClientCallbacks -------------------------------------------------------
 
     quicr::Expected<void, quicr::Error<int>> ServerSetupReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
@@ -482,8 +508,6 @@ class MyClient : public quicr::ClientSessionCallbacks
         SPDLOG_INFO("Received subscribe for a track that is not currently published: {}", track_full_name.NameStr());
         return {};
     }
-
-    // -- quicr::SessionCallbacks (base, used in client mode) ----------------------------------
 
     quicr::Expected<void, quicr::Error<quicr::PublishNamespaceErrorCode>> PublishNamespaceReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,

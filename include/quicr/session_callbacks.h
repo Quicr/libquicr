@@ -1,20 +1,19 @@
+// SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #pragma once
 
-#include "quicr/attributes.h"
-#include "quicr/connection.h"
-#include "quicr/messages/message.h"
-#include "quicr/messages/messages.h"
+#include "quicr/session.h"
 #include "quicr/utilities/expected.h"
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 
 namespace quicr {
 
-    class Session;
     class SubscribeNamespaceHandler;
-    class SubscribeTrackHandler;
 
     template<typename E>
     struct Error
@@ -44,13 +43,6 @@ namespace quicr {
         kUninterested,
         kPrefixOverlap,
         kInvalidJoiningRequestId,
-    };
-
-    struct RequestResponse
-    {
-        bool is_publisher_initiated = false;
-        std::optional<messages::Location> largest_location = std::nullopt;
-        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
     };
 
     /**
@@ -98,17 +90,22 @@ namespace quicr {
     };
 
     /**
-     * @brief Response to received MOQT Fetch message
+     * @brief Callback interface for session events common to both client and server mode
      */
-    struct FetchResponse
+    struct Session::Callbacks
     {
-        std::optional<messages::Location> largest_location = std::nullopt;
-        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
-    };
+        virtual ~Callbacks() = default;
 
-    struct SessionCallbacks
-    {
-        virtual ~SessionCallbacks() = default;
+        /**
+         * @brief Callback notification for status/state change
+         *
+         * @details Callback notification indicates state change of connection, such as disconnected. May be
+         *      invoked in either client or server mode.
+         *
+         * @param session          The session whose status changed
+         * @param status           Changed Status value
+         */
+        virtual void StatusChanged(const std::shared_ptr<Session>& session, Status status);
 
         /**
          * @brief Callback notification for new publish received
@@ -188,9 +185,12 @@ namespace quicr {
           const FullTrackName& track_full_name);
     };
 
-    struct ClientSessionCallbacks : public SessionCallbacks
+    /**
+     * @brief Callback interface for session events specific to client mode
+     */
+    struct Session::ClientCallbacks : public Session::Callbacks
     {
-        virtual ~ClientSessionCallbacks() = default;
+        virtual ~ClientCallbacks() = default;
 
         /**
          * @brief Callback on server setup message
@@ -221,9 +221,12 @@ namespace quicr {
           const SubscribeAttributes& subscribe_attributes);
     };
 
-    struct ServerSessionCallbacks : public SessionCallbacks
+    /**
+     * @brief Callback interface for session events specific to server mode
+     */
+    struct Session::ServerCallbacks : public Session::Callbacks
     {
-        virtual ~ServerSessionCallbacks() = default;
+        virtual ~ServerCallbacks() = default;
 
         virtual void OnStreamClosed(std::uint64_t stream_id, StreamClosedFlag flag);
 

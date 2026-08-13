@@ -15,18 +15,16 @@
 #include <quicr/handlers/subscribe_track_handler.h>
 #include <quicr/messages/object.h>
 #include <quicr/session.h>
+#include <quicr/session_callbacks.h>
 #include <quicr/session_manager.h>
 #include <quicr/track_name.h>
 
-#include <atomic>
-#include <chrono>
 #include <cstring>
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -193,11 +191,10 @@ namespace {
 
 /**
  * @brief Bridge client session callbacks, notifying the registered C callbacks
- * @details Implements quicr::ClientSessionCallbacks. Connection status is not part of this
- *      callback interface (it lives on quicr::Session), so qbridge_client polls the session's
- *      status on a background thread and reports changes through status_callback.
+ * @details Implements quicr::Session::ClientCallbacks. Connection status changes are reported
+ *      directly via `StatusChanged()`, which forwards to the registered `status_callback`.
  */
-class BridgeClient : public quicr::ClientSessionCallbacks
+class BridgeClient : public quicr::Session::ClientCallbacks
 {
     BridgeClient() = default;
 
@@ -209,6 +206,15 @@ class BridgeClient : public quicr::ClientSessionCallbacks
     qbridge_namespace_callback_t namespace_callback = nullptr;
     void* namespace_callback_user_data = nullptr;
     std::mutex callback_mutex;
+
+    void StatusChanged([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
+                       quicr::Session::Status status) override
+    {
+        std::lock_guard<std::mutex> lock(callback_mutex);
+        if (status_callback) {
+            status_callback(status_from_cpp(status), status_callback_user_data);
+        }
+    }
 
     quicr::Expected<void, quicr::Error<int>> ServerSetupReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,

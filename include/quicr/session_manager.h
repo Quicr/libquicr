@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/config.h"
+#include "quicr/session.h"
 
 #include <cstdint>
 #include <functional>
@@ -22,9 +23,6 @@ namespace spdlog {
 namespace quicr {
 
     class Connection;
-    class Session;
-    class ClientSessionCallbacks;
-    class ServerSessionCallbacks;
     class Transport;
     class TrackHandler;
 
@@ -52,9 +50,9 @@ namespace quicr {
         ~SessionManager();
 
         std::weak_ptr<Session> AddTransport(const ClientConfig& config,
-                                            std::shared_ptr<ClientSessionCallbacks> callbacks = nullptr);
+                                            std::shared_ptr<Session::ClientCallbacks> callbacks = nullptr);
 
-        void AddTransport(const ServerConfig& config, std::shared_ptr<ServerSessionCallbacks> callbacks = nullptr);
+        void AddTransport(const ServerConfig& config, std::shared_ptr<Session::ServerCallbacks> callbacks = nullptr);
 
         void AddHandler(const std::shared_ptr<Session>& session, std::shared_ptr<TrackHandler> handler);
 

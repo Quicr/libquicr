@@ -16,7 +16,6 @@
 #include "quicr/messages/message.h"
 #include "quicr/messages/messages.h"
 #include "quicr/metrics.h"
-#include "quicr/session_callbacks.h"
 #include "quicr/transport.h"
 
 #include <timeq/tick_service.h>
@@ -33,6 +32,25 @@ namespace spdlog {
 }
 
 namespace quicr {
+
+    /**
+     * @brief Response to a received subscribe or track status request
+     */
+    struct RequestResponse
+    {
+        bool is_publisher_initiated = false;
+        std::optional<messages::Location> largest_location = std::nullopt;
+        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+    };
+
+    /**
+     * @brief Response to a received MOQT Fetch message
+     */
+    struct FetchResponse
+    {
+        std::optional<messages::Location> largest_location = std::nullopt;
+        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+    };
 
     /**
      * @brief MoQ Session endpoint supporting connection-explicit operations
@@ -65,6 +83,17 @@ namespace quicr {
             kFailedToConnect,
             kPendingServerSetup,
         };
+
+        /**
+         * @brief Callback interfaces for session events
+         *
+         * @details Nested under `Session` so that callback signatures can reference `Session::Status` (and other
+         *      nested `Session` types) directly. Defined out-of-line in `session_callbacks.h`, which is included
+         *      after this class is fully defined.
+         */
+        struct Callbacks;
+        struct ClientCallbacks;
+        struct ServerCallbacks;
 
         /**
          * @brief Control message status codes
@@ -134,7 +163,7 @@ namespace quicr {
         static std::shared_ptr<Session> Create(const ClientConfig& cfg,
                                                std::shared_ptr<Transport> transport,
                                                std::shared_ptr<Connection> connection,
-                                               std::shared_ptr<ClientSessionCallbacks> callbacks,
+                                               std::shared_ptr<ClientCallbacks> callbacks,
                                                std::shared_ptr<timeq::tick_service> tick_service)
         {
             return std::shared_ptr<Session>(new Session(
@@ -149,7 +178,7 @@ namespace quicr {
         static std::shared_ptr<Session> Create(const ServerConfig& cfg,
                                                std::shared_ptr<Transport> transport,
                                                std::shared_ptr<Connection> connection,
-                                               std::shared_ptr<ServerSessionCallbacks> callbacks,
+                                               std::shared_ptr<ServerCallbacks> callbacks,
                                                std::shared_ptr<timeq::tick_service> tick_service)
         {
             return std::shared_ptr<Session>(new Session(
@@ -376,20 +405,6 @@ namespace quicr {
         // --END SERVER RELAY METHODS ------------------------------------------------------------------------
 
         // --BEGIN CALLBACKS ---------------------------------------------------------------------------------
-        /** @name Base Callbacks
-         *  Callbacks that may be invoked in either client or server mode.
-         */
-        ///@{
-        /**
-         * @brief Callback notification for status/state change
-         * @details Callback notification indicates state change of connection, such as disconnected
-         *
-         * @param status           Changed Status value
-         */
-        virtual void StatusChanged([[maybe_unused]] Status status) {}
-
-        ///@}
-
         /** @name Client Callbacks
          *      Callbacks invoked in client mode unless noted otherwise.
          */
@@ -426,7 +441,7 @@ namespace quicr {
         Session(const ClientConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
-                std::shared_ptr<ClientSessionCallbacks> callbacks)
+                std::shared_ptr<ClientCallbacks> callbacks)
           : Session(cfg,
                     std::move(transport),
                     std::move(connection),
@@ -443,7 +458,7 @@ namespace quicr {
         Session(const ServerConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
-                std::shared_ptr<ServerSessionCallbacks> callbacks)
+                std::shared_ptr<ServerCallbacks> callbacks)
           : Session(cfg,
                     std::move(transport),
                     std::move(connection),
@@ -461,7 +476,7 @@ namespace quicr {
         Session(const ClientConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
-                std::shared_ptr<ClientSessionCallbacks> callbacks,
+                std::shared_ptr<ClientCallbacks> callbacks,
                 std::shared_ptr<timeq::tick_service> tick_service);
 
         /**
@@ -473,7 +488,7 @@ namespace quicr {
         Session(const ServerConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
-                std::shared_ptr<ServerSessionCallbacks> callbacks,
+                std::shared_ptr<ServerCallbacks> callbacks,
                 std::shared_ptr<timeq::tick_service> tick_service);
 
         void OnStreamClosed(std::uint64_t stream_id,
@@ -516,11 +531,7 @@ namespace quicr {
 
         bool ProcessCtrlMessage(messages::ControlMessageType msg_type, BytesSpan msg_bytes);
 
-        void SetStatus(Status status)
-        {
-            status_ = status;
-            StatusChanged(status);
-        }
+        void SetStatus(Status status);
 
         void SendCtrlMsg(std::uint64_t data_ctx_id, std::shared_ptr<const std::vector<uint8_t>> data);
 
@@ -696,7 +707,7 @@ namespace quicr {
       private:
         std::shared_ptr<Connection> current_connection_;
 
-        std::shared_ptr<SessionCallbacks> callbacks_;
+        std::shared_ptr<Callbacks> callbacks_;
 
         std::optional<std::uint64_t> rx_ctrl_stream_id_;
 

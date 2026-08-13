@@ -112,7 +112,7 @@ namespace quicr_test {
     };
 
     class TestServer final
-      : public quicr::ServerSessionCallbacks
+      : public quicr::Session::ServerCallbacks
       , public std::enable_shared_from_this<TestServer>
     {
       public:

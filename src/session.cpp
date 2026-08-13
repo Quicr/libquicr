@@ -9,6 +9,7 @@
 #include "quicr/messages/message.h"
 #include "quicr/messages/messages.h"
 #include "quicr/messages/parameters.h"
+#include "quicr/session_callbacks.h"
 #include "track_properties.h"
 #include "transport_picoquic.h"
 
@@ -218,7 +219,7 @@ namespace quicr {
     Session::Session(const ClientConfig& cfg,
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
-                     std::shared_ptr<ClientSessionCallbacks> callbacks,
+                     std::shared_ptr<ClientCallbacks> callbacks,
                      std::shared_ptr<timeq::tick_service> tick_service)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
@@ -238,7 +239,7 @@ namespace quicr {
     Session::Session(const ServerConfig& cfg,
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
-                     std::shared_ptr<ServerSessionCallbacks> callbacks,
+                     std::shared_ptr<ServerCallbacks> callbacks,
                      std::shared_ptr<timeq::tick_service> tick_service)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
@@ -1071,7 +1072,7 @@ namespace quicr {
 
             lock.unlock();
 
-            if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+            if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->PublishNamespaceDoneReceived(GetSharedPtr(), request_id);
             }
             return;
@@ -1113,7 +1114,7 @@ namespace quicr {
             recv_req_id.erase(request_id);
 
             lock.unlock();
-            if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+            if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
             }
 
@@ -1126,7 +1127,7 @@ namespace quicr {
             request_handlers.erase(handler_it);
 
             lock.unlock();
-            if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+            if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
             }
 
@@ -1474,9 +1475,9 @@ namespace quicr {
                     SendSetup();
 
                     if (client_mode_) {
-                        status_ = Status::kPendingServerSetup;
+                        SetStatus(Status::kPendingServerSetup);
                     } else {
-                        status_ = Status::kReady;
+                        SetStatus(Status::kReady);
                     }
                 }
                 break;
@@ -1484,7 +1485,7 @@ namespace quicr {
 
             case Connection::Status::kConnecting:
                 if (client_mode_) {
-                    status_ = Status::kConnecting;
+                    SetStatus(Status::kConnecting);
                 }
                 break;
             case Connection::Status::kRemoteRequestClose:
@@ -1501,15 +1502,23 @@ namespace quicr {
 
             case Connection::Status::kShutdown:
                 remove_connection = true;
-                status_ = Status::kNotReady;
+                SetStatus(Status::kNotReady);
                 break;
         }
 
         if (remove_connection) {
             RemoveAllTracksForConnectionClose();
         }
+    }
 
-        StatusChanged(status_);
+    void Session::SetStatus(Status status)
+    {
+        status_ = status;
+        if (callbacks_) {
+            if (auto self = weak_from_this().lock()) {
+                callbacks_->StatusChanged(self, status);
+            }
+        }
     }
 
     void Session::OnRecvStream(uint64_t stream_id, std::optional<std::uint64_t> data_ctx_id, const bool is_bidir)
@@ -1771,7 +1780,7 @@ namespace quicr {
     {
         SPDLOG_LOGGER_DEBUG(logger_, "Stream {} closed", stream_id);
 
-        if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+        if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
             callbacks->OnStreamClosed(stream_id, flag);
         }
 
@@ -2294,13 +2303,13 @@ namespace quicr {
                 }
 
                 if (client_mode_) {
-                    if (auto callbacks = std::dynamic_pointer_cast<ClientSessionCallbacks>(callbacks_)) {
+                    if (auto callbacks = std::dynamic_pointer_cast<ClientCallbacks>(callbacks_)) {
                         callbacks->ServerSetupReceived(GetSharedPtr(), { 0, endpoint_id });
                     } else {
                         throw std::runtime_error("Malformed Client session, callbacks are not the correct type");
                     }
                 } else {
-                    if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                    if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                         callbacks->ClientSetupReceived(GetSharedPtr(), { endpoint_id });
                         SendSetup();
                     } else {
@@ -2396,7 +2405,7 @@ namespace quicr {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
 
-                if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     auto result =
                       callbacks->SubscribeReceived(GetSharedPtr(),
                                                    request_id,
@@ -2718,7 +2727,7 @@ namespace quicr {
 
                 request_id_by_data_ctx[data_ctx_id] = request_id;
 
-                if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     const SubscribeNamespaceAttributes attributes{
                         .request_id = request_id,
                         .filter_type = messages::FilterType::kTrackFilter,
@@ -2765,7 +2774,7 @@ namespace quicr {
                     return false;
                 }
 
-                if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
                     callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), track_namespace_suffix);
                 }
@@ -2808,7 +2817,7 @@ namespace quicr {
 
                 if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
-                    if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                    if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                         callbacks->PublishDoneReceived(GetSharedPtr(), request_id);
                     }
                 }
@@ -3158,7 +3167,7 @@ namespace quicr {
                   parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                 if (new_group_request_id.has_value()) {
-                    if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                    if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                         callbacks->NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id.value());
                     }
                 }
