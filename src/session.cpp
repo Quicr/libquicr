@@ -60,6 +60,70 @@ namespace quicr {
             data = data.subspan(size);
             return value;
         }
+
+        RequestErrorCode FromErrorCode(messages::ErrorCode error_code)
+        {
+            switch (error_code) {
+                case messages::ErrorCode::kInternalError:
+                    return RequestErrorCode::kInternalError;
+                case messages::ErrorCode::kUnauthorized:
+                    return RequestErrorCode::kUnauthorized;
+                case messages::ErrorCode::kTimeout:
+                    return RequestErrorCode::kTimeout;
+                case messages::ErrorCode::kNotSupported:
+                    return RequestErrorCode::kNotSupported;
+                case messages::ErrorCode::kMalformedAuthToken:
+                    return RequestErrorCode::kMalformedAuthToken;
+                case messages::ErrorCode::kExpiredAuthToken:
+                    return RequestErrorCode::kExpiredAuthToken;
+                case messages::ErrorCode::kDoesNotExist:
+                    return RequestErrorCode::kDoesNotExist;
+                case messages::ErrorCode::kInvalidRange:
+                    return RequestErrorCode::kInvalidRange;
+                case messages::ErrorCode::kMalformedTrack:
+                    return RequestErrorCode::kMalformedTrack;
+                case messages::ErrorCode::kDuplicateSubscription:
+                    return RequestErrorCode::kDuplicateSubscription;
+                case messages::ErrorCode::kUninterested:
+                    return RequestErrorCode::kUninterested;
+                case messages::ErrorCode::kPrefixOverlap:
+                    return RequestErrorCode::kPrefixOverlap;
+                case messages::ErrorCode::kInvalidJoiningRequestId:
+                    return RequestErrorCode::kInvalidJoiningRequestId;
+            }
+        }
+
+        messages::ErrorCode ToErrorCode(RequestErrorCode error_code)
+        {
+            switch (error_code) {
+                case RequestErrorCode::kInternalError:
+                    return messages::ErrorCode::kInternalError;
+                case RequestErrorCode::kUnauthorized:
+                    return messages::ErrorCode::kUnauthorized;
+                case RequestErrorCode::kTimeout:
+                    return messages::ErrorCode::kTimeout;
+                case RequestErrorCode::kNotSupported:
+                    return messages::ErrorCode::kNotSupported;
+                case RequestErrorCode::kMalformedAuthToken:
+                    return messages::ErrorCode::kMalformedAuthToken;
+                case RequestErrorCode::kExpiredAuthToken:
+                    return messages::ErrorCode::kExpiredAuthToken;
+                case RequestErrorCode::kDoesNotExist:
+                    return messages::ErrorCode::kDoesNotExist;
+                case RequestErrorCode::kInvalidRange:
+                    return messages::ErrorCode::kInvalidRange;
+                case RequestErrorCode::kMalformedTrack:
+                    return messages::ErrorCode::kMalformedTrack;
+                case RequestErrorCode::kDuplicateSubscription:
+                    return messages::ErrorCode::kDuplicateSubscription;
+                case RequestErrorCode::kUninterested:
+                    return messages::ErrorCode::kUninterested;
+                case RequestErrorCode::kPrefixOverlap:
+                    return messages::ErrorCode::kPrefixOverlap;
+                case RequestErrorCode::kInvalidJoiningRequestId:
+                    return messages::ErrorCode::kInvalidJoiningRequestId;
+            }
+        }
     }
 
     TransportException::TransportException(TransportError error, std::source_location location)
@@ -154,9 +218,11 @@ namespace quicr {
     Session::Session(const ClientConfig& cfg,
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
+                     std::shared_ptr<ClientSessionCallbacks> callbacks,
                      std::shared_ptr<timeq::tick_service> tick_service)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
+      , callbacks_(std::move(callbacks))
       , next_request_id_(0)
       , client_mode_(true)
       , logger_(SafeLoggerGet("QUICR_CLIENT"))
@@ -172,9 +238,11 @@ namespace quicr {
     Session::Session(const ServerConfig& cfg,
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
+                     std::shared_ptr<ServerSessionCallbacks> callbacks,
                      std::shared_ptr<timeq::tick_service> tick_service)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
+      , callbacks_(std::move(callbacks))
       , next_request_id_(1)
       , client_mode_(false)
       , logger_(SafeLoggerGet("QUICR_SERVER"))
@@ -233,40 +301,6 @@ namespace quicr {
         SendTrackStatus(request_id, track_full_name);
 
         return request_id;
-    }
-
-    void Session::TrackStatusReceived(uint64_t, const FullTrackName&) {}
-
-    void Session::ResolveTrackStatus(uint64_t request_id, const RequestResponse& subscribe_response)
-    {
-        switch (subscribe_response.reason_code) {
-            case RequestResponse::ReasonCode::kOk: {
-                // TODO: TrackProperties should be in the subscribe_response.
-                SendTrackStatusOk(
-                  ResponseDataContext(request_id), subscribe_response.largest_location, TrackExtensions());
-                break;
-            }
-            case RequestResponse::ReasonCode::kDoesNotExist:
-                SendRequestError(ResponseDataContext(request_id),
-                                 request_id,
-                                 ErrorCode::kDoesNotExist,
-                                 0ms, // TODO: Figure out retry interval
-                                 subscribe_response.error_reason.has_value() ? *subscribe_response.error_reason
-                                                                             : "Track does not exist");
-                break;
-            case RequestResponse::ReasonCode::kUnauthorized:
-                SendRequestError(ResponseDataContext(request_id),
-                                 request_id,
-                                 ErrorCode::kUnauthorized,
-                                 0ms, // TODO: Figure out retry interval
-                                 subscribe_response.error_reason.has_value() ? *subscribe_response.error_reason
-                                                                             : "Unauthorized");
-                break;
-            default:
-                SendRequestError(
-                  ResponseDataContext(request_id), request_id, ErrorCode::kInternalError, 0ms, "Internal error");
-                break;
-        }
     }
 
     void Session::SendCtrlMsg(std::uint64_t data_ctx_id, std::shared_ptr<const std::vector<uint8_t>> data)
@@ -1037,7 +1071,9 @@ namespace quicr {
 
             lock.unlock();
 
-            PublishNamespaceDoneReceived(request_id);
+            if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                callbacks->PublishNamespaceDoneReceived(GetSharedPtr(), request_id);
+            }
             return;
         }
 
@@ -1077,7 +1113,9 @@ namespace quicr {
             recv_req_id.erase(request_id);
 
             lock.unlock();
-            UnsubscribeReceived(request_id);
+            if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
+            }
 
             return;
         }
@@ -1088,7 +1126,9 @@ namespace quicr {
             request_handlers.erase(handler_it);
 
             lock.unlock();
-            UnsubscribeReceived(request_id);
+            if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
+            }
 
             return;
         }
@@ -1312,67 +1352,6 @@ namespace quicr {
 
         quic_transport_->CloseStream(current_connection_, *data_ctx_id, *request_stream_id, true);
         request_handlers.erase(track_handler->GetRequestId().value());
-    }
-
-    void Session::ResolvePublish(const uint64_t request_id,
-                                 const PublishAttributes& publish,
-                                 const PublishResponse& publish_response,
-                                 std::shared_ptr<SubscribeTrackHandler> handler)
-    {
-        auto error_code = ErrorCode::kInternalError;
-        auto reason = std::string("Internal error");
-
-        switch (publish_response.reason_code) {
-            case PublishResponse::ReasonCode::kOk: {
-                // Update the handler to correctly work with publisher initiated subscribe
-                if (handler) {
-                    handler->SetPublishInitiated();
-
-                    handler->SetConnectionId(current_connection_->GetID());
-                    handler->SetRequestId(request_id);
-                    handler->SetReceivedTrackAlias(publish.track_alias);
-                    handler->SetPriority(publish.default_publisher_priority);
-                    // TODO: Optional delivery timeout?
-                    const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
-                    handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));
-                    handler->SetPublisherDefaultGroupOrder(publish.default_publisher_group_order);
-                    handler->SupportNewGroupRequest(publish.dynamic_groups);
-
-                    SubscribeTrack(std::move(handler));
-                }
-
-                SendPublishOk(ResponseDataContext(request_id), publish_response.attributes);
-
-                return;
-            }
-
-            case PublishResponse::ReasonCode::kRejected:
-                error_code = ErrorCode::kUninterested;
-                reason = "Rejected; not interested";
-                break;
-
-            case PublishResponse::ReasonCode::kNotAuthorized:
-                error_code = ErrorCode::kUnauthorized;
-                reason = "Not authorized";
-                break;
-
-            default:
-                break;
-        }
-
-        SendRequestError(ResponseDataContext(request_id), request_id, error_code, 0ms, reason);
-    }
-
-    void Session::StandaloneFetchReceived([[maybe_unused]] [[maybe_unused]] uint64_t request_id,
-                                          [[maybe_unused]] const FullTrackName& track_full_name,
-                                          [[maybe_unused]] const quicr::StandaloneFetchAttributes& attributes)
-    {
-    }
-
-    void Session::JoiningFetchReceived([[maybe_unused]] [[maybe_unused]] uint64_t request_id,
-                                       [[maybe_unused]] const FullTrackName& track_full_name,
-                                       [[maybe_unused]] const quicr::JoiningFetchAttributes& attributes)
-    {
     }
 
     void Session::FetchTrack(std::shared_ptr<FetchTrackHandler> track_handler)
@@ -1792,6 +1771,10 @@ namespace quicr {
     {
         SPDLOG_LOGGER_DEBUG(logger_, "Stream {} closed", stream_id);
 
+        if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+            callbacks->OnStreamClosed(stream_id, flag);
+        }
+
         {
             std::lock_guard lock(state_mutex_);
             stream_buffers.erase(stream_id);
@@ -2090,125 +2073,10 @@ namespace quicr {
 
     // -- Resolve Methods --
 
-    void Session::ResolveSubscribe(uint64_t request_id, uint64_t track_alias, const RequestResponse& subscribe_response)
-    {
-        if (client_mode_) {
-            switch (subscribe_response.reason_code) {
-                case RequestResponse::ReasonCode::kOk:
-                    SendSubscribeOk(ResponseDataContext(request_id),
-                                    request_id,
-                                    track_alias,
-                                    kSubscribeExpires,
-                                    subscribe_response.largest_location,
-                                    subscribe_response.publisher_default_group_order);
-                    break;
-                default:
-                    SendRequestError(ResponseDataContext(request_id),
-                                     request_id,
-                                     messages::ErrorCode::kInternalError,
-                                     0ms,
-                                     "Internal error");
-                    break;
-            }
-            return;
-        }
-
-        switch (subscribe_response.reason_code) {
-            case RequestResponse::ReasonCode::kOk: {
-                // Save the latest state for joining fetch.
-                auto req_it = recv_req_id.find(request_id);
-                if (req_it == recv_req_id.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Resolve subscribe has no request_id: {} conn_id: {} track_alias: {}",
-                                       request_id,
-                                       current_connection_->GetID(),
-                                       track_alias);
-                    break;
-                }
-
-                req_it->second.largest_location = subscribe_response.largest_location;
-
-                if (!subscribe_response.is_publisher_initiated) {
-                    SendSubscribeOk(ResponseDataContext(request_id),
-                                    request_id,
-                                    track_alias,
-                                    kSubscribeExpires,
-                                    subscribe_response.largest_location,
-                                    subscribe_response.publisher_default_group_order);
-                }
-                break;
-            }
-            default:
-                if (!subscribe_response.is_publisher_initiated) {
-                    SendRequestError(ResponseDataContext(request_id),
-                                     request_id,
-                                     messages::ErrorCode::kInternalError,
-                                     0ms,
-                                     "Internal error");
-                }
-                break;
-        }
-    }
-
-    void Session::ResolveSubscribeNamespace(std::uint64_t data_ctx_id,
-                                            uint64_t request_id,
-                                            const TrackNamespace& prefix,
-                                            const SubscribeNamespaceResponse& response)
-    {
-        auto th = TrackHash({ prefix, {} });
-
-        if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
-            SendRequestError(data_ctx_id, request_id, messages::ErrorCode::kInternalError, 0ms, "Internal error");
-            return;
-        }
-
-        SendSubscribeNamespaceOk(data_ctx_id);
-
-        // Fan out PUBLISH_NAMESPACE for matching namespaces.
-        for (const auto& name_space : response.namespaces) {
-            const auto match = prefix.IsPrefixOf(name_space);
-            if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
-                SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
-                continue;
-            }
-
-            auto pub_ns_request_id = GetNextRequestID();
-            SendPublishNamespace(data_ctx_id, pub_ns_request_id, name_space);
-        }
-    }
-
-    void Session::ResolveSubscribeTracks(std::uint64_t data_ctx_id,
-                                         uint64_t request_id,
-                                         const TrackNamespace& prefix,
-                                         const SubscribeNamespaceResponse& response)
-    {
-        if (response.reason_code != SubscribeNamespaceResponse::ReasonCode::kOk) {
-            SendRequestError(data_ctx_id, request_id, messages::ErrorCode::kInternalError, 0ms, "Internal error");
-            return;
-        }
-
-        SendSubscribeTracksOk(data_ctx_id);
-
-        // Fan out PUBLISH_NAMESPACE for matching namespaces.
-        for (const auto& name_space : response.namespaces) {
-            const auto match = prefix.IsPrefixOf(name_space);
-            if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
-                SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
-                continue;
-            }
-
-            auto pub_ns_request_id = GetNextRequestID();
-            SendPublishNamespace(data_ctx_id, pub_ns_request_id, name_space);
-        }
-    }
-
     void Session::ResolveFetch(uint64_t request_id,
-                               [[maybe_unused]] std::uint8_t priority,
                                std::optional<messages::GroupOrder> group_order,
                                const FetchResponse& response)
     {
-        auto error_code = messages::ErrorCode::kInternalError;
-
         const auto request_it = recv_req_id.find(request_id);
         if (request_it == recv_req_id.end() || request_it->second.data_ctx_id == 0) {
             SPDLOG_LOGGER_ERROR(logger_,
@@ -2219,53 +2087,7 @@ namespace quicr {
         }
         const auto data_ctx_id = request_it->second.data_ctx_id;
 
-        switch (response.reason_code) {
-            case FetchResponse::ReasonCode::kOk:
-                SendFetchOk(
-                  data_ctx_id, response.publisher_default_group_order, false, response.largest_location.value());
-                return;
-
-            case FetchResponse::ReasonCode::kInvalidRange:
-                error_code = messages::ErrorCode::kInvalidRange;
-                break;
-
-            default:
-                break;
-        }
-
-        SendRequestError(data_ctx_id,
-                         request_id,
-                         error_code,
-                         0ms,
-                         response.error_reason.has_value() ? response.error_reason.value() : "Internal error");
-    }
-
-    void Session::ResolvePublishNamespace(uint64_t request_id,
-                                          const TrackNamespace& track_namespace,
-                                          const PublishNamespaceResponse& response)
-    {
-        if (response.reason_code != PublishNamespaceResponse::ReasonCode::kOk) {
-            // TODO: Send announce error
-            return;
-        }
-
-        std::uint64_t response_data_ctx_id = ResponseDataContext(request_id);
-        const auto pub_ns_it = request_handlers.find(request_id);
-        if (pub_ns_it != request_handlers.end() && pub_ns_it->second->GetDataContextId().has_value()) {
-            response_data_ctx_id = *pub_ns_it->second->GetDataContextId();
-        }
-
-        SendPublishNamespaceOk(response_data_ctx_id);
-
-        const auto sub_data_ctx_id = FindSubscribeNamespaceDataContext(track_namespace);
-        if (!sub_data_ctx_id.has_value()) {
-            SPDLOG_LOGGER_WARN(logger_,
-                               "No subscribe namespace data context for publish namespace conn_id: {}",
-                               current_connection_->GetID());
-            return;
-        }
-
-        SendPublishNamespace(*sub_data_ctx_id, GetNextRequestID(), track_namespace);
+        SendFetchOk(data_ctx_id, response.publisher_default_group_order, false, response.largest_location.value());
     }
 
     void Session::ResolveRequestUpdate(std::uint64_t request_id, const RequestUpdateResponse& response)
@@ -2331,62 +2153,7 @@ namespace quicr {
 
     // -- Client Callbacks --
 
-    void Session::ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes) {}
-
-    void Session::PublishNamespaceReceived(const TrackNamespace& track_namespace,
-                                           const PublishNamespaceAttributes& publish_namespace_attributes)
-    {
-    }
-
-    void Session::UnsubscribeReceived(uint64_t) {}
-
-    void Session::UnpublishedSubscribeReceived(const FullTrackName&, const SubscribeAttributes&) {}
-
     void Session::MetricsSampled(const ConnectionMetrics&) {}
-
-    // -- Server Callbacks --
-
-    void Session::ClientSetupReceived(const ClientSetupAttributes&) {}
-
-    std::vector<std::uint64_t> Session::PublishNamespaceDoneReceived([[maybe_unused]] std::uint64_t request_id)
-    {
-        return std::vector<std::uint64_t>();
-    }
-
-    void Session::UnsubscribeNamespaceReceived(const TrackNamespace&) {}
-
-    void Session::SubscribeNamespaceReceived(std::uint64_t, const TrackNamespace&, const SubscribeNamespaceAttributes&)
-    {
-    }
-
-    void Session::SubscribeTracksReceived(std::uint64_t, const TrackNamespace&, const SubscribeNamespaceAttributes&) {}
-
-    void Session::SubscribeReceived([[maybe_unused]] std::uint64_t request_id,
-                                    [[maybe_unused]] const FullTrackName& track_full_name,
-                                    [[maybe_unused]] const SubscribeAttributes& subscribe_attributes)
-    {
-    }
-
-    void Session::PublishDoneReceived(std::uint64_t) {}
-
-    void Session::NewGroupRequested(const FullTrackName&, std::uint64_t) {}
-
-    // -- Shared Callbacks --
-
-    void Session::PublishReceived([[maybe_unused]] std::uint64_t request_id,
-                                  [[maybe_unused]] const PublishAttributes& publish,
-                                  [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler)
-    {
-        if (!client_mode_) {
-            return;
-        }
-
-        auto handler = SubscribeTrackHandler::Create(publish.track_full_name, publish.default_publisher_priority);
-
-        ResolvePublish(request_id, publish, { .reason_code = PublishResponse::ReasonCode::kNotSupported }, handler);
-    }
-
-    void Session::FetchCancelReceived([[maybe_unused]] std::uint64_t request_id) {}
 
     // -- Server Relay Methods --
 
@@ -2527,10 +2294,18 @@ namespace quicr {
                 }
 
                 if (client_mode_) {
-                    ServerSetupReceived({ 0, endpoint_id });
+                    if (auto callbacks = std::dynamic_pointer_cast<ClientSessionCallbacks>(callbacks_)) {
+                        callbacks->ServerSetupReceived(GetSharedPtr(), { 0, endpoint_id });
+                    } else {
+                        throw std::runtime_error("Malformed Client session, callbacks are not the correct type");
+                    }
                 } else {
-                    ClientSetupReceived({ endpoint_id });
-                    SendSetup();
+                    if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                        callbacks->ClientSetupReceived(GetSharedPtr(), { endpoint_id });
+                        SendSetup();
+                    } else {
+                        throw std::runtime_error("Malformed Server session, callbacks are not the correct type");
+                    }
                 }
 
                 SetStatus(Status::kReady);
@@ -2592,11 +2367,17 @@ namespace quicr {
 
                     ptd->SetDataContextId(data_ctx_id);
 
-                    ResolveSubscribe(request_id, ptd->GetTrackAlias().value(), { RequestResponse::ReasonCode::kOk });
+                    SendSubscribeOk(ResponseDataContext(request_id),
+                                    request_id,
+                                    ptd->GetTrackAlias().value(),
+                                    kSubscribeExpires,
+                                    std::nullopt,
+                                    messages::GroupOrder::kAscending);
 
                     ptd->SetRequestId(request_id);
                     ptd->SetTrackAlias(ptd->GetTrackAlias().value());
                     ptd->SetStatus(PublishTrackHandler::Status::kOk);
+
                     return true;
                 }
 
@@ -2615,23 +2396,81 @@ namespace quicr {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
 
-                SubscribeReceived(request_id,
-                                  tfn,
-                                  {
-                                    .priority = priority,
-                                    .group_order = group_order,
-                                    .publisher_default_group_order = publisher_default_group_order,
-                                    .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
-                                    .expires = std::chrono::milliseconds{ delivery_timeout },
-                                    .filter = filter,
-                                    .forward = forward,
-                                    .new_group_request_id = new_group_request_id,
-                                    .is_publisher_initiated = false,
-                                    .start_location = {},
-                                  });
+                if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                    auto result =
+                      callbacks->SubscribeReceived(GetSharedPtr(),
+                                                   request_id,
+                                                   tfn,
+                                                   {
+                                                     .priority = priority,
+                                                     .group_order = group_order,
+                                                     .publisher_default_group_order = publisher_default_group_order,
+                                                     .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
+                                                     .expires = std::chrono::milliseconds{ delivery_timeout },
+                                                     .filter = filter,
+                                                     .forward = forward,
+                                                     .new_group_request_id = new_group_request_id,
+                                                     .is_publisher_initiated = false,
+                                                     .start_location = {},
+                                                   });
 
-                if (new_group_request_id.has_value()) {
-                    NewGroupRequested(tfn, *new_group_request_id);
+                    if (!result) {
+                        const auto& [_, reason] = result.error();
+
+                        // TODO: Should server not send if publisher initiated?
+                        SendRequestError(ResponseDataContext(request_id),
+                                         request_id,
+                                         messages::ErrorCode::kInternalError,
+                                         0ms,
+                                         reason.value_or("Internal error"));
+
+                        return true;
+                    }
+
+                    if (client_mode_) {
+                        SendSubscribeOk(ResponseDataContext(request_id),
+                                        request_id,
+                                        th.track_fullname_hash,
+                                        kSubscribeExpires,
+                                        result->largest_location,
+                                        result->publisher_default_group_order);
+                    } else {
+
+                        // Save the latest state for joining fetch.
+                        auto req_it = recv_req_id.find(request_id);
+                        if (req_it == recv_req_id.end()) {
+                            SPDLOG_LOGGER_WARN(logger_,
+                                               "Resolve subscribe has no request_id: {} conn_id: {} track_alias: {}",
+                                               request_id,
+                                               current_connection_->GetID(),
+                                               th.track_fullname_hash);
+                            break;
+                        }
+
+                        req_it->second.largest_location = result->largest_location;
+
+                        if (!result->is_publisher_initiated) {
+                            SendSubscribeOk(ResponseDataContext(request_id),
+                                            request_id,
+                                            th.track_fullname_hash,
+                                            kSubscribeExpires,
+                                            result->largest_location,
+                                            result->publisher_default_group_order);
+                        }
+                    }
+
+                    if (new_group_request_id.has_value()) {
+                        auto result = callbacks->NewGroupRequested(tfn, *new_group_request_id);
+
+                        if (!result) {
+                            const auto& [code, reason] = result.error();
+                            SPDLOG_LOGGER_ERROR(logger_,
+                                                "Encountered error on NewGroupRequested (code={}, error={})",
+                                                code,
+                                                reason.value_or("unknown"));
+                            return true;
+                        }
+                    }
                 }
 
                 return true;
@@ -2727,9 +2566,7 @@ namespace quicr {
                 [[maybe_unused]] const auto retry_interval = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
 
-                RequestResponse response{};
-                response.reason_code = RequestResponse::FromErrorCode(error_code);
-                response.error_reason = std::string(error_reason.begin(), error_reason.end());
+                std::string reason_str(error_reason.begin(), error_reason.end());
 
                 if (client_mode_) {
                     auto track_it = request_handlers.find(request_id);
@@ -2742,7 +2579,7 @@ namespace quicr {
                         return true;
                     }
 
-                    track_it->second->RequestError(error_code, response.error_reason.value());
+                    track_it->second->RequestError(error_code, reason_str);
                     return true;
                 }
 
@@ -2750,7 +2587,7 @@ namespace quicr {
                                     "Received track status error request_id: {} error code: {} reason: {}",
                                     request_id,
                                     static_cast<std::uint64_t>(error_code),
-                                    response.error_reason.value());
+                                    reason_str);
                 return true;
             }
             case messages::ControlMessageType::kTrackStatus: {
@@ -2768,7 +2605,44 @@ namespace quicr {
 
                 request_id_by_data_ctx[data_ctx_id] = request_id;
 
-                TrackStatusReceived(request_id, tfn);
+                if (callbacks_) {
+                    auto result = callbacks_->TrackStatusReceived(GetSharedPtr(), request_id, tfn);
+
+                    if (!result) {
+                        const auto& [code, reason] = result.error();
+
+                        switch (code) {
+                            case RequestErrorCode::kDoesNotExist:
+                                SendRequestError(ResponseDataContext(request_id),
+                                                 request_id,
+                                                 ErrorCode::kDoesNotExist,
+                                                 0ms, // TODO: Figure out retry interval
+                                                 reason.value_or("Track does not exist"));
+                                break;
+                            case RequestErrorCode::kUnauthorized:
+                                SendRequestError(ResponseDataContext(request_id),
+                                                 request_id,
+                                                 ErrorCode::kUnauthorized,
+                                                 0ms, // TODO: Figure out retry interval
+                                                 reason.value_or("Unauthorized"));
+                                break;
+                            default:
+                                SendRequestError(ResponseDataContext(request_id),
+                                                 request_id,
+                                                 ErrorCode::kInternalError,
+                                                 0ms,
+                                                 "Internal error");
+                                break;
+                        }
+
+                        return true;
+                    }
+
+                    // TODO: TrackProperties should be in the subscribe_response.
+                    SendTrackStatusOk(
+                      ResponseDataContext(request_id), result.value().largest_location, TrackExtensions());
+                }
+
                 return true;
             }
             case messages::ControlMessageType::kPublishNamespace: {
@@ -2782,36 +2656,41 @@ namespace quicr {
                 recv_publish_namespaces.push_back(request_id);
                 request_id_by_data_ctx[data_ctx_id] = request_id;
 
-                PublishNamespaceReceived(track_namespace, { .request_id = request_id });
+                if (callbacks_) {
+                    auto result = callbacks_->PublishNamespaceReceived(
+                      GetSharedPtr(), track_namespace, { .request_id = request_id });
+
+                    if (!result) {
+                        const auto& [code, reason] = result.error();
+
+                        // TODO: Send announce error.
+
+                        return true;
+                    }
+
+                    std::uint64_t response_data_ctx_id = ResponseDataContext(request_id);
+                    const auto pub_ns_it = request_handlers.find(request_id);
+                    if (pub_ns_it != request_handlers.end() && pub_ns_it->second->GetDataContextId().has_value()) {
+                        response_data_ctx_id = *pub_ns_it->second->GetDataContextId();
+                    }
+
+                    SendPublishNamespaceOk(response_data_ctx_id);
+
+                    const auto sub_data_ctx_id = FindSubscribeNamespaceDataContext(track_namespace);
+                    if (!sub_data_ctx_id.has_value()) {
+                        SPDLOG_LOGGER_WARN(logger_,
+                                           "No subscribe namespace data context for publish namespace conn_id: {}",
+                                           current_connection_->GetID());
+                        return true;
+                    }
+
+                    SendPublishNamespace(*sub_data_ctx_id, GetNextRequestID(), track_namespace);
+                }
 
                 return true;
             }
-            case messages::ControlMessageType::kSubscribeTracks: {
-                if (client_mode_) {
-                    SPDLOG_LOGGER_ERROR(
-                      logger_, "Unsupported MOQT message type: {}, bad stream", static_cast<uint64_t>(msg_type));
-                    return false;
-                }
-
-                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
-                const auto track_namespace_prefix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
-                const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
-
-                messages::Filter filter;
-                if (parameters.Contains(messages::ParameterType::kSubscriptionFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kSubscriptionFilter);
-                } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
-                }
-
-                request_id_by_data_ctx[data_ctx_id] = request_id;
-
-                SubscribeTracksReceived(
-                  data_ctx_id,
-                  track_namespace_prefix,
-                  { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
-                return true;
-            }
+            case messages::ControlMessageType::kSubscribeTracks:
+                [[fallthrough]];
             case messages::ControlMessageType::kSubscribeNamespace: {
                 if (client_mode_) {
                     SPDLOG_LOGGER_ERROR(
@@ -2821,8 +2700,13 @@ namespace quicr {
 
                 const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto track_namespace_prefix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
-                [[maybe_unused]] const auto subscribe_options =
-                  messages::Message::ParseField<messages::SubscribeOptions>(msg_bytes);
+
+                if (msg_type == messages::ControlMessageType::kSubscribeNamespace) {
+                    // TODO: Figure out what we should do with these in the case of Subscribe Namespace.
+                    [[maybe_unused]] const auto subscribe_options =
+                      messages::Message::ParseField<messages::SubscribeOptions>(msg_bytes);
+                }
+
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 messages::Filter filter;
@@ -2834,10 +2718,40 @@ namespace quicr {
 
                 request_id_by_data_ctx[data_ctx_id] = request_id;
 
-                SubscribeNamespaceReceived(
-                  data_ctx_id,
-                  track_namespace_prefix,
-                  { .request_id = request_id, .filter_type = messages::FilterType::kTrackFilter, .filter = filter });
+                if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                    auto result =
+                      callbacks->SubscribeNamespaceReceived(GetSharedPtr(),
+                                                            data_ctx_id,
+                                                            track_namespace_prefix,
+                                                            {
+                                                              .request_id = request_id,
+                                                              .filter_type = messages::FilterType::kTrackFilter,
+                                                              .filter = filter,
+                                                            });
+
+                    if (!result) {
+                        const auto& [code, reason] = result.error();
+                        SendRequestError(
+                          data_ctx_id, request_id, ToErrorCode(code), 0ms, reason.value_or("Internal error"));
+
+                        return true;
+                    }
+
+                    SendSubscribeNamespaceOk(data_ctx_id);
+
+                    // Fan out PUBLISH_NAMESPACE for matching namespaces.
+                    for (const auto& name_space : result.value()) {
+                        const auto match = track_namespace_prefix.IsPrefixOf(name_space);
+                        if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
+                            SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
+                            continue;
+                        }
+
+                        auto pub_ns_request_id = GetNextRequestID();
+                        SendPublishNamespace(data_ctx_id, pub_ns_request_id, name_space);
+                    }
+                }
+
                 return true;
             }
             case messages::ControlMessageType::kNamespaceDone: {
@@ -2847,8 +2761,10 @@ namespace quicr {
                     return false;
                 }
 
-                const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
-                UnsubscribeNamespaceReceived(track_namespace_suffix);
+                if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                    const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+                    callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), track_namespace_suffix);
+                }
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {
@@ -2888,7 +2804,9 @@ namespace quicr {
 
                 if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
-                    PublishDoneReceived(request_id);
+                    if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                        callbacks->PublishDoneReceived(GetSharedPtr(), request_id);
+                    }
                 }
 
                 recv_req_id.erase(request_id);
@@ -2974,14 +2892,38 @@ namespace quicr {
                         auto group_order =
                           parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
 
-                        StandaloneFetchAttributes attrs = {
-                            .priority = priority,
-                            .group_order = group_order,
-                            .publisher_default_group_order = messages::GroupOrder::kAscending,
-                            .start_location = start,
-                            .end_location = end_location,
-                        };
-                        StandaloneFetchReceived(request_id, tfn, attrs);
+                        if (callbacks_) {
+                            StandaloneFetchAttributes attrs = {
+                                .priority = priority,
+                                .group_order = group_order,
+                                .publisher_default_group_order = messages::GroupOrder::kAscending,
+                                .start_location = start,
+                                .end_location = end_location,
+                            };
+                            auto result = callbacks_->StandaloneFetchReceived(GetSharedPtr(), request_id, tfn, attrs);
+
+                            if (!result) {
+                                const auto& [code, reason] = result.error();
+
+                                messages::ErrorCode error_code = messages::ErrorCode::kInternalError;
+                                switch (code) {
+                                    case FetchErrorCode::kInvalidRange:
+                                        error_code = messages::ErrorCode::kInvalidRange;
+                                        break;
+
+                                    default:
+                                        break;
+                                }
+
+                                SendRequestError(
+                                  data_ctx_id, request_id, error_code, 0ms, reason.value_or("Internal error"));
+
+                                return true;
+                            }
+
+                            ResolveFetch(request_id, group_order, result.value());
+                        }
+
                         return true;
                     }
                     case messages::FetchType::kRelativeJoiningFetch: {
@@ -3017,16 +2959,39 @@ namespace quicr {
                         auto group_order =
                           parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
 
-                        JoiningFetchAttributes attrs = {
-                            .priority = priority,
-                            .group_order = group_order,
-                            .publisher_default_group_order = messages::GroupOrder::kAscending,
-                            .joining_request_id = joining_request_id,
-                            .relative = relative_joining,
-                            .joining_start = joining_start,
-                        };
+                        if (callbacks_) {
+                            JoiningFetchAttributes attrs = {
+                                .priority = priority,
+                                .group_order = group_order,
+                                .publisher_default_group_order = messages::GroupOrder::kAscending,
+                                .joining_request_id = joining_request_id,
+                                .relative = relative_joining,
+                                .joining_start = joining_start,
+                            };
 
-                        JoiningFetchReceived(request_id, tfn, attrs);
+                            auto result = callbacks_->JoiningFetchReceived(GetSharedPtr(), request_id, tfn, attrs);
+
+                            if (!result) {
+                                const auto& [code, reason] = result.error();
+
+                                messages::ErrorCode error_code = messages::ErrorCode::kInternalError;
+                                switch (code) {
+                                    case FetchErrorCode::kInvalidRange:
+                                        error_code = messages::ErrorCode::kInvalidRange;
+                                        break;
+
+                                    default:
+                                        break;
+                                }
+
+                                SendRequestError(
+                                  data_ctx_id, request_id, error_code, 0ms, reason.value_or("Internal error"));
+
+                                return true;
+                            }
+
+                            ResolveFetch(request_id, group_order, result.value());
+                        }
                         return true;
                     }
                     default: {
@@ -3074,8 +3039,8 @@ namespace quicr {
                                             .data_ctx_id = data_ctx_id };
                 request_id_by_data_ctx[data_ctx_id] = request_id;
 
+                std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
                 if (client_mode_) {
-                    std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
                     for (auto& [_, track] : request_handlers) {
                         if (auto h = track->Get<SubscribeNamespaceHandler>()) {
                             if (h->GetPrefix().HasSamePrefix(publish.track_full_name.name_space)) {
@@ -3084,10 +3049,57 @@ namespace quicr {
                             }
                         }
                     }
+                }
 
-                    PublishReceived(request_id, publish, sub_ns_handler);
-                } else {
-                    PublishReceived(request_id, publish, {});
+                if (callbacks_) {
+                    auto result = callbacks_->PublishReceived(GetSharedPtr(), request_id, publish, sub_ns_handler);
+
+                    if (!result) {
+                        const auto& [code, reason] = result.error();
+
+                        messages::ErrorCode error_code;
+                        switch (code) {
+                            case PublishErrorCode::kRejected:
+                                error_code = ErrorCode::kUninterested;
+                                break;
+
+                            case PublishErrorCode::kNotAuthorized:
+                                error_code = ErrorCode::kUnauthorized;
+                                break;
+
+                            case PublishErrorCode::kNotSupported:
+                                error_code = ErrorCode::kNotSupported;
+                                break;
+
+                            case PublishErrorCode::kInternalError:
+                                error_code = ErrorCode::kInternalError;
+                                break;
+                        }
+
+                        SendRequestError(
+                          ResponseDataContext(request_id), request_id, error_code, 0ms, reason.value_or("unknown"));
+
+                        return true;
+                    }
+
+                    // Update the handler to correctly work with publisher initiated subscribe
+                    if (result->handler) {
+                        result->handler->SetPublishInitiated();
+
+                        result->handler->SetConnectionId(current_connection_->GetID());
+                        result->handler->SetRequestId(request_id);
+                        result->handler->SetReceivedTrackAlias(publish.track_alias);
+                        result->handler->SetPriority(publish.default_publisher_priority);
+                        // TODO: Optional delivery timeout?
+                        const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
+                        result->handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));
+                        result->handler->SetPublisherDefaultGroupOrder(publish.default_publisher_group_order);
+                        result->handler->SupportNewGroupRequest(publish.dynamic_groups);
+
+                        SubscribeTrack(std::move(result->handler));
+                    }
+
+                    SendPublishOk(ResponseDataContext(request_id), result->attributes);
                 }
 
                 return true;
@@ -3142,7 +3154,9 @@ namespace quicr {
                   parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                 if (new_group_request_id.has_value()) {
-                    NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id.value());
+                    if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
+                        callbacks->NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id.value());
+                    }
                 }
 
                 SPDLOG_LOGGER_DEBUG(logger_,

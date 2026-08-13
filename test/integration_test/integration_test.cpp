@@ -3,6 +3,7 @@
 #include "quicr/handlers/publish_namespace_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/session.h"
 #include "quicr/session_manager.h"
 #include "quicr/utilities/defer.h"
 #include "test_client.h"
@@ -144,49 +145,7 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
     std::optional<std::promise<PublishTrackMetrics>> metrics_promise_;
 };
 
-struct TestSessionManagerCallbacks : quicr::SessionManager::Callbacks
-{
-    TestSessionManagerCallbacks(std::function<void(const std::shared_ptr<TestServer>&)>&& set_server = nullptr)
-      : set_server_(std::move(set_server))
-    {
-    }
-
-    virtual ~TestSessionManagerCallbacks() = default;
-
-    virtual std::shared_ptr<quicr::Session> CreateClientSession(
-      const quicr::ClientConfig& cfg,
-      std::shared_ptr<quicr::Transport> transport,
-      std::shared_ptr<quicr::Connection> connection,
-      std::shared_ptr<timeq::tick_service> tick_service) override
-    {
-        return std::make_shared<TestClient>(cfg, std::move(transport), std::move(connection), std::move(tick_service));
-    }
-
-    virtual std::shared_ptr<quicr::Session> CreateServerSession(
-      const quicr::ServerConfig& cfg,
-      std::shared_ptr<quicr::Transport> transport,
-      std::shared_ptr<quicr::Connection> connection,
-      std::shared_ptr<timeq::tick_service> tick_service) override
-    {
-        return std::make_shared<TestServer>(
-          cfg, std::move(transport), std::move(connection), std::move(tick_service), shared_state_);
-    }
-
-    virtual void OnNewServerSession(const std::shared_ptr<Session>& new_session) override
-    {
-        if (set_server_) {
-            set_server_(std::static_pointer_cast<TestServer>(new_session));
-        }
-    }
-
-    virtual void OnSessionRemoved([[maybe_unused]] const std::shared_ptr<Session>& session) override {}
-
-  private:
-    std::shared_ptr<TestServer::SharedState> shared_state_ = std::make_shared<TestServer::SharedState>();
-    std::function<void(const std::shared_ptr<TestServer>&)> set_server_;
-};
-
-static void
+static std::shared_ptr<TestServer>
 MakeTestServer(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
                std::optional<std::size_t> max_connections = std::nullopt,
@@ -214,11 +173,15 @@ MakeTestServer(quicr::SessionManager& session_mgr,
     // Shared across every per-connection TestServer instance created for this listening
     // transport, so relaying between two different client connections (e.g. a publisher and
     // a subscriber on separate connections) works the same way a real relay would.
+    auto shared_state = std::make_shared<TestServer::SharedState>();
+    auto server = std::make_shared<TestServer>(shared_state);
 
-    session_mgr.AddTransport(server_config);
+    session_mgr.AddTransport(server_config, server);
+
+    return server;
 }
 
-std::shared_ptr<TestClient>
+auto
 MakeTestClient(quicr::SessionManager& session_mgr,
                const bool connect = true,
                const std::optional<std::string>& qlog_path = std::nullopt,
@@ -238,20 +201,22 @@ MakeTestClient(quicr::SessionManager& session_mgr,
         client_config.transport_config.quic_qlog_path = *qlog_path;
     }
 
-    auto session = session_mgr.AddTransport(client_config);
+    auto callbacks = std::make_shared<TestClient>();
+    auto w_session = session_mgr.AddTransport(client_config, callbacks);
 
-    CHECK_NE(session.lock(), nullptr);
+    CHECK_NE(w_session.lock(), nullptr);
 
-    auto client = std::static_pointer_cast<TestClient>(session.lock());
+    auto session = w_session.lock();
     if (connect) {
         // Wait for client to be connected instead of fixed sleep
-        const bool connected = WaitFor([&client]() {
-            const auto status = client->GetStatus();
+        const bool connected = WaitFor([&session]() {
+            const auto status = session->GetStatus();
             return status == Session::Status::kReady || status == Session::Status::kNotConnected;
         });
         CHECK(connected);
     }
-    return client;
+
+    return std::make_pair(session, callbacks);
 }
 
 /// @brief Test subscribe handler that tracks received objects and exposes stream state
@@ -375,14 +340,14 @@ class TestSubscribeHandler : public SubscribeTrackHandler
 
 TEST_CASE("Integration - Connection")
 {
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>());
-    MakeTestServer(session_mgr);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_connection = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, false, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, false, std::nullopt, protocol_scheme);
         std::promise<ServerSetupAttributes> recv_attributes;
         auto future = recv_attributes.get_future();
-        client->SetConnectedPromise(std::move(recv_attributes));
+        callbacks->SetConnectedPromise(std::move(recv_attributes));
         auto status = future.wait_for(kDefaultTimeout);
         REQUIRE(status == std::future_status::ready);
         const auto& [moqt_version, server_id] = future.get();
@@ -404,12 +369,11 @@ TEST_CASE("Integration - Connection")
 
 TEST_CASE("Integration - Subscribe")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_subscribe = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         // Make a subscription.
         FullTrackName ftn;
@@ -424,7 +388,7 @@ TEST_CASE("Integration - Subscribe")
         server->SetSubscribePromise(std::move(promise));
 
         // Subscribe.
-        CHECK_NOTHROW(client->SubscribeTrack(handler));
+        CHECK_NOTHROW(session->SubscribeTrack(handler));
 
         // Server should receive the subscribe.
         auto status = future.wait_for(kDefaultTimeout);
@@ -446,7 +410,7 @@ TEST_CASE("Integration - Subscribe")
         REQUIRE(WaitFor([&handler]() { return handler->RequestUpdateOks() == 2; }));
 
         // Test is complete, unsubscribe while we are connected.
-        CHECK_NOTHROW(client->UnsubscribeTrack(handler));
+        CHECK_NOTHROW(session->UnsubscribeTrack(handler));
 
         // Check track handler cleanup / strong reference cycles.
         CHECK_EQ(handler.use_count(), 1);
@@ -467,13 +431,12 @@ TEST_CASE("Integration - Subscribe")
 
 TEST_CASE("Integration - Subscribe metrics report received payload")
 {
-    std::shared_ptr<TestServer> server;
-    SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr, std::nullopt, 2);
+    SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto test_metrics = [&](const std::string& protocol_scheme) {
-        auto subscriber = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
-        auto publisher = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
+        auto [publisher, __] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "subscribe" }), { 1 } };
 
@@ -542,12 +505,11 @@ TEST_CASE("Integration - Subscribe metrics report received payload")
 
 TEST_CASE("Integration - Publish metrics report transmitted objects")
 {
-    std::shared_ptr<TestServer> server;
-    SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr);
+    SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_metrics = [&](const std::string& protocol_scheme) {
-        auto publisher = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
+        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "publish" }), { 1 } };
         auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
@@ -614,12 +576,11 @@ TEST_CASE("Integration - Publish metrics report transmitted objects")
 
 TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_unsubscribe = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
@@ -635,7 +596,7 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
         server->SetUnsubscribePromise(std::move(unsub_promise));
 
         // Subscribe and wait for the track to go live.
-        CHECK_NOTHROW(client->SubscribeTrack(handler));
+        CHECK_NOTHROW(session->SubscribeTrack(handler));
         REQUIRE(sub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         const auto request_id = sub_future.get().request_id;
         REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
@@ -643,7 +604,7 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
         const auto request_stream_id = handler->GetRequestStreamId().value();
 
         // Unsubscribe.
-        CHECK_NOTHROW(client->UnsubscribeTrack(handler));
+        CHECK_NOTHROW(session->UnsubscribeTrack(handler));
 
         // The request stream should be reset.
         REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
@@ -669,12 +630,11 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 
 TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client UnsubscribeTrack")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_unsubscribe_received = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
@@ -690,14 +650,14 @@ TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client Uns
         server->SetUnsubscribeReceivedPromise(std::move(unsub_received_promise));
         server->SetExpectedUnsubscribeHandlerType(TestServer::UnsubscribeReceivedDetails::HandlerType::kSubscribeTrack);
 
-        CHECK_NOTHROW(client->SubscribeTrack(handler));
+        CHECK_NOTHROW(session->SubscribeTrack(handler));
         REQUIRE(sub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         const auto request_id = sub_future.get().request_id;
         REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
         REQUIRE(handler->GetRequestStreamId().has_value());
         const auto request_stream_id = handler->GetRequestStreamId().value();
 
-        CHECK_NOTHROW(client->UnsubscribeTrack(handler));
+        CHECK_NOTHROW(session->UnsubscribeTrack(handler));
 
         REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
         CHECK(server->WasStreamReset(request_stream_id));
@@ -723,12 +683,11 @@ TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client Uns
 
 TEST_CASE("Integration - Publish namespace done resets the request stream")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_publish_namespace_done = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         TrackNamespace ns(std::vector<std::string>{ "ns", "done" });
 
@@ -742,7 +701,7 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
 
         // Publish a namespace and wait for it to be accepted.
         const auto handler = PublishNamespaceHandler::Create(ns);
-        CHECK_NOTHROW(client->PublishNamespace(handler));
+        CHECK_NOTHROW(session->PublishNamespace(handler));
         REQUIRE(recv_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == PublishNamespaceHandler::Status::kOk; }));
         REQUIRE(handler->GetRequestStreamId().has_value());
@@ -751,7 +710,7 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
         const auto request_id = handler->GetRequestId().value();
 
         // Done.
-        CHECK_NOTHROW(client->PublishNamespaceDone(handler));
+        CHECK_NOTHROW(session->PublishNamespaceDone(handler));
 
         // Request stream reset.
         REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
@@ -777,17 +736,16 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
 
 TEST_CASE("Integration - Fetch")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_fetch = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
         const auto handler = FetchTrackHandler::Create(ftn, 0, { 0, 0 }, { 0, std::nullopt });
-        client->FetchTrack(handler);
+        session->FetchTrack(handler);
 
         REQUIRE(handler->GetDataContextId().has_value());
         REQUIRE(handler->GetRequestStreamId().has_value());
@@ -809,13 +767,12 @@ TEST_CASE("Integration - Fetch")
 
 TEST_CASE("Integration - Joining Fetch")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
+    quicr::SessionManager session_mgr;
 
-    MakeTestServer(session_mgr);
+    auto server = MakeTestServer(session_mgr);
 
     auto test_joining_fetch = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
         const FullTrackName ftn{ TrackNamespace({ "namespace" }), { 1, 2, 3 } };
         const SubscribeTrackHandler::JoiningFetch joining_fetch{
             .priority = 4,
@@ -847,7 +804,7 @@ TEST_CASE("Integration - Joining Fetch")
         auto fetch_future = fetch_promise.get_future();
         server->SetJoiningFetchPromise(std::move(fetch_promise));
 
-        client->SubscribeTrack(handler);
+        session->SubscribeTrack(handler);
 
         REQUIRE(subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         const auto subscribe = subscribe_future.get();
@@ -884,8 +841,7 @@ TEST_CASE("Integration - Joining Fetch")
 
 TEST_CASE("Integration - Handlers with no transport")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
+    quicr::SessionManager session_mgr;
     // Subscribe.
     {
         const auto handler = SubscribeTrackHandler::Create(FullTrackName(), 0, std::nullopt);
@@ -921,19 +877,18 @@ TEST_CASE("Integration - Handlers with no transport")
 
 TEST_CASE("Group ID Gap")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_group_id_gap = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
 
         // Pub.
         const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500, { 0, 0 });
-        client->PublishTrack(pub);
+        session->PublishTrack(pub);
 
         // Wait for publisher to be ready
         const bool pub_ready = WaitFor([&pub]() { return pub->CanPublish(); });
@@ -971,7 +926,7 @@ TEST_CASE("Group ID Gap")
         //             break;
         //     }
         // });
-        // client->SubscribeTrack(sub);
+        // session->SubscribeTrack(sub);
         // std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
 
         REQUIRE(pub->CanPublish());
@@ -999,9 +954,7 @@ TEST_CASE("Group ID Gap")
 TEST_CASE("Qlog Generation")
 {
     auto test_qlog = [&](const std::string& protocol_scheme) {
-        std::shared_ptr<TestServer> server;
-        auto callbacks = std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; });
-        quicr::SessionManager session_mgr(callbacks);
+        quicr::SessionManager session_mgr;
 
         // Create temporary destination for QLOG files.
         const auto temp_dir = std::filesystem::temp_directory_path() / "libquicr_qlog_test";
@@ -1009,8 +962,8 @@ TEST_CASE("Qlog Generation")
         defer(std::filesystem::remove_all(temp_dir));
 
         // Enable qlog.
-        MakeTestServer(session_mgr, temp_dir.string());
-        auto client = MakeTestClient(session_mgr, true, temp_dir.string(), protocol_scheme);
+        auto server = MakeTestServer(session_mgr, temp_dir.string());
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, temp_dir.string(), protocol_scheme);
 
         // Check that above directory now has the two (server + client) qlog files.
         int qlogs = 0;
@@ -1038,12 +991,11 @@ TEST_CASE("Qlog Generation")
 
 TEST_CASE("Integration - Raw Subscribe Tracks")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_subscribe_namespace = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         // Set up the prefix namespace we want to subscribe to
         TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
@@ -1056,16 +1008,16 @@ TEST_CASE("Integration - Raw Subscribe Tracks")
         // Set up promise to verify client does NOT receive PUBLISH_NAMESPACE
         std::promise<TrackNamespace> publish_namespace_promise;
         std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
-        client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
+        callbacks->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
         // Set up promise to verify client does NOT receive PUBLISH
         std::promise<FullTrackName> publish_promise;
         auto publish_future = publish_promise.get_future();
-        client->SetPublishReceivedPromise(std::move(publish_promise));
+        callbacks->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Client sends SUBSCRIBE_NAMESPACE
         auto handler = SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks);
-        CHECK_NOTHROW(client->SubscribeNamespace(handler));
+        CHECK_NOTHROW(session->SubscribeNamespace(handler));
 
         // Server should receive the SUBSCRIBE_NAMESPACE message
         auto server_status = server_future.wait_for(kDefaultTimeout);
@@ -1102,12 +1054,11 @@ TEST_CASE("Integration - Raw Subscribe Tracks")
 
 TEST_CASE("Integration - Subscribe Tracks with matching namespace")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_matching_namespace = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         // Target namespace.
         TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
@@ -1116,10 +1067,10 @@ TEST_CASE("Integration - Subscribe Tracks with matching namespace")
         std::promise<TrackNamespace> publish_namespace_promise;
         std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
         server->AddKnownPublishedNamespace(prefix_namespace);
-        client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
+        callbacks->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(
+        CHECK_NOTHROW(session->SubscribeNamespace(
           SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Client should receive matched PUBLISH_NAMESPACE.
@@ -1146,13 +1097,11 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
 {
 
     auto test_matching_track = [&](const std::string& protocol_scheme) {
-        std::shared_ptr<TestServer> server;
-        auto callbacks = std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; });
-        quicr::SessionManager session_mgr(callbacks);
+        quicr::SessionManager session_mgr;
 
-        MakeTestServer(session_mgr);
+        auto server = MakeTestServer(session_mgr);
 
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         // Track.
         TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
@@ -1167,7 +1116,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
 
         // TODO: Validate full attribute round-trip.
         server->AddKnownPublishedTrack(existing_track, std::nullopt, {});
-        client->SetPublishReceivedPromise(std::move(publish_promise));
+        callbacks->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Set up promise to verify server gets accepted publish.
         std::promise<TestServer::SubscribeDetails> publish_ok_promise;
@@ -1175,7 +1124,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(
+        CHECK_NOTHROW(session->SubscribeNamespace(
           SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Client should receive matched PUBLISH for existing track.
@@ -1208,13 +1157,12 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
 
 TEST_CASE("Integration - Subscribe Tracks with ongoing match")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr, std::nullopt, 4);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_ongoing_match = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-        auto publisher = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         // Track.
         TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
@@ -1227,7 +1175,7 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
         // Set up promise to verify client received matching PUBLISH_NAMESPACE.
         std::promise<FullTrackName> publish_promise;
         auto publish_future = publish_promise.get_future();
-        client->SetPublishReceivedPromise(std::move(publish_promise));
+        callbacks->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Set up promise to verify server gets accepted publish.
         std::promise<TestServer::SubscribeDetails> publish_ok_promise;
@@ -1236,7 +1184,7 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
 
         // SUBSCRIBE_NAMESPACE to prefix.
         auto ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks);
-        CHECK_NOTHROW(client->SubscribeNamespace(ns_handler));
+        CHECK_NOTHROW(session->SubscribeNamespace(ns_handler));
 
         // Wait for the subscription to be confirmed before the PUBLISH arrives.
         const bool ns_ok =
@@ -1275,12 +1223,11 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
 
 TEST_CASE("Integration - Subscribe Tracks with non-matching namespace")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_non_matching = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         // Target namespace.
         TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
@@ -1290,10 +1237,10 @@ TEST_CASE("Integration - Subscribe Tracks with non-matching namespace")
         std::promise<TrackNamespace> publish_namespace_promise;
         std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
         server->AddKnownPublishedNamespace(non_match);
-        client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
+        callbacks->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(
+        CHECK_NOTHROW(session->SubscribeNamespace(
           SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Client should NOT receive PUBLISH_NAMESPACE.
@@ -1316,12 +1263,11 @@ TEST_CASE("Integration - Subscribe Tracks with non-matching namespace")
 
 TEST_CASE("Integration - Announce Flow")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
 
     auto test_announce = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         // Create a track with announce enabled.
         const TrackNamespace prefix(std::vector<std::string>{ "test", "namespace" });
@@ -1333,7 +1279,7 @@ TEST_CASE("Integration - Announce Flow")
         server->SetPublishNamespacePromise(std::move(server_promise));
 
         // Publish with announce, PUBLISH_NAMESPACE sent.
-        CHECK_NOTHROW(client->PublishNamespace(ns_handler));
+        CHECK_NOTHROW(session->PublishNamespace(ns_handler));
 
         // Server should receive the PUBLISH_NAMESPACE for the namespace.
         auto server_status = server_future.wait_for(kDefaultTimeout);
@@ -1351,7 +1297,7 @@ TEST_CASE("Integration - Announce Flow")
         auto pub_h = TestPublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 5000, { 0, 0 });
         REQUIRE_NOTHROW(w_pub_handler = pub_h);
 
-        client->PublishTrack(pub_h);
+        session->PublishTrack(pub_h);
 
         auto pub_handler = w_pub_handler.lock();
         REQUIRE_NE(pub_handler, nullptr);
@@ -1433,12 +1379,11 @@ class TestFetchTrackHandler final : public FetchTrackHandler
 
 TEST_CASE("Integration - Fetch object roundtrip")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
+    quicr::SessionManager session_mgr;
 
-    MakeTestServer(session_mgr);
+    auto server = MakeTestServer(session_mgr);
     auto test_fetch_roundtrip = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         FullTrackName ftn;
         ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "namespace" });
@@ -1488,7 +1433,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
 
         auto fetch_handler = TestFetchTrackHandler::Create(ftn, 0, { 100, 0 }, { 103, std::nullopt });
 
-        client->FetchTrack(fetch_handler);
+        session->FetchTrack(fetch_handler);
 
         REQUIRE(WaitFor([&fetch_handler]() { return fetch_handler->GetStatus() == FetchTrackHandler::Status::kOk; }));
 
@@ -1531,16 +1476,15 @@ TEST_CASE("Integration - Fetch object roundtrip")
 
 TEST_CASE("Integration - Subgroup and Stream Testing")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
+    quicr::SessionManager session_mgr;
 
     // Server needs to support 2 connections (subscriber + publisher)
-    MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto test_subgroups = [&](const std::string& protocol_scheme) {
         // Create subscriber and publisher clients
-        auto subscriber_client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-        auto publisher_client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber_session, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [publisher_session, __] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         // Track configuration
         FullTrackName ftn;
@@ -1574,7 +1518,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         sub_handler->SetObjectCountPromise(total_messages, std::move(all_received_promise));
 
         // Subscribe to the track
-        subscriber_client->SubscribeTrack(sub_handler);
+        subscriber_session->SubscribeTrack(sub_handler);
 
         // Wait for subscription to be ready
         const bool sub_ready =
@@ -1583,7 +1527,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
 
         // Create publisher with stream mode (explicit subgroup ID)
         auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
-        publisher_client->PublishTrack(pub_handler);
+        publisher_session->PublishTrack(pub_handler);
 
         // Wait for publisher to be ready
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
@@ -1775,13 +1719,12 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
 
 TEST_CASE("Integration - Small data callbacks assemble")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
+    quicr::SessionManager session_mgr;
 
     // Create with 1 byte window.
-    MakeTestServer(session_mgr, std::nullopt, 2, 1);
-    auto subscriber = MakeTestClient(session_mgr);
-    auto publisher = MakeTestClient(session_mgr);
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2, 1);
+    auto [subscriber, _] = MakeTestClient(session_mgr);
+    auto [publisher, __] = MakeTestClient(session_mgr);
 
     // Pub.
     const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "small", "callbacks" }), { 1 } };
@@ -1814,13 +1757,12 @@ TEST_CASE("Integration - Small data callbacks assemble")
 
 TEST_CASE("Integration - Failed publish does not create subgroup state")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
+    quicr::SessionManager session_mgr;
 
     // Setup a subscriber and publisher.
-    MakeTestServer(session_mgr, std::nullopt, 2);
-    auto subscriber = MakeTestClient(session_mgr);
-    auto publisher = MakeTestClient(session_mgr);
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto [subscriber, _] = MakeTestClient(session_mgr);
+    auto [publisher, __] = MakeTestClient(session_mgr);
     FullTrackName ftn;
     ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "paused_publish" });
     ftn.name = { 0x01 };
@@ -1899,13 +1841,12 @@ TEST_CASE("Integration - Failed publish does not create subgroup state")
 
 TEST_CASE("Integration - New subgroup preserves object IDs")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr, std::nullopt, 2);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto test_subgroup_roll = [&](const std::string& protocol_scheme) {
-        auto subscriber_client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-        auto publisher_client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber_session, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [publisher_session, __] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         FullTrackName ftn;
         ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "subgroup_roll" });
@@ -1913,7 +1854,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
 
         // Publisher.
         auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
-        publisher_client->PublishTrack(pub_handler);
+        publisher_session->PublishTrack(pub_handler);
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
 
@@ -1923,7 +1864,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         auto all_received_future = all_received_promise.get_future();
         constexpr std::size_t total_objects = 7;
         sub_handler->SetObjectCountPromise(total_objects, std::move(all_received_promise));
-        subscriber_client->SubscribeTrack(sub_handler);
+        subscriber_session->SubscribeTrack(sub_handler);
         const bool sub_ready =
           WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
         REQUIRE(sub_ready);
@@ -2013,13 +1954,12 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
 
 TEST_CASE("Integration - Dynamic groups support roundtrip")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr, std::nullopt, 4);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_dynamic_groups = [&](const std::string& protocol_scheme, bool dynamic_groups) {
-        auto publisher = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-        auto subscriber = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber, __] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
@@ -2061,8 +2001,8 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
     };
 
     auto test_dynamic_groups_publisher_initiated = [&](const std::string& protocol_scheme) {
-        auto publisher = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-        auto subscriber = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber, sub_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         TrackNamespace prefix_namespace({ "dyngrp" });
 
@@ -2073,7 +2013,7 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         // Subscriber sets up SubscribeNamespace first, then publisher publishes.
         std::promise<FullTrackName> publish_promise;
         auto publish_future = publish_promise.get_future();
-        subscriber->SetPublishReceivedPromise(std::move(publish_promise));
+        sub_callbacks->SetPublishReceivedPromise(std::move(publish_promise));
 
         auto ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks);
         CHECK_NOTHROW(subscriber->SubscribeNamespace(ns_handler));
@@ -2103,7 +2043,7 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         CHECK_EQ(received_name.name, ftn.name);
 
         // Get the subscribe handler created by PublishReceived.
-        auto sub_handler = subscriber->GetLastPublishReceivedSubHandler();
+        auto sub_handler = sub_callbacks->GetLastPublishReceivedSubHandler();
         REQUIRE(sub_handler);
 
         // Wait for the subscribe to be set up.
@@ -2143,12 +2083,11 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
 
 TEST_CASE("Integration - Dedicated bidirectional control data contexts")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr, std::nullopt, 4);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_dedicated_control_data_contexts = [&](const std::string& protocol_scheme) {
-        auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         TrackNamespace prefix(std::vector<std::string>{ "ctrl", "stream" });
 
@@ -2157,7 +2096,7 @@ TEST_CASE("Integration - Dedicated bidirectional control data contexts")
         server->SetSubscribeNamespacePromise(std::move(ns_server_promise));
 
         auto ns_handler = SubscribeNamespaceHandler::Create(prefix, SubscribeNamespaceHandler::Mode::kTracks);
-        CHECK_NOTHROW(client->SubscribeNamespace(ns_handler));
+        CHECK_NOTHROW(session->SubscribeNamespace(ns_handler));
 
         REQUIRE(ns_server_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         const auto ns_server_details = ns_server_future.get();
@@ -2176,7 +2115,7 @@ TEST_CASE("Integration - Dedicated bidirectional control data contexts")
         ftn.name = { 1, 2, 3 };
 
         const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
-        CHECK_NOTHROW(client->SubscribeTrack(sub_handler));
+        CHECK_NOTHROW(session->SubscribeTrack(sub_handler));
 
         const bool sub_ready =
           WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
@@ -2186,7 +2125,7 @@ TEST_CASE("Integration - Dedicated bidirectional control data contexts")
 
         const auto sub_data_ctx = sub_handler->GetDataContextId().value();
 
-        auto publisher = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
         const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 1, 5000, [](const auto&) {});
         CHECK_NOTHROW(publisher->PublishTrack(pub_handler));
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
@@ -2227,13 +2166,12 @@ TEST_CASE("Integration - Dedicated bidirectional control data contexts")
 
 TEST_CASE("Integration - Request updates use handler data context")
 {
-    std::shared_ptr<TestServer> server;
-    quicr::SessionManager session_mgr(std::make_shared<TestSessionManagerCallbacks>([&](auto&& s) { server = s; }));
-    MakeTestServer(session_mgr, std::nullopt, 4);
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_request_update_data_context = [&](const std::string& protocol_scheme) {
-        auto publisher = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-        auto subscriber = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber, __] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         FullTrackName ftn;
         ftn.name_space = TrackNamespace(std::vector<std::string>{ "ctrl", "update" });
