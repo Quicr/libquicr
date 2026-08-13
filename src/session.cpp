@@ -2719,15 +2719,19 @@ namespace quicr {
                 request_id_by_data_ctx[data_ctx_id] = request_id;
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerSessionCallbacks>(callbacks_)) {
-                    auto result =
-                      callbacks->SubscribeNamespaceReceived(GetSharedPtr(),
-                                                            data_ctx_id,
-                                                            track_namespace_prefix,
-                                                            {
-                                                              .request_id = request_id,
-                                                              .filter_type = messages::FilterType::kTrackFilter,
-                                                              .filter = filter,
-                                                            });
+                    const SubscribeNamespaceAttributes attributes{
+                        .request_id = request_id,
+                        .filter_type = messages::FilterType::kTrackFilter,
+                        .filter = filter,
+                    };
+
+                    // SUBSCRIBE_TRACKS and SUBSCRIBE_NAMESPACE share parsing above, but must be
+                    // dispatched to their own distinct callback.
+                    auto result = (msg_type == messages::ControlMessageType::kSubscribeTracks)
+                                    ? callbacks->SubscribeTracksReceived(
+                                        GetSharedPtr(), data_ctx_id, track_namespace_prefix, attributes)
+                                    : callbacks->SubscribeNamespaceReceived(
+                                        GetSharedPtr(), data_ctx_id, track_namespace_prefix, attributes);
 
                     if (!result) {
                         const auto& [code, reason] = result.error();
