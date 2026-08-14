@@ -153,7 +153,6 @@ namespace quicr {
             picoquic_cnx_t* pq_cnx = nullptr; /// Picoquic connection/path context
             uint64_t last_stream_id{ 0 };     /// last stream Id
 
-            bool mark_dgram_ready{ false };                       /// Instructs datagram to be marked ready/active
             TransportMode transport_mode{ TransportMode::kQuic }; /// Transport mode for this connection
 
             std::uint64_t next_data_ctx_id{ 1 }; /// Next data context ID; zero is reserved for default context
@@ -460,6 +459,13 @@ namespace quicr {
          */
         void EraseStreamState(ConnectionContext& conn_ctx, DataContext* data_ctx, std::uint64_t stream_id);
 
+        /**
+         * @brief Process Mark Stream and Datagram connections active
+         * @note The queue contains references to connection and stream contexts. Before removing
+         *      streams, data context, and/or connections this method MUST be called.
+         */
+        void ProcessMarkActive();
+
       public:
         std::shared_ptr<spdlog::logger> logger;
         bool is_server_mode;
@@ -479,19 +485,26 @@ namespace quicr {
         void RunPqFunction(std::function<int()>&& function);
         void CheckCallbackDelta(DataContext* data_ctx, bool tx = true);
 
+        struct StreamMarkActiveInfo
+        {
+            ConnectionContext& conn_ctx;
+            DataContext& data_ctx;
+            std::uint64_t stream_id;
+            DataContext::StreamContext& stream_ctx;
+        };
+
         /**
          * @brief Mark a stream active
-         * @details This method MUST only be called within the picoquic thread. Enqueue and other
-         *      thread methods can call this via the pq_runner.
+         * @details This method MUST only be called within the picoquic thread.
          */
-        void MarkStreamActive(std::uint64_t conn_id, std::uint64_t data_ctx_id, std::uint64_t stream_id);
+        void MarkStreamActive(StreamMarkActiveInfo& info);
 
         /**
          * @brief Mark datagram ready
          * @details This method MUST only be called within the picoquic thread. Enqueue and other
          *      thread methods can call this via the pq_runner.
          */
-        void MarkDgramReady(std::uint64_t conn_id);
+        void MarkDgramReady(const ConnectionContext& conn_ctx);
 
         /**
          * @brief Initialize WebTransport context
@@ -578,6 +591,11 @@ namespace quicr {
 
         /// Threads queue functions that picoquic will call via the pq_loop callback
         SafeQueue<std::function<int()>> picoquic_runner_queue_;
+
+        /// Queue of stream contexts that should be marked active
+        SafeQueue<StreamMarkActiveInfo> stream_mark_active_queue_;
+
+        SafeQueue<ConnectionContext*> datagram_mark_active_queue_;
 
         std::atomic<bool> stop_;
         std::mutex state_mutex_; /// Used for stream/context/state updates
