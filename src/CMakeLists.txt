@@ -25,7 +25,6 @@ endif()
 
 target_sources(quicr PRIVATE
     base_track_handler.cpp
-    client.cpp
     ctrl_message_types.cpp
     fetch_track_handler.cpp
     joining_fetch_handler.cpp
@@ -33,22 +32,22 @@ target_sources(quicr PRIVATE
     publish_fetch_handler.cpp
     publish_namespace_handler.cpp
     publish_track_handler.cpp
-    quic_transport.cpp
-    server.cpp
+    session.cpp
     subscribe_namespace_handler.cpp
     subscribe_track_handler.cpp
-    transport_picoquic.cpp
     transport.cpp
+    transport_picoquic.cpp
 )
 
 target_link_libraries(quicr PUBLIC
-    spdlog
+    spdlog::spdlog
     timeq
     picoquic-core
     picoquic-log
     picohttp-core
 )
 
+target_compile_definitions(quicr PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include)
 
 if(LINT)

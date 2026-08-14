@@ -11,12 +11,11 @@
 #include <quicr/client.h>
 #include <quicr/common.h>
 #include <quicr/config.h>
-#include <quicr/fetch_track_handler.h>
-#include <quicr/object.h>
-#include <quicr/publish_track_handler.h>
-#include <quicr/server.h>
-#include <quicr/subscribe_namespace_handler.h>
-#include <quicr/subscribe_track_handler.h>
+#include <quicr/handlers/fetch_track_handler.h>
+#include <quicr/handlers/publish_track_handler.h>
+#include <quicr/handlers/subscribe_namespace_handler.h>
+#include <quicr/handlers/subscribe_track_handler.h>
+#include <quicr/messages/object.h>
 #include <quicr/track_name.h>
 
 #include <cstring>
@@ -168,18 +167,18 @@ namespace {
     /**
      * @brief Convert C++ transport status to C connection status
      */
-    qbridge_connection_status_t status_from_cpp(const quicr::Transport::Status cpp_status)
+    qbridge_connection_status_t status_from_cpp(const quicr::Session::Status cpp_status)
     {
         switch (cpp_status) {
-            case quicr::Transport::Status::kNotConnected:
+            case quicr::Session::Status::kNotConnected:
                 return QBRIDGE_STATUS_NOT_CONNECTED;
-            case quicr::Transport::Status::kConnecting:
+            case quicr::Session::Status::kConnecting:
                 return QBRIDGE_STATUS_CONNECTING;
-            case quicr::Transport::Status::kNotReady:
+            case quicr::Session::Status::kNotReady:
                 return QBRIDGE_STATUS_CONNECTED;
-            case quicr::Transport::Status::kDisconnecting:
+            case quicr::Session::Status::kDisconnecting:
                 return QBRIDGE_STATUS_DISCONNECTING;
-            case quicr::Transport::Status::kReady:
+            case quicr::Session::Status::kReady:
                 return QBRIDGE_STATUS_READY;
             default:
                 return QBRIDGE_STATUS_ERROR;
@@ -214,7 +213,7 @@ class BridgeClient : public quicr::Client
     }
 
   public:
-    void StatusChanged(const quicr::Transport::Status status) override
+    void StatusChanged(const quicr::Session::Status status) override
     {
         std::lock_guard<std::mutex> lock(callback_mutex);
         if (status_callback) {
@@ -523,16 +522,16 @@ struct qbridge_publish_namespace_track_handler
 class BridgeSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
 {
   public:
-    static std::shared_ptr<BridgeSubscribeNamespaceHandler> Create(const quicr::TrackNamespace& ns)
+    static std::shared_ptr<BridgeSubscribeNamespaceHandler> Create(const quicr::TrackNamespace& ns, const Mode mode)
     {
-        return std::shared_ptr<BridgeSubscribeNamespaceHandler>(new BridgeSubscribeNamespaceHandler(ns));
+        return std::shared_ptr<BridgeSubscribeNamespaceHandler>(new BridgeSubscribeNamespaceHandler(ns, mode));
     }
 
     void* user_data = nullptr;
 
   protected:
-    BridgeSubscribeNamespaceHandler(const quicr::TrackNamespace& ns)
-      : quicr::SubscribeNamespaceHandler(ns)
+    BridgeSubscribeNamespaceHandler(const quicr::TrackNamespace& ns, const Mode mode)
+      : quicr::SubscribeNamespaceHandler(ns, mode)
     {
     }
 
@@ -550,10 +549,18 @@ struct qbridge_subscribe_namespace_track_handler
 {
     std::shared_ptr<BridgeSubscribeNamespaceHandler> cpp_handler;
 
-    qbridge_subscribe_namespace_track_handler(const qbridge_namespace_t* ns)
+    enum qbridge_subscribe_namespace_mode
+    {
+        kNamespaces,
+        kTracks,
+    };
+
+    qbridge_subscribe_namespace_track_handler(const qbridge_namespace_t* ns,
+                                              const qbridge_subscribe_namespace_mode mode)
     {
         if (ns) {
-            cpp_handler = BridgeSubscribeNamespaceHandler::Create(cpp_namespace_from_c(ns));
+            cpp_handler = BridgeSubscribeNamespaceHandler::Create(
+              cpp_namespace_from_c(ns), static_cast<BridgeSubscribeNamespaceHandler::Mode>(mode));
         }
     }
 };
@@ -564,14 +571,13 @@ struct qbridge_subscribe_namespace_track_handler
 class BridgeFetchTrackHandler : public quicr::FetchTrackHandler
 {
   public:
-    static std::shared_ptr<BridgeFetchTrackHandler> Create(
-      const quicr::FullTrackName& full_track_name,
-      const std::uint8_t priority,
-      const std::optional<quicr::messages::GroupOrder>& group_order,
-      const quicr::messages::Location& start_location,
-      const quicr::messages::FetchEndLocation& end_location,
-      qbridge_object_received_callback_t callback,
-      void* user_data)
+    static std::shared_ptr<BridgeFetchTrackHandler> Create(const quicr::FullTrackName& full_track_name,
+                                                           const std::uint8_t priority,
+                                                           const quicr::messages::GroupOrder group_order,
+                                                           const quicr::messages::Location& start_location,
+                                                           const quicr::messages::FetchEndLocation& end_location,
+                                                           qbridge_object_received_callback_t callback,
+                                                           void* user_data)
     {
         return std::shared_ptr<BridgeFetchTrackHandler>(new BridgeFetchTrackHandler(
           full_track_name, priority, group_order, start_location, end_location, callback, user_data));
@@ -583,12 +589,12 @@ class BridgeFetchTrackHandler : public quicr::FetchTrackHandler
   protected:
     BridgeFetchTrackHandler(const quicr::FullTrackName& full_track_name,
                             const std::uint8_t priority,
-                            const std::optional<quicr::messages::GroupOrder>& group_order,
+                            const quicr::messages::GroupOrder group_order,
                             const quicr::messages::Location& start_location,
                             const quicr::messages::FetchEndLocation& end_location,
                             qbridge_object_received_callback_t callback,
                             void* data)
-      : quicr::FetchTrackHandler(full_track_name, priority, group_order, start_location, end_location)
+      : quicr::FetchTrackHandler(full_track_name, priority, start_location, end_location, group_order)
       , received_callback(callback)
       , user_data(data)
     {
@@ -640,12 +646,17 @@ struct qbridge_fetch_track_handler
             const quicr::messages::FetchEndLocation end_location = { config->end_group_id,
                                                                      config->end_object_id == QBRIDGE_FETCH_END_OF_GROUP
                                                                        ? std::nullopt
-                                                                       : std::optional<quicr::messages::ObjectId>(
+                                                                       : std::optional<std::uint64_t>(
                                                                            config->end_object_id) };
+
+            auto group_order = cpp_group_order_from_c(config->group_order);
+            if (group_order == std::nullopt) {
+                group_order = quicr::messages::GroupOrder::kAscending;
+            }
 
             cpp_handler = BridgeFetchTrackHandler::Create(full_track_name,
                                                           static_cast<std::uint8_t>(config->priority),
-                                                          cpp_group_order_from_c(config->group_order),
+                                                          *group_order,
                                                           start_location,
                                                           end_location,
                                                           callback,
@@ -684,8 +695,8 @@ extern "C"
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto status = client->cpp_client->Connect();
-        return (status == quicr::Transport::Status::kConnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
+        const auto status = client->cpp_client->Start();
+        return (status == quicr::Session::Status::kConnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
     }
 
     qbridge_result_t qbridge_client_disconnect(qbridge_client_t* client)
@@ -694,8 +705,8 @@ extern "C"
             return QBRIDGE_ERROR_INVALID_PARAM;
         }
 
-        const auto status = client->cpp_client->Disconnect();
-        return (status == quicr::Transport::Status::kDisconnecting) ? QBRIDGE_OK : QBRIDGE_ERROR_INTERNAL;
+        client->cpp_client->Stop();
+        return QBRIDGE_OK;
     }
 
     qbridge_connection_status_t qbridge_client_get_status(const qbridge_client_t* client)
@@ -1064,7 +1075,7 @@ extern "C"
         return QBRIDGE_OK;
     }
 
-    qbridge_track_alias_t qbridge_compute_track_alias(const qbridge_full_track_name_t* track_name)
+    uint64_t qbridge_compute_track_alias(const qbridge_full_track_name_t* track_name)
     {
         if (!track_name) {
             return 0;

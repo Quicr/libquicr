@@ -5,15 +5,15 @@ CPMAddPackage("gh:doctest/doctest@2.5.2")
 
 add_executable(quicr_test
     cache.cpp
-    client.cpp
     data_storage.cpp
     main.cpp
     moq_ctrl_messages.cpp
     moq_data_messages.cpp
-    moq_test.cpp
     priority_queue.cpp
+    session.cpp
     track_handlers.cpp
     track_namespace.cpp
+    transport_metrics.cpp
     uintvar.cpp
 )
 

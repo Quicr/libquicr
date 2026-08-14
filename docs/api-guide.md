@@ -43,7 +43,7 @@ requests low quality video and audio.
 
 ### Track Alias
 Track alias is a generated hash value of `namespace` and `name` in this implementation. It's a consistent hash that
-is globally unique.  The track alias is a `uint64_t` value (*62 bits max due to QUIC variable length integer*)
+is globally unique.  The track alias is a `uint64_t` value
 that represents the full track name. Track alias is used when encoding object and other MOQT messages instead of
 having to duplicate the large binary array of bytes for namespace and name. The application can choose to
 specify the track alias if it wishes to override the default hash.

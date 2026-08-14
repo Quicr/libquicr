@@ -1,11 +1,16 @@
-#include "quicr/subscribe_namespace_handler.h"
-#include "quicr/detail/messages.h"
-#include "quicr/detail/transport.h"
-#include "quicr/subscribe_track_handler.h"
+#include "quicr/handlers/subscribe_namespace_handler.h"
+#include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/messages/messages.h"
+#include "quicr/messages/parameters.h"
+#include "quicr/session.h"
+
+#include <spdlog/spdlog.h>
 
 quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix,
+                                                            const Mode mode,
                                                             const messages::Filter& filter)
   : BaseTrackHandler({ prefix, {} })
+  , mode_(mode)
   , prefix_(prefix)
   , filter_(std::move(filter))
 {
@@ -24,7 +29,7 @@ quicr::SubscribeNamespaceHandler::~SubscribeNamespaceHandler()
      *       in unsubscribe of tracks
      */
     for (const auto& [_, handler] : handlers_) {
-        transport->UnsubscribeTrack(connection_handle_, handler);
+        transport->UnsubscribeTrack(connection_id_, handler);
     }
 #endif
 }
@@ -54,4 +59,17 @@ quicr::SubscribeNamespaceHandler::StatusChanged(Status status)
         default:
             break;
     }
+}
+
+void
+quicr::SubscribeNamespaceHandler::RequestOkReceived(const messages::Parameters& params)
+{
+    messages::ValidateParameters(params, {});
+    SetStatus(Status::kOk);
+}
+
+void
+quicr::SubscribeNamespaceHandler::RequestUpdateReceived([[maybe_unused]] const messages::Parameters& params)
+{
+    throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");
 }

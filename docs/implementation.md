@@ -37,7 +37,7 @@ low bandwidth video feed.
 
 ### Track Alias
 Track alias is a generated hash value of `namespace` and `name` in this implementation. It's a consistent hash that
-is globally unique.  The track alias is a `uint64_t` value (*62 bits max due to QUIC variable length integer*)
+is globally unique.  The track alias is a `uint64_t` value
 that represents the track fullname. Track alias is used when encoding object and other MOQT messages instead of
 having to duplicate the large binary array of bytes for namespace and name.
 

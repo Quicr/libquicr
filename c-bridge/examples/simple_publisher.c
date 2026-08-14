@@ -49,10 +49,7 @@ status_callback(qbridge_connection_status_t status, void* user_data)
 }
 
 void
-object_published_callback(qbridge_group_id_t group_id,
-                          qbridge_object_id_t object_id,
-                          qbridge_result_t result,
-                          void* user_data)
+object_published_callback(uint64_t group_id, uint64_t object_id, qbridge_result_t result, void* user_data)
 {
     if (result == QBRIDGE_OK) {
         printf("Published object: group=%llu, object=%llu\n", group_id, object_id);

@@ -1,7 +1,9 @@
 #include "quicr/config.h"
-#include "quicr/defer.h"
-#include "quicr/fetch_track_handler.h"
-#include "quicr/subscribe_track_handler.h"
+#include "quicr/handlers/fetch_track_handler.h"
+#include "quicr/handlers/publish_namespace_handler.h"
+#include "quicr/handlers/subscribe_namespace_handler.h"
+#include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/utilities/defer.h"
 #include "test_client.h"
 #include "test_server.h"
 
@@ -26,6 +28,8 @@ using namespace quicr_test;
 const std::string kIp = "127.0.0.1";
 constexpr uint16_t kPort = 12345;
 const std::string kServerId = "test-server";
+constexpr std::uint64_t kMetricsTestIntervalMs = 250;
+constexpr auto kMetricsTestTimeout = std::chrono::seconds(2);
 
 /// @brief Get test timeout from environment or use default
 /// @details Set LIBQUICR_TEST_TIMEOUT_MS environment variable to override (useful for CI)
@@ -40,10 +44,28 @@ GetTestTimeout()
             // Fall through to default
         }
     }
+    return std::chrono::milliseconds(5000);
+}
+
+/// @brief Get negative test timeout (full wait).
+static std::chrono::milliseconds
+GetTestNegativeTimeout()
+{
+    const char* env_timeout = std::getenv("LIBQUICR_TEST_NEGATIVE_TIMEOUT_MS");
+    if (env_timeout != nullptr) {
+        try {
+            return std::chrono::milliseconds(std::stoi(env_timeout));
+        } catch (...) {
+            // Fall through to default
+        }
+    }
     return std::chrono::milliseconds(300);
 }
 
+// Full test timeout.
 static const std::chrono::milliseconds kDefaultTimeout = GetTestTimeout();
+// Missing message timeout.
+static const std::chrono::milliseconds kNegativeTimeout(GetTestNegativeTimeout());
 
 /// @brief Wait for a condition to become true with polling
 /// @param predicate Function returning true when condition is met
@@ -64,6 +86,15 @@ WaitFor(Predicate predicate,
         std::this_thread::sleep_for(poll_interval);
     }
     return predicate(); // Final check
+}
+
+static void
+CheckSampledMetric(const MinMaxAvg& metric)
+{
+    REQUIRE_GT(metric.value_count, 0);
+    CHECK_LE(metric.min, metric.avg);
+    CHECK_LE(metric.avg, metric.max);
+    CHECK_EQ(metric.avg, metric.value_sum / metric.value_count);
 }
 
 class CallbackPublishTrackHandler final : public PublishTrackHandler
@@ -89,13 +120,33 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
         }
     }
 
+    void SetMetricsPromise(std::promise<PublishTrackMetrics> promise)
+    {
+        std::lock_guard lock(metrics_mutex_);
+        metrics_promise_ = std::move(promise);
+    }
+
+    void MetricsSampled(const PublishTrackMetrics& metrics) override
+    {
+        std::lock_guard lock(metrics_mutex_);
+        if (metrics_promise_.has_value()) {
+            metrics_promise_->set_value(metrics);
+            metrics_promise_.reset();
+        }
+    }
+
+    uint64_t GetPublishDataContextId() const { return publish_data_ctx_id_; }
+
   private:
     const StatusCallback on_status_;
+    std::mutex metrics_mutex_;
+    std::optional<std::promise<PublishTrackMetrics>> metrics_promise_;
 };
 
 static std::shared_ptr<TestServer>
 MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
-               std::optional<std::size_t> max_connections = std::nullopt)
+               std::optional<std::size_t> max_connections = std::nullopt,
+               std::optional<std::uint64_t> initial_max_stream_data = std::nullopt)
 {
     // Run the server.
     ServerConfig server_config;
@@ -112,12 +163,15 @@ MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
     if (max_connections.has_value()) {
         server_config.transport_config.max_connections = *max_connections;
     }
+    if (initial_max_stream_data.has_value()) {
+        server_config.transport_config.initial_max_stream_data = *initial_max_stream_data;
+    }
     auto server = std::make_shared<TestServer>(server_config);
     const auto starting = server->Start();
-    CHECK_EQ(starting, Transport::Status::kReady);
+    CHECK_EQ(starting, Session::Status::kReady);
 
     // Wait for server to be ready instead of fixed sleep
-    const bool ready = WaitFor([&server]() { return server->GetStatus() == Transport::Status::kReady; });
+    const bool ready = WaitFor([&server]() { return server->GetStatus() == Session::Status::kReady; });
     CHECK(ready);
 
     return server;
@@ -126,23 +180,28 @@ MakeTestServer(const std::optional<std::string>& qlog_path = std::nullopt,
 std::shared_ptr<TestClient>
 MakeTestClient(const bool connect = true,
                const std::optional<std::string>& qlog_path = std::nullopt,
-               const std::string& protocol_scheme = "moq")
+               const std::string& protocol_scheme = "moq",
+               const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt)
 {
     // Connect a client.
     ClientConfig client_config;
     client_config.transport_config.debug = true;
+    client_config.endpoint_id = "client";
     client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
+    if (metrics_sample_ms.has_value()) {
+        client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
+    }
     client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(kPort) + "/relay";
     if (qlog_path.has_value()) {
         client_config.transport_config.quic_qlog_path = *qlog_path;
     }
     auto client = std::make_shared<TestClient>(client_config);
     if (connect) {
-        client->Connect();
+        client->Start();
         // Wait for client to be connected instead of fixed sleep
         const bool connected = WaitFor([&client]() {
             const auto status = client->GetStatus();
-            return status == Transport::Status::kReady || status == Transport::Status::kNotConnected;
+            return status == Session::Status::kReady || status == Session::Status::kNotConnected;
         });
         CHECK(connected);
     }
@@ -162,15 +221,17 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         ObjectStatus status;
         std::vector<uint8_t> data;
         std::optional<Extensions> extensions;
+        std::optional<messages::StreamHeaderProperties> stream_mode;
     };
 
     static std::shared_ptr<TestSubscribeHandler> Create(const FullTrackName& full_track_name,
                                                         std::uint8_t priority,
                                                         std::optional<messages::GroupOrder> group_order,
-                                                        const messages::Filter& filter = std::monostate{})
+                                                        const messages::Filter& filter = std::monostate{},
+                                                        const std::optional<JoiningFetch>& joining_fetch = std::nullopt)
     {
         return std::shared_ptr<TestSubscribeHandler>(
-          new TestSubscribeHandler(full_track_name, priority, group_order, filter));
+          new TestSubscribeHandler(full_track_name, priority, group_order, filter, joining_fetch));
     }
 
     /// @brief Get all received objects
@@ -194,6 +255,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         return streams_.size();
     }
 
+    std::uint64_t RequestUpdateOks() const noexcept { return request_update_oks_; }
+
     /// @brief Set a promise to be fulfilled when a specific object count is reached
     void SetObjectCountPromise(std::size_t target_count, std::promise<void> promise)
     {
@@ -202,18 +265,25 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         object_count_promise_ = std::move(promise);
     }
 
+    void SetMetricsPromise(std::promise<SubscribeTrackMetrics> promise)
+    {
+        std::lock_guard lock(mutex_);
+        metrics_promise_ = std::move(promise);
+    }
+
   protected:
     TestSubscribeHandler(const FullTrackName& full_track_name,
                          std::uint8_t priority,
                          std::optional<messages::GroupOrder> group_order,
-                         const messages::Filter& filter)
-      : SubscribeTrackHandler(full_track_name, priority, group_order, filter)
+                         const messages::Filter& filter,
+                         const std::optional<JoiningFetch>& joining_fetch)
+      : SubscribeTrackHandler(full_track_name, priority, group_order, filter, joining_fetch)
     {
     }
 
     void ObjectReceived(const ObjectHeaders& object_headers,
                         BytesSpan data,
-                        std::optional<messages::StreamHeaderProperties>) override
+                        std::optional<messages::StreamHeaderProperties> stream_mode) override
     {
         std::lock_guard lock(mutex_);
         if (!data.empty()) {
@@ -222,7 +292,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
                                           .object_id = object_headers.object_id,
                                           .status = object_headers.status,
                                           .data = std::vector<uint8_t>(data.begin(), data.end()),
-                                          .extensions = object_headers.extensions });
+                                          .extensions = object_headers.extensions,
+                                          .stream_mode = stream_mode });
 
             // Check if we've reached the target count
             if (object_count_promise_.has_value() && received_objects_.size() >= target_object_count_) {
@@ -232,11 +303,28 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         }
     }
 
+    void MetricsSampled(const SubscribeTrackMetrics& metrics) override
+    {
+        std::lock_guard lock(mutex_);
+        if (metrics_promise_.has_value()) {
+            metrics_promise_->set_value(metrics);
+            metrics_promise_.reset();
+        }
+    }
+
+    void RequestOkReceived(const messages::Parameters& params) override
+    {
+        SubscribeTrackHandler::RequestOkReceived(params);
+        ++request_update_oks_;
+    }
+
   private:
     mutable std::mutex mutex_;
     std::vector<ReceivedObject> received_objects_;
     std::size_t target_object_count_{ 0 };
     std::optional<std::promise<void>> object_count_promise_;
+    std::optional<std::promise<SubscribeTrackMetrics>> metrics_promise_;
+    std::atomic<std::uint64_t> request_update_oks_{ 0 };
 };
 
 TEST_CASE("Integration - Connection")
@@ -248,7 +336,7 @@ TEST_CASE("Integration - Connection")
         std::promise<ServerSetupAttributes> recv_attributes;
         auto future = recv_attributes.get_future();
         client->SetConnectedPromise(std::move(recv_attributes));
-        client->Connect();
+        client->Start();
         auto status = future.wait_for(kDefaultTimeout);
         REQUIRE(status == std::future_status::ready);
         const auto& [moqt_version, server_id] = future.get();
@@ -280,7 +368,7 @@ TEST_CASE("Integration - Subscribe")
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
         const messages::Filter filter = messages::TrackFilter{ 1, 2, 3 };
-        const auto handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt, filter);
+        const auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt, filter);
 
         // When we subscribe, server should receive a subscribe.
         std::promise<TestServer::SubscribeDetails> promise;
@@ -304,6 +392,11 @@ TEST_CASE("Integration - Subscribe")
         CHECK(track_live);
         CHECK_EQ(handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
 
+        // Pause/resume should cause request updates and oks to roundtrip.
+        handler->Pause();
+        handler->Resume();
+        REQUIRE(WaitFor([&handler]() { return handler->RequestUpdateOks() == 2; }));
+
         // Test is complete, unsubscribe while we are connected.
         CHECK_NOTHROW(client->UnsubscribeTrack(handler));
 
@@ -324,6 +417,306 @@ TEST_CASE("Integration - Subscribe")
     }
 }
 
+TEST_CASE("Integration - Subscribe metrics report received payload")
+{
+    auto server = MakeTestServer(std::nullopt, 2);
+
+    auto test_metrics = [&](const std::string& protocol_scheme) {
+        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "subscribe" }), { 1 } };
+
+        auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
+        publisher->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
+
+        auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+
+        constexpr std::uint64_t to_publish = 5;
+        std::promise<void> received_promise;
+        auto received_future = received_promise.get_future();
+        subscribe_handler->SetObjectCountPromise(to_publish, std::move(received_promise));
+
+        std::promise<SubscribeTrackMetrics> initial_metrics_promise;
+        auto initial_metrics_future = initial_metrics_promise.get_future();
+        subscribe_handler->SetMetricsPromise(std::move(initial_metrics_promise));
+
+        subscriber->SubscribeTrack(subscribe_handler);
+        REQUIRE(WaitFor(
+          [&subscribe_handler]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        // Discard the first sample so publishing starts at the beginning of a sampling interval.
+        REQUIRE_EQ(initial_metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
+        initial_metrics_future.get();
+
+        std::promise<SubscribeTrackMetrics> metrics_promise;
+        auto metrics_future = metrics_promise.get_future();
+        subscribe_handler->SetMetricsPromise(std::move(metrics_promise));
+
+        const std::vector<std::uint8_t> payload(1024, 0x5a);
+        for (std::uint64_t i = 0; i < to_publish; i++) {
+            const ObjectHeaders headers{ .group_id = 0,
+                                         .object_id = i,
+                                         .subgroup_id = 0,
+                                         .payload_length = payload.size(),
+                                         .status = ObjectStatus::kAvailable,
+                                         .priority = 3,
+                                         .ttl = 5000,
+                                         .track_mode = TrackMode::kStream };
+            REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        }
+        REQUIRE_EQ(received_future.wait_for(kDefaultTimeout), std::future_status::ready);
+        REQUIRE_EQ(metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
+
+        // Check metrics emitted as expected.
+        const auto metrics = metrics_future.get();
+        CHECK_GT(metrics.last_sample_time, 0);
+        CHECK_EQ(metrics.objects_received, to_publish);
+        // TODO: This will only be request bytes since incoming object streams don't get tracked.
+        CHECK_GT(metrics.bytes_received, 0);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_metrics("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_metrics("https");
+    }
+}
+
+TEST_CASE("Integration - Publish metrics report transmitted objects")
+{
+    auto server = MakeTestServer();
+
+    auto test_metrics = [&](const std::string& protocol_scheme) {
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
+
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "publish" }), { 1 } };
+        auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
+
+        std::promise<PublishTrackMetrics> initial_metrics_promise;
+        auto initial_metrics_future = initial_metrics_promise.get_future();
+        publish_handler->SetMetricsPromise(std::move(initial_metrics_promise));
+
+        publisher->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
+
+        // Discard the first sample so publishing starts at the beginning of a sampling interval.
+        REQUIRE_EQ(initial_metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
+        initial_metrics_future.get();
+
+        std::promise<PublishTrackMetrics> metrics_promise;
+        auto metrics_future = metrics_promise.get_future();
+        publish_handler->SetMetricsPromise(std::move(metrics_promise));
+
+        constexpr std::uint64_t to_publish = 5;
+        const std::vector<std::uint8_t> payload(1024, 0x5a);
+        for (std::uint64_t i = 0; i < to_publish; i++) {
+            const ObjectHeaders headers{ .group_id = 0,
+                                         .object_id = i,
+                                         .subgroup_id = 0,
+                                         .payload_length = payload.size(),
+                                         .status = ObjectStatus::kAvailable,
+                                         .priority = 3,
+                                         .ttl = 5000,
+                                         .track_mode = TrackMode::kStream };
+            REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        }
+        REQUIRE_EQ(metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
+
+        // Check metrics are as expected.
+        const auto metrics = metrics_future.get();
+        CHECK_GT(metrics.last_sample_time, 0);
+        CHECK_EQ(metrics.objects_published, to_publish);
+        CHECK_EQ(metrics.bytes_published, payload.size() * to_publish);
+        CheckSampledMetric(metrics.quic.tx_queue_size);
+        CheckSampledMetric(metrics.quic.tx_object_duration_us);
+
+        // These metrics will be zero (correctly).
+        CHECK_EQ(metrics.objects_dropped_not_ok, 0);
+        CHECK_EQ(metrics.quic.tx_buffer_drops, 0);
+        CHECK_EQ(metrics.quic.tx_queue_discards, 0);
+        CHECK_EQ(metrics.quic.tx_queue_expired, 0);
+        CHECK_EQ(metrics.quic.tx_delayed_callback, 0);
+        CHECK_EQ(metrics.quic.tx_reset_wait, 0);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_metrics("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_metrics("https");
+    }
+}
+
+TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
+{
+    auto server = MakeTestServer();
+
+    auto test_unsubscribe = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace({ "namespace" });
+        ftn.name = { 1, 2, 3 };
+        const auto handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+
+        std::promise<TestServer::SubscribeDetails> sub_promise;
+        std::future<TestServer::SubscribeDetails> sub_future = sub_promise.get_future();
+        server->SetSubscribePromise(std::move(sub_promise));
+
+        std::promise<uint64_t> unsub_promise;
+        std::future<uint64_t> unsub_future = unsub_promise.get_future();
+        server->SetUnsubscribePromise(std::move(unsub_promise));
+
+        // Subscribe and wait for the track to go live.
+        CHECK_NOTHROW(client->SubscribeTrack(handler));
+        REQUIRE(sub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto request_id = sub_future.get().request_id;
+        REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+        REQUIRE(handler->GetRequestStreamId().has_value());
+        const auto request_stream_id = handler->GetRequestStreamId().value();
+
+        // Unsubscribe.
+        CHECK_NOTHROW(client->UnsubscribeTrack(handler));
+
+        // The request stream should be reset.
+        REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
+        CHECK(server->WasStreamReset(request_stream_id) == true);
+
+        // Callback should fire.
+        REQUIRE(unsub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(unsub_future.get(), request_id);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_unsubscribe("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_unsubscribe("https");
+    }
+}
+
+TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client UnsubscribeTrack")
+{
+    auto server = MakeTestServer();
+
+    auto test_unsubscribe_received = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace({ "namespace" });
+        ftn.name = { 1, 2, 3 };
+        const auto handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+
+        std::promise<TestServer::SubscribeDetails> sub_promise;
+        std::future<TestServer::SubscribeDetails> sub_future = sub_promise.get_future();
+        server->SetSubscribePromise(std::move(sub_promise));
+
+        std::promise<TestServer::UnsubscribeReceivedDetails> unsub_received_promise;
+        std::future<TestServer::UnsubscribeReceivedDetails> unsub_received_future = unsub_received_promise.get_future();
+        server->SetUnsubscribeReceivedPromise(std::move(unsub_received_promise));
+        server->SetExpectedUnsubscribeHandlerType(TestServer::UnsubscribeReceivedDetails::HandlerType::kSubscribeTrack);
+
+        CHECK_NOTHROW(client->SubscribeTrack(handler));
+        REQUIRE(sub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto request_id = sub_future.get().request_id;
+        REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+        REQUIRE(handler->GetRequestStreamId().has_value());
+        const auto request_stream_id = handler->GetRequestStreamId().value();
+
+        CHECK_NOTHROW(client->UnsubscribeTrack(handler));
+
+        REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
+        CHECK(server->WasStreamReset(request_stream_id));
+
+        REQUIRE(unsub_received_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto& details = unsub_received_future.get();
+        CHECK_EQ(details.request_id, request_id);
+        CHECK(details.handler_type == TestServer::UnsubscribeReceivedDetails::HandlerType::kSubscribeTrack);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_unsubscribe_received("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_unsubscribe_received("https");
+    }
+}
+
+TEST_CASE("Integration - Publish namespace done resets the request stream")
+{
+    auto server = MakeTestServer();
+
+    auto test_publish_namespace_done = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        TrackNamespace ns(std::vector<std::string>{ "ns", "done" });
+
+        std::promise<TestServer::PublishNamespaceDetails> recv_promise;
+        std::future<TestServer::PublishNamespaceDetails> recv_future = recv_promise.get_future();
+        server->SetPublishNamespacePromise(std::move(recv_promise));
+
+        std::promise<uint64_t> done_promise;
+        std::future<uint64_t> done_future = done_promise.get_future();
+        server->SetPublishNamespaceDonePromise(std::move(done_promise));
+
+        // Publish a namespace and wait for it to be accepted.
+        const auto handler = PublishNamespaceHandler::Create(ns);
+        CHECK_NOTHROW(client->PublishNamespace(handler));
+        REQUIRE(recv_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == PublishNamespaceHandler::Status::kOk; }));
+        REQUIRE(handler->GetRequestStreamId().has_value());
+        const auto request_stream_id = handler->GetRequestStreamId().value();
+        REQUIRE(handler->GetRequestId().has_value());
+        const auto request_id = handler->GetRequestId().value();
+
+        // Done.
+        CHECK_NOTHROW(client->PublishNamespaceDone(handler));
+
+        // Request stream reset.
+        REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
+        CHECK(server->WasStreamReset(request_stream_id) == true);
+
+        // Callback fires.
+        REQUIRE(done_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(done_future.get(), request_id);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_publish_namespace_done("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_publish_namespace_done("https");
+    }
+}
+
 TEST_CASE("Integration - Fetch")
 {
     auto server = MakeTestServer();
@@ -333,8 +726,12 @@ TEST_CASE("Integration - Fetch")
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
-        const auto handler = FetchTrackHandler::Create(ftn, 0, std::nullopt, { 0, 0 }, { 0, std::nullopt });
+        const auto handler = FetchTrackHandler::Create(ftn, 0, { 0, 0 }, { 0, std::nullopt });
         client->FetchTrack(handler);
+
+        REQUIRE(handler->GetDataContextId().has_value());
+        REQUIRE(handler->GetRequestStreamId().has_value());
+        REQUIRE(handler->GetRequestId().has_value());
     };
 
     SUBCASE("Raw QUIC")
@@ -347,6 +744,78 @@ TEST_CASE("Integration - Fetch")
     {
         CAPTURE("WebTransport");
         test_fetch("https");
+    }
+}
+
+TEST_CASE("Integration - Joining Fetch")
+{
+    auto server = MakeTestServer();
+
+    auto test_joining_fetch = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+        const FullTrackName ftn{ TrackNamespace({ "namespace" }), { 1, 2, 3 } };
+        const SubscribeTrackHandler::JoiningFetch joining_fetch{
+            .priority = 4,
+            .group_order = messages::GroupOrder::kAscending,
+            .parameters = {},
+            .joining_start = 2,
+            .absolute = true,
+        };
+        const auto handler =
+          TestSubscribeHandler::Create(ftn, 0, messages::GroupOrder::kDescending, std::monostate{}, joining_fetch);
+
+        std::vector<TestServer::FetchResponseData> cached;
+        for (const auto group_id : { 10, 12 }) {
+            TestServer::FetchResponseData response{};
+            response.headers.group_id = group_id;
+            response.headers.object_id = 0;
+            response.headers.priority = 5;
+            response.payload = { static_cast<std::uint8_t>(group_id) };
+            response.headers.payload_length = response.payload.size();
+            cached.push_back(response);
+        }
+        server->SetFetchResponseData(cached);
+
+        std::promise<TestServer::SubscribeDetails> subscribe_promise;
+        auto subscribe_future = subscribe_promise.get_future();
+        server->SetSubscribePromise(std::move(subscribe_promise));
+
+        std::promise<TestServer::JoiningFetchDetails> fetch_promise;
+        auto fetch_future = fetch_promise.get_future();
+        server->SetJoiningFetchPromise(std::move(fetch_promise));
+
+        client->SubscribeTrack(handler);
+
+        REQUIRE(subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto subscribe = subscribe_future.get();
+        REQUIRE(fetch_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto fetch = fetch_future.get();
+
+        CHECK_EQ(fetch.track_full_name.name_space, ftn.name_space);
+        CHECK_EQ(fetch.track_full_name.name, ftn.name);
+        CHECK_EQ(fetch.attributes.joining_request_id, subscribe.request_id);
+        CHECK_EQ(fetch.attributes.priority, joining_fetch.priority);
+        CHECK_EQ(fetch.attributes.group_order, joining_fetch.group_order);
+        CHECK_EQ(fetch.attributes.joining_start, joining_fetch.joining_start);
+        CHECK_FALSE(fetch.attributes.relative);
+
+        REQUIRE(WaitFor([&handler]() { return handler->GetReceivedCount() == 2; }));
+        const auto objects = handler->GetReceivedObjects();
+        REQUIRE_EQ(objects.size(), 2);
+        CHECK_EQ(objects[0].group_id, 10);
+        CHECK_EQ(objects[1].group_id, 12);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_joining_fetch("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_joining_fetch("https");
     }
 }
 
@@ -378,7 +847,7 @@ TEST_CASE("Integration - Handlers with no transport")
 
     // Fetch.
     {
-        const auto handler = FetchTrackHandler::Create(FullTrackName(), 0, std::nullopt, { 0, 0 }, { 0, std::nullopt });
+        const auto handler = FetchTrackHandler::Create(FullTrackName(), 0, { 0, 0 }, { 0, std::nullopt });
         handler->Pause();
         handler->Resume();
         handler->RequestNewGroup();
@@ -403,7 +872,7 @@ TEST_CASE("Group ID Gap")
         const bool pub_ready = WaitFor([&pub]() { return pub->CanPublish(); });
         CHECK(pub_ready);
 
-        constexpr messages::GroupId expected_gap = 1758273157;
+        constexpr std::uint64_t expected_gap = 1758273157;
 
         // TODO: Re-enable when data roundtrip support.
         // Sub.
@@ -496,7 +965,7 @@ TEST_CASE("Qlog Generation")
     }
 }
 
-TEST_CASE("Integration - Raw Subscribe Namespace")
+TEST_CASE("Integration - Raw Subscribe Tracks")
 {
     auto server = MakeTestServer();
 
@@ -522,7 +991,7 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
         client->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Client sends SUBSCRIBE_NAMESPACE
-        auto handler = SubscribeNamespaceHandler::Create(prefix_namespace);
+        auto handler = SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks);
         CHECK_NOTHROW(client->SubscribeNamespace(handler));
 
         // Server should receive the SUBSCRIBE_NAMESPACE message
@@ -532,15 +1001,16 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
         CHECK_EQ(details.prefix_namespace, prefix_namespace);
 
         // Client should receive SUBSCRIBE_NAMESPACE_OK from relay
-        std::this_thread::sleep_for(std::chrono::milliseconds(kDefaultTimeout));
-        CHECK_EQ(handler->GetStatus(), SubscribeNamespaceHandler::Status::kOk);
+        const bool ns_ok =
+          WaitFor([&handler]() { return handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; });
+        CHECK(ns_ok);
 
         // Client should NOT receive PUBLISH_NAMESPACE because there are no matching namespaces.
-        auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+        auto publish_namespace_status = publish_namespace_future.wait_for(kNegativeTimeout);
         CHECK(publish_namespace_status == std::future_status::timeout);
 
         // Client should NOT receive PUBLISH because there are no matching tracks.
-        auto publish_status = publish_future.wait_for(kDefaultTimeout);
+        auto publish_status = publish_future.wait_for(kNegativeTimeout);
         CHECK(publish_status == std::future_status::timeout);
     };
 
@@ -557,7 +1027,7 @@ TEST_CASE("Integration - Raw Subscribe Namespace")
     }
 }
 
-TEST_CASE("Integration - Subscribe Namespace with matching namespace")
+TEST_CASE("Integration - Subscribe Tracks with matching namespace")
 {
     auto server = MakeTestServer();
 
@@ -574,7 +1044,8 @@ TEST_CASE("Integration - Subscribe Namespace with matching namespace")
         client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(SubscribeNamespaceHandler::Create(prefix_namespace)));
+        CHECK_NOTHROW(client->SubscribeNamespace(
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Client should receive matched PUBLISH_NAMESPACE.
         auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
@@ -596,7 +1067,7 @@ TEST_CASE("Integration - Subscribe Namespace with matching namespace")
     }
 }
 
-TEST_CASE("Integration - Subscribe Namespace with matching track")
+TEST_CASE("Integration - Subscribe Tracks with matching track")
 {
     auto test_matching_track = [&](const std::string& protocol_scheme) {
         auto server = MakeTestServer();
@@ -613,12 +1084,9 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
         // Set up promise to verify client received matching PUBLISH_NAMESPACE.
         std::promise<FullTrackName> publish_promise;
         auto publish_future = publish_promise.get_future();
-        messages::PublishAttributes publish_attributes;
-        publish_attributes.group_order = std::nullopt;
-        publish_attributes.track_alias = existing_track_hash.track_fullname_hash;
 
         // TODO: Validate full attribute round-trip.
-        server->AddKnownPublishedTrack(existing_track, std::nullopt, publish_attributes);
+        server->AddKnownPublishedTrack(existing_track, std::nullopt, {});
         client->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Set up promise to verify server gets accepted publish.
@@ -627,7 +1095,8 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(SubscribeNamespaceHandler::Create(prefix_namespace)));
+        CHECK_NOTHROW(client->SubscribeNamespace(
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Client should receive matched PUBLISH for existing track.
         auto publish_status = publish_future.wait_for(kDefaultTimeout);
@@ -657,7 +1126,7 @@ TEST_CASE("Integration - Subscribe Namespace with matching track")
     }
 }
 
-TEST_CASE("Integration - Subscribe Namespace with ongoing match")
+TEST_CASE("Integration - Subscribe Tracks with ongoing match")
 {
     auto server = MakeTestServer(std::nullopt, 4);
 
@@ -684,10 +1153,13 @@ TEST_CASE("Integration - Subscribe Namespace with ongoing match")
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(SubscribeNamespaceHandler::Create(prefix_namespace)));
+        auto ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks);
+        CHECK_NOTHROW(client->SubscribeNamespace(ns_handler));
 
-        // In the future, a PUBLISH arrives.
-        std::this_thread::sleep_for(kDefaultTimeout);
+        // Wait for the subscription to be confirmed before the PUBLISH arrives.
+        const bool ns_ok =
+          WaitFor([&ns_handler]() { return ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; });
+        REQUIRE(ns_ok);
         const auto publish = PublishTrackHandler::Create(existing_track, TrackMode::kStream, 10, 5000, { 0, 0 });
         publisher->PublishTrack(publish);
 
@@ -719,7 +1191,7 @@ TEST_CASE("Integration - Subscribe Namespace with ongoing match")
     }
 }
 
-TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
+TEST_CASE("Integration - Subscribe Tracks with non-matching namespace")
 {
     auto server = MakeTestServer();
 
@@ -737,10 +1209,11 @@ TEST_CASE("Integration - Subscribe Namespace with non-matching namespace")
         client->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(client->SubscribeNamespace(SubscribeNamespaceHandler::Create(prefix_namespace)));
+        CHECK_NOTHROW(client->SubscribeNamespace(
+          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
 
         // Client should NOT receive PUBLISH_NAMESPACE.
-        auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
+        auto publish_namespace_status = publish_namespace_future.wait_for(kNegativeTimeout);
         REQUIRE(publish_namespace_status == std::future_status::timeout);
     };
 
@@ -781,8 +1254,9 @@ TEST_CASE("Integration - Announce Flow")
         REQUIRE_EQ(server_status, std::future_status::ready);
 
         // Verify the publish track handler transitions to kNoSubscribers (PUBLISH_NAMESPACE_OK).
-        std::this_thread::sleep_for(kDefaultTimeout);
-        CHECK_EQ(ns_handler->GetStatus(), PublishNamespaceHandler::Status::kOk);
+        const bool ns_ok =
+          WaitFor([&ns_handler]() { return ns_handler->GetStatus() == PublishNamespaceHandler::Status::kOk; });
+        CHECK(ns_ok);
 
         const std::string name = "test";
         const FullTrackName ftn{ prefix, quicr::Bytes{ name.begin(), name.end() } };
@@ -798,8 +1272,9 @@ TEST_CASE("Integration - Announce Flow")
 
         CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kPendingPublishOk);
 
-        std::this_thread::sleep_for(kDefaultTimeout);
-        CHECK_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kOk);
+        const bool pub_ok =
+          WaitFor([&pub_handler]() { return pub_handler->GetStatus() == PublishTrackHandler::Status::kOk; });
+        CHECK(pub_ok);
     };
 
     SUBCASE("Raw QUIC")
@@ -826,21 +1301,22 @@ class TestFetchTrackHandler final : public FetchTrackHandler
 
     TestFetchTrackHandler(const FullTrackName& full_track_name,
                           const std::uint8_t priority,
-                          const std::optional<messages::GroupOrder> group_order,
                           const messages::Location& start_location,
-                          const messages::FetchEndLocation& end_location)
-      : FetchTrackHandler(full_track_name, priority, group_order, start_location, end_location)
+                          const messages::FetchEndLocation& end_location,
+                          const messages::GroupOrder group_order = messages::GroupOrder::kAscending)
+      : FetchTrackHandler(full_track_name, priority, start_location, end_location, group_order)
     {
     }
 
-    static std::shared_ptr<TestFetchTrackHandler> Create(const FullTrackName& full_track_name,
-                                                         const std::uint8_t priority,
-                                                         const std::optional<messages::GroupOrder> group_order,
-                                                         const messages::Location& start_location,
-                                                         const messages::FetchEndLocation& end_location)
+    static std::shared_ptr<TestFetchTrackHandler> Create(
+      const FullTrackName& full_track_name,
+      const std::uint8_t priority,
+      const messages::Location& start_location,
+      const messages::FetchEndLocation& end_location,
+      const messages::GroupOrder group_order = messages::GroupOrder::kAscending)
     {
         return std::make_shared<TestFetchTrackHandler>(
-          full_track_name, priority, group_order, start_location, end_location);
+          full_track_name, priority, start_location, end_location, group_order);
     }
 
     void ObjectReceived(const ObjectHeaders& headers,
@@ -879,28 +1355,53 @@ TEST_CASE("Integration - Fetch object roundtrip")
         ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "namespace" });
         ftn.name = { 1, 2, 3 };
 
-        // Set up test data with specific values for all fields
-        std::vector<TestServer::FetchResponseData> cached;
-        constexpr messages::GroupId fetch_group = 100;
-        constexpr messages::ObjectId max_object = 100;
-        for (messages::ObjectId object = 0; object <= max_object; object++) {
-            TestServer::FetchResponseData response_data{};
-            response_data.headers.group_id = fetch_group;
-            response_data.headers.subgroup_id = 0;
-            response_data.headers.object_id = object;
-            response_data.headers.status = ObjectStatus::kAvailable;
-            response_data.headers.priority = 5;
-            response_data.payload = { static_cast<uint8_t>(object) };
-            response_data.headers.payload_length = response_data.payload.size();
-            cached.push_back(response_data);
-        }
+        std::vector<TestServer::FetchResponseData> cached(6);
+        cached[0].headers = { .group_id = 100,
+                              .object_id = 0,
+                              .subgroup_id = 0,
+                              .payload_length = 1,
+                              .priority = 5,
+                              .track_mode = TrackMode::kStream };
+        cached[0].payload = { 0 };
+        cached[1].headers = cached[0].headers;
+        cached[1].headers.object_id = 1;
+        cached[1].payload = { 1 };
+        cached[2].headers = { .group_id = 100,
+                              .object_id = 3,
+                              .subgroup_id = 1,
+                              .payload_length = 0,
+                              .priority = 7,
+                              .track_mode = TrackMode::kStream };
+        cached[3].headers = { .group_id = 102,
+                              .object_id = 0,
+                              .subgroup_id = 1,
+                              .payload_length = 1,
+                              .priority = 7,
+                              .track_mode = TrackMode::kStream };
+        cached[3].payload = { 2 };
+        cached[4].headers = { .group_id = 102,
+                              .object_id = 1,
+                              .subgroup_id = 0,
+                              .payload_length = 1,
+                              .priority = 4,
+                              .track_mode = TrackMode::kDatagram };
+        cached[4].payload = { 3 };
+        cached[5].headers = { .group_id = 103,
+                              .object_id = 0,
+                              .subgroup_id = 3,
+                              .payload_length = 1,
+                              .priority = 4,
+                              .track_mode = TrackMode::kStream,
+                              .extensions = Extensions{ { 1, { { 0xAA } } } } };
+        cached[5].payload = { 4 };
 
         server->SetFetchResponseData(cached);
 
-        auto fetch_handler =
-          TestFetchTrackHandler::Create(ftn, 0, std::nullopt, { fetch_group, 0 }, { fetch_group, std::nullopt });
+        auto fetch_handler = TestFetchTrackHandler::Create(ftn, 0, { 100, 0 }, { 103, std::nullopt });
 
         client->FetchTrack(fetch_handler);
+
+        REQUIRE(WaitFor([&fetch_handler]() { return fetch_handler->GetStatus() == FetchTrackHandler::Status::kOk; }));
 
         // Wait for all objects to be received
         const auto expected_count = cached.size();
@@ -910,14 +1411,19 @@ TEST_CASE("Integration - Fetch object roundtrip")
         REQUIRE_EQ(fetch_handler->GetReceivedCount(), expected_count);
         REQUIRE(all_received);
 
-        // Verify each object's payload matches its object_id
         const auto received_objects = fetch_handler->GetReceivedObjects();
         CHECK_EQ(received_objects.size(), expected_count);
-        for (const auto& received : received_objects) {
-            CHECK_EQ(received.headers.group_id, fetch_group);
-            CHECK_EQ(received.headers.subgroup_id, 0);
-            const std::vector expected_payload = { static_cast<uint8_t>(received.headers.object_id) };
-            CHECK_EQ(received.payload, expected_payload);
+        for (std::size_t i = 0; i < received_objects.size(); ++i) {
+            const auto& received = received_objects[i];
+            const auto& expected = cached[i];
+            CHECK_EQ(received.headers.group_id, expected.headers.group_id);
+            CHECK_EQ(received.headers.subgroup_id, expected.headers.subgroup_id);
+            CHECK_EQ(received.headers.object_id, expected.headers.object_id);
+            CHECK_EQ(received.headers.status, ObjectStatus::kAvailable);
+            CHECK_EQ(received.headers.priority, expected.headers.priority);
+            CHECK_EQ(received.headers.track_mode, expected.headers.track_mode);
+            CHECK_EQ(received.headers.extensions, expected.headers.extensions);
+            CHECK_EQ(received.payload, expected.payload);
         }
     };
 
@@ -1175,6 +1681,124 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
     }
 }
 
+TEST_CASE("Integration - Small data callbacks assemble")
+{
+    // Create with 1 byte window.
+    auto server = MakeTestServer(std::nullopt, 2, 1);
+    auto subscriber = MakeTestClient();
+    auto publisher = MakeTestClient();
+
+    // Pub.
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "small", "callbacks" }), { 1 } };
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 5000, { 0, 0 });
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+    // Sub.
+    auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+    std::promise<void> received_promise;
+    auto received_future = received_promise.get_future();
+    subscribe_handler->SetObjectCountPromise(1, std::move(received_promise));
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(
+      WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    // Roundtrip.
+    const std::vector<std::uint8_t> payload(64, 0x5a);
+    const ObjectHeaders headers{ .group_id = 0,
+                                 .object_id = 0,
+                                 .subgroup_id = 0,
+                                 .payload_length = payload.size(),
+                                 .status = ObjectStatus::kAvailable,
+                                 .priority = 3,
+                                 .ttl = 5000,
+                                 .track_mode = TrackMode::kStream };
+    REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+    CHECK(received_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+}
+
+TEST_CASE("Integration - Failed publish does not create subgroup state")
+{
+    // Setup a subscriber and publisher.
+    auto server = MakeTestServer(std::nullopt, 2);
+    auto subscriber = MakeTestClient();
+    auto publisher = MakeTestClient();
+    FullTrackName ftn;
+    ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "paused_publish" });
+    ftn.name = { 0x01 };
+
+    auto sub_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+    subscriber->SubscribeTrack(sub_handler);
+    REQUIRE(WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+    publisher->PublishTrack(pub_handler);
+    REQUIRE(WaitFor([&pub_handler]() { return pub_handler->CanPublish(); }));
+
+    // Pause the publisher.
+    pub_handler->SetStatus(PublishTrackHandler::Status::kPaused);
+
+    // Publish a subgroup-opening object against paused handler.
+    constexpr uint64_t group_id = 0;
+    constexpr uint64_t subgroup_id = 0;
+    const std::vector<uint8_t> payload{ 0x01 };
+    const ObjectHeaders headers{ .group_id = group_id,
+                                 .object_id = 0,
+                                 .subgroup_id = subgroup_id,
+                                 .payload_length = payload.size(),
+                                 .status = ObjectStatus::kAvailable,
+                                 .priority = 128,
+                                 .ttl = 1000,
+                                 .track_mode = TrackMode::kStream };
+    REQUIRE_EQ(pub_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kPaused);
+
+    // Unpause.
+    pub_handler->SetStatus(PublishTrackHandler::Status::kOk);
+
+    // If the caller attempts to publish the next object in the subgroup as though the first passed, we should
+    // succeed on this next object, having now created stream state.
+    SUBCASE("PublishObject")
+    {
+        const ObjectHeaders next_header = { .group_id = group_id,
+                                            .object_id = 1,
+                                            .subgroup_id = subgroup_id,
+                                            .payload_length = payload.size(),
+                                            .status = ObjectStatus::kAvailable,
+                                            .priority = 128,
+                                            .ttl = 1000,
+                                            .track_mode = TrackMode::kStream };
+        const auto status = pub_handler->PublishObject(next_header, payload);
+        REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
+        REQUIRE(WaitFor([&sub_handler]() { return sub_handler->GetReceivedCount() == 1; }));
+
+        const auto received_objects = sub_handler->GetReceivedObjects();
+        REQUIRE_EQ(received_objects.size(), 1);
+        const auto recv = received_objects.front();
+        CHECK_EQ(recv.group_id, group_id);
+        CHECK_EQ(recv.subgroup_id, subgroup_id);
+        CHECK_EQ(recv.object_id, next_header.object_id);
+        CHECK_EQ(recv.status, next_header.status);
+        CHECK_EQ(recv.data, payload);
+    }
+
+    // If the caller attempts to forward the next object in the subgroup as though the first passed, we should fail
+    // due to no stream state setup.
+    SUBCASE("ForwardPublishedData")
+    {
+        messages::StreamSubGroupObject next_object;
+        next_object.object_delta = 0;
+        next_object.object_status = ObjectStatus::kAvailable;
+        next_object.payload = payload;
+        const auto stream_mode = pub_handler->GetStreamMode();
+        next_object.properties.emplace(stream_mode.value());
+        Bytes encoded_object;
+        encoded_object << next_object;
+        const auto status = pub_handler->ForwardPublishedData(
+          false, group_id, subgroup_id, std::make_shared<const std::vector<uint8_t>>(std::move(encoded_object)));
+        CHECK_EQ(status, PublishTrackHandler::PublishObjectStatus::kInternalError);
+    }
+}
+
 TEST_CASE("Integration - New subgroup preserves object IDs")
 {
     auto server = MakeTestServer(std::nullopt, 2);
@@ -1197,7 +1821,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         auto sub_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
         std::promise<void> all_received_promise;
         auto all_received_future = all_received_promise.get_future();
-        constexpr std::size_t total_objects = 6;
+        constexpr std::size_t total_objects = 7;
         sub_handler->SetObjectCountPromise(total_objects, std::move(all_received_promise));
         subscriber_client->SubscribeTrack(sub_handler);
         const bool sub_ready =
@@ -1205,7 +1829,11 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         REQUIRE(sub_ready);
 
         // Publishes objects with headers in payload.
-        auto publish_object = [&](uint64_t group_id, uint64_t subgroup_id, uint64_t object_id) {
+        auto publish_object = [&](uint64_t group_id,
+                                  uint64_t subgroup_id,
+                                  uint64_t object_id,
+                                  bool first_object = true,
+                                  std::optional<messages::SubgroupIdType> subgroup_id_mode = std::nullopt) {
             std::vector payload = { static_cast<uint8_t>(group_id),
                                     static_cast<uint8_t>(subgroup_id),
                                     static_cast<uint8_t>(object_id) };
@@ -1219,7 +1847,13 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
                                       .track_mode = TrackMode::kStream,
                                       .extensions = std::nullopt,
                                       .immutable_extensions = std::nullopt };
-            auto status = pub_handler->PublishObject(headers, payload);
+            std::optional<messages::StreamHeaderProperties> stream_mode;
+            stream_mode.emplace(true,
+                                subgroup_id_mode.has_value() ? *subgroup_id_mode : messages::SubgroupIdType::kExplicit,
+                                false,
+                                false,
+                                first_object);
+            auto status = pub_handler->PublishObject(headers, payload, stream_mode);
             REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
         };
 
@@ -1230,9 +1864,11 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         // Subgroup 1.
         publish_object(0, 1, 2);
         pub_handler->EndSubgroup(0, 1, true);
-        // Subgroup 2.
-        publish_object(0, 2, 3);
+        // Subgroup 2, replicating a relay mid-subgroup forward (non-original first object).
+        publish_object(0, 2, 3, false);
         publish_object(0, 2, 4);
+        // Subgroup 5, deriving its subgroup ID from its first object ID.
+        publish_object(0, 5, 5, true, messages::SubgroupIdType::kSetFromFirstObject);
         // Let's end on a new group.
         publish_object(1, 0, 0);
 
@@ -1247,6 +1883,18 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
             CHECK_EQ(obj.group_id, obj.data[0]);
             CHECK_EQ(obj.subgroup_id, obj.data[1]);
             CHECK_EQ(obj.object_id, obj.data[2]);
+            // Validate original first object roundtrip. The subgroup header is only set on
+            // first object of the subgroup stream (which may or may not be the subgroup's original first object).
+            const bool is_first_subgroup_object = (obj.group_id == 0 && obj.subgroup_id == 0 && obj.object_id == 0) ||
+                                                  (obj.group_id == 0 && obj.subgroup_id == 1 && obj.object_id == 2) ||
+                                                  (obj.group_id == 0 && obj.subgroup_id == 2 && obj.object_id == 3) ||
+                                                  (obj.group_id == 0 && obj.subgroup_id == 5 && obj.object_id == 5) ||
+                                                  (obj.group_id == 1 && obj.subgroup_id == 0 && obj.object_id == 0);
+            CHECK_EQ(obj.stream_mode.has_value(), is_first_subgroup_object);
+            if (obj.stream_mode.has_value()) {
+                const bool expected_original_first = obj.group_id != 0 || obj.subgroup_id != 2;
+                CHECK_EQ(obj.stream_mode->first_object, expected_original_first);
+            }
         }
     };
 
@@ -1325,10 +1973,13 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         auto publish_future = publish_promise.get_future();
         subscriber->SetPublishReceivedPromise(std::move(publish_promise));
 
-        CHECK_NOTHROW(subscriber->SubscribeNamespace(SubscribeNamespaceHandler::Create(prefix_namespace)));
+        auto ns_handler = SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks);
+        CHECK_NOTHROW(subscriber->SubscribeNamespace(ns_handler));
 
-        // Give the namespace subscription time to settle.
-        std::this_thread::sleep_for(kDefaultTimeout);
+        // Wait for the namespace subscription to settle before publishing.
+        const bool ns_ok =
+          WaitFor([&ns_handler]() { return ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; });
+        REQUIRE(ns_ok);
 
         // Publish the track, watching for a new group request.
         auto new_group_was_requested = std::make_shared<std::atomic_bool>(false);
@@ -1385,5 +2036,139 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
     SUBCASE("WebTransport - Publisher initiated")
     {
         test_dynamic_groups_publisher_initiated("https");
+    }
+}
+
+TEST_CASE("Integration - Dedicated bidirectional control data contexts")
+{
+    auto server = MakeTestServer(std::nullopt, 4);
+
+    auto test_dedicated_control_data_contexts = [&](const std::string& protocol_scheme) {
+        auto client = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        TrackNamespace prefix(std::vector<std::string>{ "ctrl", "stream" });
+
+        std::promise<TestServer::SubscribeNamespaceDetails> ns_server_promise;
+        std::future<TestServer::SubscribeNamespaceDetails> ns_server_future = ns_server_promise.get_future();
+        server->SetSubscribeNamespacePromise(std::move(ns_server_promise));
+
+        auto ns_handler = SubscribeNamespaceHandler::Create(prefix, SubscribeNamespaceHandler::Mode::kTracks);
+        CHECK_NOTHROW(client->SubscribeNamespace(ns_handler));
+
+        REQUIRE(ns_server_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto ns_server_details = ns_server_future.get();
+        CHECK(ns_server_details.data_ctx_id != 0);
+
+        const bool ns_ready =
+          WaitFor([&ns_handler]() { return ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; });
+        REQUIRE(ns_ready);
+        REQUIRE(ns_handler->GetDataContextId().has_value());
+        CHECK(ns_handler->GetDataContextId().value() != 0);
+
+        const auto ns_data_ctx = ns_handler->GetDataContextId().value();
+
+        FullTrackName ftn;
+        ftn.name_space = prefix;
+        ftn.name = { 1, 2, 3 };
+
+        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        CHECK_NOTHROW(client->SubscribeTrack(sub_handler));
+
+        const bool sub_ready =
+          WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        REQUIRE(sub_ready);
+        REQUIRE(sub_handler->GetDataContextId().has_value());
+        CHECK(sub_handler->GetDataContextId().value() != ns_data_ctx);
+
+        const auto sub_data_ctx = sub_handler->GetDataContextId().value();
+
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 1, 5000, [](const auto&) {});
+        CHECK_NOTHROW(publisher->PublishTrack(pub_handler));
+        const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
+        REQUIRE(pub_ready);
+        REQUIRE(pub_handler->GetDataContextId().has_value());
+        CHECK(pub_handler->GetPublishDataContextId() != 0);
+        // Control and object data contexts are distinct on the same connection.
+        CHECK(pub_handler->GetDataContextId().value() != pub_handler->GetPublishDataContextId());
+
+        TrackNamespace pub_ns(std::vector<std::string>{ "ctrl", "publish" });
+        std::promise<TestServer::PublishNamespaceDetails> pub_ns_server_promise;
+        std::future<TestServer::PublishNamespaceDetails> pub_ns_server_future = pub_ns_server_promise.get_future();
+        server->SetPublishNamespacePromise(std::move(pub_ns_server_promise));
+
+        const auto pub_ns_handler = PublishNamespaceHandler::Create(pub_ns);
+        CHECK_NOTHROW(publisher->PublishNamespace(pub_ns_handler));
+        REQUIRE(pub_ns_server_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        (void)pub_ns_server_future.get();
+
+        const bool pub_ns_ready =
+          WaitFor([&pub_ns_handler]() { return pub_ns_handler->GetStatus() == PublishNamespaceHandler::Status::kOk; });
+        REQUIRE(pub_ns_ready);
+        REQUIRE(pub_ns_handler->GetDataContextId().has_value());
+        // Data context IDs are unique per connection; compare handlers on the publisher only.
+        CHECK(pub_ns_handler->GetDataContextId().value() != pub_handler->GetDataContextId().value());
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_dedicated_control_data_contexts("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_dedicated_control_data_contexts("https");
+    }
+}
+
+TEST_CASE("Integration - Request updates use handler data context")
+{
+    auto server = MakeTestServer(std::nullopt, 4);
+
+    auto test_request_update_data_context = [&](const std::string& protocol_scheme) {
+        auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
+        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "ctrl", "update" });
+        ftn.name = { 4, 5, 6 };
+
+        auto new_group_was_requested = std::make_shared<std::atomic_bool>(false);
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(
+          ftn, 1, 5000, [new_group_was_requested](const PublishTrackHandler::Status status) {
+              if (status == PublishTrackHandler::Status::kNewGroupRequested) {
+                  new_group_was_requested->store(true);
+              }
+          });
+        CHECK_NOTHROW(publisher->PublishTrack(pub_handler));
+        const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
+        REQUIRE(pub_ready);
+
+        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        CHECK_NOTHROW(subscriber->SubscribeTrack(sub_handler));
+
+        const bool sub_ready =
+          WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
+        REQUIRE(sub_ready);
+        REQUIRE(sub_handler->GetDataContextId().has_value());
+
+        const auto data_ctx_before = sub_handler->GetDataContextId().value();
+
+        CHECK_NOTHROW(sub_handler->RequestNewGroup());
+
+        const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
+        CHECK(received);
+        REQUIRE(sub_handler->GetDataContextId().has_value());
+        CHECK(sub_handler->GetDataContextId().value() == data_ctx_before);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_request_update_data_context("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_request_update_data_context("https");
     }
 }

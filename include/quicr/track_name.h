@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "hash.h"
+#include "quicr/utilities/hash.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -305,11 +305,6 @@ struct std::hash<quicr::TrackNamespace>
 };
 
 namespace quicr {
-
-    using TrackNamespaceHash = uint64_t;
-    using TrackNameHash = uint64_t;
-    using TrackFullNameHash = uint64_t;
-
     /**
      * @brief Full track name struct
      *
@@ -338,8 +333,7 @@ struct std::hash<quicr::FullTrackName>
         quicr::hash_combine(h, std::hash<quicr::TrackNamespace>{}(ftn.name_space));
         quicr::hash_combine(h, std::hash<std::span<const std::uint8_t>>{}(ftn.name));
 
-        // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
-        return (h << 2) >> 2;
+        return h;
     }
 };
 
@@ -347,10 +341,10 @@ namespace quicr {
 
     struct TrackHash
     {
-        TrackNamespaceHash track_namespace_hash = 0; // 64bit hash of namespace
-        TrackNameHash track_name_hash = 0;           // 64bit hash of name
+        std::uint64_t track_namespace_hash = 0; // 64bit hash of namespace
+        std::uint64_t track_name_hash = 0;      // 64bit hash of name
 
-        uint64_t track_fullname_hash = 0; // 62bit of namespace+name
+        uint64_t track_fullname_hash = 0; // 64bit hash of namespace+name
 
         TrackHash(const uint64_t name_space, const uint64_t name) noexcept
           : track_namespace_hash{ name_space }
@@ -358,9 +352,6 @@ namespace quicr {
         {
             hash_combine(track_fullname_hash, track_namespace_hash);
             hash_combine(track_fullname_hash, track_name_hash);
-
-            // TODO(tievens): Evaluate; change hash to be more than 62 bits to avoid collisions
-            track_fullname_hash = (track_fullname_hash << 2) >> 2;
         }
 
         TrackHash(const FullTrackName& ftn) noexcept

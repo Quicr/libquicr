@@ -1,11 +1,45 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/detail/transport.h"
-#include <quicr/publish_track_handler.h>
+#include "quicr/handlers/publish_track_handler.h"
+
+#include "quicr/messages/messages.h"
+#include "quicr/messages/parameters.h"
+#include "quicr/session.h"
+
+#include <spdlog/spdlog.h>
 
 namespace quicr {
+    PublishTrackHandler::PublishTrackHandler(const FullTrackName& full_track_name,
+                                             TrackMode track_mode,
+                                             uint8_t default_priority,
+                                             uint32_t default_ttl,
+                                             std::optional<messages::StreamHeaderProperties> stream_mode,
+                                             messages::Location largest_location)
+      : BaseTrackHandler(full_track_name)
+      , default_track_mode_(track_mode)
+      , default_priority_(default_priority)
+      , default_ttl_(default_ttl)
+      , largest_location_(largest_location)
+    {
+        switch (track_mode) {
+            case TrackMode::kDatagram:
+                if (stream_mode.has_value()) {
+                    throw std::invalid_argument("Datagram track mode should not specify a stream mode");
+                }
+                break;
+            case TrackMode::kStream:
+                if (stream_mode.has_value()) {
+                    stream_mode_.emplace(*stream_mode);
+                } else {
+                    stream_mode_.emplace(true, messages::SubgroupIdType::kExplicit, false, false, true);
+                }
+                break;
+        }
+    }
+
     void PublishTrackHandler::StatusChanged(Status) {}
+
     void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&) {}
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::ForwardPublishedData(
@@ -30,6 +64,10 @@ namespace quicr {
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kPaused;
 
+            case Status::kUnsubscribed:
+                [[fallthrough]];
+            case Status::kDoneByFin:
+                [[fallthrough]];
             case Status::kNoSubscribers:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNoSubscribers;
@@ -133,6 +171,61 @@ namespace quicr {
             return PublishObjectStatus::kInternalError;
         }
 
+        const auto status = GetStatus();
+        switch (status) {
+            case Status::kOk:
+                break;
+
+            case Status::kPaused:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kPaused;
+
+            case Status::kUnsubscribed:
+                [[fallthrough]];
+            case Status::kDoneByFin:
+                [[fallthrough]];
+            case Status::kNoSubscribers:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kNoSubscribers;
+
+            case Status::kPendingAnnounceResponse:
+                [[fallthrough]];
+            case Status::kNotAnnounced:
+                [[fallthrough]];
+            case Status::kNotConnected:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kNotAnnounced;
+            case Status::kAnnounceNotAuthorized:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kNotAuthorized;
+            case Status::kNewGroupRequested: {
+                // reset the status to ok to imply change
+                auto current = status;
+                publish_status_.compare_exchange_strong(
+                  current, Status::kOk, std::memory_order_acq_rel, std::memory_order_acquire);
+                break;
+            }
+            case Status::kSubscriptionUpdated: {
+
+                /*
+                 * TODO: Need to revisit the below since subgroups doesn't really support this
+                 * Always start a new stream on subscription update to support peering/pipelining
+                 */
+
+                auto current = status;
+                publish_status_.compare_exchange_strong(
+                  current, Status::kOk, std::memory_order_acq_rel, std::memory_order_acquire);
+                break;
+            }
+            default:
+                publish_track_metrics_.objects_dropped_not_ok++;
+                return PublishObjectStatus::kInternalError;
+        }
+
+        if (!GetRequestId().has_value()) {
+            return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
+        }
+
         std::uint16_t ttl = object_headers.ttl.value_or(default_ttl_);
         std::uint8_t priority = object_headers.priority.value_or(default_priority_);
 
@@ -200,63 +293,12 @@ namespace quicr {
             stream_id = subgroup_it->second.stream_id;
         }
 
-        const auto status = GetStatus();
-        switch (status) {
-            case Status::kOk:
-                break;
-
-            case Status::kPaused:
-                publish_track_metrics_.objects_dropped_not_ok++;
-                return PublishObjectStatus::kPaused;
-
-            case Status::kNoSubscribers:
-                publish_track_metrics_.objects_dropped_not_ok++;
-                return PublishObjectStatus::kNoSubscribers;
-
-            case Status::kPendingAnnounceResponse:
-                [[fallthrough]];
-            case Status::kNotAnnounced:
-                [[fallthrough]];
-            case Status::kNotConnected:
-                publish_track_metrics_.objects_dropped_not_ok++;
-                return PublishObjectStatus::kNotAnnounced;
-            case Status::kAnnounceNotAuthorized:
-                publish_track_metrics_.objects_dropped_not_ok++;
-                return PublishObjectStatus::kNotAuthorized;
-            case Status::kNewGroupRequested: {
-                // reset the status to ok to imply change
-                auto current = status;
-                publish_status_.compare_exchange_strong(
-                  current, Status::kOk, std::memory_order_acq_rel, std::memory_order_acquire);
-                break;
-            }
-            case Status::kSubscriptionUpdated: {
-
-                /*
-                 * TODO: Need to revisit the below since subgroups doesn't really support this
-                 * Always start a new stream on subscription update to support peering/pipelining
-                 */
-
-                auto current = status;
-                publish_status_.compare_exchange_strong(
-                  current, Status::kOk, std::memory_order_acq_rel, std::memory_order_acquire);
-                break;
-            }
-            default:
-                publish_track_metrics_.objects_dropped_not_ok++;
-                return PublishObjectStatus::kInternalError;
-        }
-
         if (object_headers.track_mode.has_value() && object_headers.track_mode != default_track_mode_) {
             SetDefaultTrackMode(*object_headers.track_mode);
         }
 
         publish_track_metrics_.bytes_published += data.size();
         publish_track_metrics_.objects_published++;
-
-        if (!GetRequestId().has_value()) {
-            return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
-        }
 
         ITransport::EnqueueFlags eflags;
 
@@ -369,20 +411,65 @@ namespace quicr {
         }
     }
 
-    void PublishTrackHandler::RequestOk([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
+    void PublishTrackHandler::RequestOkReceived(const messages::Parameters& params)
     {
-        auto forward = params.Get<bool>(messages::ParameterType::kForward);
-        SetStatus(forward ? Status::kOk : Status::kPaused);
+        if (GetStatus() == Status::kPendingPublishOk) {
+            // PUBLISH_OK.
+            messages::ValidateParameters(params,
+                                         { messages::ParameterType::kDeliveryTimeout,
+                                           messages::ParameterType::kSubgroupDeliveryTimeout,
+                                           messages::ParameterType::kSubscriberPriority,
+                                           messages::ParameterType::kGroupOrder,
+                                           messages::ParameterType::kSubscriptionFilter,
+                                           messages::ParameterType::kNewGroupRequest,
+                                           messages::ParameterType::kExpires,
+                                           messages::ParameterType::kForward });
+            // TODO: OBJECT_DELIVERY_TIMEOUT
+            // TODO: SUBGROUP_DELIVERY_TIMEOUT
+            // TODO: SUBSCRIBER_PRIORITY
+            // TODO: GROUP_ORDER
+            // TODO: SUBSCRIPTION_FILTER
+            // TODO: EXPIRES
+
+            const auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+            if (ngr.has_value()) {
+                if (!support_new_group_request_) {
+                    throw messages::ProtocolViolationException("Must not request new group on non-dynamic track");
+                }
+                // TODO: Use the NEW_GROUP_REQUEST value to do something.
+                SetStatus(Status::kNewGroupRequested);
+            }
+
+            const auto forward = messages::ResolveForward(params, true);
+            SetStatus(forward ? Status::kOk : Status::kPaused);
+        } else {
+            // REQUEST_UPDATE_OK.
+            // TODO: In theory largest_object here?
+            // TODO: Handle unsolicited REQUEST_UPDATE_OK?
+            messages::ValidateParameters(params, { messages::ParameterType::kExpires });
+            // TODO: EXPIRES.
+        }
     }
 
-    void PublishTrackHandler::RequestUpdate([[maybe_unused]] uint64_t request_id, const messages::Parameters& params)
+    void PublishTrackHandler::RequestUpdateReceived(const messages::Parameters& params)
     {
+        // The subscriber can update their subscription with lots of details.
+        // TODO: AUTHORIZATION_TOKEN
+        // TODO: OBJECT_DELIVERY_TIMEOUT
+        // TODO: SUBGROUP_DELIVERY_TIMEOUT
+        // TODO: SUBSCRIBER_PRIORITY
+        // TODO: SUBSCRIPTION_FILTER
         if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
             SetStatus(*forward ? Status::kOk : Status::kPaused);
         }
 
         if (auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
             SetStatus(Status::kNewGroupRequested);
+        }
+
+        if (const auto transport = GetTransport().lock()) {
+            transport->ResolveRequestUpdate(
+              GetConnectionId(), *GetRequestId(), { .error = std::nullopt, .params = {} });
         }
     }
 

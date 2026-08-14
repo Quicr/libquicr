@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <quicr/detail/uintvar.h>
+#include "quicr/messages/uintvar.h"
 
 #include <benchmark/benchmark.h>
 
@@ -43,9 +43,8 @@ static void
 UIntVar_FromBytes(benchmark::State& state)
 {
     constexpr auto var = quicr::UintVar(0x123456789);
-    constexpr auto bytes = std::bit_cast<std::array<std::uint8_t, sizeof(uint64_t)>>(var);
     for ([[maybe_unused]] const auto& _ : state) {
-        auto value = quicr::UintVar(bytes);
+        auto value = quicr::UintVar(std::span{ var });
         benchmark::DoNotOptimize(value);
         benchmark::ClobberMemory();
     }

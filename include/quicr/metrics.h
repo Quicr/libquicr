@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include "detail/quic_transport_metrics.h"
+#include "quicr/transport_metrics.h"
+
 #include <string>
 
 namespace quicr {

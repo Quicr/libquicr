@@ -1,14 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <doctest/doctest.h>
+#include "quicr/common.h"
+#include "quicr/handlers/publish_track_handler.h"
+#include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/messages/messages.h"
 
-#include <quicr/client.h>
-#include <quicr/common.h>
-#include <quicr/detail/messages.h>
-#include <quicr/publish_track_handler.h>
-#include <quicr/server.h>
-#include <quicr/subscribe_track_handler.h>
+#include <doctest/doctest.h>
 
 class TestPublishTrackHandler : public quicr::PublishTrackHandler
 {
@@ -71,9 +69,104 @@ class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
         status_received_count++;
     }
 
+    void ObjectReceived(const quicr::ObjectHeaders& object_headers,
+                        quicr::BytesSpan data,
+                        std::optional<quicr::messages::StreamHeaderProperties> stream_mode) override
+    {
+        received_objects.push_back({ object_headers.group_id,
+                                     object_headers.object_id,
+                                     quicr::Bytes(data.begin(), data.end()),
+                                     std::move(stream_mode) });
+    }
+
+    struct ReceivedObject
+    {
+        uint64_t group_id;
+        uint64_t object_id;
+        quicr::Bytes payload;
+        std::optional<quicr::messages::StreamHeaderProperties> stream_mode;
+    };
+
     std::optional<ReceivedStatus> last_status;
     int status_received_count{ 0 };
+    std::vector<ReceivedObject> received_objects;
 };
+
+/**
+ * @brief A subgroup header followed by two objects, as it arrives on the wire.
+ */
+static quicr::Bytes
+SerializeSubgroup(const quicr::messages::StreamHeaderProperties& properties)
+{
+    quicr::messages::StreamHeaderSubGroup header;
+    header.properties.emplace(properties);
+    header.track_alias = 0x1234;
+    header.group_id = 7;
+    header.priority = 128;
+
+    quicr::Bytes bytes;
+    bytes << header;
+
+    for (const auto& payload : { quicr::Bytes{ 0x0A, 0x0B }, quicr::Bytes{ 0x0C, 0x0D } }) {
+        quicr::messages::StreamSubGroupObject object;
+        object.properties.emplace(properties);
+        object.object_delta = 0;
+        object.payload = payload;
+        bytes << object;
+    }
+
+    return bytes;
+}
+
+TEST_CASE("Subscribe Track Handler receives every object buffered on a stream")
+{
+    auto handler = TestSubscribeTrackHandler::Create();
+
+    const quicr::messages::StreamHeaderProperties properties{
+        false, quicr::messages::SubgroupIdType::kIsZero, false, false, true
+    };
+
+    // Mirror the session handoff: the stream type stays in the buffer for the handler to parse.
+    quicr::StreamBuffer<uint8_t> buffer;
+    buffer.Push(SerializeSubgroup(properties));
+    handler->StreamDataRecv(0, { std::move(buffer), {} });
+
+    REQUIRE_EQ(handler->received_objects.size(), 2);
+
+    CHECK_EQ(handler->received_objects[0].group_id, 7);
+    CHECK_EQ(handler->received_objects[0].object_id, 0);
+    CHECK_EQ(handler->received_objects[0].payload, quicr::Bytes{ 0x0A, 0x0B });
+    CHECK(handler->received_objects[0].stream_mode.has_value());
+
+    CHECK_EQ(handler->received_objects[1].group_id, 7);
+    CHECK_EQ(handler->received_objects[1].object_id, 1);
+    CHECK_EQ(handler->received_objects[1].payload, quicr::Bytes{ 0x0C, 0x0D });
+    CHECK_FALSE(handler->received_objects[1].stream_mode.has_value());
+}
+
+TEST_CASE("Subscribe Track Handler resumes parsing across single byte chunks")
+{
+    auto handler = TestSubscribeTrackHandler::Create();
+
+    const quicr::messages::StreamHeaderProperties properties{
+        false, quicr::messages::SubgroupIdType::kIsZero, false, false, true
+    };
+    const auto bytes = SerializeSubgroup(properties);
+
+    quicr::StreamBuffer<uint8_t> buffer;
+    buffer.Push(bytes.front());
+    handler->StreamDataRecv(0, { std::move(buffer), {} });
+
+    for (auto it = std::next(bytes.begin()); it != bytes.end(); ++it) {
+        handler->StreamDataRecv(0, std::make_shared<std::vector<uint8_t>>(1, *it));
+    }
+
+    REQUIRE_EQ(handler->received_objects.size(), 2);
+    CHECK_EQ(handler->received_objects[0].object_id, 0);
+    CHECK_EQ(handler->received_objects[0].payload, quicr::Bytes{ 0x0A, 0x0B });
+    CHECK_EQ(handler->received_objects[1].object_id, 1);
+    CHECK_EQ(handler->received_objects[1].payload, quicr::Bytes{ 0x0C, 0x0D });
+}
 
 TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kDoesNotExist")
 {
