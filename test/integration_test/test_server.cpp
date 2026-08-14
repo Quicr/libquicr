@@ -288,6 +288,32 @@ TestServer::JoiningFetchReceived(const std::uint64_t connection_id,
         joining_fetch_promise_.reset();
     }
 
+    if (!fetch_response_data_.empty()) {
+        messages::Location largest_location{};
+        for (const auto& response : fetch_response_data_) {
+            largest_location =
+              std::max(largest_location, messages::Location{ response.headers.group_id, response.headers.object_id });
+        }
+
+        ResolveFetch(connection_id,
+                     request_id,
+                     attrs.priority,
+                     attrs.group_order,
+                     { .reason_code = FetchResponse::ReasonCode::kOk, .largest_location = largest_location });
+
+        auto pub_fetch_handler =
+          PublishFetchHandler::Create(track_full_name,
+                                      attrs.priority,
+                                      request_id,
+                                      attrs.group_order.value_or(attrs.publisher_default_group_order),
+                                      500);
+        BindFetchTrack(connection_id, pub_fetch_handler);
+        for (const auto& response : fetch_response_data_) {
+            pub_fetch_handler->PublishObject(response.headers, response.payload);
+        }
+        return;
+    }
+
     ResolveFetch(connection_id,
                  request_id,
                  attrs.priority,

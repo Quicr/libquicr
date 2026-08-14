@@ -1023,9 +1023,10 @@ namespace quicr {
             // Handle joining fetch, if requested.
             auto joining_fetch = track_handler->GetJoiningFetch();
             if (track_handler->GetJoiningFetch()) {
-                // Make a joining fetch handler.
-                const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(track_handler);
                 const auto& info = *joining_fetch;
+                // Make a joining fetch handler.
+                const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(
+                  track_handler, info.group_order.value_or(messages::GroupOrder::kAscending));
                 const auto fetch_rid = conn_it->second.GetNextRequestId();
                 SPDLOG_LOGGER_INFO(logger_,
                                    "Subscribe with joining fetch conn_id: {} track_alias: {} subscribe id: {} "

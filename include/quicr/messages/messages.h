@@ -307,16 +307,61 @@ namespace quicr::messages {
     BytesSpan operator>>(BytesSpan buffer, FetchHeader& msg);
     Bytes& operator<<(Bytes& buffer, const FetchHeader& msg);
 
+    /// Fetch data-plane serialization flag.
+    struct FetchSerializationProperties
+    {
+        enum class EndOfRange
+        {
+            kNonExistent,
+            kUnknown,
+        };
+
+        enum class SubgroupIdMode : std::uint8_t
+        {
+            kZero = 0x00,
+            kPrior = 0x01,
+            kNext = 0x02,
+            kExplicit = 0x03,
+        };
+
+        std::optional<EndOfRange> end_of_range;
+        std::optional<SubgroupIdMode> subgroup_id_mode;
+        bool object_id_delta_present;
+        bool group_id_delta_present;
+        bool priority_present;
+        bool properties_present;
+        bool datagram;
+
+        static constexpr std::uint8_t kSubgroupMask = 0x03;
+        static constexpr std::uint8_t kObjectIdDeltaBit = 0x04;
+        static constexpr std::uint8_t kGroupIdDeltaBit = 0x08;
+        static constexpr std::uint8_t kPriorityBit = 0x10;
+        static constexpr std::uint8_t kPropertiesBit = 0x20;
+        static constexpr std::uint8_t kDatagramBit = 0x40;
+        static constexpr std::uint64_t kEndOfNonExistentRange = 0x8C;
+        static constexpr std::uint64_t kEndOfUnknownRange = 0x10C;
+
+        explicit FetchSerializationProperties(std::uint64_t value);
+        FetchSerializationProperties(SubgroupIdMode subgroup_id_mode,
+                                     bool object_id_delta_present,
+                                     bool group_id_delta_present,
+                                     bool priority_present,
+                                     bool properties_present,
+                                     bool datagram) noexcept;
+
+        [[nodiscard]] std::uint64_t GetType() const noexcept;
+    };
+
     struct FetchObject
     {
-        std::uint64_t group_id;
-        std::uint64_t subgroup_id;
-        std::uint64_t object_id;
-        std::uint8_t publisher_priority;
+        std::optional<FetchSerializationProperties> properties;
+        std::optional<std::uint64_t> group_id_delta;
+        std::optional<std::uint64_t> subgroup_id;
+        std::optional<std::uint64_t> object_id_delta;
+        std::optional<std::uint8_t> publisher_priority;
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
         uint64_t payload_len{ 0 };
-        ObjectStatus object_status;
         Bytes payload;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, FetchObject& msg);
@@ -328,6 +373,32 @@ namespace quicr::messages {
         std::uint64_t prev_extension_type{ 0 };
         uint64_t current_pos{ 0 };
         bool parse_completed{ false };
+    };
+
+    struct ResolvedFetchObject
+    {
+        ObjectHeaders headers;
+        Bytes payload;
+    };
+
+    /// Fetch data-plane (de)serializer.
+    class FetchObjectSerializationState
+    {
+      public:
+        explicit FetchObjectSerializationState(GroupOrder group_order) noexcept
+          : group_order_(group_order)
+        {
+        }
+
+        FetchObject Encode(const ObjectHeaders& headers, std::uint8_t priority, BytesSpan payload);
+        std::optional<ResolvedFetchObject> Decode(FetchObject&& object);
+
+      private:
+        GroupOrder group_order_;
+        std::optional<std::uint64_t> prior_group_id_;
+        std::optional<std::uint64_t> prior_object_id_;
+        std::optional<std::uint64_t> prior_subgroup_id_;
+        std::optional<std::uint8_t> prior_priority_;
     };
 
     bool operator>>(Bytes& buffer, FetchObject& msg);
