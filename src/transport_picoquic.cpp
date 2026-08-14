@@ -2945,15 +2945,7 @@ void
 PicoQuicTransport::EraseStreamState(ConnectionContext& conn_ctx, DataContext* data_ctx, const std::uint64_t stream_id)
 {
     if (data_ctx) {
-        const auto stream_it = data_ctx->streams.find(stream_id);
-        if (stream_it != data_ctx->streams.end()) {
-            if (conn_ctx.transport_mode == TransportMode::kWebTransport) {
-                if (stream_it->second.wt_stream_ctx && conn_ctx.wt_h3_ctx) {
-                    h3zero_delete_stream(conn_ctx.pq_cnx, conn_ctx.wt_h3_ctx, stream_it->second.wt_stream_ctx);
-                }
-            }
-            data_ctx->streams.erase(stream_it);
-        }
+        data_ctx->streams.erase(stream_id);
     }
 
     if (conn_ctx.transport_mode == TransportMode::kWebTransport) {
