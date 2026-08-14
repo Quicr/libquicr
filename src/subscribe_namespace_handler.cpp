@@ -69,7 +69,7 @@ quicr::SubscribeNamespaceHandler::RequestOkReceived(const messages::Parameters& 
 }
 
 void
-quicr::SubscribeNamespaceHandler::RequestUpdateReceived([[maybe_unused]] const messages::Parameters& params)
+quicr::SubscribeNamespaceHandler::ApplyRequestUpdate([[maybe_unused]] const messages::Parameters& params)
 {
     throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");
 }

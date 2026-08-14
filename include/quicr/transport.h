@@ -12,6 +12,7 @@
 #include <any>
 #include <chrono>
 #include <cstdlib>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -440,6 +441,11 @@ namespace quicr {
         virtual void SetRemoteDataCtxId(std::uint64_t conn_id,
                                         std::uint64_t data_ctx_id,
                                         std::uint64_t remote_data_ctx_id) = 0;
+
+        /**
+         * @brief Run a callback on the notifier thread.
+         */
+        virtual void Dispatch(std::function<void()> callback) = 0;
 
         /**
          * Enqueue flags

@@ -333,6 +333,8 @@ namespace quicr {
                                 std::uint64_t data_ctx_id,
                                 std::uint64_t remote_data_ctx_id) override;
 
+        void Dispatch(std::function<void()> callback) override;
+
         /*
          * Internal public methods
          */

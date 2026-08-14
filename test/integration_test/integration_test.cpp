@@ -10,6 +10,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
@@ -141,6 +142,60 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
     const StatusCallback on_status_;
     std::mutex metrics_mutex_;
     std::optional<std::promise<PublishTrackMetrics>> metrics_promise_;
+};
+
+class QueuedUpdatePublishTrackHandler final : public TestPublishTrackHandler
+{
+  public:
+    QueuedUpdatePublishTrackHandler(const FullTrackName& full_track_name,
+                                    std::uint8_t default_priority,
+                                    std::uint32_t default_ttl)
+      : TestPublishTrackHandler(full_track_name, TrackMode::kStream, default_priority, default_ttl)
+    {
+    }
+
+    void StatusChanged(Status status) override
+    {
+        if (status != Status::kSubscriptionUpdated) {
+            return;
+        }
+
+        bool resolve = false;
+        {
+            std::lock_guard lock(mutex_);
+            ++callback_depth_;
+            max_callback_depth_ = std::max(max_callback_depth_, callback_depth_);
+            ++update_count_;
+            resolve = update_count_ > 1;
+        }
+
+        if (resolve) {
+            ResolveRequestUpdate();
+        }
+
+        {
+            std::lock_guard lock(mutex_);
+            --callback_depth_;
+        }
+    }
+
+    std::size_t UpdateCount() const
+    {
+        std::lock_guard lock(mutex_);
+        return update_count_;
+    }
+
+    std::size_t MaxCallbackDepth() const
+    {
+        std::lock_guard lock(mutex_);
+        return max_callback_depth_;
+    }
+
+  private:
+    mutable std::mutex mutex_;
+    std::size_t update_count_{ 0 };
+    std::size_t callback_depth_{ 0 };
+    std::size_t max_callback_depth_{ 0 };
 };
 
 static std::shared_ptr<TestServer>
@@ -2170,5 +2225,99 @@ TEST_CASE("Integration - Request updates use handler data context")
     SUBCASE("WebTransport")
     {
         test_request_update_data_context("https");
+    }
+}
+
+TEST_CASE("Integration - Request updates are serialised")
+{
+    auto server = MakeTestServer();
+
+    auto test_serialised_updates = [&](const std::string& protocol_scheme) {
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "ctrl", "serial-update" });
+        ftn.name = { 7, 8, 9 };
+
+        const auto server_handler = std::make_shared<QueuedUpdatePublishTrackHandler>(ftn, 0, 5000);
+        server->SetNextSubscribePublishHandler(server_handler);
+
+        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        const auto subscriber_handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
+        CHECK_NOTHROW(subscriber->SubscribeTrack(subscriber_handler));
+        REQUIRE(WaitFor([&]() { return subscriber_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        subscriber_handler->Pause();
+        subscriber_handler->Resume();
+        subscriber_handler->Pause();
+
+        REQUIRE(WaitFor([&]() { return server_handler->UpdateCount() == 1; }));
+        std::this_thread::sleep_for(kNegativeTimeout);
+        CHECK_EQ(server_handler->UpdateCount(), 1);
+        CHECK_EQ(server_handler->GetStatus(), PublishTrackHandler::Status::kPaused);
+
+        server_handler->ResolveRequestUpdate();
+
+        REQUIRE(WaitFor([&]() { return server_handler->UpdateCount() == 3; }));
+        REQUIRE(WaitFor([&]() { return subscriber_handler->RequestUpdateOks() == 3; }));
+
+        CHECK_EQ(server_handler->MaxCallbackDepth(), 1);
+        CHECK_EQ(server_handler->GetStatus(), PublishTrackHandler::Status::kPaused);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_serialised_updates("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_serialised_updates("https");
+    }
+}
+
+TEST_CASE("Integration - Rejected request update terminates the subscription")
+{
+    auto server = MakeTestServer();
+
+    auto test_rejected_update = [&](const std::string& protocol_scheme) {
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "ctrl", "rejected-update" });
+        ftn.name = { 7, 8, 9 };
+
+        const auto server_handler = std::make_shared<QueuedUpdatePublishTrackHandler>(ftn, 0, 5000);
+        server->SetNextSubscribePublishHandler(server_handler);
+
+        auto subscriber = MakeTestClient(true, std::nullopt, protocol_scheme);
+
+        const auto subscriber_handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
+        CHECK_NOTHROW(subscriber->SubscribeTrack(subscriber_handler));
+        REQUIRE(WaitFor([&]() { return subscriber_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        subscriber_handler->Pause();
+        subscriber_handler->Resume();
+
+        REQUIRE(WaitFor([&]() { return server_handler->UpdateCount() == 1; }));
+        server_handler->ResolveRequestUpdate(RequestError{
+          .code = messages::ErrorCode::kUnauthorized,
+          .retry_interval = std::chrono::milliseconds::zero(),
+          .reason = "rejected",
+        });
+
+        REQUIRE(
+          WaitFor([&]() { return subscriber_handler->GetStatus() == SubscribeTrackHandler::Status::kNotSubscribed; }));
+        REQUIRE(WaitFor([&]() { return server_handler->GetStatus() == PublishTrackHandler::Status::kUnsubscribed; }));
+        std::this_thread::sleep_for(kNegativeTimeout);
+        CHECK_EQ(server_handler->UpdateCount(), 1);
+        CHECK_THROWS_AS(server_handler->ResolveRequestUpdate(), std::logic_error);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_rejected_update("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_rejected_update("https");
     }
 }

@@ -10,13 +10,22 @@
 #include "quicr/track_name.h"
 
 #include <cstdint>
+#include <deque>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <vector>
 
 namespace quicr {
     class Session;
+
+    struct RequestError
+    {
+        messages::ErrorCode code;
+        std::chrono::milliseconds retry_interval;
+        std::string reason;
+    };
 
     /**
      * @brief Response to received MOQT Request message
@@ -220,11 +229,16 @@ namespace quicr {
         uint64_t GetConnectionId() const noexcept { return connection_id_; };
 
         /**
-         * @brief Received an update for this handler's request.
-         * Implementations MUST call ResolveRequestUpdate to acknowledge the request.
-         * @param params The updated/new parameters for the request.
+         * @brief Accept or reject a pending update.
+         * @param error nullopt to accept, otherwise reject with the given error.
+         *
+         * @remarks May be called synchronously from within the kSubscriptionUpdated callback, or later
+         * from any thread once the resolution is known, but updates MUST be resolved in order
+         * that they were received.
+         *
+         * @throws std::logic_error if there was no pending update to resolve.
          */
-        virtual void RequestUpdateReceived(const messages::Parameters& params) = 0;
+        void ResolveRequestUpdate(const std::optional<RequestError>& error = std::nullopt);
 
         virtual void RequestError(messages::ErrorCode error_code, std::string reason);
 
@@ -234,6 +248,25 @@ namespace quicr {
          * @param params Parameters in the request.
          */
         virtual void RequestOkReceived(const messages::Parameters& params) = 0;
+
+        /**
+         * @brief Received an update for this handler's request.
+         * Implementations MUST provide a means for ResolveRequestUpdate to acknowledge the request (status).
+         * @param params The updated/new parameters for the request.
+         */
+        void RequestUpdateReceived(const messages::Parameters& params);
+
+        /**
+         * @brief Apply the active update to this handler.
+         * @param params The updated/new parameters for the request.
+         */
+        virtual void ApplyRequestUpdate(const messages::Parameters& params) = 0;
+
+        /**
+         * @brief Handle request termination after a rejected update.
+         * @remarks Called on the notifier thread.
+         */
+        virtual void RequestUpdateRejected() {}
 
         /**
          * Set the transport to use.
@@ -247,6 +280,23 @@ namespace quicr {
         // Internal
         // --------------------------------------------------------------------------
       private:
+        // Request update queue support.
+        enum class RequestUpdateState : std::uint8_t
+        {
+            // No update pending.
+            kIdle,
+            // An update has been applied and is awaiting resolution.
+            kAwaitingResolution,
+            // The current update is being resolved.
+            kResolving,
+            // A queued update is waiting to be applied.
+            kPendingApply,
+            // An update was rejected, the request is over.
+            kTerminal,
+        };
+        void ApplyNextRequestUpdate();
+        void ClearRequestUpdates();
+
         /**
          * @brief Set the connection ID
          *
@@ -278,6 +328,11 @@ namespace quicr {
         std::optional<uint64_t> request_stream_id_{ std::nullopt };
 
         std::weak_ptr<Session> transport_;
+
+        // Request update queuing.
+        std::mutex request_update_mutex_;
+        std::deque<messages::Parameters> pending_request_updates_;
+        RequestUpdateState request_update_state_{ RequestUpdateState::kIdle };
     };
 
 } // namespace moq

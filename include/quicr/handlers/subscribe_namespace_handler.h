@@ -114,7 +114,7 @@ namespace quicr {
 
         void RequestOkReceived(const messages::Parameters&) override;
 
-        void RequestUpdateReceived(const messages::Parameters& params) override;
+        void ApplyRequestUpdate(const messages::Parameters& params) override;
 
         void RequestError(messages::ErrorCode error_code, std::string reason) override
         {

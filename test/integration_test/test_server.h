@@ -196,6 +196,12 @@ namespace quicr_test {
             expected_unsubscribe_handler_type_ = handler_type;
         }
 
+        void SetNextSubscribePublishHandler(std::shared_ptr<TestPublishTrackHandler> handler)
+        {
+            std::lock_guard lock(state_mutex_);
+            next_subscribe_publish_handler_ = std::move(handler);
+        }
+
         // PublishNamespaceDone received.
         void SetPublishNamespaceDonePromise(std::promise<uint64_t> promise)
         {
@@ -313,6 +319,7 @@ namespace quicr_test {
         std::optional<std::promise<uint64_t>> publish_namespace_done_promise_;
         std::optional<std::promise<UnsubscribeReceivedDetails>> unsubscribe_received_promise_;
         std::optional<UnsubscribeReceivedDetails::HandlerType> expected_unsubscribe_handler_type_;
+        std::shared_ptr<TestPublishTrackHandler> next_subscribe_publish_handler_;
         std::map<std::uint64_t, bool> closed_streams_;
         std::vector<quicr::TrackNamespace> known_published_namespaces_;
         std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;

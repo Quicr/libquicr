@@ -12,6 +12,13 @@
 
 namespace quicr {
 
+    void SubscribeTrackHandler::StatusChanged(Status status)
+    {
+        if (status == Status::kSubscriptionUpdated) {
+            ResolveRequestUpdate();
+        }
+    }
+
     void SubscribeTrackHandler::SupportNewGroupRequest(bool is_supported) noexcept
     {
         support_new_group_request_ = is_supported;
@@ -282,7 +289,7 @@ namespace quicr {
         // TODO: LARGEST_OBJECT
     }
 
-    void SubscribeTrackHandler::RequestUpdateReceived(const messages::Parameters& params)
+    void SubscribeTrackHandler::ApplyRequestUpdate(const messages::Parameters& params)
     {
         if (IsPublisherInitiated()) {
             // Publish can rev keys but nothing else.
@@ -291,10 +298,7 @@ namespace quicr {
                                            messages::ParameterType::kAuthorizationToken,
                                          });
             // TODO: AUTHORIZATION_TOKEN
-            if (const auto transport = GetTransport().lock()) {
-                transport->ResolveRequestUpdate(
-                  GetConnectionId(), *GetRequestId(), { .error = std::nullopt, .params = {} });
-            }
+            StatusChanged(Status::kSubscriptionUpdated);
             return;
         }
 
