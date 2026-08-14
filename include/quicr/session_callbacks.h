@@ -6,10 +6,16 @@
 #include "quicr/session.h"
 #include "quicr/utilities/expected.h"
 
+#include <concepts>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
+#include <type_traits>
+#include <variant>
+#include <vector>
 
 namespace quicr {
 
@@ -90,6 +96,72 @@ namespace quicr {
     };
 
     /**
+     * @brief The reply to a callback, which may be answered immediately or deferred.
+     *
+     * @details A Reply either holds the result of the callback, or an action that will produce it. A deferred
+     *      action is run off the calling thread, which lets an application answer a callback without blocking
+     *      the session's message handling.
+     *
+     * @tparam T The value type of a successful reply.
+     * @tparam E The reason code type of a failed reply.
+     */
+    template<typename T, typename E>
+    class Reply
+    {
+      public:
+        using ResultType = Expected<T, Error<E>>;
+        using DeferType = std::function<ResultType()>;
+
+      private:
+        Reply(DeferType&& action)
+          : result_(std::in_place_type<DeferType>, std::move(action))
+        {
+        }
+
+        bool IsDeferred() const noexcept { return std::holds_alternative<DeferType>(result_); }
+
+      public:
+        Reply() = default;
+
+        /**
+         * @brief Construct an immediate reply from anything the result is constructible from, such as a value,
+         *      or an Unexpected error.
+         */
+        template<typename U>
+            requires(!std::same_as<std::remove_cvref_t<U>, Reply> && std::is_constructible_v<ResultType, U &&>)
+        Reply(U&& value)
+          : result_(std::in_place_type<ResultType>, std::forward<U>(value))
+        {
+        }
+
+        /**
+         * @brief Construct a reply whose result is produced later, off the calling thread.
+         */
+        static Reply Defer(DeferType&& action) { return Reply(std::move(action)); }
+
+        /**
+         * @brief Hand the result to the given continuation, either now or once the deferred action completes.
+         *
+         * @note Consumes the reply; it must not be resolved more than once.
+         */
+        template<typename F>
+        void Resolve(F&& f)
+        {
+            if (IsDeferred()) {
+                std::thread([action = std::move(std::get<DeferType>(result_)), f = std::forward<F>(f)]() mutable {
+                    f(action());
+                }).detach();
+                return;
+            }
+
+            f(std::move(std::get<ResultType>(result_)));
+        }
+
+      private:
+        std::variant<ResultType, DeferType> result_;
+    };
+
+    /**
      * @brief Callback interface for session events common to both client and server mode
      */
     struct Session::Callbacks
@@ -117,7 +189,7 @@ namespace quicr {
          * @param publish_attributes Attributes of the publish
          * @param sub_ns_handler     Matching subscribe namespace handler, if any
          */
-        virtual Expected<const PublishResponse, Error<PublishErrorCode>> PublishReceived(
+        virtual Reply<const PublishResponse, PublishErrorCode> PublishReceived(
           const std::shared_ptr<Session>& session,
           std::uint64_t request_id,
           const PublishAttributes& publish_attributes,
@@ -131,7 +203,7 @@ namespace quicr {
          * @param track_namespace                Track namespace
          * @param publish_namespace_attributes   Publish announce attributes received
          */
-        virtual Expected<void, Error<PublishNamespaceErrorCode>> PublishNamespaceReceived(
+        virtual Reply<void, PublishNamespaceErrorCode> PublishNamespaceReceived(
           const std::shared_ptr<Session>& session,
           const TrackNamespace& track_namespace,
           const PublishNamespaceAttributes& publish_namespace_attributes);
@@ -143,7 +215,7 @@ namespace quicr {
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
          */
-        virtual Expected<const FetchResponse, Error<FetchErrorCode>> StandaloneFetchReceived(
+        virtual Reply<const FetchResponse, FetchErrorCode> StandaloneFetchReceived(
           const std::shared_ptr<Session>& session,
           std::uint64_t request_id,
           const FullTrackName& track_full_name,
@@ -156,7 +228,7 @@ namespace quicr {
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
          */
-        virtual Expected<const FetchResponse, Error<FetchErrorCode>> JoiningFetchReceived(
+        virtual Reply<const FetchResponse, FetchErrorCode> JoiningFetchReceived(
           const std::shared_ptr<Session>& session,
           std::uint64_t request_id,
           const FullTrackName& track_full_name,
@@ -167,8 +239,8 @@ namespace quicr {
          *
          * @param request_id        Request ID received.
          */
-        virtual Expected<void, Error<FetchErrorCode>> FetchCancelReceived(const std::shared_ptr<Session>& session,
-                                                                          std::uint64_t request_id);
+        virtual Reply<void, FetchErrorCode> FetchCancelReceived(const std::shared_ptr<Session>& session,
+                                                                std::uint64_t request_id);
 
         /**
          * @brief Callback notification for track status message received
@@ -179,10 +251,9 @@ namespace quicr {
          * @param request_id            Request ID received
          * @param track_full_name       Track full name
          */
-        virtual Expected<RequestResponse, Error<RequestErrorCode>> TrackStatusReceived(
-          const std::shared_ptr<Session>& session,
-          std::uint64_t request_id,
-          const FullTrackName& track_full_name);
+        virtual Reply<RequestResponse, RequestErrorCode> TrackStatusReceived(const std::shared_ptr<Session>& session,
+                                                                             std::uint64_t request_id,
+                                                                             const FullTrackName& track_full_name);
     };
 
     /**
@@ -200,8 +271,8 @@ namespace quicr {
          *
          * @param server_setup_attributes Server setup attributes received
          */
-        virtual Expected<void, Error<int>> ServerSetupReceived(const std::shared_ptr<Session>& session,
-                                                               const ServerSetupAttributes& server_setup_attributes);
+        virtual Reply<void, int> ServerSetupReceived(const std::shared_ptr<Session>& session,
+                                                     const ServerSetupAttributes& server_setup_attributes);
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -215,10 +286,9 @@ namespace quicr {
          * @param track_full_name      Track full name
          * @param subscribe_attributes Subscribe attributes received
          */
-        virtual Expected<void, Error<int>> UnpublishedSubscribeReceived(
-          const std::shared_ptr<Session>& session,
-          const FullTrackName& track_full_name,
-          const SubscribeAttributes& subscribe_attributes);
+        virtual Reply<void, int> UnpublishedSubscribeReceived(const std::shared_ptr<Session>& session,
+                                                              const FullTrackName& track_full_name,
+                                                              const SubscribeAttributes& subscribe_attributes);
     };
 
     /**
@@ -238,23 +308,21 @@ namespace quicr {
          *
          * @param client_setup_attributes Decoded client setup message
          */
-        virtual Expected<void, Error<int>> ClientSetupReceived(const std::shared_ptr<Session>& session,
-                                                               const ClientSetupAttributes& client_setup_attributes);
+        virtual Reply<void, int> ClientSetupReceived(const std::shared_ptr<Session>& session,
+                                                     const ClientSetupAttributes& client_setup_attributes);
 
         /**
          * @brief Callback notification for publish namespace done received
          *
          * @details Server mode only. The callback will indicate that publish namespace done has been received.
-         *      The app should return a vector of connection handler ids that should receive a copy of the publish
-         *      namespace done message. The returned list is based on subscribe namespace prefix matching.
+         *      The app is responsible for forwarding a copy of the publish namespace done message to the
+         *      subscribe namespace connections whose prefix matches.
          *
          * @param request_id        Request ID for the namespace that is done
-         *
-         * @returns Vector of subscribe namespace connection handler ids matching prefix to the namespace being
-         *      marked as done.
          */
-        virtual Expected<std::vector<std::uint64_t>, Error<quicr::PublishNamespaceErrorCode>>
-        PublishNamespaceDoneReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
+        virtual Reply<void, quicr::PublishNamespaceErrorCode> PublishNamespaceDoneReceived(
+          const std::shared_ptr<Session>& session,
+          std::uint64_t request_id);
 
         /**
          * @brief Callback notification for unsubscribe namespace received
@@ -263,8 +331,8 @@ namespace quicr {
          *
          * @param prefix_namespace  Prefix namespace
          */
-        virtual Expected<void, Error<int>> UnsubscribeNamespaceReceived(const std::shared_ptr<Session>& session,
-                                                                        const TrackNamespace& prefix_namespace);
+        virtual Reply<void, int> UnsubscribeNamespaceReceived(const std::shared_ptr<Session>& session,
+                                                              const TrackNamespace& prefix_namespace);
 
         /**
          * @brief Callback notification for new subscribe namespace received
@@ -277,7 +345,7 @@ namespace quicr {
          * @param prefix_namespace   Track namespace prefix
          * @param attributes         Attributes received
          */
-        virtual Expected<std::vector<TrackNamespace>, Error<RequestErrorCode>> SubscribeNamespaceReceived(
+        virtual Reply<std::vector<TrackNamespace>, RequestErrorCode> SubscribeNamespaceReceived(
           const std::shared_ptr<Session>& session,
           std::uint64_t data_ctx_id,
           const TrackNamespace& prefix_namespace,
@@ -294,7 +362,7 @@ namespace quicr {
          * @param prefix_namespace   Track namespace prefix
          * @param attributes         Attributes received
          */
-        virtual Expected<std::vector<TrackNamespace>, Error<RequestErrorCode>> SubscribeTracksReceived(
+        virtual Reply<std::vector<TrackNamespace>, RequestErrorCode> SubscribeTracksReceived(
           const std::shared_ptr<Session>& session,
           std::uint64_t data_ctx_id,
           const TrackNamespace& prefix_namespace,
@@ -312,7 +380,7 @@ namespace quicr {
          * @param track_full_name      Track full name
          * @param subscribe_attributes Subscribe attributes received
          */
-        virtual Expected<RequestResponse, Error<RequestErrorCode>> SubscribeReceived(
+        virtual Reply<RequestResponse, RequestErrorCode> SubscribeReceived(
           const std::shared_ptr<Session>& session,
           std::uint64_t request_id,
           const FullTrackName& track_full_name,
@@ -325,8 +393,7 @@ namespace quicr {
          *
          * @param request_id        Request ID received
          */
-        virtual Expected<void, Error<int>> UnsubscribeReceived(const std::shared_ptr<Session>& session,
-                                                               std::uint64_t request_id);
+        virtual Reply<void, int> UnsubscribeReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
 
         /**
          * @brief Callback notification on publish done received
@@ -335,8 +402,7 @@ namespace quicr {
          *
          * @param request_id        Request ID received
          */
-        virtual Expected<void, Error<int>> PublishDoneReceived(const std::shared_ptr<Session>& session,
-                                                               std::uint64_t request_id);
+        virtual Reply<void, int> PublishDoneReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
 
         /**
          * @brief New group requested received by a subscription
@@ -346,7 +412,6 @@ namespace quicr {
          * @param track_full_name Track full name
          * @param group_id        Group ID requested — should be plus one of current group or zero
          */
-        virtual Expected<void, Error<int>> NewGroupRequested(const FullTrackName& track_full_name,
-                                                             std::uint64_t group_id);
+        virtual Reply<void, int> NewGroupRequested(const FullTrackName& track_full_name, std::uint64_t group_id);
     };
 }

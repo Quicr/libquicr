@@ -36,7 +36,7 @@ TestPublishTrackHandler::StatusChanged(Status status)
     }
 }
 
-quicr::Expected<const quicr::PublishResponse, quicr::Error<quicr::PublishErrorCode>>
+quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode>
 TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
                             std::uint64_t request_id,
                             const PublishAttributes& publish_attributes,
@@ -80,7 +80,7 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
     return quicr::PublishResponse{ {}, sub_track_handler };
 }
 
-quicr::Expected<void, quicr::Error<int>>
+quicr::Reply<void, int>
 TestServer::PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
                                 [[maybe_unused]] std::uint64_t request_id)
 {
@@ -88,7 +88,7 @@ TestServer::PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
     return {};
 }
 
-quicr::Expected<quicr::RequestResponse, quicr::Error<quicr::RequestErrorCode>>
+quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode>
 TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
                               std::uint64_t request_id,
                               const FullTrackName& track_full_name,
@@ -138,7 +138,7 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
     return RequestResponse{ subscribe_attributes.is_publisher_initiated };
 }
 
-quicr::Expected<std::vector<quicr::TrackNamespace>, quicr::Error<quicr::RequestErrorCode>>
+quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
 TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& session,
                                     const std::uint64_t data_ctx_id,
                                     const TrackNamespace& prefix_namespace,
@@ -172,7 +172,7 @@ TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& sessi
     return known_published_namespaces_;
 }
 
-quicr::Expected<std::vector<quicr::TrackNamespace>, quicr::Error<quicr::RequestErrorCode>>
+quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
 TestServer::SubscribeNamespaceReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
                                        [[maybe_unused]] const std::uint64_t data_ctx_id,
                                        [[maybe_unused]] const TrackNamespace& prefix_namespace,
@@ -199,7 +199,7 @@ TestServer::AddKnownPublishedTrack(const FullTrackName& track,
       AvailableTrack{ track, largest_location.value_or(messages::Location{ 0, 0 }), attributes });
 }
 
-quicr::Expected<void, quicr::Error<quicr::PublishNamespaceErrorCode>>
+quicr::Reply<void, quicr::PublishNamespaceErrorCode>
 TestServer::PublishNamespaceReceived(const std::shared_ptr<quicr::Session>& session,
                                      const TrackNamespace& track_namespace,
                                      const PublishNamespaceAttributes& publish_announce_attributes)
@@ -211,7 +211,7 @@ TestServer::PublishNamespaceReceived(const std::shared_ptr<quicr::Session>& sess
     return {};
 }
 
-quicr::Expected<const quicr::FetchResponse, quicr::Error<quicr::FetchErrorCode>>
+quicr::Reply<const quicr::FetchResponse, quicr::FetchErrorCode>
 TestServer::StandaloneFetchReceived(const std::shared_ptr<quicr::Session>& session,
                                     const std::uint64_t request_id,
                                     const FullTrackName& track_full_name,
@@ -243,7 +243,7 @@ TestServer::StandaloneFetchReceived(const std::shared_ptr<quicr::Session>& sessi
     return FetchResponse{ largest_location };
 }
 
-quicr::Expected<const quicr::FetchResponse, quicr::Error<quicr::FetchErrorCode>>
+quicr::Reply<const quicr::FetchResponse, quicr::FetchErrorCode>
 TestServer::JoiningFetchReceived(const std::shared_ptr<quicr::Session>& session,
                                  const uint64_t request_id,
                                  const FullTrackName& track_full_name,
@@ -279,7 +279,7 @@ TestServer::JoiningFetchReceived(const std::shared_ptr<quicr::Session>& session,
                                                                   "No joining fetch test response configured");
 }
 
-quicr::Expected<void, quicr::Error<int>>
+quicr::Reply<void, int>
 TestServer::UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session, const uint64_t request_id)
 {
     std::lock_guard lock(state_mutex_);
@@ -294,7 +294,7 @@ TestServer::UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session, 
     return {};
 }
 
-quicr::Expected<void, quicr::Error<int>>
+quicr::Reply<void, int>
 TestServer::NewGroupRequested(const quicr::FullTrackName& track_full_name, std::uint64_t group_id)
 {
     std::lock_guard lock(state_mutex_);

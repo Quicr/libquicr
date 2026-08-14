@@ -18,7 +18,7 @@ namespace quicr_test {
             client_connected_ = std::move(promise);
         }
 
-        quicr::Expected<void, quicr::Error<int>> ServerSetupReceived(
+        quicr::Reply<void, int> ServerSetupReceived(
           const std::shared_ptr<quicr::Session>& session,
           const quicr::ServerSetupAttributes& server_setup_attributes) override;
 
@@ -28,7 +28,7 @@ namespace quicr_test {
             publish_namespace_received_ = std::move(promise);
         }
 
-        quicr::Expected<void, quicr::Error<quicr::PublishNamespaceErrorCode>> PublishNamespaceReceived(
+        quicr::Reply<void, quicr::PublishNamespaceErrorCode> PublishNamespaceReceived(
           const std::shared_ptr<quicr::Session>& session,
           const quicr::TrackNamespace& track_namespace,
           const quicr::PublishNamespaceAttributes& publish_namespace_attributes) override;
@@ -44,7 +44,7 @@ namespace quicr_test {
             return last_publish_received_sub_handler_;
         }
 
-        quicr::Expected<const quicr::PublishResponse, quicr::Error<quicr::PublishErrorCode>> PublishReceived(
+        quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> PublishReceived(
           const std::shared_ptr<quicr::Session>& session,
           uint64_t request_id,
           const quicr::PublishAttributes& publish_attributes,

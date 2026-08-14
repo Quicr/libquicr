@@ -243,76 +243,81 @@ namespace quicr_test {
             closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
         }
 
-        quicr::Expected<std::vector<std::uint64_t>, quicr::Error<quicr::PublishNamespaceErrorCode>>
-        PublishNamespaceDoneReceived(const std::shared_ptr<quicr::Session>& session, std::uint64_t request_id) override
+        quicr::Reply<void, quicr::PublishNamespaceErrorCode> PublishNamespaceDoneReceived(
+          const std::shared_ptr<quicr::Session>& session,
+          std::uint64_t request_id) override
         {
             std::lock_guard lock(state_mutex_);
             if (publish_namespace_done_promise_.has_value()) {
                 publish_namespace_done_promise_->set_value(request_id);
                 publish_namespace_done_promise_.reset();
             }
-            return std::vector<std::uint64_t>{};
+            return {};
         }
 
-        quicr::Expected<void, quicr::Error<int>> UnsubscribeNamespaceReceived(
+        quicr::Reply<void, int> UnsubscribeNamespaceReceived(
           const std::shared_ptr<quicr::Session>& session,
-          [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override {};
+          [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override
+        {
+            return {};
+        }
 
-        quicr::Expected<void, quicr::Error<quicr::FetchErrorCode>> FetchCancelReceived(
+        quicr::Reply<void, quicr::FetchErrorCode> FetchCancelReceived(
           const std::shared_ptr<quicr::Session>& session,
           [[maybe_unused]] std::uint64_t request_id) override
         {
+            return {};
         }
 
-        quicr::Expected<const quicr::PublishResponse, quicr::Error<quicr::PublishErrorCode>> PublishReceived(
+        quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> PublishReceived(
           const std::shared_ptr<quicr::Session>& session,
           std::uint64_t request_id,
           const quicr::PublishAttributes& publish_attributes,
           std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;
 
-        quicr::Expected<const quicr::FetchResponse, quicr::Error<quicr::FetchErrorCode>> StandaloneFetchReceived(
+        quicr::Reply<const quicr::FetchResponse, quicr::FetchErrorCode> StandaloneFetchReceived(
           const std::shared_ptr<quicr::Session>& session,
           uint64_t request_id,
           const quicr::FullTrackName& track_full_name,
           const quicr::StandaloneFetchAttributes& attrs) override;
 
-        quicr::Expected<const quicr::FetchResponse, quicr::Error<quicr::FetchErrorCode>> JoiningFetchReceived(
+        quicr::Reply<const quicr::FetchResponse, quicr::FetchErrorCode> JoiningFetchReceived(
           const std::shared_ptr<quicr::Session>& session,
           uint64_t request_id,
           const quicr::FullTrackName& track_full_name,
           const quicr::JoiningFetchAttributes& attrs) override;
 
-        quicr::Expected<quicr::RequestResponse, quicr::Error<quicr::RequestErrorCode>> SubscribeReceived(
+        quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode> SubscribeReceived(
           const std::shared_ptr<quicr::Session>& session,
           uint64_t request_id,
           const quicr::FullTrackName& track_full_name,
           const quicr::SubscribeAttributes& subscribe_attributes) override;
 
-        quicr::Expected<void, quicr::Error<int>> PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
-                                                                     uint64_t request_id) override;
+        quicr::Reply<void, int> PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
+                                                    uint64_t request_id) override;
 
-        quicr::Expected<std::vector<quicr::TrackNamespace>, quicr::Error<quicr::RequestErrorCode>>
-        SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& session,
-                                std::uint64_t data_ctx_id,
-                                const quicr::TrackNamespace& prefix_namespace,
-                                const quicr::SubscribeNamespaceAttributes& attributes) override;
+        quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode> SubscribeTracksReceived(
+          const std::shared_ptr<quicr::Session>& session,
+          std::uint64_t data_ctx_id,
+          const quicr::TrackNamespace& prefix_namespace,
+          const quicr::SubscribeNamespaceAttributes& attributes) override;
 
-        quicr::Expected<std::vector<quicr::TrackNamespace>, quicr::Error<quicr::RequestErrorCode>>
-        SubscribeNamespaceReceived(const std::shared_ptr<quicr::Session>& session,
-                                   std::uint64_t data_ctx_id,
-                                   const quicr::TrackNamespace& prefix_namespace,
-                                   const quicr::SubscribeNamespaceAttributes& attributes) override;
+        quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode> SubscribeNamespaceReceived(
+          const std::shared_ptr<quicr::Session>& session,
+          std::uint64_t data_ctx_id,
+          const quicr::TrackNamespace& prefix_namespace,
+          const quicr::SubscribeNamespaceAttributes& attributes) override;
 
-        quicr::Expected<void, quicr::Error<quicr::PublishNamespaceErrorCode>> PublishNamespaceReceived(
+        quicr::Reply<void, quicr::PublishNamespaceErrorCode> PublishNamespaceReceived(
           const std::shared_ptr<quicr::Session>& session,
           const quicr::TrackNamespace& track_namespace,
           const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
 
-        quicr::Expected<void, quicr::Error<int>> NewGroupRequested(const quicr::FullTrackName& track_full_name,
-                                                                   std::uint64_t group_id) override;
+        quicr::Reply<void, int> NewGroupRequested(const quicr::FullTrackName& track_full_name,
+                                                  std::uint64_t group_id) override;
 
-        quicr::Expected<void, quicr::Error<int>> UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session,
-                                                                     std::uint64_t request_id) override;
+        quicr::Reply<void, int> UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session,
+                                                    std::uint64_t request_id) override;
 
       public:
         std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;

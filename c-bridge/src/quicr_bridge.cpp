@@ -216,14 +216,14 @@ class BridgeClient : public quicr::Session::ClientCallbacks
         }
     }
 
-    quicr::Expected<void, quicr::Error<int>> ServerSetupReceived(
+    quicr::Reply<void, int> ServerSetupReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       [[maybe_unused]] const quicr::ServerSetupAttributes& server_setup_attributes) override
     {
         return {};
     }
 
-    quicr::Expected<void, quicr::Error<quicr::PublishNamespaceErrorCode>> PublishNamespaceReceived(
+    quicr::Reply<void, quicr::PublishNamespaceErrorCode> PublishNamespaceReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       const quicr::TrackNamespace& track_namespace,
       [[maybe_unused]] const quicr::PublishNamespaceAttributes& publish_namespace_attributes) override
@@ -234,6 +234,8 @@ class BridgeClient : public quicr::Session::ClientCallbacks
             c_namespace_from_cpp(&c_namespace, track_namespace);
             namespace_callback(&c_namespace, namespace_callback_user_data);
         }
+
+        return {};
     }
 };
 

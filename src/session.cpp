@@ -125,6 +125,7 @@ namespace quicr {
                     return messages::ErrorCode::kInvalidJoiningRequestId;
             }
         }
+
     }
 
     TransportException::TransportException(TransportError error, std::source_location location)
@@ -1073,7 +1074,21 @@ namespace quicr {
             lock.unlock();
 
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                callbacks->PublishNamespaceDoneReceived(GetSharedPtr(), request_id);
+                callbacks->PublishNamespaceDoneReceived(GetSharedPtr(), request_id)
+                  .Resolve([request_id, self = GetSharedPtr()](const auto& result) {
+                      if (result) {
+                          return;
+                      }
+
+                      const auto& [code, reason] = result.error();
+                      SPDLOG_LOGGER_ERROR(self->logger_,
+                                          "Publish namespace done failed conn_id: {} request_id: {} code: {} "
+                                          "reason: {}",
+                                          self->current_connection_->GetID(),
+                                          request_id,
+                                          static_cast<std::uint64_t>(code),
+                                          reason.value_or("unknown"));
+                  });
             }
             return;
         }
@@ -1115,7 +1130,21 @@ namespace quicr {
 
             lock.unlock();
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
+                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id)
+                  .Resolve([request_id, self = GetSharedPtr()](const auto& result) {
+                      if (result) {
+                          return;
+                      }
+
+                      const auto& [code, reason] = result.error();
+                      SPDLOG_LOGGER_ERROR(self->logger_,
+                                          "Unsubscribe of subscribe track failed conn_id: {} request_id: {} code: {} "
+                                          "reason: {}",
+                                          self->current_connection_->GetID(),
+                                          request_id,
+                                          code,
+                                          reason.value_or("unknown"));
+                  });
             }
 
             return;
@@ -1128,7 +1157,21 @@ namespace quicr {
 
             lock.unlock();
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
+                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id)
+                  .Resolve([request_id, self = GetSharedPtr()](const auto& result) {
+                      if (result) {
+                          return;
+                      }
+
+                      const auto& [code, reason] = result.error();
+                      SPDLOG_LOGGER_ERROR(self->logger_,
+                                          "Unsubscribe of publish track failed conn_id: {} request_id: {} code: {} "
+                                          "reason: {}",
+                                          self->current_connection_->GetID(),
+                                          request_id,
+                                          code,
+                                          reason.value_or("unknown"));
+                  });
             }
 
             return;
@@ -2304,12 +2347,37 @@ namespace quicr {
 
                 if (client_mode_) {
                     if (auto callbacks = std::dynamic_pointer_cast<ClientCallbacks>(callbacks_)) {
-                        callbacks->ServerSetupReceived(GetSharedPtr(), { 0, endpoint_id });
+                        callbacks->ServerSetupReceived(GetSharedPtr(), { 0, endpoint_id })
+                          .Resolve([self = GetSharedPtr()](const auto& result) {
+                              if (result) {
+                                  return;
+                              }
+
+                              const auto& [code, reason] = result.error();
+                              SPDLOG_LOGGER_ERROR(self->logger_,
+                                                  "Server setup rejected conn_id: {} code: {} reason: {}",
+                                                  self->current_connection_->GetID(),
+                                                  code,
+                                                  reason.value_or("unknown"));
+                          });
                     }
                 } else {
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                        callbacks->ClientSetupReceived(GetSharedPtr(), { endpoint_id });
-                        SendSetup();
+                        callbacks->ClientSetupReceived(GetSharedPtr(), { endpoint_id })
+                          .Resolve([self = GetSharedPtr()](const auto& result) {
+                              if (!result) {
+                                  const auto& [code, reason] = result.error();
+                                  SPDLOG_LOGGER_ERROR(self->logger_,
+                                                      "Client setup rejected, not sending SETUP conn_id: {} code: {} "
+                                                      "reason: {}",
+                                                      self->current_connection_->GetID(),
+                                                      code,
+                                                      reason.value_or("unknown"));
+                                  return;
+                              }
+
+                              self->SendSetup();
+                          });
                     }
                 }
 
@@ -2402,80 +2470,89 @@ namespace quicr {
                 }
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                    auto result =
-                      callbacks->SubscribeReceived(GetSharedPtr(),
-                                                   request_id,
-                                                   tfn,
-                                                   {
-                                                     .priority = priority,
-                                                     .group_order = group_order,
-                                                     .publisher_default_group_order = publisher_default_group_order,
-                                                     .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
-                                                     .expires = std::chrono::milliseconds{ delivery_timeout },
-                                                     .filter = filter,
-                                                     .forward = forward,
-                                                     .new_group_request_id = new_group_request_id,
-                                                     .is_publisher_initiated = false,
-                                                     .start_location = {},
-                                                   });
+                    callbacks
+                      ->SubscribeReceived(GetSharedPtr(),
+                                          request_id,
+                                          tfn,
+                                          {
+                                            .priority = priority,
+                                            .group_order = group_order,
+                                            .publisher_default_group_order = publisher_default_group_order,
+                                            .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
+                                            .expires = std::chrono::milliseconds{ delivery_timeout },
+                                            .filter = filter,
+                                            .forward = forward,
+                                            .new_group_request_id = new_group_request_id,
+                                            .is_publisher_initiated = false,
+                                            .start_location = {},
+                                          })
+                      .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                          if (!result) {
+                              const auto& [_, reason] = result.error();
 
-                    if (!result) {
-                        const auto& [_, reason] = result.error();
+                              // TODO: Should server not send if publisher initiated?
+                              self->SendRequestError(self->ResponseDataContext(request_id),
+                                                     request_id,
+                                                     messages::ErrorCode::kInternalError,
+                                                     0ms,
+                                                     reason.value_or("Internal error"));
 
-                        // TODO: Should server not send if publisher initiated?
-                        SendRequestError(ResponseDataContext(request_id),
-                                         request_id,
-                                         messages::ErrorCode::kInternalError,
-                                         0ms,
-                                         reason.value_or("Internal error"));
+                              return;
+                          }
 
-                        return true;
-                    }
+                          if (self->client_mode_) {
+                              self->SendSubscribeOk(self->ResponseDataContext(request_id),
+                                                    request_id,
+                                                    th.track_fullname_hash,
+                                                    kSubscribeExpires,
+                                                    result->largest_location,
+                                                    result->publisher_default_group_order);
+                          } else {
 
-                    if (client_mode_) {
-                        SendSubscribeOk(ResponseDataContext(request_id),
-                                        request_id,
-                                        th.track_fullname_hash,
-                                        kSubscribeExpires,
-                                        result->largest_location,
-                                        result->publisher_default_group_order);
-                    } else {
+                              // Save the latest state for joining fetch.
+                              auto req_it = self->recv_req_id.find(request_id);
+                              if (req_it == self->recv_req_id.end()) {
+                                  SPDLOG_LOGGER_WARN(self->logger_,
+                                                     "Resolve subscribe has no request_id: {} conn_id: {} "
+                                                     "track_alias: {}",
+                                                     request_id,
+                                                     self->current_connection_->GetID(),
+                                                     th.track_fullname_hash);
+                                  return;
+                              }
 
-                        // Save the latest state for joining fetch.
-                        auto req_it = recv_req_id.find(request_id);
-                        if (req_it == recv_req_id.end()) {
-                            SPDLOG_LOGGER_WARN(logger_,
-                                               "Resolve subscribe has no request_id: {} conn_id: {} track_alias: {}",
-                                               request_id,
-                                               current_connection_->GetID(),
-                                               th.track_fullname_hash);
-                            break;
-                        }
+                              req_it->second.largest_location = result->largest_location;
 
-                        req_it->second.largest_location = result->largest_location;
+                              if (!result->is_publisher_initiated) {
+                                  self->SendSubscribeOk(self->ResponseDataContext(request_id),
+                                                        request_id,
+                                                        th.track_fullname_hash,
+                                                        kSubscribeExpires,
+                                                        result->largest_location,
+                                                        result->publisher_default_group_order);
+                              }
+                          }
 
-                        if (!result->is_publisher_initiated) {
-                            SendSubscribeOk(ResponseDataContext(request_id),
-                                            request_id,
-                                            th.track_fullname_hash,
-                                            kSubscribeExpires,
-                                            result->largest_location,
-                                            result->publisher_default_group_order);
-                        }
-                    }
+                          if (!new_group_request_id.has_value()) {
+                              return;
+                          }
 
-                    if (new_group_request_id.has_value()) {
-                        auto result = callbacks->NewGroupRequested(tfn, *new_group_request_id);
+                          callbacks->NewGroupRequested(tfn, *new_group_request_id)
+                            .Resolve([=](const auto& new_group_result) {
+                                if (new_group_result) {
+                                    return;
+                                }
 
-                        if (!result) {
-                            const auto& [code, reason] = result.error();
-                            SPDLOG_LOGGER_ERROR(logger_,
-                                                "Encountered error on NewGroupRequested (code={}, error={})",
-                                                code,
-                                                reason.value_or("unknown"));
-                            return true;
-                        }
-                    }
+                                const auto& [code, reason] = new_group_result.error();
+                                SPDLOG_LOGGER_ERROR(self->logger_,
+                                                    "New group request on subscribe failed request_id: {} group_id: {} "
+                                                    "code: {} reason: {}",
+                                                    request_id,
+                                                    *new_group_request_id,
+                                                    code,
+                                                    reason.value_or("unknown"));
+                            });
+                      });
                 }
 
                 return true;
@@ -2611,41 +2688,42 @@ namespace quicr {
                 request_id_by_data_ctx[data_ctx_id] = request_id;
 
                 if (callbacks_) {
-                    auto result = callbacks_->TrackStatusReceived(GetSharedPtr(), request_id, tfn);
+                    callbacks_->TrackStatusReceived(GetSharedPtr(), request_id, tfn)
+                      .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                          if (!result) {
+                              const auto& [code, reason] = result.error();
 
-                    if (!result) {
-                        const auto& [code, reason] = result.error();
+                              switch (code) {
+                                  case RequestErrorCode::kDoesNotExist:
+                                      self->SendRequestError(self->ResponseDataContext(request_id),
+                                                             request_id,
+                                                             ErrorCode::kDoesNotExist,
+                                                             0ms, // TODO: Figure out retry interval
+                                                             reason.value_or("Track does not exist"));
+                                      break;
+                                  case RequestErrorCode::kUnauthorized:
+                                      self->SendRequestError(self->ResponseDataContext(request_id),
+                                                             request_id,
+                                                             ErrorCode::kUnauthorized,
+                                                             0ms, // TODO: Figure out retry interval
+                                                             reason.value_or("Unauthorized"));
+                                      break;
+                                  default:
+                                      self->SendRequestError(self->ResponseDataContext(request_id),
+                                                             request_id,
+                                                             ErrorCode::kInternalError,
+                                                             0ms,
+                                                             "Internal error");
+                                      break;
+                              }
 
-                        switch (code) {
-                            case RequestErrorCode::kDoesNotExist:
-                                SendRequestError(ResponseDataContext(request_id),
-                                                 request_id,
-                                                 ErrorCode::kDoesNotExist,
-                                                 0ms, // TODO: Figure out retry interval
-                                                 reason.value_or("Track does not exist"));
-                                break;
-                            case RequestErrorCode::kUnauthorized:
-                                SendRequestError(ResponseDataContext(request_id),
-                                                 request_id,
-                                                 ErrorCode::kUnauthorized,
-                                                 0ms, // TODO: Figure out retry interval
-                                                 reason.value_or("Unauthorized"));
-                                break;
-                            default:
-                                SendRequestError(ResponseDataContext(request_id),
-                                                 request_id,
-                                                 ErrorCode::kInternalError,
-                                                 0ms,
-                                                 "Internal error");
-                                break;
-                        }
+                              return;
+                          }
 
-                        return true;
-                    }
-
-                    // TODO: TrackProperties should be in the subscribe_response.
-                    SendTrackStatusOk(
-                      ResponseDataContext(request_id), result.value().largest_location, TrackExtensions());
+                          // TODO: TrackProperties should be in the subscribe_response.
+                          self->SendTrackStatusOk(
+                            self->ResponseDataContext(request_id), result.value().largest_location, TrackExtensions());
+                      });
                 }
 
                 return true;
@@ -2662,34 +2740,34 @@ namespace quicr {
                 request_id_by_data_ctx[data_ctx_id] = request_id;
 
                 if (callbacks_) {
-                    auto result = callbacks_->PublishNamespaceReceived(
-                      GetSharedPtr(), track_namespace, { .request_id = request_id });
+                    callbacks_->PublishNamespaceReceived(GetSharedPtr(), track_namespace, { .request_id = request_id })
+                      .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                          if (!result) {
+                              // TODO: Send announce error.
 
-                    if (!result) {
-                        const auto& [code, reason] = result.error();
+                              return;
+                          }
 
-                        // TODO: Send announce error.
+                          std::uint64_t response_data_ctx_id = self->ResponseDataContext(request_id);
+                          const auto pub_ns_it = self->request_handlers.find(request_id);
+                          if (pub_ns_it != self->request_handlers.end() &&
+                              pub_ns_it->second->GetDataContextId().has_value()) {
+                              response_data_ctx_id = *pub_ns_it->second->GetDataContextId();
+                          }
 
-                        return true;
-                    }
+                          self->SendPublishNamespaceOk(response_data_ctx_id);
 
-                    std::uint64_t response_data_ctx_id = ResponseDataContext(request_id);
-                    const auto pub_ns_it = request_handlers.find(request_id);
-                    if (pub_ns_it != request_handlers.end() && pub_ns_it->second->GetDataContextId().has_value()) {
-                        response_data_ctx_id = *pub_ns_it->second->GetDataContextId();
-                    }
+                          const auto sub_data_ctx_id = self->FindSubscribeNamespaceDataContext(track_namespace);
+                          if (!sub_data_ctx_id.has_value()) {
+                              SPDLOG_LOGGER_WARN(
+                                self->logger_,
+                                "No subscribe namespace data context for publish namespace conn_id: {}",
+                                self->current_connection_->GetID());
+                              return;
+                          }
 
-                    SendPublishNamespaceOk(response_data_ctx_id);
-
-                    const auto sub_data_ctx_id = FindSubscribeNamespaceDataContext(track_namespace);
-                    if (!sub_data_ctx_id.has_value()) {
-                        SPDLOG_LOGGER_WARN(logger_,
-                                           "No subscribe namespace data context for publish namespace conn_id: {}",
-                                           current_connection_->GetID());
-                        return true;
-                    }
-
-                    SendPublishNamespace(*sub_data_ctx_id, GetNextRequestID(), track_namespace);
+                          self->SendPublishNamespace(*sub_data_ctx_id, self->GetNextRequestID(), track_namespace);
+                      });
                 }
 
                 return true;
@@ -2732,33 +2810,35 @@ namespace quicr {
 
                     // SUBSCRIBE_TRACKS and SUBSCRIBE_NAMESPACE share parsing above, but must be
                     // dispatched to their own distinct callback.
-                    auto result = (msg_type == messages::ControlMessageType::kSubscribeTracks)
-                                    ? callbacks->SubscribeTracksReceived(
-                                        GetSharedPtr(), data_ctx_id, track_namespace_prefix, attributes)
-                                    : callbacks->SubscribeNamespaceReceived(
-                                        GetSharedPtr(), data_ctx_id, track_namespace_prefix, attributes);
+                    auto reply = (msg_type == messages::ControlMessageType::kSubscribeTracks)
+                                   ? callbacks->SubscribeTracksReceived(
+                                       GetSharedPtr(), data_ctx_id, track_namespace_prefix, attributes)
+                                   : callbacks->SubscribeNamespaceReceived(
+                                       GetSharedPtr(), data_ctx_id, track_namespace_prefix, attributes);
 
-                    if (!result) {
-                        const auto& [code, reason] = result.error();
-                        SendRequestError(
-                          data_ctx_id, request_id, ToErrorCode(code), 0ms, reason.value_or("Internal error"));
+                    reply.Resolve([=, self = GetSharedPtr()](const auto& result) {
+                        if (!result) {
+                            const auto& [code, reason] = result.error();
+                            self->SendRequestError(
+                              data_ctx_id, request_id, ToErrorCode(code), 0ms, reason.value_or("Internal error"));
 
-                        return true;
-                    }
-
-                    SendSubscribeNamespaceOk(data_ctx_id);
-
-                    // Fan out PUBLISH_NAMESPACE for matching namespaces.
-                    for (const auto& name_space : result.value()) {
-                        const auto match = track_namespace_prefix.IsPrefixOf(name_space);
-                        if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
-                            SPDLOG_LOGGER_WARN(logger_, "Dropping non prefix match");
-                            continue;
+                            return;
                         }
 
-                        auto pub_ns_request_id = GetNextRequestID();
-                        SendPublishNamespace(data_ctx_id, pub_ns_request_id, name_space);
-                    }
+                        self->SendSubscribeNamespaceOk(data_ctx_id);
+
+                        // Fan out PUBLISH_NAMESPACE for matching namespaces.
+                        for (const auto& name_space : result.value()) {
+                            const auto match = track_namespace_prefix.IsPrefixOf(name_space);
+                            if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
+                                SPDLOG_LOGGER_WARN(self->logger_, "Dropping non prefix match");
+                                continue;
+                            }
+
+                            auto pub_ns_request_id = self->GetNextRequestID();
+                            self->SendPublishNamespace(data_ctx_id, pub_ns_request_id, name_space);
+                        }
+                    });
                 }
 
                 return true;
@@ -2772,7 +2852,19 @@ namespace quicr {
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
-                    callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), track_namespace_suffix);
+                    callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), track_namespace_suffix)
+                      .Resolve([self = GetSharedPtr()](const auto& result) {
+                          if (result) {
+                              return;
+                          }
+
+                          const auto& [code, reason] = result.error();
+                          SPDLOG_LOGGER_ERROR(self->logger_,
+                                              "Unsubscribe namespace failed conn_id: {} code: {} reason: {}",
+                                              self->current_connection_->GetID(),
+                                              code,
+                                              reason.value_or("unknown"));
+                      });
                 }
                 return true;
             }
@@ -2814,7 +2906,20 @@ namespace quicr {
                 if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                        callbacks->PublishDoneReceived(GetSharedPtr(), request_id);
+                        callbacks->PublishDoneReceived(GetSharedPtr(), request_id)
+                          .Resolve([request_id, self = GetSharedPtr()](const auto& result) {
+                              if (result) {
+                                  return;
+                              }
+
+                              const auto& [code, reason] = result.error();
+                              SPDLOG_LOGGER_ERROR(self->logger_,
+                                                  "Publish done failed conn_id: {} request_id: {} code: {} reason: {}",
+                                                  self->current_connection_->GetID(),
+                                                  request_id,
+                                                  code,
+                                                  reason.value_or("unknown"));
+                          });
                     }
                 }
 
@@ -2909,28 +3014,30 @@ namespace quicr {
                                 .start_location = start,
                                 .end_location = end_location,
                             };
-                            auto result = callbacks_->StandaloneFetchReceived(GetSharedPtr(), request_id, tfn, attrs);
 
-                            if (!result) {
-                                const auto& [code, reason] = result.error();
+                            callbacks_->StandaloneFetchReceived(GetSharedPtr(), request_id, tfn, attrs)
+                              .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                                  if (!result) {
+                                      const auto& [code, reason] = result.error();
 
-                                messages::ErrorCode error_code = messages::ErrorCode::kInternalError;
-                                switch (code) {
-                                    case FetchErrorCode::kInvalidRange:
-                                        error_code = messages::ErrorCode::kInvalidRange;
-                                        break;
+                                      messages::ErrorCode error_code = messages::ErrorCode::kInternalError;
+                                      switch (code) {
+                                          case FetchErrorCode::kInvalidRange:
+                                              error_code = messages::ErrorCode::kInvalidRange;
+                                              break;
 
-                                    default:
-                                        break;
-                                }
+                                          default:
+                                              break;
+                                      }
 
-                                SendRequestError(
-                                  data_ctx_id, request_id, error_code, 0ms, reason.value_or("Internal error"));
+                                      self->SendRequestError(
+                                        data_ctx_id, request_id, error_code, 0ms, reason.value_or("Internal error"));
 
-                                return true;
-                            }
+                                      return;
+                                  }
 
-                            ResolveFetch(request_id, group_order, result.value());
+                                  self->ResolveFetch(request_id, group_order, result.value());
+                              });
                         }
 
                         return true;
@@ -2978,28 +3085,29 @@ namespace quicr {
                                 .joining_start = joining_start,
                             };
 
-                            auto result = callbacks_->JoiningFetchReceived(GetSharedPtr(), request_id, tfn, attrs);
+                            callbacks_->JoiningFetchReceived(GetSharedPtr(), request_id, tfn, attrs)
+                              .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                                  if (!result) {
+                                      const auto& [code, reason] = result.error();
 
-                            if (!result) {
-                                const auto& [code, reason] = result.error();
+                                      messages::ErrorCode error_code = messages::ErrorCode::kInternalError;
+                                      switch (code) {
+                                          case FetchErrorCode::kInvalidRange:
+                                              error_code = messages::ErrorCode::kInvalidRange;
+                                              break;
 
-                                messages::ErrorCode error_code = messages::ErrorCode::kInternalError;
-                                switch (code) {
-                                    case FetchErrorCode::kInvalidRange:
-                                        error_code = messages::ErrorCode::kInvalidRange;
-                                        break;
+                                          default:
+                                              break;
+                                      }
 
-                                    default:
-                                        break;
-                                }
+                                      self->SendRequestError(
+                                        data_ctx_id, request_id, error_code, 0ms, reason.value_or("Internal error"));
 
-                                SendRequestError(
-                                  data_ctx_id, request_id, error_code, 0ms, reason.value_or("Internal error"));
+                                      return;
+                                  }
 
-                                return true;
-                            }
-
-                            ResolveFetch(request_id, group_order, result.value());
+                                  self->ResolveFetch(request_id, group_order, result.value());
+                              });
                         }
                         return true;
                     }
@@ -3061,54 +3169,58 @@ namespace quicr {
                 }
 
                 if (callbacks_) {
-                    auto result = callbacks_->PublishReceived(GetSharedPtr(), request_id, publish, sub_ns_handler);
+                    callbacks_->PublishReceived(GetSharedPtr(), request_id, publish, sub_ns_handler)
+                      .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                          if (!result) {
+                              const auto& [code, reason] = result.error();
 
-                    if (!result) {
-                        const auto& [code, reason] = result.error();
+                              messages::ErrorCode error_code;
+                              switch (code) {
+                                  case PublishErrorCode::kRejected:
+                                      error_code = ErrorCode::kUninterested;
+                                      break;
 
-                        messages::ErrorCode error_code;
-                        switch (code) {
-                            case PublishErrorCode::kRejected:
-                                error_code = ErrorCode::kUninterested;
-                                break;
+                                  case PublishErrorCode::kNotAuthorized:
+                                      error_code = ErrorCode::kUnauthorized;
+                                      break;
 
-                            case PublishErrorCode::kNotAuthorized:
-                                error_code = ErrorCode::kUnauthorized;
-                                break;
+                                  case PublishErrorCode::kNotSupported:
+                                      error_code = ErrorCode::kNotSupported;
+                                      break;
 
-                            case PublishErrorCode::kNotSupported:
-                                error_code = ErrorCode::kNotSupported;
-                                break;
+                                  case PublishErrorCode::kInternalError:
+                                      error_code = ErrorCode::kInternalError;
+                                      break;
+                              }
 
-                            case PublishErrorCode::kInternalError:
-                                error_code = ErrorCode::kInternalError;
-                                break;
-                        }
+                              self->SendRequestError(self->ResponseDataContext(request_id),
+                                                     request_id,
+                                                     error_code,
+                                                     0ms,
+                                                     reason.value_or("unknown"));
 
-                        SendRequestError(
-                          ResponseDataContext(request_id), request_id, error_code, 0ms, reason.value_or("unknown"));
+                              return;
+                          }
 
-                        return true;
-                    }
+                          // Update the handler to correctly work with publisher initiated subscribe
+                          if (result->handler) {
+                              result->handler->SetPublishInitiated();
 
-                    // Update the handler to correctly work with publisher initiated subscribe
-                    if (result->handler) {
-                        result->handler->SetPublishInitiated();
+                              result->handler->SetConnectionId(self->current_connection_->GetID());
+                              result->handler->SetRequestId(request_id);
+                              result->handler->SetReceivedTrackAlias(publish.track_alias);
+                              result->handler->SetPriority(publish.default_publisher_priority);
+                              // TODO: Optional delivery timeout?
+                              const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
+                              result->handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));
+                              result->handler->SetPublisherDefaultGroupOrder(publish.default_publisher_group_order);
+                              result->handler->SupportNewGroupRequest(publish.dynamic_groups);
 
-                        result->handler->SetConnectionId(current_connection_->GetID());
-                        result->handler->SetRequestId(request_id);
-                        result->handler->SetReceivedTrackAlias(publish.track_alias);
-                        result->handler->SetPriority(publish.default_publisher_priority);
-                        // TODO: Optional delivery timeout?
-                        const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
-                        result->handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));
-                        result->handler->SetPublisherDefaultGroupOrder(publish.default_publisher_group_order);
-                        result->handler->SupportNewGroupRequest(publish.dynamic_groups);
+                              self->SubscribeTrack(result->handler);
+                          }
 
-                        SubscribeTrack(std::move(result->handler));
-                    }
-
-                    SendPublishOk(ResponseDataContext(request_id), result->attributes);
+                          self->SendPublishOk(self->ResponseDataContext(request_id), result->attributes);
+                      });
                 }
 
                 return true;
@@ -3164,7 +3276,22 @@ namespace quicr {
 
                 if (new_group_request_id.has_value()) {
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                        callbacks->NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id.value());
+                        callbacks->NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id.value())
+                          .Resolve(
+                            [request_id, group_id = *new_group_request_id, self = GetSharedPtr()](const auto& result) {
+                                if (result) {
+                                    return;
+                                }
+
+                                const auto& [code, reason] = result.error();
+                                SPDLOG_LOGGER_ERROR(self->logger_,
+                                                    "New group request on update failed request_id: {} group_id: {} "
+                                                    "code: {} reason: {}",
+                                                    request_id,
+                                                    group_id,
+                                                    code,
+                                                    reason.value_or("unknown"));
+                            });
                     }
                 }
 

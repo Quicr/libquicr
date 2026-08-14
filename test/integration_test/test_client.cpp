@@ -6,7 +6,7 @@
 using namespace quicr;
 using namespace quicr_test;
 
-quicr::Expected<void, quicr::Error<int>>
+quicr::Reply<void, int>
 TestClient::ServerSetupReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
                                 const ServerSetupAttributes& server_setup_attributes)
 {
@@ -17,7 +17,7 @@ TestClient::ServerSetupReceived([[maybe_unused]] const std::shared_ptr<Session>&
     return {};
 }
 
-quicr::Expected<void, quicr::Error<quicr::PublishNamespaceErrorCode>>
+quicr::Reply<void, quicr::PublishNamespaceErrorCode>
 TestClient::PublishNamespaceReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
                                      [[maybe_unused]] const TrackNamespace& track_namespace,
                                      [[maybe_unused]] const PublishNamespaceAttributes& publish_namespace_attributes)
@@ -29,7 +29,7 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const std::shared_ptr<Sess
     return {};
 }
 
-quicr::Expected<const quicr::PublishResponse, quicr::Error<quicr::PublishErrorCode>>
+quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode>
 TestClient::PublishReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
                             [[maybe_unused]] std::uint64_t request_id,
                             const quicr::PublishAttributes& publish_attributes,

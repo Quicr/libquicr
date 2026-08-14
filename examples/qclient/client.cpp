@@ -490,9 +490,8 @@ class MyClient : public quicr::Session::ClientCallbacks
 
     // -- quicr::Session::ClientCallbacks -------------------------------------------------------
 
-    quicr::Expected<void, quicr::Error<int>> ServerSetupReceived(
-      [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-      const quicr::ServerSetupAttributes& server_setup_attributes) override
+    quicr::Reply<void, int> ServerSetupReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
+                                                const quicr::ServerSetupAttributes& server_setup_attributes) override
     {
         SPDLOG_INFO("Server setup received from '{}' (MOQT version: {})",
                     server_setup_attributes.server_id,
@@ -500,7 +499,7 @@ class MyClient : public quicr::Session::ClientCallbacks
         return {};
     }
 
-    quicr::Expected<void, quicr::Error<int>> UnpublishedSubscribeReceived(
+    quicr::Reply<void, int> UnpublishedSubscribeReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       const quicr::FullTrackName& track_full_name,
       [[maybe_unused]] const quicr::SubscribeAttributes& subscribe_attributes) override
@@ -509,7 +508,7 @@ class MyClient : public quicr::Session::ClientCallbacks
         return {};
     }
 
-    quicr::Expected<void, quicr::Error<quicr::PublishNamespaceErrorCode>> PublishNamespaceReceived(
+    quicr::Reply<void, quicr::PublishNamespaceErrorCode> PublishNamespaceReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       const quicr::TrackNamespace& track_namespace,
       [[maybe_unused]] const quicr::PublishNamespaceAttributes& publish_namespace_attributes) override
@@ -519,7 +518,7 @@ class MyClient : public quicr::Session::ClientCallbacks
         return {};
     }
 
-    quicr::Expected<const quicr::PublishResponse, quicr::Error<quicr::PublishErrorCode>> PublishReceived(
+    quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> PublishReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       std::uint64_t request_id,
       const quicr::PublishAttributes& publish_attributes,
@@ -540,7 +539,7 @@ class MyClient : public quicr::Session::ClientCallbacks
         return quicr::PublishResponse{ {}, std::move(handler) };
     }
 
-    quicr::Expected<const quicr::FetchResponse, quicr::Error<quicr::FetchErrorCode>> StandaloneFetchReceived(
+    quicr::Reply<const quicr::FetchResponse, quicr::FetchErrorCode> StandaloneFetchReceived(
       const std::shared_ptr<quicr::Session>& session,
       std::uint64_t request_id,
       const quicr::FullTrackName& track_full_name,
@@ -555,7 +554,7 @@ class MyClient : public quicr::Session::ClientCallbacks
                              attributes.end_location);
     }
 
-    quicr::Expected<const quicr::FetchResponse, quicr::Error<quicr::FetchErrorCode>> JoiningFetchReceived(
+    quicr::Reply<const quicr::FetchResponse, quicr::FetchErrorCode> JoiningFetchReceived(
       const std::shared_ptr<quicr::Session>& session,
       std::uint64_t request_id,
       const quicr::FullTrackName& track_full_name,
@@ -581,7 +580,7 @@ class MyClient : public quicr::Session::ClientCallbacks
                              { joining_start, std::nullopt });
     }
 
-    quicr::Expected<void, quicr::Error<quicr::FetchErrorCode>> FetchCancelReceived(
+    quicr::Reply<void, quicr::FetchErrorCode> FetchCancelReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       std::uint64_t request_id) override
     {
@@ -589,7 +588,7 @@ class MyClient : public quicr::Session::ClientCallbacks
         return {};
     }
 
-    quicr::Expected<quicr::RequestResponse, quicr::Error<quicr::RequestErrorCode>> TrackStatusReceived(
+    quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode> TrackStatusReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       std::uint64_t request_id,
       const quicr::FullTrackName& track_full_name) override
