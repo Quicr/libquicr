@@ -170,11 +170,10 @@ MakeTestServer(quicr::SessionManager& session_mgr,
         server_config.transport_config.initial_max_stream_data = *initial_max_stream_data;
     }
 
-    // Shared across every per-connection TestServer instance created for this listening
+    // The same callbacks instance is used by every session accepted on this listening
     // transport, so relaying between two different client connections (e.g. a publisher and
     // a subscriber on separate connections) works the same way a real relay would.
-    auto shared_state = std::make_shared<TestServer::SharedState>();
-    auto server = std::make_shared<TestServer>(shared_state);
+    auto server = std::make_shared<TestServer>();
 
     session_mgr.AddTransport(server_config, server);
 

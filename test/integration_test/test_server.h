@@ -123,37 +123,6 @@ namespace quicr_test {
             quicr::PublishAttributes attributes;
         };
 
-        /**
-         * @brief State that must be shared across all per-connection TestServer instances
-         *        belonging to the same logical relay/server.
-         *
-         * @details Since the session rework, a new quicr::Session (and therefore a new
-         * TestServer) is created per accepted connection. Relaying data between two
-         * different client connections (e.g. a publisher on one connection and a
-         * subscriber on another) requires bridging state that outlives any single
-         * connection's TestServer instance. This struct holds that bridging state so it
-         * can be shared (via shared_ptr) across every TestServer created for the same
-         * listening transport.
-         */
-        struct SharedState
-        {
-            mutable std::mutex mutex;
-
-            std::vector<quicr::TrackNamespace> known_published_namespaces;
-            std::vector<AvailableTrack> known_published_tracks;
-
-            std::unordered_map<quicr::TrackNamespace, std::shared_ptr<quicr::PublishNamespaceHandler>>
-              namespace_subscribers;
-
-            // Subscriber publish handlers: [track_alias] -> PublishTrackHandler
-            std::map<std::uint64_t, std::shared_ptr<TestPublishTrackHandler>> subscribes;
-
-            // Publisher subscribe handlers: [track_alias] -> SubscribeTrackHandler
-            std::map<std::uint64_t, std::shared_ptr<TestSubscribeTrackHandler>> pub_subscribes;
-        };
-
-        explicit TestServer(std::shared_ptr<SharedState> shared_state = nullptr);
-
         struct SubscribeDetails
         {
             uint64_t request_id;
@@ -363,9 +332,17 @@ namespace quicr_test {
         std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;
         std::vector<FetchResponseData> fetch_response_data_;
 
-        // Bridging state shared across all TestServer instances (one per connection)
-        // belonging to the same logical relay/server.
-        std::shared_ptr<SharedState> shared_state_;
+        std::vector<quicr::TrackNamespace> known_published_namespaces_;
+        std::vector<AvailableTrack> known_published_tracks_;
+
+        std::unordered_map<quicr::TrackNamespace, std::shared_ptr<quicr::PublishNamespaceHandler>>
+          namespace_subscribers_;
+
+        // Subscriber publish handlers: [track_alias] -> PublishTrackHandler
+        std::map<std::uint64_t, std::shared_ptr<TestPublishTrackHandler>> subscribes_;
+
+        // Publisher subscribe handlers: [track_alias] -> SubscribeTrackHandler
+        std::map<std::uint64_t, std::shared_ptr<TestSubscribeTrackHandler>> pub_subscribes_;
     };
 
 }

@@ -219,7 +219,7 @@ namespace quicr {
         transport->OnNewConnection =
           [=, this, wtransport = std::weak_ptr(transport), callbacks = std::move(callbacks)](const auto& connection) {
               auto transport = wtransport.lock();
-              auto session = Session::Create(config, transport, connection, std::move(callbacks), tick_service_);
+              auto session = Session::Create(config, transport, connection, callbacks, tick_service_);
               connection->SetDelegate(session);
 
               {
