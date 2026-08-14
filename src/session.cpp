@@ -2305,15 +2305,11 @@ namespace quicr {
                 if (client_mode_) {
                     if (auto callbacks = std::dynamic_pointer_cast<ClientCallbacks>(callbacks_)) {
                         callbacks->ServerSetupReceived(GetSharedPtr(), { 0, endpoint_id });
-                    } else {
-                        throw std::runtime_error("Malformed Client session, callbacks are not the correct type");
                     }
                 } else {
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                         callbacks->ClientSetupReceived(GetSharedPtr(), { endpoint_id });
                         SendSetup();
-                    } else {
-                        throw std::runtime_error("Malformed Server session, callbacks are not the correct type");
                     }
                 }
 
