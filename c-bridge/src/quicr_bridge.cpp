@@ -249,7 +249,7 @@ struct qbridge_client
 
     explicit qbridge_client(const qbridge_client_config_t* config)
       : client_config(cpp_client_config_from_c(config))
-      , session_mgr()
+      , session_mgr(std::make_unique<quicr::SessionManager>())
       , callbacks(BridgeClient::Create())
     {
     }
