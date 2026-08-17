@@ -103,6 +103,22 @@ namespace quicr_test {
 
         void StatusChanged(Status status) override;
 
+        std::uint64_t GetPublishDataContextId() const noexcept { return publish_data_ctx_id_; }
+
+        // Get the stream ID this subgroup is on.
+        std::optional<std::uint64_t> GetSubgroupStreamId(std::uint64_t group_id, std::uint64_t subgroup_id) const
+        {
+            const auto group_it = stream_info_by_group_.find(group_id);
+            if (group_it == stream_info_by_group_.end()) {
+                return std::nullopt;
+            }
+            const auto subgroup_it = group_it->second.find(subgroup_id);
+            if (subgroup_it == group_it->second.end()) {
+                return std::nullopt;
+            }
+            return subgroup_it->second.stream_id;
+        }
+
       private:
         std::weak_ptr<TestServer> server_;
     };
@@ -232,6 +248,29 @@ namespace quicr_test {
 
                                     const std::optional<quicr::messages::Location>& largest_location,
                                     const quicr::PublishAttributes& attributes);
+
+        // Get the handler for the given track.
+        std::shared_ptr<TestPublishTrackHandler> GetPublishHandler(std::uint64_t track_alias,
+                                                                   std::uint64_t connection_id) const
+        {
+            std::lock_guard lock(state_mutex_);
+            const auto track_it = subscribes_.find(track_alias);
+            if (track_it == subscribes_.end()) {
+                return nullptr;
+            }
+            const auto conn_it = track_it->second.find(connection_id);
+            return conn_it == track_it->second.end() ? nullptr : conn_it->second;
+        }
+
+        // Mock a stream closure.
+        // TODO: We should probably provide subgroup STOP_SENDING API.
+        void MockStreamClosed(std::uint64_t connection_id,
+                              std::uint64_t stream_id,
+                              std::optional<std::uint64_t> data_ctx_id,
+                              quicr::StreamClosedFlag flag)
+        {
+            OnStreamClosed(connection_id, stream_id, nullptr, data_ctx_id, flag);
+        }
 
       protected:
         std::vector<std::uint64_t> PublishNamespaceDoneReceived(std::uint64_t, std::uint64_t request_id) override

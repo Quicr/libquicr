@@ -2124,13 +2124,31 @@ namespace quicr {
                 }
                 auto& conn_ctx = conn_it->second;
 
-                // This is a request stream.
                 const auto req_it = conn_ctx.request_id_by_data_ctx.find(*data_ctx_id);
                 if (req_it != conn_ctx.request_id_by_data_ctx.end()) {
                     const auto request_id = req_it->second;
 
+                    // If this is a request stream, close the request.
+                    const bool is_bidir = (stream_id & 0x2) == 0;
+                    if (is_bidir) {
+                        lock.unlock();
+                        CloseRequestHandler(conn_ctx, connection_id, request_id, *data_ctx_id, stream_id, flag);
+                        return;
+                    }
+
+                    // If this is a subgroup stream, notify the handler.
+                    const auto handler_it = conn_ctx.request_handlers.find(request_id);
+                    if (handler_it == conn_ctx.request_handlers.end()) {
+                        SPDLOG_LOGGER_WARN(logger_, "No handler for reset unidir stream on request: {}", request_id);
+                        return;
+                    }
+                    const auto handler = handler_it->second.Get<PublishTrackHandler>();
+                    if (!handler) {
+                        SPDLOG_LOGGER_ERROR(logger_, "Unexpected handler type for request: {}", request_id);
+                        return;
+                    }
                     lock.unlock();
-                    CloseRequestHandler(conn_ctx, connection_id, request_id, *data_ctx_id, stream_id, flag);
+                    handler->StreamClosed(stream_id, flag != StreamClosedFlag::kFin);
                     return;
                 }
 
