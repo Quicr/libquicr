@@ -1066,7 +1066,8 @@ namespace quicr {
 
         void SendCtrlMsg(const ConnectionContext& conn_ctx,
                          std::uint64_t data_ctx_id,
-                         std::shared_ptr<const std::vector<uint8_t>> data);
+                         std::shared_ptr<const std::vector<uint8_t>> data,
+                         bool close_stream = false);
 
         template<typename... Fields>
         void SendCtrlMsg(const ConnectionContext& conn_ctx,
@@ -1125,7 +1126,8 @@ namespace quicr {
                               std::uint64_t request_id,
                               messages::ErrorCode error,
                               std::chrono::milliseconds retry_interval,
-                              const std::string& reason);
+                              const std::string& reason,
+                              bool close_stream = true);
 
         /*===================================================================*/
         // Publish Namespace
@@ -1195,7 +1197,9 @@ namespace quicr {
         std::optional<std::uint64_t> FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
                                                                        const TrackNamespace& track_namespace) const;
 
-        std::uint64_t ResponseDataContext(const ConnectionContext& conn_ctx, std::uint64_t request_id) const;
+        // Get data context of the request stream for the given request, if any.
+        std::optional<std::uint64_t> ResponseDataContext(const ConnectionContext& conn_ctx,
+                                                         std::uint64_t request_id) const;
 
         /*===================================================================*/
         // Track Status
@@ -1251,6 +1255,7 @@ namespace quicr {
         void CloseRequestHandler(ConnectionContext& conn_ctx,
                                  std::uint64_t connection_id,
                                  std::uint64_t request_id,
+                                 std::uint64_t data_ctx_id,
                                  std::uint64_t stream_id,
                                  StreamClosedFlag flag);
 

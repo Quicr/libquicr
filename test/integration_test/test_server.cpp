@@ -125,6 +125,15 @@ TestServer::SubscribeReceived(std::uint64_t connection_id,
     const auto th = TrackHash(track_full_name);
     const auto track_alias = th.track_fullname_hash;
 
+    auto subscribe_response = subscribe_response_;
+    subscribe_response.is_publisher_initiated = subscribe_attributes.is_publisher_initiated;
+    if (!subscribe_attributes.is_publisher_initiated) {
+        ResolveSubscribe(connection_id, request_id, track_alias, subscribe_response);
+    }
+    if (subscribe_response.reason_code != RequestResponse::ReasonCode::kOk) {
+        return;
+    }
+
     // Calculate TTL from delivery timeout
     const std::uint32_t ttl = subscribe_attributes.delivery_timeout != std::chrono::milliseconds::zero()
                                 ? static_cast<std::uint32_t>(subscribe_attributes.delivery_timeout.count())
@@ -137,14 +146,6 @@ TestServer::SubscribeReceived(std::uint64_t connection_id,
                                                 subscribe_attributes.priority,
                                                 ttl,
                                                 std::static_pointer_cast<TestServer>(shared_from_this()));
-
-    if (!subscribe_attributes.is_publisher_initiated) {
-        ResolveSubscribe(connection_id,
-                         request_id,
-                         track_alias,
-                         { .reason_code = RequestResponse::ReasonCode::kOk,
-                           .is_publisher_initiated = subscribe_attributes.is_publisher_initiated });
-    }
 
     // Store the publish handler for this subscriber
     subscribes_[track_alias][connection_id] = pub_track_handler;

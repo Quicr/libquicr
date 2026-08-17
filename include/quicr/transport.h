@@ -169,11 +169,59 @@ namespace quicr {
         TransportError Error;
     };
 
+    // Events received on a stream.
     enum class StreamClosedFlag : uint8_t
     {
         kFin,
         kReset,
+        kStopSending,
     };
+
+    // Action to take on a stream.
+    enum class StreamOperation : uint8_t
+    {
+        kFin,
+        kReset,
+        kStopSending,
+        // Cancel a bidir: RESET send, STOP_SENDING recv.
+        kCancel,
+    };
+
+    /**
+     * Validate a close operation is correct for that stream.
+     * @param stream_id The stream we're going to close.
+     * @param is_server True if we're the server.
+     * @param close The type of close operation.
+     */
+    constexpr void CheckCloseStream(std::uint64_t stream_id, bool is_server, StreamOperation close)
+    {
+        const bool is_bidir = (stream_id & 0x2) == 0;
+        const bool is_locally_initiated = ((stream_id & 0x1) != 0) == is_server;
+        const bool can_send = is_bidir || is_locally_initiated;
+        const bool can_receive = is_bidir || !is_locally_initiated;
+
+        switch (close) {
+            case StreamOperation::kFin:
+                [[fallthrough]];
+            case StreamOperation::kReset:
+                if (can_send) {
+                    return;
+                }
+                break;
+            case StreamOperation::kStopSending:
+                if (can_receive) {
+                    return;
+                }
+                break;
+            case StreamOperation::kCancel:
+                if (is_bidir) {
+                    return;
+                }
+                break;
+        }
+
+        throw std::invalid_argument("Stream close is invalid for the stream direction");
+    }
 
     /**
      * @brief ITransport interface
@@ -403,9 +451,13 @@ namespace quicr {
          * @param conn_id           Connection id of stream
          * @param data_ctx_id       Data context id that owns the stream
          * @param stream_id         Stream ID to close
-         * @param use_reset         True to close by RESET, false to close by FIN
+         * @param close             Operation to use to close the stream.
+         * @throws std::invalid_argument if the operation is invalid for the stream direction.
          */
-        virtual void CloseStream(std::uint64_t conn_id, uint64_t data_ctx_id, uint64_t stream_id, bool use_reset) = 0;
+        virtual void CloseStream(std::uint64_t conn_id,
+                                 uint64_t data_ctx_id,
+                                 uint64_t stream_id,
+                                 StreamOperation close) = 0;
 
         /**
          * @brief Delete data context
