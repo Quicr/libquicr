@@ -341,18 +341,24 @@ namespace quicr {
             return;
         }
 
+        // TODO: Fix this up when TRACK_STATUS migrated.
+        const auto data_ctx_id = conn_it->second.tx_ctrl_data_ctx_id;
+        if (!data_ctx_id.has_value()) {
+            SPDLOG_LOGGER_ERROR(
+              logger_, "ResolveTrackStatus conn_id: {} has no control stream, ignoring", connection_id);
+            return;
+        }
+
         switch (subscribe_response.reason_code) {
             case RequestResponse::ReasonCode::kOk: {
                 // TODO: TrackProperties should be in the subscribe_response.
-                SendTrackStatusOk(conn_it->second,
-                                  ResponseDataContext(conn_it->second, request_id),
-                                  subscribe_response.largest_location,
-                                  TrackExtensions());
+                SendTrackStatusOk(
+                  conn_it->second, *data_ctx_id, subscribe_response.largest_location, TrackExtensions());
                 break;
             }
             case RequestResponse::ReasonCode::kDoesNotExist:
                 SendRequestError(conn_it->second,
-                                 ResponseDataContext(conn_it->second, request_id),
+                                 *data_ctx_id,
                                  request_id,
                                  ErrorCode::kDoesNotExist,
                                  0ms, // TODO: Figure out retry interval
@@ -361,7 +367,7 @@ namespace quicr {
                 break;
             case RequestResponse::ReasonCode::kUnauthorized:
                 SendRequestError(conn_it->second,
-                                 ResponseDataContext(conn_it->second, request_id),
+                                 *data_ctx_id,
                                  request_id,
                                  ErrorCode::kUnauthorized,
                                  0ms, // TODO: Figure out retry interval
@@ -369,12 +375,8 @@ namespace quicr {
                                                                              : "Unauthorized");
                 break;
             default:
-                SendRequestError(conn_it->second,
-                                 ResponseDataContext(conn_it->second, request_id),
-                                 request_id,
-                                 ErrorCode::kInternalError,
-                                 0ms,
-                                 "Internal error");
+                SendRequestError(
+                  conn_it->second, *data_ctx_id, request_id, ErrorCode::kInternalError, 0ms, "Internal error");
                 break;
         }
     }
@@ -1570,6 +1572,15 @@ namespace quicr {
             return;
         }
 
+        const auto data_ctx_id = ResponseDataContext(conn_it->second, request_id);
+        if (!data_ctx_id.has_value()) {
+            SPDLOG_LOGGER_ERROR(logger_,
+                                "Cannot resolve PUBLISH without its request stream conn_id: {} request_id: {}",
+                                connection_id,
+                                request_id);
+            return;
+        }
+
         auto error_code = ErrorCode::kInternalError;
         auto reason = std::string("Internal error");
 
@@ -1592,8 +1603,7 @@ namespace quicr {
                     SubscribeTrack(connection_id, std::move(handler));
                 }
 
-                SendPublishOk(
-                  conn_it->second, ResponseDataContext(conn_it->second, request_id), publish_response.attributes);
+                SendPublishOk(conn_it->second, *data_ctx_id, publish_response.attributes);
 
                 return;
             }
@@ -1612,8 +1622,7 @@ namespace quicr {
                 break;
         }
 
-        SendRequestError(
-          conn_it->second, ResponseDataContext(conn_it->second, request_id), request_id, error_code, 0ms, reason);
+        SendRequestError(conn_it->second, *data_ctx_id, request_id, error_code, 0ms, reason);
     }
 
     void Session::StandaloneFetchReceived([[maybe_unused]] std::uint64_t connection_id,
@@ -2517,11 +2526,22 @@ namespace quicr {
             return;
         }
 
+        // In the SUBSCRIBE case, get the data ctx.
+        // TODO: Testing client_mode here is odd, but guards the below de-refs.
+        const auto data_ctx_id = ResponseDataContext(conn_it->second, request_id);
+        if ((client_mode_ || !subscribe_response.is_publisher_initiated) && !data_ctx_id.has_value()) {
+            SPDLOG_LOGGER_ERROR(logger_,
+                                "Cannot resolve SUBSCRIBE without its request stream conn_id: {} request_id: {}",
+                                connection_id,
+                                request_id);
+            return;
+        }
+
         if (client_mode_) {
             switch (subscribe_response.reason_code) {
                 case RequestResponse::ReasonCode::kOk:
                     SendSubscribeOk(conn_it->second,
-                                    ResponseDataContext(conn_it->second, request_id),
+                                    *data_ctx_id,
                                     request_id,
                                     track_alias,
                                     kSubscribeExpires,
@@ -2530,7 +2550,7 @@ namespace quicr {
                     break;
                 default:
                     SendRequestError(conn_it->second,
-                                     ResponseDataContext(conn_it->second, request_id),
+                                     *data_ctx_id,
                                      request_id,
                                      messages::ErrorCode::kInternalError,
                                      0ms,
@@ -2557,7 +2577,7 @@ namespace quicr {
 
                 if (!subscribe_response.is_publisher_initiated) {
                     SendSubscribeOk(conn_it->second,
-                                    ResponseDataContext(conn_it->second, request_id),
+                                    *data_ctx_id,
                                     request_id,
                                     track_alias,
                                     kSubscribeExpires,
@@ -2569,7 +2589,7 @@ namespace quicr {
             default:
                 if (!subscribe_response.is_publisher_initiated) {
                     SendRequestError(conn_it->second,
-                                     ResponseDataContext(conn_it->second, request_id),
+                                     *data_ctx_id,
                                      request_id,
                                      messages::ErrorCode::kInternalError,
                                      0ms,
@@ -2731,14 +2751,23 @@ namespace quicr {
 
         switch (response.reason_code) {
             case PublishNamespaceResponse::ReasonCode::kOk: {
-                std::uint64_t response_data_ctx_id = ResponseDataContext(conn_it->second, request_id);
+                auto response_data_ctx_id = ResponseDataContext(conn_it->second, request_id);
                 const auto pub_ns_it = conn_it->second.request_handlers.find(request_id);
                 if (pub_ns_it != conn_it->second.request_handlers.end() &&
                     pub_ns_it->second.handler->GetDataContextId().has_value()) {
-                    response_data_ctx_id = *pub_ns_it->second.handler->GetDataContextId();
+                    response_data_ctx_id = pub_ns_it->second.handler->GetDataContextId();
                 }
 
-                SendPublishNamespaceOk(conn_it->second, response_data_ctx_id);
+                if (!response_data_ctx_id.has_value()) {
+                    SPDLOG_LOGGER_ERROR(
+                      logger_,
+                      "Cannot resolve PUBLISH_NAMESPACE without its request stream conn_id: {} request_id: {}",
+                      connection_id,
+                      request_id);
+                    break;
+                }
+
+                SendPublishNamespaceOk(conn_it->second, *response_data_ctx_id);
 
                 fanout_subscribe_namespace_requestors();
                 break;
@@ -2834,14 +2863,15 @@ namespace quicr {
         return std::nullopt;
     }
 
-    std::uint64_t Session::ResponseDataContext(const ConnectionContext& conn_ctx, std::uint64_t request_id) const
+    std::optional<std::uint64_t> Session::ResponseDataContext(const ConnectionContext& conn_ctx,
+                                                              std::uint64_t request_id) const
     {
         const auto recv_it = conn_ctx.recv_req_id.find(request_id);
-        if (recv_it != conn_ctx.recv_req_id.end() && recv_it->second.data_ctx_id != 0) {
-            return recv_it->second.data_ctx_id;
+        if (recv_it == conn_ctx.recv_req_id.end() || recv_it->second.data_ctx_id == 0) {
+            return std::nullopt;
         }
 
-        return conn_ctx.tx_ctrl_data_ctx_id.value();
+        return recv_it->second.data_ctx_id;
     }
 
     // -- Client Callbacks --

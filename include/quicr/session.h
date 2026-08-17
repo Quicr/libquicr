@@ -1197,7 +1197,9 @@ namespace quicr {
         std::optional<std::uint64_t> FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
                                                                        const TrackNamespace& track_namespace) const;
 
-        std::uint64_t ResponseDataContext(const ConnectionContext& conn_ctx, std::uint64_t request_id) const;
+        // Get data context of the request stream for the given request, if any.
+        std::optional<std::uint64_t> ResponseDataContext(const ConnectionContext& conn_ctx,
+                                                         std::uint64_t request_id) const;
 
         /*===================================================================*/
         // Track Status

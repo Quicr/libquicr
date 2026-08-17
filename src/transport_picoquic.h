@@ -400,13 +400,13 @@ namespace quicr {
          * @param conn_id           Connection id of stream
          * @param data_ctx_id       Data context id that owns the stream
          * @param stream_id         Stream ID to close
-         * @param mode              Operation to use to close the stream.
+         * @param close              Operation to use to close the stream.
          * @throws std::invalid_argument if the operation is invalid for the stream direction.
          */
         void CloseStream(std::uint64_t conn_id,
                          uint64_t data_ctx_id,
                          uint64_t stream_id,
-                         StreamOperation mode) override;
+                         StreamOperation close) override;
 
         /**
          * @brief Deregister WebTransport context

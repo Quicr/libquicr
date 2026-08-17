@@ -169,6 +169,7 @@ namespace quicr {
         TransportError Error;
     };
 
+    // Events received on a stream.
     enum class StreamClosedFlag : uint8_t
     {
         kFin,
@@ -176,6 +177,7 @@ namespace quicr {
         kStopSending,
     };
 
+    // Event to take on a stream.
     enum class StreamOperation : uint8_t
     {
         kFin,
@@ -185,15 +187,20 @@ namespace quicr {
         kCancel,
     };
 
-    // Validate a stream close request.
-    constexpr void CheckCloseStream(std::uint64_t stream_id, bool is_server, StreamOperation mode)
+    /**
+     * Validate a close operation is correct for that stream.
+     * @param stream_id The stream we're going to close.
+     * @param is_server True if we're the server.
+     * @param close The type of close operation.
+     */
+    constexpr void CheckCloseStream(std::uint64_t stream_id, bool is_server, StreamOperation close)
     {
         const bool is_bidir = (stream_id & 0x2) == 0;
         const bool is_locally_initiated = ((stream_id & 0x1) != 0) == is_server;
         const bool can_send = is_bidir || is_locally_initiated;
         const bool can_receive = is_bidir || !is_locally_initiated;
 
-        switch (mode) {
+        switch (close) {
             case StreamOperation::kFin:
                 if (can_send) {
                     return;
@@ -447,13 +454,13 @@ namespace quicr {
          * @param conn_id           Connection id of stream
          * @param data_ctx_id       Data context id that owns the stream
          * @param stream_id         Stream ID to close
-         * @param mode              Operation to use to close the stream.
+         * @param close             Operation to use to close the stream.
          * @throws std::invalid_argument if the operation is invalid for the stream direction.
          */
         virtual void CloseStream(std::uint64_t conn_id,
                                  uint64_t data_ctx_id,
                                  uint64_t stream_id,
-                                 StreamOperation mode) = 0;
+                                 StreamOperation close) = 0;
 
         /**
          * @brief Delete data context
