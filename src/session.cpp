@@ -522,6 +522,7 @@ namespace quicr {
                             static_cast<int>(error),
                             reason);
 
+        // Send REQUEST_ERROR and potentially close the request stream.
         messages::Message msg = messages::Message{}.PrependType(ControlMessageType::kRequestError).ReserveLength();
         msg.Append(error);
         msg.Append(UintVar(retry_interval.count()));
@@ -2115,6 +2116,7 @@ namespace quicr {
             }
         }
 
+        const bool is_bidir = (stream_id & 0x2) == 0;
         if (data_ctx_id.has_value()) {
             try {
                 std::unique_lock lock(state_mutex_);
@@ -2123,35 +2125,37 @@ namespace quicr {
                     return;
                 }
                 auto& conn_ctx = conn_it->second;
-
                 const auto req_it = conn_ctx.request_id_by_data_ctx.find(*data_ctx_id);
-                if (req_it != conn_ctx.request_id_by_data_ctx.end()) {
-                    const auto request_id = req_it->second;
-
-                    // If this is a request stream, close the request.
-                    const bool is_bidir = (stream_id & 0x2) == 0;
+                if (req_it == conn_ctx.request_id_by_data_ctx.end()) {
                     if (is_bidir) {
-                        lock.unlock();
-                        CloseRequestHandler(conn_ctx, connection_id, request_id, *data_ctx_id, stream_id, flag);
-                        return;
+                        quic_transport_->DeleteDataContext(connection_id, *data_ctx_id, false);
                     }
-
-                    // If this is a subgroup stream, notify the handler.
-                    const auto handler_it = conn_ctx.request_handlers.find(request_id);
-                    if (handler_it == conn_ctx.request_handlers.end()) {
-                        SPDLOG_LOGGER_WARN(logger_, "No handler for reset unidir stream on request: {}", request_id);
-                        return;
-                    }
-                    const auto handler = handler_it->second.Get<PublishTrackHandler>();
-                    if (!handler) {
-                        SPDLOG_LOGGER_ERROR(logger_, "Unexpected handler type for request: {}", request_id);
-                        return;
-                    }
-                    lock.unlock();
-                    handler->StreamClosed(stream_id, flag != StreamClosedFlag::kFin);
                     return;
                 }
 
+                const auto request_id = req_it->second;
+
+                // If this is a request stream, close the request.
+                if (is_bidir) {
+                    lock.unlock();
+                    CloseRequestHandler(conn_ctx, connection_id, request_id, *data_ctx_id, stream_id, flag);
+                    return;
+                }
+
+                // If this is a subgroup stream, notify the handler.
+                const auto handler_it = conn_ctx.request_handlers.find(request_id);
+                if (handler_it == conn_ctx.request_handlers.end()) {
+                    SPDLOG_LOGGER_WARN(logger_, "No handler for reset unidir stream on request: {}", request_id);
+                    return;
+                }
+                const auto handler = handler_it->second.Get<PublishTrackHandler>();
+                if (!handler) {
+                    SPDLOG_LOGGER_ERROR(logger_, "Unexpected handler type for request: {}", request_id);
+                    return;
+                }
+                lock.unlock();
+                handler->StreamClosed(stream_id, flag != StreamClosedFlag::kFin);
+                return;
             } catch (const std::exception& e) {
                 SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream closed: {}", e.what());
             }
@@ -2851,7 +2855,7 @@ namespace quicr {
                              response.error->error_code,
                              response.error->retry_interval,
                              response.error->reason,
-                             false);
+                             false); // Keep open for per-request behaviour,
         } else {
             // TODO: Type the params in resolve, fill in here.
             SendRequestUpdateOk(conn_it->second, *data_ctx_id, std::nullopt, std::nullopt);
@@ -3765,8 +3769,7 @@ namespace quicr {
                                      request_id,
                                      messages::ErrorCode::kDoesNotExist,
                                      0ms,
-                                     "Subscription not found",
-                                     false);
+                                     "Subscription not found");
                     return true;
                 }
 

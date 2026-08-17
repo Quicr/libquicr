@@ -177,7 +177,7 @@ namespace quicr {
         kStopSending,
     };
 
-    // Event to take on a stream.
+    // Action to take on a stream.
     enum class StreamOperation : uint8_t
     {
         kFin,
@@ -202,10 +202,7 @@ namespace quicr {
 
         switch (close) {
             case StreamOperation::kFin:
-                if (can_send) {
-                    return;
-                }
-                break;
+                [[fallthrough]];
             case StreamOperation::kReset:
                 if (can_send) {
                     return;
