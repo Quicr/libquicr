@@ -1213,6 +1213,7 @@ namespace quicr {
 
         if (handler.publish_data_ctx_id_ != 0) {
             // TODO: is_reset should propagate down here?
+            conn_ctx.request_id_by_data_ctx.erase(handler.publish_data_ctx_id_);
             quic_transport_->DeleteDataContext(connection_id, handler.publish_data_ctx_id_);
             handler.publish_data_ctx_id_ = 0;
         }
@@ -1221,10 +1222,26 @@ namespace quicr {
     void Session::CloseRequestHandler(ConnectionContext& conn_ctx,
                                       std::uint64_t connection_id,
                                       std::uint64_t request_id,
+                                      std::uint64_t data_ctx_id,
                                       std::uint64_t stream_id,
                                       StreamClosedFlag flag)
     {
         std::unique_lock lock(state_mutex_);
+
+        // Cleanup the request stream & data ctx.
+        conn_ctx.request_id_by_data_ctx.erase(data_ctx_id);
+        switch (flag) {
+            case StreamClosedFlag::kFin:
+                quic_transport_->CloseStream(connection_id, data_ctx_id, stream_id, StreamOperation::kFin);
+                break;
+            case StreamClosedFlag::kReset:
+                quic_transport_->CloseStream(connection_id, data_ctx_id, stream_id, StreamOperation::kReset);
+                break;
+            case StreamClosedFlag::kStopSending:
+                // The transport internally resets the send direction in this case.
+                break;
+        }
+        quic_transport_->DeleteDataContext(connection_id, data_ctx_id, false);
 
         // Incoming PUBNS requests are not handler based.
         if (std::erase(conn_ctx.recv_publish_namespaces, request_id) > 0) {
@@ -1249,25 +1266,6 @@ namespace quicr {
         }
 
         const bool is_reset = flag != StreamClosedFlag::kFin;
-
-        if (const auto data_ctx_id = handler_it->second.handler->GetDataContextId()) {
-            conn_ctx.request_id_by_data_ctx.erase(*data_ctx_id);
-
-            switch (flag) {
-                case StreamClosedFlag::kFin:
-                    quic_transport_->CloseStream(connection_id, *data_ctx_id, stream_id, StreamOperation::kFin);
-                    quic_transport_->DeleteDataContext(connection_id, *data_ctx_id, false);
-                    break;
-                case StreamClosedFlag::kReset:
-                    quic_transport_->CloseStream(connection_id, *data_ctx_id, stream_id, StreamOperation::kReset);
-                    quic_transport_->DeleteDataContext(connection_id, *data_ctx_id, false);
-                    break;
-                case StreamClosedFlag::kStopSending:
-                    // The transport resets the send direction in response to STOP_SENDING.
-                    quic_transport_->DeleteDataContext(connection_id, *data_ctx_id, false);
-                    break;
-            }
-        }
 
         SPDLOG_LOGGER_INFO(logger_,
                            "Closing request handler conn_id: {} request_id: {} stream_id: {} reset: {}",
@@ -2132,7 +2130,7 @@ namespace quicr {
                     const auto request_id = req_it->second;
 
                     lock.unlock();
-                    CloseRequestHandler(conn_ctx, connection_id, request_id, stream_id, flag);
+                    CloseRequestHandler(conn_ctx, connection_id, request_id, *data_ctx_id, stream_id, flag);
                     return;
                 }
 

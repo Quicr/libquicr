@@ -1255,6 +1255,7 @@ namespace quicr {
         void CloseRequestHandler(ConnectionContext& conn_ctx,
                                  std::uint64_t connection_id,
                                  std::uint64_t request_id,
+                                 std::uint64_t data_ctx_id,
                                  std::uint64_t stream_id,
                                  StreamClosedFlag flag);
 
