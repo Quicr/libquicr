@@ -14,7 +14,10 @@
 #include <picoquic.h>
 #include <picoquic_config.h>
 
+#include <map>
 #include <memory>
+#include <mutex>
+#include <vector>
 
 namespace quicr {
 
@@ -27,16 +30,11 @@ namespace quicr {
     {
       public:
         DataContext() = default;
-        DataContext(DataContext&& other)
-          : data_ctx_id(other.data_ctx_id)
-          , conn_id(other.conn_id)
-          , is_bidir(other.is_bidir)
-          , uses_reset_wait(other.uses_reset_wait)
-          , delete_on_empty(other.delete_on_empty)
-          , metrics(std::move(other.metrics))
-        {
-        }
 
+        /// Contexts are owned via shared_ptr and referenced by raw pointer from picoquic stream contexts,
+        /// so they must never be copied or relocated.
+        DataContext(const DataContext&) = delete;
+        DataContext(DataContext&&) = delete;
         DataContext& operator=(const DataContext&) = delete;
         DataContext& operator=(DataContext&&) = delete;
 
@@ -132,15 +130,40 @@ namespace quicr {
 
         void SampleMetrics(const MetricsTimeStamp& sample_time) override;
 
+        /**
+         * @name Data context access
+         *
+         * @details Data contexts are created and deleted from both the picoquic thread and application
+         *      threads, so the container is guarded by its own mutex. Callers receive an owning handle
+         *      rather than a pointer into the container, which keeps the context alive for the duration
+         *      of the call even if another thread removes it concurrently.
+         *
+         * @warning `data_ctx_mutex` MUST NOT be held while calling picoquic or any transport method, to
+         *      keep it a leaf lock. It may be taken while holding the transport's state mutex, never the
+         *      other way around.
+         */
+        ///@{
+
+        /// @returns Handle to the data context, or nullptr if no such context exists.
+        std::shared_ptr<DataContext> GetDataContext(std::uint64_t data_ctx_id) const;
+
+        /// @returns Handle to a newly created data context with the next available ID assigned.
+        std::shared_ptr<DataContext> AddDataContext(bool bidir, bool uses_reset_wait);
+
+        /// @returns Handle to the removed data context, or nullptr if no such context existed.
+        std::shared_ptr<DataContext> RemoveDataContext(std::uint64_t data_ctx_id);
+
+        /// @returns Snapshot of all active data contexts, safe to iterate without holding the lock.
+        std::vector<std::shared_ptr<DataContext>> GetDataContexts() const;
+
+        ///@}
+
       public:
         /// Picoquic connection/path context
         picoquic_cnx_t* pq_cnx = nullptr;
 
         /// last stream Id
         std::uint64_t last_stream_id{ 0 };
-
-        /// Next data context ID; zero is reserved for default context
-        std::uint64_t next_data_ctx_id{ 1 };
 
         /// Datagram pending objects to be written to the network
         std::shared_ptr<PriorityQueue<ConnData>> dgram_tx_data;
@@ -155,15 +178,11 @@ namespace quicr {
         std::map<std::uint64_t, RxStreamBuffer> rx_stream_buffer;
 
         /**
-         * Active data contexts (streams bidir/unidir and datagram)
+         * WebTransport stream ID to data context mapping
+         * Used in WebTransport mode to look up data context for a stream. The mapping does not own the
+         * context; contexts are owned by active_data_contexts.
          */
-        std::map<std::uint64_t, DataContext> active_data_contexts;
-
-        /**
-         * WebTransport stream ID to data context ID mapping
-         * Used in WebTransport mode to look up data context for a stream
-         */
-        std::map<std::uint64_t, std::uint64_t> wt_stream_to_data_ctx;
+        std::map<std::uint64_t, std::weak_ptr<DataContext>> wt_stream_to_data_ctx;
 
         /// WebTransport HTTP/3 context for this connection (only used in WebTransport mode)
         /// - Server mode: created by h3zero_callback per connection
@@ -198,5 +217,15 @@ namespace quicr {
 
         // Metrics
         QuicConnectionMetrics metrics;
+
+      private:
+        /// Active data contexts (streams bidir/unidir and datagram)
+        std::map<std::uint64_t, std::shared_ptr<DataContext>> active_data_contexts_;
+
+        /// Next data context ID; zero is reserved for default context
+        std::uint64_t next_data_ctx_id_{ 1 };
+
+        /// Guards active_data_contexts_ and next_data_ctx_id_
+        mutable std::mutex data_ctx_mutex_;
     };
 }
