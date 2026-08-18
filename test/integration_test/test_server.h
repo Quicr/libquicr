@@ -7,10 +7,12 @@
 
 #include <spdlog/spdlog.h>
 
+#include <chrono>
 #include <future>
 #include <map>
 #include <mutex>
 #include <optional>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -116,6 +118,13 @@ namespace quicr_test {
       , public std::enable_shared_from_this<TestServer>
     {
       public:
+        ~TestServer() override
+        {
+            for (auto& thread : deferred_reply_threads_) {
+                thread.join();
+            }
+        }
+
         struct AvailableTrack
         {
             quicr::FullTrackName full_track_name;
@@ -172,6 +181,9 @@ namespace quicr_test {
 
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
+
+        // Answer SubscribeReceived from a thread of our own, once the given delay has elapsed.
+        void SetSubscribeReplyDelay(std::chrono::milliseconds delay) { subscribe_reply_delay_ = delay; }
 
         // Set up promise for subscribe namespace event
         void SetSubscribeNamespacePromise(std::promise<SubscribeNamespaceDetails> promise)
@@ -327,6 +339,8 @@ namespace quicr_test {
         mutable std::mutex state_mutex_;
 
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
+        std::optional<std::chrono::milliseconds> subscribe_reply_delay_;
+        std::vector<std::thread> deferred_reply_threads_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
         std::optional<std::promise<JoiningFetchDetails>> joining_fetch_promise_;

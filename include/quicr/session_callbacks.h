@@ -10,9 +10,10 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <stdexcept>
 #include <string>
-#include <thread>
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -98,9 +99,7 @@ namespace quicr {
     /**
      * @brief The reply to a callback, which may be answered immediately or deferred.
      *
-     * @details A Reply either holds the result of the callback, or an action that will produce it. A deferred
-     *      action is run off the calling thread, which lets an application answer a callback without blocking
-     *      the session's message handling.
+     * @details A Reply either holds the result of the callback, or an action that will produce it.
      *
      * @tparam T The value type of a successful reply.
      * @tparam E The reason code type of a failed reply.
@@ -110,15 +109,25 @@ namespace quicr {
     {
       public:
         using ResultType = Expected<T, Error<E>>;
-        using DeferType = std::function<ResultType()>;
+        using DeferType = std::function<void(ResultType)>;
 
       private:
-        Reply(DeferType&& action)
-          : result_(std::in_place_type<DeferType>, std::move(action))
+        struct DeferredState
+        {
+            std::mutex mutex;
+            std::optional<ResultType> result;
+            std::optional<DeferType> continuation;
+            bool resolved{ false };
+            bool continuation_set{ false };
+        };
+        using DeferredStatePtr = std::shared_ptr<DeferredState>;
+
+        explicit Reply(DeferredStatePtr state)
+          : result_(std::in_place_type<DeferredStatePtr>, std::move(state))
         {
         }
 
-        bool IsDeferred() const noexcept { return std::holds_alternative<DeferType>(result_); }
+        bool IsDeferred() const noexcept { return std::holds_alternative<DeferredStatePtr>(result_); }
 
       public:
         Reply() = default;
@@ -137,7 +146,30 @@ namespace quicr {
         /**
          * @brief Construct a reply whose result is produced later, off the calling thread.
          */
-        static Reply Defer(DeferType&& action) { return Reply(std::move(action)); }
+        static std::pair<Reply, DeferType> Defer()
+        {
+            auto state = std::make_shared<DeferredState>();
+            DeferType resolve = [state](ResultType result) mutable {
+                std::optional<DeferType> continuation;
+                {
+                    std::lock_guard _(state->mutex);
+                    if (state->resolved) {
+                        throw std::logic_error("Reply has already been resolved");
+                    }
+
+                    state->resolved = true;
+                    if (!state->continuation.has_value()) {
+                        state->result.emplace(std::move(result));
+                        return;
+                    }
+
+                    continuation.emplace(std::move(*state->continuation));
+                    state->continuation.reset();
+                }
+                (*continuation)(std::move(result));
+            };
+            return { Reply(state), std::move(resolve) };
+        }
 
         /**
          * @brief Hand the result to the given continuation, either now or once the deferred action completes.
@@ -148,9 +180,26 @@ namespace quicr {
         void Resolve(F&& f)
         {
             if (IsDeferred()) {
-                std::thread([action = std::move(std::get<DeferType>(result_)), f = std::forward<F>(f)]() mutable {
-                    f(action());
-                }).detach();
+                auto state = std::get<DeferredStatePtr>(result_);
+                DeferType continuation(std::forward<F>(f));
+                std::optional<ResultType> result;
+                {
+                    std::lock_guard _(state->mutex);
+                    if (state->continuation_set) {
+                        throw std::logic_error("Reply continuation has already been set");
+                    }
+
+                    state->continuation_set = true;
+                    if (!state->resolved) {
+                        state->continuation.emplace(std::move(continuation));
+                        return;
+                    }
+
+                    result.emplace(std::move(*state->result));
+                    state->result.reset();
+                }
+
+                continuation(std::move(*result));
                 return;
             }
 
@@ -158,7 +207,7 @@ namespace quicr {
         }
 
       private:
-        std::variant<ResultType, DeferType> result_;
+        std::variant<ResultType, DeferredStatePtr> result_;
     };
 
     /**

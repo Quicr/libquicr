@@ -135,7 +135,20 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
         }
     }
 
-    return RequestResponse{ subscribe_attributes.is_publisher_initiated };
+    const RequestResponse response{ subscribe_attributes.is_publisher_initiated };
+
+    if (!subscribe_reply_delay_.has_value()) {
+        return response;
+    }
+
+    auto [reply, resolve] = quicr::Reply<RequestResponse, RequestErrorCode>::Defer();
+    deferred_reply_threads_.emplace_back(
+      [resolve = std::move(resolve), delay = *subscribe_reply_delay_, response]() mutable {
+          std::this_thread::sleep_for(delay);
+          resolve(response);
+      });
+
+    return std::move(reply);
 }
 
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>

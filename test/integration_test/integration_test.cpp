@@ -428,6 +428,41 @@ TEST_CASE("Integration - Subscribe")
     }
 }
 
+TEST_CASE("Integration - Deferred subscribe reply")
+{
+    constexpr auto kReplyDelay = std::chrono::milliseconds(250);
+
+    SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
+    server->SetSubscribeReplyDelay(kReplyDelay);
+
+    auto [session, callbacks] = MakeTestClient(session_mgr);
+
+    const FullTrackName ftn{ TrackNamespace({ "deferred" }), { 1 } };
+    const auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt, messages::TrackFilter{ 1, 2, 3 });
+
+    std::promise<TestServer::SubscribeDetails> promise;
+    auto future = promise.get_future();
+    server->SetSubscribePromise(std::move(promise));
+
+    CHECK_NOTHROW(session->SubscribeTrack(handler));
+
+    REQUIRE(future.wait_for(kDefaultTimeout) == std::future_status::ready);
+    const auto received_at = std::chrono::steady_clock::now();
+
+    // The server has taken the reply away with it, so nothing is sent yet.
+    const auto track_live = [&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; };
+    CHECK_FALSE(WaitFor(track_live, kReplyDelay / 2));
+
+    // Resolving from the server's own thread completes the subscribe.
+    REQUIRE(WaitFor(track_live));
+    const auto elapsed =
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - received_at);
+    CHECK_GE(elapsed.count(), kReplyDelay.count());
+
+    CHECK_NOTHROW(session->UnsubscribeTrack(handler));
+}
+
 TEST_CASE("Integration - Subscribe metrics report received payload")
 {
     SessionManager session_mgr;
