@@ -827,16 +827,6 @@ namespace quicr {
          */
         virtual void PublishDoneReceived(std::uint64_t connection_id, uint64_t request_id);
 
-        /**
-         * @brief New group requested received by a subscription
-         *
-         * @details Server mode only.
-         *
-         * @param track_full_name Track full name
-         * @param group_id        Group ID requested — should be plus one of current group or zero
-         */
-        virtual void NewGroupRequested(const FullTrackName& track_full_name, std::uint64_t group_id);
-
         ///@}
         // --END CALLBACKS -----------------------------------------------------------------------------------
 

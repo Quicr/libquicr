@@ -2883,8 +2883,6 @@ namespace quicr {
 
     void Session::PublishDoneReceived(std::uint64_t, uint64_t) {}
 
-    void Session::NewGroupRequested(const FullTrackName&, std::uint64_t) {}
-
     // -- Shared Callbacks --
 
     void Session::PublishReceived(std::uint64_t connection_id,
@@ -3174,11 +3172,6 @@ namespace quicr {
                                     .is_publisher_initiated = false,
                                     .start_location = {},
                                   });
-
-                if (new_group_request_id.has_value()) {
-                    NewGroupRequested(tfn, *new_group_request_id);
-                }
-
                 return true;
             }
             case messages::ControlMessageType::kSubscribeOk: {
@@ -3701,10 +3694,6 @@ namespace quicr {
                 auto new_group_request_id =
                   parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
-                if (new_group_request_id.has_value()) {
-                    NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id.value());
-                }
-
                 SPDLOG_LOGGER_DEBUG(logger_,
                                     "Received subscribe_update to recv request_id: {} forward: {} ngr: {}",
                                     request_id,
@@ -3715,9 +3704,12 @@ namespace quicr {
                      conn_ctx.pub_tracks_by_track_alias[sub_ctx_it->second.track_hash.track_fullname_hash]) {
                     if (not forward) {
                         pub.second->SetStatus(PublishTrackHandler::Status::kPaused);
-                    } else {
-                        pub.second->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
+                        continue;
                     }
+                    if (new_group_request_id.has_value()) {
+                        pub.second->NewGroupRequested(*new_group_request_id);
+                    }
+                    pub.second->SetStatus(PublishTrackHandler::Status::kOk);
                 }
 
                 SendRequestUpdateOk(conn_ctx, data_ctx_id, std::nullopt, std::nullopt);

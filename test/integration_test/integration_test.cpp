@@ -100,47 +100,51 @@ CheckSampledMetric(const MinMaxAvg& metric)
 class CallbackPublishTrackHandler final : public PublishTrackHandler
 {
   public:
-    using StatusCallback = std::function<void(Status)>;
-
     CallbackPublishTrackHandler(const FullTrackName& ftn,
                                 const uint8_t priority,
                                 const uint32_t ttl,
-                                const StatusCallback on_status,
                                 const bool support_dynamic_groups = true)
       : PublishTrackHandler(ftn, TrackMode::kStream, priority, ttl, std::nullopt, { 0, 0 })
-      , on_status_(std::move(on_status))
     {
         support_new_group_request_ = support_dynamic_groups;
     }
 
-    void StatusChanged(const Status status) override
-    {
-        if (on_status_) {
-            on_status_(status);
-        }
-    }
-
     void SetMetricsPromise(std::promise<PublishTrackMetrics> promise)
     {
-        std::lock_guard lock(metrics_mutex_);
+        std::lock_guard lock(callback_mutex_);
         metrics_promise_ = std::move(promise);
     }
 
     void MetricsSampled(const PublishTrackMetrics& metrics) override
     {
-        std::lock_guard lock(metrics_mutex_);
+        std::lock_guard lock(callback_mutex_);
         if (metrics_promise_.has_value()) {
             metrics_promise_->set_value(metrics);
             metrics_promise_.reset();
         }
     }
 
+    void SetNewGroupRequestPromise(std::promise<std::uint64_t> promise)
+    {
+        std::lock_guard lock(callback_mutex_);
+        new_group_requested_ = std::move(promise);
+    }
+
+    void NewGroupRequested(std::uint64_t group_id) override
+    {
+        std::lock_guard _(callback_mutex_);
+        if (new_group_requested_.has_value()) {
+            new_group_requested_->set_value(group_id);
+            new_group_requested_.reset();
+        }
+    }
+
     uint64_t GetPublishDataContextId() const { return publish_data_ctx_id_; }
 
   private:
-    const StatusCallback on_status_;
-    std::mutex metrics_mutex_;
+    std::mutex callback_mutex_;
     std::optional<std::promise<PublishTrackMetrics>> metrics_promise_;
+    std::optional<std::promise<std::uint64_t>> new_group_requested_;
 };
 
 static std::shared_ptr<TestServer>
@@ -427,7 +431,7 @@ TEST_CASE("Integration - Subscribe metrics report received payload")
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "subscribe" }), { 1 } };
 
-        auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
+        auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000);
         publisher->PublishTrack(publish_handler);
         REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
 
@@ -498,7 +502,7 @@ TEST_CASE("Integration - Publish metrics report transmitted objects")
         auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "publish" }), { 1 } };
-        auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
+        auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000);
 
         std::promise<PublishTrackMetrics> initial_metrics_promise;
         auto initial_metrics_future = initial_metrics_promise.get_future();
@@ -1924,18 +1928,10 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         ftn.name = { 1, 2, 3 };
 
         // Publish the track, watching for a new group request.
-        auto new_group_was_requested = std::make_shared<std::atomic_bool>(false);
-        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(
-          ftn,
-          1,
-          5000,
-          [new_group_was_requested](const PublishTrackHandler::Status status) {
-              // Ensure we get the status callback.
-              if (status == PublishTrackHandler::Status::kNewGroupRequested) {
-                  new_group_was_requested->store(true);
-              }
-          },
-          dynamic_groups);
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 1, 5000, dynamic_groups);
+        std::promise<std::uint64_t> ngr_promise;
+        std::future<std::uint64_t> ngr_future = ngr_promise.get_future();
+        pub_handler->SetNewGroupRequestPromise(std::move(ngr_promise));
         publisher->PublishTrack(pub_handler);
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
@@ -1953,8 +1949,9 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         // If there is support, check a request will make it back to the publisher.
         if (dynamic_groups) {
             sub_handler->RequestNewGroup();
-            const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
-            CHECK(received);
+            REQUIRE(ngr_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+            const auto received = ngr_future.get();
+            CHECK(received == 0);
         }
     };
 
@@ -1982,13 +1979,10 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         REQUIRE(ns_ok);
 
         // Publish the track, watching for a new group request.
-        auto new_group_was_requested = std::make_shared<std::atomic_bool>(false);
-        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(
-          ftn, 1, 5000, [new_group_was_requested](const PublishTrackHandler::Status status) {
-              if (status == PublishTrackHandler::Status::kNewGroupRequested) {
-                  new_group_was_requested->store(true);
-              }
-          });
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 1, 5000);
+        std::promise<std::uint64_t> ngr_promise;
+        std::future<std::uint64_t> ngr_future = ngr_promise.get_future();
+        pub_handler->SetNewGroupRequestPromise(std::move(ngr_promise));
         publisher->PublishTrack(pub_handler);
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
@@ -2014,8 +2008,9 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
 
         // Request a new group; it should make it back to the publisher.
         sub_handler->RequestNewGroup();
-        const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
-        CHECK(received);
+        REQUIRE(ngr_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto received = ngr_future.get();
+        CHECK(received == 0);
     };
 
     SUBCASE("Raw QUIC")
@@ -2083,7 +2078,7 @@ TEST_CASE("Integration - Dedicated bidirectional control data contexts")
         const auto sub_data_ctx = sub_handler->GetDataContextId().value();
 
         auto publisher = MakeTestClient(true, std::nullopt, protocol_scheme);
-        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 1, 5000, [](const auto&) {});
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 1, 5000);
         CHECK_NOTHROW(publisher->PublishTrack(pub_handler));
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
@@ -2133,13 +2128,10 @@ TEST_CASE("Integration - Request updates use handler data context")
         ftn.name_space = TrackNamespace(std::vector<std::string>{ "ctrl", "update" });
         ftn.name = { 4, 5, 6 };
 
-        auto new_group_was_requested = std::make_shared<std::atomic_bool>(false);
-        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(
-          ftn, 1, 5000, [new_group_was_requested](const PublishTrackHandler::Status status) {
-              if (status == PublishTrackHandler::Status::kNewGroupRequested) {
-                  new_group_was_requested->store(true);
-              }
-          });
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 1, 5000);
+        std::promise<std::uint64_t> ngr_promise;
+        std::future<std::uint64_t> ngr_future = ngr_promise.get_future();
+        pub_handler->SetNewGroupRequestPromise(std::move(ngr_promise));
         CHECK_NOTHROW(publisher->PublishTrack(pub_handler));
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
@@ -2156,8 +2148,8 @@ TEST_CASE("Integration - Request updates use handler data context")
 
         CHECK_NOTHROW(sub_handler->RequestNewGroup());
 
-        const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
-        CHECK(received);
+        REQUIRE(ngr_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK(ngr_future.get() == 0);
         REQUIRE(sub_handler->GetDataContextId().has_value());
         CHECK(sub_handler->GetDataContextId().value() == data_ctx_before);
     };

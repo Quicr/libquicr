@@ -305,9 +305,6 @@ class BridgePublishTrackHandler : public quicr::PublishTrackHandler
                 case Status::kSubscriptionUpdated:
                     c_status = QBRIDGE_PUBLISH_STATUS_SUBSCRIPTION_UPDATED;
                     break;
-                case Status::kNewGroupRequested:
-                    c_status = QBRIDGE_PUBLISH_STATUS_NEW_GROUP_REQUESTED;
-                    break;
                 case Status::kPaused:
                     c_status = QBRIDGE_PUBLISH_STATUS_PAUSED;
                     break;

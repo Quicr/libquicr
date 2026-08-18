@@ -103,6 +103,8 @@ namespace quicr_test {
 
         void StatusChanged(Status status) override;
 
+        void NewGroupRequested(std::uint64_t group_id) override;
+
       private:
         std::weak_ptr<TestServer> server_;
     };
@@ -221,6 +223,9 @@ namespace quicr_test {
             joining_fetch_promise_ = std::move(promise);
         }
 
+        // Relay a subscriber's new group request to the upstream publishers of the track.
+        void RequestNewGroupUpstream(const quicr::FullTrackName& track_full_name, std::uint64_t group_id);
+
         void AddKnownPublishedNamespace(const quicr::TrackNamespace& track_namespace);
         void AddKnownPublishedTrack(const quicr::FullTrackName& track,
 
@@ -294,8 +299,6 @@ namespace quicr_test {
         void PublishNamespaceReceived(std::uint64_t connection_id,
                                       const quicr::TrackNamespace& track_namespace,
                                       const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
-
-        void NewGroupRequested(const quicr::FullTrackName& track_full_name, std::uint64_t group_id) override;
 
         void UnsubscribeReceived(std::uint64_t connection_id, uint64_t request_id) override;
 
