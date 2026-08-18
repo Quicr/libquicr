@@ -181,16 +181,20 @@ namespace quicr {
          * @param conn_id           Connection context ID for the stream
          * @param stream_id         Stream ID of the new received stream
          *
-         * @returns DataContext pointer to the created context, nullptr if invalid connection id
+         * @returns Handle to the created context, nullptr if invalid connection id
          */
-        DataContext* CreateDataContextBiDirRecv(std::uint64_t conn_id, uint64_t stream_id);
+        std::shared_ptr<DataContext> CreateDataContextBiDirRecv(std::uint64_t conn_id, uint64_t stream_id);
 
         const std::shared_ptr<PicoQuicConnection>& CreateConnection(picoquic_cnx_t* pq_cnx,
                                                                     Connection::API api = Connection::API::kNativeQuic);
 
         void SendNextDatagram(const std::shared_ptr<PicoQuicConnection>& conn_ctx, uint8_t* bytes_ctx, size_t max_len);
 
-        void SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_id, uint8_t* bytes_ctx, size_t max_len);
+        void SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& conn_ctx,
+                             DataContext* data_ctx,
+                             std::uint64_t stream_id,
+                             uint8_t* bytes_ctx,
+                             size_t max_len);
 
         void OnConnectionStatus(const std::shared_ptr<PicoQuicConnection>& connection, TransportStatus status);
 
@@ -313,9 +317,17 @@ namespace quicr {
          * @brief Mark a stream active
          * @details This method MUST only be called within the picoquic thread. Enqueue and other
          *      thread methods can call this via the pq_runner.
+         *
+         * @note The data context ID overload exists for callers that cross a thread boundary via the pq_runner,
+         *      where a context pointer could be deleted before the queued function runs. Callers already
+         *      executing on the picoquic thread should pass the context directly.
          */
         void MarkStreamActive(const std::shared_ptr<PicoQuicConnection>& connection,
                               std::uint64_t data_ctx_id,
+                              std::uint64_t stream_id);
+
+        void MarkStreamActive(const std::shared_ptr<PicoQuicConnection>& connection,
+                              DataContext* data_ctx,
                               std::uint64_t stream_id);
 
         /**
