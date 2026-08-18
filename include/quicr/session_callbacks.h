@@ -123,6 +123,14 @@ namespace quicr {
       public:
         Reply() = default;
 
+        Reply(const Reply& other) = delete;
+
+        Reply(Reply&& other) noexcept = default;
+
+        Reply& operator=(const Reply& other) = delete;
+
+        Reply& operator=(Reply&& other) noexcept = default;
+
         /**
          * @brief Construct an immediate reply from anything the result is constructible from, such as a value,
          *      or an Unexpected error.
@@ -149,7 +157,10 @@ namespace quicr {
         {
             if (IsDeferred()) {
                 std::thread([action = std::move(std::get<DeferType>(result_)), f = std::forward<F>(f)]() mutable {
-                    f(action());
+                    try {
+                        f(action());
+                    } catch (...) {
+                    }
                 }).detach();
                 return;
             }
