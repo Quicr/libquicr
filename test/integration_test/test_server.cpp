@@ -36,6 +36,14 @@ TestPublishTrackHandler::StatusChanged(Status status)
     }
 }
 
+void
+TestPublishTrackHandler::NewGroupRequested(std::uint64_t group_id)
+{
+    if (const auto svr = server_.lock()) {
+        svr->RequestNewGroupUpstream(GetFullTrackName(), group_id);
+    }
+}
+
 TestServer::TestServer(const ServerConfig& config)
   : Session(config)
 {
@@ -159,6 +167,9 @@ TestServer::SubscribeReceived(std::uint64_t connection_id,
             if (sub_handler) {
                 sub_handler->SetPublishHandler(pub_track_handler);
                 sub_handler->Resume();
+                if (subscribe_attributes.new_group_request_id.has_value()) {
+                    sub_handler->RequestNewGroup(*subscribe_attributes.new_group_request_id);
+                }
             }
         }
     }
@@ -336,7 +347,7 @@ TestServer::UnsubscribeReceived(const std::uint64_t, const uint64_t request_id)
 }
 
 void
-TestServer::NewGroupRequested(const quicr::FullTrackName& track_full_name, std::uint64_t group_id)
+TestServer::RequestNewGroupUpstream(const quicr::FullTrackName& track_full_name, std::uint64_t group_id)
 {
     std::lock_guard lock(state_mutex_);
     const auto th = quicr::TrackHash(track_full_name);

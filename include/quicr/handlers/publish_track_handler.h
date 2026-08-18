@@ -77,7 +77,6 @@ namespace quicr {
             kDoneByFin,
             kSendingUnannounce, ///< In this state, callbacks will not be called
             kSubscriptionUpdated,
-            kNewGroupRequested,
             kPendingPublishOk,
             kPaused,
         };
@@ -150,6 +149,12 @@ namespace quicr {
         virtual void MetricsSampled(const PublishTrackMetrics& metrics);
 
         void RequestUpdateReceived(const messages::Parameters& params) override;
+
+        /**
+         * @brief Subscriber requested a new group.
+         * @param group_id The largest group + 1 known by the subscriber, or zero if unknown.
+         */
+        virtual void NewGroupRequested([[maybe_unused]] std::uint64_t group_id) {}
 
         ///@}
 
@@ -226,7 +231,6 @@ namespace quicr {
         {
             switch (GetStatus()) {
                 case Status::kOk:
-                case Status::kNewGroupRequested:
                 case Status::kSubscriptionUpdated:
                     return true;
                 default:

@@ -130,7 +130,6 @@ extern "C"
         QBRIDGE_PUBLISH_STATUS_ANNOUNCE_NOT_AUTHORIZED,   /**< Announce not authorized */
         QBRIDGE_PUBLISH_STATUS_NO_SUBSCRIBERS,            /**< No subscribers */
         QBRIDGE_PUBLISH_STATUS_SUBSCRIPTION_UPDATED,      /**< Subscription updated */
-        QBRIDGE_PUBLISH_STATUS_NEW_GROUP_REQUESTED,       /**< New group requested */
         QBRIDGE_PUBLISH_STATUS_PAUSED                     /**< Publishing paused */
     } qbridge_publish_status_t;
 

@@ -75,9 +75,6 @@ publish_status_callback(qbridge_publish_status_t status, bool can_publish, void*
         case QBRIDGE_PUBLISH_STATUS_SUBSCRIPTION_UPDATED:
             status_str = "Subscription updated";
             break;
-        case QBRIDGE_PUBLISH_STATUS_NEW_GROUP_REQUESTED:
-            status_str = "New group requested";
-            break;
         case QBRIDGE_PUBLISH_STATUS_PAUSED:
             status_str = "Paused - Subscriber requested pause (forward=0)";
             break;

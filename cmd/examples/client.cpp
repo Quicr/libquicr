@@ -17,6 +17,7 @@
 #include <spdlog/spdlog.h>
 #include <timeq/tick_service.h>
 
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -340,10 +341,6 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 SPDLOG_INFO("Publish track alias: {0} has no subscribers", alias);
                 break;
             }
-            case Status::kNewGroupRequested: {
-                SPDLOG_INFO("Publish track alias: {0} has new group request", alias);
-                break;
-            }
             case Status::kSubscriptionUpdated: {
                 SPDLOG_INFO("Publish track alias: {0} has updated subscription", alias);
                 break;
@@ -361,6 +358,43 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                 SPDLOG_INFO("Publish track alias: {0} has status {1}", alias, static_cast<int>(status));
                 break;
         }
+    }
+
+    void NewGroupRequested(std::uint64_t group_id) override
+    {
+        SPDLOG_INFO("Publish track alias: {0} requested new group: {1}", *GetTrackAlias(), group_id);
+        if (group_id != 0 && group_id <= group_id_) {
+            return;
+        }
+        new_group_pending_ = true;
+    }
+
+    bool ConsumeNewGroupRequest() noexcept { return new_group_pending_.exchange(false); }
+
+    std::uint64_t GetGroupId() const noexcept { return group_id_; }
+    std::uint64_t GetSubgroupId() const noexcept { return subgroup_id_; }
+    std::uint64_t GetObjectId() const noexcept { return object_id_; }
+    std::uint64_t NextObjectId() noexcept { return object_id_++; }
+    void SkipGroup() noexcept { ++group_id_; }
+    void SkipObjects(std::uint64_t count) noexcept { object_id_ += count; }
+
+    void StartNextGroup()
+    {
+        if (object_id_ == 0) {
+            return;
+        }
+
+        EndSubgroup(group_id_, subgroup_id_);
+        ++group_id_;
+        object_id_ = 0;
+        subgroup_id_ = 0;
+    }
+
+    void RollGroup(std::uint64_t group_id) noexcept
+    {
+        group_id_ = group_id;
+        object_id_ = 0;
+        subgroup_id_ = 0;
     }
 
     PublishObjectStatus PublishObject(const quicr::ObjectHeaders& object_headers,
@@ -394,6 +428,12 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
             return quicr::PublishTrackHandler::PublishObject(object_headers, data);
         }
     }
+
+  private:
+    std::atomic_uint64_t group_id_{ 0 };
+    std::uint64_t subgroup_id_{ 0 };
+    std::uint64_t object_id_{ 0 };
+    std::atomic_bool new_group_pending_{ false };
 };
 
 class MyFetchTrackHandler : public quicr::FetchTrackHandler
@@ -712,7 +752,7 @@ class MyPublisherNamespaceHandler : public quicr::PublishNamespaceHandler
 
 void
 PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
-                   const std::shared_ptr<quicr::PublishTrackHandler> track_handler,
+                   const std::shared_ptr<MyPublishTrackHandler> track_handler,
                    bool& stop)
 {
     SPDLOG_INFO("Started publisher track");
@@ -721,9 +761,6 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
 
     bool published_track{ false };
     bool sending{ false };
-    uint64_t group_id{ 0 };
-    uint64_t object_id{ 0 };
-    uint64_t subgroup_id{ 0 };
 
     std::ifstream moq_fs;
     std::ifstream data_fs;
@@ -771,31 +808,21 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
         switch (track_handler->GetStatus()) {
             case MyPublishTrackHandler::Status::kOk:
                 break;
-            case MyPublishTrackHandler::Status::kNewGroupRequested:
-                if (object_id) {
-                    track_handler->EndSubgroup(group_id, subgroup_id);
-                    group_id++;
-                    object_id = 0;
-                    subgroup_id = 0;
-                }
-                SPDLOG_INFO("New Group Requested: Now using group {0}", group_id);
-
-                break;
             case MyPublishTrackHandler::Status::kSubscriptionUpdated:
                 SPDLOG_INFO("subscribe updated");
                 break;
             case MyPublishTrackHandler::Status::kNoSubscribers:
                 // Start a new group when a subscriber joins
-                if (object_id) {
-                    track_handler->EndSubgroup(group_id, subgroup_id);
-                    group_id++;
-                    object_id = 0;
-                    subgroup_id = 0;
-                }
+                track_handler->StartNextGroup();
                 [[fallthrough]];
             default:
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 continue;
+        }
+
+        if (track_handler->ConsumeNewGroupRequest()) {
+            track_handler->StartNextGroup();
+            SPDLOG_INFO("New group requested: now using group {0}", track_handler->GetGroupId());
         }
 
         if (!sending) {
@@ -852,18 +879,25 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
                 }
                 std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
-                group_id = static_cast<uint64_t>(
+                track_handler->RollGroup(static_cast<uint64_t>(
                   std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch())
-                    .count());
-                object_id = 0;
-                subgroup_id = 0;
+                    .count()));
 
-                SPDLOG_INFO("Publishing file {} ({} bytes) group_id: {}", watch_path.string(), data.size(), group_id);
+                SPDLOG_INFO("Publishing file {} ({} bytes) group_id: {}",
+                            watch_path.string(),
+                            data.size(),
+                            track_handler->GetGroupId());
 
-                quicr::ObjectHeaders obj_headers = {
-                    group_id,         object_id,      subgroup_id,  data.size(),  quicr::ObjectStatus::kAvailable,
-                    128 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
-                };
+                quicr::ObjectHeaders obj_headers = { track_handler->GetGroupId(),
+                                                     track_handler->NextObjectId(),
+                                                     track_handler->GetSubgroupId(),
+                                                     data.size(),
+                                                     quicr::ObjectStatus::kAvailable,
+                                                     128 /*priority*/,
+                                                     3000 /* ttl */,
+                                                     std::nullopt,
+                                                     std::nullopt,
+                                                     std::nullopt };
 
                 try {
                     if (track_handler->CanPublish()) {
@@ -908,26 +942,26 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
             continue;
         }
 
-        if (object_id && object_id % 15 == 0) { // Set new group
-            track_handler->EndSubgroup(group_id, subgroup_id);
-            object_id = 0;
-            subgroup_id = 0;
-            group_id++;
+        if (const auto object_id = track_handler->GetObjectId(); object_id && object_id % 15 == 0) { // Set new group
+            track_handler->StartNextGroup();
         }
 
-        if (qclient_vars::add_gaps && group_id && group_id % 4 == 0) {
-            group_id += 1;
-        }
+        if (qclient_vars::add_gaps) {
+            if (const auto group_id = track_handler->GetGroupId(); group_id && group_id % 4 == 0) {
+                track_handler->SkipGroup();
+            }
 
-        if (qclient_vars::add_gaps && object_id && object_id % 8 == 0) {
-            object_id += 2;
+            if (const auto object_id = track_handler->GetObjectId(); object_id && object_id % 8 == 0) {
+                track_handler->SkipObjects(2);
+            }
         }
 
         std::string msg;
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = quicr::example::GetTimeStr();
-            SPDLOG_INFO("Group:{0} Object:{1}, Msg:{2}", group_id, object_id, msg);
+            SPDLOG_INFO(
+              "Group:{0} Object:{1}, Msg:{2}", track_handler->GetGroupId(), track_handler->GetObjectId(), msg);
         } else { // stdin
             if (!getline(std::cin, msg)) {
                 break;
@@ -935,10 +969,16 @@ PublishWithHandler(const std::shared_ptr<quicr::Client>& client,
             SPDLOG_INFO("Send message: {0}", msg);
         }
 
-        quicr::ObjectHeaders obj_headers = {
-            group_id,         object_id++,    subgroup_id,  msg.size(),   quicr::ObjectStatus::kAvailable,
-            128 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
-        };
+        quicr::ObjectHeaders obj_headers = { track_handler->GetGroupId(),
+                                             track_handler->NextObjectId(),
+                                             track_handler->GetSubgroupId(),
+                                             msg.size(),
+                                             quicr::ObjectStatus::kAvailable,
+                                             128 /*priority*/,
+                                             3000 /* ttl */,
+                                             std::nullopt,
+                                             std::nullopt,
+                                             std::nullopt };
 
         try {
             if (track_handler->CanPublish()) {
@@ -1003,7 +1043,7 @@ DoPublisher(const std::string prefix_str,
         return;
     }
 
-    std::vector<std::weak_ptr<quicr::PublishTrackHandler>> handlers;
+    std::vector<std::weak_ptr<MyPublishTrackHandler>> handlers;
     for (const auto& name : names) {
         quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, name);
         auto handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 128, 3000);
@@ -1063,8 +1103,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
     // Wait for track handler to be ready
     while (not stop) {
         if (track_handler->GetStatus() == MyPublishTrackHandler::Status::kOk ||
-            track_handler->GetStatus() == MyPublishTrackHandler::Status::kSubscriptionUpdated ||
-            track_handler->GetStatus() == MyPublishTrackHandler::Status::kNewGroupRequested) {
+            track_handler->GetStatus() == MyPublishTrackHandler::Status::kSubscriptionUpdated) {
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(100));

@@ -82,8 +82,6 @@ namespace quicr {
             case Status::kAnnounceNotAuthorized:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAuthorized;
-            case Status::kNewGroupRequested:
-                [[fallthrough]];
             case Status::kSubscriptionUpdated: {
                 // reset the status to ok to imply change
                 if (!is_new_stream) {
@@ -198,13 +196,6 @@ namespace quicr {
             case Status::kAnnounceNotAuthorized:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kNotAuthorized;
-            case Status::kNewGroupRequested: {
-                // reset the status to ok to imply change
-                auto current = status;
-                publish_status_.compare_exchange_strong(
-                  current, Status::kOk, std::memory_order_acq_rel, std::memory_order_acquire);
-                break;
-            }
             case Status::kSubscriptionUpdated: {
 
                 /*
@@ -436,8 +427,7 @@ namespace quicr {
                 if (!support_new_group_request_) {
                     throw messages::ProtocolViolationException("Must not request new group on non-dynamic track");
                 }
-                // TODO: Use the NEW_GROUP_REQUEST value to do something.
-                SetStatus(Status::kNewGroupRequested);
+                NewGroupRequested(*ngr);
             }
 
             const auto forward = messages::ResolveForward(params, true);
@@ -464,7 +454,7 @@ namespace quicr {
         }
 
         if (auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
-            SetStatus(Status::kNewGroupRequested);
+            NewGroupRequested(*ngr);
         }
 
         if (const auto transport = GetTransport().lock()) {
