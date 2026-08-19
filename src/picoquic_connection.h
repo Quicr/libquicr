@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "data_context.h"
 #include "quicr/connection.h"
 #include "quicr/containers/priority_queue.h"
 #include "quicr/containers/safe_queue.h"
@@ -22,30 +23,30 @@
 namespace quicr {
 
     /**
-     * Data context information
-     *  Data context is intended to be a container for metrics and other state that is
-     *  related to a flow of data that may use datagram or one or more stream QUIC frames
+     * Picoquic data context state
+     *  Container for metrics and other picoquic specific state that is related to a flow of data
+     *  that may use datagram or one or more stream QUIC frames
      */
-    struct DataContext
+    struct PicoQuicDataContext : public DataContext
     {
       public:
-        DataContext() = default;
+        PicoQuicDataContext(std::uint64_t id, std::uint64_t conn_id, bool bidir, bool uses_reset_wait)
+          : DataContext(id, conn_id, bidir)
+          , uses_reset_wait(uses_reset_wait)
+        {
+        }
 
-        /// Contexts are owned via shared_ptr and referenced by raw pointer from picoquic stream contexts,
-        /// so they must never be copied or relocated.
-        DataContext(const DataContext&) = delete;
-        DataContext(DataContext&&) = delete;
-        DataContext& operator=(const DataContext&) = delete;
-        DataContext& operator=(DataContext&&) = delete;
+        ~PicoQuicDataContext() = default;
 
-        ~DataContext() = default;
+        /// @returns Owning handle to this context, for internals that hold only a raw pointer.
+        std::shared_ptr<PicoQuicDataContext> SharedFromThis()
+        {
+            return std::static_pointer_cast<PicoQuicDataContext>(shared_from_this());
+        }
 
       public:
-        std::uint64_t data_ctx_id{ 0 };     /// The ID of this context
-        std::uint64_t conn_id{ 0 };         /// The connection ID this context is under
-        bool is_bidir : 1 { false };        /// Indicates if the stream is bidir (true) or unidir (false)
-        bool uses_reset_wait : 1 { false }; /// Indicates if data context can/uses reset wait strategy
-        bool delete_on_empty{ false };      /// Instructs TX objects to be discarded on POP instead
+        bool uses_reset_wait{ false }; /// Indicates if data context can/uses reset wait strategy
+        bool delete_on_empty{ false }; /// Instructs TX objects to be discarded on POP instead
 
         QuicDataContextMetrics metrics;
 
@@ -145,16 +146,16 @@ namespace quicr {
         ///@{
 
         /// @returns Handle to the data context, or nullptr if no such context exists.
-        std::shared_ptr<DataContext> GetDataContext(std::uint64_t data_ctx_id) const;
+        std::shared_ptr<PicoQuicDataContext> GetDataContext(std::uint64_t data_ctx_id) const;
 
         /// @returns Handle to a newly created data context with the next available ID assigned.
-        std::shared_ptr<DataContext> AddDataContext(bool bidir, bool uses_reset_wait);
+        std::shared_ptr<PicoQuicDataContext> AddDataContext(bool bidir, bool uses_reset_wait);
 
         /// @returns Handle to the removed data context, or nullptr if no such context existed.
-        std::shared_ptr<DataContext> RemoveDataContext(std::uint64_t data_ctx_id);
+        std::shared_ptr<PicoQuicDataContext> RemoveDataContext(std::uint64_t data_ctx_id);
 
         /// @returns Snapshot of all active data contexts, safe to iterate without holding the lock.
-        std::vector<std::shared_ptr<DataContext>> GetDataContexts() const;
+        std::vector<std::shared_ptr<PicoQuicDataContext>> GetDataContexts() const;
 
         ///@}
 
@@ -182,7 +183,7 @@ namespace quicr {
          * Used in WebTransport mode to look up data context for a stream. The mapping does not own the
          * context; contexts are owned by active_data_contexts.
          */
-        std::map<std::uint64_t, std::weak_ptr<DataContext>> wt_stream_to_data_ctx;
+        std::map<std::uint64_t, std::weak_ptr<PicoQuicDataContext>> wt_stream_to_data_ctx;
 
         /// WebTransport HTTP/3 context for this connection (only used in WebTransport mode)
         /// - Server mode: created by h3zero_callback per connection
@@ -220,7 +221,7 @@ namespace quicr {
 
       private:
         /// Active data contexts (streams bidir/unidir and datagram)
-        std::map<std::uint64_t, std::shared_ptr<DataContext>> active_data_contexts_;
+        std::map<std::uint64_t, std::shared_ptr<PicoQuicDataContext>> active_data_contexts_;
 
         /// Next data context ID; zero is reserved for default context
         std::uint64_t next_data_ctx_id_{ 1 };
