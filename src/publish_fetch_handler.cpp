@@ -43,7 +43,7 @@ namespace quicr {
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
 
-            stream_id_ = session->CreateStream(publish_data_ctx_id_, priority);
+            stream_id_ = session->CreateStream(publish_data_ctx_, priority);
 
             messages::FetchHeader fetch_hdr;
             fetch_hdr.request_id = *request_id;
@@ -51,7 +51,7 @@ namespace quicr {
 
             auto result = session->Enqueue(
 
-              publish_data_ctx_id_,
+              publish_data_ctx_,
               stream_id_,
               std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
               priority,
@@ -73,15 +73,14 @@ namespace quicr {
         auto object = next_serialization_state.Encode(object_headers, priority, data);
         object_msg_buffer_ << object;
 
-        auto result = session->Enqueue(
-
-          publish_data_ctx_id_,
-          stream_id_,
-          std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-          priority,
-          ttl,
-          0,
-          eflags);
+        auto result =
+          session->Enqueue(publish_data_ctx_,
+                           stream_id_,
+                           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
+                           priority,
+                           ttl,
+                           0,
+                           eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);

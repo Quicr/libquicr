@@ -352,13 +352,11 @@ namespace quicr {
          *
          * @note The implementor **MUST** call `ResolveSubscribeNamespace()`.
          *
-         * @param data_ctx_id        Data context ID that the message was received on
          * @param prefix_namespace   Track namespace prefix
          * @param attributes         Attributes received
          */
         virtual Reply<std::vector<TrackNamespace>, RequestErrorCode> SubscribeNamespaceReceived(
           const std::shared_ptr<Session>& session,
-          std::uint64_t data_ctx_id,
           const TrackNamespace& prefix_namespace,
           const SubscribeNamespaceAttributes& attributes);
 
@@ -369,13 +367,11 @@ namespace quicr {
          *
          * @note The implementor **MUST** call `ResolveSubscribeTracks()`.
          *
-         * @param data_ctx_id        Data context ID that the message was received on
          * @param prefix_namespace   Track namespace prefix
          * @param attributes         Attributes received
          */
         virtual Reply<std::vector<TrackNamespace>, RequestErrorCode> SubscribeTracksReceived(
           const std::shared_ptr<Session>& session,
-          std::uint64_t data_ctx_id,
           const TrackNamespace& prefix_namespace,
           const SubscribeNamespaceAttributes& attributes);
 

@@ -182,20 +182,18 @@ namespace quicr {
     void SubscribeTrackHandler::Pause() noexcept
     {
         auto session = GetSession().lock();
-        if (!session || status_ == Status::kPaused || status_ == Status::kNotConnected ||
-            !GetDataContextId().has_value()) {
+        if (!session || status_ == Status::kPaused || status_ == Status::kNotConnected || GetDataContext() == nullptr) {
             return;
         }
 
         status_ = Status::kPaused;
-        session->SendRequestUpdate(
-          GetDataContextId().value(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), false);
+        session->SendRequestUpdate(GetDataContext(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), false);
     }
 
     void SubscribeTrackHandler::Resume() noexcept
     {
         auto session = GetSession().lock();
-        if (!session || !GetDataContextId().has_value()) {
+        if (!session || GetDataContext() == nullptr) {
             return;
         }
 
@@ -204,19 +202,17 @@ namespace quicr {
         }
 
         status_ = Status::kOk;
-        session->SendRequestUpdate(
-          GetDataContextId().value(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), true);
+        session->SendRequestUpdate(GetDataContext(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), true);
     }
 
     void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
     {
         auto session = GetSession().lock();
-        if (!session || status_ != Status::kOk || !support_new_group_request_ || !GetDataContextId().has_value()) {
+        if (!session || status_ != Status::kOk || !support_new_group_request_ || GetDataContext() == nullptr) {
             return;
         }
 
-        session->SendRequestUpdate(
-          GetDataContextId().value(), TrackHash(GetFullTrackName()), group_id, GetPriority(), true);
+        session->SendRequestUpdate(GetDataContext(), TrackHash(GetFullTrackName()), group_id, GetPriority(), true);
     }
 
     void SubscribeTrackHandler::StreamClosed(std::uint64_t stream_id, bool)
