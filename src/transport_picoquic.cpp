@@ -712,8 +712,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
 
             // Process received data
             if (length > 0) {
-                transport->OnRecvStreamBytes(
-                  connection, data_ctx.get(), stream_id, is_fin, std::span{ bytes, length });
+                transport->OnRecvStreamBytes(connection, data_ctx.get(), stream_id, is_fin, std::span{ bytes, length });
             }
 
             if (is_fin) {
@@ -1713,10 +1712,8 @@ PicoQuicTransport::SendNextDatagram(const std::shared_ptr<PicoQuicConnection>& c
         }
 
         if (out_data->get().data == nullptr || out_data->get().data->size() == 0) {
-            SPDLOG_LOGGER_ERROR(logger,
-                                "conn_id: {} data_ctx_id: {} has ZERO data size",
-                                data_ctx->conn_id,
-                                data_ctx->data_ctx_id);
+            SPDLOG_LOGGER_ERROR(
+              logger, "conn_id: {} data_ctx_id: {} has ZERO data size", data_ctx->conn_id, data_ctx->data_ctx_id);
             connection->dgram_tx_data->Pop();
             return;
         }
@@ -2816,10 +2813,8 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
             throw PicoQuicException("WebTransport context not initialized for connection");
         }
 
-        h3zero_stream_ctx_t* stream_ctx = picowt_create_local_stream(pq_conn->pq_cnx,
-                                                                     data_ctx->is_bidir ? 1 : 0,
-                                                                     pq_conn->wt_h3_ctx,
-                                                                     pq_conn->wt_control_stream_ctx->stream_id);
+        h3zero_stream_ctx_t* stream_ctx = picowt_create_local_stream(
+          pq_conn->pq_cnx, data_ctx->is_bidir ? 1 : 0, pq_conn->wt_h3_ctx, pq_conn->wt_control_stream_ctx->stream_id);
 
         if (!stream_ctx) {
             SPDLOG_LOGGER_ERROR(logger, "Failed to create WebTransport stream");
