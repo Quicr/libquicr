@@ -34,6 +34,25 @@ namespace spdlog {
 namespace quicr {
 
     /**
+     * @brief Response to a received subscribe or track status request
+     */
+    struct RequestResponse
+    {
+        bool is_publisher_initiated = false;
+        std::optional<messages::Location> largest_location = std::nullopt;
+        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+    };
+
+    /**
+     * @brief Response to a received MOQT Fetch message
+     */
+    struct FetchResponse
+    {
+        std::optional<messages::Location> largest_location = std::nullopt;
+        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+    };
+
+    /**
      * @brief MoQ Session endpoint supporting connection-explicit operations
      *
      * @details Unified MoQ transport endpoint that operates in either client or server mode depending on
@@ -64,6 +83,17 @@ namespace quicr {
             kFailedToConnect,
             kPendingServerSetup,
         };
+
+        /**
+         * @brief Callback interfaces for session events
+         *
+         * @details Nested under `Session` so that callback signatures can reference `Session::Status` (and other
+         *      nested `Session` types) directly. Defined out-of-line in `session_callbacks.h`, which is included
+         *      after this class is fully defined.
+         */
+        struct Callbacks;
+        struct ClientCallbacks;
+        struct ServerCallbacks;
 
         /**
          * @brief Control message status codes
@@ -112,26 +142,6 @@ namespace quicr {
             std::uint64_t data_ctx_id{ 0 };
         };
 
-        /**
-         * @brief Response to received MOQT Announce message
-         */
-        struct PublishNamespaceResponse
-        {
-            /**
-             * @details **kOK** indicates that the announce is accepted and OK should be sent. Any other
-             *       value indicates that the announce is not accepted and the reason code and other
-             *       fields will be set.
-             */
-            enum class ReasonCode : uint8_t
-            {
-                kOk = 0,
-                kInternalError
-            };
-            ReasonCode reason_code;
-
-            std::optional<Bytes> error_reason;
-        };
-
         struct RequestUpdateResponse
         {
             struct Error
@@ -153,10 +163,11 @@ namespace quicr {
         static std::shared_ptr<Session> Create(const ClientConfig& cfg,
                                                std::shared_ptr<Transport> transport,
                                                std::shared_ptr<Connection> connection,
+                                               std::shared_ptr<ClientCallbacks> callbacks,
                                                std::shared_ptr<timeq::tick_service> tick_service)
         {
-            return std::shared_ptr<Session>(
-              new Session(cfg, std::move(transport), std::move(connection), std::move(tick_service)));
+            return std::shared_ptr<Session>(new Session(
+              cfg, std::move(transport), std::move(connection), std::move(callbacks), std::move(tick_service)));
         }
 
         /**
@@ -167,10 +178,11 @@ namespace quicr {
         static std::shared_ptr<Session> Create(const ServerConfig& cfg,
                                                std::shared_ptr<Transport> transport,
                                                std::shared_ptr<Connection> connection,
+                                               std::shared_ptr<ServerCallbacks> callbacks,
                                                std::shared_ptr<timeq::tick_service> tick_service)
         {
-            return std::shared_ptr<Session>(
-              new Session(cfg, std::move(transport), std::move(connection), std::move(tick_service)));
+            return std::shared_ptr<Session>(new Session(
+              cfg, std::move(transport), std::move(connection), std::move(callbacks), std::move(tick_service)));
         }
 
         virtual ~Session();
@@ -289,25 +301,6 @@ namespace quicr {
         ///@{
 
         /**
-         * @brief Accept or reject publish that was received
-         *
-         * @details Accept or reject publish received via PublishReceived(). The MoQ Transport
-         *      will send the protocol message based on the PublishResponse
-         *      This method will SubscribeTrack() using the handler passed and the
-         *      attributes provided.
-         *
-         * @param request_id                Request ID
-         * @param attributes                Attributes for the accepted publish
-         * @param publish_response          response for the publish
-         * @param handler                   Constructed SubscribeTrackHandler to subscribe track using
-         *                                  Clients set this, relay/server does not need to.
-         */
-        void ResolvePublish(uint64_t request_id,
-                            const PublishAttributes& attributes,
-                            const PublishResponse& publish_response,
-                            std::shared_ptr<SubscribeTrackHandler> handler);
-
-        /**
          * @brief Accept or reject a subscribe that was received
          *
          * @details Accept or reject a subscribe received via `SubscribeReceived()` (server mode) or when acting
@@ -321,36 +314,6 @@ namespace quicr {
         void ResolveSubscribe(uint64_t request_id, uint64_t track_alias, const RequestResponse& subscribe_response);
 
         /**
-         * @brief Accept or reject subscribe namespace that was received
-         *
-         * @details Server mode only. Called after `SubscribeNamespaceReceived()`.
-         *
-         * @param data_ctx_id       Data context ID for the bidir connection to use
-         * @param request_id        Request ID
-         * @param prefix            Track namespace prefix
-         * @param response          Response for remainder of subscribe namespace flow
-         */
-        void ResolveSubscribeNamespace(std::uint64_t data_ctx_id,
-                                       uint64_t request_id,
-                                       const TrackNamespace& prefix,
-                                       const SubscribeNamespaceResponse& response);
-
-        /**
-         * @brief Accept or reject subscribe tracks that was received
-         *
-         * @details Server mode only. Called after `SubscribeTracksReceived()`.
-         *
-         * @param data_ctx_id       Data context ID for the bidir connection to use
-         * @param request_id        Request ID
-         * @param prefix            Track namespace prefix
-         * @param response          Response for remainder of subscribe tracks flow
-         */
-        void ResolveSubscribeTracks(std::uint64_t data_ctx_id,
-                                    uint64_t request_id,
-                                    const TrackNamespace& prefix,
-                                    const SubscribeNamespaceResponse& response);
-
-        /**
          * @brief Accept or reject a fetch that was received
          *
          * @details Accept or reject a fetch received via `StandaloneFetchReceived()` or
@@ -362,24 +325,8 @@ namespace quicr {
          * @param response          Response to the fetch
          */
         void ResolveFetch(uint64_t request_id,
-                          std::uint8_t priority,
                           std::optional<messages::GroupOrder> group_order,
                           const FetchResponse& response);
-
-        /**
-         * @brief Accept or reject an announce that was received
-         *
-         * @details Server mode only. Accept or reject an announce received via `PublishNamespaceReceived()`.
-         *      The MoQ transport will send the protocol message based on the `PublishNamespaceResponse`.
-         *      Subscribers defined will be sent a copy of the announcement.
-         *
-         * @param request_id         Request ID received for the announce request
-         * @param track_namespace    Track namespace
-         * @param announce_response  Response for the announcement
-         */
-        void ResolvePublishNamespace(uint64_t request_id,
-                                     const TrackNamespace& track_namespace,
-                                     const PublishNamespaceResponse& announce_response);
 
         /**
          * @brief Accept or reject a request update
@@ -458,114 +405,10 @@ namespace quicr {
         // --END SERVER RELAY METHODS ------------------------------------------------------------------------
 
         // --BEGIN CALLBACKS ---------------------------------------------------------------------------------
-        /** @name Base Callbacks
-         *  Callbacks that may be invoked in either client or server mode.
-         */
-        ///@{
-        /**
-         * @brief Callback notification for status/state change
-         * @details Callback notification indicates state change of connection, such as disconnected
-         *
-         * @param status           Changed Status value
-         */
-        virtual void StatusChanged([[maybe_unused]] Status status) {}
-
-        /**
-         * @brief Callback notification for new publish received
-         *
-         * @details The app must call `ResolvePublish()` with a reason code of OK to accept, or another reason code
-         *      to reject. In client mode the default implementation rejects with `kNotSupported`.
-         *
-         * @param request_id         Incoming publish request ID
-         * @param publish_attributes Attributes of the publish
-         * @param sub_ns_handler     Matching subscribe namespace handler, if any
-         */
-        virtual void PublishReceived(uint64_t request_id,
-                                     const PublishAttributes& publish_attributes,
-                                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler);
-
-        /**
-         * @brief Event to run on receiving a Standalone Fetch request.
-         *
-         * @param request_id        Request ID received.
-         * @param track_full_name   Track full name
-         * @param attributes        Fetch attributes received.
-         */
-        virtual void StandaloneFetchReceived(uint64_t request_id,
-                                             const FullTrackName& track_full_name,
-                                             const StandaloneFetchAttributes& attributes);
-
-        /**
-         * @brief Event to run on receiving a Joining Fetch request.
-         *
-         * @param request_id        Request ID received.
-         * @param track_full_name   Track full name
-         * @param attributes        Fetch attributes received.
-         */
-        virtual void JoiningFetchReceived(uint64_t request_id,
-                                          const FullTrackName& track_full_name,
-                                          const JoiningFetchAttributes& attributes);
-
-        /**
-         * @brief Callback notification on receiving a FetchCancel message.
-         *
-         * @param request_id        Request ID received.
-         */
-        virtual void FetchCancelReceived(uint64_t request_id);
-
-        /**
-         * @brief Callback notification for track status message received
-         *
-         * @note The caller **MUST** respond to this via ResolveTrackStatus(). If the caller does not
-         * override this method, the default will call ResolveTrackStatus() with the status of OK
-         *
-         * @param request_id            Request ID received
-         * @param track_full_name       Track full name
-         */
-        virtual void TrackStatusReceived(uint64_t request_id, const FullTrackName& track_full_name);
-
-        ///@}
-
         /** @name Client Callbacks
          *      Callbacks invoked in client mode unless noted otherwise.
          */
         ///@{
-
-        /**
-         * @brief Callback on server setup message
-         *
-         * @details Server will send server setup in response to client setup message sent. This callback is
-         *      called when a server setup has been received. Client mode only.
-         *
-         * @param server_setup_attributes Server setup attributes received
-         */
-        virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes);
-
-        /**
-         * @brief Callback notification for announce received by subscribe namespace
-         *
-         * @details Client mode only. Called when a PUBLISH_NAMESPACE is received for a subscribed prefix.
-         *
-         * @param track_namespace                Track namespace
-         * @param publish_namespace_attributes   Publish announce attributes received
-         */
-        virtual void PublishNamespaceReceived(const TrackNamespace& track_namespace,
-                                              const PublishNamespaceAttributes& publish_namespace_attributes);
-
-        /**
-         * @brief Callback notification for new subscribe received that doesn't match an existing publish track
-         *
-         * @details Client mode only. When a new subscribe is received that doesn't match any existing publish
-         *      track, this method signals the application that there is a new subscribe full track name. The
-         *      application should `PublishTrack()` within this callback (or afterwards).
-         *
-         * @note The caller **MUST** respond via `ResolveSubscribe()`.
-         *
-         * @param track_full_name      Track full name
-         * @param subscribe_attributes Subscribe attributes received
-         */
-        virtual void UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
-                                                  const SubscribeAttributes& subscribe_attributes);
 
         /**
          * @brief Notification callback to provide sampled metrics
@@ -585,114 +428,6 @@ namespace quicr {
          */
         ///@{
 
-        /**
-         * @brief Callback on client setup message
-         *
-         * @details Server mode only. Client will send a setup message on new connection. Server responds with
-         *      server setup.
-         *
-         * @param client_setup_attributes Decoded client setup message
-         */
-        virtual void ClientSetupReceived(const ClientSetupAttributes& client_setup_attributes);
-
-        /**
-         * @brief Callback notification for publish namespace done received
-         *
-         * @details Server mode only. The callback will indicate that publish namespace done has been received.
-         *      The app should return a vector of connection handler ids that should receive a copy of the publish
-         *      namespace done message. The returned list is based on subscribe namespace prefix matching.
-         *
-         * @param request_id        Request ID for the namespace that is done
-         *
-         * @returns Vector of subscribe namespace connection handler ids matching prefix to the namespace being
-         *      marked as done.
-         */
-        virtual std::vector<std::uint64_t> PublishNamespaceDoneReceived(std::uint64_t request_id);
-
-        /**
-         * @brief Callback notification for unsubscribe namespace received
-         *
-         * @details Server mode only.
-         *
-         * @param prefix_namespace  Prefix namespace
-         */
-        virtual void UnsubscribeNamespaceReceived(const TrackNamespace& prefix_namespace);
-
-        /**
-         * @brief Callback notification for new subscribe namespace received
-         *
-         * @details Server mode only.
-         *
-         * @note The implementor **MUST** call `ResolveSubscribeNamespace()`.
-         *
-         * @param data_ctx_id        Data context ID that the message was received on
-         * @param prefix_namespace   Track namespace prefix
-         * @param attributes         Attributes received
-         */
-        virtual void SubscribeNamespaceReceived(std::uint64_t data_ctx_id,
-                                                const TrackNamespace& prefix_namespace,
-                                                const SubscribeNamespaceAttributes& attributes);
-
-        /**
-         * @brief Callback notification for new subscribe tracks received
-         *
-         * @details Server mode only.
-         *
-         * @note The implementor **MUST** call `ResolveSubscribeTracks()`.
-         *
-         * @param data_ctx_id        Data context ID that the message was received on
-         * @param prefix_namespace   Track namespace prefix
-         * @param attributes         Attributes received
-         */
-        virtual void SubscribeTracksReceived(std::uint64_t data_ctx_id,
-                                             const TrackNamespace& prefix_namespace,
-                                             const SubscribeNamespaceAttributes& attributes);
-
-        /**
-         * @brief Callback notification for new subscribe received
-         *
-         * @details Server mode only.
-         *
-         * @note The caller **MUST** respond to this via `ResolveSubscribe()`. If the caller does not override this
-         *      method, the default will call `ResolveSubscribe()` with the status of OK.
-         *
-         * @param request_id           Request ID received
-         * @param track_full_name      Track full name
-         * @param subscribe_attributes Subscribe attributes received
-         */
-        virtual void SubscribeReceived(uint64_t request_id,
-                                       const FullTrackName& track_full_name,
-                                       const SubscribeAttributes& subscribe_attributes);
-
-        /**
-         * @brief Callback notification on unsubscribe received
-         *
-         * @details Server mode only.
-         *
-         * @param request_id        Request ID received
-         */
-        virtual void UnsubscribeReceived(uint64_t request_id);
-
-        /**
-         * @brief Callback notification on publish done received
-         *
-         * @details Server mode only.
-         *
-         * @param request_id        Request ID received
-         */
-        virtual void PublishDoneReceived(uint64_t request_id);
-
-        /**
-         * @brief New group requested received by a subscription
-         *
-         * @details Server mode only.
-         *
-         * @param track_full_name Track full name
-         * @param group_id        Group ID requested — should be plus one of current group or zero
-         */
-        virtual void NewGroupRequested(const FullTrackName& track_full_name, std::uint64_t group_id);
-
-        ///@}
         // --END CALLBACKS -----------------------------------------------------------------------------------
 
       protected:
@@ -703,10 +438,14 @@ namespace quicr {
          *
          * @param cfg MoQ Client Configuration
          */
-        Session(const ClientConfig& cfg, std::shared_ptr<Transport> transport, std::shared_ptr<Connection> connection)
+        Session(const ClientConfig& cfg,
+                std::shared_ptr<Transport> transport,
+                std::shared_ptr<Connection> connection,
+                std::shared_ptr<ClientCallbacks> callbacks)
           : Session(cfg,
                     std::move(transport),
                     std::move(connection),
+                    std::move(callbacks),
                     std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us))
         {
         }
@@ -716,10 +455,14 @@ namespace quicr {
          *
          * @param cfg MoQ Server Configuration
          */
-        Session(const ServerConfig& cfg, std::shared_ptr<Transport> transport, std::shared_ptr<Connection> connection)
+        Session(const ServerConfig& cfg,
+                std::shared_ptr<Transport> transport,
+                std::shared_ptr<Connection> connection,
+                std::shared_ptr<ServerCallbacks> callbacks)
           : Session(cfg,
                     std::move(transport),
                     std::move(connection),
+                    std::move(callbacks),
                     std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us))
         {
         }
@@ -733,6 +476,7 @@ namespace quicr {
         Session(const ClientConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
+                std::shared_ptr<ClientCallbacks> callbacks,
                 std::shared_ptr<timeq::tick_service> tick_service);
 
         /**
@@ -744,6 +488,7 @@ namespace quicr {
         Session(const ServerConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
+                std::shared_ptr<ServerCallbacks> callbacks,
                 std::shared_ptr<timeq::tick_service> tick_service);
 
         void OnStreamClosed(std::uint64_t stream_id,
@@ -786,11 +531,7 @@ namespace quicr {
 
         bool ProcessCtrlMessage(messages::ControlMessageType msg_type, BytesSpan msg_bytes);
 
-        void SetStatus(Status status)
-        {
-            status_ = status;
-            StatusChanged(status);
-        }
+        void SetStatus(Status status);
 
         void SendCtrlMsg(std::uint64_t data_ctx_id, std::shared_ptr<const std::vector<uint8_t>> data);
 
@@ -965,6 +706,8 @@ namespace quicr {
 
       private:
         std::shared_ptr<Connection> current_connection_;
+
+        std::shared_ptr<Callbacks> callbacks_;
 
         std::optional<std::uint64_t> rx_ctrl_stream_id_;
 
