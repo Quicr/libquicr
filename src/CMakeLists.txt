@@ -31,6 +31,7 @@ target_sources(quicr PRIVATE
     publish_fetch_handler.cpp
     publish_namespace_handler.cpp
     publish_track_handler.cpp
+    session_callbacks.cpp
     session_manager.cpp
     session.cpp
     subscribe_namespace_handler.cpp

@@ -108,24 +108,6 @@ namespace quicr {
         }
     }
 
-    std::shared_ptr<Session> SessionManager::Callbacks::CreateClientSession(
-      const ClientConfig& cfg,
-      std::shared_ptr<Transport> transport,
-      std::shared_ptr<Connection> connection,
-      std::shared_ptr<timeq::tick_service> tick_service)
-    {
-        return Session::Create(cfg, std::move(transport), std::move(connection), std::move(tick_service));
-    }
-
-    std::shared_ptr<Session> SessionManager::Callbacks::CreateServerSession(
-      const ServerConfig& cfg,
-      std::shared_ptr<Transport> transport,
-      std::shared_ptr<Connection> connection,
-      std::shared_ptr<timeq::tick_service> tick_service)
-    {
-        return Session::Create(cfg, std::move(transport), std::move(connection), std::move(tick_service));
-    }
-
     void SessionManager::Callbacks::OnNewServerSession(const std::shared_ptr<Session>& new_session) {}
 
     void SessionManager::Callbacks::OnSessionRemoved(const std::shared_ptr<Session>& session) {}
@@ -179,7 +161,8 @@ namespace quicr {
         spdlog::drop(logger_->name());
     }
 
-    std::weak_ptr<Session> SessionManager::AddTransport(const ClientConfig& config)
+    std::weak_ptr<Session> SessionManager::AddTransport(const ClientConfig& config,
+                                                        std::shared_ptr<Session::ClientCallbacks> callbacks)
     {
         TransportRemote relay;
         auto parse_result = ParseConnectUri(config.connect_uri);
@@ -210,7 +193,7 @@ namespace quicr {
             return {};
         }
 
-        auto session = callbacks_->CreateClientSession(config, transport, connection, tick_service_);
+        auto session = Session::Create(config, transport, connection, std::move(callbacks), tick_service_);
 
         connection->SetDelegate(session);
 
@@ -219,7 +202,7 @@ namespace quicr {
         return { sessions_[connection->GetID()] = session };
     }
 
-    void SessionManager::AddTransport(const ServerConfig& config)
+    void SessionManager::AddTransport(const ServerConfig& config, std::shared_ptr<Session::ServerCallbacks> callbacks)
     {
         TransportRemote server;
         server.host_or_ip = config.server_bind_ip;
@@ -233,18 +216,19 @@ namespace quicr {
 
         auto transport = Transport::MakeServerTransport(server, config.transport_config, tick_service_, logger_);
 
-        transport->OnNewConnection = [=, this, wtransport = std::weak_ptr(transport)](const auto& connection) {
-            auto transport = wtransport.lock();
-            auto session = callbacks_->CreateServerSession(config, transport, connection, tick_service_);
-            connection->SetDelegate(session);
+        transport->OnNewConnection =
+          [=, this, wtransport = std::weak_ptr(transport), callbacks = std::move(callbacks)](const auto& connection) {
+              auto transport = wtransport.lock();
+              auto session = Session::Create(config, transport, connection, callbacks, tick_service_);
+              connection->SetDelegate(session);
 
-            {
-                std::lock_guard<std::mutex> lock(mutex_);
-                sessions_[connection->GetID()] = session;
-            }
+              {
+                  std::lock_guard<std::mutex> lock(mutex_);
+                  sessions_[connection->GetID()] = session;
+              }
 
-            callbacks_->OnNewServerSession(session);
-        };
+              callbacks_->OnNewServerSession(session);
+          };
 
         transport->OnConnectionClosed = on_connection_closed_;
 

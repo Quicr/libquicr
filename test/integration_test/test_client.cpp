@@ -1,37 +1,37 @@
 #include "test_client.h"
 
 #include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/session.h"
 
 using namespace quicr;
 using namespace quicr_test;
 
-TestClient::TestClient(const ClientConfig& cfg,
-                       std::shared_ptr<Transport> transport,
-                       std::shared_ptr<Connection> connection,
-                       std::shared_ptr<timeq::tick_service> tick_service)
-  : Session(cfg, std::move(transport), std::move(connection), std::move(tick_service))
-{
-}
-
-void
-TestClient::ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes)
+quicr::Reply<void, int>
+TestClient::ServerSetupReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
+                                const ServerSetupAttributes& server_setup_attributes)
 {
     if (client_connected_) {
         client_connected_->set_value(server_setup_attributes);
     }
+
+    return {};
 }
 
-void
-TestClient::PublishNamespaceReceived([[maybe_unused]] const TrackNamespace& track_namespace,
+quicr::Reply<void, quicr::PublishNamespaceErrorCode>
+TestClient::PublishNamespaceReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
+                                     [[maybe_unused]] const TrackNamespace& track_namespace,
                                      [[maybe_unused]] const PublishNamespaceAttributes& publish_namespace_attributes)
 {
     if (publish_namespace_received_) {
         publish_namespace_received_->set_value(track_namespace);
     }
+
+    return {};
 }
 
-void
-TestClient::PublishReceived(uint64_t request_id,
+quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode>
+TestClient::PublishReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
+                            [[maybe_unused]] std::uint64_t request_id,
                             const quicr::PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> ns_handler)
 {
@@ -43,5 +43,5 @@ TestClient::PublishReceived(uint64_t request_id,
         publish_received_->set_value(publish_attributes.track_full_name);
     }
 
-    ResolvePublish(request_id, publish_attributes, { .reason_code = PublishResponse::ReasonCode::kOk }, sub_handler);
+    return quicr::PublishResponse{ {}, sub_handler };
 }
