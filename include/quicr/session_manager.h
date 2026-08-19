@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/config.h"
+#include "quicr/session.h"
 
 #include <cstdint>
 #include <functional>
@@ -22,7 +23,6 @@ namespace spdlog {
 namespace quicr {
 
     class Connection;
-    class Session;
     class Transport;
     class TrackHandler;
 
@@ -32,16 +32,6 @@ namespace quicr {
         struct Callbacks
         {
             virtual ~Callbacks() = default;
-
-            virtual std::shared_ptr<Session> CreateClientSession(const ClientConfig& cfg,
-                                                                 std::shared_ptr<Transport> transport,
-                                                                 std::shared_ptr<Connection> connection,
-                                                                 std::shared_ptr<timeq::tick_service> tick_service);
-
-            virtual std::shared_ptr<Session> CreateServerSession(const ServerConfig& cfg,
-                                                                 std::shared_ptr<Transport> transport,
-                                                                 std::shared_ptr<Connection> connection,
-                                                                 std::shared_ptr<timeq::tick_service> tick_service);
 
             virtual void OnNewServerSession(const std::shared_ptr<Session>& new_session);
 
@@ -59,9 +49,10 @@ namespace quicr {
 
         ~SessionManager();
 
-        std::weak_ptr<Session> AddTransport(const ClientConfig& config);
+        std::weak_ptr<Session> AddTransport(const ClientConfig& config,
+                                            std::shared_ptr<Session::ClientCallbacks> callbacks = nullptr);
 
-        void AddTransport(const ServerConfig& config);
+        void AddTransport(const ServerConfig& config, std::shared_ptr<Session::ServerCallbacks> callbacks = nullptr);
 
         void AddHandler(const std::shared_ptr<Session>& session, std::shared_ptr<TrackHandler> handler);
 
