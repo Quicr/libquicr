@@ -140,14 +140,13 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
 
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
 TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& session,
-                                    const std::uint64_t data_ctx_id,
                                     const TrackNamespace& prefix_namespace,
                                     const SubscribeNamespaceAttributes& attributes)
 {
     std::lock_guard lock(state_mutex_);
 
     if (subscribe_namespace_promise_.has_value()) {
-        subscribe_namespace_promise_->set_value({ data_ctx_id, prefix_namespace, attributes });
+        subscribe_namespace_promise_->set_value({ prefix_namespace, attributes });
     }
 
     auto ns_handler = PublishNamespaceHandler::Create(prefix_namespace);
@@ -174,7 +173,6 @@ TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& sessi
 
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
 TestServer::SubscribeNamespaceReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-                                       [[maybe_unused]] const std::uint64_t data_ctx_id,
                                        [[maybe_unused]] const TrackNamespace& prefix_namespace,
                                        [[maybe_unused]] const SubscribeNamespaceAttributes& attributes)
 {

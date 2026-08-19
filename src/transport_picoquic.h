@@ -118,17 +118,17 @@ namespace quicr {
 
         virtual bool GetPeerAddrInfo(const std::shared_ptr<Connection>& connection, sockaddr_storage* addr) override;
 
-        std::uint64_t CreateDataContext(const std::shared_ptr<Connection>& connection,
-                                        bool use_reliable_transport,
-                                        uint8_t priority,
-                                        bool bidir) override;
+        std::shared_ptr<DataContext> CreateDataContext(const std::shared_ptr<Connection>& connection,
+                                                       bool use_reliable_transport,
+                                                       uint8_t priority,
+                                                       bool bidir) override;
 
         void DeleteDataContext(const std::shared_ptr<Connection>& connection,
-                               std::uint64_t data_ctx_id,
+                               const std::shared_ptr<DataContext>& data_ctx,
                                bool delete_on_empty = false) override;
 
         TransportError Enqueue(const std::shared_ptr<Connection>& connection,
-                               const std::uint64_t& data_ctx_id,
+                               const std::shared_ptr<DataContext>& data_ctx,
                                std::uint64_t stream_id,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                uint8_t priority,
@@ -137,7 +137,7 @@ namespace quicr {
                                EnqueueFlags flags) override;
 
         std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<Connection>& connection,
-                                                            std::optional<std::uint64_t> data_ctx_id) override;
+                                                            const std::shared_ptr<DataContext>& data_ctx) override;
 
         std::shared_ptr<StreamRxContext> GetStreamRxContext(const std::shared_ptr<Connection>& connection,
                                                             uint64_t stream_id) override;
@@ -183,7 +183,7 @@ namespace quicr {
          *
          * @returns Handle to the created context, nullptr if invalid connection id
          */
-        std::shared_ptr<DataContext> CreateDataContextBiDirRecv(std::uint64_t conn_id, uint64_t stream_id);
+        std::shared_ptr<PicoQuicDataContext> CreateDataContextBiDirRecv(std::uint64_t conn_id, uint64_t stream_id);
 
         const std::shared_ptr<PicoQuicConnection>& CreateConnection(picoquic_cnx_t* pq_cnx,
                                                                     Connection::API api = Connection::API::kNativeQuic);
@@ -191,7 +191,7 @@ namespace quicr {
         void SendNextDatagram(const std::shared_ptr<PicoQuicConnection>& conn_ctx, uint8_t* bytes_ctx, size_t max_len);
 
         void SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& conn_ctx,
-                             DataContext* data_ctx,
+                             const std::shared_ptr<PicoQuicDataContext>& data_ctx,
                              std::uint64_t stream_id,
                              uint8_t* bytes_ctx,
                              size_t max_len);
@@ -203,7 +203,7 @@ namespace quicr {
         void OnRecvDatagram(const std::shared_ptr<PicoQuicConnection>& conn_ctx, uint8_t* bytes, size_t length);
 
         void OnRecvStreamBytes(const std::shared_ptr<PicoQuicConnection>& conn_ctx,
-                               DataContext* data_ctx,
+                               const std::shared_ptr<PicoQuicDataContext>& data_ctx,
                                uint64_t stream_id,
                                int is_fin,
                                std::span<const uint8_t> bytes);
@@ -211,24 +211,22 @@ namespace quicr {
         void OnStreamClosed(const std::shared_ptr<PicoQuicConnection>& connection,
                             uint64_t stream_id,
                             std::shared_ptr<StreamRxContext> rx_ctx,
-                            std::optional<uint64_t> data_ctx_id,
+                            const std::shared_ptr<DataContext>& data_ctx,
                             StreamClosedFlag flag);
 
         void CheckConnsForCongestion();
         void EmitMetrics();
         void RemoveClosedStreams();
 
-        bool StreamActionCheck(DataContext* data_ctx, StreamAction stream_action);
-
         /**
          * @brief Close stream by stream id
          * @param conn_id           Connection id of stream
-         * @param data_ctx_id       Data context id that owns the stream
+         * @param data_ctx          Data context that owns the stream
          * @param stream_id         Stream ID to close
          * @param use_reset         True to close by RESET, false to close by FIN
          */
         void CloseStream(const std::shared_ptr<Connection>& connection,
-                         uint64_t data_ctx_id,
+                         const std::shared_ptr<DataContext>& data_ctx,
                          uint64_t stream_id,
                          bool use_reset) override;
 
@@ -269,14 +267,14 @@ namespace quicr {
          * @note Thread-safe
          *
          * @param conn_id           Connection ID to create the stream
-         * @param data_ctx_id       Data context to create stream in
+         * @param data_ctx          Data context to create stream in
          * @param priority          Priority of the stream
          *
          * @return stream ID if created
          * @throws PicoQuicException if unable to create stram
          */
         std::uint64_t CreateStream(const std::shared_ptr<Connection>& connection,
-                                   std::uint64_t data_ctx_id,
+                                   const std::shared_ptr<DataContext>& data_ctx,
                                    uint8_t priority) override;
 
         /**
@@ -289,7 +287,7 @@ namespace quicr {
          * @warning This method must be called within the picoquic thread.
          */
         void EraseStreamState(const std::shared_ptr<PicoQuicConnection>& conn_ctx,
-                              DataContext* data_ctx,
+                              const std::shared_ptr<PicoQuicDataContext>& data_ctx,
                               std::uint64_t stream_id);
 
       public:
@@ -303,7 +301,7 @@ namespace quicr {
 
       private:
         void DeleteDataContextInternal(const std::shared_ptr<PicoQuicConnection>& connection,
-                                       std::uint64_t data_ctx_id,
+                                       const std::shared_ptr<PicoQuicDataContext>& data_ctx,
                                        bool delete_on_empty);
 
         std::shared_ptr<Connection> StartClient();
@@ -311,23 +309,16 @@ namespace quicr {
         bool ClientLoop();
         void CbNotifier();
         void RunPqFunction(std::function<int()>&& function);
-        void CheckCallbackDelta(DataContext* data_ctx, bool tx = true);
+        void CheckCallbackDelta(const std::shared_ptr<PicoQuicDataContext>& data_ctx, bool tx = true);
 
         /**
          * @brief Mark a stream active
          * @details This method MUST only be called within the picoquic thread. Enqueue and other
-         *      thread methods can call this via the pq_runner.
-         *
-         * @note The data context ID overload exists for callers that cross a thread boundary via the pq_runner,
-         *      where a context pointer could be deleted before the queued function runs. Callers already
-         *      executing on the picoquic thread should pass the context directly.
+         *      thread methods can call this via the pq_runner. The handle parameter keeps the context
+         *      alive across that thread boundary.
          */
         void MarkStreamActive(const std::shared_ptr<PicoQuicConnection>& connection,
-                              std::uint64_t data_ctx_id,
-                              std::uint64_t stream_id);
-
-        void MarkStreamActive(const std::shared_ptr<PicoQuicConnection>& connection,
-                              DataContext* data_ctx,
+                              const std::shared_ptr<PicoQuicDataContext>& data_ctx,
                               std::uint64_t stream_id);
 
         /**
@@ -390,11 +381,11 @@ namespace quicr {
          * @brief Create a new stream
          *
          * @param conn_id       Connection id
-         * @param data_ctx_id   Data context id
+         * @param data_ctx      Data context the stream belongs to
          * @param priority      Priority of the stream
          */
         std::uint64_t CreateStreamInternal(const std::shared_ptr<Connection>& connection,
-                                           std::uint64_t data_ctx_id,
+                                           const std::shared_ptr<PicoQuicDataContext>& data_ctx,
                                            uint8_t priority);
 
         /**
@@ -410,7 +401,7 @@ namespace quicr {
          * @param send_reset    Indicates if the stream should be closed by RESET, otherwise FIN
          */
         void CloseStream(const std::shared_ptr<PicoQuicConnection>& conn_ctx,
-                         DataContext* data_ctx,
+                         const std::shared_ptr<PicoQuicDataContext>& data_ctx,
                          std::uint64_t stream_id,
                          bool send_reset);
 
