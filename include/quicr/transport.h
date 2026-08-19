@@ -31,6 +31,7 @@ namespace spdlog {
 namespace quicr {
 
     class Connection;
+    class DataContext;
 
     /**
      * Close Connection App Reasons
@@ -238,12 +239,12 @@ namespace quicr {
          * @param[in] priority                Priority for stream (default is 1)
          * @param[in] bidir                   Set context to be bi-directional or unidirectional
          *
-         * @return std::uint64_t identifying the data context via the connection
+         * @return Handle to the created data context. Holding the handle keeps the context alive.
          */
-        virtual std::uint64_t CreateDataContext(const std::shared_ptr<Connection>& connection,
-                                                bool use_reliable_transport,
-                                                uint8_t priority = 1,
-                                                bool bidir = false) = 0;
+        virtual std::shared_ptr<DataContext> CreateDataContext(const std::shared_ptr<Connection>& connection,
+                                                               bool use_reliable_transport,
+                                                               uint8_t priority = 1,
+                                                               bool bidir = false) = 0;
 
         /**
          * @brief Close a transport context
@@ -257,12 +258,12 @@ namespace quicr {
         /**
          * @brief Close stream by stream id
          * @param conn_id           Connection id of stream
-         * @param data_ctx_id       Data context id that owns the stream
+         * @param data_ctx          Data context that owns the stream
          * @param stream_id         Stream ID to close
          * @param use_reset         True to close by RESET, false to close by FIN
          */
         virtual void CloseStream(const std::shared_ptr<Connection>& connection,
-                                 uint64_t data_ctx_id,
+                                 const std::shared_ptr<DataContext>& data_ctx,
                                  uint64_t stream_id,
                                  bool use_reset) = 0;
 
@@ -272,10 +273,10 @@ namespace quicr {
          *    be closed by FIN (graceful).
          *
          * @param[in] conn_id                 Connection ID to create data context
-         * @param[in] data_ctx_id             Data context ID to delete
+         * @param[in] data_ctx                Data context to delete
          */
         virtual void DeleteDataContext(const std::shared_ptr<Connection>& connection,
-                                       std::uint64_t data_ctx_id,
+                                       const std::shared_ptr<DataContext>& data_ctx,
                                        bool delete_on_empty = false) = 0;
 
         /**
@@ -306,7 +307,7 @@ namespace quicr {
          * when available.
          *
          * @param[in] connection    Identifying the connection
-         * @param[in] data_ctx_id   stream Id to send data on
+         * @param[in] data_ctx      Data context to send data on
          * @param[in] stream_id     Stream ID to send message on, Only used for unidir data contexts
          * @param[in] bytes	    Data to send/write
          * @param[in] priority      Priority of the object, range should be 0 - 255
@@ -317,7 +318,7 @@ namespace quicr {
          * @returns TransportError is returned indicating status of the operation
          */
         virtual TransportError Enqueue(const std::shared_ptr<Connection>& connection,
-                                       const std::uint64_t& data_ctx_id,
+                                       const std::shared_ptr<DataContext>& data_ctx,
                                        std::uint64_t stream_id,
                                        std::shared_ptr<const std::vector<uint8_t>> bytes,
                                        uint8_t priority = 1,
@@ -332,12 +333,12 @@ namespace quicr {
          * to the caller using this method.  An empty return will be
          *
          * @param[in] conn_id		        Identifying the connection
-         * @param[in] data_ctx_id             Data context ID if known
+         * @param[in] data_ctx               Data context the data was received on, nullptr if not known
          *
          * @returns std::nullopt if there is no data
          */
         virtual std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<Connection>& connection,
-                                                                    std::optional<std::uint64_t> data_ctx_id) = 0;
+                                                                    const std::shared_ptr<DataContext>& data_ctx) = 0;
 
         /**
          * @brief Get the stream RX context by connection ID and stream ID
@@ -406,13 +407,13 @@ namespace quicr {
          * @brief Create a new stream.
          *
          * @param conn_id       The connection id for the stream.
-         * @param data_ctx_id   The data context ID that the stream belongs to.
+         * @param data_ctx      The data context that the stream belongs to.
          * @param priority      Priority of the stream
          *
          * @returns The optionally created stream id. If no stream was created, returns nullopt.
          */
         virtual std::uint64_t CreateStream(const std::shared_ptr<Connection>& connection,
-                                           std::uint64_t data_ctx_id,
+                                           const std::shared_ptr<DataContext>& data_ctx,
                                            uint8_t priority) = 0;
 
         /**

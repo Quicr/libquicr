@@ -132,7 +132,6 @@ namespace quicr_test {
 
         struct SubscribeNamespaceDetails
         {
-            std::uint64_t data_ctx_id{ 0 };
             quicr::TrackNamespace prefix_namespace;
             quicr::SubscribeNamespaceAttributes attributes;
         };
@@ -298,13 +297,11 @@ namespace quicr_test {
 
         quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode> SubscribeTracksReceived(
           const std::shared_ptr<quicr::Session>& session,
-          std::uint64_t data_ctx_id,
           const quicr::TrackNamespace& prefix_namespace,
           const quicr::SubscribeNamespaceAttributes& attributes) override;
 
         quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode> SubscribeNamespaceReceived(
           const std::shared_ptr<quicr::Session>& session,
-          std::uint64_t data_ctx_id,
           const quicr::TrackNamespace& prefix_namespace,
           const quicr::SubscribeNamespaceAttributes& attributes) override;
 

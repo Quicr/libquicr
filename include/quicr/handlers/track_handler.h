@@ -16,6 +16,7 @@
 
 namespace quicr {
     class Session;
+    class DataContext;
 
     /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
@@ -81,18 +82,6 @@ namespace quicr {
         std::optional<uint64_t> GetRequestId() const noexcept { return request_id_; }
 
         /**
-         * @brief Sets the data context Id
-         * @param data_ctx_id               Data context Id for control messages
-         */
-        void SetDataContextId(std::uint64_t data_ctx_id) { data_ctx_id_ = data_ctx_id; }
-
-        /**
-         * @brief Return the data context Id
-         * @return Data context id if set
-         */
-        std::optional<std::uint64_t> GetDataContextId() const noexcept { return data_ctx_id_; }
-
-        /**
          * @brief Set the stream ID for the bidir request control stream.
          * @param request_stream_id Request stream's ID.
          */
@@ -128,6 +117,22 @@ namespace quicr {
         virtual void RequestError(messages::ErrorCode error_code, std::string reason);
 
       protected:
+        /**
+         * @brief Sets the data context used for control messages
+         *
+         * @details The data context is transport state owned by the session; it is not part of the
+         *      application-facing API.
+         *
+         * @param data_ctx               Data context for control messages
+         */
+        void SetDataContext(std::shared_ptr<DataContext> data_ctx) { data_ctx_ = std::move(data_ctx); }
+
+        /**
+         * @brief Return the data context used for control messages
+         * @return Data context handle, or nullptr if not set
+         */
+        const std::shared_ptr<DataContext>& GetDataContext() const noexcept { return data_ctx_; }
+
         /**
          * Received an OK for this handler's request.
          * @param params Parameters in the request.
@@ -167,9 +172,9 @@ namespace quicr {
         std::optional<uint64_t> request_id_;
 
         /**
-         * Data context ID (transport data context) that control messages are to be sent
+         * Transport data context that control messages are to be sent on
          */
-        std::optional<std::uint64_t> data_ctx_id_{ std::nullopt };
+        std::shared_ptr<DataContext> data_ctx_;
 
         /**
          * Stream ID of the bidirectional request control stream.

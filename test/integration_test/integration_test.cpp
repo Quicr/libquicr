@@ -137,12 +137,34 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
         }
     }
 
-    uint64_t GetPublishDataContextId() const { return publish_data_ctx_id_; }
+    // Data contexts are opaque handles outside the library, so tests compare them by identity.
+    const std::shared_ptr<quicr::DataContext>& GetPublishDataContext() const { return publish_data_ctx_; }
+
+    // Exposes the control data context for tests; it is protected on the handler base class.
+    const std::shared_ptr<quicr::DataContext>& GetControlDataContext() const { return GetDataContext(); }
 
   private:
     const StatusCallback on_status_;
     std::mutex metrics_mutex_;
     std::optional<std::promise<PublishTrackMetrics>> metrics_promise_;
+};
+
+/// Publish namespace handler that exposes the control data context, which is protected on the base class.
+class TestPublishNamespaceHandler : public PublishNamespaceHandler
+{
+  public:
+    static auto Create(const TrackNamespace& prefix)
+    {
+        return std::shared_ptr<TestPublishNamespaceHandler>(new TestPublishNamespaceHandler(prefix));
+    }
+
+    const std::shared_ptr<quicr::DataContext>& GetControlDataContext() const { return GetDataContext(); }
+
+  private:
+    explicit TestPublishNamespaceHandler(const TrackNamespace& prefix)
+      : PublishNamespaceHandler(prefix)
+    {
+    }
 };
 
 static std::shared_ptr<TestServer>
@@ -746,7 +768,6 @@ TEST_CASE("Integration - Fetch")
         const auto handler = FetchTrackHandler::Create(ftn, 0, { 0, 0 }, { 0, std::nullopt });
         session->FetchTrack(handler);
 
-        REQUIRE(handler->GetDataContextId().has_value());
         REQUIRE(handler->GetRequestStreamId().has_value());
         REQUIRE(handler->GetRequestId().has_value());
     };
@@ -2098,16 +2119,17 @@ TEST_CASE("Integration - Dedicated bidirectional control data contexts")
         CHECK_NOTHROW(session->SubscribeNamespace(ns_handler));
 
         REQUIRE(ns_server_future.wait_for(kDefaultTimeout) == std::future_status::ready);
-        const auto ns_server_details = ns_server_future.get();
-        CHECK(ns_server_details.data_ctx_id != 0);
+        CHECK(ns_server_future.get().prefix_namespace == prefix);
 
         const bool ns_ready =
           WaitFor([&ns_handler]() { return ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; });
         REQUIRE(ns_ready);
-        REQUIRE(ns_handler->GetDataContextId().has_value());
-        CHECK(ns_handler->GetDataContextId().value() != 0);
 
-        const auto ns_data_ctx = ns_handler->GetDataContextId().value();
+        // Each dedicated control data context gets its own bidirectional control stream, so distinct
+        // request stream IDs are the observable evidence of distinct control data contexts.
+        REQUIRE(ns_handler->GetRequestStreamId().has_value());
+
+        const auto ns_stream_id = ns_handler->GetRequestStreamId().value();
 
         FullTrackName ftn;
         ftn.name_space = prefix;
@@ -2119,27 +2141,25 @@ TEST_CASE("Integration - Dedicated bidirectional control data contexts")
         const bool sub_ready =
           WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
         REQUIRE(sub_ready);
-        REQUIRE(sub_handler->GetDataContextId().has_value());
-        CHECK(sub_handler->GetDataContextId().value() != ns_data_ctx);
-
-        const auto sub_data_ctx = sub_handler->GetDataContextId().value();
+        REQUIRE(sub_handler->GetRequestStreamId().has_value());
+        CHECK(sub_handler->GetRequestStreamId().value() != ns_stream_id);
 
         auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
         const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 1, 5000, [](const auto&) {});
         CHECK_NOTHROW(publisher->PublishTrack(pub_handler));
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
-        REQUIRE(pub_handler->GetDataContextId().has_value());
-        CHECK(pub_handler->GetPublishDataContextId() != 0);
+        REQUIRE(pub_handler->GetControlDataContext() != nullptr);
+        REQUIRE(pub_handler->GetPublishDataContext() != nullptr);
         // Control and object data contexts are distinct on the same connection.
-        CHECK(pub_handler->GetDataContextId().value() != pub_handler->GetPublishDataContextId());
+        CHECK(pub_handler->GetControlDataContext() != pub_handler->GetPublishDataContext());
 
         TrackNamespace pub_ns(std::vector<std::string>{ "ctrl", "publish" });
         std::promise<TestServer::PublishNamespaceDetails> pub_ns_server_promise;
         std::future<TestServer::PublishNamespaceDetails> pub_ns_server_future = pub_ns_server_promise.get_future();
         server->SetPublishNamespacePromise(std::move(pub_ns_server_promise));
 
-        const auto pub_ns_handler = PublishNamespaceHandler::Create(pub_ns);
+        const auto pub_ns_handler = TestPublishNamespaceHandler::Create(pub_ns);
         CHECK_NOTHROW(publisher->PublishNamespace(pub_ns_handler));
         REQUIRE(pub_ns_server_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         (void)pub_ns_server_future.get();
@@ -2147,9 +2167,9 @@ TEST_CASE("Integration - Dedicated bidirectional control data contexts")
         const bool pub_ns_ready =
           WaitFor([&pub_ns_handler]() { return pub_ns_handler->GetStatus() == PublishNamespaceHandler::Status::kOk; });
         REQUIRE(pub_ns_ready);
-        REQUIRE(pub_ns_handler->GetDataContextId().has_value());
-        // Data context IDs are unique per connection; compare handlers on the publisher only.
-        CHECK(pub_ns_handler->GetDataContextId().value() != pub_handler->GetDataContextId().value());
+        REQUIRE(pub_ns_handler->GetControlDataContext() != nullptr);
+        // Each request gets its own control data context, even on the same connection.
+        CHECK(pub_ns_handler->GetControlDataContext() != pub_handler->GetControlDataContext());
     };
 
     SUBCASE("Raw QUIC")
@@ -2193,16 +2213,18 @@ TEST_CASE("Integration - Request updates use handler data context")
         const bool sub_ready =
           WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
         REQUIRE(sub_ready);
-        REQUIRE(sub_handler->GetDataContextId().has_value());
+        REQUIRE(sub_handler->GetRequestStreamId().has_value());
 
-        const auto data_ctx_before = sub_handler->GetDataContextId().value();
+        // The update must reuse the handler's existing control context rather than opening a new one,
+        // observable as the request control stream staying the same.
+        const auto stream_id_before = sub_handler->GetRequestStreamId().value();
 
         CHECK_NOTHROW(sub_handler->RequestNewGroup());
 
         const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
         CHECK(received);
-        REQUIRE(sub_handler->GetDataContextId().has_value());
-        CHECK(sub_handler->GetDataContextId().value() == data_ctx_before);
+        REQUIRE(sub_handler->GetRequestStreamId().has_value());
+        CHECK(sub_handler->GetRequestStreamId().value() == stream_id_before);
     };
 
     SUBCASE("Raw QUIC")
