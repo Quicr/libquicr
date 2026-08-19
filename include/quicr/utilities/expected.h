@@ -1,6 +1,9 @@
 #pragma once
 
+#include <memory>
 #include <optional>
+#include <type_traits>
+#include <utility>
 #include <variant>
 
 namespace quicr {
@@ -20,7 +23,7 @@ namespace quicr {
 
         template<typename... Args>
         Unexpected(Args&&... args)
-          : error_(std::forward<Args>(args)...)
+          : error_{ std::forward<Args>(args)... }
         {
         }
 
