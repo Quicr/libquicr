@@ -161,8 +161,11 @@ namespace quicr {
             std::shared_ptr<PriorityQueue<ConnData>>
               dgram_tx_data; /// Datagram pending objects to be written to the network
 
-            std::shared_ptr<SafeQueue<std::shared_ptr<const std::vector<uint8_t>>>>
-              dgram_rx_data; /// Buffered datagrams received from the network
+            struct DgramRxQueue : SafeQueue<std::shared_ptr<const std::vector<uint8_t>>>
+            {
+                std::atomic<bool> notify_pending{ false }; // True if we're waiting to be read.
+            };
+            std::shared_ptr<DgramRxQueue> dgram_rx_data;
 
             /**
              * Active stream buffers for received unidirectional streams
@@ -225,7 +228,7 @@ namespace quicr {
             QuicConnectionMetrics metrics;
 
             ConnectionContext()
-              : dgram_rx_data(std::make_shared<SafeQueue<std::shared_ptr<const std::vector<uint8_t>>>>())
+              : dgram_rx_data(std::make_shared<DgramRxQueue>())
             {
             }
 
@@ -388,6 +391,15 @@ namespace quicr {
                             std::shared_ptr<StreamRxContext> rx_ctx,
                             std::optional<uint64_t> data_ctx_id,
                             StreamClosedFlag flag);
+
+        // Notify new stream data arrived.
+        void NotifyStreamRecv(std::uint64_t conn_id,
+                              uint64_t stream_id,
+                              std::optional<std::uint64_t> data_ctx_id,
+                              std::shared_ptr<StreamRxContext> rx_ctx);
+
+        // Notify new datagram arrived.
+        void NotifyDgramRecv(std::uint64_t conn_id, std::shared_ptr<ConnectionContext::DgramRxQueue> rx_data);
 
         void CheckConnsForCongestion();
         void EmitMetrics();

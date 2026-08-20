@@ -1038,7 +1038,7 @@ PicoQuicTransport::Start()
 
     picoquic_runner_queue_.SetLimit(tconfig_.callback_queue_size);
 
-    cbNotifyQueue_.SetLimit(tconfig_.callback_queue_size);
+    cbNotifyQueue_.SetLimit(0);
     cbNotifyThread_ = std::thread(&PicoQuicTransport::CbNotifier, this);
 
     if (!tconfig_.quic_qlog_path.empty()) {
@@ -2018,14 +2018,7 @@ try {
     conn_ctx->metrics.rx_dgrams++;
     conn_ctx->metrics.rx_dgrams_bytes += length;
 
-    if (cbNotifyQueue_.Size() > 1000) {
-        SPDLOG_LOGGER_INFO(logger, "on_recv_datagram cbNotifyQueue size {0}", cbNotifyQueue_.Size());
-    }
-
-    if (conn_ctx->dgram_rx_data->Size() < 10 &&
-        !cbNotifyQueue_.Push([=, this]() { delegate_.OnRecvDgram(conn_ctx->conn_id, std::nullopt); })) {
-        SPDLOG_LOGGER_ERROR(logger, "conn_id: {0} DGRAM notify queue is full", conn_ctx->conn_id);
-    }
+    NotifyDgramRecv(conn_ctx->conn_id, conn_ctx->dgram_rx_data);
 } catch (const std::exception& e) {
     SPDLOG_LOGGER_ERROR(logger, "Caught exception in OnRecvDatagram. (error={})", e.what());
     // TODO(tievens): Add metrics to track if this happens
@@ -2149,32 +2142,60 @@ try {
 
     rx_buf.rx_ctx->data_queue.Push(std::make_shared<const std::vector<uint8_t>>(bytes.begin(), bytes.end()));
 
+    std::optional<std::uint64_t> data_ctx_id;
     if (data_ctx != nullptr) {
         data_ctx->metrics.rx_stream_cb++;
         data_ctx->metrics.rx_stream_bytes += bytes.size();
-
-        if (rx_buf.rx_ctx->data_queue.Size() < 10 &&
-            !cbNotifyQueue_.Push([conn_id = conn_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id, stream_id, this]() {
-                delegate_.OnRecvStream(conn_id, stream_id, data_ctx_id, (stream_id & 2) == 0);
-            })) {
-
-            SPDLOG_LOGGER_ERROR(
-              logger, "conn_id: {0} stream_id: {1} notify queue is full", conn_ctx->conn_id, stream_id);
-        }
-
-    } else {
-        // When data_ctx is null, determine if stream is bidirectional from stream_id
-        // QUIC stream IDs have bit 1 set to 0 for bidirectional streams
-        if (!cbNotifyQueue_.Push([conn_id = conn_ctx->conn_id, stream_id, this]() {
-                delegate_.OnRecvStream(conn_id, stream_id, std::nullopt, (stream_id & 2) == 0);
-            })) {
-            SPDLOG_LOGGER_ERROR(
-              logger, "conn_id: {0} stream_id: {1} notify queue is full", conn_ctx->conn_id, stream_id);
-        }
+        data_ctx_id = data_ctx->data_ctx_id;
     }
+
+    NotifyStreamRecv(conn_ctx->conn_id, stream_id, data_ctx_id, rx_buf.rx_ctx);
 } catch (const std::exception& e) {
     SPDLOG_LOGGER_ERROR(logger, "Caught exception in OnRecvStreamBytes. (error={})", e.what());
     // TODO(tievens): Add metrics to track if this happens
+}
+
+void
+PicoQuicTransport::NotifyStreamRecv(std::uint64_t conn_id,
+                                    uint64_t stream_id,
+                                    std::optional<std::uint64_t> data_ctx_id,
+                                    std::shared_ptr<StreamRxContext> rx_ctx)
+{
+    if (rx_ctx->notify_pending.exchange(true)) {
+        return; // De-duped.
+    }
+
+    cbNotifyQueue_.Push([this, conn_id, stream_id, data_ctx_id, rx_ctx = std::move(rx_ctx)]() mutable {
+        rx_ctx->notify_pending.store(false);
+        const auto queued = rx_ctx->data_queue.Size();
+        delegate_.OnRecvStream(conn_id, stream_id, data_ctx_id, (stream_id & 2) == 0);
+
+        // If there's more to read, re-notify at the back of the queue.
+        const auto remaining = rx_ctx->data_queue.Size();
+        if (remaining > 0 && remaining < queued) {
+            NotifyStreamRecv(conn_id, stream_id, data_ctx_id, std::move(rx_ctx));
+        }
+    });
+}
+
+void
+PicoQuicTransport::NotifyDgramRecv(std::uint64_t conn_id, std::shared_ptr<ConnectionContext::DgramRxQueue> rx_data)
+{
+    if (rx_data->notify_pending.exchange(true)) {
+        return; // De-deuped.
+    }
+
+    cbNotifyQueue_.Push([this, conn_id, rx_data = std::move(rx_data)]() mutable {
+        rx_data->notify_pending.store(false);
+        const auto queued = rx_data->Size();
+        delegate_.OnRecvDgram(conn_id, std::nullopt);
+
+        // If there's more to read, re-notify at the back of the queue.
+        const auto remaining = rx_data->Size();
+        if (remaining > 0 && remaining < queued) {
+            NotifyDgramRecv(conn_id, std::move(rx_data));
+        }
+    });
 }
 
 void
