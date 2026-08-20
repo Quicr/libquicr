@@ -373,6 +373,43 @@ existing close-every-connection logic needs no change beyond that aggregation.
 - **Benchmark**: N-way mesh throughput and relay CPU at `quic_shards` of 1 vs
   core count, to confirm the gain and locate the next bottleneck.
 
+## Relationship to in-flight refactors
+
+Built on `main`. Two open PRs were assessed:
+
+- **#914 (`resolve-later`)** — session layer only; does not touch the transport.
+  Irrelevant here.
+- **#892 (`refactor-session`)** — rewrites `transport_picoquic.cpp` (+674/-677)
+  and `transport_picoquic.h` (+65/-229), so it overlaps almost every function
+  this change modifies. It does **not** make sharding easier: every member the
+  change touches survives it verbatim (`quic_ctx_`, `quic_network_thread_ctx_`,
+  `quic_network_thread_params_`, `quic_loop_return_value_`,
+  `picoquic_runner_queue_`, `state_mutex_`, `local_tp_options_`, `config_`),
+  `RunPqFunction` and `PqRunner` are unchanged, and `Server()` is untouched. The
+  refactor works on the connection/session layer; sharding works on the
+  instance/loop/thread layer.
+
+What #892 changes for this work is mechanical:
+
+| | `main` | post-#892 |
+|---|---|---|
+| connection map | `std::map<std::uint64_t, ConnectionContext> conn_context_` | `std::map<std::uint64_t, std::shared_ptr<PicoQuicConnection>> connections_` |
+| `shard_idx` home | `ConnectionContext` in `src/transport_picoquic.h` | `PicoQuicConnection` in `src/picoquic_connection.h` |
+| `TransportConfig` | `include/quicr/transport.h` | `include/quicr/config.h`, content identical |
+
+Function bodies are otherwise unchanged — `conn_ctx.metrics` becomes
+`connection->metrics`.
+
+Because #892 is expected to land, the implementation hedges against it at no
+present cost:
+
+- `shard_idx` is a single field on the connection type, relocating cleanly to
+  `PicoQuicConnection`.
+- `GetConnShardIdx` is the only place mapping a `conn_id` to a shard, so the map
+  rename lands in one function.
+- Nothing is renamed by this change. Every rename added here multiplies conflicts
+  during the eventual rebase.
+
 ## Documentation to update
 
 `docs/implementation.md:107` currently states *"Three threads are used by
