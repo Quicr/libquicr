@@ -8,6 +8,7 @@
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/safe_time_queue.h"
 #include "quicr/containers/stream_buffer.h"
+#include "quicr/log.h"
 #include "quicr/metrics.h"
 #include "quicr/transport.h"
 
@@ -17,7 +18,6 @@
 #include <picoquic.h>
 #include <picoquic_config.h>
 #include <picoquic_packet_loop.h>
-#include <spdlog/spdlog.h>
 #include <timeq/time_queue.h>
 #include <tls_api.h>
 
@@ -120,7 +120,7 @@ namespace quicr {
                           const TransportConfig& tcfg,
                           bool is_server_mode,
                           std::shared_ptr<timeq::tick_service> tick_service,
-                          std::shared_ptr<spdlog::logger> logger,
+                          std::shared_ptr<Logger> logger,
                           Connection::API connection_api);
 
         virtual ~PicoQuicTransport();
@@ -322,7 +322,7 @@ namespace quicr {
         void ProcessMarkActive(Shard& shard);
 
       public:
-        std::shared_ptr<spdlog::logger> logger;
+        std::shared_ptr<Logger> logger_;
         bool is_server_mode;
         bool is_unidirectional{ false };
         bool debug{ false };

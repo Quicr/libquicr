@@ -1,8 +1,7 @@
 #include "quicr/handlers/publish_namespace_handler.h"
+#include "quicr/log.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
-
-#include <spdlog/spdlog.h>
 
 #include <ranges>
 
@@ -27,44 +26,8 @@ quicr::PublishNamespaceHandler::~PublishNamespaceHandler()
 }
 
 void
-quicr::PublishNamespaceHandler::StatusChanged(Status status)
+quicr::PublishNamespaceHandler::StatusChanged(Status)
 {
-
-    auto th = quicr::TrackHash({ GetPrefix(), {} });
-
-    switch (status) {
-        case Status::kOk:
-            SPDLOG_INFO("Publication to namespace with hash: {} status changed to OK", th.track_namespace_hash);
-            break;
-        case Status::kNotConnected:
-            SPDLOG_WARN("Publication to namespace with hash: {} status changed to NOT_CONNECTED",
-                        th.track_namespace_hash);
-            break;
-        case Status::kNotPublished:
-            SPDLOG_WARN("Publication to namespace with hash: {} status changed to NOT_PUBLISHED",
-                        th.track_namespace_hash);
-            break;
-        case Status::kPendingResponse:
-            SPDLOG_INFO("Publication to namespace with hash: {} status changed to PENDING_RESPONSE",
-                        th.track_namespace_hash);
-            break;
-        case Status::kPublishNotAuthorized:
-            SPDLOG_ERROR("Publication to namespace with hash: {} status changed to PUBLISH_NOT_AUTHORIZED",
-                         th.track_namespace_hash);
-            break;
-        case Status::kSendingDone:
-            SPDLOG_INFO("Publication to namespace with hash: {} status changed to SENDING_DONE",
-                        th.track_namespace_hash);
-        case Status::kError:
-            if (error_ != std::nullopt) {
-                SPDLOG_ERROR("Publication to namespace with hash: {} status changed to ERROR: {}",
-                             th.track_namespace_hash,
-                             std::string(error_->second.begin(), error_->second.end()));
-            } else {
-                SPDLOG_ERROR("Publication to namespace with hash: {} status changed to unknown ERROR");
-            }
-            break;
-    }
 }
 
 void
