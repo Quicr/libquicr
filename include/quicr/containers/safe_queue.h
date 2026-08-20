@@ -61,7 +61,7 @@ namespace quicr {
                 empty_ = false;
             }
 
-            else if (queue_.size() >= limit_) { // Make room by removing first element
+            else if (limit_ != 0 && queue_.size() >= limit_) { // Make room by removing first element
                 queue_.pop();
                 rval = false;
             }
@@ -82,7 +82,7 @@ namespace quicr {
                 empty_ = false;
             }
 
-            else if (queue_.size() >= limit_) { // Make room by removing first element
+            else if (limit_ != 0 && queue_.size() >= limit_) { // Make room by removing first element
                 queue_.pop();
                 rval = false;
             }
