@@ -5,6 +5,7 @@
 #include "quicr/connection.h"
 #include "quicr/handlers/joining_fetch_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
+#include "quicr/log.h"
 #include "quicr/messages/ctrl_message_types.h"
 #include "quicr/messages/message.h"
 #include "quicr/messages/messages.h"
@@ -12,9 +13,6 @@
 #include "quicr/session_callbacks.h"
 #include "track_properties.h"
 #include "transport_picoquic.h"
-
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
 
 #include <iomanip>
 #include <memory>
@@ -30,14 +28,6 @@ namespace quicr {
     constexpr int kReadLoopMaxPerStream = 100; ///< Support packet/frame bursts, but do not allow starving other streams
 
     namespace {
-        std::shared_ptr<spdlog::logger> SafeLoggerGet(const std::string& name)
-        {
-            if (auto logger = spdlog::get(name)) {
-                return logger;
-            }
-
-            return spdlog::stderr_color_mt(name);
-        }
 
         /**
          * @brief Try to decode a uintvar from the front of a span, advancing past it on success.
@@ -221,19 +211,20 @@ namespace quicr {
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
                      std::shared_ptr<ClientCallbacks> callbacks,
-                     std::shared_ptr<timeq::tick_service> tick_service)
+                     std::shared_ptr<timeq::tick_service> tick_service,
+                     std::shared_ptr<Logger> logger)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
       , callbacks_(std::move(callbacks))
       , next_request_id_(0)
       , client_mode_(true)
-      , logger_(SafeLoggerGet("QUICR_CLIENT"))
+      , logger_(std::move(logger))
       , server_config_({})
       , client_config_(cfg)
       , tick_service_(std::move(tick_service))
       , quic_transport_(std::move(transport))
     {
-        SPDLOG_LOGGER_TRACE(logger_, "Created MoQ Session in client mode connected to {}", cfg.connect_uri);
+        QUICR_LOGGER_TRACE(logger_, "Created MoQ Session in client mode connected to {}", cfg.connect_uri);
         Init();
     }
 
@@ -241,13 +232,14 @@ namespace quicr {
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
                      std::shared_ptr<ServerCallbacks> callbacks,
-                     std::shared_ptr<timeq::tick_service> tick_service)
+                     std::shared_ptr<timeq::tick_service> tick_service,
+                     std::shared_ptr<Logger> logger)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
       , callbacks_(std::move(callbacks))
       , next_request_id_(1)
       , client_mode_(false)
-      , logger_(SafeLoggerGet("QUICR_SERVER"))
+      , logger_(std::move(logger))
       , server_config_(cfg)
       , client_config_({})
       , tick_service_(std::move(tick_service))
@@ -256,15 +248,12 @@ namespace quicr {
         tx_ctrl_data_ctx_id_ = quic_transport_->CreateDataContext(current_connection_, true, 0, false);
         tx_ctrl_stream_id_ = quic_transport_->CreateStream(current_connection_, tx_ctrl_data_ctx_id_.value(), 0);
 
-        SPDLOG_LOGGER_INFO(
+        QUICR_LOGGER_INFO(
           logger_, "Created MoQ Session in server mode listening on {}:{}", cfg.server_bind_ip, cfg.server_port);
         Init();
     }
 
-    Session::~Session()
-    {
-        spdlog::drop(logger_->name());
-    }
+    Session::~Session() {}
 
     void Session::Init()
     {
@@ -272,13 +261,17 @@ namespace quicr {
             // client init items
 
             if (client_config_.transport_config.debug) {
-                logger_->set_level(spdlog::level::debug);
+                if (logger_) {
+                    logger_->SetLevel(Logger::Level::Debug);
+                }
             }
         } else {
             // Server init items
 
             if (server_config_.transport_config.debug) {
-                logger_->set_level(spdlog::level::debug);
+                if (logger_) {
+                    logger_->SetLevel(Logger::Level::Debug);
+                }
             }
         }
 
@@ -327,7 +320,7 @@ namespace quicr {
 
     void Session::SendSetup()
     try {
-        SPDLOG_LOGGER_DEBUG(logger_, "Sending SETUP to conn_id: {}", current_connection_->GetID());
+        QUICR_LOGGER_DEBUG(logger_, "Sending SETUP to conn_id: {}", current_connection_->GetID());
 
         KeyValuePairs setup_options;
 
@@ -348,7 +341,7 @@ namespace quicr {
         }
         SendCtrlMsg(tx_ctrl_data_ctx_id_.value(), ControlMessageType::kSetup, setup_options);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Setup (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending Setup (error={})", e.what());
         throw e;
     }
 
@@ -379,14 +372,14 @@ namespace quicr {
                                 const messages::Parameters& params,
                                 const TrackExtensions& track_properties)
     try {
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending REQUEST_OK to conn_id: {} request_id: {}",
-                            current_connection_->GetID(),
-                            request_id_by_data_ctx.at(data_ctx_id));
+        QUICR_LOGGER_DEBUG(logger_,
+                           "Sending REQUEST_OK to conn_id: {} request_id: {}",
+                           current_connection_->GetID(),
+                           request_id_by_data_ctx.at(data_ctx_id));
 
         SendCtrlMsg(data_ctx_id, ControlMessageType::kRequestOk, params, track_properties);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_OK (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_OK (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -401,19 +394,19 @@ namespace quicr {
                         .Add(ParameterType::kForward, forward)
                         .AddOptional(ParameterType::kNewGroupRequest, end_group_id);
 
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending REQUEST_UPDATE to conn_id: {} request_id: {} track namespace hash: {} name "
-                            "hash: {} forward: {} ngr: {}",
-                            current_connection_->GetID(),
-                            GetNextRequestID(),
-                            th.track_namespace_hash,
-                            th.track_name_hash,
-                            forward,
-                            end_group_id.has_value());
+        QUICR_LOGGER_DEBUG(logger_,
+                           "Sending REQUEST_UPDATE to conn_id: {} request_id: {} track namespace hash: {} name "
+                           "hash: {} forward: {} ngr: {}",
+                           current_connection_->GetID(),
+                           GetNextRequestID(),
+                           th.track_namespace_hash,
+                           th.track_name_hash,
+                           forward,
+                           end_group_id.has_value());
 
         SendCtrlMsg(data_ctx_id, ControlMessageType::kRequestUpdate, UintVar(GetNextRequestID()), params);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_UPDATE (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_UPDATE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -423,17 +416,17 @@ namespace quicr {
                                    std::chrono::milliseconds retry_interval,
                                    const std::string& reason)
     try {
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending REQUEST_ERROR to conn_id: {} request_id: {} error code: {} reason: {}",
-                            current_connection_->GetID(),
-                            request_id,
-                            static_cast<int>(error),
-                            reason);
+        QUICR_LOGGER_DEBUG(logger_,
+                           "Sending REQUEST_ERROR to conn_id: {} request_id: {} error code: {} reason: {}",
+                           current_connection_->GetID(),
+                           request_id,
+                           static_cast<int>(error),
+                           reason);
 
         SendCtrlMsg(
           data_ctx_id, ControlMessageType::kRequestError, error, UintVar(retry_interval.count()), AsOwnedBytes(reason));
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_ERROR (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -441,22 +434,22 @@ namespace quicr {
                                        std::uint64_t request_id,
                                        const TrackNamespace& track_namespace)
     try {
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending PublishNamespace to conn_id: {} request_id: {} namespace_hash: {}",
-                            current_connection_->GetID(),
-                            request_id,
-                            TrackHash({ track_namespace, {} }).track_namespace_hash);
+        QUICR_LOGGER_DEBUG(logger_,
+                           "Sending PublishNamespace to conn_id: {} request_id: {} namespace_hash: {}",
+                           current_connection_->GetID(),
+                           request_id,
+                           TrackHash({ track_namespace, {} }).track_namespace_hash);
 
         SendCtrlMsg(
           data_ctx_id, ControlMessageType::kPublishNamespace, UintVar(request_id), track_namespace, Parameters{});
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PublishNamespace (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending PublishNamespace (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
     void Session::SendTrackStatus(std::uint64_t request_id, const FullTrackName& tfn)
     try {
-        SPDLOG_LOGGER_DEBUG(
+        QUICR_LOGGER_DEBUG(
           logger_, "Sending TRACK_STATUS to conn_id: {} request_id: {}", current_connection_->GetID(), request_id);
 
         SendCtrlMsg(tx_ctrl_data_ctx_id_.value(),
@@ -465,7 +458,7 @@ namespace quicr {
                     tfn.name_space,
                     tfn.name);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Trac (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending Trac (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -499,16 +492,16 @@ namespace quicr {
             params.Add(filter_type, filter);
         }
 
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending SUBSCRIBE to conn_id: {} request_id: {} track namespace hash: {} name hash: {}",
-                            current_connection_->GetID(),
-                            request_id,
-                            th.track_namespace_hash,
-                            th.track_name_hash);
+        QUICR_LOGGER_DEBUG(logger_,
+                           "Sending SUBSCRIBE to conn_id: {} request_id: {} track namespace hash: {} name hash: {}",
+                           current_connection_->GetID(),
+                           request_id,
+                           th.track_namespace_hash,
+                           th.track_name_hash);
 
         SendCtrlMsg(data_ctx_id, ControlMessageType::kSubscribe, UintVar(request_id), tfn.name_space, tfn.name, params);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Subscribe (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending Subscribe (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -532,11 +525,11 @@ namespace quicr {
                             .Add(ExtensionType::kDefaultPublisherPriority, publish.default_publisher_priority)
                             .Add(ExtensionType::kDynamicGroups, publish.dynamic_groups);
 
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending PUBLISH to conn_id: {} request_id: {} track alias: {}",
-                            current_connection_->GetID(),
-                            request_id,
-                            publish.track_alias);
+        QUICR_LOGGER_DEBUG(logger_,
+                           "Sending PUBLISH to conn_id: {} request_id: {} track alias: {}",
+                           current_connection_->GetID(),
+                           request_id,
+                           publish.track_alias);
 
         SendCtrlMsg(data_ctx_id,
                     ControlMessageType::kPublish,
@@ -547,7 +540,7 @@ namespace quicr {
                     params,
                     extensions);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending Publish (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -577,7 +570,7 @@ namespace quicr {
 
         SendRequestOk(data_ctx_id, params);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Publish Ok (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending Publish Ok (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -599,12 +592,12 @@ namespace quicr {
                             .Add(ExtensionType::kDefaultPublisherPriority, 1)
                             .Add(ExtensionType::kDynamicGroups, true);
 
-        SPDLOG_LOGGER_DEBUG(
+        QUICR_LOGGER_DEBUG(
           logger_, "Sending SUBSCRIBE OK to conn_id: {} request_id: {}", current_connection_->GetID(), request_id);
 
         SendCtrlMsg(data_ctx_id, ControlMessageType::kSubscribeOk, UintVar(track_alias), params, extensions);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending SubscribeOk (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending SubscribeOk (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -613,16 +606,16 @@ namespace quicr {
                                   messages::PublishDoneStatusCode status,
                                   const std::string& reason)
     try {
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending PUBLISH_DONE to conn_id: {} request_id: {} status: {}",
-                            current_connection_->GetID(),
-                            request_id,
-                            static_cast<uint64_t>(status));
+        QUICR_LOGGER_DEBUG(logger_,
+                           "Sending PUBLISH_DONE to conn_id: {} request_id: {} status: {}",
+                           current_connection_->GetID(),
+                           request_id,
+                           static_cast<uint64_t>(status));
 
         SendCtrlMsg(
           data_ctx_id, ControlMessageType::kPublishDone, UintVar(request_id), status, UintVar(0), AsOwnedBytes(reason));
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_DONE (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_DONE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -642,16 +635,16 @@ namespace quicr {
 
         [[maybe_unused]] auto th = TrackHash({ prefix, {} });
 
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending {} to conn_id: {} request_id: {} prefix_hash: {}",
-                            log_name,
-                            current_connection_->GetID(),
-                            request_id,
-                            th.track_namespace_hash);
+        QUICR_LOGGER_DEBUG(logger_,
+                           "Sending {} to conn_id: {} request_id: {} prefix_hash: {}",
+                           log_name,
+                           current_connection_->GetID(),
+                           request_id,
+                           th.track_namespace_hash);
 
         SendCtrlMsg(data_ctx_id, type, UintVar(request_id), prefix, params);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending subscribe namespace (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending subscribe namespace (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -659,14 +652,14 @@ namespace quicr {
     try {
         [[maybe_unused]] auto th = TrackHash({ prefix, {} });
 
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Sending UNSUBSCRIBE_NAMESPACE to conn_id: {} prefix_hash: {}",
-                            current_connection_->GetID(),
-                            th.track_namespace_hash);
+        QUICR_LOGGER_DEBUG(logger_,
+                           "Sending UNSUBSCRIBE_NAMESPACE to conn_id: {} prefix_hash: {}",
+                           current_connection_->GetID(),
+                           th.track_namespace_hash);
 
         SendCtrlMsg(data_ctx_id, ControlMessageType::kNamespaceDone, prefix);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending UNSUBSCRIBE_NAMESPACE (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending UNSUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -677,12 +670,11 @@ namespace quicr {
 
         [[maybe_unused]] auto th = TrackHash({ prefix, {} });
 
-        SPDLOG_LOGGER_INFO(logger_,
-                           "Subscribe namespace conn_id: {} prefix_hash: {} mode: {}",
-                           current_connection_->GetID(),
-                           th.track_namespace_hash,
-                           handler->GetMode() == SubscribeNamespaceHandler::Mode::kNamespaces ? "namespaces"
-                                                                                              : "tracks");
+        QUICR_LOGGER_INFO(logger_,
+                          "Subscribe namespace conn_id: {} prefix_hash: {} mode: {}",
+                          current_connection_->GetID(),
+                          th.track_namespace_hash,
+                          handler->GetMode() == SubscribeNamespaceHandler::Mode::kNamespaces ? "namespaces" : "tracks");
 
         std::lock_guard<std::mutex> lock(state_mutex_);
 
@@ -690,7 +682,7 @@ namespace quicr {
         handler->SetTransport(GetSharedPtr());
 
         if (auto [_, is_new] = request_handlers.try_emplace(handler->GetRequestId().value(), handler); !is_new) {
-            SPDLOG_LOGGER_WARN(logger_, "Namespace already subscribed to (prefix_hash={})", th.track_namespace_hash);
+            QUICR_LOGGER_WARN(logger_, "Namespace already subscribed to (prefix_hash={})", th.track_namespace_hash);
             return;
         }
 
@@ -715,10 +707,10 @@ namespace quicr {
         const auto& prefix = handler->GetPrefix();
         [[maybe_unused]] auto th = TrackHash({ prefix, {} });
 
-        SPDLOG_LOGGER_INFO(logger_,
-                           "Unsubscribe namespace conn_id: {} prefix_hash: {}",
-                           current_connection_->GetID(),
-                           th.track_namespace_hash);
+        QUICR_LOGGER_INFO(logger_,
+                          "Unsubscribe namespace conn_id: {} prefix_hash: {}",
+                          current_connection_->GetID(),
+                          th.track_namespace_hash);
 
         std::lock_guard<std::mutex> lock(state_mutex_);
 
@@ -757,7 +749,7 @@ namespace quicr {
                     wire_end_location,
                     params);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending Fetch (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending Fetch (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -786,7 +778,7 @@ namespace quicr {
                     joining_start,
                     params);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending JoiningFetch (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending JoiningFetch (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -807,7 +799,7 @@ namespace quicr {
 
         SendCtrlMsg(data_ctx_id, ControlMessageType::kFetchOk, end_of_track, largest_location, params, extensions);
     } catch (const std::exception& e) {
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception sending FetchOk (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception sending FetchOk (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
     }
 
@@ -826,7 +818,7 @@ namespace quicr {
             th.track_fullname_hash = proposed_track_alias.value();
         }
 
-        SPDLOG_LOGGER_INFO(
+        QUICR_LOGGER_INFO(
           logger_, "Subscribe track conn_id: {} track_alias: {}", current_connection_->GetID(), th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
@@ -862,10 +854,10 @@ namespace quicr {
         if (!track_handler->IsPublisherInitiated()) {
             if (auto [_, is_new] = request_handlers.try_emplace(*track_handler->GetRequestId(), track_handler);
                 !is_new) {
-                SPDLOG_LOGGER_WARN(logger_,
-                                   "Track already subscribed conn_id: {} track_alias: {}",
-                                   current_connection_->GetID(),
-                                   th.track_fullname_hash);
+                QUICR_LOGGER_WARN(logger_,
+                                  "Track already subscribed conn_id: {} track_alias: {}",
+                                  current_connection_->GetID(),
+                                  th.track_fullname_hash);
                 return;
             }
 
@@ -891,13 +883,13 @@ namespace quicr {
                 const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(
                   track_handler, info.group_order.value_or(messages::GroupOrder::kAscending));
                 const auto fetch_rid = GetNextRequestID();
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Subscribe with joining fetch conn_id: {} track_alias: {} subscribe id: {} "
-                                   "joining subscribe id: {}",
-                                   current_connection_->GetID(),
-                                   th.track_fullname_hash,
-                                   fetch_rid,
-                                   *track_handler->GetRequestId());
+                QUICR_LOGGER_INFO(logger_,
+                                  "Subscribe with joining fetch conn_id: {} track_alias: {} subscribe id: {} "
+                                  "joining subscribe id: {}",
+                                  current_connection_->GetID(),
+                                  th.track_fullname_hash,
+                                  fetch_rid,
+                                  *track_handler->GetRequestId());
                 joining_fetch_handler->SetRequestId(fetch_rid);
                 joining_fetch_handler->SetConnectionId(current_connection_->GetID());
                 joining_fetch_handler->SetTransport(GetSharedPtr());
@@ -925,10 +917,10 @@ namespace quicr {
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
-        SPDLOG_LOGGER_INFO(logger_,
-                           "Unsubscribe track conn_id: {} track_alias: {}",
-                           current_connection_->GetID(),
-                           th.track_fullname_hash);
+        QUICR_LOGGER_INFO(logger_,
+                          "Unsubscribe track conn_id: {} track_alias: {}",
+                          current_connection_->GetID(),
+                          th.track_fullname_hash);
 
         std::lock_guard<std::mutex> lock(state_mutex_);
 
@@ -940,7 +932,7 @@ namespace quicr {
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
-        SPDLOG_LOGGER_INFO(
+        QUICR_LOGGER_INFO(
           logger_, "Subscribe track conn_id: {} hash: {}", current_connection_->GetID(), th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
@@ -951,7 +943,7 @@ namespace quicr {
 
         auto priority = track_handler->GetPriority();
         if (!track_handler->GetDataContextId().has_value()) {
-            SPDLOG_LOGGER_ERROR(
+            QUICR_LOGGER_ERROR(
               logger_, "Subscribe track update missing data context conn_id: {}", current_connection_->GetID());
             return;
         }
@@ -979,7 +971,7 @@ namespace quicr {
                         }
                     }
                 } catch (const std::exception& e) {
-                    SPDLOG_LOGGER_ERROR(logger_, "Failed to send unsubscribe: {}", e.what());
+                    QUICR_LOGGER_ERROR(logger_, "Failed to send unsubscribe: {}", e.what());
                 }
 
                 handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
@@ -1011,7 +1003,7 @@ namespace quicr {
                         SendUnsubscribeNamespace(handler.GetDataContextId().value(), handler.GetPrefix());
                     }
                 } catch (const std::exception& e) {
-                    SPDLOG_LOGGER_ERROR(logger_, "Failed to send unsubscribe namespace: {}", e.what());
+                    QUICR_LOGGER_ERROR(logger_, "Failed to send unsubscribe namespace: {}", e.what());
                 }
 
                 handler.SetStatus(SubscribeNamespaceHandler::Status::kNotSubscribed);
@@ -1081,13 +1073,13 @@ namespace quicr {
                       }
 
                       const auto& [code, reason] = result.error();
-                      SPDLOG_LOGGER_ERROR(self->logger_,
-                                          "Publish namespace done failed conn_id: {} request_id: {} code: {} "
-                                          "reason: {}",
-                                          self->current_connection_->GetID(),
-                                          request_id,
-                                          static_cast<std::uint64_t>(code),
-                                          reason.value_or("unknown"));
+                      QUICR_LOGGER_ERROR(self->logger_,
+                                         "Publish namespace done failed conn_id: {} request_id: {} code: {} "
+                                         "reason: {}",
+                                         self->current_connection_->GetID(),
+                                         request_id,
+                                         static_cast<std::uint64_t>(code),
+                                         reason.value_or("unknown"));
                   });
             }
             return;
@@ -1095,10 +1087,10 @@ namespace quicr {
 
         const auto handler_it = request_handlers.find(request_id);
         if (handler_it == request_handlers.end()) {
-            SPDLOG_LOGGER_DEBUG(logger_,
-                                "Stream closed for unknown request_id conn_id: {} request_id: {}",
-                                current_connection_->GetID(),
-                                request_id);
+            QUICR_LOGGER_DEBUG(logger_,
+                               "Stream closed for unknown request_id conn_id: {} request_id: {}",
+                               current_connection_->GetID(),
+                               request_id);
             recv_req_id.erase(request_id);
             return;
         }
@@ -1109,12 +1101,12 @@ namespace quicr {
             request_id_by_data_ctx.erase(*data_ctx_id);
         }
 
-        SPDLOG_LOGGER_INFO(logger_,
-                           "Closing request handler conn_id: {} request_id: {} stream_id: {} reset: {}",
-                           current_connection_->GetID(),
-                           request_id,
-                           stream_id,
-                           is_reset);
+        QUICR_LOGGER_INFO(logger_,
+                          "Closing request handler conn_id: {} request_id: {} stream_id: {} reset: {}",
+                          current_connection_->GetID(),
+                          request_id,
+                          stream_id,
+                          is_reset);
 
         if (auto sub_handler = handler_it->second->Get<SubscribeTrackHandler>()) {
             sub_handler->SetStatus(is_reset ? SubscribeTrackHandler::Status::kDoneByReset
@@ -1137,13 +1129,13 @@ namespace quicr {
                       }
 
                       const auto& [code, reason] = result.error();
-                      SPDLOG_LOGGER_ERROR(self->logger_,
-                                          "Unsubscribe of subscribe track failed conn_id: {} request_id: {} code: {} "
-                                          "reason: {}",
-                                          self->current_connection_->GetID(),
-                                          request_id,
-                                          code,
-                                          reason.value_or("unknown"));
+                      QUICR_LOGGER_ERROR(self->logger_,
+                                         "Unsubscribe of subscribe track failed conn_id: {} request_id: {} code: {} "
+                                         "reason: {}",
+                                         self->current_connection_->GetID(),
+                                         request_id,
+                                         code,
+                                         reason.value_or("unknown"));
                   });
             }
 
@@ -1164,13 +1156,13 @@ namespace quicr {
                       }
 
                       const auto& [code, reason] = result.error();
-                      SPDLOG_LOGGER_ERROR(self->logger_,
-                                          "Unsubscribe of publish track failed conn_id: {} request_id: {} code: {} "
-                                          "reason: {}",
-                                          self->current_connection_->GetID(),
-                                          request_id,
-                                          code,
-                                          reason.value_or("unknown"));
+                      QUICR_LOGGER_ERROR(self->logger_,
+                                         "Unsubscribe of publish track failed conn_id: {} request_id: {} code: {} "
+                                         "reason: {}",
+                                         self->current_connection_->GetID(),
+                                         request_id,
+                                         code,
+                                         reason.value_or("unknown"));
                   });
             }
 
@@ -1209,7 +1201,7 @@ namespace quicr {
         auto tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
-        SPDLOG_LOGGER_INFO(
+        QUICR_LOGGER_INFO(
           logger_, "Unpublish track conn_id: {} hash: {}", current_connection_->GetID(), th.track_fullname_hash);
 
         std::unique_lock<std::mutex> lock(state_mutex_);
@@ -1234,23 +1226,22 @@ namespace quicr {
                 // Send subscribe done if track has subscriber and is sending
                 if (pub_n_it->second->GetStatus() == PublishTrackHandler::Status::kOk &&
                     pub_n_it->second->GetRequestId().has_value() && pub_n_it->second->GetDataContextId().has_value()) {
-                    SPDLOG_LOGGER_INFO(
-                      logger_,
-                      "Unpublish track namespace hash: {} track_name_hash: {} track_alias: {}, sending "
-                      "publish_done",
-                      th.track_namespace_hash,
-                      th.track_name_hash,
-                      th.track_fullname_hash);
+                    QUICR_LOGGER_INFO(logger_,
+                                      "Unpublish track namespace hash: {} track_name_hash: {} track_alias: {}, sending "
+                                      "publish_done",
+                                      th.track_namespace_hash,
+                                      th.track_name_hash,
+                                      th.track_fullname_hash);
                     SendPublishDone(*pub_n_it->second->GetDataContextId(),
                                     *pub_n_it->second->GetRequestId(),
                                     PublishDoneStatusCode::kSubscribtionEnded,
                                     "Unpublish track");
                 } else {
-                    SPDLOG_LOGGER_INFO(logger_,
-                                       "Unpublish track namespace hash: {} track_name_hash: {} track_alias: {}",
-                                       th.track_namespace_hash,
-                                       th.track_name_hash,
-                                       th.track_fullname_hash);
+                    QUICR_LOGGER_INFO(logger_,
+                                      "Unpublish track namespace hash: {} track_name_hash: {} track_alias: {}",
+                                      th.track_namespace_hash,
+                                      th.track_name_hash,
+                                      th.track_fullname_hash);
                 }
 
                 pub_n_it->second->publish_data_ctx_id_ = 0;
@@ -1273,12 +1264,12 @@ namespace quicr {
     {
         const auto tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
-        SPDLOG_LOGGER_INFO(logger_,
-                           "Publish track conn_id: {} hash: {} tfn: {} ({})",
-                           current_connection_->GetID(),
-                           th.track_fullname_hash,
-                           tfn.NamespaceStr(),
-                           tfn.NameStr());
+        QUICR_LOGGER_INFO(logger_,
+                          "Publish track conn_id: {} hash: {} tfn: {} ({})",
+                          current_connection_->GetID(),
+                          th.track_fullname_hash,
+                          tfn.NamespaceStr(),
+                          tfn.NameStr());
 
         std::unique_lock<std::mutex> lock(state_mutex_);
 
@@ -1315,11 +1306,11 @@ namespace quicr {
         SendPublish(track_handler->GetDataContextId().value(), *track_handler->GetRequestId(), publish);
 
         track_handler->connection_id_ = current_connection_->GetID();
-        SPDLOG_LOGGER_INFO(logger_,
-                           "Publish track creating new data context connId {}, track namespace hash: {}, name hash: {}",
-                           current_connection_->GetID(),
-                           th.track_namespace_hash,
-                           th.track_name_hash);
+        QUICR_LOGGER_INFO(logger_,
+                          "Publish track creating new data context connId {}, track namespace hash: {}, name hash: {}",
+                          current_connection_->GetID(),
+                          th.track_namespace_hash,
+                          th.track_name_hash);
         track_handler->publish_data_ctx_id_ =
           quic_transport_->CreateDataContext(current_connection_,
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
@@ -1340,7 +1331,7 @@ namespace quicr {
     void Session::PublishNamespace(std::shared_ptr<PublishNamespaceHandler> ns_handler, bool passive)
     {
         auto prefix_hash = hash(ns_handler->GetPrefix());
-        SPDLOG_LOGGER_INFO(
+        QUICR_LOGGER_INFO(
           logger_, "Publish namespace conn_id: {0} hash: {1}", current_connection_->GetID(), prefix_hash);
 
         std::unique_lock<std::mutex> lock(state_mutex_);
@@ -1348,7 +1339,7 @@ namespace quicr {
         if (!passive) {
             ns_handler->SetRequestId(GetNextRequestID());
 
-            SPDLOG_LOGGER_INFO(logger_, "Publishing to namespace hash: {0} sending ANNOUNCE message", prefix_hash);
+            QUICR_LOGGER_INFO(logger_, "Publishing to namespace hash: {0} sending ANNOUNCE message", prefix_hash);
 
             lock.unlock();
 
@@ -1379,7 +1370,7 @@ namespace quicr {
         const auto& prefix = track_handler->GetPrefix();
         const auto prefix_hash = hash(prefix);
 
-        SPDLOG_LOGGER_INFO(
+        QUICR_LOGGER_INFO(
           logger_, "PublishNamespaceDone (conn_id={}, prefix_hash={})", current_connection_->GetID(), prefix_hash);
 
         std::lock_guard<std::mutex> lock(state_mutex_);
@@ -1387,10 +1378,10 @@ namespace quicr {
         const auto data_ctx_id = track_handler->GetDataContextId();
         const auto request_stream_id = track_handler->GetRequestStreamId();
         if (!data_ctx_id.has_value() || !request_stream_id.has_value()) {
-            SPDLOG_LOGGER_ERROR(logger_,
-                                "PublishNamespaceDone missing request context conn_id: {} prefix_hash: {}",
-                                current_connection_->GetID(),
-                                prefix_hash);
+            QUICR_LOGGER_ERROR(logger_,
+                               "PublishNamespaceDone missing request context conn_id: {} prefix_hash: {}",
+                               current_connection_->GetID(),
+                               prefix_hash);
             return;
         }
 
@@ -1405,7 +1396,7 @@ namespace quicr {
 
         track_handler->SetTrackAlias(th.track_fullname_hash);
 
-        SPDLOG_LOGGER_INFO(
+        QUICR_LOGGER_INFO(
           logger_, "Fetch track conn_id: {} hash: {}", current_connection_->GetID(), th.track_fullname_hash);
 
         std::lock_guard<std::mutex> _(state_mutex_);
@@ -1414,7 +1405,7 @@ namespace quicr {
         track_handler->SetConnectionId(current_connection_->GetID());
         track_handler->SetTransport(GetSharedPtr());
 
-        SPDLOG_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {}", *track_handler->GetRequestId());
+        QUICR_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {}", *track_handler->GetRequestId());
 
         auto priority = track_handler->GetPriority();
         auto group_order = track_handler->GetGroupOrder();
@@ -1502,14 +1493,14 @@ namespace quicr {
 
     void Session::OnConnectionStatus(Connection::Status status)
     {
-        SPDLOG_LOGGER_DEBUG(
+        QUICR_LOGGER_DEBUG(
           logger_, "Connection status conn_id: {} status: {}", current_connection_->GetID(), static_cast<int>(status));
         bool remove_connection = false;
 
         switch (status) {
             case Connection::Status::kReady: {
                 if (client_mode_) {
-                    SPDLOG_LOGGER_INFO(logger_, "Connection established, creating bi-dir stream and sending SETUP");
+                    QUICR_LOGGER_INFO(logger_, "Connection established, creating bi-dir stream and sending SETUP");
 
                     tx_ctrl_data_ctx_id_ = quic_transport_->CreateDataContext(current_connection_, true, 0, false);
                     tx_ctrl_stream_id_ =
@@ -1612,7 +1603,7 @@ namespace quicr {
                 initial_cursor = initial_buffer.buffer.Data();
                 initial_stream_type = TryDecodeUintV(initial_cursor);
                 if (!initial_stream_type.has_value()) {
-                    SPDLOG_LOGGER_DEBUG(
+                    QUICR_LOGGER_DEBUG(
                       logger_,
                       "New stream {} bidir: {} does not have enough bytes to process start of stream yet",
                       stream_id,
@@ -1620,13 +1611,13 @@ namespace quicr {
                     continue;
                 }
 
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "New stream conn_id: {} stream_id: {} bidir: {} data size: {} msg_type: {}",
-                                    current_connection_->GetID(),
-                                    stream_id,
-                                    is_bidir,
-                                    initial_buffer.buffer.Size(),
-                                    *initial_stream_type);
+                QUICR_LOGGER_DEBUG(logger_,
+                                   "New stream conn_id: {} stream_id: {} bidir: {} data size: {} msg_type: {}",
+                                   current_connection_->GetID(),
+                                   stream_id,
+                                   is_bidir,
+                                   initial_buffer.buffer.Size(),
+                                   *initial_stream_type);
 
                 // This might be incoming control stream arriving.
                 if (static_cast<ControlMessageType>(*initial_stream_type) == ControlMessageType::kSetup) {
@@ -1648,11 +1639,11 @@ namespace quicr {
 
                 auto& stream_buffer = stream_buffers.at(stream_id).buffer;
 
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
-                                    current_connection_->GetID(),
-                                    stream_id,
-                                    stream_buffer.Size());
+                QUICR_LOGGER_DEBUG(logger_,
+                                   "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
+                                   current_connection_->GetID(),
+                                   stream_id,
+                                   stream_buffer.Size());
 
                 // Parse control messages out of this stream data.
                 while (!stream_buffer.Empty()) {
@@ -1697,13 +1688,13 @@ namespace quicr {
                             processed = ProcessRequestMessage(*data_ctx_id, msg_type, payload);
                         }
                     } catch (const std::exception& e) {
-                        SPDLOG_LOGGER_ERROR(logger_,
-                                            "Caught exception trying to process control message. (type={}, error={})",
-                                            static_cast<int>(msg_type),
-                                            e.what());
+                        QUICR_LOGGER_ERROR(logger_,
+                                           "Caught exception trying to process control message. (type={}, error={})",
+                                           static_cast<int>(msg_type),
+                                           e.what());
                         throw ProtocolViolationException(e.what());
                     } catch (...) {
-                        SPDLOG_LOGGER_ERROR(logger_, "Unable to parse control message");
+                        QUICR_LOGGER_ERROR(logger_, "Unable to parse control message");
                         throw ProtocolViolationException("Control message cannot be parsed");
                     }
 
@@ -1717,7 +1708,7 @@ namespace quicr {
 
             // DATA OBJECT
             if (rx_ctx->is_new) {
-                SPDLOG_LOGGER_TRACE(
+                QUICR_LOGGER_TRACE(
                   logger_, "Received stream message type: 0x{:02x} ({})", *initial_stream_type, *initial_stream_type);
 
                 bool parsed_header = false;
@@ -1741,9 +1732,9 @@ namespace quicr {
                         break;
                     }
                     default:
-                        SPDLOG_LOGGER_WARN(logger_,
-                                           "Received start of stream with invalid header type {}, dropping",
-                                           *initial_stream_type);
+                        QUICR_LOGGER_WARN(logger_,
+                                          "Received start of stream with invalid header type {}, dropping",
+                                          *initial_stream_type);
                         current_connection_->metrics.rx_stream_invalid_type++;
 
                         // TODO(tievens): Need to reset this stream as this is invalid.
@@ -1759,7 +1750,7 @@ namespace quicr {
                           std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
                         rx_ctx->unknown_expiry_tick_ms += age_ms;
 
-                        SPDLOG_LOGGER_INFO(
+                        QUICR_LOGGER_INFO(
                           logger_,
                           "Setting stream_id: {} unknown expiry to {}ms (current time is {}ms)",
                           stream_id,
@@ -1781,14 +1772,14 @@ namespace quicr {
                     try {
                         sub_handler->StreamDataRecv(stream_id, *data_opt);
                     } catch (const ProtocolViolationException& e) {
-                        SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
+                        QUICR_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
                         throw ProtocolViolationException(e.reason);
                     } catch (std::exception& e) {
-                        SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
+                        QUICR_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
                         throw e;
                     }
                 } else {
-                    SPDLOG_LOGGER_ERROR(
+                    QUICR_LOGGER_ERROR(
                       logger_,
                       "Received data on existing stream_id: {} with no handler anymore, resetting stream",
                       stream_id);
@@ -1800,7 +1791,7 @@ namespace quicr {
             }
         } // end of for loop rx data queue
     } catch (const TransportException& e) {
-        SPDLOG_LOGGER_INFO(logger_, "OnRecvStream: connection or stream no longer exists (error={})", e.what());
+        QUICR_LOGGER_INFO(logger_, "OnRecvStream: connection or stream no longer exists (error={})", e.what());
     } catch (const std::exception& e) {
         // NOTE: Whatever message was being processed when this was thrown (e.g. a control message) was not
         // removed from its buffer, so the connection cannot make forward progress on that stream if left
@@ -1809,7 +1800,7 @@ namespace quicr {
         // instead of surfacing an error. Rather than letting that exception disappear into the transport's
         // callback notifier (which only logs and ignores it), close the connection so the failure is visible
         // and the peer is not left waiting indefinitely.
-        SPDLOG_LOGGER_ERROR(logger_, "Caught exception on receiving stream, closing connection. (error={})", e.what());
+        QUICR_LOGGER_ERROR(logger_, "Caught exception on receiving stream, closing connection. (error={})", e.what());
         current_connection_->metrics.invalid_ctrl_stream_msg++;
         Disconnect();
 
@@ -1821,7 +1812,7 @@ namespace quicr {
                                  std::optional<uint64_t> data_ctx_id,
                                  StreamClosedFlag flag)
     {
-        SPDLOG_LOGGER_DEBUG(logger_, "Stream {} closed", stream_id);
+        QUICR_LOGGER_DEBUG(logger_, "Stream {} closed", stream_id);
 
         if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
             callbacks->OnStreamClosed(stream_id, flag);
@@ -1848,7 +1839,7 @@ namespace quicr {
                 }
 
             } catch (const std::exception& e) {
-                SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream closed: {}", e.what());
+                QUICR_LOGGER_ERROR(logger_, "Caught exception on stream closed: {}", e.what());
             }
             return;
         }
@@ -1896,15 +1887,15 @@ namespace quicr {
                         }
                     }
                 } catch (const ProtocolViolationException& e) {
-                    SPDLOG_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
+                    QUICR_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
                     throw ProtocolViolationException(e.reason);
                 } catch (const std::exception& e) {
-                    SPDLOG_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
+                    QUICR_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
                     throw std::runtime_error("Internal error");
                 }
             }
         } catch (const std::bad_any_cast&) {
-            SPDLOG_LOGGER_WARN(logger_, "Received stream closed for unknown handler");
+            QUICR_LOGGER_WARN(logger_, "Received stream closed for unknown handler");
         }
     }
 
@@ -1913,7 +1904,7 @@ namespace quicr {
         auto sub_it = sub_by_recv_track_alias.find(track_alias);
         if ((sub_it == sub_by_recv_track_alias.end() || sub_it->second == nullptr)) {
             current_connection_->metrics.rx_stream_unknown_track_alias++;
-            SPDLOG_LOGGER_WARN(
+            QUICR_LOGGER_WARN(
               logger_,
               "Received stream_header_subgroup to unknown subscribe track track_alias: {} stream: {}, ignored",
               track_alias,
@@ -1924,7 +1915,7 @@ namespace quicr {
 
         const auto stream_it = stream_buffers.find(stream_id);
         if (stream_it == stream_buffers.end()) {
-            SPDLOG_LOGGER_ERROR(logger_, "Missing expected pending stream buffer");
+            QUICR_LOGGER_ERROR(logger_, "Missing expected pending stream buffer");
             return false;
         }
         auto initial_buffer = std::move(stream_it->second);
@@ -1932,7 +1923,12 @@ namespace quicr {
 
         rx_ctx.is_new = false;
         rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
-        sub_it->second->StreamDataRecv(stream_id, std::move(initial_buffer));
+        try {
+            sub_it->second->StreamDataRecv(stream_id, std::move(initial_buffer));
+        } catch (const std::exception& e) {
+            QUICR_LOGGER_ERROR(
+              logger_, "Encountered an error while receiving stream data (stream={}, error={})", stream_id, e.what());
+        }
         return true;
     }
 
@@ -1941,10 +1937,10 @@ namespace quicr {
         const auto fetch_it = request_handlers.find(request_id);
         if (fetch_it == request_handlers.end()) {
             // TODO: Metrics.
-            SPDLOG_LOGGER_WARN(logger_,
-                               "Received fetch_header to unknown fetch track request_id: {} stream: {}, ignored",
-                               request_id,
-                               stream_id);
+            QUICR_LOGGER_WARN(logger_,
+                              "Received fetch_header to unknown fetch track request_id: {} stream: {}, ignored",
+                              request_id,
+                              stream_id);
 
             // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
             return false;
@@ -1953,7 +1949,7 @@ namespace quicr {
         if (auto h = fetch_it->second->Get<SubscribeTrackHandler>()) {
             const auto stream_it = stream_buffers.find(stream_id);
             if (stream_it == stream_buffers.end()) {
-                SPDLOG_LOGGER_ERROR(logger_, "Missing expected pending stream buffer");
+                QUICR_LOGGER_ERROR(logger_, "Missing expected pending stream buffer");
                 return false;
             }
             auto initial_buffer = std::move(stream_it->second);
@@ -1961,7 +1957,14 @@ namespace quicr {
 
             rx_ctx.is_new = false;
             rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(h);
-            h->StreamDataRecv(stream_id, std::move(initial_buffer));
+            try {
+                h->StreamDataRecv(stream_id, std::move(initial_buffer));
+            } catch (const std::exception& e) {
+                QUICR_LOGGER_ERROR(logger_,
+                                   "Encountered an error while receiving stream data (stream={}, error={})",
+                                   stream_id,
+                                   e.what());
+            }
             return true;
         }
 
@@ -1982,7 +1985,7 @@ namespace quicr {
 
                 // Message type needs to be either datagram header types or status types.
                 if (!DatagramHeaderProperties::IsValid(msg_type)) {
-                    SPDLOG_LOGGER_DEBUG(
+                    QUICR_LOGGER_DEBUG(
                       logger_, "Received datagram that is not a supported datagram type, dropping: {}", msg_type);
                     current_connection_->metrics.rx_dgram_invalid_type++;
                     continue;
@@ -2005,7 +2008,7 @@ namespace quicr {
                 if (sub_it == sub_by_recv_track_alias.end()) {
                     current_connection_->metrics.rx_dgram_unknown_track_alias++;
 
-                    SPDLOG_LOGGER_DEBUG(
+                    QUICR_LOGGER_DEBUG(
                       logger_, "Received datagram to unknown subscribe track track alias: {}, ignored", track_alias);
 
                     // TODO(tievens): Should close/reset stream in this case but draft leaves this case hanging
@@ -2013,26 +2016,29 @@ namespace quicr {
                     continue;
                 }
 
-                SPDLOG_LOGGER_TRACE(logger_,
-                                    "Received object datagram conn_id: {} data_ctx_id: {} subscriber_id: {} "
-                                    "track_alias: {} group_id: {4} object_id: {5} data size: {6}",
-                                    current_connection_->GetID(),
-                                    (data_ctx_id ? *data_ctx_id : 0),
-                                    sub_id,
-                                    track_alias,
-                                    data.value()->size());
+                QUICR_LOGGER_TRACE(logger_,
+                                   "Received object datagram conn_id: {} data_ctx_id: {} "
+                                   "track_alias: {} data size: {}",
+                                   current_connection_->GetID(),
+                                   (data_ctx_id ? *data_ctx_id : 0),
+                                   track_alias,
+                                   data->size());
 
                 auto handler = static_cast<SubscribeTrackHandler*>(sub_it->second.get());
 
-                handler->DgramDataRecv(data);
+                try {
+                    handler->DgramDataRecv(data);
+                } catch (const std::exception& e) {
+                    QUICR_LOGGER_ERROR(logger_, "Caught exception in ObjectStatusReceived. (error={})", e.what());
+                }
             } else if (data) {
                 current_connection_->metrics.rx_dgram_decode_failed++;
 
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Failed to decode datagram conn_id: {} data_ctx_id: {} size: {}",
-                                    current_connection_->GetID(),
-                                    (data_ctx_id ? *data_ctx_id : 0),
-                                    data->size());
+                QUICR_LOGGER_DEBUG(logger_,
+                                   "Failed to decode datagram conn_id: {} data_ctx_id: {} size: {}",
+                                   current_connection_->GetID(),
+                                   (data_ctx_id ? *data_ctx_id : 0),
+                                   data->size());
             }
         }
     }
@@ -2131,10 +2137,10 @@ namespace quicr {
     {
         const auto request_it = recv_req_id.find(request_id);
         if (request_it == recv_req_id.end() || request_it->second.data_ctx_id == 0) {
-            SPDLOG_LOGGER_ERROR(logger_,
-                                "Cannot resolve FETCH without its request stream conn_id: {} request_id: {}",
-                                current_connection_->GetID(),
-                                request_id);
+            QUICR_LOGGER_ERROR(logger_,
+                               "Cannot resolve FETCH without its request stream conn_id: {} request_id: {}",
+                               current_connection_->GetID(),
+                               request_id);
             return;
         }
         const auto data_ctx_id = request_it->second.data_ctx_id;
@@ -2146,18 +2152,18 @@ namespace quicr {
     {
         auto track_it = request_handlers.find(request_id);
         if (track_it == request_handlers.end()) {
-            SPDLOG_LOGGER_ERROR(logger_, "Resolve REQUEST_UPDATE for request {} had no handler", request_id);
+            QUICR_LOGGER_ERROR(logger_, "Resolve REQUEST_UPDATE for request {} had no handler", request_id);
             return;
         }
 
-        SPDLOG_LOGGER_DEBUG(logger_, "Request Updated resolve req_id: {}", request_id);
+        QUICR_LOGGER_DEBUG(logger_, "Request Updated resolve req_id: {}", request_id);
 
         const auto data_ctx_id = track_it->second->GetDataContextId();
         if (!data_ctx_id.has_value()) {
-            SPDLOG_LOGGER_WARN(logger_,
-                               "ResolveRequestUpdate missing handler data context conn_id: {} request_id: {}",
-                               current_connection_->GetID(),
-                               request_id);
+            QUICR_LOGGER_WARN(logger_,
+                              "ResolveRequestUpdate missing handler data context conn_id: {} request_id: {}",
+                              current_connection_->GetID(),
+                              request_id);
             return;
         }
 
@@ -2261,7 +2267,7 @@ namespace quicr {
         std::lock_guard lock(state_mutex_);
 
         auto th = TrackHash(track_handler->GetFullTrackName());
-        SPDLOG_LOGGER_DEBUG(
+        QUICR_LOGGER_DEBUG(
           logger_,
           "Server publish track conn_id: {} full_name_hash: {} namespace_hash: {} name_hash: {} unbind",
           current_connection_->GetID(),
@@ -2278,11 +2284,11 @@ namespace quicr {
         }
 
         if (pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
-            SPDLOG_LOGGER_DEBUG(logger_,
-                                "Server publish track conn_id: {} full_name_hash: {} namespace_hash: {} unbind",
-                                current_connection_->GetID(),
-                                th.track_fullname_hash,
-                                th.track_namespace_hash);
+            QUICR_LOGGER_DEBUG(logger_,
+                               "Server publish track conn_id: {} full_name_hash: {} namespace_hash: {} unbind",
+                               current_connection_->GetID(),
+                               th.track_fullname_hash,
+                               th.track_namespace_hash);
 
             pub_tracks_by_name.erase(th.track_namespace_hash);
         }
@@ -2302,7 +2308,7 @@ namespace quicr {
     void Session::BindFetchTrack(std::shared_ptr<PublishFetchHandler> track_handler)
     {
         const std::uint64_t request_id = *track_handler->GetRequestId();
-        SPDLOG_LOGGER_INFO(
+        QUICR_LOGGER_INFO(
           logger_, "Publish fetch track conn_id: {} subscribe: {}", current_connection_->GetID(), request_id);
 
         std::lock_guard lock(state_mutex_);
@@ -2323,10 +2329,10 @@ namespace quicr {
         std::lock_guard lock(state_mutex_);
 
         auto request_id = *track_handler->GetRequestId();
-        SPDLOG_LOGGER_DEBUG(logger_,
-                            "Server publish fetch track conn_id: {} subscribe id: {} unbind",
-                            current_connection_->GetID(),
-                            request_id);
+        QUICR_LOGGER_DEBUG(logger_,
+                           "Server publish fetch track conn_id: {} subscribe id: {} unbind",
+                           current_connection_->GetID(),
+                           request_id);
 
         pub_fetch_tracks_by_request_id.erase(request_id);
         quic_transport_->DeleteDataContext(current_connection_, track_handler->publish_data_ctx_id_, true);
@@ -2354,11 +2360,11 @@ namespace quicr {
                               }
 
                               const auto& [code, reason] = result.error();
-                              SPDLOG_LOGGER_ERROR(self->logger_,
-                                                  "Server setup rejected conn_id: {} code: {} reason: {}",
-                                                  self->current_connection_->GetID(),
-                                                  code,
-                                                  reason.value_or("unknown"));
+                              QUICR_LOGGER_ERROR(self->logger_,
+                                                 "Server setup rejected conn_id: {} code: {} reason: {}",
+                                                 self->current_connection_->GetID(),
+                                                 code,
+                                                 reason.value_or("unknown"));
                           });
                     }
                 } else {
@@ -2367,12 +2373,12 @@ namespace quicr {
                           .Resolve([self = GetSharedPtr()](const auto& result) {
                               if (!result) {
                                   const auto& [code, reason] = result.error();
-                                  SPDLOG_LOGGER_ERROR(self->logger_,
-                                                      "Client setup rejected, not sending SETUP conn_id: {} code: {} "
-                                                      "reason: {}",
-                                                      self->current_connection_->GetID(),
-                                                      code,
-                                                      reason.value_or("unknown"));
+                                  QUICR_LOGGER_ERROR(self->logger_,
+                                                     "Client setup rejected, not sending SETUP conn_id: {} code: {} "
+                                                     "reason: {}",
+                                                     self->current_connection_->GetID(),
+                                                     code,
+                                                     reason.value_or("unknown"));
                                   return;
                               }
 
@@ -2383,7 +2389,7 @@ namespace quicr {
 
                 SetStatus(Status::kReady);
 
-                SPDLOG_LOGGER_INFO(
+                QUICR_LOGGER_INFO(
                   logger_, "Setup received conn_id: {} from: {}", current_connection_->GetID(), endpoint_id);
 
                 return true;
@@ -2392,11 +2398,11 @@ namespace quicr {
                 // Session GOAWAY.
                 const auto new_session_uri = messages::Message::ParseField<Bytes>(msg_bytes);
                 std::string new_sess_uri(new_session_uri.begin(), new_session_uri.end());
-                SPDLOG_LOGGER_INFO(logger_, "Received session goaway new session uri: {}", new_sess_uri);
+                QUICR_LOGGER_INFO(logger_, "Received session goaway new session uri: {}", new_sess_uri);
                 return true;
             }
             default: {
-                SPDLOG_LOGGER_ERROR(
+                QUICR_LOGGER_ERROR(
                   logger_, "Unsupported session control message, type: {}", static_cast<std::uint64_t>(msg_type));
                 throw ProtocolViolationException("Unsupported session control message");
             }
@@ -2422,13 +2428,13 @@ namespace quicr {
                 if (client_mode_) {
                     auto ptd = GetPubTrackHandler(th);
                     if (ptd == nullptr) {
-                        SPDLOG_LOGGER_WARN(logger_,
-                                           "Received subscribe unknown publish track conn_id: {} namespace hash: {} "
-                                           "name hash: {} request_id: {}",
-                                           current_connection_->GetID(),
-                                           th.track_namespace_hash,
-                                           th.track_name_hash,
-                                           request_id);
+                        QUICR_LOGGER_WARN(logger_,
+                                          "Received subscribe unknown publish track conn_id: {} namespace hash: {} "
+                                          "name hash: {} request_id: {}",
+                                          current_connection_->GetID(),
+                                          th.track_namespace_hash,
+                                          th.track_name_hash,
+                                          request_id);
 
                         SendRequestError(data_ctx_id,
                                          request_id,
@@ -2512,12 +2518,12 @@ namespace quicr {
                               // Save the latest state for joining fetch.
                               auto req_it = self->recv_req_id.find(request_id);
                               if (req_it == self->recv_req_id.end()) {
-                                  SPDLOG_LOGGER_WARN(self->logger_,
-                                                     "Resolve subscribe has no request_id: {} conn_id: {} "
-                                                     "track_alias: {}",
-                                                     request_id,
-                                                     self->current_connection_->GetID(),
-                                                     th.track_fullname_hash);
+                                  QUICR_LOGGER_WARN(self->logger_,
+                                                    "Resolve subscribe has no request_id: {} conn_id: {} "
+                                                    "track_alias: {}",
+                                                    request_id,
+                                                    self->current_connection_->GetID(),
+                                                    th.track_fullname_hash);
                                   return;
                               }
 
@@ -2544,13 +2550,13 @@ namespace quicr {
                                 }
 
                                 const auto& [code, reason] = new_group_result.error();
-                                SPDLOG_LOGGER_ERROR(self->logger_,
-                                                    "New group request on subscribe failed request_id: {} group_id: {} "
-                                                    "code: {} reason: {}",
-                                                    request_id,
-                                                    *new_group_request_id,
-                                                    code,
-                                                    reason.value_or("unknown"));
+                                QUICR_LOGGER_ERROR(self->logger_,
+                                                   "New group request on subscribe failed request_id: {} group_id: {} "
+                                                   "code: {} reason: {}",
+                                                   request_id,
+                                                   *new_group_request_id,
+                                                   code,
+                                                   reason.value_or("unknown"));
                             });
                       });
                 }
@@ -2560,10 +2566,10 @@ namespace quicr {
             case messages::ControlMessageType::kSubscribeOk: {
                 const auto request_it = request_id_by_data_ctx.find(data_ctx_id);
                 if (request_it == request_id_by_data_ctx.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received SUBSCRIBE_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
-                                       current_connection_->GetID(),
-                                       data_ctx_id);
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received SUBSCRIBE_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
+                                      current_connection_->GetID(),
+                                      data_ctx_id);
                     return true;
                 }
                 const auto request_id = request_it->second;
@@ -2574,7 +2580,7 @@ namespace quicr {
 
                 auto sub_it = request_handlers.find(request_id);
                 if (sub_it == request_handlers.end()) {
-                    SPDLOG_LOGGER_WARN(
+                    QUICR_LOGGER_WARN(
                       logger_,
                       "Received subscribe ok to unknown subscribe track conn_id: {} request_id: {}, ignored",
                       current_connection_->GetID(),
@@ -2608,10 +2614,10 @@ namespace quicr {
                 // What request is this for?
                 const auto req_it = request_id_by_data_ctx.find(data_ctx_id);
                 if (req_it == request_id_by_data_ctx.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received REQUEST_OK for unknown request conn_id: {} data_ctx_ic: {}, ignored",
-                                       current_connection_->GetID(),
-                                       data_ctx_id);
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received REQUEST_OK for unknown request conn_id: {} data_ctx_ic: {}, ignored",
+                                      current_connection_->GetID(),
+                                      data_ctx_id);
                     return true;
                 }
                 const auto request_id = req_it->second;
@@ -2623,10 +2629,10 @@ namespace quicr {
 
                 auto track_it = request_handlers.find(request_id);
                 if (track_it == request_handlers.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received REQUEST_OK to unknown track conn_id: {} request_id: {}, ignored",
-                                       current_connection_->GetID(),
-                                       request_id);
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received REQUEST_OK to unknown track conn_id: {} request_id: {}, ignored",
+                                      current_connection_->GetID(),
+                                      request_id);
                     return true;
                 }
 
@@ -2636,11 +2642,10 @@ namespace quicr {
             case messages::ControlMessageType::kRequestError: {
                 const auto request_it = request_id_by_data_ctx.find(data_ctx_id);
                 if (request_it == request_id_by_data_ctx.end()) {
-                    SPDLOG_LOGGER_WARN(
-                      logger_,
-                      "Received REQUEST_ERROR for unknown request conn_id: {} data_ctx_id: {}, ignored",
-                      current_connection_->GetID(),
-                      data_ctx_id);
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received REQUEST_ERROR for unknown request conn_id: {} data_ctx_id: {}, ignored",
+                                      current_connection_->GetID(),
+                                      data_ctx_id);
                     return true;
                 }
                 const auto request_id = request_it->second;
@@ -2653,11 +2658,10 @@ namespace quicr {
                 if (client_mode_) {
                     auto track_it = request_handlers.find(request_id);
                     if (track_it == request_handlers.end()) {
-                        SPDLOG_LOGGER_WARN(
-                          logger_,
-                          "Received REQUEST_ERROR to unknown track conn_id: {} request_id: {}, ignored",
-                          current_connection_->GetID(),
-                          request_id);
+                        QUICR_LOGGER_WARN(logger_,
+                                          "Received REQUEST_ERROR to unknown track conn_id: {} request_id: {}, ignored",
+                                          current_connection_->GetID(),
+                                          request_id);
                         return true;
                     }
 
@@ -2665,11 +2669,11 @@ namespace quicr {
                     return true;
                 }
 
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received track status error request_id: {} error code: {} reason: {}",
-                                    request_id,
-                                    static_cast<std::uint64_t>(error_code),
-                                    reason_str);
+                QUICR_LOGGER_DEBUG(logger_,
+                                   "Received track status error request_id: {} error code: {} reason: {}",
+                                   request_id,
+                                   static_cast<std::uint64_t>(error_code),
+                                   reason_str);
                 return true;
             }
             case messages::ControlMessageType::kTrackStatus: {
@@ -2680,10 +2684,10 @@ namespace quicr {
                 auto tfn = FullTrackName{ track_namespace, track_name };
 
                 auto th = TrackHash(tfn);
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received track status request_id: {} for full name hash: {}",
-                                    request_id,
-                                    th.track_fullname_hash);
+                QUICR_LOGGER_DEBUG(logger_,
+                                   "Received track status request_id: {} for full name hash: {}",
+                                   request_id,
+                                   th.track_fullname_hash);
 
                 request_id_by_data_ctx[data_ctx_id] = request_id;
 
@@ -2759,10 +2763,9 @@ namespace quicr {
 
                           const auto sub_data_ctx_id = self->FindSubscribeNamespaceDataContext(track_namespace);
                           if (!sub_data_ctx_id.has_value()) {
-                              SPDLOG_LOGGER_WARN(
-                                self->logger_,
-                                "No subscribe namespace data context for publish namespace conn_id: {}",
-                                self->current_connection_->GetID());
+                              QUICR_LOGGER_WARN(self->logger_,
+                                                "No subscribe namespace data context for publish namespace conn_id: {}",
+                                                self->current_connection_->GetID());
                               return;
                           }
 
@@ -2776,7 +2779,7 @@ namespace quicr {
                 [[fallthrough]];
             case messages::ControlMessageType::kSubscribeNamespace: {
                 if (client_mode_) {
-                    SPDLOG_LOGGER_ERROR(
+                    QUICR_LOGGER_ERROR(
                       logger_, "Unsupported MOQT message type: {}, bad stream", static_cast<uint64_t>(msg_type));
                     return false;
                 }
@@ -2831,7 +2834,7 @@ namespace quicr {
                         for (const auto& name_space : result.value()) {
                             const auto match = track_namespace_prefix.IsPrefixOf(name_space);
                             if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
-                                SPDLOG_LOGGER_WARN(self->logger_, "Dropping non prefix match");
+                                QUICR_LOGGER_WARN(self->logger_, "Dropping non prefix match");
                                 continue;
                             }
 
@@ -2845,7 +2848,7 @@ namespace quicr {
             }
             case messages::ControlMessageType::kNamespaceDone: {
                 if (client_mode_) {
-                    SPDLOG_LOGGER_ERROR(
+                    QUICR_LOGGER_ERROR(
                       logger_, "Unsupported MOQT message type: {}, bad stream", static_cast<uint64_t>(msg_type));
                     return false;
                 }
@@ -2859,11 +2862,11 @@ namespace quicr {
                           }
 
                           const auto& [code, reason] = result.error();
-                          SPDLOG_LOGGER_ERROR(self->logger_,
-                                              "Unsubscribe namespace failed conn_id: {} code: {} reason: {}",
-                                              self->current_connection_->GetID(),
-                                              code,
-                                              reason.value_or("unknown"));
+                          QUICR_LOGGER_ERROR(self->logger_,
+                                             "Unsubscribe namespace failed conn_id: {} code: {} reason: {}",
+                                             self->current_connection_->GetID(),
+                                             code,
+                                             reason.value_or("unknown"));
                       });
                 }
                 return true;
@@ -2877,10 +2880,10 @@ namespace quicr {
 
                 auto sub_it = request_handlers.find(request_id);
                 if (sub_it == request_handlers.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received publish done to unknown request_id conn_id: {} request_id: {}",
-                                       current_connection_->GetID(),
-                                       request_id);
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received publish done to unknown request_id conn_id: {} request_id: {}",
+                                      current_connection_->GetID(),
+                                      request_id);
                     return true;
                 }
 
@@ -2894,14 +2897,14 @@ namespace quicr {
                 auto tfn = sub_it->second->GetFullTrackName();
                 auto th = TrackHash(tfn);
 
-                SPDLOG_LOGGER_INFO(logger_,
-                                   "Received publish done conn_id: {} request_id: {} track namespace hash: {} "
-                                   "name hash: {} track alias: {}",
-                                   current_connection_->GetID(),
-                                   request_id,
-                                   th.track_namespace_hash,
-                                   th.track_name_hash,
-                                   th.track_fullname_hash);
+                QUICR_LOGGER_INFO(logger_,
+                                  "Received publish done conn_id: {} request_id: {} track namespace hash: {} "
+                                  "name hash: {} track alias: {}",
+                                  current_connection_->GetID(),
+                                  request_id,
+                                  th.track_namespace_hash,
+                                  th.track_name_hash,
+                                  th.track_fullname_hash);
 
                 if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
@@ -2913,12 +2916,12 @@ namespace quicr {
                               }
 
                               const auto& [code, reason] = result.error();
-                              SPDLOG_LOGGER_ERROR(self->logger_,
-                                                  "Publish done failed conn_id: {} request_id: {} code: {} reason: {}",
-                                                  self->current_connection_->GetID(),
-                                                  request_id,
-                                                  code,
-                                                  reason.value_or("unknown"));
+                              QUICR_LOGGER_ERROR(self->logger_,
+                                                 "Publish done failed conn_id: {} request_id: {} code: {} reason: {}",
+                                                 self->current_connection_->GetID(),
+                                                 request_id,
+                                                 code,
+                                                 reason.value_or("unknown"));
                           });
                     }
                 }
@@ -2930,7 +2933,7 @@ namespace quicr {
                 // Request GOAWAY.
                 const auto new_session_uri = messages::Message::ParseField<Bytes>(msg_bytes);
                 std::string new_sess_uri(new_session_uri.begin(), new_session_uri.end());
-                SPDLOG_LOGGER_INFO(logger_, "Received request goaway new session uri: {}", new_sess_uri);
+                QUICR_LOGGER_INFO(logger_, "Received request goaway new session uri: {}", new_sess_uri);
                 return true;
             }
             case messages::ControlMessageType::kFetchOk: {
@@ -2941,20 +2944,20 @@ namespace quicr {
 
                 const auto request_it = request_id_by_data_ctx.find(data_ctx_id);
                 if (request_it == request_id_by_data_ctx.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received FETCH_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
-                                       current_connection_->GetID(),
-                                       data_ctx_id);
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received FETCH_OK for unknown request conn_id: {} data_ctx_id: {}, ignored",
+                                      current_connection_->GetID(),
+                                      data_ctx_id);
                     return true;
                 }
                 const auto request_id = request_it->second;
 
                 auto fetch_it = request_handlers.find(request_id);
                 if (fetch_it == request_handlers.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received fetch ok for unknown fetch track conn_id: {} request_id: {}, ignored",
-                                       current_connection_->GetID(),
-                                       request_id);
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received fetch ok for unknown fetch track conn_id: {} request_id: {}, ignored",
+                                      current_connection_->GetID(),
+                                      request_id);
                     return true;
                 }
 
@@ -3229,12 +3232,12 @@ namespace quicr {
                 const auto update_request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto request_it = request_id_by_data_ctx.find(data_ctx_id);
                 if (request_it == request_id_by_data_ctx.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received REQUEST_UPDATE on unknown request stream conn_id: {} data_ctx_id: {} "
-                                       "update_request_id: {}, ignored",
-                                       current_connection_->GetID(),
-                                       data_ctx_id,
-                                       update_request_id);
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received REQUEST_UPDATE on unknown request stream conn_id: {} data_ctx_id: {} "
+                                      "update_request_id: {}, ignored",
+                                      current_connection_->GetID(),
+                                      data_ctx_id,
+                                      update_request_id);
                     return true;
                 }
                 const auto request_id = request_it->second;
@@ -3243,11 +3246,11 @@ namespace quicr {
                 if (client_mode_) {
                     auto track_it = request_handlers.find(request_id);
                     if (track_it == request_handlers.end()) {
-                        SPDLOG_LOGGER_WARN(logger_,
-                                           "Received REQUEST_UPDATE to unknown track conn_id: {} request_id: {}, "
-                                           "ignored",
-                                           current_connection_->GetID(),
-                                           request_id);
+                        QUICR_LOGGER_WARN(logger_,
+                                          "Received REQUEST_UPDATE to unknown track conn_id: {} request_id: {}, "
+                                          "ignored",
+                                          current_connection_->GetID(),
+                                          request_id);
                         return true;
                     }
 
@@ -3257,10 +3260,10 @@ namespace quicr {
 
                 auto sub_ctx_it = recv_req_id.find(request_id);
                 if (sub_ctx_it == recv_req_id.end()) {
-                    SPDLOG_LOGGER_WARN(logger_,
-                                       "Received subscribe_update for unknown subscription conn_id: {} request_id: {}",
-                                       current_connection_->GetID(),
-                                       request_id);
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received subscribe_update for unknown subscription conn_id: {} request_id: {}",
+                                      current_connection_->GetID(),
+                                      request_id);
 
                     SendRequestError(
                       data_ctx_id, request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Subscription not found");
@@ -3284,22 +3287,22 @@ namespace quicr {
                                 }
 
                                 const auto& [code, reason] = result.error();
-                                SPDLOG_LOGGER_ERROR(self->logger_,
-                                                    "New group request on update failed request_id: {} group_id: {} "
-                                                    "code: {} reason: {}",
-                                                    request_id,
-                                                    group_id,
-                                                    code,
-                                                    reason.value_or("unknown"));
+                                QUICR_LOGGER_ERROR(self->logger_,
+                                                   "New group request on update failed request_id: {} group_id: {} "
+                                                   "code: {} reason: {}",
+                                                   request_id,
+                                                   group_id,
+                                                   code,
+                                                   reason.value_or("unknown"));
                             });
                     }
                 }
 
-                SPDLOG_LOGGER_DEBUG(logger_,
-                                    "Received subscribe_update to recv request_id: {} forward: {} ngr: {}",
-                                    request_id,
-                                    forward,
-                                    new_group_request_id.has_value());
+                QUICR_LOGGER_DEBUG(logger_,
+                                   "Received subscribe_update to recv request_id: {} forward: {} ngr: {}",
+                                   request_id,
+                                   forward,
+                                   new_group_request_id.has_value());
 
                 for (const auto& pub : pub_tracks_by_track_alias[sub_ctx_it->second.track_hash.track_fullname_hash]) {
                     if (not forward) {
@@ -3313,7 +3316,7 @@ namespace quicr {
                 return true;
             }
             default: {
-                SPDLOG_LOGGER_ERROR(
+                QUICR_LOGGER_ERROR(
                   logger_, "Unsupported MOQT message type: {}, bad stream", static_cast<uint64_t>(msg_type));
                 return false;
             }

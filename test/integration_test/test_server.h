@@ -3,9 +3,8 @@
 #include "quicr/handlers/publish_namespace_handler.h"
 #include "quicr/handlers/publish_track_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/log.h"
 #include "quicr/session_callbacks.h"
-
-#include <spdlog/spdlog.h>
 
 #include <future>
 #include <map>
@@ -45,12 +44,6 @@ namespace quicr_test {
         {
             std::lock_guard lock(mutex_);
             // Forward to subscriber if we have a publish handler bound
-            SPDLOG_TRACE("Received conn_id: {} object group: {} subgroup: {} object: {} size: {}",
-                         GetConnectionId(),
-                         object_headers.group_id,
-                         object_headers.subgroup_id,
-                         object_headers.object_id,
-                         data.size());
             if (pub_handler_) {
                 pub_handler_->PublishObject(object_headers, data, stream_mode);
             }
@@ -62,12 +55,6 @@ namespace quicr_test {
         {
             auto it = streams_.find(stream_id);
             if (it != streams_.end()) {
-                SPDLOG_TRACE("Stream closed by {} stream_id: {} group: {} subgroup: {}",
-                             reset ? "RESET" : "FIN",
-                             stream_id,
-                             it->second.current_group_id,
-                             it->second.current_subgroup_id);
-
                 quicr::ObjectHeaders object_headers;
                 object_headers.group_id = it->second.current_group_id;
                 object_headers.subgroup_id = it->second.current_subgroup_id;

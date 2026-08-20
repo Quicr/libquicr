@@ -27,6 +27,7 @@ target_sources(quicr PRIVATE
     ctrl_message_types.cpp
     fetch_track_handler.cpp
     joining_fetch_handler.cpp
+    log.cpp
     messages.cpp
     publish_fetch_handler.cpp
     publish_namespace_handler.cpp
@@ -44,14 +45,19 @@ target_sources(quicr PRIVATE
 )
 
 target_link_libraries(quicr PUBLIC
-    spdlog::spdlog
     timeq
+)
+
+target_link_libraries(quicr PRIVATE
     picoquic-core
     picoquic-log
     picohttp-core
 )
 
-target_compile_definitions(quicr PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
+if (NOT HAS_STD_VFORMAT)
+    target_link_libraries(quicr PUBLIC fmt::fmt)
+endif()
+
 target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include)
 
 if(LINT)

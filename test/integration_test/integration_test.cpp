@@ -19,7 +19,6 @@
 #include <future>
 #include <iostream>
 #include <mutex>
-#include <spdlog/spdlog.h>
 #include <string>
 #include <thread>
 #include <vector>

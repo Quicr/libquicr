@@ -7,8 +7,6 @@
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
 
-#include <spdlog/spdlog.h>
-
 namespace quicr {
     PublishTrackHandler::PublishTrackHandler(const FullTrackName& full_track_name,
                                              TrackMode track_mode,
@@ -48,10 +46,10 @@ namespace quicr {
       uint64_t subgroup_id,
       std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        auto transport = GetSession().lock();
+        auto session = GetSession().lock();
         uint64_t stream_id{ 0 };
 
-        if (!transport) {
+        if (!session) {
             return PublishObjectStatus::kInternalError;
         }
 
@@ -128,7 +126,7 @@ namespace quicr {
                     // first object parsed
 #if 0
                     auto stream_id =
-                      transport->CreateStream(publish_data_ctx_id_, GetDefaultPriority());
+                      session->CreateStream(publish_data_ctx_id_, GetDefaultPriority());
                     stream_info_by_group_[group_id][subgroup_id] = { stream_id, group_id, subgroup_id };
 #endif
 
@@ -151,7 +149,7 @@ namespace quicr {
         }
 
         auto result =
-          transport->Enqueue(publish_data_ctx_id_, stream_id, data, default_priority_, default_ttl_, 0, eflags);
+          session->Enqueue(publish_data_ctx_id_, stream_id, data, default_priority_, default_ttl_, 0, eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -165,9 +163,9 @@ namespace quicr {
       BytesSpan data,
       std::optional<messages::StreamHeaderProperties> stream_mode)
     {
-        auto transport = GetSession().lock();
+        auto session = GetSession().lock();
 
-        if (!transport) {
+        if (!session) {
             return PublishObjectStatus::kInternalError;
         }
 
@@ -256,7 +254,7 @@ namespace quicr {
             subgroup_it = group_it->second.find(object_headers.subgroup_id);
             if (subgroup_it == group_it->second.end()) {
                 is_stream_header_needed = true;
-                stream_id = transport->CreateStream(publish_data_ctx_id_, priority);
+                stream_id = session->CreateStream(publish_data_ctx_id_, priority);
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =
@@ -347,13 +345,7 @@ namespace quicr {
             }
         }
 
-        SPDLOG_TRACE("Published conn_id: {} object stream_id: {} group: {} subgroup: {} object: {}",
-
-                     subgroup_it->second.stream_id,
-                     object_headers.group_id,
-                     object_headers.subgroup_id,
-                     object_headers.object_id);
-        auto result = transport->Enqueue(
+        auto result = session->Enqueue(
 
           publish_data_ctx_id_,
           stream_id,
@@ -372,9 +364,9 @@ namespace quicr {
 
     void PublishTrackHandler::EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed)
     {
-        auto transport = GetSession().lock();
+        auto session = GetSession().lock();
 
-        if (!transport) {
+        if (!session) {
             return;
         }
 
@@ -395,7 +387,7 @@ namespace quicr {
         eflags.close_stream = true;
         eflags.use_reset = !completed;
 
-        transport->Enqueue(
+        session->Enqueue(
           publish_data_ctx_id_, subgroup_it->second.stream_id, {}, default_priority_, default_ttl_, 0, eflags);
 
         group_it->second.erase(subgroup_it);
@@ -460,8 +452,8 @@ namespace quicr {
             SetStatus(Status::kNewGroupRequested);
         }
 
-        if (const auto transport = GetSession().lock()) {
-            transport->ResolveRequestUpdate(*GetRequestId(), { .error = std::nullopt, .params = {} });
+        if (const auto session = GetSession().lock()) {
+            session->ResolveRequestUpdate(*GetRequestId(), { .error = std::nullopt, .params = {} });
         }
     }
 

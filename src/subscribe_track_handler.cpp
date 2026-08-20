@@ -4,11 +4,11 @@
 #include "quicr/handlers/subscribe_track_handler.h"
 
 #include "quicr/containers/stream_buffer.h"
+#include "quicr/log.h"
 #include "quicr/messages/messages.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
-
-#include <spdlog/spdlog.h>
+#include "quicr/utilities/format.h"
 
 namespace quicr {
 
@@ -29,8 +29,8 @@ namespace quicr {
         auto [it, inserted] =
           streams_.try_emplace(stream_id, StreamContext{ .buffer = std::move(initial_buffer.buffer) });
         if (!inserted) {
-            SPDLOG_ERROR("StreamDataRecv got new stream for existing Stream ID {}", stream_id);
-            return;
+            throw std::runtime_error(
+              quicr::format("StreamDataRecv got new stream for existing Stream ID {}", stream_id));
         }
         TryParseStreamBufferData(it->second);
     }
@@ -39,8 +39,8 @@ namespace quicr {
     {
         const auto it = streams_.find(stream_id);
         if (it == streams_.end()) {
-            SPDLOG_ERROR("StreamDataRecv had no stream for expected Stream ID {}", stream_id);
-            return;
+            throw std::runtime_error(
+              quicr::format("StreamDataRecv had no stream for expected Stream ID {}", stream_id));
         }
         it->second.buffer.Push(*data);
         TryParseStreamBufferData(it->second);
@@ -78,16 +78,6 @@ namespace quicr {
                 stream_properties.emplace(*s_hdr.properties);
             }
 
-            SPDLOG_TRACE("Received stream_subgroup_object priority: {} track_alias: {} "
-                         "group: {} subgroup: {} object: {} data size: {} type: {}",
-                         s_hdr.priority,
-                         s_hdr.track_alias,
-                         s_hdr.group_id,
-                         s_hdr.subgroup_id.has_value() ? *s_hdr.subgroup_id : -1,
-                         obj.object_delta,
-                         obj.payload.size(),
-                         static_cast<int>(obj.object_status));
-
             if (stream.next_object_id.has_value()) {
                 if (stream.current_group_id != s_hdr.group_id || stream.current_subgroup_id != s_hdr.subgroup_id) {
                     stream.next_object_id = obj.object_delta;
@@ -111,6 +101,7 @@ namespace quicr {
 
             subscribe_track_metrics_.objects_received++;
 
+            std::exception_ptr error;
             try {
                 ObjectReceived(
                   {
@@ -130,10 +121,14 @@ namespace quicr {
 
                 *stream.next_object_id += 1;
             } catch (const std::exception& e) {
-                SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());
+                error = std::make_exception_ptr(e);
             }
 
             stream.buffer.ResetAnyB();
+
+            if (error) {
+                std::rethrow_exception(error);
+            }
         }
     }
 
@@ -147,25 +142,15 @@ namespace quicr {
         if (properties.status) {
             messages::ObjectDatagramStatus status_msg;
             if (dgram_buffer_ >> status_msg) {
-                SPDLOG_TRACE("Received object datagram status track_alias: {} group_id: {} object_id: {} status: {}",
-                             status_msg.track_alias,
-                             status_msg.group_id,
-                             status_msg.object_id,
-                             static_cast<uint8_t>(status_msg.status));
-
                 subscribe_track_metrics_.objects_received++;
 
-                try {
-                    ObjectStatusReceived(
-                      status_msg.group_id,
-                      status_msg.object_id,
-                      status_msg.priority.value_or(priority_), // TODO: This should be publisher priority.
-                      status_msg.status,
-                      std::move(status_msg.extensions),
-                      std::move(status_msg.immutable_extensions));
-                } catch (const std::exception& e) {
-                    SPDLOG_ERROR("Caught exception in ObjectStatusReceived. (error={})", e.what());
-                }
+                ObjectStatusReceived(
+                  status_msg.group_id,
+                  status_msg.object_id,
+                  status_msg.priority.value_or(priority_), // TODO: This should be publisher priority.
+                  status_msg.status,
+                  std::move(status_msg.extensions),
+                  std::move(status_msg.immutable_extensions));
             }
             return;
         }
@@ -173,37 +158,24 @@ namespace quicr {
         // Data.
         messages::ObjectDatagram msg;
         if (dgram_buffer_ >> msg) {
-            SPDLOG_TRACE("Received object datagram conn_id: {0} data_ctx_id: {1} subscriber_id: {2} "
-                         "track_alias: {3} group_id: {4} object_id: {5} data size: {6}",
-                         conn_id,
-                         (data_ctx_id ? *data_ctx_id : 0),
-                         msg.subscribe_id,
-                         msg.track_alias,
-                         msg.group_id,
-                         msg.object_id,
-                         msg.payload.size());
 
             subscribe_track_metrics_.objects_received++;
             subscribe_track_metrics_.bytes_received += msg.payload.size();
 
-            try {
-                ObjectReceived(
-                  {
-                    msg.group_id,
-                    msg.object_id,
-                    0, // datagrams don't have subgroups
-                    msg.payload.size(),
-                    ObjectStatus::kAvailable,
-                    msg.priority,
-                    std::nullopt,
-                    TrackMode::kDatagram,
-                    std::move(msg.extensions),
-                    std::move(msg.immutable_extensions),
-                  },
-                  std::move(msg.payload));
-            } catch (const std::exception& e) {
-                SPDLOG_ERROR("Caught exception trying to receive Subscribe object. (error={})", e.what());
-            }
+            ObjectReceived(
+              {
+                msg.group_id,
+                msg.object_id,
+                0, // datagrams don't have subgroups
+                msg.payload.size(),
+                ObjectStatus::kAvailable,
+                msg.priority,
+                std::nullopt,
+                TrackMode::kDatagram,
+                std::move(msg.extensions),
+                std::move(msg.immutable_extensions),
+              },
+              std::move(msg.payload));
         }
     }
 

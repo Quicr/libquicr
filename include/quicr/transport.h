@@ -24,13 +24,10 @@
 #include <sys/socket.h>
 #include <vector>
 
-namespace spdlog {
-    class logger;
-}
-
 namespace quicr {
 
     class Connection;
+    class Logger;
 
     /**
      * Close Connection App Reasons
@@ -182,7 +179,7 @@ namespace quicr {
         static std::shared_ptr<Transport> MakeClientTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
                                                               std::shared_ptr<timeq::tick_service> tick_service,
-                                                              std::shared_ptr<spdlog::logger> logger);
+                                                              std::shared_ptr<Logger> logger);
 
         /**
          * @brief Create a new server transport based on the remote (server) ip and port
@@ -202,7 +199,7 @@ namespace quicr {
         static std::shared_ptr<Transport> MakeServerTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
                                                               std::shared_ptr<timeq::tick_service> tick_service,
-                                                              std::shared_ptr<spdlog::logger> logger);
+                                                              std::shared_ptr<Logger> logger);
 
       public:
         virtual ~Transport() = default;

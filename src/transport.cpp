@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/transport.h"
+#include "quicr/log.h"
 #include "transport_picoquic.h"
-
-#include <spdlog/logger.h>
 
 #include <memory>
 #include <stdexcept>
@@ -17,7 +16,7 @@ namespace quicr {
     std::shared_ptr<Transport> Transport::MakeClientTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
                                                               std::shared_ptr<timeq::tick_service> tick_service,
-                                                              std::shared_ptr<spdlog::logger> logger)
+                                                              std::shared_ptr<Logger> logger)
     {
         switch (server.proto) {
             case TransportProtocol::kQuic:
@@ -37,7 +36,7 @@ namespace quicr {
     std::shared_ptr<Transport> Transport::MakeServerTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
                                                               std::shared_ptr<timeq::tick_service> tick_service,
-                                                              std::shared_ptr<spdlog::logger> logger)
+                                                              std::shared_ptr<Logger> logger)
     {
         // Server mode supports BOTH raw QUIC (moq-00) and WebTransport (h3) simultaneously.
         //

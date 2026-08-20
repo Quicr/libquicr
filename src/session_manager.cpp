@@ -6,25 +6,15 @@
 #include "quicr/handlers/publish_track_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/log.h"
 #include "quicr/session.h"
 #include "quicr/transport.h"
 
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
 #include <timeq/tick_service.h>
 
 namespace quicr {
 
     namespace {
-        std::shared_ptr<spdlog::logger> SafeLoggerGet(const std::string& name)
-        {
-            if (auto logger = spdlog::get(name)) {
-                return logger;
-            }
-
-            return spdlog::stderr_color_mt(name);
-        }
-
         static std::optional<std::tuple<std::string, uint16_t, TransportProtocol, std::string>> ParseConnectUri(
           const std::string& connect_uri)
         {
@@ -112,26 +102,29 @@ namespace quicr {
 
     void SessionManager::Callbacks::OnSessionRemoved(const std::shared_ptr<Session>& session) {}
 
-    SessionManager::SessionManager()
-      : SessionManager(std::make_shared<Callbacks>(), std::make_shared<timeq::threaded_tick_service>())
+    SessionManager::SessionManager(std::shared_ptr<Logger> logger)
+      : SessionManager(std::make_shared<Callbacks>(),
+                       std::make_shared<timeq::threaded_tick_service>(),
+                       std::move(logger))
     {
     }
 
-    SessionManager::SessionManager(std::shared_ptr<Callbacks> callbacks)
-      : SessionManager(std::move(callbacks), std::make_shared<timeq::threaded_tick_service>())
+    SessionManager::SessionManager(std::shared_ptr<Callbacks> callbacks, std::shared_ptr<Logger> logger)
+      : SessionManager(std::move(callbacks), std::make_shared<timeq::threaded_tick_service>(), std::move(logger))
     {
     }
 
-    SessionManager::SessionManager(std::shared_ptr<timeq::tick_service> tick_service)
-      : SessionManager(std::make_shared<Callbacks>(), std::move(tick_service))
+    SessionManager::SessionManager(std::shared_ptr<timeq::tick_service> tick_service, std::shared_ptr<Logger> logger)
+      : SessionManager(std::make_shared<Callbacks>(), std::move(tick_service), std::move(logger))
     {
     }
 
     SessionManager::SessionManager(std::shared_ptr<Callbacks> callbacks,
-                                   std::shared_ptr<timeq::tick_service> tick_service)
+                                   std::shared_ptr<timeq::tick_service> tick_service,
+                                   std::shared_ptr<Logger> logger)
       : callbacks_(std::move(callbacks))
       , tick_service_(std::move(tick_service))
-      , logger_(SafeLoggerGet("QUICR"))
+      , logger_(std::move(logger))
     {
         on_connection_closed_ = [this](const auto& connection) {
             connection->SetDelegate(nullptr);
@@ -140,9 +133,9 @@ namespace quicr {
 
             auto it = sessions_.find(connection->GetID());
             if (it == sessions_.end()) {
-                SPDLOG_LOGGER_ERROR(logger_,
-                                    "Received Close for connection that has no associated session (conn_id={})",
-                                    connection->GetID());
+                QUICR_LOGGER_ERROR(logger_,
+                                   "Received Close for connection that has no associated session (conn_id={})",
+                                   connection->GetID());
                 return;
             }
 
@@ -157,8 +150,6 @@ namespace quicr {
         for (const auto& [_, transport] : transports_) {
             transport->Shutdown();
         }
-
-        spdlog::drop(logger_->name());
     }
 
     std::weak_ptr<Session> SessionManager::AddTransport(const ClientConfig& config,
@@ -193,7 +184,7 @@ namespace quicr {
             return {};
         }
 
-        auto session = Session::Create(config, transport, connection, std::move(callbacks), tick_service_);
+        auto session = Session::Create(config, transport, connection, std::move(callbacks), tick_service_, logger_);
 
         connection->SetDelegate(session);
 
@@ -219,7 +210,7 @@ namespace quicr {
         transport->OnNewConnection =
           [=, this, wtransport = std::weak_ptr(transport), callbacks = std::move(callbacks)](const auto& connection) {
               auto transport = wtransport.lock();
-              auto session = Session::Create(config, transport, connection, callbacks, tick_service_);
+              auto session = Session::Create(config, transport, connection, callbacks, tick_service_, logger_);
               connection->SetDelegate(session);
 
               {
