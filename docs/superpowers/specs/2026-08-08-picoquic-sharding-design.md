@@ -39,17 +39,72 @@ per-connection state, each `tx_data` queue carrying its own lock. Neither takes
 `state_mutex_` in the common case. N loop threads therefore run genuinely
 concurrently.
 
+## Constraints on the change
+
+Mergeability is a primary goal, ahead of elegance. The change must read to a
+libquicr maintainer as a small, conventional extension of the existing design
+rather than a rework of it.
+
+### `quic_shards == 1` must be a no-op
+
+The single strongest reviewability property, and the anchor for the whole
+change: at the default setting, behaviour, thread count, socket count and
+`picoquic_packet_loop_param_t` contents are all identical to today. A reviewer
+can satisfy themselves that existing deployments are unaffected without tracing
+the sharded paths. Nothing in the implementation may compromise this.
+
+### Style and naming are CI-enforced
+
+- `.clang-format` — Mozilla base, 120 columns, 4-space indent. A **Format Check**
+  job runs in `cmake.yml`, and a `clang-format` pre-commit hook is configured in
+  `.pre-commit-config.yaml`. Run it before pushing.
+- `.clang-tidy` — `readability-identifier-naming` with
+  `WarningsAsErrors: "*"`, applied to `src/` via `HeaderFilterRegex`. CI
+  configures with `-DLINT=ON` (`cmake/Lint.cmake`), so a naming slip is a build
+  failure, not a nit.
+
+The relevant rules, which every identifier proposed in this document already
+satisfies: classes and functions `CamelCase`; members `lower_case`; private
+members take a `_` suffix and public members take none; constants are
+`k`-prefixed `CamelCase`. Note that `Shard`'s members are public and therefore
+carry no suffix, while `shards_` itself is private and does.
+
+### Follow the patterns already in the file
+
+`SafeQueue` for cross-thread queues, the existing `RunPqFunction` indirection for
+reaching the picoquic thread, `SPDLOG_LOGGER_*` for logging, and
+`TransportException` / `TransportError` for failures. Introduce no new
+mechanism where one of these already fits.
+
+### Deliberately not touched
+
+Listed so a reviewer can confirm the blast radius by inspection:
+
+- `include/quicr/` — apart from the one `TransportConfig` field.
+- `src/session.cpp`, `src/transport.cpp` — the transport factories are unchanged.
+- `PqEventCb`, `PqAlpnSelectCb`, `DefaultWebTransportCallback` — signatures and
+  context pointers all unchanged.
+- The WebTransport `path_items` / `server_params` / `path_app_ctx` chain.
+- Any member not listed as moving into `Shard` keeps its current name.
+
+Every item under "Deferred work" stays out of this PR, including the two known
+follow-on bottlenecks. Landing sharding measurably and in isolation is worth
+more than bundling.
+
 ## Public API
 
 One additive field. No signature changes anywhere.
 
 ```cpp
 // include/quicr/transport.h, TransportConfig
-uint16_t quic_shards{ 1 };  ///< Parallel picoquic instances sharing the listen
-                            ///< port via SO_REUSEPORT. Server mode only; clients
-                            ///< are forced to 1. Values >1 have no effect on
-                            ///< macOS (see "Platform behaviour").
+std::size_t quic_shards{ 1 }; ///< Parallel QUIC instances sharing the listen port (server only)
 ```
+
+`std::size_t` and the single-line `///<` comment match the immediately
+neighbouring `max_connections`. The `quic_` prefix matches the existing
+`quic_cwin_minimum`, `quic_wifi_shadow_rtt_us`, `quic_qlog_path` and
+`quic_priority_limit`. The field is appended at the end of the struct so no
+existing member's position moves.
 
 `ServerConfig` already embeds `TransportConfig`, so relay operators pick this up
 with no plumbing.
@@ -207,6 +262,20 @@ There are nine call sites today. Each falls into one of three cases:
 - **No connection yet** — `StartClient` uses shard 0. Clients only ever have one
   shard.
 
+The second case needs a small helper:
+
+```cpp
+std::optional<std::size_t> GetConnShardIdx(const std::uint64_t& conn_id);
+```
+
+which takes `state_mutex_` internally.
+
+> **`state_mutex_` is a plain `std::mutex`, not recursive.** `GetConnShardIdx`
+> must never be called while holding it. That is exactly why this is an explicit
+> helper rather than a convenience overload of `RunPqFunction` taking a
+> `conn_id` — such an overload would look correct at the `Enqueue` call sites
+> and self-deadlock, since those already hold the lock.
+
 ## Per-shard periodic work
 
 The three `picoquic_packet_loop_time_check` jobs each take a shard index and
@@ -231,12 +300,25 @@ to bite. It must take `state_mutex_`.
 
 ### Start
 
-The per-instance picoquic setup currently inline in `Start()` — from
-`picoquic_create_and_configure` through `picoquic_set_qlog` — is extracted into
-`CreateQuicInstance()` returning a `picoquic_quic_t*`, and called once per shard.
+The per-instance picoquic setup currently inline in `Start()` — the calls that
+take `quic_ctx_`, from `picoquic_create_and_configure` through
+`picoquic_set_qlog` — is extracted into `CreateQuicInstance()` returning a
+`picoquic_quic_t*`, and called once per shard.
 
-`config_`, `local_tp_options_` and `wt_config_` remain single instances shared by
-all shards. They are read-only after setup.
+This is the one structural move in the change, and it is the *smaller* diff: the
+alternative, wrapping the block in a loop in place, re-indents roughly eighty
+lines and buries the real change in whitespace. Extracting keeps the moved lines
+byte-identical apart from `quic_ctx_` becoming a local, so a reviewer can diff
+them by eye.
+
+The split point is the `local_tp_options_` block: populating it is one-time and
+stays in `Start()`, while `picoquic_set_default_tp(quic_ctx_, &local_tp_options_)`
+is per-instance and moves. `config_`, `local_tp_options_` and `wt_config_`
+remain single instances shared by all shards, read-only after setup.
+
+`picoquic_runner_queue_.SetLimit(tconfig_.callback_queue_size)` becomes a
+per-shard `runner_queue.SetLimit(...)`. `cbNotifyQueue_` and `cbNotifyThread_`
+are untouched and stay singular.
 
 `Server()` loops over shards, filling each `loop_params` per the table above and
 calling `picoquic_start_network_thread(shard.quic_ctx, &shard.loop_params,
@@ -277,7 +359,8 @@ existing close-every-connection logic needs no change beyond that aggregation.
   produces `loop_params` byte-identical to today's.
 - **Regression**: the existing suite at `quic_shards = 1`, expected wholly
   unchanged.
-- **Integration**: the existing suite at `quic_shards = 4`.
+- **Integration**: the existing suite at `quic_shards = 4`, configured through
+  `test/integration_test/test_server.cpp`, which already builds a `ServerConfig`.
 - **Thread-safety**: a build with picoquic's `WITH_THREAD_CHECK=ON`
   (`dependencies/picoquic/CMakeLists.txt:436`), which `debugbreak()`s on any
   picoquic API call from the wrong thread. Given that `doc/parallel.md` names
@@ -289,6 +372,13 @@ existing close-every-connection logic needs no change beyond that aggregation.
   shows N busy loop threads where one was busy before.
 - **Benchmark**: N-way mesh throughput and relay CPU at `quic_shards` of 1 vs
   core count, to confirm the gain and locate the next bottleneck.
+
+## Documentation to update
+
+`docs/implementation.md:107` currently states *"Three threads are used by
+libquicr"*, the first being the single picoquic event loop thread. That becomes
+inaccurate with sharding and must be updated in the same PR — a maintainer
+reading the design docs should not be told something the code contradicts.
 
 ## Deferred work
 
