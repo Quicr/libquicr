@@ -1923,7 +1923,12 @@ namespace quicr {
 
         rx_ctx.is_new = false;
         rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(sub_it->second);
-        sub_it->second->StreamDataRecv(stream_id, std::move(initial_buffer));
+        try {
+            sub_it->second->StreamDataRecv(stream_id, std::move(initial_buffer));
+        } catch (const std::exception& e) {
+            QUICR_LOGGER_ERROR(
+              logger_, "Encountered an error while receiving stream data (stream={}, error={})", stream_id, e.what());
+        }
         return true;
     }
 
@@ -1952,7 +1957,14 @@ namespace quicr {
 
             rx_ctx.is_new = false;
             rx_ctx.caller_any = std::make_any<std::weak_ptr<SubscribeTrackHandler>>(h);
-            h->StreamDataRecv(stream_id, std::move(initial_buffer));
+            try {
+                h->StreamDataRecv(stream_id, std::move(initial_buffer));
+            } catch (const std::exception& e) {
+                QUICR_LOGGER_ERROR(logger_,
+                                   "Encountered an error while receiving stream data (stream={}, error={})",
+                                   stream_id,
+                                   e.what());
+            }
             return true;
         }
 
