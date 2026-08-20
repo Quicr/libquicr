@@ -698,12 +698,12 @@ namespace quicr {
                                     ? ControlMessageType::kSubscribeNamespace
                                     : ControlMessageType::kSubscribeTracks;
 
-        handler->SetDataContext(quic_transport_->CreateDataContext(current_connection_, true, 0, true));
-        handler->SetRequestStreamId(quic_transport_->CreateStream(current_connection_, handler->GetDataContext(), 0));
-        request_id_by_data_ctx[handler->GetDataContext()->GetID()] = handler->GetRequestId().value();
+        const auto data_ctx = quic_transport_->CreateDataContext(current_connection_, true, 0, true);
+        handler->SetDataContext(data_ctx);
+        handler->SetRequestStreamId(quic_transport_->CreateStream(current_connection_, data_ctx, 0));
+        request_id_by_data_ctx[data_ctx->GetID()] = handler->GetRequestId().value();
 
-        SendSubscribeNamespace(
-          handler->GetDataContext(), handler->GetRequestId().value(), prefix, handler->GetFilter(), message_type);
+        SendSubscribeNamespace(data_ctx, handler->GetRequestId().value(), prefix, handler->GetFilter(), message_type);
     }
 
     void Session::UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler)
@@ -865,19 +865,13 @@ namespace quicr {
                 return;
             }
 
-            track_handler->SetDataContext(quic_transport_->CreateDataContext(current_connection_, true, 0, true));
-            track_handler->SetRequestStreamId(
-              quic_transport_->CreateStream(current_connection_, track_handler->GetDataContext(), 0));
-            request_id_by_data_ctx[track_handler->GetDataContext()->GetID()] = track_handler->GetRequestId().value();
+            const auto data_ctx = quic_transport_->CreateDataContext(current_connection_, true, 0, true);
+            track_handler->SetDataContext(data_ctx);
+            track_handler->SetRequestStreamId(quic_transport_->CreateStream(current_connection_, data_ctx, 0));
+            request_id_by_data_ctx[data_ctx->GetID()] = track_handler->GetRequestId().value();
 
-            SendSubscribe(track_handler->GetDataContext(),
-                          *track_handler->GetRequestId(),
-                          tfn,
-                          th,
-                          priority,
-                          group_order,
-                          filter,
-                          delivery_timeout);
+            SendSubscribe(
+              data_ctx, *track_handler->GetRequestId(), tfn, th, priority, group_order, filter, delivery_timeout);
 
             // Handle joining fetch, if requested.
             auto joining_fetch = track_handler->GetJoiningFetch();
@@ -946,14 +940,14 @@ namespace quicr {
         }
 
         auto priority = track_handler->GetPriority();
-        if (track_handler->GetDataContext() == nullptr) {
+        const auto data_ctx = track_handler->GetDataContext();
+        if (data_ctx == nullptr) {
             SPDLOG_LOGGER_ERROR(
               logger_, "Subscribe track update missing data context conn_id: {}", current_connection_->GetID());
             return;
         }
 
-        SendRequestUpdate(
-          track_handler->GetDataContext(), th, track_handler->pending_new_group_request_id_, priority, true);
+        SendRequestUpdate(data_ctx, th, track_handler->pending_new_group_request_id_, priority, true);
     }
 
     void Session::RemoveSubscribeTrack(SubscribeTrackHandler& handler, bool remove_handler)
@@ -969,9 +963,10 @@ namespace quicr {
                 try {
                     if (not handler.IsPublisherInitiated()) {
                         // TODO: Is it possible for these to not be sent at this point?
-                        if (handler.GetDataContext() != nullptr && handler.GetRequestStreamId().has_value()) {
+                        if (const auto data_ctx = handler.GetDataContext();
+                            data_ctx != nullptr && handler.GetRequestStreamId().has_value()) {
                             quic_transport_->CloseStream(
-                              current_connection_, handler.GetDataContext(), *handler.GetRequestStreamId(), true);
+                              current_connection_, data_ctx, *handler.GetRequestStreamId(), true);
                         }
                     }
                 } catch (const std::exception& e) {
@@ -1003,8 +998,8 @@ namespace quicr {
         switch (handler.GetStatus()) {
             case SubscribeNamespaceHandler::Status::kOk:
                 try {
-                    if (send_unsubscribe && handler.GetDataContext() != nullptr) {
-                        SendUnsubscribeNamespace(handler.GetDataContext(), handler.GetPrefix());
+                    if (const auto data_ctx = handler.GetDataContext(); send_unsubscribe && data_ctx != nullptr) {
+                        SendUnsubscribeNamespace(data_ctx, handler.GetPrefix());
                     }
                 } catch (const std::exception& e) {
                     SPDLOG_LOGGER_ERROR(logger_, "Failed to send unsubscribe namespace: {}", e.what());
@@ -1048,9 +1043,9 @@ namespace quicr {
             }
         }
 
-        if (handler.publish_data_ctx_) {
+        if (const auto data_ctx = handler.GetPublishDataContext()) {
             // TODO: is_reset should propagate down here?
-            quic_transport_->DeleteDataContext(current_connection_, handler.publish_data_ctx_);
+            quic_transport_->DeleteDataContext(current_connection_, data_ctx);
             handler.publish_data_ctx_.reset();
         }
     }
@@ -1227,9 +1222,11 @@ namespace quicr {
         if (pub_ns_it != pub_tracks_by_name.end()) {
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
             if (pub_n_it != pub_ns_it->second.end()) {
+                const auto ctrl_data_ctx = pub_n_it->second->GetDataContext();
+
                 // Send subscribe done if track has subscriber and is sending
                 if (pub_n_it->second->GetStatus() == PublishTrackHandler::Status::kOk &&
-                    pub_n_it->second->GetRequestId().has_value() && pub_n_it->second->GetDataContext() != nullptr) {
+                    pub_n_it->second->GetRequestId().has_value() && ctrl_data_ctx != nullptr) {
                     SPDLOG_LOGGER_INFO(
                       logger_,
                       "Unpublish track namespace hash: {} track_name_hash: {} track_alias: {}, sending "
@@ -1237,7 +1234,7 @@ namespace quicr {
                       th.track_namespace_hash,
                       th.track_name_hash,
                       th.track_fullname_hash);
-                    SendPublishDone(pub_n_it->second->GetDataContext(),
+                    SendPublishDone(ctrl_data_ctx,
                                     *pub_n_it->second->GetRequestId(),
                                     PublishDoneStatusCode::kSubscribtionEnded,
                                     "Unpublish track");
@@ -1261,7 +1258,7 @@ namespace quicr {
                 pub_ns_it->second.erase(pub_n_it);
             }
 
-            quic_transport_->DeleteDataContext(current_connection_, track_handler->publish_data_ctx_);
+            quic_transport_->DeleteDataContext(current_connection_, track_handler->GetPublishDataContext());
         }
     }
 
@@ -1289,9 +1286,10 @@ namespace quicr {
 
         track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
 
-        track_handler->SetDataContext(quic_transport_->CreateDataContext(current_connection_, true, 0, true));
-        quic_transport_->CreateStream(current_connection_, track_handler->GetDataContext(), 0);
-        request_id_by_data_ctx[track_handler->GetDataContext()->GetID()] = track_handler->GetRequestId().value();
+        const auto ctrl_data_ctx = quic_transport_->CreateDataContext(current_connection_, true, 0, true);
+        track_handler->SetDataContext(ctrl_data_ctx);
+        quic_transport_->CreateStream(current_connection_, ctrl_data_ctx, 0);
+        request_id_by_data_ctx[ctrl_data_ctx->GetID()] = track_handler->GetRequestId().value();
 
         const PublishAttributes publish{ .track_full_name = { tfn },
                                          .track_alias = track_handler->GetTrackAlias().value(),
@@ -1308,7 +1306,7 @@ namespace quicr {
                                          .delivery_timeout = track_handler->GetDefaultTTL(),
                                          .track_properties = {} };
 
-        SendPublish(track_handler->GetDataContext(), *track_handler->GetRequestId(), publish);
+        SendPublish(ctrl_data_ctx, *track_handler->GetRequestId(), publish);
 
         track_handler->connection_id_ = current_connection_->GetID();
         SPDLOG_LOGGER_INFO(logger_,
@@ -1316,13 +1314,14 @@ namespace quicr {
                            current_connection_->GetID(),
                            th.track_namespace_hash,
                            th.track_name_hash);
-        track_handler->publish_data_ctx_ =
+        const auto publish_data_ctx =
           quic_transport_->CreateDataContext(current_connection_,
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
                                              track_handler->default_priority_,
                                              false);
+        track_handler->publish_data_ctx_ = publish_data_ctx;
 
-        request_id_by_data_ctx[track_handler->publish_data_ctx_->GetID()] = track_handler->GetRequestId().value();
+        request_id_by_data_ctx[publish_data_ctx->GetID()] = track_handler->GetRequestId().value();
 
         // Set this transport as the one for the publisher to use.
         track_handler->SetTransport(GetSharedPtr());
@@ -1350,15 +1349,15 @@ namespace quicr {
 
             ns_handler->SetStatus(PublishNamespaceHandler::Status::kPendingResponse);
 
-            ns_handler->SetDataContext(quic_transport_->CreateDataContext(current_connection_, true, 0, true));
-            ns_handler->SetRequestStreamId(
-              quic_transport_->CreateStream(current_connection_, ns_handler->GetDataContext(), 0));
+            const auto data_ctx = quic_transport_->CreateDataContext(current_connection_, true, 0, true);
+            ns_handler->SetDataContext(data_ctx);
+            ns_handler->SetRequestStreamId(quic_transport_->CreateStream(current_connection_, data_ctx, 0));
 
             lock.lock();
 
-            request_id_by_data_ctx[ns_handler->GetDataContext()->GetID()] = ns_handler->GetRequestId().value();
+            request_id_by_data_ctx[data_ctx->GetID()] = ns_handler->GetRequestId().value();
 
-            SendPublishNamespace(ns_handler->GetDataContext(), *ns_handler->GetRequestId(), ns_handler->GetPrefix());
+            SendPublishNamespace(data_ctx, *ns_handler->GetRequestId(), ns_handler->GetPrefix());
             request_handlers[*ns_handler->GetRequestId()] = ns_handler;
 
         } else {
@@ -1379,7 +1378,7 @@ namespace quicr {
 
         std::lock_guard<std::mutex> lock(state_mutex_);
 
-        const auto& data_ctx = track_handler->GetDataContext();
+        const auto data_ctx = track_handler->GetDataContext();
         const auto request_stream_id = track_handler->GetRequestStreamId();
         if (data_ctx == nullptr || !request_stream_id.has_value()) {
             SPDLOG_LOGGER_ERROR(logger_,
@@ -2061,7 +2060,7 @@ namespace quicr {
                     h->MetricsSampled(h->subscribe_track_metrics_);
 
                 } else if (auto h = req_handler_it->second->Get<PublishTrackHandler>();
-                           h && h->publish_data_ctx_ == data_ctx) {
+                           h && h->GetPublishDataContext() == data_ctx) {
 
                     h->publish_track_metrics_.last_sample_time =
                       sample_time.time_since_epoch() / std::chrono::microseconds(1);
@@ -2168,7 +2167,8 @@ namespace quicr {
     {
         for (const auto& [_, handler] : request_handlers) {
             if (auto h = handler->Get<SubscribeNamespaceHandler>()) {
-                if (h->GetDataContext() == nullptr) {
+                auto data_ctx = h->GetDataContext();
+                if (data_ctx == nullptr) {
                     continue;
                 }
 
@@ -2177,7 +2177,7 @@ namespace quicr {
                     continue;
                 }
 
-                return h->GetDataContext();
+                return data_ctx;
             }
         }
 
@@ -2225,12 +2225,14 @@ namespace quicr {
             track_handler->SetDataContext(req_it->second.data_ctx);
         }
 
-        track_handler->publish_data_ctx_ =
+        const auto publish_data_ctx =
           quic_transport_->CreateDataContext(current_connection_,
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
                                              track_handler->default_priority_,
                                              false);
-        request_id_by_data_ctx[track_handler->publish_data_ctx_->GetID()] = request_id;
+        track_handler->publish_data_ctx_ = publish_data_ctx;
+
+        request_id_by_data_ctx[publish_data_ctx->GetID()] = request_id;
 
         // Set this transport as the one for the publisher to use.
         track_handler->SetTransport(GetSharedPtr());
@@ -2278,12 +2280,18 @@ namespace quicr {
             pub_tracks_by_name.erase(th.track_namespace_hash);
         }
 
-        request_id_by_data_ctx.erase(track_handler->publish_data_ctx_->GetID());
+        if (const auto publish_data_ctx = track_handler->GetPublishDataContext()) {
+            request_id_by_data_ctx.erase(publish_data_ctx->GetID());
 
-        quic_transport_->DeleteDataContext(current_connection_, track_handler->publish_data_ctx_);
+            quic_transport_->DeleteDataContext(current_connection_, publish_data_ctx);
 
-        if (send_publish_done && track_handler->GetDataContext() != nullptr) {
-            SendPublishDone(track_handler->GetDataContext(),
+            // Stop observing the context now that it is scheduled for deletion.
+            track_handler->publish_data_ctx_.reset();
+        }
+
+        const auto data_ctx = track_handler->GetDataContext();
+        if (send_publish_done && data_ctx != nullptr) {
+            SendPublishDone(data_ctx,
                             track_handler->GetRequestId().value(),
                             messages::PublishDoneStatusCode::kSubscribtionEnded,
                             "No publishers");
@@ -2320,7 +2328,7 @@ namespace quicr {
                             request_id);
 
         pub_fetch_tracks_by_request_id.erase(request_id);
-        quic_transport_->DeleteDataContext(current_connection_, track_handler->publish_data_ctx_, true);
+        quic_transport_->DeleteDataContext(current_connection_, track_handler->GetPublishDataContext(), true);
     }
 
     // -- Private --
@@ -2737,10 +2745,11 @@ namespace quicr {
                           }
 
                           auto response_data_ctx = self->ResponseDataContext(request_id);
-                          const auto pub_ns_it = self->request_handlers.find(request_id);
-                          if (pub_ns_it != self->request_handlers.end() &&
-                              pub_ns_it->second->GetDataContext() != nullptr) {
-                              response_data_ctx = pub_ns_it->second->GetDataContext();
+                          if (const auto pub_ns_it = self->request_handlers.find(request_id);
+                              pub_ns_it != self->request_handlers.end()) {
+                              if (auto handler_data_ctx = pub_ns_it->second->GetDataContext()) {
+                                  response_data_ctx = std::move(handler_data_ctx);
+                              }
                           }
 
                           self->SendPublishNamespaceOk(response_data_ctx);

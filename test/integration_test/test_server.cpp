@@ -120,6 +120,7 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
     // Store the publish handler for this subscriber, visible to every session sharing
     // these callbacks.
     subscribes_[track_alias] = pub_track_handler;
+    subscribe_sessions_[track_alias] = session;
 
     // Bind the publish track handler to send data to the subscriber
     session->BindPublisherTrack(session->GetConnection()->GetID(), request_id, pub_track_handler, false);
@@ -195,6 +196,40 @@ TestServer::AddKnownPublishedTrack(const FullTrackName& track,
     std::lock_guard lock(state_mutex_);
     known_published_tracks_.emplace_back(
       AvailableTrack{ track, largest_location.value_or(messages::Location{ 0, 0 }), attributes });
+}
+
+std::shared_ptr<TestPublishTrackHandler>
+TestServer::GetSubscriberPublishHandler(const std::uint64_t track_alias) const
+{
+    std::lock_guard lock(state_mutex_);
+
+    const auto it = subscribes_.find(track_alias);
+    return it == subscribes_.end() ? nullptr : it->second;
+}
+
+bool
+TestServer::UnbindSubscriberPublishTrack(const std::uint64_t track_alias)
+{
+    std::shared_ptr<TestPublishTrackHandler> handler;
+    std::shared_ptr<quicr::Session> session;
+
+    {
+        std::lock_guard lock(state_mutex_);
+
+        const auto handler_it = subscribes_.find(track_alias);
+        const auto session_it = subscribe_sessions_.find(track_alias);
+        if (handler_it == subscribes_.end() || session_it == subscribe_sessions_.end()) {
+            return false;
+        }
+
+        handler = handler_it->second;
+        session = session_it->second;
+    }
+
+    // Called without our lock held, since the session takes its own lock during unbind.
+    session->UnbindPublisherTrack(session->GetConnection()->GetID(), handler, false);
+
+    return true;
 }
 
 quicr::Reply<void, quicr::PublishNamespaceErrorCode>

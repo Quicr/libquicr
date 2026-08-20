@@ -210,18 +210,20 @@ namespace quicr {
     void SubscribeTrackHandler::Pause() noexcept
     {
         auto session = GetSession().lock();
-        if (!session || status_ == Status::kPaused || status_ == Status::kNotConnected || GetDataContext() == nullptr) {
+        const auto data_ctx = GetDataContext();
+        if (!session || status_ == Status::kPaused || status_ == Status::kNotConnected || data_ctx == nullptr) {
             return;
         }
 
         status_ = Status::kPaused;
-        session->SendRequestUpdate(GetDataContext(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), false);
+        session->SendRequestUpdate(data_ctx, TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), false);
     }
 
     void SubscribeTrackHandler::Resume() noexcept
     {
         auto session = GetSession().lock();
-        if (!session || GetDataContext() == nullptr) {
+        const auto data_ctx = GetDataContext();
+        if (!session || data_ctx == nullptr) {
             return;
         }
 
@@ -230,17 +232,18 @@ namespace quicr {
         }
 
         status_ = Status::kOk;
-        session->SendRequestUpdate(GetDataContext(), TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), true);
+        session->SendRequestUpdate(data_ctx, TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), true);
     }
 
     void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
     {
         auto session = GetSession().lock();
-        if (!session || status_ != Status::kOk || !support_new_group_request_ || GetDataContext() == nullptr) {
+        const auto data_ctx = GetDataContext();
+        if (!session || status_ != Status::kOk || !support_new_group_request_ || data_ctx == nullptr) {
             return;
         }
 
-        session->SendRequestUpdate(GetDataContext(), TrackHash(GetFullTrackName()), group_id, GetPriority(), true);
+        session->SendRequestUpdate(data_ctx, TrackHash(GetFullTrackName()), group_id, GetPriority(), true);
     }
 
     void SubscribeTrackHandler::StreamClosed(std::uint64_t stream_id, bool)

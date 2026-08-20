@@ -107,6 +107,15 @@ namespace quicr_test {
 
         void StatusChanged(Status status) override;
 
+        /// Data contexts are opaque outside the library, so tests only hold and restore the handle.
+        using quicr::PublishTrackHandler::GetPublishDataContext;
+
+        /// Reinstates a handle the session has already unbound, to emulate a stale application handle.
+        void SetPublishDataContext(std::shared_ptr<quicr::DataContext> data_ctx)
+        {
+            publish_data_ctx_ = std::move(data_ctx);
+        }
+
       private:
         std::weak_ptr<TestServer> server_;
     };
@@ -209,6 +218,19 @@ namespace quicr_test {
         {
             publish_namespace_done_promise_ = std::move(promise);
         }
+
+        /// @returns The publish track handler the server bound for a subscriber, or nullptr.
+        std::shared_ptr<TestPublishTrackHandler> GetSubscriberPublishHandler(std::uint64_t track_alias) const;
+
+        /**
+         * @brief Unbind the publish track handler the server bound for a subscriber
+         *
+         * @details Drives Session::UnbindPublisherTrack, the server-side teardown path, which has no
+         *      other caller in this repository.
+         *
+         * @returns True if a bound handler was found and unbound
+         */
+        bool UnbindSubscriberPublishTrack(std::uint64_t track_alias);
 
         // True = reset, false = FIN, nullopt = not closed.
         std::optional<bool> WasStreamReset(std::uint64_t stream_id) const
@@ -342,6 +364,9 @@ namespace quicr_test {
 
         // Subscriber publish handlers: [track_alias] -> PublishTrackHandler
         std::map<std::uint64_t, std::shared_ptr<TestPublishTrackHandler>> subscribes_;
+
+        // Session that bound each subscriber publish handler: [track_alias] -> Session
+        std::map<std::uint64_t, std::shared_ptr<quicr::Session>> subscribe_sessions_;
 
         // Publisher subscribe handlers: [track_alias] -> SubscribeTrackHandler
         std::map<std::uint64_t, std::shared_ptr<TestSubscribeTrackHandler>> pub_subscribes_;

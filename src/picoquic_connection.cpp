@@ -63,6 +63,8 @@ quicr::PicoQuicConnection::RemoveDataContext(const std::uint64_t data_ctx_id)
     auto data_ctx = std::move(it->second);
     active_data_contexts_.erase(it);
 
+    data_ctx->MarkUnregistered();
+
     return data_ctx;
 }
 

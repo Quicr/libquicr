@@ -9,6 +9,7 @@ add_executable(quicr_test
     main.cpp
     moq_ctrl_messages.cpp
     moq_data_messages.cpp
+    picoquic_connection.cpp
     priority_queue.cpp
     track_handlers.cpp
     track_namespace.cpp

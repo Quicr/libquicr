@@ -304,6 +304,26 @@ namespace quicr {
                                        const std::shared_ptr<PicoQuicDataContext>& data_ctx,
                                        bool delete_on_empty);
 
+        /**
+         * @brief Check that a connection still owns the given data context
+         *
+         * @details Holding a handle keeps a context alive but does not keep it registered. Application
+         *      handlers retain their handle after the context is deleted, so a request can reach the
+         *      transport for a context the connection has already removed. Acting on one would hand
+         *      picoquic a callback pointer that dangles once the last handle is released, so callers
+         *      that accept a handle from outside the transport must check it first.
+         *
+         *      This reads state off the handle the caller already holds; it does not search the
+         *      connection's container.
+         *
+         *      Teardown paths are exempt: DeleteDataContextInternal deliberately closes streams after
+         *      removing the context, so it operates on an unregistered context by design.
+         *
+         * @returns True if the context belongs to this connection and is still registered with it
+         */
+        static bool IsDataContextActive(const std::shared_ptr<PicoQuicConnection>& connection,
+                                        const std::shared_ptr<PicoQuicDataContext>& data_ctx);
+
         std::shared_ptr<Connection> StartClient();
         void Server();
         bool ClientLoop();

@@ -128,7 +128,7 @@ namespace quicr {
                     // first object parsed
 #if 0
                     auto stream_id =
-                      transport->CreateStream(publish_data_ctx_, GetDefaultPriority());
+                      transport->CreateStream(LockPublishDataContext(), GetDefaultPriority());
                     stream_info_by_group_[group_id][subgroup_id] = { stream_id, group_id, subgroup_id };
 #endif
 
@@ -151,7 +151,7 @@ namespace quicr {
         }
 
         auto result =
-          transport->Enqueue(publish_data_ctx_, stream_id, data, default_priority_, default_ttl_, 0, eflags);
+          transport->Enqueue(GetPublishDataContext(), stream_id, data, default_priority_, default_ttl_, 0, eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -256,7 +256,7 @@ namespace quicr {
             subgroup_it = group_it->second.find(object_headers.subgroup_id);
             if (subgroup_it == group_it->second.end()) {
                 is_stream_header_needed = true;
-                stream_id = transport->CreateStream(publish_data_ctx_, priority);
+                stream_id = transport->CreateStream(GetPublishDataContext(), priority);
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =
@@ -354,7 +354,7 @@ namespace quicr {
                      object_headers.subgroup_id,
                      object_headers.object_id);
         auto result = transport->Enqueue(
-          publish_data_ctx_,
+          GetPublishDataContext(),
           stream_id,
           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
           priority,
@@ -395,7 +395,7 @@ namespace quicr {
         eflags.use_reset = !completed;
 
         transport->Enqueue(
-          publish_data_ctx_, subgroup_it->second.stream_id, {}, default_priority_, default_ttl_, 0, eflags);
+          GetPublishDataContext(), subgroup_it->second.stream_id, {}, default_priority_, default_ttl_, 0, eflags);
 
         group_it->second.erase(subgroup_it);
         if (group_it->second.empty()) {
