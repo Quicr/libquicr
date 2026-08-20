@@ -9,17 +9,26 @@
 
 namespace quicr {
 
+#define QUICR_LOG_TRACE 0
+#define QUICR_LOG_DEBUG 1
+#define QUICR_LOG_INFO 2
+#define QUICR_LOG_WARN 3
+#define QUICR_LOG_ERROR 4
+#define QUICR_LOG_CRITICAL 5
+#define QUICR_LOG_OFF 6
+
     class Logger
     {
       public:
         enum class Level
         {
-            Trace,
-            Debug,
-            Info,
-            Warn,
-            Error,
-            Critical,
+            Trace = QUICR_LOG_TRACE,
+            Debug = QUICR_LOG_DEBUG,
+            Info = QUICR_LOG_INFO,
+            Warn = QUICR_LOG_WARN,
+            Error = QUICR_LOG_ERROR,
+            Critical = QUICR_LOG_CRITICAL,
+            Off = QUICR_LOG_OFF,
         };
 
         virtual ~Logger() = default;
@@ -28,12 +37,18 @@ namespace quicr {
 
         virtual void Log(Level level, std::string_view msg, std::source_location = std::source_location::current()) = 0;
 
+        virtual bool ShouldLog(Level level) const noexcept;
+
         template<typename... Args>
         void Log(std::source_location location,
                  Level level,
                  std::conditional_t<sizeof...(Args) == 0, std::string_view, std_or_fmt::format_string<Args...>> msg,
                  Args&&... args)
         try {
+            if (!ShouldLog(level)) {
+                return;
+            }
+
             if constexpr (sizeof...(Args) == 0) {
                 Log(level, msg, location);
             } else {
@@ -50,14 +65,6 @@ namespace quicr {
             logger->Log(std::source_location::current(), level, msg __VA_OPT__(, ) __VA_ARGS__);                       \
         }                                                                                                              \
     } while (0)
-
-#define QUICR_LOG_TRACE 0
-#define QUICR_LOG_DEBUG 1
-#define QUICR_LOG_INFO 2
-#define QUICR_LOG_WARN 3
-#define QUICR_LOG_ERROR 4
-#define QUICR_LOG_CRITICAL 5
-#define QUICR_LOG_OFF 6
 
 #ifndef QUICR_ACTIVE_LOG_LEVEL
 #ifdef NDEBUG

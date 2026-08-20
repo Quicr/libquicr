@@ -37,7 +37,9 @@ class SpdlogLogger : public quicr::Logger
 
     virtual ~SpdlogLogger() = default;
 
-    void SetLevel(quicr::Logger::Level max_level) override { logger_->set_level(ConvertLevelType(max_level)); }
+    void SetLevel(Level max_level) override { logger_->set_level(ConvertLevelType(max_level)); }
+
+    bool ShouldLog(Level level) const noexcept override { return logger_->should_log(ConvertLevelType(level)); }
 
     void Log(quicr::Logger::Level level,
              std::string_view msg,
@@ -54,7 +56,7 @@ class SpdlogLogger : public quicr::Logger
     }
 
   private:
-    spdlog::level::level_enum ConvertLevelType(Logger::Level level)
+    spdlog::level::level_enum ConvertLevelType(Logger::Level level) const noexcept
     {
         switch (level) {
             case Logger::Level::Trace:
@@ -69,6 +71,8 @@ class SpdlogLogger : public quicr::Logger
                 return spdlog::level::err;
             case Logger::Level::Critical:
                 return spdlog::level::critical;
+            case Logger::Level::Off:
+                return spdlog::level::off;
         }
     }
 
