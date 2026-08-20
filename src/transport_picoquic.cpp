@@ -1148,6 +1148,12 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
     const auto pq_conn = std::static_pointer_cast<PicoQuicConnection>(connection);
     const auto pq_data_ctx = std::static_pointer_cast<PicoQuicDataContext>(data_ctx);
 
+    if (!IsDataContextActive(pq_conn, pq_data_ctx)) {
+        // Queuing here would mark the stream active and hand picoquic a pointer to a context the
+        // connection has already removed.
+        return TransportError::kInvalidDataContextId;
+    }
+
     pq_data_ctx->metrics.enqueued_objs++;
 
     if (flags.use_reliable) {
@@ -1320,6 +1326,10 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
 
     // Clear all stream TX queues and RX buffers to release shared pointers
     for (const auto& data_ctx : pq_conn->GetDataContexts()) {
+        // Handles held outside the transport outlive the connection, so mark the context so they
+        // cannot be used to open new streams once this connection is gone.
+        data_ctx->MarkUnregistered();
+
         for (auto& [stream_id, stream_ctx] : data_ctx->streams) {
             if (stream_ctx.tx_data) {
                 {
@@ -1561,11 +1571,11 @@ PicoQuicTransport::CreateDataContextBiDirRecv(std::uint64_t conn_id, uint64_t st
                                                                tconfig_.time_queue_init_queue_size);
     data_ctx->streams[stream_id] = std::move(stream);
 
-    SPDLOG_LOGGER_INFO(logger,
-                       "Created new bidir data context conn_id: {} data_ctx_id: {} stream_id: {}",
-                       conn_id,
-                       data_ctx_it->second.GetID(),
-                       stream_id);
+    QUICR_LOGGER_INFO(logger,
+                      "Created new bidir data context conn_id: {} data_ctx_id: {} stream_id: {}",
+                      conn_id,
+                      data_ctx->GetID(),
+                      stream_id);
 
     return data_ctx;
 }
@@ -1592,6 +1602,17 @@ PicoQuicTransport::PqRunner()
     }
 
     return 0;
+}
+
+bool
+PicoQuicTransport::IsDataContextActive(const std::shared_ptr<PicoQuicConnection>& connection,
+                                       const std::shared_ptr<PicoQuicDataContext>& data_ctx)
+{
+    if (connection == nullptr || data_ctx == nullptr) {
+        return false;
+    }
+
+    return data_ctx->GetConnectionID() == connection->GetID() && data_ctx->IsRegistered();
 }
 
 void
@@ -2795,13 +2816,18 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
                                         const std::shared_ptr<PicoQuicDataContext>& data_ctx,
                                         uint8_t priority)
 {
-    if (data_ctx == nullptr) {
+    const auto pq_conn = std::static_pointer_cast<PicoQuicConnection>(connection);
+
+    if (!IsDataContextActive(pq_conn, data_ctx)) {
+        QUICR_LOGGER_WARN(logger,
+                          "Refusing to create stream for a data context the connection no longer owns; "
+                          "conn_id: {} data_ctx_id: {}",
+                          connection == nullptr ? 0 : connection->GetID(),
+                          data_ctx == nullptr ? 0 : data_ctx->GetID());
         throw PicoQuicException("Unable to find data context");
     }
 
     std::unique_lock lock(state_mutex_);
-
-    const auto pq_conn = std::static_pointer_cast<PicoQuicConnection>(connection);
 
     PicoQuicDataContext::StreamContext stream;
     std::uint64_t stream_id = 0;

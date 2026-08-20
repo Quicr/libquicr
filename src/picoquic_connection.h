@@ -15,6 +15,7 @@
 #include <picoquic.h>
 #include <picoquic_config.h>
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -43,6 +44,30 @@ namespace quicr {
         {
             return std::static_pointer_cast<PicoQuicDataContext>(shared_from_this());
         }
+
+        /**
+         * @name Registration state
+         *
+         * @details A handle keeps a context alive but says nothing about whether its connection still
+         *      has it. Holders outside the transport (application track handlers) outlive the context,
+         *      so the context carries its own state and callers check it through the handle they
+         *      already hold, rather than searching the connection's container.
+         */
+        ///@{
+
+        /**
+         * @returns True while the connection still has this context registered.
+         *
+         * @details Cleared once the transport commits to tearing the context down, which is the point
+         *      after which it will no longer unlink picoquic's pointers to it. Adding a stream past
+         *      that point would leave picoquic holding a pointer that nothing ever clears.
+         */
+        bool IsRegistered() const noexcept { return registered_; }
+
+        /// Called by the connection when the context leaves its container, and on connection teardown.
+        void MarkUnregistered() noexcept { registered_ = false; }
+
+        ///@}
 
       public:
         bool uses_reset_wait{ false }; /// Indicates if data context can/uses reset wait strategy
@@ -92,6 +117,10 @@ namespace quicr {
 
         std::map<std::uint64_t, StreamContext> streams;
         std::mutex stream_mutex;
+
+      private:
+        /// Read from application threads while the connection clears it, so it must be atomic.
+        std::atomic_bool registered_{ true };
     };
 
     class PicoQuicConnection : public Connection

@@ -137,10 +137,10 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
     }
 
     // Data contexts are opaque handles outside the library, so tests compare them by identity.
-    const std::shared_ptr<quicr::DataContext>& GetPublishDataContext() const { return publish_data_ctx_; }
+    using PublishTrackHandler::GetPublishDataContext;
 
     // Exposes the control data context for tests; it is protected on the handler base class.
-    const std::shared_ptr<quicr::DataContext>& GetControlDataContext() const { return GetDataContext(); }
+    std::shared_ptr<quicr::DataContext> GetControlDataContext() const { return GetDataContext(); }
 
   private:
     const StatusCallback on_status_;
@@ -157,7 +157,7 @@ class TestPublishNamespaceHandler : public PublishNamespaceHandler
         return std::shared_ptr<TestPublishNamespaceHandler>(new TestPublishNamespaceHandler(prefix));
     }
 
-    const std::shared_ptr<quicr::DataContext>& GetControlDataContext() const { return GetDataContext(); }
+    std::shared_ptr<quicr::DataContext> GetControlDataContext() const { return GetDataContext(); }
 
   private:
     explicit TestPublishNamespaceHandler(const TrackNamespace& prefix)
@@ -2179,6 +2179,87 @@ TEST_CASE("Integration - Dedicated bidirectional control data contexts")
     SUBCASE("WebTransport")
     {
         test_dedicated_control_data_contexts("https");
+    }
+}
+
+TEST_CASE("Integration - Unbound publish track cannot create streams")
+{
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+
+    auto test_unbound_publish = [&](const std::string& protocol_scheme) {
+        auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "unbind", "publish" });
+        ftn.name = { 7, 8, 9 };
+        const auto track_alias = TrackHash(ftn).track_fullname_hash;
+
+        std::promise<TestServer::SubscribeDetails> subscribe_promise;
+        std::future<TestServer::SubscribeDetails> subscribe_future = subscribe_promise.get_future();
+        server->SetSubscribePromise(std::move(subscribe_promise));
+
+        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        CHECK_NOTHROW(subscriber->SubscribeTrack(sub_handler));
+        REQUIRE(subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        (void)subscribe_future.get();
+
+        // The server binds a publish track handler to serve this subscriber.
+        const auto pub_handler = server->GetSubscriberPublishHandler(track_alias);
+        REQUIRE(pub_handler != nullptr);
+        REQUIRE(WaitFor([&pub_handler]() { return pub_handler->CanPublish(); }));
+
+        const std::vector<std::uint8_t> payload(64, 0x5a);
+        const auto header_for = [&payload](const std::uint64_t group_id) {
+            return ObjectHeaders{ .group_id = group_id,
+                                  .object_id = 0,
+                                  .subgroup_id = 0,
+                                  .payload_length = payload.size(),
+                                  .status = ObjectStatus::kAvailable,
+                                  .priority = 3,
+                                  .ttl = 5000,
+                                  .track_mode = TrackMode::kStream };
+        };
+
+        // Baseline: a new group opens a stream on the bound data context.
+        REQUIRE_EQ(pub_handler->PublishObject(header_for(0), payload), PublishTrackHandler::PublishObjectStatus::kOk);
+
+        // Keep a handle, as an application holding the context past the unbind would.
+        const auto stale_data_ctx = pub_handler->GetPublishDataContext();
+        REQUIRE(stale_data_ctx != nullptr);
+
+        REQUIRE(server->UnbindSubscriberPublishTrack(track_alias));
+
+        // Unbinding must drop the handler's reference, so a later publish cannot reach a removed context.
+        CHECK(pub_handler->GetPublishDataContext() == nullptr);
+        CHECK_THROWS(pub_handler->PublishObject(header_for(1), payload));
+
+        /*
+         * Even when the application kept its own handle, the transport must refuse to open a stream on a
+         * context this connection no longer owns; otherwise picoquic is left holding a callback pointer
+         * that dangles once the last handle goes away. Deletion is scheduled on the picoquic thread, so
+         * poll with a fresh group each attempt to keep forcing stream creation until it lands.
+         */
+        pub_handler->SetPublishDataContext(stale_data_ctx);
+        std::uint64_t group_id = 2;
+        CHECK(WaitFor([&]() {
+            try {
+                pub_handler->PublishObject(header_for(group_id++), payload);
+                return false;
+            } catch (const std::exception&) {
+                return true;
+            }
+        }));
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_unbound_publish("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_unbound_publish("https");
     }
 }
 

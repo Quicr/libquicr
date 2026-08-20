@@ -28,6 +28,9 @@ namespace quicr {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
+        // Held for the duration of the send, so the context cannot be released midway through.
+        const auto data_ctx = GetPublishDataContext();
+
         Transport::EnqueueFlags eflags;
 
         std::uint16_t ttl = object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_;
@@ -43,7 +46,7 @@ namespace quicr {
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
 
-            stream_id_ = session->CreateStream(publish_data_ctx_, priority);
+            stream_id_ = session->CreateStream(data_ctx, priority);
 
             messages::FetchHeader fetch_hdr;
             fetch_hdr.request_id = *request_id;
@@ -51,7 +54,7 @@ namespace quicr {
 
             auto result = session->Enqueue(
 
-              publish_data_ctx_,
+              data_ctx,
               stream_id_,
               std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
               priority,
@@ -74,7 +77,7 @@ namespace quicr {
         object_msg_buffer_ << object;
 
         auto result =
-          session->Enqueue(publish_data_ctx_,
+          session->Enqueue(data_ctx,
                            stream_id_,
                            std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
                            priority,
