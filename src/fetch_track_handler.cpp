@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/handlers/fetch_track_handler.h"
-
-#include <spdlog/spdlog.h>
+#include "quicr/utilities/format.h"
 
 namespace quicr {
     void FetchTrackHandler::TryParseStreamBufferData(StreamContext& stream)
@@ -35,25 +34,21 @@ namespace quicr {
                 continue;
             }
 
-            SPDLOG_TRACE("Received fetch_object subscribe_id: {} priority: {} "
-                         "group_id: {} subgroup_id: {} object_id: {} data size: {}",
-                         *GetSubscribeId(),
-                         *resolved->headers.priority,
-                         resolved->headers.group_id,
-                         resolved->headers.subgroup_id,
-                         resolved->headers.object_id,
-                         resolved->payload.size());
-
             subscribe_track_metrics_.objects_received++;
             subscribe_track_metrics_.bytes_received += resolved->payload.size();
 
+            std::exception_ptr error;
             try {
                 ObjectReceived(resolved->headers, resolved->payload);
             } catch (const std::exception& e) {
-                SPDLOG_ERROR("Caught exception trying to receive Fetch object. (error={})", e.what());
+                error = std::make_exception_ptr(e);
             }
 
             stream.buffer.ResetAnyB();
+
+            if (error) {
+                std::rethrow_exception(error);
+            }
         }
     }
 }

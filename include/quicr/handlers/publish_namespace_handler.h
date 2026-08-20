@@ -13,7 +13,7 @@ namespace quicr {
 
     class Session;
 
-    class PublishNamespaceHandler : public BaseTrackHandler
+    class PublishNamespaceHandler : public TrackHandler
     {
       public:
         using Error = std::pair<messages::ErrorCode, Bytes>;
@@ -112,10 +112,6 @@ namespace quicr {
 
         const TrackNamespace& GetPrefix() const noexcept { return prefix_; }
 
-        const std::weak_ptr<Session>& GetTransport() const noexcept { return transport_; }
-
-        void SetTransport(const std::shared_ptr<Session>& new_transport) noexcept { transport_ = new_transport; }
-
         /**
          * @brief Get the status of the Publish
          *
@@ -169,9 +165,6 @@ namespace quicr {
       private:
         /// Prefix namespace for contained handlers.
         const TrackNamespace prefix_;
-
-        /// Weak reference to the transport.
-        std::weak_ptr<Session> transport_;
 
         Status status_{ Status::kNotPublished };
 
