@@ -152,6 +152,7 @@ namespace quicr {
             std::uint64_t conn_id{ 0 };       /// This connection ID
             picoquic_cnx_t* pq_cnx = nullptr; /// Picoquic connection/path context
             uint64_t last_stream_id{ 0 };     /// last stream Id
+            std::size_t shard_idx{ 0 };       /// Shard whose thread owns this connection
 
             bool mark_dgram_ready{ false };                       /// Instructs datagram to be marked ready/active
             TransportMode transport_mode{ TransportMode::kQuic }; /// Transport mode for this connection
@@ -236,11 +237,29 @@ namespace quicr {
             }
         };
 
-        /*
-         * pq event loop member vars
+        /**
+         * A single picoquic instance and the network thread that runs its packet loop
+         *
+         * @details Shards share the listen port via SO_REUSEPORT so the kernel spreads
+         *      incoming 4-tuples across them. Each shard owns its connections outright:
+         *      picoquic APIs for a connection may only be called on its shard's thread.
          */
-        uint64_t pq_loop_prev_time = 0;
-        uint64_t pq_loop_metrics_prev_time = 0;
+        struct Shard
+        {
+            PicoQuicTransport* transport{ nullptr }; /// Owning transport
+            std::size_t index{ 0 };                  /// This shard's index into shards_
+
+            picoquic_quic_t* quic_ctx{ nullptr };                 /// Picoquic instance
+            picoquic_network_thread_ctx_t* thread_ctx{ nullptr }; /// Network thread running the packet loop
+            picoquic_packet_loop_param_t loop_params{};           /// Socket and loop configuration
+            int loop_return_value{ 0 };                           /// Packet loop exit code
+
+            /// Threads queue functions that picoquic will call via the pq_loop callback
+            SafeQueue<std::function<int()>> runner_queue;
+
+            uint64_t loop_prev_time{ 0 };         /// Last congestion check time
+            uint64_t loop_metrics_prev_time{ 0 }; /// Last metrics sample time
+        };
 
         /*
          * Exceptions
@@ -341,6 +360,31 @@ namespace quicr {
         std::uint64_t MetricsSampleIntervalUs() const { return tconfig_.metrics_sample_ms * 1'000; }
 
         /**
+         * @brief Number of picoquic instances to run
+         *
+         * @param is_server_mode    True for server mode, false for client mode
+         * @param quic_shards       Configured shard count from TransportConfig
+         *
+         * @returns Shard count to use. Always 1 for clients: a single connection is a
+         *      single 4-tuple and cannot be split across sockets.
+         */
+        static std::size_t EffectiveShardCount(bool is_server_mode, std::size_t quic_shards);
+
+        /**
+         * @brief Build the picoquic packet loop parameters for one shard
+         *
+         * @param listen_port           Port the server listens on
+         * @param socket_buffer_size    UDP socket buffer size
+         * @param shard_count           Total number of shards
+         *
+         * @returns Loop parameters. With shard_count of 1 these are identical to the
+         *      unsharded values, so the default configuration is unchanged.
+         */
+        static picoquic_packet_loop_param_t MakeLoopParams(uint16_t listen_port,
+                                                           std::size_t socket_buffer_size,
+                                                           std::size_t shard_count);
+
+        /**
          * @brief Accept an incoming WebTransport connection
          * @details Initializes WebTransport context, updates internal data structures,
          *          and reports OnNewConnection() callback. Similar to wt_baton_accept.
@@ -389,9 +433,9 @@ namespace quicr {
                             std::optional<uint64_t> data_ctx_id,
                             StreamClosedFlag flag);
 
-        void CheckConnsForCongestion();
-        void EmitMetrics();
-        void RemoveClosedStreams();
+        void CheckConnsForCongestion(std::size_t shard_idx);
+        void EmitMetrics(std::size_t shard_idx);
+        void RemoveClosedStreams(std::size_t shard_idx);
 
         bool StreamActionCheck(DataContext* data_ctx, StreamAction stream_action);
 
@@ -423,7 +467,7 @@ namespace quicr {
          *
          * @returns PIOCOQUIC error code, or ZERO if no error
          */
-        int PqRunner();
+        int PqRunner(Shard& shard);
 
         /**
          * @brief Send drain session message for WebTransport
@@ -470,13 +514,36 @@ namespace quicr {
       private:
         void DeleteDataContextInternal(std::uint64_t conn_id, std::uint64_t data_ctx_id, bool delete_on_empty);
 
+        /**
+         * @brief Find the shard that owns a connection
+         *
+         * @param conn_id   Connection ID to look up
+         *
+         * @returns Shard index, or nullopt if the connection is not known
+         *
+         * @warning Takes state_mutex_. state_mutex_ is not recursive, so this must never
+         *      be called while it is held. Callers that already hold it have the
+         *      connection context in hand and should read conn_ctx.shard_idx directly.
+         */
+        std::optional<std::size_t> GetConnShardIdx(const std::uint64_t& conn_id);
+
         std::uint64_t StartClient();
         void Shutdown();
+
+        /**
+         * @brief Create and configure one picoquic instance
+         *
+         * @param current_time  Picoquic current time for instance creation
+         *
+         * @returns The created instance
+         * @throws PicoQuicException if the instance could not be created
+         */
+        picoquic_quic_t* CreateQuicInstance(uint64_t current_time);
 
         void Server();
         bool ClientLoop();
         void CbNotifier();
-        void RunPqFunction(std::function<int()>&& function);
+        void RunPqFunction(std::size_t shard_idx, std::function<int()>&& function);
         void CheckCallbackDelta(DataContext* data_ctx, bool tx = true);
 
         /**
@@ -569,15 +636,12 @@ namespace quicr {
          * Variables
          */
         picoquic_quic_config_t config_;
-        picoquic_quic_t* quic_ctx_{ nullptr };
-        picoquic_network_thread_ctx_t* quic_network_thread_ctx_{ nullptr };
-        picoquic_packet_loop_param_t quic_network_thread_params_{};
-        int quic_loop_return_value_{ 0 };
         picoquic_tp_t local_tp_options_;
         SafeQueue<std::function<void()>> cbNotifyQueue_;
 
-        /// Threads queue functions that picoquic will call via the pq_loop callback
-        SafeQueue<std::function<int()>> picoquic_runner_queue_;
+        /// Picoquic instances and their network threads. Server mode may run more than
+        /// one; clients always run exactly one.
+        std::vector<std::unique_ptr<Shard>> shards_;
 
         std::atomic<bool> stop_;
         std::mutex state_mutex_; /// Used for stream/context/state updates
