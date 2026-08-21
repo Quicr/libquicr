@@ -289,6 +289,19 @@ skip connections whose `shard_idx` does not match.
   own connections.
 - `EmitMetrics` — filtered to avoid emitting each connection's metrics N times.
 
+### A premise sharding invalidates
+
+`CreateConnContext` carries the comment *"This is thread safe because picoquic
+network thread is the only one that calls this"* and takes no lock. That premise
+holds today and stops holding the moment there is more than one network thread:
+N threads would call `conn_context_.emplace` on the same map concurrently. It
+must take `state_mutex_`, and the comment must be corrected rather than left to
+mislead the next reader.
+
+None of its three call sites — in `PqEventCb`, `StartClient` and the WebTransport
+connection path — holds `state_mutex_`, so taking it there is safe. Confirm this
+by inspection before making the change; `state_mutex_` is not recursive.
+
 ### Pre-existing bug fixed en route
 
 `EmitMetrics` iterates `conn_context_` while taking no lock at all
