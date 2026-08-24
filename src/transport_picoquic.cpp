@@ -626,8 +626,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
             break;
 
         case picohttp_callback_connect_refused:
-            QUICR_LOGGER_WARN(
-              transport->logger, "DefaultWT: {} for connection {}", WtEventToString(wt_event), conn_id);
+            QUICR_LOGGER_WARN(transport->logger, "DefaultWT: {} for connection {}", WtEventToString(wt_event), conn_id);
             if (auto connection = transport->GetConnection(conn_id)) {
                 transport->OnConnectionStatus(connection, TransportStatus::kDisconnected);
             }
@@ -2369,10 +2368,8 @@ PicoQuicTransport::CheckConnsForCongestion()
 
             if (tconfig_.use_reset_wait_strategy && reset_wait_data_ctx_id > 0) {
                 auto& data_ctx = connection->active_data_contexts[reset_wait_data_ctx_id];
-                QUICR_LOGGER_INFO(logger,
-                                  "CC: conn_id: {} setting reset and wait to data_ctx_id: {}",
-                                  conn_id,
-                                  reset_wait_data_ctx_id);
+                QUICR_LOGGER_INFO(
+                  logger, "CC: conn_id: {} setting reset and wait to data_ctx_id: {}", conn_id, reset_wait_data_ctx_id);
 
                 for (auto& [_, stream] : data_ctx.streams) {
                     stream.tx_reset_wait_discard = true;
