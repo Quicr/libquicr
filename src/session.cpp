@@ -1038,7 +1038,7 @@ namespace quicr {
         if (const auto data_ctx = handler.GetPublishDataContext()) {
             // TODO: is_reset should propagate down here?
             quic_transport_->DeleteDataContext(current_connection_, data_ctx);
-            handler.publish_data_ctx_.reset();
+            handler.ResetPublishDataContext();
         }
     }
 
@@ -1237,7 +1237,7 @@ namespace quicr {
                                       th.track_fullname_hash);
                 }
 
-                pub_n_it->second->publish_data_ctx_.reset();
+                pub_n_it->second->ResetPublishDataContext();
 
                 lock.unlock();
 
@@ -1310,7 +1310,7 @@ namespace quicr {
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
                                              track_handler->default_priority_,
                                              false);
-        track_handler->publish_data_ctx_ = publish_data_ctx;
+        track_handler->SetPublishDataContext(publish_data_ctx);
 
         request_id_by_data_ctx[publish_data_ctx->GetID()] = track_handler->GetRequestId().value();
 
@@ -2236,7 +2236,7 @@ namespace quicr {
                                              track_handler->default_track_mode_ == TrackMode::kDatagram ? false : true,
                                              track_handler->default_priority_,
                                              false);
-        track_handler->publish_data_ctx_ = publish_data_ctx;
+        track_handler->SetPublishDataContext(publish_data_ctx);
 
         request_id_by_data_ctx[publish_data_ctx->GetID()] = request_id;
 
@@ -2292,7 +2292,7 @@ namespace quicr {
             quic_transport_->DeleteDataContext(current_connection_, publish_data_ctx);
 
             // Stop observing the context now that it is scheduled for deletion.
-            track_handler->publish_data_ctx_.reset();
+            track_handler->ResetPublishDataContext();
         }
 
         const auto data_ctx = track_handler->GetDataContext();
@@ -2314,8 +2314,8 @@ namespace quicr {
 
         track_handler->SetStatus(PublishFetchHandler::Status::kOk);
         track_handler->connection_id_ = current_connection_->GetID();
-        track_handler->publish_data_ctx_ =
-          quic_transport_->CreateDataContext(current_connection_, true, track_handler->GetDefaultPriority(), false);
+        track_handler->SetPublishDataContext(
+          quic_transport_->CreateDataContext(current_connection_, true, track_handler->GetDefaultPriority(), false));
 
         track_handler->SetTransport(GetSharedPtr());
 

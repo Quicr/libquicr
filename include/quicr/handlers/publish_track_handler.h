@@ -359,10 +359,10 @@ namespace quicr {
          * Data context that published objects are sent on; set by the session
          *
          * @details Weak because the transport owns data contexts and this handler is owned by the
-         *      application, which routinely outlives them. Use LockPublishDataContext() to obtain an
-         *      owning handle for the duration of a send.
+         *      application, which routinely outlives them. Guarded because the session installs and
+         *      releases it while application threads publish.
          */
-        std::weak_ptr<DataContext> publish_data_ctx_;
+        std::weak_ptr<DataContext> publish_data_ctx_ QUICR_GUARDED_BY(data_ctx_mutex_);
 
         /**
          * @brief Acquire an owning handle to the publish data context
@@ -373,7 +373,34 @@ namespace quicr {
          *
          * @return Data context handle, or nullptr if unset or already released by the transport
          */
-        std::shared_ptr<DataContext> GetPublishDataContext() const noexcept { return publish_data_ctx_.lock(); }
+        std::shared_ptr<DataContext> GetPublishDataContext() const
+        {
+            std::lock_guard lock(data_ctx_mutex_);
+            return publish_data_ctx_.lock();
+        }
+
+        /**
+         * @brief Set the data context that published objects are sent on
+         *
+         * @param data_ctx               Data context to publish on
+         */
+        void SetPublishDataContext(const std::shared_ptr<DataContext>& data_ctx)
+        {
+            std::lock_guard lock(data_ctx_mutex_);
+            publish_data_ctx_ = data_ctx;
+        }
+
+        /**
+         * @brief Stop observing the publish data context
+         *
+         * @details Called by the session when the track is unpublished or unbound, so that a later
+         *      publish cannot reach a context the connection no longer owns.
+         */
+        void ResetPublishDataContext()
+        {
+            std::lock_guard lock(data_ctx_mutex_);
+            publish_data_ctx_.reset();
+        }
 
         struct StreamInfo
         {

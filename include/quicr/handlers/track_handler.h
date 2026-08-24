@@ -7,9 +7,11 @@
 #include "quicr/messages/messages.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/track_name.h"
+#include "quicr/utilities/thread_safety.h"
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <vector>
@@ -118,6 +120,16 @@ namespace quicr {
 
       protected:
         /**
+         * @brief Guards the data context handles owned by this handler and its derived types
+         *
+         * @details The session installs and releases these handles while application threads read
+         *      them, and concurrent read/write of the same weak_ptr is undefined behaviour. Derived
+         *      handlers guard their own context handles with this mutex too. Never call into the
+         *      session while holding it, so that the session lock is always taken first.
+         */
+        mutable std::mutex data_ctx_mutex_;
+
+        /**
          * @brief Sets the data context used for control messages
          *
          * @details The data context is transport state owned by the session; it is not part of the
@@ -126,7 +138,11 @@ namespace quicr {
          *
          * @param data_ctx               Data context for control messages
          */
-        void SetDataContext(const std::shared_ptr<DataContext>& data_ctx) { data_ctx_ = data_ctx; }
+        void SetDataContext(const std::shared_ptr<DataContext>& data_ctx)
+        {
+            std::lock_guard lock(data_ctx_mutex_);
+            data_ctx_ = data_ctx;
+        }
 
         /**
          * @brief Return the data context used for control messages
@@ -137,7 +153,11 @@ namespace quicr {
          *
          * @return Data context handle, or nullptr if unset or already released by the transport
          */
-        std::shared_ptr<DataContext> GetDataContext() const noexcept { return data_ctx_.lock(); }
+        std::shared_ptr<DataContext> GetDataContext() const
+        {
+            std::lock_guard lock(data_ctx_mutex_);
+            return data_ctx_.lock();
+        }
 
         /**
          * Received an OK for this handler's request.
@@ -183,7 +203,7 @@ namespace quicr {
          * @details Weak because the transport owns data contexts and this handler is owned by the
          *      application, which routinely outlives them.
          */
-        std::weak_ptr<DataContext> data_ctx_;
+        std::weak_ptr<DataContext> data_ctx_ QUICR_GUARDED_BY(data_ctx_mutex_);
 
         /**
          * Stream ID of the bidirectional request control stream.
