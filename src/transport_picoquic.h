@@ -243,12 +243,12 @@ namespace quicr {
             PicoQuicTransport* transport{ nullptr };
             std::size_t index{ 0 };
 
-            picoquic_quic_t* quic_ctx_{ nullptr };
-            picoquic_network_thread_ctx_t* quic_network_thread_ctx_{ nullptr };
-            picoquic_packet_loop_param_t quic_network_thread_params_{};
-            int quic_loop_return_value_{ 0 };
+            picoquic_quic_t* quic_ctx{ nullptr };
+            picoquic_network_thread_ctx_t* quic_network_thread_ctx{ nullptr };
+            picoquic_packet_loop_param_t quic_network_thread_params{};
+            int quic_loop_return_value{ 0 };
 
-            SafeQueue<std::function<int()>> picoquic_runner_queue_;
+            SafeQueue<std::function<int()>> picoquic_runner_queue;
 
             uint64_t pq_loop_prev_time{ 0 };
             uint64_t pq_loop_metrics_prev_time{ 0 };

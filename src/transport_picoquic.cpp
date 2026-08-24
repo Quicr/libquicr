@@ -1056,8 +1056,8 @@ PicoQuicTransport::Start()
         auto shard = std::make_unique<Shard>();
         shard->transport = this;
         shard->index = i;
-        shard->quic_ctx_ = CreateQuicInstance(current_time);
-        shard->picoquic_runner_queue_.SetLimit(tconfig_.callback_queue_size);
+        shard->quic_ctx = CreateQuicInstance(current_time);
+        shard->picoquic_runner_queue.SetLimit(tconfig_.callback_queue_size);
         shards_.push_back(std::move(shard));
     }
 
@@ -1441,7 +1441,7 @@ PicoQuicTransport::CreateConnContext(picoquic_cnx_t* pq_cnx)
 
     const auto* cnx_quic_ctx = picoquic_get_quic_ctx(pq_cnx);
     for (const auto& shard : shards_) {
-        if (shard->quic_ctx_ == cnx_quic_ctx) {
+        if (shard->quic_ctx == cnx_quic_ctx) {
             conn_ctx.shard_idx = shard->index;
             break;
         }
@@ -1617,12 +1617,12 @@ int
 PicoQuicTransport::PqRunner(Shard& shard)
 {
 
-    if (shard.picoquic_runner_queue_.Empty()) {
+    if (shard.picoquic_runner_queue.Empty()) {
         return 0;
     }
 
     // note: check before running move of optional, which is more CPU taxing when empty
-    while (auto cb = shard.picoquic_runner_queue_.Pop()) {
+    while (auto cb = shard.picoquic_runner_queue.Pop()) {
         try {
             if (auto ret = (*cb)()) {
                 SPDLOG_LOGGER_ERROR(logger, "PQ function resulted in error: {}", ret);
@@ -2478,32 +2478,29 @@ void
 PicoQuicTransport::Server()
 {
     for (auto& shard : shards_) {
-        shard->quic_network_thread_params_ =
+        shard->quic_network_thread_params =
           MakeThreadConfig(serverInfo_.port, tconfig_.socket_buffer_size, shards_.size());
 
         SPDLOG_LOGGER_DEBUG(logger, "Starting picoquic network thread for shard {0}", shard->index);
-        shard->quic_network_thread_ctx_ = picoquic_start_network_thread(shard->quic_ctx_,
-                                                                        &shard->quic_network_thread_params_,
-                                                                        PqLoopCb,
-                                                                        shard.get(),
-                                                                        &shard->quic_loop_return_value_);
+        shard->quic_network_thread_ctx = picoquic_start_network_thread(
+          shard->quic_ctx, &shard->quic_network_thread_params, PqLoopCb, shard.get(), &shard->quic_loop_return_value);
 
-        if (shard->quic_ctx_ == NULL || shard->quic_network_thread_ctx_ == NULL) {
+        if (shard->quic_ctx == NULL || shard->quic_network_thread_ctx == NULL) {
             SPDLOG_LOGGER_ERROR(logger, "Failed to start picoquic network thread for shard {0}", shard->index);
             SetStatus(TransportStatus::kShutdown);
             return;
         }
 
         // Wait for something to happen with the thread
-        while (!shard->quic_network_thread_ctx_->thread_is_ready && !shard->quic_network_thread_ctx_->return_code) {
+        while (!shard->quic_network_thread_ctx->thread_is_ready && !shard->quic_network_thread_ctx->return_code) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
 
-        if (shard->quic_network_thread_ctx_->return_code) {
+        if (shard->quic_network_thread_ctx->return_code) {
             SPDLOG_LOGGER_ERROR(logger,
                                 "Could not start quic network thread for shard {0} error: {1}",
                                 shard->index,
-                                shard->quic_network_thread_ctx_->return_code);
+                                shard->quic_network_thread_ctx->return_code);
             SetStatus(TransportStatus::kShutdown);
             return;
         }
@@ -2550,7 +2547,7 @@ PicoQuicTransport::StartClient()
 
         picoquic_cnx_t* cnx = NULL;
         if (transport_mode == TransportMode::kQuic) {
-            cnx = picoquic_create_cnx(shards_[0]->quic_ctx_,
+            cnx = picoquic_create_cnx(shards_[0]->quic_ctx,
                                       picoquic_null_connection_id,
                                       picoquic_null_connection_id,
                                       reinterpret_cast<struct sockaddr*>(&server_address),
@@ -2584,7 +2581,7 @@ PicoQuicTransport::StartClient()
             h3zero_stream_ctx_t* control_stream_ctx = nullptr;
             uint64_t current_time = picoquic_current_time();
 
-            ret = picowt_prepare_client_cnx(shards_[0]->quic_ctx_,
+            ret = picowt_prepare_client_cnx(shards_[0]->quic_ctx,
                                             (struct sockaddr*)&server_address,
                                             &cnx,
                                             &h3_ctx,
@@ -2697,23 +2694,23 @@ PicoQuicTransport::ClientLoop()
 #else
     socket_buffer_size = tconfig_.socket_buffer_size;
 #endif
-    shard.quic_network_thread_params_ = MakeThreadConfig(0, socket_buffer_size, 1);
-    shard.quic_network_thread_ctx_ = picoquic_start_network_thread(
-      shard.quic_ctx_, &shard.quic_network_thread_params_, PqLoopCb, &shard, &shard.quic_loop_return_value_);
+    shard.quic_network_thread_params = MakeThreadConfig(0, socket_buffer_size, 1);
+    shard.quic_network_thread_ctx = picoquic_start_network_thread(
+      shard.quic_ctx, &shard.quic_network_thread_params, PqLoopCb, &shard, &shard.quic_loop_return_value);
 
-    if (shard.quic_ctx_ == nullptr || shard.quic_network_thread_ctx_ == nullptr) {
+    if (shard.quic_ctx == nullptr || shard.quic_network_thread_ctx == nullptr) {
         SPDLOG_LOGGER_ERROR(logger, "Failed to create picoquic network thread");
         return false;
     }
 
     // Wait for something to happen with the thread
-    while (!shard.quic_network_thread_ctx_->thread_is_ready && !shard.quic_network_thread_ctx_->return_code) {
+    while (!shard.quic_network_thread_ctx->thread_is_ready && !shard.quic_network_thread_ctx->return_code) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
-    if (shard.quic_network_thread_ctx_->return_code) {
+    if (shard.quic_network_thread_ctx->return_code) {
         SPDLOG_LOGGER_ERROR(
-          logger, "Could not start client quic network thread error: {}", shard.quic_network_thread_ctx_->return_code);
+          logger, "Could not start client quic network thread error: {}", shard.quic_network_thread_ctx->return_code);
         return false;
     }
 
@@ -2731,19 +2728,19 @@ PicoQuicTransport::Shutdown()
     stop_ = true;
 
     for (auto& shard : shards_) {
-        if (shard->quic_network_thread_ctx_ != NULL) {
+        if (shard->quic_network_thread_ctx != NULL) {
             SPDLOG_LOGGER_INFO(logger, "Closing transport picoquic thread for shard {0}", shard->index);
-            picoquic_wake_up_network_thread(shard->quic_network_thread_ctx_);
+            picoquic_wake_up_network_thread(shard->quic_network_thread_ctx);
 
-            while (shard->quic_network_thread_ctx_->thread_is_ready) {
+            while (shard->quic_network_thread_ctx->thread_is_ready) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
 
-            picoquic_delete_network_thread(shard->quic_network_thread_ctx_);
-            shard->quic_network_thread_ctx_ = nullptr;
+            picoquic_delete_network_thread(shard->quic_network_thread_ctx);
+            shard->quic_network_thread_ctx = nullptr;
         }
 
-        shard->picoquic_runner_queue_.StopWaiting();
+        shard->picoquic_runner_queue.StopWaiting();
     }
 
     SetStatus(TransportStatus::kShutdown);
@@ -2756,9 +2753,9 @@ PicoQuicTransport::Shutdown()
     }
 
     for (auto& shard : shards_) {
-        if (shard->quic_ctx_ != nullptr) {
-            picoquic_free(shard->quic_ctx_);
-            shard->quic_ctx_ = nullptr;
+        if (shard->quic_ctx != nullptr) {
+            picoquic_free(shard->quic_ctx);
+            shard->quic_ctx = nullptr;
         }
     }
 
@@ -3028,11 +3025,11 @@ void
 PicoQuicTransport::RunPqFunction(std::size_t shard_idx, std::function<int()>&& function)
 {
     auto& shard = *shards_.at(shard_idx);
-    bool should_wake = shard.picoquic_runner_queue_.Empty();
-    shard.picoquic_runner_queue_.Push(std::move(function));
+    bool should_wake = shard.picoquic_runner_queue.Empty();
+    shard.picoquic_runner_queue.Push(std::move(function));
 
     if (should_wake) {
-        picoquic_wake_up_network_thread(shard.quic_network_thread_ctx_);
+        picoquic_wake_up_network_thread(shard.quic_network_thread_ctx);
     }
 }
 
@@ -3159,7 +3156,7 @@ PicoQuicTransport::SetupWebTransportConnection(picoquic_cnx_t* cnx)
         uint64_t current_time = picoquic_current_time();
         const char* sni = serverInfo_.host_or_ip.c_str();
 
-        ret = picowt_prepare_client_cnx(shards_[0]->quic_ctx_,
+        ret = picowt_prepare_client_cnx(shards_[0]->quic_ctx,
                                         (struct sockaddr*)&server_addr,
                                         &prepared_cnx,
                                         &h3_ctx,
