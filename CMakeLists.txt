@@ -48,6 +48,7 @@ option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
+option(QUICR_BUILD_MSQUIC "Build the optional MsQuic raw-QUIC transport" OFF)
 
 option(USE_MBEDTLS OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
@@ -86,6 +87,10 @@ set(CPM_USE_LOCAL_PACKAGES ON)
 CPMAddPackage("gh:gabime/spdlog@1.17.0")
 
 add_subdirectory(dependencies)
+
+if(QUICR_BUILD_MSQUIC)
+    find_package(msquic CONFIG REQUIRED)
+endif()
 
 #=============================================================================#
 # Build the library

@@ -706,8 +706,8 @@ namespace quicr::messages {
                     if (val.empty()) {
                         return false;
                     }
-                    buffer.Pop();
                     msg.publisher_priority = val[0];
+                    buffer.Pop();
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
@@ -839,8 +839,8 @@ namespace quicr::messages {
                     if (val.empty()) {
                         return false;
                     }
-                    buffer.Pop();
                     msg.priority = val[0];
+                    buffer.Pop();
                 } else {
                     msg.priority = std::nullopt;
                 }
@@ -961,8 +961,8 @@ namespace quicr::messages {
                     if (val.empty()) {
                         return false;
                     }
-                    buffer.Pop();
                     msg.priority = val[0];
+                    buffer.Pop();
                 } else {
                     msg.priority = std::nullopt;
                 }
@@ -1095,8 +1095,8 @@ namespace quicr::messages {
                     if (val.empty()) {
                         return false;
                     }
-                    buffer.Pop();
                     msg.priority = val[0];
+                    buffer.Pop();
                 } else {
                     msg.priority = std::nullopt;
                 }

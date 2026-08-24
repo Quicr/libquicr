@@ -9,7 +9,7 @@
 #include "test_client.h"
 #include "test_server.h"
 
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest/doctest.h>
 
 #include <atomic>
@@ -20,7 +20,9 @@
 #include <iostream>
 #include <mutex>
 #include <spdlog/spdlog.h>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -32,6 +34,45 @@ constexpr uint16_t kPort = 12345;
 const std::string kServerId = "test-server";
 constexpr std::uint64_t kMetricsTestIntervalMs = 250;
 constexpr auto kMetricsTestTimeout = std::chrono::seconds(2);
+
+static TransportBackend
+GetTestTransportBackend()
+{
+    const char* backend = std::getenv("LIBQUICR_TEST_BACKEND");
+    if (backend == nullptr || std::string_view(backend) == "picoquic") {
+        return TransportBackend::kPicoQuic;
+    }
+
+    if (std::string_view(backend) == "msquic") {
+#if defined(QUICR_HAS_MSQUIC)
+        return TransportBackend::kMsQuic;
+#else
+        throw std::runtime_error("LIBQUICR_TEST_BACKEND=msquic requires QUICR_BUILD_MSQUIC=ON");
+#endif
+    }
+
+    throw std::invalid_argument("LIBQUICR_TEST_BACKEND must be either 'picoquic' or 'msquic', got '" +
+                                std::string(backend) + "'");
+}
+
+int
+main(int argc, char** argv)
+{
+    TransportBackend backend;
+    try {
+        backend = GetTestTransportBackend();
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << '\n';
+        return EXIT_FAILURE;
+    }
+
+    doctest::Context context(argc, argv);
+    if (backend == TransportBackend::kMsQuic) {
+        context.addFilter("test-suite-exclude", "picoquic-only");
+        context.addFilter("subcase-exclude", "WebTransport*");
+    }
+    return context.run();
+}
 
 /// @brief Get test timeout from environment or use default
 /// @details Set LIBQUICR_TEST_TIMEOUT_MS environment variable to override (useful for CI)
@@ -171,7 +212,8 @@ static std::shared_ptr<TestServer>
 MakeTestServer(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
                std::optional<std::size_t> max_connections = std::nullopt,
-               std::optional<std::uint64_t> initial_max_stream_data = std::nullopt)
+               std::optional<std::uint64_t> initial_max_stream_data = std::nullopt,
+               const TransportBackend backend = GetTestTransportBackend())
 {
     // Run the server.
     ServerConfig server_config;
@@ -182,6 +224,7 @@ MakeTestServer(quicr::SessionManager& session_mgr,
     server_config.transport_config.tls_cert_filename = "server-cert.pem";
     server_config.transport_config.tls_key_filename = "server-key.pem";
     server_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
+    server_config.transport_config.transport_backend = backend;
     if (qlog_path.has_value()) {
         server_config.transport_config.quic_qlog_path = *qlog_path;
     }
@@ -207,13 +250,16 @@ MakeTestClient(quicr::SessionManager& session_mgr,
                const bool connect = true,
                const std::optional<std::string>& qlog_path = std::nullopt,
                const std::string& protocol_scheme = "moq",
-               const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt)
+               const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
+               const TransportBackend backend = GetTestTransportBackend())
 {
     // Connect a client.
     ClientConfig client_config;
     client_config.transport_config.debug = true;
     client_config.endpoint_id = "client";
     client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
+    client_config.transport_config.transport_backend = backend;
+    client_config.transport_config.tls_client_certificate_validation = backend != TransportBackend::kMsQuic;
     if (metrics_sample_ms.has_value()) {
         client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
     }
@@ -387,6 +433,132 @@ TEST_CASE("Integration - Connection")
         test_connection("https");
     }
 }
+
+#if defined(QUICR_HAS_MSQUIC)
+TEST_CASE("MsQuic - Connection" * doctest::test_suite("msquic-only"))
+{
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, TransportBackend::kMsQuic);
+
+    auto [session, callbacks] =
+      MakeTestClient(session_mgr, false, std::nullopt, "moq", std::nullopt, TransportBackend::kMsQuic);
+    std::promise<ServerSetupAttributes> recv_attributes;
+    auto future = recv_attributes.get_future();
+    callbacks->SetConnectedPromise(std::move(recv_attributes));
+
+    REQUIRE_EQ(future.wait_for(kDefaultTimeout), std::future_status::ready);
+    CHECK_EQ(future.get().server_id, kServerId);
+}
+
+TEST_CASE("MsQuic - Interoperates with picoquic" * doctest::test_suite("msquic-only"))
+{
+    const auto test_connection = [](const TransportBackend server_backend, const TransportBackend client_backend) {
+        quicr::SessionManager session_mgr;
+        auto server = MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, server_backend);
+        auto [session, callbacks] =
+          MakeTestClient(session_mgr, false, std::nullopt, "moq", std::nullopt, client_backend);
+        std::promise<ServerSetupAttributes> recv_attributes;
+        auto future = recv_attributes.get_future();
+        callbacks->SetConnectedPromise(std::move(recv_attributes));
+
+        REQUIRE_EQ(future.wait_for(kDefaultTimeout), std::future_status::ready);
+        CHECK_EQ(future.get().server_id, kServerId);
+    };
+
+    SUBCASE("MsQuic client")
+    {
+        test_connection(TransportBackend::kPicoQuic, TransportBackend::kMsQuic);
+    }
+
+    SUBCASE("MsQuic server")
+    {
+        test_connection(TransportBackend::kMsQuic, TransportBackend::kPicoQuic);
+    }
+}
+
+TEST_CASE("MsQuic - Object delivery" * doctest::test_suite("msquic-only"))
+{
+    TransportBackend server_backend = TransportBackend::kMsQuic;
+    TrackMode track_mode = TrackMode::kStream;
+    std::uint8_t track_id = 1;
+
+    SUBCASE("MsQuic relay")
+    {
+        server_backend = TransportBackend::kMsQuic;
+        SUBCASE("Streams")
+        {
+            track_mode = TrackMode::kStream;
+            track_id = 1;
+        }
+        SUBCASE("Datagrams")
+        {
+            track_mode = TrackMode::kDatagram;
+            track_id = 2;
+        }
+    }
+
+    SUBCASE("picoquic relay")
+    {
+        server_backend = TransportBackend::kPicoQuic;
+        SUBCASE("Streams")
+        {
+            track_mode = TrackMode::kStream;
+            track_id = 3;
+        }
+        SUBCASE("Datagrams")
+        {
+            track_mode = TrackMode::kDatagram;
+            track_id = 4;
+        }
+    }
+
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, server_backend);
+    auto [publisher, publisher_callbacks] =
+      MakeTestClient(session_mgr, true, std::nullopt, "moq", std::nullopt, TransportBackend::kMsQuic);
+    auto [subscriber, subscriber_callbacks] =
+      MakeTestClient(session_mgr, true, std::nullopt, "moq", std::nullopt, TransportBackend::kMsQuic);
+
+    const auto test_delivery = [&]() {
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace({ "msquic" });
+        ftn.name = { track_id };
+
+        const auto publish_handler = PublishTrackHandler::Create(ftn, track_mode, 3, 1000, { 0, 0 });
+        publisher->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
+
+        const auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+        std::promise<void> received_promise;
+        auto received_future = received_promise.get_future();
+        subscribe_handler->SetObjectCountPromise(1, std::move(received_promise));
+        subscriber->SubscribeTrack(subscribe_handler);
+        REQUIRE(WaitFor(
+          [&subscribe_handler]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        const std::vector<std::uint8_t> payload{ track_id, 0xA5 };
+        const ObjectHeaders headers{ .group_id = 1,
+                                     .object_id = 2,
+                                     .subgroup_id = 3,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 1000,
+                                     .track_mode = track_mode,
+                                     .extensions = std::nullopt,
+                                     .immutable_extensions = std::nullopt };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        REQUIRE_EQ(received_future.wait_for(kDefaultTimeout), std::future_status::ready);
+
+        const auto received = subscribe_handler->GetReceivedObjects();
+        REQUIRE_EQ(received.size(), 1);
+        CHECK_EQ(received.front().data, payload);
+        CHECK_EQ(received.front().stream_mode.has_value(), track_mode == TrackMode::kStream);
+    };
+
+    test_delivery();
+}
+#endif
 
 TEST_CASE("Integration - Subscribe")
 {
@@ -971,7 +1143,7 @@ TEST_CASE("Group ID Gap")
     }
 }
 
-TEST_CASE("Qlog Generation")
+TEST_CASE("Qlog Generation" * doctest::test_suite("picoquic-only"))
 {
     auto test_qlog = [&](const std::string& protocol_scheme) {
         quicr::SessionManager session_mgr;

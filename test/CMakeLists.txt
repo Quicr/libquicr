@@ -12,6 +12,7 @@ add_executable(quicr_test
     priority_queue.cpp
     track_handlers.cpp
     track_namespace.cpp
+    transport.cpp
     metrics.cpp
     uintvar.cpp
 )
@@ -22,6 +23,10 @@ endif()
 
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
+
+if(QUICR_BUILD_MSQUIC)
+    target_compile_definitions(quicr_test PRIVATE QUICR_HAS_MSQUIC=1)
+endif()
 
 set_target_properties(quicr_test PROPERTIES
     CXX_STANDARD 20

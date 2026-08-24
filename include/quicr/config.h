@@ -9,6 +9,12 @@
 #include <string>
 
 namespace quicr {
+    enum class TransportBackend : std::uint8_t
+    {
+        kPicoQuic,
+        kMsQuic,
+    };
+
     /**
      * Transport configuration parameters
      */
@@ -34,6 +40,8 @@ namespace quicr {
         uint32_t callback_queue_size{ 2000 };        ///< Callback function queue size for callbacks
         uint64_t metrics_sample_ms{ 5000 };          ///< Metrics sampling interval in milliseconds
         uint64_t initial_max_stream_data{ 0 };
+        TransportBackend transport_backend{ TransportBackend::kPicoQuic }; ///< QUIC implementation to use
+        bool tls_client_certificate_validation{ true }; ///< Validate the server certificate in client mode
     };
 
     struct Config

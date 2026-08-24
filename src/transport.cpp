@@ -3,6 +3,9 @@
 
 #include "quicr/transport.h"
 #include "transport_picoquic.h"
+#if defined(QUICR_HAS_MSQUIC)
+#include "transport_msquic.h"
+#endif
 
 #include <spdlog/logger.h>
 
@@ -19,6 +22,17 @@ namespace quicr {
                                                               std::shared_ptr<timeq::tick_service> tick_service,
                                                               std::shared_ptr<spdlog::logger> logger)
     {
+        if (tcfg.transport_backend == TransportBackend::kMsQuic) {
+#if defined(QUICR_HAS_MSQUIC)
+            if (server.proto != TransportProtocol::kQuic) {
+                throw std::runtime_error("MsQuic transport supports raw QUIC only");
+            }
+            return std::make_shared<MsQuicTransport>(server, tcfg, false, std::move(tick_service), std::move(logger));
+#else
+            throw std::runtime_error("MsQuic transport support was not built");
+#endif
+        }
+
         switch (server.proto) {
             case TransportProtocol::kQuic:
                 return std::make_shared<PicoQuicTransport>(
@@ -39,11 +53,19 @@ namespace quicr {
                                                               std::shared_ptr<timeq::tick_service> tick_service,
                                                               std::shared_ptr<spdlog::logger> logger)
     {
-        // Server mode supports BOTH raw QUIC (moq-00) and WebTransport (h3) simultaneously.
+        if (tcfg.transport_backend == TransportBackend::kMsQuic) {
+#if defined(QUICR_HAS_MSQUIC)
+            return std::make_shared<MsQuicTransport>(server, tcfg, true, std::move(tick_service), std::move(logger));
+#else
+            throw std::runtime_error("MsQuic transport support was not built");
+#endif
+        }
+
+        // Server mode supports BOTH raw QUIC (moqt-18) and WebTransport (h3) simultaneously.
         //
         // The server.proto field is IGNORED - the transport mode is automatically determined
         // per-connection based on the ALPN negotiated with each client:
-        //   - Client sends ALPN "moq-00" -> ConnectionContext.transport_mode = Connection::API::kNativeQuic
+        //   - Client sends ALPN "moqt-18" -> ConnectionContext.transport_mode = Connection::API::kNativeQuic
         //   - Client sends ALPN "h3"     -> ConnectionContext.transport_mode = Connection::API::kWebTransport
         //
         // See PqAlpnSelectCb() in transport_picoquic.cpp for ALPN selection logic.
