@@ -28,17 +28,8 @@ fuzz:
 	./${BUILD_DIR}/fuzz/ctrl_messages_fuzzer -max_total_time=10
 
 # Mimic a CI build.
-ci: CMakeLists.txt cmd/CMakeLists.txt
-	cmake -B${BUILD_DIR} -DLINT=OFF -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON
-
-# Generate self-signed certificates.
-cert:
-	@echo "Creating certificate in ${BUILD_DIR}/cmd/examples"
-	@openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
-        -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
-        -keyout ${BUILD_DIR}/cmd/examples/server-key.pem -out ${BUILD_DIR}/cmd/examples/server-cert.pem
-	@cp ${BUILD_DIR}/cmd/examples/server-key.pem ${BUILD_DIR}/test/integration_test/server-key.pem
-	@cp ${BUILD_DIR}/cmd/examples/server-cert.pem ${BUILD_DIR}/test/integration_test/server-cert.pem
+ci: CMakeLists.txt examples/CMakeLists.txt
+	cmake -B${BUILD_DIR} -DLINT=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON
 
 # Run the tests.
 test: ci

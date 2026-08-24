@@ -289,7 +289,7 @@ namespace quicr {
                               std::uint64_t stream_id);
 
       public:
-        std::shared_ptr<Logger> logger_;
+        std::shared_ptr<Logger> logger;
         bool is_server_mode;
         bool is_unidirectional{ false };
         bool debug{ false };
