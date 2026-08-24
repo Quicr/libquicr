@@ -26,6 +26,10 @@ target_link_libraries(quicr_integration_test PRIVATE
     quicr
     doctest::doctest)
 
+if(QUICR_BUILD_MSQUIC)
+    target_compile_definitions(quicr_integration_test PRIVATE QUICR_HAS_MSQUIC=1)
+endif()
+
 # Compiler options
 target_compile_options(quicr_integration_test
     PRIVATE
@@ -52,12 +56,30 @@ add_custom_command(
 )
 
 add_custom_target(generate_test_certs ALL DEPENDS ${TEST_KEY} ${TEST_CERT})
+add_dependencies(quicr_integration_test generate_test_certs)
 
-# Enable test discovery with doctest - can't run in parallel.
+# Enable test discovery with doctest - fixed-port integration tests can't run in parallel.
 doctest_discover_tests(quicr_integration_test
+    TEST_SPEC "Integration -*,Group ID Gap,Qlog Generation"
+    TEST_SUFFIX " [picoquic]"
+    TEST_LIST quicr_integration_picoquic_tests
     PROPERTIES
         RESOURCE_LOCK integration_lock
+        ENVIRONMENT "LIBQUICR_TEST_BACKEND=picoquic"
+        LABELS transport-picoquic
 )
+
+if(QUICR_BUILD_MSQUIC)
+    doctest_discover_tests(quicr_integration_test
+        TEST_SPEC "Integration -*,Group ID Gap,MsQuic -*"
+        TEST_SUFFIX " [msquic]"
+        TEST_LIST quicr_integration_msquic_tests
+        PROPERTIES
+            RESOURCE_LOCK integration_lock
+            ENVIRONMENT "LIBQUICR_TEST_BACKEND=msquic"
+            LABELS transport-msquic
+    )
+endif()
 
 # Linting configuration
 if(LINT)

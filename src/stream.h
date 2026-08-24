@@ -64,6 +64,9 @@ namespace quicr {
         {
         }
 
+        /// Assign an ID supplied asynchronously by a transport before the stream is published.
+        void SetStreamId(std::uint64_t stream_id) noexcept { stream_id_ = stream_id; }
+
       private:
         std::uint64_t stream_id_{ 0 };
         std::uint64_t conn_id_{ 0 };

@@ -58,6 +58,14 @@ if (NOT HAS_STD_VFORMAT)
     target_link_libraries(quicr PUBLIC fmt::fmt)
 endif()
 
+if(QUICR_BUILD_MSQUIC)
+    target_sources(quicr PRIVATE
+        msquic_connection.cpp
+        transport_msquic.cpp
+    )
+    target_link_libraries(quicr PUBLIC msquic)
+    target_compile_definitions(quicr PRIVATE QUICR_HAS_MSQUIC=1)
+endif()
 target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include)
 
 if(LINT)
