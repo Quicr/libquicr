@@ -14,13 +14,13 @@ namespace quicr {
 
         template<typename T>
         Unexpected(T&& value)
-          : error_(std::forward<T>(value))
+          : error_{ std::forward<T>(value) }
         {
         }
 
         template<typename... Args>
         Unexpected(Args&&... args)
-          : error_(std::forward<Args>(args)...)
+          : error_{ std::forward<Args>(args)... }
         {
         }
 

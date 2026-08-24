@@ -76,6 +76,9 @@ namespace quicr {
             PicoQuicTransport* transport{ nullptr };
             std::size_t index{ 0 };
 
+            /// Thread id of this shard's picoquic network thread, recorded by PqLoopCb.
+            std::atomic<std::thread::id> thread_id{};
+
             picoquic_quic_t* quic_ctx{ nullptr };
             picoquic_network_thread_ctx_t* quic_network_thread_ctx{ nullptr };
             picoquic_packet_loop_param_t quic_network_thread_params{};
@@ -322,13 +325,11 @@ namespace quicr {
         void ProcessMarkActive(Shard& shard);
 
       public:
-        std::shared_ptr<Logger> logger_;
+        std::shared_ptr<Logger> logger;
         bool is_server_mode;
         bool is_unidirectional{ false };
         bool debug{ false };
         Connection::API connection_api{ Connection::API::kNativeQuic };
-        std::thread::id pq_event_thread_id;
-        std::thread::id pq_runner_thread_id;
 
       private:
         void DeleteDataContextInternal(const std::shared_ptr<PicoQuicConnection>& connection,

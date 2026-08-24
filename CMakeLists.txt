@@ -40,9 +40,13 @@ message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
 
 include(CMakeDependentOption)
 
-cmake_dependent_option(QUICR_BUILD_TESTS "Build tests for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
-cmake_dependent_option(QUICR_BUILD_BENCHMARKS "Build benchmarks for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
-cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
+if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    set(quicr_IS_TOP_LEVEL ON)
+endif()
+
+cmake_dependent_option(QUICR_BUILD_TESTS "Build tests for quicr" ON quicr_IS_TOP_LEVEL OFF)
+cmake_dependent_option(QUICR_BUILD_BENCHMARKS "Build benchmarks for quicr" ON quicr_IS_TOP_LEVEL OFF)
+cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON quicr_IS_TOP_LEVEL OFF)
 
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
