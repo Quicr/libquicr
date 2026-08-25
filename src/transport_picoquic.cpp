@@ -389,6 +389,7 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
         return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
     }
 
+    transport->ProcessMarkActive(*shard);
     transport->PqRunner(*shard);
 
     switch (cb_mode) {
@@ -1177,12 +1178,11 @@ PicoQuicTransport::Enqueue(const std::uint64_t& conn_id,
 
         stream.tx_data->Push(std::move(cd), ttl_ms, 0);
 
-        if (stream.tx_data->Size() < 10) {
-            RunPqFunction(conn_ctx_it->second.shard_idx, [this, conn_id, data_ctx_id, stream_id]() {
-                MarkStreamActive(conn_id, data_ctx_id, stream_id);
-                return 0;
-            });
-        }
+        shards_.at(conn_ctx_it->second.shard_idx)
+          ->stream_mark_active_queue.Push(StreamMarkActiveInfo{ .conn_ctx = conn_ctx_it->second,
+                                                                .data_ctx = data_ctx_it->second,
+                                                                .stream_id = stream_id,
+                                                                .stream_ctx = stream });
     } else { // datagram
         ConnData cd{
             conn_id,          data_ctx_id,
@@ -1193,15 +1193,7 @@ PicoQuicTransport::Enqueue(const std::uint64_t& conn_id,
         std::lock_guard __(*conn_ctx_it->second.dgram_tx_data);
 
         conn_ctx_it->second.dgram_tx_data->Push(0 /* FIXMEL Phony group number */, std::move(cd), ttl_ms, priority, 0);
-
-        if (!conn_ctx_it->second.mark_dgram_ready) {
-            conn_ctx_it->second.mark_dgram_ready = true;
-
-            RunPqFunction(conn_ctx_it->second.shard_idx, [this, conn_id]() {
-                MarkDgramReady(conn_id);
-                return 0;
-            });
-        }
+        shards_.at(conn_ctx_it->second.shard_idx)->datagram_mark_active_queue.Push(&conn_ctx_it->second);
     }
 
     return TransportError::kNone;
@@ -1308,10 +1300,13 @@ void
 PicoQuicTransport::CloseInternal(const std::uint64_t& conn_id, AppReasonForClose app_reason)
 {
     std::lock_guard<std::mutex> _(state_mutex_);
+
     const auto conn_it = conn_context_.find(conn_id);
 
     if (conn_it == conn_context_.end())
         return;
+
+    ProcessMarkActive(*shards_.at(conn_it->second.shard_idx));
 
     // Clear all stream TX queues and RX buffers to release shared pointers
     for (auto& [data_ctx_id, data_ctx] : conn_it->second.active_data_contexts) {
@@ -1646,6 +1641,8 @@ PicoQuicTransport::DeleteDataContextInternal(std::uint64_t conn_id, std::uint64_
     if (conn_it == conn_context_.end())
         return;
 
+    ProcessMarkActive(*shards_.at(conn_it->second.shard_idx));
+
     const auto data_ctx_it = conn_it->second.active_data_contexts.find(data_ctx_id);
     if (data_ctx_it == conn_it->second.active_data_contexts.end())
         return;
@@ -1777,10 +1774,7 @@ PicoQuicTransport::SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_
 
             conn_ctx->dgram_tx_data->Pop();
         } else {
-            RunPqFunction(conn_ctx->shard_idx, [this, conn_id = conn_ctx->conn_id]() {
-                MarkDgramReady(conn_id);
-                return 0;
-            });
+            MarkDgramReady(*conn_ctx);
 
             /* TODO(tievens): picoquic_prepare_stream_and_datagrams() appears to ignore the
              *     below unless data was sent/provided
@@ -1852,16 +1846,10 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
                     stream_ctx.ResetTxObject();
                 } else {
                     stream_ctx.tx_data->Pop(); // discard when in current stream
-
-                    if (!stream_ctx.tx_data->Empty()) {
-                        RunPqFunction(
-                          conn_ctx->shard_idx,
-                          [this, conn_id = data_ctx->conn_id, data_ctx_id = data_ctx->data_ctx_id, stream_id]() {
-                              MarkStreamActive(conn_id, data_ctx_id, stream_id);
-                              return 0;
-                          });
-                    }
-                    return;
+                    auto info = StreamMarkActiveInfo{
+                        .conn_ctx = *conn_ctx, .data_ctx = *data_ctx, .stream_id = stream_id, .stream_ctx = stream_ctx
+                    };
+                    MarkStreamActive(info);
                 }
             }
         }
@@ -2968,6 +2956,8 @@ PicoQuicTransport::CloseStream(ConnectionContext& conn_ctx,
                                std::uint64_t stream_id,
                                const bool use_reset)
 {
+    ProcessMarkActive(*shards_.at(conn_ctx.shard_idx));
+
     if (data_ctx) {
         if (!data_ctx->streams.contains(stream_id)) {
             SPDLOG_ERROR("Failed to close stream as it does not exist (conn_id={}, data_ctx_id={}, stream_id={})",
@@ -3034,47 +3024,43 @@ PicoQuicTransport::RunPqFunction(std::size_t shard_idx, std::function<int()>&& f
 }
 
 void
-PicoQuicTransport::MarkStreamActive(const std::uint64_t conn_id,
-                                    const std::uint64_t data_ctx_id,
-                                    std::uint64_t stream_id)
+PicoQuicTransport::ProcessMarkActive(Shard& shard)
 {
-    const auto conn_it = conn_context_.find(conn_id);
-    if (conn_it == conn_context_.end()) {
-        return;
+    while (true) {
+        auto info = shard.stream_mark_active_queue.Pop();
+        if (!info.has_value()) {
+            break;
+        }
+
+        MarkStreamActive(info.value());
     }
 
-    const auto data_ctx_it = conn_it->second.active_data_contexts.find(data_ctx_id);
-    if (data_ctx_it == conn_it->second.active_data_contexts.end()) {
-        return;
-    }
+    while (true) {
+        auto conn_ctx = shard.datagram_mark_active_queue.Pop();
+        if (!conn_ctx.has_value()) {
+            break;
+        }
 
-    auto stream_it = data_ctx_it->second.streams.find(stream_id);
-    if (stream_it == data_ctx_it->second.streams.end()) {
-        return;
+        MarkDgramReady(*conn_ctx.value());
     }
-
-    // For WebTransport and raw QUIC, pass the correct stream context
-    void* stream_ctx = nullptr;
-    if (conn_it->second.transport_mode == TransportMode::kWebTransport) {
-        stream_ctx = stream_it->second.wt_stream_ctx;
-    } else {
-        // For raw QUIC, pass the DataContext pointer
-        stream_ctx = &data_ctx_it->second;
-    }
-
-    picoquic_mark_active_stream(conn_it->second.pq_cnx, stream_id, 1, stream_ctx);
 }
 
 void
-PicoQuicTransport::MarkDgramReady(const std::uint64_t conn_id)
+PicoQuicTransport::MarkStreamActive(StreamMarkActiveInfo& info)
 {
-    const auto conn_it = conn_context_.find(conn_id);
-    if (conn_it == conn_context_.end()) {
-        return;
+    void* ctx = &info.data_ctx;
+
+    // For WebTransport and raw QUIC, pass the correct stream context
+    if (info.conn_ctx.transport_mode == TransportMode::kWebTransport) {
+        ctx = info.stream_ctx.wt_stream_ctx;
     }
 
-    auto& conn_ctx = conn_it->second;
+    picoquic_mark_active_stream(info.conn_ctx.pq_cnx, info.stream_id, 1, ctx);
+}
 
+void
+PicoQuicTransport::MarkDgramReady(const ConnectionContext& conn_ctx)
+{
     if (conn_ctx.transport_mode == TransportMode::kWebTransport && conn_ctx.wt_control_stream_ctx) {
         // WebTransport requires using h3zero_set_datagram_ready to set the ready_to_send_datagrams
         // flag on the stream prefix, which triggers the picohttp_callback_provide_datagram callback
@@ -3083,8 +3069,6 @@ PicoQuicTransport::MarkDgramReady(const std::uint64_t conn_id)
         // Raw QUIC mode uses picoquic_mark_datagram_ready directly
         picoquic_mark_datagram_ready(conn_ctx.pq_cnx, 1);
     }
-
-    conn_ctx.mark_dgram_ready = false;
 }
 
 const char*
