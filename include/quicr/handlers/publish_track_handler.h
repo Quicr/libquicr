@@ -355,25 +355,8 @@ namespace quicr {
         uint8_t default_priority_; // Set by caller and is used when priority is not specified
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
-        /**
-         * Data context that published objects are sent on; set by the session
-         *
-         * @details Weak because the transport owns data contexts and this handler is owned by the
-         *      application, which routinely outlives them. Use LockPublishDataContext() to obtain an
-         *      owning handle for the duration of a send.
-         */
+        /// Data context that published objects are sent on.
         std::weak_ptr<DataContext> publish_data_ctx_;
-
-        /**
-         * @brief Acquire an owning handle to the publish data context
-         *
-         * @details Hold the result for the duration of a send rather than calling this repeatedly, so a
-         *      null check and the use that follows cannot disagree. The session releases the context
-         *      when the track is unpublished or unbound.
-         *
-         * @return Data context handle, or nullptr if unset or already released by the transport
-         */
-        std::shared_ptr<DataContext> GetPublishDataContext() const noexcept { return publish_data_ctx_.lock(); }
 
         struct StreamInfo
         {

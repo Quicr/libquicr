@@ -128,16 +128,8 @@ namespace quicr {
          */
         void SetDataContext(const std::shared_ptr<DataContext>& data_ctx) { data_ctx_ = data_ctx; }
 
-        /**
-         * @brief Return the data context used for control messages
-         *
-         * @details Returns an owning handle, which keeps the context alive for as long as the caller
-         *      holds it. Hold the result for the duration of an operation rather than calling this
-         *      repeatedly, so a null check and the use that follows cannot disagree.
-         *
-         * @return Data context handle, or nullptr if unset or already released by the transport
-         */
-        std::shared_ptr<DataContext> GetDataContext() const noexcept { return data_ctx_.lock(); }
+        /// Data context for request messages.
+        std::weak_ptr<DataContext> data_ctx_;
 
         /**
          * Received an OK for this handler's request.
@@ -176,14 +168,6 @@ namespace quicr {
          *   or the next one that increments from last received ID.
          */
         std::optional<uint64_t> request_id_;
-
-        /**
-         * Transport data context that control messages are to be sent on
-         *
-         * @details Weak because the transport owns data contexts and this handler is owned by the
-         *      application, which routinely outlives them.
-         */
-        std::weak_ptr<DataContext> data_ctx_;
 
         /**
          * Stream ID of the bidirectional request control stream.

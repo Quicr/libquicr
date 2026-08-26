@@ -210,7 +210,7 @@ namespace quicr {
     void SubscribeTrackHandler::Pause() noexcept
     {
         auto session = GetSession().lock();
-        const auto data_ctx = GetDataContext();
+        const auto data_ctx = data_ctx_.lock();
         if (!session || status_ == Status::kPaused || status_ == Status::kNotConnected || data_ctx == nullptr) {
             return;
         }
@@ -222,7 +222,7 @@ namespace quicr {
     void SubscribeTrackHandler::Resume() noexcept
     {
         auto session = GetSession().lock();
-        const auto data_ctx = GetDataContext();
+        const auto data_ctx = data_ctx_.lock();
         if (!session || data_ctx == nullptr) {
             return;
         }
@@ -238,7 +238,7 @@ namespace quicr {
     void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
     {
         auto session = GetSession().lock();
-        const auto data_ctx = GetDataContext();
+        const auto data_ctx = data_ctx_.lock();
         if (!session || status_ != Status::kOk || !support_new_group_request_ || data_ctx == nullptr) {
             return;
         }

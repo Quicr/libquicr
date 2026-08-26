@@ -150,8 +150,11 @@ namespace quicr {
             }
         }
 
-        auto result =
-          transport->Enqueue(GetPublishDataContext(), stream_id, data, default_priority_, default_ttl_, 0, eflags);
+        const auto data_ctx = publish_data_ctx_.lock();
+        if (!data_ctx) {
+            return PublishObjectStatus::kInternalError;
+        }
+        auto result = transport->Enqueue(data_ctx, stream_id, data, default_priority_, default_ttl_, 0, eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -226,6 +229,11 @@ namespace quicr {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
+        const auto data_ctx = publish_data_ctx_.lock();
+        if (!data_ctx) {
+            return PublishObjectStatus::kInternalError;
+        }
+
         std::uint16_t ttl = object_headers.ttl.value_or(default_ttl_);
         std::uint8_t priority = object_headers.priority.value_or(default_priority_);
 
@@ -256,7 +264,7 @@ namespace quicr {
             subgroup_it = group_it->second.find(object_headers.subgroup_id);
             if (subgroup_it == group_it->second.end()) {
                 is_stream_header_needed = true;
-                stream_id = transport->CreateStream(GetPublishDataContext(), priority);
+                stream_id = transport->CreateStream(data_ctx, priority);
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =
@@ -354,7 +362,7 @@ namespace quicr {
                      object_headers.subgroup_id,
                      object_headers.object_id);
         auto result = transport->Enqueue(
-          GetPublishDataContext(),
+          data_ctx,
           stream_id,
           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
           priority,
@@ -377,6 +385,11 @@ namespace quicr {
             return;
         }
 
+        const auto data_ctx = publish_data_ctx_.lock();
+        if (!data_ctx) {
+            return;
+        }
+
         auto group_it = stream_info_by_group_.find(group_id);
         if (group_it == stream_info_by_group_.end()) {
             return;
@@ -394,8 +407,7 @@ namespace quicr {
         eflags.close_stream = true;
         eflags.use_reset = !completed;
 
-        transport->Enqueue(
-          GetPublishDataContext(), subgroup_it->second.stream_id, {}, default_priority_, default_ttl_, 0, eflags);
+        transport->Enqueue(data_ctx, subgroup_it->second.stream_id, {}, default_priority_, default_ttl_, 0, eflags);
 
         group_it->second.erase(subgroup_it);
         if (group_it->second.empty()) {

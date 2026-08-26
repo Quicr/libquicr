@@ -940,7 +940,7 @@ namespace quicr {
         }
 
         auto priority = track_handler->GetPriority();
-        const auto data_ctx = track_handler->GetDataContext();
+        const auto data_ctx = track_handler->data_ctx_.lock();
         if (data_ctx == nullptr) {
             SPDLOG_LOGGER_ERROR(
               logger_, "Subscribe track update missing data context conn_id: {}", current_connection_->GetID());
@@ -963,7 +963,7 @@ namespace quicr {
                 try {
                     if (not handler.IsPublisherInitiated()) {
                         // TODO: Is it possible for these to not be sent at this point?
-                        if (const auto data_ctx = handler.GetDataContext();
+                        if (const auto data_ctx = handler.data_ctx_.lock();
                             data_ctx != nullptr && handler.GetRequestStreamId().has_value()) {
                             quic_transport_->CloseStream(
                               current_connection_, data_ctx, *handler.GetRequestStreamId(), true);
@@ -998,7 +998,7 @@ namespace quicr {
         switch (handler.GetStatus()) {
             case SubscribeNamespaceHandler::Status::kOk:
                 try {
-                    if (const auto data_ctx = handler.GetDataContext(); send_unsubscribe && data_ctx != nullptr) {
+                    if (const auto data_ctx = handler.data_ctx_.lock(); send_unsubscribe && data_ctx != nullptr) {
                         SendUnsubscribeNamespace(data_ctx, handler.GetPrefix());
                     }
                 } catch (const std::exception& e) {
@@ -1043,10 +1043,9 @@ namespace quicr {
             }
         }
 
-        if (const auto data_ctx = handler.GetPublishDataContext()) {
+        if (const auto data_ctx = handler.publish_data_ctx_.lock()) {
             // TODO: is_reset should propagate down here?
             quic_transport_->DeleteDataContext(current_connection_, data_ctx);
-            handler.publish_data_ctx_.reset();
         }
     }
 
@@ -1096,7 +1095,7 @@ namespace quicr {
 
         const bool is_reset = flag == StreamClosedFlag::kReset;
 
-        if (const auto data_ctx = handler_it->second->GetDataContext()) {
+        if (const auto data_ctx = handler_it->second->data_ctx_.lock()) {
             request_id_by_data_ctx.erase(data_ctx->GetID());
         }
 
@@ -1213,6 +1212,8 @@ namespace quicr {
 
         request_handlers.erase(track_handler->GetRequestId().value());
 
+        const auto publish_data_ctx = track_handler->publish_data_ctx_.lock();
+
         /*
          * This is a round about way to send subscribe done because of the announce flow. This
          * will go away if we stop using the announce flow. For now, it works for both announce
@@ -1222,7 +1223,7 @@ namespace quicr {
         if (pub_ns_it != pub_tracks_by_name.end()) {
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
             if (pub_n_it != pub_ns_it->second.end()) {
-                const auto ctrl_data_ctx = pub_n_it->second->GetDataContext();
+                const auto ctrl_data_ctx = pub_n_it->second->data_ctx_.lock();
 
                 // Send subscribe done if track has subscriber and is sending
                 if (pub_n_it->second->GetStatus() == PublishTrackHandler::Status::kOk &&
@@ -1246,19 +1247,21 @@ namespace quicr {
                                        th.track_fullname_hash);
                 }
 
-                pub_n_it->second->publish_data_ctx_.reset();
-
-                lock.unlock();
-
-                // We continue to use the kNotAnnounced state when removing. Might make sense to use kDestroyed instead
-                pub_n_it->second->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
-
-                lock.lock();
-
                 pub_ns_it->second.erase(pub_n_it);
             }
+        }
 
-            quic_transport_->DeleteDataContext(current_connection_, track_handler->GetPublishDataContext());
+        if (publish_data_ctx) {
+            request_id_by_data_ctx.erase(publish_data_ctx->GetID());
+        }
+
+        lock.unlock();
+
+        // We continue to use the kNotAnnounced state when removing. Might make sense to use kDestroyed instead
+        track_handler->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
+
+        if (publish_data_ctx) {
+            quic_transport_->DeleteDataContext(current_connection_, publish_data_ctx);
         }
     }
 
@@ -1378,7 +1381,7 @@ namespace quicr {
 
         std::lock_guard<std::mutex> lock(state_mutex_);
 
-        const auto data_ctx = track_handler->GetDataContext();
+        const auto data_ctx = track_handler->data_ctx_.lock();
         const auto request_stream_id = track_handler->GetRequestStreamId();
         if (data_ctx == nullptr || !request_stream_id.has_value()) {
             SPDLOG_LOGGER_ERROR(logger_,
@@ -2050,7 +2053,7 @@ namespace quicr {
             const auto req_handler_it = request_handlers.find(req_it->second);
             if (req_handler_it != request_handlers.end()) {
                 if (auto h = req_handler_it->second->Get<SubscribeTrackHandler>();
-                    h && h->GetDataContext() == data_ctx) {
+                    h && h->data_ctx_.lock() == data_ctx) {
 
                     h->subscribe_track_metrics_.last_sample_time =
                       sample_time.time_since_epoch() / std::chrono::microseconds(1);
@@ -2060,7 +2063,7 @@ namespace quicr {
                     h->MetricsSampled(h->subscribe_track_metrics_);
 
                 } else if (auto h = req_handler_it->second->Get<PublishTrackHandler>();
-                           h && h->GetPublishDataContext() == data_ctx) {
+                           h && h->publish_data_ctx_.lock() == data_ctx) {
 
                     h->publish_track_metrics_.last_sample_time =
                       sample_time.time_since_epoch() / std::chrono::microseconds(1);
@@ -2145,7 +2148,7 @@ namespace quicr {
 
         SPDLOG_LOGGER_DEBUG(logger_, "Request Updated resolve req_id: {}", request_id);
 
-        const auto data_ctx = track_it->second->GetDataContext();
+        const auto data_ctx = track_it->second->data_ctx_.lock();
         if (data_ctx == nullptr) {
             SPDLOG_LOGGER_WARN(logger_,
                                "ResolveRequestUpdate missing handler data context conn_id: {} request_id: {}",
@@ -2167,7 +2170,7 @@ namespace quicr {
     {
         for (const auto& [_, handler] : request_handlers) {
             if (auto h = handler->Get<SubscribeNamespaceHandler>()) {
-                auto data_ctx = h->GetDataContext();
+                auto data_ctx = h->data_ctx_.lock();
                 if (data_ctx == nullptr) {
                     continue;
                 }
@@ -2251,7 +2254,7 @@ namespace quicr {
                                        const std::shared_ptr<PublishTrackHandler>& track_handler,
                                        bool send_publish_done)
     {
-        std::lock_guard lock(state_mutex_);
+        std::unique_lock lock(state_mutex_);
 
         auto th = TrackHash(track_handler->GetFullTrackName());
         SPDLOG_LOGGER_DEBUG(
@@ -2280,21 +2283,24 @@ namespace quicr {
             pub_tracks_by_name.erase(th.track_namespace_hash);
         }
 
-        if (const auto publish_data_ctx = track_handler->GetPublishDataContext()) {
+        const auto publish_data_ctx = track_handler->publish_data_ctx_.lock();
+        if (publish_data_ctx) {
             request_id_by_data_ctx.erase(publish_data_ctx->GetID());
-
-            quic_transport_->DeleteDataContext(current_connection_, publish_data_ctx);
-
-            // Stop observing the context now that it is scheduled for deletion.
-            track_handler->publish_data_ctx_.reset();
         }
 
-        const auto data_ctx = track_handler->GetDataContext();
+        const auto data_ctx = track_handler->data_ctx_.lock();
         if (send_publish_done && data_ctx != nullptr) {
             SendPublishDone(data_ctx,
                             track_handler->GetRequestId().value(),
                             messages::PublishDoneStatusCode::kSubscribtionEnded,
                             "No publishers");
+        }
+
+        lock.unlock();
+        track_handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+
+        if (publish_data_ctx) {
+            quic_transport_->DeleteDataContext(current_connection_, publish_data_ctx);
         }
     }
 
@@ -2304,9 +2310,8 @@ namespace quicr {
         SPDLOG_LOGGER_INFO(
           logger_, "Publish fetch track conn_id: {} subscribe: {}", current_connection_->GetID(), request_id);
 
-        std::lock_guard lock(state_mutex_);
+        std::unique_lock lock(state_mutex_);
 
-        track_handler->SetStatus(PublishFetchHandler::Status::kOk);
         track_handler->connection_id_ = current_connection_->GetID();
         track_handler->publish_data_ctx_ =
           quic_transport_->CreateDataContext(current_connection_, true, track_handler->GetDefaultPriority(), false);
@@ -2315,11 +2320,14 @@ namespace quicr {
 
         // Hold ref to track handler
         pub_fetch_tracks_by_request_id[request_id] = track_handler;
+
+        lock.unlock();
+        track_handler->SetStatus(PublishFetchHandler::Status::kOk);
     }
 
     void Session::UnbindFetchTrack(const std::shared_ptr<PublishFetchHandler>& track_handler)
     {
-        std::lock_guard lock(state_mutex_);
+        std::unique_lock lock(state_mutex_);
 
         auto request_id = *track_handler->GetRequestId();
         SPDLOG_LOGGER_DEBUG(logger_,
@@ -2328,7 +2336,14 @@ namespace quicr {
                             request_id);
 
         pub_fetch_tracks_by_request_id.erase(request_id);
-        quic_transport_->DeleteDataContext(current_connection_, track_handler->GetPublishDataContext(), true);
+        const auto publish_data_ctx = track_handler->publish_data_ctx_.lock();
+
+        lock.unlock();
+        track_handler->SetStatus(PublishFetchHandler::Status::kNoSubscribers);
+
+        if (publish_data_ctx) {
+            quic_transport_->DeleteDataContext(current_connection_, publish_data_ctx, true);
+        }
     }
 
     // -- Private --
@@ -2747,7 +2762,7 @@ namespace quicr {
                           auto response_data_ctx = self->ResponseDataContext(request_id);
                           if (const auto pub_ns_it = self->request_handlers.find(request_id);
                               pub_ns_it != self->request_handlers.end()) {
-                              if (auto handler_data_ctx = pub_ns_it->second->GetDataContext()) {
+                              if (auto handler_data_ctx = pub_ns_it->second->data_ctx_.lock()) {
                                   response_data_ctx = std::move(handler_data_ctx);
                               }
                           }

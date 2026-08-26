@@ -17,10 +17,29 @@ namespace quicr {
             return PublishObjectStatus::kInternalError;
         }
 
-        bool is_stream_header_needed{ !sent_first_header_ };
-        sent_first_header_ = true;
-        if (is_stream_header_needed) {
-            serialization_state_ = messages::FetchObjectSerializationState(group_order_);
+        switch (GetStatus()) {
+            case Status::kOk:
+                break;
+            case Status::kPaused:
+                return PublishObjectStatus::kPaused;
+            case Status::kUnsubscribed:
+                [[fallthrough]];
+            case Status::kDoneByFin:
+                [[fallthrough]];
+            case Status::kNoSubscribers:
+                return PublishObjectStatus::kNoSubscribers;
+            case Status::kPendingAnnounceResponse:
+                [[fallthrough]];
+            case Status::kNotAnnounced:
+                [[fallthrough]];
+            case Status::kNotConnected:
+                return PublishObjectStatus::kNotAnnounced;
+            case Status::kAnnounceNotAuthorized:
+                return PublishObjectStatus::kNotAuthorized;
+            case Status::kPendingPublishOk:
+                return PublishObjectStatus::kPendingPublishOk;
+            default:
+                return PublishObjectStatus::kInternalError;
         }
 
         const auto request_id = GetRequestId();
@@ -29,7 +48,16 @@ namespace quicr {
         }
 
         // Held for the duration of the send, so the context cannot be released midway through.
-        const auto data_ctx = GetPublishDataContext();
+        const auto data_ctx = publish_data_ctx_.lock();
+        if (!data_ctx) {
+            return PublishObjectStatus::kInternalError;
+        }
+
+        bool is_stream_header_needed{ !sent_first_header_ };
+        sent_first_header_ = true;
+        if (is_stream_header_needed) {
+            serialization_state_ = messages::FetchObjectSerializationState(group_order_);
+        }
 
         Transport::EnqueueFlags eflags;
 

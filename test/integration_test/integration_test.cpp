@@ -138,10 +138,8 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
     }
 
     // Data contexts are opaque handles outside the library, so tests compare them by identity.
-    using PublishTrackHandler::GetPublishDataContext;
-
-    // Exposes the control data context for tests; it is protected on the handler base class.
-    std::shared_ptr<quicr::DataContext> GetControlDataContext() const { return GetDataContext(); }
+    using PublishTrackHandler::data_ctx_;
+    using PublishTrackHandler::publish_data_ctx_;
 
   private:
     const StatusCallback on_status_;
@@ -158,7 +156,7 @@ class TestPublishNamespaceHandler : public PublishNamespaceHandler
         return std::shared_ptr<TestPublishNamespaceHandler>(new TestPublishNamespaceHandler(prefix));
     }
 
-    std::shared_ptr<quicr::DataContext> GetControlDataContext() const { return GetDataContext(); }
+    using PublishNamespaceHandler::data_ctx_;
 
   private:
     explicit TestPublishNamespaceHandler(const TrackNamespace& prefix)
@@ -2149,10 +2147,12 @@ TEST_CASE("Integration - Dedicated bidirectional control data contexts")
         CHECK_NOTHROW(publisher->PublishTrack(pub_handler));
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
-        REQUIRE(pub_handler->GetControlDataContext() != nullptr);
-        REQUIRE(pub_handler->GetPublishDataContext() != nullptr);
+        const auto pub_ctrl_data_ctx = pub_handler->data_ctx_.lock();
+        const auto publish_data_ctx = pub_handler->publish_data_ctx_.lock();
+        REQUIRE(pub_ctrl_data_ctx != nullptr);
+        REQUIRE(publish_data_ctx != nullptr);
         // Control and object data contexts are distinct on the same connection.
-        CHECK(pub_handler->GetControlDataContext() != pub_handler->GetPublishDataContext());
+        CHECK(pub_ctrl_data_ctx != publish_data_ctx);
 
         TrackNamespace pub_ns(std::vector<std::string>{ "ctrl", "publish" });
         std::promise<TestServer::PublishNamespaceDetails> pub_ns_server_promise;
@@ -2167,9 +2167,10 @@ TEST_CASE("Integration - Dedicated bidirectional control data contexts")
         const bool pub_ns_ready =
           WaitFor([&pub_ns_handler]() { return pub_ns_handler->GetStatus() == PublishNamespaceHandler::Status::kOk; });
         REQUIRE(pub_ns_ready);
-        REQUIRE(pub_ns_handler->GetControlDataContext() != nullptr);
+        const auto pub_ns_data_ctx = pub_ns_handler->data_ctx_.lock();
+        REQUIRE(pub_ns_data_ctx != nullptr);
         // Each request gets its own control data context, even on the same connection.
-        CHECK(pub_ns_handler->GetControlDataContext() != pub_handler->GetControlDataContext());
+        CHECK(pub_ns_data_ctx != pub_ctrl_data_ctx);
     };
 
     SUBCASE("Raw QUIC")
@@ -2226,14 +2227,15 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
         REQUIRE_EQ(pub_handler->PublishObject(header_for(0), payload), PublishTrackHandler::PublishObjectStatus::kOk);
 
         // Keep a handle, as an application holding the context past the unbind would.
-        const auto stale_data_ctx = pub_handler->GetPublishDataContext();
+        const auto stale_data_ctx = pub_handler->publish_data_ctx_.lock();
         REQUIRE(stale_data_ctx != nullptr);
 
         REQUIRE(server->UnbindSubscriberPublishTrack(track_alias));
 
-        // Unbinding must drop the handler's reference, so a later publish cannot reach a removed context.
-        CHECK(pub_handler->GetPublishDataContext() == nullptr);
-        CHECK_THROWS(pub_handler->PublishObject(header_for(1), payload));
+        // Unbinding makes the handler non-publishable before its data context is removed asynchronously.
+        REQUIRE_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kNoSubscribers);
+        CHECK_EQ(pub_handler->PublishObject(header_for(1), payload),
+                 PublishTrackHandler::PublishObjectStatus::kNoSubscribers);
 
         /*
          * Even when the application kept its own handle, the transport must refuse to open a stream on a
@@ -2241,7 +2243,7 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
          * that dangles once the last handle goes away. Deletion is scheduled on the picoquic thread, so
          * poll with a fresh group each attempt to keep forcing stream creation until it lands.
          */
-        pub_handler->SetPublishDataContext(stale_data_ctx);
+        pub_handler->SetStatus(PublishTrackHandler::Status::kOk);
         std::uint64_t group_id = 2;
         CHECK(WaitFor([&]() {
             try {
@@ -2261,6 +2263,99 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
     SUBCASE("WebTransport")
     {
         test_unbound_publish("https");
+    }
+}
+
+TEST_CASE("Integration - Unpublished track cannot reuse data context")
+{
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+
+    auto test_unpublish = [&](const std::string& protocol_scheme) {
+        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "unpublish", "track" }), { 7, 8, 9 } };
+        const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
+        CHECK_NOTHROW(publisher->PublishTrack(pub_handler));
+        REQUIRE(WaitFor([&pub_handler]() { return pub_handler->CanPublish(); }));
+
+        const auto stale_data_ctx = pub_handler->publish_data_ctx_.lock();
+        REQUIRE(stale_data_ctx != nullptr);
+
+        CHECK_NOTHROW(publisher->UnpublishTrack(pub_handler));
+        REQUIRE_EQ(pub_handler->GetStatus(), PublishTrackHandler::Status::kNotAnnounced);
+        CHECK_EQ(pub_handler->PublishObject({}, {}), PublishTrackHandler::PublishObjectStatus::kNotAnnounced);
+
+        pub_handler->SetStatus(PublishTrackHandler::Status::kOk);
+        std::uint64_t group_id = 0;
+        const std::vector<std::uint8_t> payload(64, 0x5a);
+        CHECK(WaitFor([&]() {
+            const ObjectHeaders headers{ .group_id = group_id++,
+                                         .object_id = 0,
+                                         .subgroup_id = 0,
+                                         .payload_length = payload.size(),
+                                         .status = ObjectStatus::kAvailable,
+                                         .priority = 3,
+                                         .ttl = 5000,
+                                         .track_mode = TrackMode::kStream };
+            try {
+                pub_handler->PublishObject(headers, payload);
+                return false;
+            } catch (const std::exception&) {
+                return true;
+            }
+        }));
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_unpublish("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_unpublish("https");
+    }
+}
+
+TEST_CASE("Integration - Unbound fetch publisher cannot reuse data context")
+{
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
+
+    auto test_unbind = [&](const std::string& protocol_scheme) {
+        auto [session, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "fetch", "unbind" }), { 4, 5, 6 } };
+        const auto handler = PublishFetchHandler::Create(ftn, 3, 42, messages::GroupOrder::kAscending, 5000);
+
+        CHECK_NOTHROW(session->BindFetchTrack(handler));
+        REQUIRE_EQ(handler->GetStatus(), PublishFetchHandler::Status::kOk);
+
+        const std::vector<std::uint8_t> payload(64, 0x5a);
+        const ObjectHeaders headers{ .group_id = 0,
+                                     .object_id = 0,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 5000,
+                                     .track_mode = TrackMode::kStream };
+        REQUIRE_EQ(handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+
+        CHECK_NOTHROW(session->UnbindFetchTrack(handler));
+        REQUIRE_EQ(handler->GetStatus(), PublishFetchHandler::Status::kNoSubscribers);
+        CHECK_EQ(handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kNoSubscribers);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_unbind("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_unbind("https");
     }
 }
 

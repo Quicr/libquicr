@@ -107,14 +107,8 @@ namespace quicr_test {
 
         void StatusChanged(Status status) override;
 
-        /// Data contexts are opaque outside the library, so tests only hold and restore the handle.
-        using quicr::PublishTrackHandler::GetPublishDataContext;
-
-        /// Reinstates a handle the session has already unbound, to emulate a stale application handle.
-        void SetPublishDataContext(std::shared_ptr<quicr::DataContext> data_ctx)
-        {
-            publish_data_ctx_ = std::move(data_ctx);
-        }
+        /// Data contexts are opaque outside the library, so tests only hold the handle.
+        using quicr::PublishTrackHandler::publish_data_ctx_;
 
       private:
         std::weak_ptr<TestServer> server_;
