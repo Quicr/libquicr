@@ -169,6 +169,11 @@ namespace quicr {
             return PublishObjectStatus::kInternalError;
         }
 
+        const auto publish_data_ctx = GetPublishDataContext();
+        if (publish_data_ctx == nullptr) {
+            return PublishObjectStatus::kInternalError; // TODO: More specific error code?
+        }
+
         const auto status = GetStatus();
         switch (status) {
             case Status::kOk:
@@ -254,7 +259,7 @@ namespace quicr {
             subgroup_it = group_it->second.find(object_headers.subgroup_id);
             if (subgroup_it == group_it->second.end()) {
                 is_stream_header_needed = true;
-                stream_id = session->CreateStream(GetPublishDataContext(), priority);
+                stream_id = session->CreateStream(publish_data_ctx, priority);
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =
@@ -346,7 +351,7 @@ namespace quicr {
         }
 
         auto result =
-          session->Enqueue(GetPublishDataContext(),
+          session->Enqueue(publish_data_ctx,
                            stream_id,
                            std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
                            priority,
