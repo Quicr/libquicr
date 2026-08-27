@@ -85,7 +85,7 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
           picoquic_call_back_event_t fin_or_event,
           void* callback_ctx,
           void* v_stream_ctx)
-{
+try {
     PicoQuicTransport* transport = static_cast<PicoQuicTransport*>(callback_ctx);
     DataContext* data_ctx = static_cast<DataContext*>(v_stream_ctx);
     const auto conn_id = reinterpret_cast<uint64_t>(pq_cnx);
@@ -371,12 +371,22 @@ PqEventCb(picoquic_cnx_t* pq_cnx,
     }
 
     return 0;
+} catch (const std::exception& e) {
+    if (auto* transport = static_cast<PicoQuicTransport*>(callback_ctx)) {
+        QUICR_LOGGER_ERROR(transport->logger, "Unhandled exception in PqEventCb, failing connection: {}", e.what());
+    }
+    return PICOQUIC_ERROR_UNEXPECTED_ERROR;
+} catch (...) {
+    if (auto* transport = static_cast<PicoQuicTransport*>(callback_ctx)) {
+        QUICR_LOGGER_ERROR(transport->logger, "Unhandled exception in PqEventCb, failing connection");
+    }
+    return PICOQUIC_ERROR_UNEXPECTED_ERROR;
 }
 
 // Callback for picoquic packet loop
 static int
 PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* callback_ctx, void* callback_arg)
-{
+try {
     auto* shard = static_cast<PicoQuicTransport::Shard*>(callback_ctx);
     int ret = 0;
 
@@ -476,6 +486,8 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
                     close_cnx = picoquic_get_next_cnx(close_cnx);
                 }
 
+                transport->SetStatus(TransportStatus::kShutdown);
+
                 return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
             }
 
@@ -488,6 +500,17 @@ PqLoopCb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, void* call
     }
 
     return ret;
+} catch (const std::exception& e) {
+    if (auto* shard = static_cast<PicoQuicTransport::Shard*>(callback_ctx); shard && shard->transport) {
+        QUICR_LOGGER_ERROR(
+          shard->transport->logger, "Unhandled exception in PqLoopCb, stopping packet loop: {}", e.what());
+    }
+    return PICOQUIC_ERROR_UNEXPECTED_ERROR;
+} catch (...) {
+    if (auto* shard = static_cast<PicoQuicTransport::Shard*>(callback_ctx); shard && shard->transport) {
+        QUICR_LOGGER_ERROR(shard->transport->logger, "Unhandled exception in PqLoopCb, stopping packet loop");
+    }
+    return PICOQUIC_ERROR_UNEXPECTED_ERROR;
 }
 
 // Helper function to convert WebTransport event enum to string
@@ -584,7 +607,7 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
                             picohttp_call_back_event_t wt_event,
                             h3zero_stream_ctx_t* stream_ctx,
                             void* path_app_ctx)
-{
+try {
     auto* transport = static_cast<PicoQuicTransport*>(path_app_ctx);
     if (!transport) {
         return -1;
@@ -904,6 +927,16 @@ DefaultWebTransportCallback(picoquic_cnx_t* cnx,
     }
 
     return 0;
+} catch (const std::exception& e) {
+    if (auto* transport = static_cast<PicoQuicTransport*>(path_app_ctx)) {
+        QUICR_LOGGER_ERROR(transport->logger, "Unhandled exception in DefaultWebTransportCallback: {}", e.what());
+    }
+    return -1;
+} catch (...) {
+    if (auto* transport = static_cast<PicoQuicTransport*>(path_app_ctx)) {
+        QUICR_LOGGER_ERROR(transport->logger, "Unhandled exception in DefaultWebTransportCallback");
+    }
+    return -1;
 }
 
 // ALPN selector function for server to support both raw QUIC and WebTransport
@@ -1812,6 +1845,28 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
 
     const auto& connection = GetConnection(data_ctx->conn_id);
 
+    bool should_reset = false;
+    defer({
+        const bool empty = [&] {
+            std::lock_guard _(*stream_ctx.tx_data);
+            return stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
+        }();
+
+        if (should_reset) {
+            CloseStream(connection, data_ctx->data_ctx_id, stream_id, true);
+            if (data_ctx->delete_on_empty && empty) {
+                DeleteDataContextInternal(connection, data_ctx->data_ctx_id, false);
+            }
+            return;
+        }
+
+        if (data_ctx->delete_on_empty && empty) {
+            DeleteDataContextInternal(connection, data_ctx->data_ctx_id, false);
+        } else if (stream_ctx.close_on_empty && empty) {
+            CloseStream(connection, data_ctx->data_ctx_id, stream_id, false);
+        }
+    });
+
     std::lock_guard _(*stream_ctx.tx_data);
 
     if (data_ctx != nullptr && stream_ctx.tx_reset_wait_discard) { // Drop TX objects till next reset/new stream
@@ -1841,25 +1896,6 @@ PicoQuicTransport::SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_i
             }
         }
     }
-
-    bool should_reset = false;
-    defer({
-        const bool empty = stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
-
-        if (should_reset) {
-            CloseStream(connection, data_ctx->data_ctx_id, stream_id, true);
-            if (data_ctx->delete_on_empty && empty) {
-                DeleteDataContextInternal(connection, data_ctx->data_ctx_id, false);
-            }
-            return;
-        }
-
-        if (data_ctx->delete_on_empty && empty) {
-            DeleteDataContextInternal(connection, data_ctx->data_ctx_id, false);
-        } else if (stream_ctx.close_on_empty && empty) {
-            CloseStream(connection, data_ctx->data_ctx_id, stream_id, false);
-        }
-    });
 
     if (stream_ctx.tx_object == nullptr) {
         QUICR_LOGGER_TRACE(logger,
@@ -3027,11 +3063,13 @@ PicoQuicTransport::ProcessMarkActive(Shard& shard)
 
     while (true) {
         auto conn_ctx = shard.datagram_mark_active_queue.Pop();
-        if (!conn_ctx.has_value() || !conn_ctx->lock()) {
+        if (!conn_ctx.has_value()) {
             break;
         }
 
-        MarkDgramReady(conn_ctx->lock());
+        if (const auto connection = conn_ctx->lock()) {
+            MarkDgramReady(connection);
+        }
     }
 }
 

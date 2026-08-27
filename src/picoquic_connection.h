@@ -151,9 +151,6 @@ namespace quicr {
         /// Buffered datagrams received from the network
         std::shared_ptr<SafeQueue<std::shared_ptr<const Bytes>>> dgram_rx_data;
 
-        /// Instructs datagram to be marked ready/active
-        bool mark_dgram_ready{ false };
-
         /// Map of stream receive buffers, key is stream_id
         std::map<std::uint64_t, RxStreamBuffer> rx_stream_buffer;
 
