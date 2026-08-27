@@ -44,6 +44,27 @@ namespace quicr {
             avg = value_sum / value_count;
         }
 
+        /**
+         * @brief Fold another period's values into this one
+         *
+         * @details Used to report a quantity that several producers contribute to, without having
+         *      them share a counter.
+         */
+        void Merge(const MinMaxAvg& other)
+        {
+            if (!other.value_count) {
+                return;
+            }
+
+            min = value_count ? std::min(min, other.min) : other.min;
+            max = std::max(max, other.max);
+
+            value_sum += other.value_sum;
+            value_count += other.value_count;
+
+            avg = value_sum / value_count;
+        }
+
         void Clear()
         {
             min = 0;
@@ -83,7 +104,6 @@ namespace quicr {
         uint64_t tx_dgram_ack{ 0 };      ///< count of picoquic callback for acked datagrams
         uint64_t tx_dgram_lost{ 0 };     ///< count of picoquic callback for lost datagrams
         uint64_t tx_dgram_spurious{ 0 }; ///< count of picoquic callback for late/delayed dgram acks
-        uint64_t tx_dgram_drops{ 0 };    ///< count of drops due to data context missing
 
         auto operator<=>(const QuicConnectionMetrics&) const = default;
 
@@ -101,7 +121,10 @@ namespace quicr {
         }
     };
 
-    struct QuicDataContextMetrics
+    /**
+     * @brief Metrics produced by a single QUIC stream
+     */
+    struct QuicStreamMetrics
     {
         uint64_t enqueued_objs{ 0 }; /// count of objects enqueued by the app to be transmitted
 
@@ -114,19 +137,43 @@ namespace quicr {
 
         uint64_t tx_delayed_callback{ 0 };      /// Count of times transmit callbacks were delayed
         uint64_t prev_tx_delayed_callback{ 0 }; /// Previous transmit delayed callback value, set each interval
-        uint64_t tx_reset_wait{ 0 };            /// count of times data context performed a reset and wait
         MinMaxAvg tx_queue_size;                /// TX queue size in period
         MinMaxAvg tx_callback_ms;               /// Callback time in milliseconds in period
         MinMaxAvg tx_object_duration_us;        /// TX object time in queue duration in microseconds
-
-        uint64_t tx_dgrams{ 0 };       /// count of datagrams sent
-        uint64_t tx_dgrams_bytes{ 0 }; /// count of datagrams sent bytes
 
         uint64_t tx_stream_cb{ 0 };      /// count of stream callbacks to send data
         uint64_t tx_stream_objects{ 0 }; /// count of stream objects sent
         uint64_t tx_stream_bytes{ 0 };   /// count of stream bytes sent
 
-        constexpr auto operator<=>(const QuicDataContextMetrics&) const = default;
+        constexpr auto operator<=>(const QuicStreamMetrics&) const = default;
+
+        /**
+         * @brief Fold another stream's metrics into this one
+         *
+         * @details A flow may be carried by several streams at once, so its sample is the sum over
+         *      the streams carrying it.
+         */
+        void Merge(const QuicStreamMetrics& other)
+        {
+            enqueued_objs += other.enqueued_objs;
+
+            rx_stream_cb += other.rx_stream_cb;
+            rx_stream_bytes += other.rx_stream_bytes;
+
+            tx_buffer_drops += other.tx_buffer_drops;
+            tx_queue_discards += other.tx_queue_discards;
+            tx_queue_expired += other.tx_queue_expired;
+
+            tx_delayed_callback += other.tx_delayed_callback;
+            prev_tx_delayed_callback += other.prev_tx_delayed_callback;
+            tx_queue_size.Merge(other.tx_queue_size);
+            tx_callback_ms.Merge(other.tx_callback_ms);
+            tx_object_duration_us.Merge(other.tx_object_duration_us);
+
+            tx_stream_cb += other.tx_stream_cb;
+            tx_stream_objects += other.tx_stream_objects;
+            tx_stream_bytes += other.tx_stream_bytes;
+        }
 
         /**
          * @brief Reset metrics for period
@@ -139,23 +186,31 @@ namespace quicr {
         }
     };
 
-    /// @cond
-    /*
-     * Custom UDP protocol metrics
+    /**
+     * @brief Metrics for a connection's datagram channel
+     *
+     * @details Datagrams share one queue per connection, so these are not attributable to a single
+     *      track the way stream metrics are.
      */
-    struct UdpDataContextMetrics
+    struct QuicDatagramMetrics
     {
-        uint64_t enqueued_objs{ 0 };
+        uint64_t enqueued_objs{ 0 };     /// count of objects enqueued by the app to be transmitted
+        uint64_t tx_queue_discards{ 0 }; /// count of objects discarded due to TTL expiry or clear
+        uint64_t tx_queue_expired{ 0 };  /// count of objects expired before pop/front
+        MinMaxAvg tx_object_duration_us; /// TX object time in queue duration in microseconds
 
-        uint64_t tx_queue_expired{ 0 }; /// count of objects expired before pop/front
-        uint64_t tx_bytes{ 0 };         /// count of bytes sent
-        uint64_t tx_objects{ 0 };       /// count of objects (messages) sent
+        uint64_t tx_dgrams{ 0 };       /// count of datagrams sent
+        uint64_t tx_dgrams_bytes{ 0 }; /// count of datagrams sent bytes
 
-        uint64_t rx_bytes{ 0 };   /// count of bytes received
-        uint64_t rx_objects{ 0 }; /// count of objects received
+        constexpr auto operator<=>(const QuicDatagramMetrics&) const = default;
 
-        constexpr auto operator<=>(const UdpDataContextMetrics&) const = default;
+        /**
+         * @brief Reset metrics for period
+         */
+        void ResetPeriod() { tx_object_duration_us.Clear(); }
     };
+
+    /// @cond
 
     struct UdpConnectionMetrics
     {
@@ -212,58 +267,6 @@ namespace quicr {
         }
     };
 
-    struct MetricsDataSample
-    {
-        MetricsTimeStamp sample_time; /// Sample time
-        uint64_t conn_ctx_id{ 0 };    /// Conn context ID
-        uint64_t data_ctx_id{ 0 };    /// Data context ID
-        std::optional<UdpDataContextMetrics> udp_sample;
-        std::optional<QuicDataContextMetrics> quic_sample;
-
-        MetricsDataSample()
-          : sample_time(std::chrono::system_clock::now())
-        {
-        }
-
-        MetricsDataSample(const uint64_t conn_id, const uint64_t data_id, const UdpDataContextMetrics udp_sample)
-          : sample_time(std::chrono::system_clock::now())
-          , conn_ctx_id(conn_id)
-          , data_ctx_id(data_id)
-          , udp_sample(udp_sample)
-        {
-        }
-
-        MetricsDataSample(const MetricsTimeStamp sample_time,
-                          const uint64_t conn_id,
-                          const uint64_t data_id,
-                          const UdpDataContextMetrics udp_sample)
-          : sample_time(sample_time)
-          , conn_ctx_id(conn_id)
-          , data_ctx_id(data_id)
-          , udp_sample(udp_sample)
-        {
-        }
-
-        MetricsDataSample(const uint64_t conn_id, const uint64_t data_id, const QuicDataContextMetrics quic_sample)
-          : sample_time(std::chrono::system_clock::now())
-          , conn_ctx_id(conn_id)
-          , data_ctx_id(data_id)
-          , quic_sample(quic_sample)
-        {
-        }
-
-        MetricsDataSample(const MetricsTimeStamp sample_time,
-                          const uint64_t conn_id,
-                          const uint64_t data_id,
-                          const QuicDataContextMetrics quic_sample)
-          : sample_time(sample_time)
-          , conn_ctx_id(conn_id)
-          , data_ctx_id(data_id)
-          , quic_sample(quic_sample)
-        {
-        }
-    };
-
     constexpr size_t kMaxMetricsSamplesQueue = 500; /// Max metric samples pending to be written
 
     /// @endcond
@@ -311,7 +314,6 @@ namespace quicr {
             uint64_t tx_queue_expired{ 0 };  ///< count of objects expired before pop/front due to TTL expiry
 
             uint64_t tx_delayed_callback{ 0 }; ///< count of times transmit callbacks were delayed
-            uint64_t tx_reset_wait{ 0 };       ///< count of times data context performed a reset and wait
 
             MinMaxAvg tx_queue_size;         ///< TX queue size in period
             MinMaxAvg tx_callback_ms;        ///< Callback time in milliseconds in period

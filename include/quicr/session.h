@@ -137,7 +137,7 @@ namespace quicr {
             FullTrackName track_full_name;
             TrackHash track_hash{ 0, 0 };
             std::optional<messages::Location> largest_location{ std::nullopt };
-            std::uint64_t data_ctx_id{ 0 };
+            std::shared_ptr<Stream> stream;
         };
 
         struct RequestUpdateResponse
@@ -513,7 +513,6 @@ namespace quicr {
 
         void OnStreamClosed(std::uint64_t stream_id,
                             std::shared_ptr<StreamRxContext> rx_ctx,
-                            std::optional<uint64_t> data_ctx_id,
                             StreamClosedFlag flag) override;
 
       private:
@@ -524,18 +523,19 @@ namespace quicr {
         void OnConnectionStatus(Connection::Status status) override;
 
         void OnRecvStream(uint64_t stream_id,
-                          std::optional<std::uint64_t> data_ctx_id,
+                          const std::shared_ptr<StreamRxContext>& rx_ctx,
+                          const std::shared_ptr<Stream>& stream,
                           const bool is_bidir = false) override;
 
-        void OnRecvDgram(std::optional<std::uint64_t> data_ctx_id) override;
+        void OnRecvDgram() override;
 
         void OnConnectionMetricsSampled(MetricsTimeStamp sample_time,
 
                                         const QuicConnectionMetrics& quic_connection_metrics) override;
 
-        void OnDataMetricsStampled(MetricsTimeStamp sample_time,
-                                   std::uint64_t data_ctx_id,
-                                   const QuicDataContextMetrics& quic_data_context_metrics) override;
+        void OnStreamMetricsStampled(MetricsTimeStamp sample_time,
+                                     std::uint64_t stream_id,
+                                     const QuicStreamMetrics& quic_stream_metrics) override;
 
         /*===================================================================*/
         // Private methods
@@ -545,7 +545,7 @@ namespace quicr {
 
         std::shared_ptr<Session> GetSharedPtr();
 
-        bool ProcessRequestMessage(std::uint64_t data_ctx_id,
+        bool ProcessRequestMessage(const std::shared_ptr<Stream>& stream,
                                    messages::ControlMessageType msg_type,
                                    BytesSpan msg_bytes);
 
@@ -553,16 +553,16 @@ namespace quicr {
 
         void SetStatus(Status status);
 
-        void SendCtrlMsg(std::uint64_t data_ctx_id, std::shared_ptr<const std::vector<uint8_t>> data);
+        void SendCtrlMsg(const std::shared_ptr<Stream>& stream, std::shared_ptr<const std::vector<uint8_t>> data);
 
         template<typename... Fields>
-        void SendCtrlMsg(std::uint64_t data_ctx_id, messages::ControlMessageType type, Fields&&... args)
+        void SendCtrlMsg(const std::shared_ptr<Stream>& stream, messages::ControlMessageType type, Fields&&... args)
         {
             messages::Message msg = messages::Message{}.PrependType(type).ReserveLength();
 
             (msg.Append(args), ...);
 
-            SendCtrlMsg(data_ctx_id, msg.ToBytes());
+            SendCtrlMsg(stream, msg.ToBytes());
         }
 
         void SendSetup();
@@ -571,32 +571,32 @@ namespace quicr {
         // Requests
         /*===================================================================*/
 
-        void SendTrackStatusOk(std::uint64_t data_ctx_id,
+        void SendTrackStatusOk(const std::shared_ptr<Stream>& stream,
                                const std::optional<messages::Location>& largest_object,
                                const messages::TrackExtensions& track_properties);
 
-        void SendSubscribeNamespaceOk(std::uint64_t data_ctx_id);
+        void SendSubscribeNamespaceOk(const std::shared_ptr<Stream>& stream);
 
-        void SendSubscribeTracksOk(std::uint64_t data_ctx_id) { SendSubscribeNamespaceOk(data_ctx_id); }
+        void SendSubscribeTracksOk(const std::shared_ptr<Stream>& stream) { SendSubscribeNamespaceOk(stream); }
 
-        void SendPublishNamespaceOk(std::uint64_t data_ctx_id) { SendSubscribeNamespaceOk(data_ctx_id); }
+        void SendPublishNamespaceOk(const std::shared_ptr<Stream>& stream) { SendSubscribeNamespaceOk(stream); }
 
-        void SendRequestUpdateOk(std::uint64_t data_ctx_id,
+        void SendRequestUpdateOk(const std::shared_ptr<Stream>& stream,
                                  std::optional<std::uint64_t> expires,
                                  const std::optional<messages::Location>& largest_object);
 
         // Prefer the above typed overloads.
-        void SendRequestOk(std::uint64_t data_ctx_id,
+        void SendRequestOk(const std::shared_ptr<Stream>& stream,
                            const messages::Parameters& params,
                            const messages::TrackExtensions& track_properties = {});
 
-        void SendRequestUpdate(const std::uint64_t data_ctx_id,
+        void SendRequestUpdate(const std::shared_ptr<Stream>& stream,
                                TrackHash th,
                                std::optional<std::uint64_t> end_group_id,
                                std::uint8_t priority,
                                bool forward);
 
-        void SendRequestError(std::uint64_t data_ctx_id,
+        void SendRequestError(const std::shared_ptr<Stream>& stream,
                               std::uint64_t request_id,
                               messages::ErrorCode error,
                               std::chrono::milliseconds retry_interval,
@@ -606,7 +606,7 @@ namespace quicr {
         // Publish Namespace
         /*===================================================================*/
 
-        void SendPublishNamespace(std::uint64_t data_ctx_id,
+        void SendPublishNamespace(const std::shared_ptr<Stream>& stream,
                                   std::uint64_t request_id,
                                   const TrackNamespace& track_namespace);
 
@@ -614,19 +614,19 @@ namespace quicr {
         // Subscribe Namespace
         /*===================================================================*/
 
-        void SendSubscribeNamespace(std::uint64_t data_ctx_id,
+        void SendSubscribeNamespace(const std::shared_ptr<Stream>& stream,
                                     std::uint64_t request_id,
                                     const TrackNamespace& prefix,
                                     const messages::Filter& filter,
                                     messages::ControlMessageType type);
 
-        void SendUnsubscribeNamespace(std::uint64_t data_ctx_id, const TrackNamespace& prefix);
+        void SendUnsubscribeNamespace(const std::shared_ptr<Stream>& stream, const TrackNamespace& prefix);
 
         /*===================================================================*/
         // Subscribe
         /*===================================================================*/
 
-        void SendSubscribe(std::uint64_t data_ctx_id,
+        void SendSubscribe(const std::shared_ptr<Stream>& stream,
                            std::uint64_t request_id,
                            const FullTrackName& tfn,
                            TrackHash th,
@@ -635,7 +635,7 @@ namespace quicr {
                            const messages::Filter& filter,
                            std::optional<std::chrono::milliseconds> delivery_timeout);
 
-        void SendSubscribeOk(std::uint64_t data_ctx_id,
+        void SendSubscribeOk(const std::shared_ptr<Stream>& stream,
                              std::uint64_t request_id,
                              uint64_t track_alias,
                              uint64_t expires,
@@ -646,18 +646,20 @@ namespace quicr {
         // Publish
         /*===================================================================*/
 
-        void SendPublish(std::uint64_t data_ctx_id, std::uint64_t request_id, const PublishAttributes& publish);
+        void SendPublish(const std::shared_ptr<Stream>& stream,
+                         std::uint64_t request_id,
+                         const PublishAttributes& publish);
 
-        void SendPublishDone(std::uint64_t data_ctx_id,
+        void SendPublishDone(const std::shared_ptr<Stream>& stream,
                              std::uint64_t request_id,
                              messages::PublishDoneStatusCode status,
                              const std::string& reason);
 
-        void SendPublishOk(std::uint64_t data_ctx_id, const PublishOkAttributes& attributes);
+        void SendPublishOk(const std::shared_ptr<Stream>& stream, const PublishOkAttributes& attributes);
 
-        std::optional<std::uint64_t> FindSubscribeNamespaceDataContext(const TrackNamespace& track_namespace) const;
+        std::shared_ptr<Stream> FindSubscribeNamespaceStream(const TrackNamespace& track_namespace) const;
 
-        std::uint64_t ResponseDataContext(const std::uint64_t request_id) const;
+        std::shared_ptr<Stream> ResponseStream(const std::uint64_t request_id) const;
 
         /*===================================================================*/
         // Track Status
@@ -669,7 +671,7 @@ namespace quicr {
         // Fetch
         /*===================================================================*/
 
-        void SendFetch(std::uint64_t data_ctx_id,
+        void SendFetch(const std::shared_ptr<Stream>& stream,
                        std::uint64_t request_id,
                        const FullTrackName& tfn,
                        std::uint8_t priority,
@@ -677,7 +679,7 @@ namespace quicr {
                        const messages::Location& start_location,
                        const messages::FetchEndLocation& end_location);
 
-        void SendJoiningFetch(std::uint64_t data_ctx_id,
+        void SendJoiningFetch(const std::shared_ptr<Stream>& stream,
                               std::uint64_t request_id,
                               std::uint8_t priority,
                               std::optional<messages::GroupOrder> group_order,
@@ -685,7 +687,7 @@ namespace quicr {
                               std::uint64_t joining_start,
                               bool absolute);
 
-        void SendFetchOk(std::uint64_t data_ctx_id,
+        void SendFetchOk(const std::shared_ptr<Stream>& stream,
                          messages::GroupOrder publisher_default_group_order,
                          bool end_of_track,
                          messages::Location end_location);
@@ -714,14 +716,22 @@ namespace quicr {
 
         bool OnRecvFetch(std::uint64_t request_id, StreamRxContext& rx_ctx, std::uint64_t stream_id);
 
-        std::uint64_t CreateStream(std::uint64_t data_ctx_id, uint8_t priority);
+        /**
+         * @brief Create a data stream for a track.
+         *
+         * @param request_id  Track the stream carries, so that its metrics find the right handler.
+         */
+        std::shared_ptr<Stream> CreateStream(std::uint64_t request_id, uint8_t priority);
 
-        TransportError Enqueue(std::uint64_t data_ctx_id,
-                               std::uint64_t stream_id,
+        /**
+         * @brief Send published data.
+         *
+         * @param stream  Stream to send on, ignored when the flags ask for a datagram.
+         */
+        TransportError Enqueue(const std::shared_ptr<Stream>& stream,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                const uint8_t priority,
                                const uint32_t ttl_ms,
-                               const uint32_t delay_ms,
                                const Transport::EnqueueFlags flags);
 
       private:
@@ -731,9 +741,7 @@ namespace quicr {
 
         std::optional<std::uint64_t> rx_ctrl_stream_id_;
 
-        std::optional<std::uint64_t> tx_ctrl_data_ctx_id_;
-
-        std::optional<std::uint64_t> tx_ctrl_stream_id_;
+        std::shared_ptr<Stream> tx_ctrl_stream_;
 
         ///< Control message buffers for streams.
         std::map<std::uint64_t, InitialStreamData> stream_buffers;
@@ -746,8 +754,21 @@ namespace quicr {
 
         std::map<std::uint64_t, SubscribeContext> recv_req_id;
 
-        /// Lookup request ID by carrying data context.
-        std::map<std::uint64_t, std::uint64_t> request_id_by_data_ctx;
+        struct StreamRequest
+        {
+            std::uint64_t request_id;
+
+            /**
+             * Whether this is the request's own bidirectional stream, whose close ends the request.
+             *
+             * @details A track's data streams are mapped here too, but only so that their metrics
+             *      find the right handler; they come and go while the request stays open.
+             */
+            bool is_request_stream;
+        };
+
+        /// Lookup the request each stream carries, by stream ID.
+        std::map<std::uint64_t, StreamRequest> request_by_stream;
 
         /// Active inbound publish namespace notifications (not handler based).
         std::vector<std::uint64_t> recv_publish_namespaces;

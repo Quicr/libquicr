@@ -95,7 +95,6 @@ namespace quicr {
 
     Reply<std::vector<TrackNamespace>, RequestErrorCode> Session::ServerCallbacks::SubscribeNamespaceReceived(
       const std::shared_ptr<Session>&,
-      std::uint64_t,
       const TrackNamespace&,
       const SubscribeNamespaceAttributes&)
     {
@@ -104,7 +103,6 @@ namespace quicr {
 
     Reply<std::vector<TrackNamespace>, RequestErrorCode> Session::ServerCallbacks::SubscribeTracksReceived(
       const std::shared_ptr<Session>&,
-      std::uint64_t,
       const TrackNamespace&,
       const SubscribeNamespaceAttributes&)
     {

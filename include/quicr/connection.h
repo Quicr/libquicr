@@ -18,6 +18,7 @@
 namespace quicr {
 
     class PublishTrackHandler;
+    class Stream;
     class SubscribeTrackHandler;
     class TrackHandler;
 
@@ -68,22 +69,25 @@ namespace quicr {
             virtual void OnConnectionStatus(Status status) = 0;
 
             /**
-             * @brief callback notification that data has been received and should be processed
+             * @brief callback notification that datagram data has been received and should be processed
              *
-             * @param[in] conn_id 	Transport context identifier mapped to the connection
-             * @param[in] data_ctx_id	If known, Data context id that the data was received on
+             * @details Datagrams share one queue per connection, so there is nothing to identify here
+             *      beyond the connection itself.
              */
-            virtual void OnRecvDgram(std::optional<std::uint64_t> data_ctx_id) = 0;
+            virtual void OnRecvDgram() = 0;
 
             /**
              * @brief callback notification that data has been received and should be processed
              *
              * @param[in] stream_id     Transport stream ID
-             * @param[in] data_ctx_id	If known, Data context id that the data was received on
+             * @param[in] rx_ctx        Stream Rx context holding the received data queue
+             * @param[in] stream        Stream the data arrived on, for replying on a request stream.
+             *                          Null if the transport does not have a handle for it.
              * @param[in] is_bidir      True if the message is from a bidirectional stream
              */
             virtual void OnRecvStream(std::uint64_t stream_id,
-                                      std::optional<std::uint64_t> data_ctx_id,
+                                      const std::shared_ptr<StreamRxContext>& rx_ctx,
+                                      const std::shared_ptr<Stream>& stream,
                                       bool is_bidir = false) = 0;
 
             /**
@@ -91,12 +95,10 @@ namespace quicr {
              *
              * @param stream_id         Transport stream id.
              * @param rx_ctx            Stream Rx context with the handler info.
-             * @param data_ctx_id       Optional data context ID the stream belonged to
              * @param flag              Flag value for how the stream was closed. Values are FIN or RST
              */
             virtual void OnStreamClosed(std::uint64_t stream_id,
                                         std::shared_ptr<StreamRxContext> rx_ctx,
-                                        std::optional<uint64_t> data_ctx_id,
                                         StreamClosedFlag flag) = 0;
 
             /**
@@ -111,17 +113,19 @@ namespace quicr {
                                                     const QuicConnectionMetrics& quic_connection_metrics) = 0;
 
             /**
-             * @brief callback notification on data context metrics sampled
+             * @brief callback notification on stream metrics sampled
              *
-             * @details This callback will be called when the data context metrics are sampled
+             * @details Called once per open stream per sample period, before
+             *      `OnConnectionMetricsSampled` for the same period. A track carried by several
+             *      streams therefore accumulates several of these before its period is complete.
              *
-             * @param sample_time                   Sample time in microseconds
-             * @param data_ctx_id                   Data context ID for metrics
-             * @param quic_data_context_metrics     Data context metrics for sample period
+             * @param sample_time           Sample time in microseconds
+             * @param stream_id             Stream the metrics belong to
+             * @param quic_stream_metrics   Stream metrics for sample period
              */
-            virtual void OnDataMetricsStampled(const MetricsTimeStamp sample_time,
-                                               const std::uint64_t data_ctx_id,
-                                               const QuicDataContextMetrics& quic_data_context_metrics) = 0;
+            virtual void OnStreamMetricsStampled(const MetricsTimeStamp sample_time,
+                                                 std::uint64_t stream_id,
+                                                 const QuicStreamMetrics& quic_stream_metrics) = 0;
         };
 
       public:
@@ -153,21 +157,22 @@ namespace quicr {
         virtual void OnStatusChanged(Status status);
 
         /**
-         * @brief callback notification that data has been received and should be processed
-         *
-         * @param[in] data_ctx_id	If known, Data context id that the data was received on
+         * @brief callback notification that datagram data has been received and should be processed
          */
-        virtual void OnRecvDgram(std::optional<std::uint64_t> data_ctx_id);
+        virtual void OnRecvDgram();
 
         /**
          * @brief callback notification that data has been received and should be processed
          *
          * @param[in] stream_id     Transport stream ID
-         * @param[in] data_ctx_id	If known, Data context id that the data was received on
+         * @param[in] rx_ctx        Stream Rx context holding the received data queue
+         * @param[in] stream        Stream the data arrived on, for replying on a request stream.
+         *                          Null if the transport does not have a handle for it.
          * @param[in] is_bidir      True if the message is from a bidirectional stream
          */
         virtual void OnRecvStream(std::uint64_t stream_id,
-                                  std::optional<std::uint64_t> data_ctx_id,
+                                  const std::shared_ptr<StreamRxContext>& rx_ctx,
+                                  const std::shared_ptr<Stream>& stream,
                                   bool is_bidir = false);
 
         /**
@@ -175,12 +180,10 @@ namespace quicr {
          *
          * @param stream_id         Transport stream id.
          * @param rx_ctx            Stream Rx context with the handler info.
-         * @param data_ctx_id       Optional data context ID the stream belonged to
          * @param flag              Flag value for how the stream was closed. Values are FIN or RST
          */
         virtual void OnStreamClosed(std::uint64_t stream_id,
                                     std::shared_ptr<StreamRxContext> rx_ctx,
-                                    std::optional<uint64_t> data_ctx_id,
                                     StreamClosedFlag flag);
 
         // TODO: Move these to be private.
