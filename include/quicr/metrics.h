@@ -7,6 +7,7 @@
 
 #include <chrono>
 #include <string>
+#include <vector>
 
 namespace quicr {
     /*
@@ -122,7 +123,11 @@ namespace quicr {
     };
 
     /**
-     * @brief Metrics produced by a single QUIC stream
+     * @brief Metrics produced by a single QUIC stream over one sample period
+     *
+     * @details Unlike the connection's, these are taken away from the stream at each sample rather
+     *      than read from it, so every value describes the period alone and a consumer adds
+     *      successive samples to build a total.
      */
     struct QuicStreamMetrics
     {
@@ -135,11 +140,10 @@ namespace quicr {
         uint64_t tx_queue_discards{ 0 }; /// count of objects discarded due to TTL expiry or clear
         uint64_t tx_queue_expired{ 0 };  /// count of objects expired before pop/front
 
-        uint64_t tx_delayed_callback{ 0 };      /// Count of times transmit callbacks were delayed
-        uint64_t prev_tx_delayed_callback{ 0 }; /// Previous transmit delayed callback value, set each interval
-        MinMaxAvg tx_queue_size;                /// TX queue size in period
-        MinMaxAvg tx_callback_ms;               /// Callback time in milliseconds in period
-        MinMaxAvg tx_object_duration_us;        /// TX object time in queue duration in microseconds
+        uint64_t tx_delayed_callback{ 0 }; /// Count of times transmit callbacks were delayed
+        MinMaxAvg tx_queue_size;           /// TX queue size in period
+        MinMaxAvg tx_callback_ms;          /// Callback time in milliseconds in period
+        MinMaxAvg tx_object_duration_us;   /// TX object time in queue duration in microseconds
 
         uint64_t tx_stream_cb{ 0 };      /// count of stream callbacks to send data
         uint64_t tx_stream_objects{ 0 }; /// count of stream objects sent
@@ -165,7 +169,6 @@ namespace quicr {
             tx_queue_expired += other.tx_queue_expired;
 
             tx_delayed_callback += other.tx_delayed_callback;
-            prev_tx_delayed_callback += other.prev_tx_delayed_callback;
             tx_queue_size.Merge(other.tx_queue_size);
             tx_callback_ms.Merge(other.tx_callback_ms);
             tx_object_duration_us.Merge(other.tx_object_duration_us);
@@ -173,16 +176,6 @@ namespace quicr {
             tx_stream_cb += other.tx_stream_cb;
             tx_stream_objects += other.tx_stream_objects;
             tx_stream_bytes += other.tx_stream_bytes;
-        }
-
-        /**
-         * @brief Reset metrics for period
-         */
-        void ResetPeriod()
-        {
-            tx_queue_size.Clear();
-            tx_callback_ms.Clear();
-            tx_object_duration_us.Clear();
         }
     };
 
@@ -208,6 +201,29 @@ namespace quicr {
          * @brief Reset metrics for period
          */
         void ResetPeriod() { tx_object_duration_us.Clear(); }
+    };
+
+    /**
+     * @brief One sample period's metrics for a connection and the streams on it
+     *
+     * @details Sampling takes the values away from the live counters rather than reading them in
+     *      place, so the sample can be assembled on the thread that writes those counters and
+     *      handed to whichever thread reports it.
+     */
+    struct QuicMetricsSample
+    {
+        /// A single stream's part of the period
+        struct Stream
+        {
+            std::uint64_t stream_id;
+            QuicStreamMetrics metrics;
+
+            /// The stream closed during the period; nothing further will be reported for it
+            bool is_final;
+        };
+
+        QuicConnectionMetrics connection;
+        std::vector<Stream> streams;
     };
 
     /// @cond

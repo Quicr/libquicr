@@ -6,8 +6,39 @@
 #include "quicr/metrics.h"
 #include "quicr/session.h"
 
+#include <utility>
+
+namespace {
+    /// Ceiling on streams whose last metrics are held waiting for a sample that may never come
+    constexpr std::size_t kMaxUnreportedStreams = 1024;
+}
+
+quicr::QuicMetricsSample
+quicr::PicoQuicConnection::TakeMetricsSample()
+{
+    QuicMetricsSample sample;
+
+    {
+        std::lock_guard _(stream_mutex_);
+        sample.streams = std::exchange(unreported_stream_metrics_, {});
+    }
+
+    // Snapshot the container so the streams' own lock is not held while their metrics are taken.
+    for (const auto& stream : GetStreams()) {
+        sample.streams.emplace_back(stream->GetStreamId(), std::exchange(stream->metrics, {}), false);
+    }
+
+    // The connection's counters are reported as running totals rather than accumulated, so only
+    // its period values are reset.
+    sample.connection = metrics;
+    metrics.ResetPeriod();
+    dgram_metrics.ResetPeriod();
+
+    return sample;
+}
+
 void
-quicr::PicoQuicConnection::SampleMetrics(const MetricsTimeStamp& sample_time)
+quicr::PicoQuicConnection::ReportMetricsSample(const MetricsTimeStamp& sample_time, const QuicMetricsSample& sample)
 {
     auto delegate = delegate_.lock();
     if (!delegate) {
@@ -15,17 +46,12 @@ quicr::PicoQuicConnection::SampleMetrics(const MetricsTimeStamp& sample_time)
     }
 
     // Report the streams first: the connection sample is what tells the delegate the period is
-    // complete, so anything a track accumulates from its streams has to be in by then. Snapshot the
-    // container so the delegate is not called while holding the stream lock.
-    for (const auto& stream : GetStreams()) {
-        delegate->OnStreamMetricsStampled(sample_time, stream->GetStreamId(), stream->metrics);
-        stream->metrics.ResetPeriod();
+    // complete, so anything a track accumulates from its streams has to be in by then.
+    for (const auto& stream : sample.streams) {
+        delegate->OnStreamMetricsStampled(sample_time, stream.stream_id, stream.metrics, stream.is_final);
     }
 
-    delegate->OnConnectionMetricsSampled(sample_time, metrics);
-
-    dgram_metrics.ResetPeriod();
-    metrics.ResetPeriod();
+    delegate->OnConnectionMetricsSampled(sample_time, sample.connection);
 }
 
 quicr::PicoQuicStream::PicoQuicStream(const std::uint64_t stream_id,
@@ -92,6 +118,12 @@ quicr::PicoQuicConnection::RemoveStream(const std::uint64_t stream_id)
 
         stream = std::move(it->second);
         streams_.erase(it);
+
+        // Bounded because nothing drains this if samples stop being taken, which happens when the
+        // callback queue is under sustained backpressure.
+        if (unreported_stream_metrics_.size() < kMaxUnreportedStreams) {
+            unreported_stream_metrics_.emplace_back(stream_id, stream->metrics, true);
+        }
     }
 
     stream->MarkClosed();

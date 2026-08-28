@@ -535,7 +535,8 @@ namespace quicr {
 
         void OnStreamMetricsStampled(MetricsTimeStamp sample_time,
                                      std::uint64_t stream_id,
-                                     const QuicStreamMetrics& quic_stream_metrics) override;
+                                     const QuicStreamMetrics& quic_stream_metrics,
+                                     bool is_final) override;
 
         /*===================================================================*/
         // Private methods

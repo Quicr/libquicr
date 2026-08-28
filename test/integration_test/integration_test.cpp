@@ -584,6 +584,116 @@ TEST_CASE("Integration - Publish metrics report transmitted objects")
     }
 }
 
+TEST_CASE("Integration - Publish metrics include a stream that closed during the period")
+{
+    SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
+
+    auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, "moq", kMetricsTestIntervalMs);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "closed_stream" }), { 1 } };
+    auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
+
+    std::promise<PublishTrackMetrics> initial_metrics_promise;
+    auto initial_metrics_future = initial_metrics_promise.get_future();
+    publish_handler->SetMetricsPromise(std::move(initial_metrics_promise));
+
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
+
+    // Discard the first sample so publishing starts at the beginning of a sampling interval.
+    REQUIRE_EQ(initial_metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
+    initial_metrics_future.get();
+
+    std::promise<PublishTrackMetrics> metrics_promise;
+    auto metrics_future = metrics_promise.get_future();
+    publish_handler->SetMetricsPromise(std::move(metrics_promise));
+
+    constexpr std::uint64_t to_publish = 5;
+    const std::vector<std::uint8_t> payload(1024, 0x5a);
+    for (std::uint64_t i = 0; i < to_publish; i++) {
+        const ObjectHeaders headers{ .group_id = 0,
+                                     .object_id = i,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 5000,
+                                     .track_mode = TrackMode::kStream };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+    }
+
+    // Ending the subgroup closes its stream, leaving the whole period's transmit activity on a
+    // stream that is gone before the period is sampled.
+    publish_handler->EndSubgroup(0, 0, true);
+
+    REQUIRE_EQ(metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
+
+    const auto metrics = metrics_future.get();
+    CheckSampledMetric(metrics.quic.tx_queue_size);
+    CheckSampledMetric(metrics.quic.tx_object_duration_us);
+    CHECK_EQ(metrics.quic.tx_object_duration_us.value_count, to_publish);
+}
+
+TEST_CASE("Integration - Track metrics do not recount a stream's bytes each sample")
+{
+    SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+
+    auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, "moq", kMetricsTestIntervalMs);
+    auto [publisher, __] = MakeTestClient(session_mgr, true, std::nullopt, "moq");
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "metrics", "no_recount" }), { 1 } };
+
+    auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
+
+    auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+
+    constexpr std::uint64_t to_publish = 5;
+    std::promise<void> received_promise;
+    auto received_future = received_promise.get_future();
+    subscribe_handler->SetObjectCountPromise(to_publish, std::move(received_promise));
+
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(WaitFor(
+      [&subscribe_handler]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    const std::vector<std::uint8_t> payload(1024, 0x5a);
+    for (std::uint64_t i = 0; i < to_publish; i++) {
+        const ObjectHeaders headers{ .group_id = 0,
+                                     .object_id = i,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 5000,
+                                     .track_mode = TrackMode::kStream };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+    }
+    REQUIRE_EQ(received_future.wait_for(kDefaultTimeout), std::future_status::ready);
+
+    // A stream reports lifetime totals, so a track that adds each sample whole would keep growing
+    // across these idle samples without anything arriving.
+    std::uint64_t previous_bytes = 0;
+    for (int sample = 0; sample < 3; sample++) {
+        std::promise<SubscribeTrackMetrics> metrics_promise;
+        auto metrics_future = metrics_promise.get_future();
+        subscribe_handler->SetMetricsPromise(std::move(metrics_promise));
+
+        REQUIRE_EQ(metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
+        const auto bytes_received = metrics_future.get().bytes_received;
+
+        if (sample > 0) {
+            CHECK_EQ(bytes_received, previous_bytes);
+        }
+        previous_bytes = bytes_received;
+    }
+
+    CHECK_GT(previous_bytes, 0);
+}
+
 TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 {
     quicr::SessionManager session_mgr;

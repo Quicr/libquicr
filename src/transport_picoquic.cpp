@@ -2020,6 +2020,12 @@ PicoQuicTransport::OnStreamClosed(const std::shared_ptr<PicoQuicConnection>& con
 void
 PicoQuicTransport::EmitMetrics(std::size_t shard_idx)
 {
+    /*
+     * Taking a sample resets the counters behind it, so it has to exclude everything that writes
+     * them. Being on the picoquic thread covers the picoquic callbacks, and `state_mutex_` covers
+     * `EnqueueStream`, which is the one writer on an application thread. Only the reporting is
+     * handed off, and it carries the values with it.
+     */
     std::lock_guard _(state_mutex_);
     for (const auto& [conn_id, connection] : connections_) {
         if (connection->shard_idx != shard_idx) {
@@ -2029,10 +2035,8 @@ PicoQuicTransport::EmitMetrics(std::size_t shard_idx)
         const bool queue_space = cbNotifyQueue_.Size() < (tconfig_.callback_queue_size * 3) / 4;
         if (queue_space) {
             const auto sample_time = std::chrono::system_clock::now();
-            cbNotifyQueue_.Push([=, c = connection]() {
-                if (c) {
-                    c->SampleMetrics(sample_time);
-                }
+            cbNotifyQueue_.Push([c = connection, sample_time, sample = connection->TakeMetricsSample()]() {
+                c->ReportMetricsSample(sample_time, sample);
             });
         }
     }
@@ -2135,20 +2139,20 @@ PicoQuicTransport::CheckConnsForCongestion(std::size_t shard_idx)
                 continue;
             }
 
+            const auto tx_delayed = std::exchange(stream.tx_delayed_since_cc_check, 0);
+
             // Don't include control stream in delayed callbacks check. Control stream should be priority 0 or 1
-            if (stream.priority >= 2 &&
-                stream.metrics.tx_delayed_callback - stream.metrics.prev_tx_delayed_callback > 1) {
+            if (stream.priority >= 2 && tx_delayed > 1) {
                 QUICR_LOGGER_DEBUG(logger,
                                    "CC: remote: {} port: {} conn_id: {} stream_id: {} queue_size: {}",
                                    connection->peer_addr_text,
                                    connection->peer_port,
                                    conn_id,
                                    stream_id,
-                                   stream.metrics.tx_delayed_callback - stream.metrics.prev_tx_delayed_callback);
+                                   tx_delayed);
 
                 congested_count++;
             }
-            stream.metrics.prev_tx_delayed_callback = stream.metrics.tx_delayed_callback;
 
             std::lock_guard __(*stream.tx_data);
 
@@ -2561,6 +2565,7 @@ PicoQuicTransport::CheckCallbackDelta(const std::shared_ptr<PicoQuicStream>& str
     std::lock_guard _(*stream->tx_data);
     if (stream->priority > 0 && delta_ms > 50 && stream->tx_data->Size() >= 20) {
         stream->metrics.tx_delayed_callback++;
+        stream->tx_delayed_since_cc_check++;
     }
 }
 

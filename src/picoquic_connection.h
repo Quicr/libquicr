@@ -19,6 +19,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <utility>
 #include <vector>
 
 namespace quicr {
@@ -84,8 +85,11 @@ namespace quicr {
         /// WebTransport stream context (only used in WebTransport mode)
         h3zero_stream_ctx_t* wt_stream_ctx{ nullptr };
 
-        /// Metrics for this stream, sampled and reset each period
+        /// Metrics for this stream, taken and reset each sample period
         QuicStreamMetrics metrics;
+
+        /// Delayed transmit callbacks since the last congestion check, which runs on its own cadence
+        std::uint64_t tx_delayed_since_cc_check{ 0 };
 
         /**
          * @name Receive state
@@ -119,7 +123,9 @@ namespace quicr {
 
         virtual ~PicoQuicConnection() = default;
 
-        void SampleMetrics(const MetricsTimeStamp& sample_time) override;
+        QuicMetricsSample TakeMetricsSample() override;
+
+        void ReportMetricsSample(const MetricsTimeStamp& sample_time, const QuicMetricsSample& sample) override;
 
         /**
          * @name Stream access
@@ -237,7 +243,15 @@ namespace quicr {
         /// Every stream on this connection, sending and receiving, keyed by stream ID
         std::map<std::uint64_t, std::shared_ptr<PicoQuicStream>> streams_;
 
-        /// Guards streams_
+        /**
+         * What streams removed since the last sample had left to report
+         *
+         * @details A stream that opens and closes between two samples is gone before the period it
+         *      ran in ends, so what it did not report is held here for that period to carry.
+         */
+        std::vector<QuicMetricsSample::Stream> unreported_stream_metrics_;
+
+        /// Guards streams_ and unreported_stream_metrics_
         mutable std::mutex stream_mutex_;
     };
 }

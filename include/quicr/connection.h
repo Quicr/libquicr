@@ -115,17 +115,23 @@ namespace quicr {
             /**
              * @brief callback notification on stream metrics sampled
              *
-             * @details Called once per open stream per sample period, before
+             * @details Called once per stream per sample period, before
              *      `OnConnectionMetricsSampled` for the same period. A track carried by several
              *      streams therefore accumulates several of these before its period is complete.
+             *      A stream that closed during the period reports once more, so one that came and
+             *      went between two samples still counts towards its track.
+             *
+             * @note Every value covers the period alone, so a running total simply adds each one.
              *
              * @param sample_time           Sample time in microseconds
              * @param stream_id             Stream the metrics belong to
              * @param quic_stream_metrics   Stream metrics for sample period
+             * @param is_final              Last report for this stream; it no longer exists
              */
             virtual void OnStreamMetricsStampled(const MetricsTimeStamp sample_time,
                                                  std::uint64_t stream_id,
-                                                 const QuicStreamMetrics& quic_stream_metrics) = 0;
+                                                 const QuicStreamMetrics& quic_stream_metrics,
+                                                 bool is_final) = 0;
         };
 
       public:
@@ -145,7 +151,21 @@ namespace quicr {
 
         void SetDelegate(const std::shared_ptr<Delegate>& session);
 
-        virtual void SampleMetrics(const MetricsTimeStamp& sample_time) = 0;
+        /**
+         * @brief Close the sample period, taking its metrics off the connection
+         *
+         * @warning Must be called with whatever excludes the threads that write those counters,
+         *      since it resets them; see `PicoQuicTransport::EmitMetrics` for the transport's.
+         */
+        virtual QuicMetricsSample TakeMetricsSample() = 0;
+
+        /**
+         * @brief Report a taken sample to the delegate
+         *
+         * @details Separate from taking it so the reporting can be handed to the delegate's thread
+         *      without leaving the counters exposed to it.
+         */
+        virtual void ReportMetricsSample(const MetricsTimeStamp& sample_time, const QuicMetricsSample& sample) = 0;
 
         /**
          * @brief Event notification for connection status changes

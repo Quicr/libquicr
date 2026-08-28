@@ -1790,12 +1790,13 @@ namespace quicr {
 
             const auto req_it = request_by_stream.find(stream_id);
             if (req_it != request_by_stream.end()) {
-                const auto [request_id, is_request_stream] = req_it->second;
-                request_by_stream.erase(req_it);
-
                 // Only the request stream closing ends the request. A track's data streams come and
-                // go, and were mapped just so their metrics find the right handler.
-                if (is_request_stream) {
+                // go, and were mapped just so their metrics find the right handler; their
+                // association is dropped by the closing metrics sample instead.
+                if (req_it->second.is_request_stream) {
+                    const auto request_id = req_it->second.request_id;
+                    request_by_stream.erase(req_it);
+
                     lock.unlock();
                     CloseRequestHandler(request_id, stream_id, flag);
                     return;
@@ -2028,37 +2029,53 @@ namespace quicr {
             } else if (auto h = req->Get<PublishTrackHandler>()) {
                 h->publish_track_metrics_.last_sample_time = last_sample_time;
                 h->MetricsSampled(h->publish_track_metrics_);
+
+                // Unlike the counters beside them, these describe a period, so the next starts empty.
+                h->publish_track_metrics_.quic.tx_callback_ms.Clear();
+                h->publish_track_metrics_.quic.tx_object_duration_us.Clear();
+                h->publish_track_metrics_.quic.tx_queue_size.Clear();
             }
         }
     }
 
     void Session::OnStreamMetricsStampled(const MetricsTimeStamp,
                                           const std::uint64_t stream_id,
-                                          const QuicStreamMetrics& quic_stream_metrics)
+                                          const QuicStreamMetrics& quic_stream_metrics,
+                                          const bool is_final)
     {
+        std::lock_guard _(state_mutex_);
+
         const auto req_it = request_by_stream.find(stream_id);
         if (req_it == request_by_stream.end()) {
             return;
         }
 
-        const auto req_handler_it = request_handlers.find(req_it->second.request_id);
-        if (req_handler_it == request_handlers.end()) {
-            return;
+        if (const auto req_handler_it = request_handlers.find(req_it->second.request_id);
+            req_handler_it != request_handlers.end()) {
+
+            // A track can be carried by several streams, so these accumulate across the period and
+            // are handed to the handler when the connection sample closes it.
+            if (auto h = req_handler_it->second->Get<SubscribeTrackHandler>()) {
+                h->subscribe_track_metrics_.bytes_received += quic_stream_metrics.rx_stream_bytes;
+
+            } else if (auto h = req_handler_it->second->Get<PublishTrackHandler>()) {
+                h->publish_track_metrics_.quic.tx_buffer_drops += quic_stream_metrics.tx_buffer_drops;
+                h->publish_track_metrics_.quic.tx_delayed_callback += quic_stream_metrics.tx_delayed_callback;
+                h->publish_track_metrics_.quic.tx_queue_discards += quic_stream_metrics.tx_queue_discards;
+                h->publish_track_metrics_.quic.tx_queue_expired += quic_stream_metrics.tx_queue_expired;
+
+                // Several streams can carry one track, so their periods fold into one distribution.
+                h->publish_track_metrics_.quic.tx_callback_ms.Merge(quic_stream_metrics.tx_callback_ms);
+                h->publish_track_metrics_.quic.tx_object_duration_us.Merge(
+                  quic_stream_metrics.tx_object_duration_us);
+                h->publish_track_metrics_.quic.tx_queue_size.Merge(quic_stream_metrics.tx_queue_size);
+            }
         }
 
-        // A track can be carried by several streams, so these accumulate across the period and are
-        // handed to the handler when the connection sample closes it.
-        if (auto h = req_handler_it->second->Get<SubscribeTrackHandler>()) {
-            h->subscribe_track_metrics_.bytes_received += quic_stream_metrics.rx_stream_bytes;
-
-        } else if (auto h = req_handler_it->second->Get<PublishTrackHandler>()) {
-            h->publish_track_metrics_.quic.tx_buffer_drops += quic_stream_metrics.tx_buffer_drops;
-            h->publish_track_metrics_.quic.tx_callback_ms = quic_stream_metrics.tx_callback_ms;
-            h->publish_track_metrics_.quic.tx_delayed_callback += quic_stream_metrics.tx_delayed_callback;
-            h->publish_track_metrics_.quic.tx_object_duration_us = quic_stream_metrics.tx_object_duration_us;
-            h->publish_track_metrics_.quic.tx_queue_discards += quic_stream_metrics.tx_queue_discards;
-            h->publish_track_metrics_.quic.tx_queue_expired += quic_stream_metrics.tx_queue_expired;
-            h->publish_track_metrics_.quic.tx_queue_size = quic_stream_metrics.tx_queue_size;
+        // The association exists only to route metrics, so it outlives the stream itself by one
+        // sample.
+        if (is_final) {
+            request_by_stream.erase(req_it);
         }
     }
 
