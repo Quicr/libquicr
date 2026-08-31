@@ -657,8 +657,8 @@ TEST_CASE("Integration - Track metrics do not recount a stream's bytes each samp
     subscribe_handler->SetObjectCountPromise(to_publish, std::move(received_promise));
 
     subscriber->SubscribeTrack(subscribe_handler);
-    REQUIRE(WaitFor(
-      [&subscribe_handler]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+    REQUIRE(
+      WaitFor([&subscribe_handler]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
     const std::vector<std::uint8_t> payload(1024, 0x5a);
     for (std::uint64_t i = 0; i < to_publish; i++) {

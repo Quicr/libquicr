@@ -2066,8 +2066,7 @@ namespace quicr {
 
                 // Several streams can carry one track, so their periods fold into one distribution.
                 h->publish_track_metrics_.quic.tx_callback_ms.Merge(quic_stream_metrics.tx_callback_ms);
-                h->publish_track_metrics_.quic.tx_object_duration_us.Merge(
-                  quic_stream_metrics.tx_object_duration_us);
+                h->publish_track_metrics_.quic.tx_object_duration_us.Merge(quic_stream_metrics.tx_object_duration_us);
                 h->publish_track_metrics_.quic.tx_queue_size.Merge(quic_stream_metrics.tx_queue_size);
             }
         }
