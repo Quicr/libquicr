@@ -2536,6 +2536,9 @@ PicoQuicTransport::Shutdown()
 
     shards_.clear();
 
+    OnNewConnection = nullptr;
+    OnConnectionClosed = nullptr;
+
     tick_service_.reset();
     QUICR_LOGGER_INFO(logger, "done closing transport threads");
 

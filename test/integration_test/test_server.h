@@ -344,7 +344,9 @@ namespace quicr_test {
         std::map<std::uint64_t, std::shared_ptr<TestPublishTrackHandler>> subscribes_;
 
         // Session that bound each subscriber publish handler: [track_alias] -> Session
-        std::map<std::uint64_t, std::shared_ptr<quicr::Session>> subscribe_sessions_;
+        /// Weak so the callbacks, which the transport owns, do not keep the sessions (and through them the
+        /// transport) alive in a cycle.
+        std::map<std::uint64_t, std::weak_ptr<quicr::Session>> subscribe_sessions_;
 
         // Publisher subscribe handlers: [track_alias] -> SubscribeTrackHandler
         std::map<std::uint64_t, std::shared_ptr<TestSubscribeTrackHandler>> pub_subscribes_;

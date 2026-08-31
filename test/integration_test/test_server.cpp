@@ -223,7 +223,10 @@ TestServer::UnbindSubscriberPublishTrack(const std::uint64_t track_alias)
         }
 
         handler = handler_it->second;
-        session = session_it->second;
+        session = session_it->second.lock();
+        if (!session) {
+            return false;
+        }
     }
 
     // Called without our lock held, since the session takes its own lock during unbind.
