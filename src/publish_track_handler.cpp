@@ -47,7 +47,7 @@ namespace quicr {
       std::shared_ptr<const std::vector<uint8_t>> data)
     {
         auto session = GetSession().lock();
-        uint64_t stream_id{ 0 };
+        std::shared_ptr<Stream> stream;
 
         if (!session) {
             return PublishObjectStatus::kInternalError;
@@ -125,9 +125,8 @@ namespace quicr {
                     // Disable creating stream and doing pipeline on new stream considering delta and subgroups needs
                     // first object parsed
 #if 0
-                    auto stream_id =
-                      session->CreateStream(publish_data_ctx_id_, GetDefaultPriority());
-                    stream_info_by_group_[group_id][subgroup_id] = { stream_id, group_id, subgroup_id };
+                    auto stream = session->CreateStream(*GetRequestId(), GetDefaultPriority());
+                    stream_info_by_group_[group_id][subgroup_id] = { stream, group_id, subgroup_id };
 #endif
 
                     // Do not pipeline on new stream till PublishObject() is called once
@@ -143,13 +142,12 @@ namespace quicr {
                     return PublishTrackHandler::PublishObjectStatus::kInternalError;
                 }
 
-                stream_id = subgroup_it->second.stream_id;
+                stream = subgroup_it->second.stream;
                 break;
             }
         }
 
-        auto result =
-          session->Enqueue(publish_data_ctx_id_, stream_id, data, default_priority_, default_ttl_, 0, eflags);
+        auto result = session->Enqueue(stream, data, default_priority_, default_ttl_, eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -239,7 +237,7 @@ namespace quicr {
         bool is_stream_header_needed{ false };
         uint64_t group_id_delta{ 0 };
         uint64_t object_id_delta{ 0 };
-        uint64_t stream_id{ 0 };
+        std::shared_ptr<Stream> stream;
 
         if (default_track_mode_ == TrackMode::kStream) {
             // If this is the first time this group/subgroup has been seen, then a new stream is required
@@ -254,12 +252,12 @@ namespace quicr {
             subgroup_it = group_it->second.find(object_headers.subgroup_id);
             if (subgroup_it == group_it->second.end()) {
                 is_stream_header_needed = true;
-                stream_id = session->CreateStream(publish_data_ctx_id_, priority);
+                stream = session->CreateStream(*GetRequestId(), priority);
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =
                   subgroup_map.emplace(object_headers.subgroup_id,
-                                       StreamInfo{ stream_id, object_headers.group_id, object_headers.subgroup_id });
+                                       StreamInfo{ stream, object_headers.group_id, object_headers.subgroup_id });
                 subgroup_it = std::move(it);
             }
 
@@ -287,7 +285,7 @@ namespace quicr {
             subgroup_it->second.last_subgroup_id = object_headers.subgroup_id;
             subgroup_it->second.last_object_id = object_headers.object_id;
 
-            stream_id = subgroup_it->second.stream_id;
+            stream = subgroup_it->second.stream;
         }
 
         if (object_headers.track_mode.has_value() && object_headers.track_mode != default_track_mode_) {
@@ -345,15 +343,12 @@ namespace quicr {
             }
         }
 
-        auto result = session->Enqueue(
-
-          publish_data_ctx_id_,
-          stream_id,
-          std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-          priority,
-          ttl,
-          0,
-          eflags);
+        auto result =
+          session->Enqueue(stream,
+                           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
+                           priority,
+                           ttl,
+                           eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -387,12 +382,26 @@ namespace quicr {
         eflags.close_stream = true;
         eflags.use_reset = !completed;
 
-        session->Enqueue(
-          publish_data_ctx_id_, subgroup_it->second.stream_id, {}, default_priority_, default_ttl_, 0, eflags);
+        session->Enqueue(subgroup_it->second.stream, {}, default_priority_, default_ttl_, eflags);
 
         group_it->second.erase(subgroup_it);
         if (group_it->second.empty()) {
             stream_info_by_group_.erase(group_it);
+        }
+    }
+
+    void PublishTrackHandler::EndAllSubgroups()
+    {
+        // EndSubgroup erases as it goes, so gather first rather than iterating the map it mutates.
+        std::vector<std::pair<std::uint64_t, std::uint64_t>> open;
+        for (const auto& [group_id, subgroups] : stream_info_by_group_) {
+            for (const auto& [subgroup_id, _] : subgroups) {
+                open.emplace_back(group_id, subgroup_id);
+            }
+        }
+
+        for (const auto& [group_id, subgroup_id] : open) {
+            EndSubgroup(group_id, subgroup_id, true);
         }
     }
 
@@ -461,7 +470,7 @@ namespace quicr {
     {
         for (auto group_it = stream_info_by_group_.begin(); group_it != stream_info_by_group_.end();) {
             for (auto subgroup_it = group_it->second.begin(); subgroup_it != group_it->second.end();) {
-                if (subgroup_it->second.stream_id == stream_id) {
+                if (subgroup_it->second.stream != nullptr && subgroup_it->second.stream->GetStreamId() == stream_id) {
                     subgroup_it = group_it->second.erase(subgroup_it);
 
                     if (group_it->second.empty()) {

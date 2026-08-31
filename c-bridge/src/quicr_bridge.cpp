@@ -157,7 +157,6 @@ namespace {
                 config.transport_config.tls_key_filename = c_config->tls_key_filename;
             }
             config.transport_config.debug = c_config->debug_logs;
-            config.transport_config.use_reset_wait_strategy = c_config->use_reset_wait_strategy;
             config.transport_config.time_queue_max_duration = 50000; // Set to 50 seconds to handle TTLs up to 50000ms
         }
 
@@ -1141,7 +1140,6 @@ extern "C"
         config->idle_timeout_ms = 30000;
         config->tick_service_sleep_delay_us = 333;
         config->debug_logs = false;
-        config->use_reset_wait_strategy = false;
         std::strcpy(config->server_hostname, "localhost");
     }
 

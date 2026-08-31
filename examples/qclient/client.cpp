@@ -1597,7 +1597,6 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         exit(-1);
     }
 
-    config.transport_config.use_reset_wait_strategy = false;
     config.transport_config.time_queue_max_duration = 5000;
     config.transport_config.tls_cert_filename = "";
     config.transport_config.tls_key_filename = "";

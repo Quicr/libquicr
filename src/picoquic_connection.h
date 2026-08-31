@@ -8,118 +8,111 @@
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/safe_time_queue.h"
 #include "quicr/metrics.h"
+#include "quicr/stream.h"
 #include "quicr/transport.h"
 
 #include <pico_webtransport.h>
 #include <picoquic.h>
 #include <picoquic_config.h>
 
+#include <atomic>
+#include <map>
 #include <memory>
+#include <mutex>
+#include <utility>
+#include <vector>
 
 namespace quicr {
 
     /**
-     * Data context information
-     *  Data context is intended to be a container for metrics and other state that is
-     *  related to a flow of data that may use datagram or one or more stream QUIC frames
+     * @brief State for a single QUIC stream, sending and receiving
+     *
+     * @details Streams are created and torn down on the picoquic thread, but handles are held by
+     *      application threads and by picoquic itself, which stores one as the opaque app stream
+     *      context. Holding a handle keeps the state alive for the duration of a call even if
+     *      another thread erases the stream concurrently.
+     *
+     *      A stream carries both directions, so a bidirectional stream is one object rather than a
+     *      send entry and an unrelated receive buffer. Receive-only streams, which the remote peer
+     *      opened, have no transmit queue; send-only streams never populate the receive context.
      */
-    struct DataContext
+    class PicoQuicStream : public Stream
     {
       public:
-        DataContext() = default;
-        DataContext(DataContext&& other)
-          : data_ctx_id(other.data_ctx_id)
-          , conn_id(other.conn_id)
-          , is_bidir(other.is_bidir)
-          , uses_reset_wait(other.uses_reset_wait)
-          , delete_on_empty(other.delete_on_empty)
-          , metrics(std::move(other.metrics))
+        PicoQuicStream(std::uint64_t stream_id,
+                       std::uint64_t conn_id,
+                       std::unique_ptr<SafeTimeQueue<ConnData>> tx_queue);
+
+        ~PicoQuicStream() = default;
+
+        /// @returns Owning handle to this stream, for internals that hold only a raw pointer.
+        std::shared_ptr<PicoQuicStream> SharedFromThis()
         {
+            return std::static_pointer_cast<PicoQuicStream>(shared_from_this());
         }
 
-        DataContext& operator=(const DataContext&) = delete;
-        DataContext& operator=(DataContext&&) = delete;
-
-        ~DataContext() = default;
+        /**
+         * Reset the TX object buffer
+         */
+        void ResetTxObject()
+        {
+            tx_object = nullptr;
+            tx_object_offset = 0;
+        }
 
       public:
-        std::uint64_t data_ctx_id{ 0 };     /// The ID of this context
-        std::uint64_t conn_id{ 0 };         /// The connection ID this context is under
-        bool is_bidir : 1 { false };        /// Indicates if the stream is bidir (true) or unidir (false)
-        bool uses_reset_wait : 1 { false }; /// Indicates if data context can/uses reset wait strategy
-        bool delete_on_empty{ false };      /// Instructs TX objects to be discarded on POP instead
+        /// Instructs that the stream should be closed upon empty
+        bool close_on_empty : 1 { false };
 
-        QuicDataContextMetrics metrics;
+        /// Instructs to use reset when closing stream
+        bool close_using_reset : 1 { false };
 
-        struct StreamContext
-        {
-            /**
-             * Reset the TX object buffer
-             */
-            void ResetTxObject()
-            {
-                tx_object = nullptr;
-                tx_object_offset = 0;
-            }
+        /// The priority of the stream.
+        uint8_t priority{ 0 };
 
-          public:
-            /// Instructs that the stream should be closed upon empty
-            bool close_on_empty : 1 { false };
+        /// Pending objects to be written to the network
+        std::unique_ptr<SafeTimeQueue<ConnData>> tx_data;
 
-            /// Instructs to use reset when closing stream
-            bool close_using_reset : 1 { false };
+        /// Current object that is being sent as a byte stream
+        std::shared_ptr<const std::vector<uint8_t>> tx_object;
 
-            /// Instructs TX objects to be discarded on POP instead
-            bool tx_reset_wait_discard{ false };
+        /// Pointer offset to next byte to send
+        size_t tx_object_offset{ 0 };
 
-            /// The priority of the stream.
-            uint8_t priority{ 0 };
+        // The last ticks when TX callback was run
+        uint64_t last_tx_tick{ 0 };
 
-            /// Pending objects to be written to the network
-            std::unique_ptr<SafeTimeQueue<ConnData>> tx_data;
+        /// WebTransport stream context (only used in WebTransport mode)
+        h3zero_stream_ctx_t* wt_stream_ctx{ nullptr };
 
-            /// Current object that is being sent as a byte stream
-            std::shared_ptr<const std::vector<uint8_t>> tx_object;
+        /// Metrics for this stream, taken and reset each sample period
+        QuicStreamMetrics metrics;
 
-            /// Pointer offset to next byte to send
-            size_t tx_object_offset{ 0 };
+        /// Delayed transmit callbacks since the last congestion check, which runs on its own cadence
+        std::uint64_t tx_delayed_since_cc_check{ 0 };
 
-            // The last ticks when TX callback was run
-            uint64_t last_tx_tick{ 0 };
+        /**
+         * @name Receive state
+         *
+         * @details Touched only on the picoquic thread, except for `rx_ctx`, which is handed to the
+         *      notify thread and is internally synchronised.
+         */
+        ///@{
 
-            /// WebTransport stream context (only used in WebTransport mode)
-            h3zero_stream_ctx_t* wt_stream_ctx{ nullptr };
-        };
+        /// Received data queue and the caller state that consumes it
+        std::shared_ptr<StreamRxContext> rx_ctx;
 
-        std::map<std::uint64_t, StreamContext> streams;
-        std::mutex stream_mutex;
+        /// Indicates if the receive side is closed
+        bool rx_closed{ false };
+
+        /// True once the closed stream has been checked for removal, so its queue gets one drain pass
+        bool rx_checked_once{ false };
+
+        ///@}
     };
 
     class PicoQuicConnection : public Connection
     {
-      public:
-        /**
-         * Active stream buffers for received unidirectional streams
-         */
-        struct RxStreamBuffer
-        {
-            RxStreamBuffer()
-              : rx_ctx(std::make_shared<StreamRxContext>())
-            {
-                rx_ctx->caller_any.reset();
-                rx_ctx->data_queue.Clear();
-            }
-
-            /// Stream RX context that holds data and caller info
-            std::shared_ptr<StreamRxContext> rx_ctx;
-
-            /// Indicates if stream is active or in closed state
-            bool closed{ false };
-
-            /// True if closed and checked once to close
-            bool checked_once{ false };
-        };
-
       public:
         PicoQuicConnection(picoquic_cnx_t* cnx, API api = API::kNativeQuic)
           : Connection(reinterpret_cast<std::uint64_t>(cnx), api)
@@ -130,7 +123,56 @@ namespace quicr {
 
         virtual ~PicoQuicConnection() = default;
 
-        void SampleMetrics(const MetricsTimeStamp& sample_time) override;
+        QuicMetricsSample TakeMetricsSample() override;
+
+        void ReportMetricsSample(const MetricsTimeStamp& sample_time, const QuicMetricsSample& sample) override;
+
+        /**
+         * @name Stream access
+         *
+         * @details The connection is the sole owner of every stream on it, sending and receiving
+         *      alike, so a bidirectional stream is one object rather than an entry in two unrelated
+         *      registries. Streams are added and removed on the picoquic thread while application
+         *      threads queue data on them, so the container is guarded by its own mutex. Callers
+         *      receive an owning handle rather than a pointer into the container, which keeps the
+         *      stream alive for the duration of the call even if another thread removes it
+         *      concurrently.
+         *
+         * @warning `stream_mutex_` MUST NOT be held while calling picoquic or any transport method, to
+         *      keep it a leaf lock. It may be taken while holding the transport's state mutex, never
+         *      the other way around.
+         */
+        ///@{
+
+        /// @returns Handle to the stream, or nullptr if no such stream exists.
+        std::shared_ptr<PicoQuicStream> GetStream(std::uint64_t stream_id) const;
+
+        /**
+         * @returns Handle to the newly created stream, replacing any existing stream with that ID.
+         *
+         * @param stream_id  QUIC stream ID
+         * @param tx_queue   Transmit queue, or nullptr for a receive-only stream
+         */
+        std::shared_ptr<PicoQuicStream> AddStream(std::uint64_t stream_id,
+                                                  std::unique_ptr<SafeTimeQueue<ConnData>> tx_queue);
+
+        /**
+         * @returns Handle to the existing stream, creating one if absent.
+         *
+         * @details For remote-initiated streams, which the transport first learns about when data
+         *      arrives on them. A bidirectional stream is a request the application replies on, so it
+         *      is given a TX queue; a unidirectional one is receive-only and passes nullptr.
+         */
+        std::shared_ptr<PicoQuicStream> GetOrAddStream(std::uint64_t stream_id,
+                                                       std::unique_ptr<SafeTimeQueue<ConnData>> tx_queue);
+
+        /// @returns Handle to the removed stream, or nullptr if no such stream existed.
+        std::shared_ptr<PicoQuicStream> RemoveStream(std::uint64_t stream_id);
+
+        /// @returns Snapshot of all streams, safe to iterate without holding the lock.
+        std::vector<std::shared_ptr<PicoQuicStream>> GetStreams() const;
+
+        ///@}
 
       public:
         /// Picoquic connection/path context
@@ -142,28 +184,26 @@ namespace quicr {
         /// Picoquic shard ID.
         std::size_t shard_idx{ 0 };
 
-        /// Next data context ID; zero is reserved for default context
-        std::uint64_t next_data_ctx_id{ 1 };
-
         /// Datagram pending objects to be written to the network
         std::shared_ptr<PriorityQueue<ConnData>> dgram_tx_data;
 
         /// Buffered datagrams received from the network
         std::shared_ptr<SafeQueue<std::shared_ptr<const Bytes>>> dgram_rx_data;
 
-        /// Map of stream receive buffers, key is stream_id
-        std::map<std::uint64_t, RxStreamBuffer> rx_stream_buffer;
+        /// Priority last given to picoquic for this connection's datagrams; unset until the first send
+        std::optional<std::uint8_t> dgram_priority;
+
+        /// Metrics for the connection's single datagram channel
+        QuicDatagramMetrics dgram_metrics;
 
         /**
-         * Active data contexts (streams bidir/unidir and datagram)
+         * WebTransport stream ID to stream mapping
+         *
+         * @details WebTransport cannot use picoquic's app stream context slot, because picowt owns it
+         * and stores its own `h3zero_stream_ctx_t*` there. This is the fallback lookup for that path.
+         * The mapping does not own the streams; the connection does.
          */
-        std::map<std::uint64_t, DataContext> active_data_contexts;
-
-        /**
-         * WebTransport stream ID to data context ID mapping
-         * Used in WebTransport mode to look up data context for a stream
-         */
-        std::map<std::uint64_t, std::uint64_t> wt_stream_to_data_ctx;
+        std::map<std::uint64_t, std::weak_ptr<PicoQuicStream>> wt_stream_to_stream;
 
         /// WebTransport HTTP/3 context for this connection (only used in WebTransport mode)
         /// - Server mode: created by h3zero_callback per connection
@@ -198,5 +238,20 @@ namespace quicr {
 
         // Metrics
         QuicConnectionMetrics metrics;
+
+      private:
+        /// Every stream on this connection, sending and receiving, keyed by stream ID
+        std::map<std::uint64_t, std::shared_ptr<PicoQuicStream>> streams_;
+
+        /**
+         * What streams removed since the last sample had left to report
+         *
+         * @details A stream that opens and closes between two samples is gone before the period it
+         *      ran in ends, so what it did not report is held here for that period to carry.
+         */
+        std::vector<QuicMetricsSample::Stream> unreported_stream_metrics_;
+
+        /// Guards streams_ and unreported_stream_metrics_
+        mutable std::mutex stream_mutex_;
     };
 }

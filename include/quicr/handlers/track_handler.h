@@ -6,10 +6,13 @@
 #include "quicr/attributes.h"
 #include "quicr/messages/messages.h"
 #include "quicr/messages/parameters.h"
+#include "quicr/stream.h"
 #include "quicr/track_name.h"
+#include "quicr/utilities/thread_safety.h"
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <vector>
@@ -81,28 +84,42 @@ namespace quicr {
         std::optional<uint64_t> GetRequestId() const noexcept { return request_id_; }
 
         /**
-         * @brief Sets the data context Id
-         * @param data_ctx_id               Data context Id for control messages
+         * @brief Set the bidir request control stream.
+         * @param request_stream Handle to the request stream.
          */
-        void SetDataContextId(std::uint64_t data_ctx_id) { data_ctx_id_ = data_ctx_id; }
+        void SetRequestStream(const std::shared_ptr<Stream>& request_stream)
+        {
+            std::lock_guard lock(request_stream_mutex_);
+            request_stream_ = request_stream;
+        }
 
         /**
-         * @brief Return the data context Id
-         * @return Data context id if set
+         * @brief Get the request control stream.
+         *
+         * @details Returns an owning handle, which keeps the stream alive for as long as the caller
+         *      holds it. Hold the result for the duration of an operation rather than calling this
+         *      repeatedly, so a null check and the use that follows cannot disagree.
+         *
+         * @return Handle to the request stream, or nullptr if unset.
          */
-        std::optional<std::uint64_t> GetDataContextId() const noexcept { return data_ctx_id_; }
-
-        /**
-         * @brief Set the stream ID for the bidir request control stream.
-         * @param request_stream_id Request stream's ID.
-         */
-        void SetRequestStreamId(uint64_t request_stream_id) { request_stream_id_ = request_stream_id; }
+        std::shared_ptr<Stream> GetRequestStream() const
+        {
+            std::lock_guard lock(request_stream_mutex_);
+            return request_stream_;
+        }
 
         /**
          * @brief Get the stream ID of the request control stream.
-         * @return Request stream's ID.
+         * @return Request stream's ID, or nullopt if unset.
          */
-        std::optional<uint64_t> GetRequestStreamId() const noexcept { return request_stream_id_; }
+        std::optional<uint64_t> GetRequestStreamId() const
+        {
+            std::lock_guard lock(request_stream_mutex_);
+            if (request_stream_ == nullptr) {
+                return std::nullopt;
+            }
+            return request_stream_->GetStreamId();
+        }
 
         /**
          * @brief Get the full track name
@@ -167,14 +184,20 @@ namespace quicr {
         std::optional<uint64_t> request_id_;
 
         /**
-         * Data context ID (transport data context) that control messages are to be sent
+         * The bidirectional request control stream, which control messages for this request go out on.
+         *
+         * @details Held for the life of the request so that control messages go out without a lookup.
+         *      The transport may close the stream underneath this handle, which `Stream::IsOpen`
+         *      reports and the transport rejects on send.
+         *
+         *      The session installs and releases the handle while application threads read it, so
+         *      access is guarded. Never call into the session while holding the mutex, so that the
+         *      session lock is always taken first.
          */
-        std::optional<std::uint64_t> data_ctx_id_{ std::nullopt };
+        std::shared_ptr<Stream> request_stream_ QUICR_GUARDED_BY(request_stream_mutex_);
 
-        /**
-         * Stream ID of the bidirectional request control stream.
-         */
-        std::optional<uint64_t> request_stream_id_{ std::nullopt };
+        /// Guards request_stream_
+        mutable std::mutex request_stream_mutex_;
 
         std::weak_ptr<Session> session_;
     };

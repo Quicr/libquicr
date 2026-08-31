@@ -119,7 +119,6 @@ namespace quicr_test {
 
         struct SubscribeNamespaceDetails
         {
-            std::uint64_t data_ctx_id{ 0 };
             quicr::TrackNamespace prefix_namespace;
             quicr::SubscribeNamespaceAttributes attributes;
         };
@@ -197,6 +196,19 @@ namespace quicr_test {
         {
             publish_namespace_done_promise_ = std::move(promise);
         }
+
+        /// @returns The publish track handler the server bound for a subscriber, or nullptr.
+        std::shared_ptr<TestPublishTrackHandler> GetSubscriberPublishHandler(std::uint64_t track_alias) const;
+
+        /**
+         * @brief Unbind the publish track handler the server bound for a subscriber
+         *
+         * @details Drives Session::UnbindPublisherTrack, the server-side teardown path, which has no
+         *      other caller in this repository.
+         *
+         * @returns True if a bound handler was found and unbound
+         */
+        bool UnbindSubscriberPublishTrack(std::uint64_t track_alias);
 
         // True = reset, false = FIN, nullopt = not closed.
         std::optional<bool> WasStreamReset(std::uint64_t stream_id) const
@@ -285,13 +297,11 @@ namespace quicr_test {
 
         quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode> SubscribeTracksReceived(
           const std::shared_ptr<quicr::Session>& session,
-          std::uint64_t data_ctx_id,
           const quicr::TrackNamespace& prefix_namespace,
           const quicr::SubscribeNamespaceAttributes& attributes) override;
 
         quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode> SubscribeNamespaceReceived(
           const std::shared_ptr<quicr::Session>& session,
-          std::uint64_t data_ctx_id,
           const quicr::TrackNamespace& prefix_namespace,
           const quicr::SubscribeNamespaceAttributes& attributes) override;
 
@@ -332,6 +342,9 @@ namespace quicr_test {
 
         // Subscriber publish handlers: [track_alias] -> PublishTrackHandler
         std::map<std::uint64_t, std::shared_ptr<TestPublishTrackHandler>> subscribes_;
+
+        // Session that bound each subscriber publish handler: [track_alias] -> Session
+        std::map<std::uint64_t, std::shared_ptr<quicr::Session>> subscribe_sessions_;
 
         // Publisher subscribe handlers: [track_alias] -> SubscribeTrackHandler
         std::map<std::uint64_t, std::shared_ptr<TestSubscribeTrackHandler>> pub_subscribes_;

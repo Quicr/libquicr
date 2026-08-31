@@ -10,7 +10,6 @@
 
 #include <timeq/tick_service.h>
 
-#include <any>
 #include <chrono>
 #include <cstdlib>
 #include <functional>
@@ -28,6 +27,8 @@ namespace quicr {
 
     class Connection;
     class Logger;
+    class Stream;
+    class SubscribeTrackHandler;
 
     /**
      * Close Connection App Reasons
@@ -69,7 +70,6 @@ namespace quicr {
         kPeerUnreachable,
         kCannotResolveHostname,
         kInvalidConnContextId,
-        kInvalidDataContextId,
         kInvalidIpv4Address,
         kInvalidIpv6Address,
         kInvalidStreamId,
@@ -109,7 +109,6 @@ namespace quicr {
     struct ConnData
     {
         std::uint64_t conn_id;
-        std::uint64_t data_ctx_id;
         uint8_t priority;
         StreamAction stream_action{ StreamAction::kNoAction };
 
@@ -119,10 +118,18 @@ namespace quicr {
         uint64_t tick_microseconds; // Tick value in microseconds
     };
 
-    /// Stream receive data context
+    /// Received stream data and the handler that consumes it
     struct StreamRxContext
     {
-        std::any caller_any; ///< Caller any object - Set and used by caller/app
+        /**
+         * Handler consuming this stream, bound once the stream header identifies its track
+         *
+         * @details Weak so a handler that goes away while data is still arriving is detected rather
+         *      than kept alive by the transport. Empty until the header is parsed, which is the same
+         *      condition as `is_new`.
+         */
+        std::weak_ptr<SubscribeTrackHandler> handler;
+
         bool is_new{ true }; ///< Indicates if new stream, on read set to false
 
         /**
@@ -225,24 +232,6 @@ namespace quicr {
         virtual std::shared_ptr<Connection> Start() = 0;
 
         /**
-         * @brief Create a data context
-         * @details Data context is flow of data (track, namespace). This is similar to a pipe of data to be
-         * transmitted. Metrics, shaping, etc. maintained at the data context level.
-         *
-         * @param[in] conn_id                 Connection ID to create data context
-         * @param[in] use_reliable_transport 	Indicates a reliable stream is
-         *                                 	preferred for transporting data
-         * @param[in] priority                Priority for stream (default is 1)
-         * @param[in] bidir                   Set context to be bi-directional or unidirectional
-         *
-         * @return std::uint64_t identifying the data context via the connection
-         */
-        virtual std::uint64_t CreateDataContext(const std::shared_ptr<Connection>& connection,
-                                                bool use_reliable_transport,
-                                                uint8_t priority = 1,
-                                                bool bidir = false) = 0;
-
-        /**
          * @brief Close a transport context
          *
          * @param conn_id           Connection ID to close
@@ -252,28 +241,27 @@ namespace quicr {
                            AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose) = 0;
 
         /**
-         * @brief Close stream by stream id
-         * @param conn_id           Connection id of stream
-         * @param data_ctx_id       Data context id that owns the stream
-         * @param stream_id         Stream ID to close
+         * @brief Close a stream
+         *
+         * @param connection        Connection the stream belongs to
+         * @param stream            Stream to close; no-op if null or already closed
          * @param use_reset         True to close by RESET, false to close by FIN
          */
         virtual void CloseStream(const std::shared_ptr<Connection>& connection,
-                                 uint64_t data_ctx_id,
-                                 uint64_t stream_id,
+                                 const std::shared_ptr<Stream>& stream,
                                  bool use_reset) = 0;
 
         /**
-         * @brief Delete data context
-         * @details Deletes a data context for the given connection id. If reliable, the stream will
-         *    be closed by FIN (graceful).
+         * @brief Close a stream by ID
          *
-         * @param[in] conn_id                 Connection ID to create data context
-         * @param[in] data_ctx_id             Data context ID to delete
+         * @details For receive streams, which the caller only knows by ID. Prefer the handle form
+         *      wherever one is available.
+         *
+         * @param connection        Connection the stream belongs to
+         * @param stream_id         Stream ID to close
+         * @param use_reset         True to close by RESET, false to close by FIN
          */
-        virtual void DeleteDataContext(const std::shared_ptr<Connection>& connection,
-                                       std::uint64_t data_ctx_id,
-                                       bool delete_on_empty = false) = 0;
+        virtual void CloseStream(const std::shared_ptr<Connection>& connection, uint64_t stream_id, bool use_reset) = 0;
 
         /**
          * @brief Get the peer IP address and port associated with the stream
@@ -297,30 +285,43 @@ namespace quicr {
         };
 
         /**
-         * @brief Enqueue application data within the transport
+         * @brief Enqueue application data on a stream
          *
-         * @details Add data to the transport queue. Data enqueued will be transmitted
-         * when available.
+         * @details Add data to the stream's transmit queue, to be sent when the stream is next able to.
          *
          * @param[in] connection    Identifying the connection
-         * @param[in] data_ctx_id   stream Id to send data on
-         * @param[in] stream_id     Stream ID to send message on, Only used for unidir data contexts
-         * @param[in] bytes	    Data to send/write
+         * @param[in] stream        Stream to send on
+         * @param[in] bytes         Data to send/write
          * @param[in] priority      Priority of the object, range should be 0 - 255
          * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
-         * @param[in] delay_ms      Delay the pop by millisecond value
          * @param[in] flags         Flags for stream and queue handling on enqueue of object
          *
          * @returns TransportError is returned indicating status of the operation
          */
         virtual TransportError Enqueue(const std::shared_ptr<Connection>& connection,
-                                       const std::uint64_t& data_ctx_id,
-                                       std::uint64_t stream_id,
+                                       const std::shared_ptr<Stream>& stream,
                                        std::shared_ptr<const std::vector<uint8_t>> bytes,
                                        uint8_t priority = 1,
                                        uint32_t ttl_ms = 350,
-                                       uint32_t delay_ms = 0,
                                        EnqueueFlags flags = { true, false, false, false }) = 0;
+
+        /**
+         * @brief Enqueue application data as a datagram
+         *
+         * @details The datagram queue belongs to the connection, so datagrams from every track share it
+         *      and are ordered against each other by priority alone.
+         *
+         * @param[in] connection    Identifying the connection
+         * @param[in] bytes         Data to send/write
+         * @param[in] priority      Priority of the object, range should be 0 - 255
+         * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
+         *
+         * @returns TransportError is returned indicating status of the operation
+         */
+        virtual TransportError EnqueueDatagram(const std::shared_ptr<Connection>& connection,
+                                               std::shared_ptr<const std::vector<uint8_t>> bytes,
+                                               uint8_t priority = 1,
+                                               uint32_t ttl_ms = 350) = 0;
 
         /**
          * @brief Dequeue datagram application data from transport buffer
@@ -328,25 +329,11 @@ namespace quicr {
          * @details Data received by the transport will be queued and made available
          * to the caller using this method.  An empty return will be
          *
-         * @param[in] conn_id		        Identifying the connection
-         * @param[in] data_ctx_id             Data context ID if known
+         * @param[in] connection            Identifying the connection
          *
          * @returns std::nullopt if there is no data
          */
-        virtual std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<Connection>& connection,
-                                                                    std::optional<std::uint64_t> data_ctx_id) = 0;
-
-        /**
-         * @brief Get the stream RX context by connection ID and stream ID
-         *
-         * @param conn_id                   Connection ID to get stream context from
-         * @param stream_id                 Context stream ID
-         *
-         * @returns Shared pointer to StreamRxContext
-         * @throws TransportError for invalid connection or stream id
-         */
-        virtual std::shared_ptr<StreamRxContext> GetStreamRxContext(const std::shared_ptr<Connection>& connection,
-                                                                    uint64_t stream_id) = 0;
+        virtual std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<Connection>& connection) = 0;
 
         /**
          * @brief Close a WebTransport session with error code and message
@@ -400,17 +387,36 @@ namespace quicr {
         virtual int DrainWebTransportSession(const std::shared_ptr<Connection>& connection) = 0;
 
         /**
-         * @brief Create a new stream.
+         * @brief Create a unidirectional stream to publish objects on.
          *
-         * @param conn_id       The connection id for the stream.
-         * @param data_ctx_id   The data context ID that the stream belongs to.
+         * @param connection    The connection for the stream.
          * @param priority      Priority of the stream
          *
-         * @returns The optionally created stream id. If no stream was created, returns nullopt.
+         * @returns Handle to the created stream. Hold it for as long as the stream is being written
+         *      to, rather than looking it up per object.
          */
-        virtual std::uint64_t CreateStream(const std::shared_ptr<Connection>& connection,
-                                           std::uint64_t data_ctx_id,
-                                           uint8_t priority) = 0;
+        virtual std::shared_ptr<Stream> CreateDataStream(const std::shared_ptr<Connection>& connection,
+                                                         uint8_t priority) = 0;
+
+        /**
+         * @brief Create the connection's unidirectional outbound control stream.
+         *
+         * @details Carries no flow: control messages are not a track, and the stream's metrics are
+         *      reported against the stream itself.
+         *
+         * @returns Handle to the created stream, which the caller holds for the life of the connection.
+         */
+        virtual std::shared_ptr<Stream> CreateControlStream(const std::shared_ptr<Connection>& connection) = 0;
+
+        /**
+         * @brief Create a bidirectional request stream.
+         *
+         * @details One request is carried per stream, in both directions, so it has nothing to share
+         *      state with and carries no flow.
+         *
+         * @returns Handle to the created stream, which the caller holds for the life of the request.
+         */
+        virtual std::shared_ptr<Stream> CreateRequestStream(const std::shared_ptr<Connection>& connection) = 0;
 
         /**
          * @brief Stop network threads and release transport resources.
