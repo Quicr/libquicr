@@ -25,7 +25,7 @@ quicr::PicoQuicConnection::TakeMetricsSample()
 
     // Snapshot the container so the streams' own lock is not held while their metrics are taken.
     for (const auto& stream : GetStreams()) {
-        sample.streams.emplace_back(stream->GetStreamId(), std::exchange(stream->metrics, {}), false);
+        sample.streams.push_back({ stream->GetStreamId(), std::exchange(stream->metrics, {}), false });
     }
 
     // The connection's counters are reported as running totals rather than accumulated, so only
@@ -122,7 +122,7 @@ quicr::PicoQuicConnection::RemoveStream(const std::uint64_t stream_id)
         // Bounded because nothing drains this if samples stop being taken, which happens when the
         // callback queue is under sustained backpressure.
         if (unreported_stream_metrics_.size() < kMaxUnreportedStreams) {
-            unreported_stream_metrics_.emplace_back(stream_id, stream->metrics, true);
+            unreported_stream_metrics_.push_back({ stream_id, stream->metrics, true });
         }
     }
 
