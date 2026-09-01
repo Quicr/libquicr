@@ -40,7 +40,7 @@ quicr::PicoQuicConnection::TakeMetricsSample()
 void
 quicr::PicoQuicConnection::ReportMetricsSample(const MetricsTimeStamp& sample_time, const QuicMetricsSample& sample)
 {
-    auto delegate = delegate_.lock();
+    auto delegate = GetDelegate();
     if (!delegate) {
         return;
     }

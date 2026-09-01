@@ -7,12 +7,14 @@
 #include "quicr/metrics.h"
 #include "quicr/track_name.h"
 #include "quicr/utilities/bytes.h"
+#include "quicr/utilities/thread_safety.h"
 
 #include <atomic>
 #include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 namespace quicr {
@@ -137,8 +139,6 @@ namespace quicr {
       public:
         Connection(std::uint64_t id, API api = API::kNativeQuic);
 
-        Connection(const Connection& other) = default;
-
         virtual ~Connection() = default;
 
         std::uint64_t GetID() const noexcept;
@@ -212,6 +212,8 @@ namespace quicr {
         ConnectionMetrics metrics{};
 
       protected:
+        std::shared_ptr<Delegate> GetDelegate() const;
+
         std::uint64_t id{ 0 };
 
         /// The API the connection uses. Default is Native Quic.
@@ -219,6 +221,7 @@ namespace quicr {
 
         Status status_;
 
-        std::weak_ptr<Delegate> delegate_;
+        mutable std::mutex delegate_mutex_;
+        std::weak_ptr<Delegate> delegate_ QUICR_GUARDED_BY(delegate_mutex_);
     };
 }
