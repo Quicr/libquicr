@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <future>
 #include <iostream>
+#include <limits>
 #include <mutex>
 #include <spdlog/spdlog.h>
 #include <string>
@@ -325,6 +326,45 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     std::optional<std::promise<void>> object_count_promise_;
     std::optional<std::promise<SubscribeTrackMetrics>> metrics_promise_;
     std::atomic<std::uint64_t> request_update_oks_{ 0 };
+};
+
+class CloseOrderingSubscribeHandler final : public TestSubscribeHandler
+{
+  public:
+    static std::shared_ptr<CloseOrderingSubscribeHandler> Create(const FullTrackName& full_track_name)
+    {
+        return std::shared_ptr<CloseOrderingSubscribeHandler>(new CloseOrderingSubscribeHandler(full_track_name));
+    }
+
+    std::size_t GetReceivedCountAtClose() const { return received_count_at_close_; }
+
+    static constexpr std::size_t kNotClosed = std::numeric_limits<std::size_t>::max();
+
+  protected:
+    explicit CloseOrderingSubscribeHandler(const FullTrackName& full_track_name)
+      : TestSubscribeHandler(full_track_name, 3, std::nullopt, std::monostate{}, std::nullopt)
+    {
+    }
+
+    void ObjectReceived(const ObjectHeaders& object_headers,
+                        BytesSpan data,
+                        std::optional<messages::StreamHeaderProperties> stream_mode) override
+    {
+        if (!delayed_first_object_.exchange(true)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+        TestSubscribeHandler::ObjectReceived(object_headers, data, stream_mode);
+    }
+
+    void StreamClosed(std::uint64_t stream_id, bool reset) override
+    {
+        received_count_at_close_ = GetReceivedCount();
+        SubscribeTrackHandler::StreamClosed(stream_id, reset);
+    }
+
+  private:
+    std::atomic<bool> delayed_first_object_{ false };
+    std::atomic<std::size_t> received_count_at_close_{ kNotClosed };
 };
 
 TEST_CASE("Integration - Connection")
@@ -2171,4 +2211,43 @@ TEST_CASE("Integration - Request updates use handler data context")
     {
         test_request_update_data_context("https");
     }
+}
+
+TEST_CASE("Integration - Stream data is delivered before its FIN callback")
+{
+    constexpr std::size_t kObjectCount = 150;
+
+    auto server = MakeTestServer(std::nullopt, 2);
+    auto subscriber = MakeTestClient(true, std::nullopt, "moq", 50);
+    auto publisher = MakeTestClient();
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "stream", "close-ordering" }), { 1 } };
+
+    auto subscribe_handler = CloseOrderingSubscribeHandler::Create(ftn);
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(
+      WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+    const std::vector<std::uint8_t> payload(4096, 0xa5);
+    for (std::size_t object_id = 0; object_id < kObjectCount; ++object_id) {
+        const ObjectHeaders headers{ .group_id = 0,
+                                     .object_id = object_id,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 10'000,
+                                     .track_mode = TrackMode::kStream };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+    }
+    publish_handler->EndSubgroup(0, 0, true);
+
+    REQUIRE(WaitFor([&subscribe_handler] {
+        return subscribe_handler->GetReceivedCountAtClose() != CloseOrderingSubscribeHandler::kNotClosed;
+    }));
+    CHECK_EQ(subscribe_handler->GetReceivedCountAtClose(), kObjectCount);
 }

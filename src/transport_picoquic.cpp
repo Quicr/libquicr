@@ -2206,7 +2206,32 @@ PicoQuicTransport::OnStreamClosed(std::uint64_t conn_id,
                                   StreamClosedFlag flag)
 {
     SPDLOG_DEBUG("Stream {} closed for connection {}", stream_id, conn_id);
-    cbNotifyQueue_.Push([=, rx_ctx = std::move(rx_ctx), this]() {
+
+    // TODO: Not needed once stream context PR lands.
+    if (rx_ctx == nullptr) {
+        if (const auto conn_ctx = GetConnContext(conn_id)) {
+            const auto rx_buf_it = conn_ctx->rx_stream_buffer.find(stream_id);
+            if (rx_buf_it != conn_ctx->rx_stream_buffer.end()) {
+                rx_ctx = rx_buf_it->second.rx_ctx;
+            }
+        }
+    }
+
+    NotifyStreamClosed(conn_id, stream_id, std::move(rx_ctx), data_ctx_id, flag);
+}
+
+void
+PicoQuicTransport::NotifyStreamClosed(std::uint64_t conn_id,
+                                      uint64_t stream_id,
+                                      std::shared_ptr<StreamRxContext> rx_ctx,
+                                      std::optional<uint64_t> data_ctx_id,
+                                      StreamClosedFlag flag)
+{
+    cbNotifyQueue_.Push([=, rx_ctx = std::move(rx_ctx), this]() mutable {
+        if (rx_ctx != nullptr && rx_ctx->notify_pending.load()) {
+            NotifyStreamClosed(conn_id, stream_id, std::move(rx_ctx), data_ctx_id, flag);
+            return;
+        }
         delegate_.OnStreamClosed(conn_id, stream_id, std::move(rx_ctx), data_ctx_id, flag);
     });
 }
@@ -2251,10 +2276,9 @@ PicoQuicTransport::RemoveClosedStreams()
         std::vector<uint64_t> closed_streams;
 
         for (auto& [stream_id, rx_buf] : conn_ctx.rx_stream_buffer) {
-            if (rx_buf.closed && (rx_buf.rx_ctx->data_queue.Empty() || rx_buf.checked_once)) {
+            if (rx_buf.closed && rx_buf.rx_ctx->data_queue.Empty() && !rx_buf.rx_ctx->notify_pending.load()) {
                 closed_streams.push_back(stream_id);
             }
-            rx_buf.checked_once = true;
         }
 
         for (const auto stream_id : closed_streams) {

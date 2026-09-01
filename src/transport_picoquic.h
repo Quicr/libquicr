@@ -174,7 +174,6 @@ namespace quicr {
             {
                 std::shared_ptr<StreamRxContext> rx_ctx; /// Stream RX context that holds data and caller info
                 bool closed{ false };                    /// Indicates if stream is active or in closed state
-                bool checked_once{ false };              /// True if closed and checked once to close
 
                 RxStreamBuffer()
                   : rx_ctx(std::make_shared<StreamRxContext>())
@@ -400,6 +399,12 @@ namespace quicr {
 
         // Notify new datagram arrived.
         void NotifyDgramRecv(std::uint64_t conn_id, std::shared_ptr<ConnectionContext::DgramRxQueue> rx_data);
+
+        void NotifyStreamClosed(std::uint64_t conn_id,
+                                uint64_t stream_id,
+                                std::shared_ptr<StreamRxContext> rx_ctx,
+                                std::optional<uint64_t> data_ctx_id,
+                                StreamClosedFlag flag);
 
         void CheckConnsForCongestion();
         void EmitMetrics();
