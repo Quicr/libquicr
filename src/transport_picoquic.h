@@ -152,8 +152,8 @@ namespace quicr {
             std::uint64_t conn_id{ 0 };       /// This connection ID
             picoquic_cnx_t* pq_cnx = nullptr; /// Picoquic connection/path context
             uint64_t last_stream_id{ 0 };     /// last stream Id
+            std::size_t shard_idx{ 0 };       /// Which shard this connection belongs to.
 
-            bool mark_dgram_ready{ false };                       /// Instructs datagram to be marked ready/active
             TransportMode transport_mode{ TransportMode::kQuic }; /// Transport mode for this connection
 
             std::uint64_t next_data_ctx_id{ 1 }; /// Next data context ID; zero is reserved for default context
@@ -238,11 +238,32 @@ namespace quicr {
             }
         };
 
-        /*
-         * pq event loop member vars
-         */
-        uint64_t pq_loop_prev_time = 0;
-        uint64_t pq_loop_metrics_prev_time = 0;
+        struct StreamMarkActiveInfo
+        {
+            ConnectionContext& conn_ctx;
+            DataContext& data_ctx;
+            std::uint64_t stream_id;
+            DataContext::StreamContext& stream_ctx;
+        };
+
+        /// Picoquic instance.
+        struct Shard
+        {
+            PicoQuicTransport* transport{ nullptr };
+            std::size_t index{ 0 };
+
+            picoquic_quic_t* quic_ctx{ nullptr };
+            picoquic_network_thread_ctx_t* quic_network_thread_ctx{ nullptr };
+            picoquic_packet_loop_param_t quic_network_thread_params{};
+            int quic_loop_return_value{ 0 };
+
+            SafeQueue<std::function<int()>> picoquic_runner_queue;
+            SafeQueue<StreamMarkActiveInfo> stream_mark_active_queue;
+            SafeQueue<ConnectionContext*> datagram_mark_active_queue;
+
+            uint64_t pq_loop_prev_time{ 0 };
+            uint64_t pq_loop_metrics_prev_time{ 0 };
+        };
 
         /*
          * Exceptions
@@ -342,6 +363,11 @@ namespace quicr {
         void SetStatus(TransportStatus status);
         std::uint64_t MetricsSampleIntervalUs() const { return tconfig_.metrics_sample_ms * 1'000; }
 
+        /// Get pq config to use.
+        static picoquic_packet_loop_param_t MakeThreadConfig(uint16_t listen_port,
+                                                             std::size_t socket_buffer_size,
+                                                             std::size_t shard_count);
+
         /**
          * @brief Accept an incoming WebTransport connection
          * @details Initializes WebTransport context, updates internal data structures,
@@ -406,9 +432,9 @@ namespace quicr {
                                 std::optional<uint64_t> data_ctx_id,
                                 StreamClosedFlag flag);
 
-        void CheckConnsForCongestion();
-        void EmitMetrics();
-        void RemoveClosedStreams();
+        void CheckConnsForCongestion(std::size_t shard_idx);
+        void EmitMetrics(std::size_t shard_idx);
+        void RemoveClosedStreams(std::size_t shard_idx);
 
         bool StreamActionCheck(DataContext* data_ctx, StreamAction stream_action);
 
@@ -440,7 +466,7 @@ namespace quicr {
          *
          * @returns PIOCOQUIC error code, or ZERO if no error
          */
-        int PqRunner();
+        int PqRunner(Shard& shard);
 
         /**
          * @brief Send drain session message for WebTransport
@@ -477,6 +503,13 @@ namespace quicr {
          */
         void EraseStreamState(ConnectionContext& conn_ctx, DataContext* data_ctx, std::uint64_t stream_id);
 
+        /**
+         * @brief Process Mark Stream and Datagram connections active
+         * @note The queue contains references to connection and stream contexts. Before removing
+         *      streams, data context, and/or connections this method MUST be called.
+         */
+        void ProcessMarkActive(Shard& shard);
+
       public:
         std::shared_ptr<spdlog::logger> logger;
         bool is_server_mode;
@@ -487,28 +520,32 @@ namespace quicr {
       private:
         void DeleteDataContextInternal(std::uint64_t conn_id, std::uint64_t data_ctx_id, bool delete_on_empty);
 
+        /// Get shard ID for given connection ID.
+        std::optional<std::size_t> GetConnShardIdx(const std::uint64_t& conn_id);
+
         std::uint64_t StartClient();
         void Shutdown();
+
+        /// Create a picoquic instance for the current config.
+        picoquic_quic_t* CreateQuicInstance(uint64_t current_time);
 
         void Server();
         bool ClientLoop();
         void CbNotifier();
-        void RunPqFunction(std::function<int()>&& function);
+        void RunPqFunction(std::size_t shard_idx, std::function<int()>&& function);
         void CheckCallbackDelta(DataContext* data_ctx, bool tx = true);
 
         /**
          * @brief Mark a stream active
-         * @details This method MUST only be called within the picoquic thread. Enqueue and other
-         *      thread methods can call this via the pq_runner.
+         * @details This method MUST only be called within the picoquic thread.
          */
-        void MarkStreamActive(std::uint64_t conn_id, std::uint64_t data_ctx_id, std::uint64_t stream_id);
+        void MarkStreamActive(StreamMarkActiveInfo& info);
 
         /**
          * @brief Mark datagram ready
-         * @details This method MUST only be called within the picoquic thread. Enqueue and other
-         *      thread methods can call this via the pq_runner.
+         * @details This method MUST only be called within the picoquic thread.
          */
-        void MarkDgramReady(std::uint64_t conn_id);
+        void MarkDgramReady(const ConnectionContext& conn_ctx);
 
         /**
          * @brief Initialize WebTransport context
@@ -586,15 +623,11 @@ namespace quicr {
          * Variables
          */
         picoquic_quic_config_t config_;
-        picoquic_quic_t* quic_ctx_{ nullptr };
-        picoquic_network_thread_ctx_t* quic_network_thread_ctx_{ nullptr };
-        picoquic_packet_loop_param_t quic_network_thread_params_{};
-        int quic_loop_return_value_{ 0 };
         picoquic_tp_t local_tp_options_;
         SafeQueue<std::function<void()>> cbNotifyQueue_;
 
-        /// Threads queue functions that picoquic will call via the pq_loop callback
-        SafeQueue<std::function<int()>> picoquic_runner_queue_;
+        /// Parallel picoquic instances
+        std::vector<std::unique_ptr<Shard>> shards_;
 
         std::atomic<bool> stop_;
         std::mutex state_mutex_; /// Used for stream/context/state updates

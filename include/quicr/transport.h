@@ -123,6 +123,7 @@ namespace quicr {
         uint32_t callback_queue_size{ 2000 };        ///< Callback function queue size for callbacks
         uint64_t metrics_sample_ms{ 5000 };          ///< Metrics sampling interval in milliseconds
         uint64_t initial_max_stream_data{ 0 };       ///< Initial per-stream receive window (all streams). 0=default.
+        std::size_t quic_shards{ 1 };                ///< Number of picoquic instances to use (server mode).
     };
 
     /// Stream action that should be done by send/receive processing
