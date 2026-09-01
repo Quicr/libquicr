@@ -2215,7 +2215,7 @@ TEST_CASE("Integration - Request updates use handler data context")
 
 TEST_CASE("Integration - Stream data is delivered before its FIN callback")
 {
-    constexpr std::size_t kObjectCount = 150;
+    constexpr std::size_t object_count = 150;
 
     auto server = MakeTestServer(std::nullopt, 2);
     auto subscriber = MakeTestClient(true, std::nullopt, "moq", 50);
@@ -2233,7 +2233,7 @@ TEST_CASE("Integration - Stream data is delivered before its FIN callback")
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
     const std::vector<std::uint8_t> payload(4096, 0xa5);
-    for (std::size_t object_id = 0; object_id < kObjectCount; ++object_id) {
+    for (std::size_t object_id = 0; object_id < object_count; ++object_id) {
         const ObjectHeaders headers{ .group_id = 0,
                                      .object_id = object_id,
                                      .subgroup_id = 0,
@@ -2249,5 +2249,5 @@ TEST_CASE("Integration - Stream data is delivered before its FIN callback")
     REQUIRE(WaitFor([&subscribe_handler] {
         return subscribe_handler->GetReceivedCountAtClose() != CloseOrderingSubscribeHandler::kNotClosed;
     }));
-    CHECK_EQ(subscribe_handler->GetReceivedCountAtClose(), kObjectCount);
+    CHECK_EQ(subscribe_handler->GetReceivedCountAtClose(), object_count);
 }
