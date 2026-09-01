@@ -52,7 +52,10 @@ namespace quicr {
 
     void Connection::SetDelegate(const std::shared_ptr<Delegate>& delegate)
     {
-        delegate_ = delegate;
+        {
+            std::lock_guard lock(delegate_mutex_);
+            delegate_ = delegate;
+        }
 
         if (delegate && status_ != Status::kConnecting) {
             // Replay the current status in case transport notifications were delivered
@@ -61,16 +64,22 @@ namespace quicr {
         }
     }
 
+    std::shared_ptr<Connection::Delegate> Connection::GetDelegate() const
+    {
+        std::lock_guard lock(delegate_mutex_);
+        return delegate_.lock();
+    }
+
     void Connection::OnStatusChanged(Status status)
     {
-        if (auto delegate = delegate_.lock()) {
+        if (auto delegate = GetDelegate()) {
             delegate->OnConnectionStatus(status);
         }
     }
 
     void Connection::OnRecvDgram()
     {
-        if (auto delegate = delegate_.lock()) {
+        if (auto delegate = GetDelegate()) {
             delegate->OnRecvDgram();
         }
     }
@@ -80,7 +89,7 @@ namespace quicr {
                                   const std::shared_ptr<Stream>& stream,
                                   bool is_bidir)
     {
-        if (auto delegate = delegate_.lock()) {
+        if (auto delegate = GetDelegate()) {
             delegate->OnRecvStream(stream_id, rx_ctx, stream, is_bidir);
         }
     }
@@ -89,7 +98,7 @@ namespace quicr {
                                     std::shared_ptr<StreamRxContext> rx_ctx,
                                     StreamClosedFlag flag)
     {
-        if (auto delegate = delegate_.lock()) {
+        if (auto delegate = GetDelegate()) {
             delegate->OnStreamClosed(stream_id, std::move(rx_ctx), flag);
         }
     }
