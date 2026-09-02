@@ -191,6 +191,22 @@ namespace quicr {
         virtual void StatusChanged(const std::shared_ptr<Session>& session, Status status);
 
         /**
+         * @brief Notification callback to provide sampled connection metrics
+         *
+         * @details Invoked every `Config::metrics_sample_ms` in either client or server mode. The period based
+         *      metrics reset after this callback, so a value not read here is lost. Per track metrics for the same
+         *      period follow this call, via `PublishTrackHandler::MetricsSampled` and
+         *      `SubscribeTrackHandler::MetricsSampled`, sharing the same `last_sample_time`.
+         *
+         *      Invoked on the transport notify thread, which also carries stream and connection events. Return
+         *      promptly; a slow implementation backs the queue up and other notifications are dropped to make room.
+         *
+         * @param session          The session the metrics belong to
+         * @param metrics          Copy of the connection metrics for the sample period
+         */
+        virtual void MetricsSampled(const std::shared_ptr<Session>& session, const ConnectionMetrics& metrics);
+
+        /**
          * @brief Callback notification for new publish received
          *
          * @details The app must call `ResolvePublish()` with a reason code of OK to accept, or another reason code

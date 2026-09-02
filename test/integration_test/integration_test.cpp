@@ -161,7 +161,8 @@ static std::shared_ptr<TestServer>
 MakeTestServer(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
                std::optional<std::size_t> max_connections = std::nullopt,
-               std::optional<std::uint64_t> initial_max_stream_data = std::nullopt)
+               std::optional<std::uint64_t> initial_max_stream_data = std::nullopt,
+               std::optional<std::uint64_t> metrics_sample_ms = std::nullopt)
 {
     // Run the server.
     ServerConfig server_config;
@@ -180,6 +181,9 @@ MakeTestServer(quicr::SessionManager& session_mgr,
     }
     if (initial_max_stream_data.has_value()) {
         server_config.transport_config.initial_max_stream_data = *initial_max_stream_data;
+    }
+    if (metrics_sample_ms.has_value()) {
+        server_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
     }
 
     // The same callbacks instance is used by every session accepted on this listening
@@ -512,6 +516,34 @@ TEST_CASE("Integration - Subscribe metrics report received payload")
         CAPTURE("WebTransport");
         test_metrics("https");
     }
+}
+
+TEST_CASE("Integration - Connection metrics reach the server callbacks")
+{
+    SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, kMetricsTestIntervalMs);
+
+    std::promise<TestServer::ConnectionMetricsDetails> metrics_promise;
+    auto metrics_future = metrics_promise.get_future();
+    server->SetConnectionMetricsPromise(std::move(metrics_promise));
+
+    auto [first, _] = MakeTestClient(session_mgr);
+
+    REQUIRE_EQ(metrics_future.wait_for(kMetricsTestTimeout), std::future_status::ready);
+    const auto sample = metrics_future.get();
+
+    // Server mode delivers to the callbacks object, so a relay reads connection metrics without
+    // deriving from Session.
+    CHECK_NE(sample.session, nullptr);
+    CHECK_GT(sample.metrics.last_sample_time, 0);
+
+    // An established connection has round trip samples, so the sample carries real values.
+    CHECK_GT(sample.metrics.quic.srtt_us.value_count, 0);
+
+    // One callbacks instance serves every session on the listening transport, and each sample names
+    // its own session, which is how a relay tells connections apart.
+    auto [second, __] = MakeTestClient(session_mgr);
+    REQUIRE(WaitFor([&server]() { return server->GetMetricsReportingSessionCount() >= 2; }));
 }
 
 TEST_CASE("Integration - Publish metrics report transmitted objects")

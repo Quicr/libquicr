@@ -10,6 +10,7 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -156,6 +157,26 @@ namespace quicr_test {
             quicr::JoiningFetchAttributes attributes;
         };
 
+        struct ConnectionMetricsDetails
+        {
+            /// The session the sample came from, so a relay can key metrics per connection.
+            std::shared_ptr<quicr::Session> session;
+            quicr::ConnectionMetrics metrics;
+        };
+
+        void SetConnectionMetricsPromise(std::promise<ConnectionMetricsDetails> promise)
+        {
+            std::lock_guard lock(state_mutex_);
+            connection_metrics_promise_ = std::move(promise);
+        }
+
+        /// @returns Number of distinct sessions that have reported connection metrics.
+        std::size_t GetMetricsReportingSessionCount() const
+        {
+            std::lock_guard lock(state_mutex_);
+            return metrics_reporting_sessions_.size();
+        }
+
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
@@ -240,6 +261,17 @@ namespace quicr_test {
         {
             std::lock_guard lock(state_mutex_);
             closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
+        }
+
+        void MetricsSampled(const std::shared_ptr<quicr::Session>& session,
+                            const quicr::ConnectionMetrics& metrics) override
+        {
+            std::lock_guard lock(state_mutex_);
+            metrics_reporting_sessions_.insert(session.get());
+            if (connection_metrics_promise_.has_value()) {
+                connection_metrics_promise_->set_value({ session, metrics });
+                connection_metrics_promise_.reset();
+            }
         }
 
         quicr::Reply<void, quicr::PublishNamespaceErrorCode> PublishNamespaceDoneReceived(
@@ -328,6 +360,8 @@ namespace quicr_test {
         std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
         std::optional<std::promise<JoiningFetchDetails>> joining_fetch_promise_;
         std::optional<std::promise<uint64_t>> publish_namespace_done_promise_;
+        std::optional<std::promise<ConnectionMetricsDetails>> connection_metrics_promise_;
+        std::set<const quicr::Session*> metrics_reporting_sessions_;
         std::optional<std::promise<UnsubscribeReceivedDetails>> unsubscribe_received_promise_;
         std::optional<UnsubscribeReceivedDetails::HandlerType> expected_unsubscribe_handler_type_;
         std::map<std::uint64_t, bool> closed_streams_;

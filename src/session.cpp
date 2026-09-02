@@ -2016,7 +2016,11 @@ namespace quicr {
         conn->metrics.last_sample_time = sample_time.time_since_epoch() / std::chrono::microseconds(1);
         conn->metrics.quic = quic_connection_metrics;
 
-        MetricsSampled(conn->metrics);
+        if (callbacks_) {
+            if (auto self = weak_from_this().lock()) {
+                callbacks_->MetricsSampled(self, conn->metrics);
+            }
+        }
 
         // The connection sample closes the period, so every handler's counters are final by now.
         // Handlers are sampled whether or not any of their streams reported, so a track that was idle
@@ -2188,10 +2192,6 @@ namespace quicr {
 
         return tx_ctrl_stream_;
     }
-
-    // -- Client Callbacks --
-
-    void Session::MetricsSampled(const ConnectionMetrics&) {}
 
     // -- Server Relay Methods --
 

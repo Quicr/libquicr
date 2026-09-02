@@ -414,32 +414,6 @@ namespace quicr {
         ///@}
         // --END SERVER RELAY METHODS ------------------------------------------------------------------------
 
-        // --BEGIN CALLBACKS ---------------------------------------------------------------------------------
-        /** @name Client Callbacks
-         *      Callbacks invoked in client mode unless noted otherwise.
-         */
-        ///@{
-
-        /**
-         * @brief Notification callback to provide sampled metrics
-         *
-         * @details Client mode only. Callback will be triggered on `Config::metrics_sample_ms` to provide the
-         *      sampled data based on the sample period. After this callback, the period/sample based metrics will
-         *      reset and start over for the new period.
-         *
-         * @param metrics Copy of the connection metrics for the sample period
-         */
-        virtual void MetricsSampled(const ConnectionMetrics& metrics);
-
-        ///@}
-
-        /** @name Server Callbacks
-         *      Callbacks invoked in server mode unless noted otherwise.
-         */
-        ///@{
-
-        // --END CALLBACKS -----------------------------------------------------------------------------------
-
       protected:
         Session() = delete;
 

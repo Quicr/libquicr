@@ -9,6 +9,8 @@ namespace quicr {
 
     void Session::Callbacks::StatusChanged(const std::shared_ptr<Session>&, Status) {}
 
+    void Session::Callbacks::MetricsSampled(const std::shared_ptr<Session>&, const ConnectionMetrics&) {}
+
     Reply<const PublishResponse, PublishErrorCode> Session::Callbacks::PublishReceived(
       const std::shared_ptr<Session>&,
       std::uint64_t,
