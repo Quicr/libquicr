@@ -171,14 +171,6 @@ namespace quicr {
 
         transport->OnConnectionClosed = on_connection_closed_;
 
-        std::shared_ptr<Transport> transport_ptr;
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            auto [transport_it, _] =
-              transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
-            transport_ptr = transport_it->second;
-        }
-
         std::unique_lock lock(mutex_);
         std::condition_variable cv;
 
@@ -188,6 +180,7 @@ namespace quicr {
 
             {
                 std::lock_guard _(mutex_);
+                transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
                 sessions_[connection->GetID()] = std::move(session);
             }
 
@@ -196,10 +189,16 @@ namespace quicr {
 
         auto connection = transport->Start();
         if (!connection) {
+            transport->Shutdown();
             return {};
         }
 
-        cv.wait(lock, [this, id = connection->GetID()] { return sessions_.contains(id); });
+        if (!cv.wait_for(lock,
+                         std::chrono::milliseconds(config.transport_config.idle_timeout_ms),
+                         [this, id = connection->GetID()] { return sessions_.contains(id); })) {
+            transport->Shutdown();
+            return {};
+        }
 
         transport->OnNewConnection = nullptr;
 
