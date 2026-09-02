@@ -27,6 +27,7 @@
 #include <timeq/time_queue.h>
 #include <tls_api.h>
 
+#include <algorithm>
 #include <arpa/inet.h>
 #include <cassert>
 #include <chrono>
@@ -1354,7 +1355,10 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
             break;
     }
 
-    if (not is_server_mode) {
+    // Closing a client's only connection ends the transport, but during shutdown the status is set
+    // once teardown is done. Setting it here would stop the packet loop on its next wake up, which is
+    // exactly when the CONNECTION_CLOSE queued below still needs to be sent.
+    if (not is_server_mode && not stop_) {
         SetStatus(TransportStatus::kShutdown);
     }
 
@@ -2494,6 +2498,16 @@ PicoQuicTransport::Shutdown()
 
     stop_ = true;
 
+    const bool drain = tconfig_.shutdown_drain_timeout_ms > 0;
+    const auto drain_deadline =
+      std::chrono::steady_clock::now() + std::chrono::milliseconds(tconfig_.shutdown_drain_timeout_ms);
+
+    // Give picoquic the bytes still sitting in the send queues. Closing a connection drops whatever
+    // is left, so without this the last messages an application queued never reach the wire.
+    if (drain && !WaitOnPqThreads(drain_deadline, [this](Shard& shard) { return !ShardHasPendingTx(shard); })) {
+        QUICR_LOGGER_WARN(logger, "Timed out draining queued data on shutdown, discarding the remainder");
+    }
+
     std::vector<std::shared_ptr<Connection>> connections_to_close;
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
@@ -2506,6 +2520,13 @@ PicoQuicTransport::Shutdown()
 
     for (const auto& connection : connections_to_close) {
         Close(connection, AppReasonForClose::kShutdown);
+    }
+
+    // picoquic_close only marks the connection; the loop has to run once more to put CONNECTION_CLOSE
+    // on the wire, and deleting the network thread below does not flush. Leaving without it means the
+    // peer hears nothing and waits out its idle timeout instead.
+    if (drain && !WaitOnPqThreads(drain_deadline, [this](Shard& shard) { return ShardClosesSent(shard); })) {
+        QUICR_LOGGER_WARN(logger, "Timed out sending connection close on shutdown, peer will idle timeout");
     }
 
     for (auto& shard : shards_) {
@@ -2839,6 +2860,113 @@ PicoQuicTransport::RunPqFunction(std::size_t shard_idx, std::function<int()>&& f
     if (should_wake) {
         picoquic_wake_up_network_thread(shard.quic_network_thread_ctx);
     }
+}
+
+bool
+PicoQuicTransport::ShardLoopRunning(const Shard& shard) const
+{
+    // picoquic raises this when the loop starts and lowers it on every exit path, so it covers loops
+    // that stopped on their own as well as ones we stopped.
+    return shard.quic_network_thread_ctx != nullptr && shard.quic_network_thread_ctx->thread_is_ready;
+}
+
+std::optional<bool>
+PicoQuicTransport::AskPqThread(Shard& shard,
+                               const std::chrono::steady_clock::time_point deadline,
+                               std::function<bool(Shard&)> question)
+{
+    // Work posted to a stopped loop is never picked up, so its answer would never arrive.
+    if (!ShardLoopRunning(shard)) {
+        return std::nullopt;
+    }
+
+    auto answer = std::make_shared<std::promise<bool>>();
+    auto future = answer->get_future();
+
+    RunPqFunction(shard.index, [&shard, answer, question = std::move(question)]() {
+        answer->set_value(question(shard));
+        return 0;
+    });
+
+    // Waiting in slices bounds a loop that stops after the check above to one interval.
+    while (future.wait_for(kPqDrainPollInterval) != std::future_status::ready) {
+        if (!ShardLoopRunning(shard) || std::chrono::steady_clock::now() >= deadline) {
+            return std::nullopt;
+        }
+    }
+
+    return future.get();
+}
+
+bool
+PicoQuicTransport::WaitOnPqThreads(const std::chrono::steady_clock::time_point deadline,
+                                   std::function<bool(Shard&)> satisfied)
+{
+    while (std::chrono::steady_clock::now() < deadline) {
+        // A loop that has stopped will not make further progress, so there is nothing left to wait
+        // on and it counts as satisfied.
+        const bool all_satisfied = std::all_of(shards_.begin(), shards_.end(), [&](const auto& shard) {
+            return AskPqThread(*shard, deadline, satisfied).value_or(true);
+        });
+
+        if (all_satisfied) {
+            return true;
+        }
+
+        std::this_thread::sleep_for(kPqDrainPollInterval);
+    }
+
+    return false;
+}
+
+bool
+PicoQuicTransport::ShardHasPendingTx(Shard& shard)
+{
+    std::lock_guard<std::mutex> lock(state_mutex_);
+
+    for (const auto& [_, connection] : connections_) {
+        const auto conn = std::static_pointer_cast<PicoQuicConnection>(connection);
+        if (conn->shard_idx != shard.index) {
+            continue;
+        }
+
+        if (conn->dgram_tx_data) {
+            std::lock_guard __(*conn->dgram_tx_data);
+            if (!conn->dgram_tx_data->Empty()) {
+                return true;
+            }
+        }
+
+        for (const auto& stream : conn->GetStreams()) {
+            // Set while an object is being handed to picoquic in pieces, so the stream is mid-write.
+            if (stream->tx_object != nullptr) {
+                return true;
+            }
+
+            if (stream->tx_data) {
+                std::lock_guard __(*stream->tx_data);
+                if (!stream->tx_data->Empty()) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+bool
+PicoQuicTransport::ShardClosesSent(Shard& shard)
+{
+    // picoquic_close leaves the connection here until the loop gets a chance to send the frame.
+    for (picoquic_cnx_t* cnx = picoquic_get_first_cnx(shard.quic_ctx); cnx != nullptr;
+         cnx = picoquic_get_next_cnx(cnx)) {
+        if (picoquic_get_cnx_state(cnx) == picoquic_state_disconnecting) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void

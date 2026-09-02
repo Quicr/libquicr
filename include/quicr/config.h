@@ -34,6 +34,11 @@ namespace quicr {
         uint64_t metrics_sample_ms{ 5000 };          ///< Metrics sampling interval in milliseconds
         uint64_t initial_max_stream_data{ 0 };       ///< Initial per-stream receive window (all streams). 0=default.
         std::size_t quic_shards{ 1 };                ///< Number of picoquic instances to use (server mode).
+
+        /// Time shutdown spends flushing queued data and sending CONNECTION_CLOSE before tearing the
+        /// transport down. Whatever is still queued when it expires is discarded, which leaves the peer
+        /// to notice the connection has gone by idle timeout. 0 tears down immediately.
+        uint64_t shutdown_drain_timeout_ms{ 500 };
     };
 
     struct Config

@@ -43,6 +43,9 @@ namespace quicr {
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
     constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
 
+    /// How often shutdown re-asks a packet loop whether it has finished draining
+    constexpr auto kPqDrainPollInterval = std::chrono::milliseconds(5);
+
     /**
      * Minimum bytes needed to write before considering to send. This doesn't
      */
@@ -307,6 +310,40 @@ namespace quicr {
          *      because a queued datagram mark has no equivalent guard.
          */
         void ProcessMarkActive(Shard& shard);
+
+        /**
+         * @brief Evaluate a question on a shard's picoquic thread and wait for the answer
+         *
+         * @param deadline  When to give up
+         * @param question  Predicate to evaluate, run on the shard's picoquic thread
+         *
+         * @returns The answer, or nullopt if the loop stopped or the deadline passed first
+         */
+        std::optional<bool> AskPqThread(Shard& shard,
+                                        std::chrono::steady_clock::time_point deadline,
+                                        std::function<bool(Shard&)> question);
+
+        /**
+         * @brief Poll a condition on every shard's picoquic thread until it holds or time runs out
+         *
+         * @details Each poll wakes the shard's thread, which is what lets picoquic make progress
+         *      while shutdown waits. Returns no later than the deadline.
+         *
+         * @param deadline  When to give up
+         * @param satisfied Condition to evaluate, run on the shard's picoquic thread
+         *
+         * @returns True if the condition held on every shard before the deadline
+         */
+        bool WaitOnPqThreads(std::chrono::steady_clock::time_point deadline, std::function<bool(Shard&)> satisfied);
+
+        /// @returns True while the shard's picoquic packet loop is running and able to answer requests.
+        bool ShardLoopRunning(const Shard& shard) const;
+
+        /// @returns True if a connection on this shard still holds unsent stream or datagram data.
+        bool ShardHasPendingTx(Shard& shard);
+
+        /// @returns True if every closing connection on this shard has put its CONNECTION_CLOSE on the wire.
+        bool ShardClosesSent(Shard& shard);
 
       public:
         std::shared_ptr<Logger> logger;

@@ -546,6 +546,97 @@ TEST_CASE("Integration - Connection metrics reach the server callbacks")
     REQUIRE(WaitFor([&server]() { return server->GetMetricsReportingSessionCount() >= 2; }));
 }
 
+/// @brief Session manager callbacks that report when a session is removed
+class TestSessionWatcher : public SessionManager::Callbacks
+{
+  public:
+    std::future<void> ExpectSessionRemoved()
+    {
+        std::lock_guard lock(mutex_);
+        std::promise<void> promise;
+        auto future = promise.get_future();
+        removed_promise_ = std::move(promise);
+        return future;
+    }
+
+    void OnSessionRemoved(const std::shared_ptr<Session>&) override
+    {
+        std::lock_guard lock(mutex_);
+        if (removed_promise_.has_value()) {
+            removed_promise_->set_value();
+            removed_promise_.reset();
+        }
+    }
+
+  private:
+    std::mutex mutex_;
+    std::optional<std::promise<void>> removed_promise_;
+};
+
+TEST_CASE("Integration - Shutdown closes the connection rather than leaving the peer to time out")
+{
+    auto watcher = std::make_shared<TestSessionWatcher>();
+    SessionManager server_mgr(watcher);
+    auto server = MakeTestServer(server_mgr);
+
+    auto removed = watcher->ExpectSessionRemoved();
+
+    auto client_mgr = std::make_unique<SessionManager>();
+    auto [client, _] = MakeTestClient(*client_mgr);
+    REQUIRE_EQ(client->GetStatus(), Session::Status::kReady);
+
+    // Destroying the manager is the only teardown; the application never calls Disconnect.
+    const auto started = std::chrono::steady_clock::now();
+    client_mgr.reset();
+    const auto teardown = std::chrono::steady_clock::now() - started;
+
+    // Shutdown puts CONNECTION_CLOSE on the wire, so the server sees the session end now instead of
+    // when its 30 second idle timeout expires.
+    REQUIRE_EQ(removed.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+
+    // Draining is bounded, and an idle connection has nothing to flush, so teardown must not sit out
+    // the whole deadline.
+    CHECK_LT(std::chrono::duration_cast<std::chrono::milliseconds>(teardown).count(),
+             static_cast<std::int64_t>(TransportConfig{}.shutdown_drain_timeout_ms));
+}
+
+TEST_CASE("Integration - Shutdown flushes objects queued just before teardown")
+{
+    SessionManager server_mgr;
+    auto server = MakeTestServer(server_mgr);
+
+    auto client_mgr = std::make_unique<SessionManager>();
+    auto [client, _] = MakeTestClient(*client_mgr);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "shutdown", "drain" }), { 1 } };
+    auto publish_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 3, 5000, [](const auto&) {});
+    client->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
+
+    const std::vector<std::uint8_t> payload(1024, 0x5a);
+    for (std::uint64_t i = 0; i < 10; i++) {
+        const ObjectHeaders headers{ .group_id = 0,
+                                     .object_id = i,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 5000,
+                                     .track_mode = TrackMode::kStream };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+    }
+
+    // Tear down immediately, while the objects above are still queued in the transport.
+    const auto started = std::chrono::steady_clock::now();
+    client_mgr.reset();
+    const auto teardown = std::chrono::steady_clock::now() - started;
+
+    // The queue is handed to picoquic before the connection closes, so this completes well inside the
+    // deadline rather than expiring against it.
+    CHECK_LT(std::chrono::duration_cast<std::chrono::milliseconds>(teardown).count(),
+             static_cast<std::int64_t>(TransportConfig{}.shutdown_drain_timeout_ms));
+}
+
 TEST_CASE("Integration - Publish metrics report transmitted objects")
 {
     SessionManager session_mgr;
