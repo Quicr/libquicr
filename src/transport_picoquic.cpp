@@ -1375,7 +1375,7 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
     lock.unlock();
 
     if (OnConnectionClosed) {
-        OnConnectionClosed(connection);
+        cbNotifyQueue_.Push([=, this] { OnConnectionClosed(connection); });
     }
 }
 
