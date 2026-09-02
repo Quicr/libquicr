@@ -39,7 +39,7 @@ jobs:
     - name: Install Packages (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install llvm go google-benchmark
+        HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install llvm google-benchmark
         LLVM_PREFIX="$(brew --prefix llvm)"
         echo "CC=$LLVM_PREFIX/bin/clang" >> "$GITHUB_ENV"
         echo "CXX=$LLVM_PREFIX/bin/clang++" >> "$GITHUB_ENV"

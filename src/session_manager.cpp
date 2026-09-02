@@ -98,9 +98,9 @@ namespace quicr {
         }
     }
 
-    void SessionManager::Callbacks::OnNewServerSession(const std::shared_ptr<Session>& new_session) {}
+    void SessionManager::Callbacks::OnNewServerSession(const std::shared_ptr<Session>&) {}
 
-    void SessionManager::Callbacks::OnSessionRemoved(const std::shared_ptr<Session>& session) {}
+    void SessionManager::Callbacks::OnSessionRemoved(const std::shared_ptr<Session>&) {}
 
     SessionManager::SessionManager(std::shared_ptr<Logger> logger)
       : SessionManager(std::make_shared<Callbacks>(),
@@ -179,18 +179,31 @@ namespace quicr {
             transport_ptr = transport_it->second;
         }
 
+        std::unique_lock lock(mutex_);
+        std::condition_variable cv;
+
+        transport->OnNewConnection = [&](const auto& connection) {
+            auto session = Session::Create(config, transport, connection, std::move(callbacks), tick_service_, logger_);
+            connection->SetDelegate(session);
+
+            {
+                std::lock_guard _(mutex_);
+                sessions_[connection->GetID()] = std::move(session);
+            }
+
+            cv.notify_all();
+        };
+
         auto connection = transport->Start();
         if (!connection) {
             return {};
         }
 
-        auto session = Session::Create(config, transport, connection, std::move(callbacks), tick_service_, logger_);
+        cv.wait(lock, [this, id = connection->GetID()] { return sessions_.contains(id); });
 
-        connection->SetDelegate(session);
+        transport->OnNewConnection = nullptr;
 
-        std::lock_guard lock(mutex_);
-
-        return { sessions_[connection->GetID()] = session };
+        return sessions_.at(connection->GetID());
     }
 
     void SessionManager::AddTransport(const ServerConfig& config, std::shared_ptr<Session::ServerCallbacks> callbacks)

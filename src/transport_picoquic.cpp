@@ -1816,7 +1816,7 @@ PicoQuicTransport::HandleNewConnection(const std::shared_ptr<PicoQuicConnection>
     }
 
     if (OnNewConnection) {
-        OnNewConnection(connection);
+        cbNotifyQueue_.Push([=, this] { OnNewConnection(connection); });
     }
 }
 
@@ -2439,7 +2439,11 @@ PicoQuicTransport::StartClient()
     if (state->conn_id <= 1) {
         QUICR_LOGGER_DEBUG(logger, "Client connection to {}:{} failed", serverInfo_.host_or_ip, serverInfo_.port);
         SetStatus(TransportStatus::kDisconnected);
-        return 0;
+        return nullptr;
+    }
+
+    if (OnNewConnection) {
+        cbNotifyQueue_.Push([this, connection = state->connection] { OnNewConnection(connection); });
     }
 
     return state->connection;
