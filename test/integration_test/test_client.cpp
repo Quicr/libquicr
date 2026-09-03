@@ -6,7 +6,7 @@
 using namespace quicr;
 using namespace quicr_test;
 
-quicr::Reply<void, int>
+quicr::Reply<void, quicr::ErrorCode>
 TestClient::ServerSetupReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
                                 const ServerSetupAttributes& server_setup_attributes)
 {

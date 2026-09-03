@@ -127,20 +127,6 @@ namespace quicr::messages {
         return buffer;
     }
 
-    Bytes& operator<<(Bytes& buffer, ErrorCode value)
-    {
-        buffer << static_cast<std::uint64_t>(value);
-        return buffer;
-    }
-
-    BytesSpan operator>>(BytesSpan buffer, ErrorCode& value)
-    {
-        std::uint64_t uvalue;
-        buffer = buffer >> uvalue;
-        value = static_cast<ErrorCode>(uvalue);
-        return buffer;
-    }
-
     Bytes& operator<<(Bytes& buffer, const Location& location)
     {
         buffer << UintVar(location.group);

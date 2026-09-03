@@ -79,7 +79,7 @@ quicr::PublishNamespaceHandler::RequestOkReceived(const messages::Parameters& pa
     SetStatus(Status::kOk);
 }
 
-void
+quicr::Reply<quicr::messages::Parameters, quicr::ErrorCode>
 quicr::PublishNamespaceHandler::RequestUpdateReceived(const messages::Parameters&)
 {
     // TODO: See moq-wg #1769.

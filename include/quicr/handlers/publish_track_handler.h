@@ -149,7 +149,7 @@ namespace quicr {
          */
         virtual void MetricsSampled(const PublishTrackMetrics& metrics);
 
-        void RequestUpdateReceived(const messages::Parameters& params) override;
+        Reply<messages::Parameters, ErrorCode> RequestUpdateReceived(const messages::Parameters& params) override;
 
         ///@}
 

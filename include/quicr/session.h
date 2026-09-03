@@ -7,6 +7,7 @@
 #include "quicr/config.h"
 #include "quicr/connection.h"
 #include "quicr/containers/stream_buffer.h"
+#include "quicr/errors.h"
 #include "quicr/handlers/fetch_track_handler.h"
 #include "quicr/handlers/publish_fetch_handler.h"
 #include "quicr/handlers/publish_namespace_handler.h"
@@ -138,18 +139,6 @@ namespace quicr {
             TrackHash track_hash{ 0, 0 };
             std::optional<messages::Location> largest_location{ std::nullopt };
             std::shared_ptr<Stream> stream;
-        };
-
-        struct RequestUpdateResponse
-        {
-            struct Error
-            {
-                const messages::ErrorCode error_code;
-                const std::chrono::milliseconds retry_interval;
-                const std::string reason;
-            };
-            const std::optional<Error> error;
-            const messages::Parameters params;
         };
 
       public:
@@ -303,65 +292,6 @@ namespace quicr {
         std::uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
                                          const SubscribeAttributes& subscribe_attributes);
 
-        // --BEGIN RESOLVE METHODS ---------------------------------------------------------------------------
-        /** @name Resolve Methods
-         *      Methods to accept or reject inbound requests. Most are used in server mode; `ResolveSubscribe()`
-         *      is also used when acting as a publisher in client mode.
-         */
-        ///@{
-
-        /**
-         * @brief Accept or reject a subscribe that was received
-         *
-         * @details Accept or reject a subscribe received via `SubscribeReceived()` (server mode) or when acting
-         *      as a publisher in client mode. The MoQ transport will send the protocol message based on the
-         *      `RequestResponse`.
-         *
-         * @param request_id         Request ID
-         * @param track_alias        Track alias the subscriber should use
-         * @param subscribe_response Response for the subscribe
-         */
-        void ResolveSubscribe(uint64_t request_id, uint64_t track_alias, const RequestResponse& subscribe_response);
-
-        /**
-         * @brief Accept or reject a fetch that was received
-         *
-         * @details Accept or reject a fetch received via `StandaloneFetchReceived()` or
-         *      `JoiningFetchReceived()`.
-         *
-         * @param request_id        Request ID
-         * @param priority          Subscriber priority for the fetch response
-         * @param group_order       Optional group order for the fetch response
-         * @param response          Response to the fetch
-         */
-        void ResolveFetch(uint64_t request_id,
-                          std::optional<messages::GroupOrder> group_order,
-                          const FetchResponse& response);
-
-        /**
-         * @brief Accept or reject a request update
-         *
-         * @param request_id            Request being updated
-         * @param response              Request update response
-         */
-        void ResolveRequestUpdate(uint64_t request_id, const RequestUpdateResponse& response);
-
-        /**
-         * @brief Accept or reject track status that was received
-         *
-         * @details Accept or reject track status received via TrackStatusReceived(). The MoQ Transport
-         *      will send the protocol message based on the RequestResponse. Per MOQT draft-14,
-         *      track status request, ok, and error are the same as subscribe
-         *
-         * @param request_id               Request ID that was provided by TrackStatusReceived
-         * @param subscribe_response       Response to the track status request, either Ok or Error.
-         *                                 Largest loation should be set if kOk and there is content
-         */
-        void ResolveTrackStatus(uint64_t request_id, const RequestResponse& subscribe_response);
-
-        ///@}
-        // --END RESOLVE METHODS -----------------------------------------------------------------------------
-
         // --BEGIN SERVER RELAY METHODS ----------------------------------------------------------------------
         /** @name Server Relay Methods
          *      Methods for relaying published content to subscribers. Server mode only.
@@ -423,9 +353,7 @@ namespace quicr {
          * @param cfg MoQ Client Configuration
          */
         Session(const ClientConfig& cfg,
-
                 std::shared_ptr<Transport> transport,
-
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ClientCallbacks> callbacks,
                 std::shared_ptr<Logger> logger)
@@ -444,9 +372,7 @@ namespace quicr {
          * @param cfg MoQ Server Configuration
          */
         Session(const ServerConfig& cfg,
-
                 std::shared_ptr<Transport> transport,
-
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ServerCallbacks> callbacks,
                 std::shared_ptr<Logger> logger)
@@ -573,7 +499,7 @@ namespace quicr {
 
         void SendRequestError(const std::shared_ptr<Stream>& stream,
                               std::uint64_t request_id,
-                              messages::ErrorCode error,
+                              ErrorCode error,
                               std::chrono::milliseconds retry_interval,
                               const std::string& reason);
 
@@ -645,6 +571,10 @@ namespace quicr {
         /*===================================================================*/
         // Fetch
         /*===================================================================*/
+
+        void ResolveFetch(uint64_t request_id,
+                          std::optional<messages::GroupOrder> group_order,
+                          const FetchResponse& response);
 
         void SendFetch(const std::shared_ptr<Stream>& stream,
                        std::uint64_t request_id,

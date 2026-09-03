@@ -8,8 +8,8 @@
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/safe_time_queue.h"
 #include "quicr/metrics.h"
-#include "quicr/stream.h"
 #include "quicr/transport.h"
+#include "stream.h"
 
 #include <pico_webtransport.h>
 #include <picoquic.h>

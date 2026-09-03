@@ -215,7 +215,7 @@ class BridgeClient : public quicr::Session::ClientCallbacks
         }
     }
 
-    quicr::Reply<void, int> ServerSetupReceived(
+    quicr::Reply<void, quicr::ErrorCode> ServerSetupReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       [[maybe_unused]] const quicr::ServerSetupAttributes& server_setup_attributes) override
     {

@@ -4,9 +4,10 @@
 #pragma once
 
 #include "quicr/attributes.h"
+#include "quicr/errors.h"
 #include "quicr/messages/messages.h"
 #include "quicr/messages/parameters.h"
-#include "quicr/stream.h"
+#include "quicr/reply.h"
 #include "quicr/track_name.h"
 #include "quicr/utilities/thread_safety.h"
 
@@ -20,6 +21,9 @@
 namespace quicr {
     class Session;
 
+    /// Defined internally to the library; handles are opaque here.
+    class Stream;
+
     /**
      * @brief MoQ track base handler for tracks (subscribe/publish)
      *
@@ -29,6 +33,10 @@ namespace quicr {
     {
       public:
         friend class Session;
+
+        /// Sends its own request updates, so it reaches the request stream directly. Friendship does not
+        /// reach an application's subclass of it, which is the point.
+        friend class SubscribeTrackHandler;
 
         virtual ~TrackHandler() = default;
 
@@ -84,42 +92,10 @@ namespace quicr {
         std::optional<uint64_t> GetRequestId() const noexcept { return request_id_; }
 
         /**
-         * @brief Set the bidir request control stream.
-         * @param request_stream Handle to the request stream.
-         */
-        void SetRequestStream(const std::shared_ptr<Stream>& request_stream)
-        {
-            std::lock_guard lock(request_stream_mutex_);
-            request_stream_ = request_stream;
-        }
-
-        /**
-         * @brief Get the request control stream.
-         *
-         * @details Returns an owning handle, which keeps the stream alive for as long as the caller
-         *      holds it. Hold the result for the duration of an operation rather than calling this
-         *      repeatedly, so a null check and the use that follows cannot disagree.
-         *
-         * @return Handle to the request stream, or nullptr if unset.
-         */
-        std::shared_ptr<Stream> GetRequestStream() const
-        {
-            std::lock_guard lock(request_stream_mutex_);
-            return request_stream_;
-        }
-
-        /**
          * @brief Get the stream ID of the request control stream.
          * @return Request stream's ID, or nullopt if unset.
          */
-        std::optional<uint64_t> GetRequestStreamId() const
-        {
-            std::lock_guard lock(request_stream_mutex_);
-            if (request_stream_ == nullptr) {
-                return std::nullopt;
-            }
-            return request_stream_->GetStreamId();
-        }
+        std::optional<uint64_t> GetRequestStreamId() const;
 
         /**
          * @brief Get the full track name
@@ -137,12 +113,15 @@ namespace quicr {
 
         /**
          * @brief Received an update for this handler's request.
-         * Implementations MUST call ResolveRequestUpdate to acknowledge the request.
+         *
+         * @details The session acknowledges the request with the returned reply, sending REQUEST_UPDATE_OK with the
+         *      reply's parameters and REQUEST_ERROR for a reason code.
+         *
          * @param params The updated/new parameters for the request.
          */
-        virtual void RequestUpdateReceived(const messages::Parameters& params) = 0;
+        virtual Reply<messages::Parameters, ErrorCode> RequestUpdateReceived(const messages::Parameters& params) = 0;
 
-        virtual void RequestError(messages::ErrorCode error_code, std::string reason);
+        virtual void RequestError(ErrorCode error_code, std::string reason);
 
       protected:
         /**
@@ -169,6 +148,31 @@ namespace quicr {
          * @details The MOQ Handler sets the connection ID
          */
         void SetConnectionId(uint64_t connection_id) { connection_id_ = connection_id; };
+
+        /**
+         * @brief Set the bidir request control stream.
+         * @param request_stream Handle to the request stream.
+         */
+        void SetRequestStream(const std::shared_ptr<Stream>& request_stream)
+        {
+            std::lock_guard lock(request_stream_mutex_);
+            request_stream_ = request_stream;
+        }
+
+        /**
+         * @brief Get the request control stream.
+         *
+         * @details Returns an owning handle, which keeps the stream alive for as long as the caller
+         *      holds it. Hold the result for the duration of an operation rather than calling this
+         *      repeatedly, so a null check and the use that follows cannot disagree.
+         *
+         * @return Handle to the request stream, or nullptr if unset.
+         */
+        std::shared_ptr<Stream> GetRequestStream() const
+        {
+            std::lock_guard lock(request_stream_mutex_);
+            return request_stream_;
+        }
 
         // --------------------------------------------------------------------------
         // Member variables

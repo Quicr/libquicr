@@ -80,7 +80,7 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
     return quicr::PublishResponse{ {}, sub_track_handler };
 }
 
-quicr::Reply<void, int>
+quicr::Reply<void, quicr::ErrorCode>
 TestServer::PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
                                 [[maybe_unused]] std::uint64_t request_id)
 {
@@ -315,7 +315,7 @@ TestServer::JoiningFetchReceived(const std::shared_ptr<quicr::Session>& session,
                                                                   "No joining fetch test response configured");
 }
 
-quicr::Reply<void, int>
+quicr::Reply<void, quicr::ErrorCode>
 TestServer::UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session, const uint64_t request_id)
 {
     std::lock_guard lock(state_mutex_);
@@ -330,7 +330,7 @@ TestServer::UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session, 
     return {};
 }
 
-quicr::Reply<void, int>
+quicr::Reply<void, quicr::ErrorCode>
 TestServer::NewGroupRequested(const quicr::FullTrackName& track_full_name, std::uint64_t group_id)
 {
     std::lock_guard lock(state_mutex_);
