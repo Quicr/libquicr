@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "quicr/common.h"
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/messages/ctrl_message_types.h"
 #include "quicr/messages/object.h"

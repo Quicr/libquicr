@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "quicr/common.h"
+#include "quicr/utilities/bytes.h"
 
 #include <cstdint>
 #include <deque>

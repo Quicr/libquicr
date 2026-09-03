@@ -80,7 +80,6 @@ PQ_ConnDataForwarding(benchmark::State& state)
     auto data = std::make_shared<std::vector<uint8_t>>(1000, 0);
 
     cd.conn_id = 1;
-    cd.data_ctx_id = 0xffaabbcc;
     cd.priority = 128;
     cd.tick_microseconds = 0;
     cd.data = data;
