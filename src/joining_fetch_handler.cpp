@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <exception>
-
 #include "quicr/handlers/joining_fetch_handler.h"
 #include "quicr/utilities/format.h"
 
