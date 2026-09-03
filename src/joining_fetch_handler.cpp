@@ -6,6 +6,8 @@
 #include "quicr/handlers/joining_fetch_handler.h"
 #include "quicr/utilities/format.h"
 
+#include <exception>
+
 namespace quicr {
     void JoiningFetchHandler::TryParseStreamBufferData(StreamContext& stream)
     {

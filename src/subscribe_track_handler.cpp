@@ -12,6 +12,8 @@
 #include "quicr/session.h"
 #include "quicr/utilities/format.h"
 
+#include <exception>
+
 namespace quicr {
 
     void SubscribeTrackHandler::SupportNewGroupRequest(bool is_supported) noexcept

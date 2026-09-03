@@ -6,6 +6,8 @@
 #include "quicr/handlers/fetch_track_handler.h"
 #include "quicr/utilities/format.h"
 
+#include <exception>
+
 namespace quicr {
     void FetchTrackHandler::TryParseStreamBufferData(StreamContext& stream)
     {
