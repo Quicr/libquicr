@@ -40,8 +40,8 @@ namespace quicr {
             std::exception_ptr error;
             try {
                 ObjectReceived(resolved->headers, resolved->payload);
-            } catch (const std::exception& e) {
-                error = std::make_exception_ptr(e);
+            } catch (...) {
+                error = std::current_exception();
             }
 
             stream.buffer.ResetAnyB();

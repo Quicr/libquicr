@@ -120,8 +120,8 @@ namespace quicr {
                   std::move(stream_properties));
 
                 *stream.next_object_id += 1;
-            } catch (const std::exception& e) {
-                error = std::make_exception_ptr(e);
+            } catch (...) {
+                error = std::current_exception();
             }
 
             stream.buffer.ResetAnyB();
