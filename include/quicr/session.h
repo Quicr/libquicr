@@ -685,7 +685,7 @@ namespace quicr {
 
         void RemoveAllTracksForConnectionClose();
 
-        uint64_t GetNextRequestID();
+        [[nodiscard]] uint64_t GetNextRequestID();
 
         bool OnRecvSubgroup(std::uint64_t track_alias, StreamRxContext& rx_ctx, std::uint64_t stream_id);
 

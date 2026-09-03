@@ -387,17 +387,18 @@ namespace quicr {
                         .Add(ParameterType::kForward, forward)
                         .AddOptional(ParameterType::kNewGroupRequest, end_group_id);
 
+        const auto update_request_id = GetNextRequestID();
         QUICR_LOGGER_DEBUG(logger_,
-                           "Sending REQUEST_UPDATE to conn_id: {} request_id: {} track namespace hash: {} name "
+                           "Sending REQUEST_UPDATE to conn_id: {} update_request_id: {} track namespace hash: {} name "
                            "hash: {} forward: {} ngr: {}",
                            current_connection_->GetID(),
-                           GetNextRequestID(),
+                           update_request_id,
                            th.track_namespace_hash,
                            th.track_name_hash,
                            forward,
                            end_group_id.has_value());
 
-        SendCtrlMsg(stream, ControlMessageType::kRequestUpdate, UintVar(GetNextRequestID()), params);
+        SendCtrlMsg(stream, ControlMessageType::kRequestUpdate, UintVar(update_request_id), params);
     } catch (const std::exception& e) {
         QUICR_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_UPDATE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
