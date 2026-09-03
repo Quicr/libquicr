@@ -40,9 +40,13 @@ message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
 
 include(CMakeDependentOption)
 
-cmake_dependent_option(QUICR_BUILD_TESTS "Build tests for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
-cmake_dependent_option(QUICR_BUILD_BENCHMARKS "Build benchmarks for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
-cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OFF)
+if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    set(quicr_IS_TOP_LEVEL ON)
+endif()
+
+cmake_dependent_option(QUICR_BUILD_TESTS "Build tests for quicr" ON quicr_IS_TOP_LEVEL OFF)
+cmake_dependent_option(QUICR_BUILD_BENCHMARKS "Build benchmarks for quicr" ON quicr_IS_TOP_LEVEL OFF)
+cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON quicr_IS_TOP_LEVEL OFF)
 
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
@@ -81,11 +85,36 @@ endif()
 
 include(CPM)
 
-set(CPM_USE_LOCAL_PACKAGES ON)
+include(CheckIncludeFileCXX)
+check_include_file_cxx(format HAVE_STD_FORMAT)
+if (HAVE_STD_FORMAT)
+    unset(HAS_STD_VFORMAT CACHE)
+    set(CMAKE_REQUIRED_FLAGS "-std=c++20")
 
-CPMAddPackage("gh:gabime/spdlog@1.17.0")
+    include(CheckCXXSourceCompiles)
+    check_cxx_source_compiles("
+        #include <format>
+        #include <string>
+        int main() {
+            std::string fmt = \"Hello {}\";
+            std::string result = std::vformat(fmt, std::make_format_args(\"World\"));
+            return result.empty() ? 1 : 0;
+        }
+    " HAS_STD_VFORMAT)
+
+    unset(CMAKE_REQUIRED_FLAGS)
+endif()
+
+if (NOT HAS_STD_VFORMAT)
+    message(STATUS "Using fmt::format")
+    CPMAddPackage("gh:fmtlib/fmt#12.2.0")
+else()
+    add_compile_definitions(QUICR_HAVE_STD_FORMAT)
+    message(STATUS "Using std::format")
+endif()
 
 add_subdirectory(dependencies)
+
 
 #=============================================================================#
 # Build the library
@@ -115,7 +144,7 @@ if(BUILD_TESTING)
     endif()
 
     if(QUICR_BUILD_EXAMPLES)
-       add_subdirectory(cmd)
+       add_subdirectory(examples)
     endif()
 endif()
 

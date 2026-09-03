@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/handlers/joining_fetch_handler.h"
-
-#include <spdlog/spdlog.h>
+#include "quicr/utilities/format.h"
 
 namespace quicr {
     void JoiningFetchHandler::TryParseStreamBufferData(StreamContext& stream)
@@ -34,21 +33,18 @@ namespace quicr {
                 continue;
             }
 
-            SPDLOG_TRACE("Received fetch_object subscribe_id: {} priority: {} "
-                         "group_id: {} subgroup_id: {} object_id: {} data size: {}",
-                         *GetSubscribeId(),
-                         *resolved->headers.priority,
-                         resolved->headers.group_id,
-                         resolved->headers.subgroup_id,
-                         resolved->headers.object_id,
-                         resolved->payload.size());
+            std::exception_ptr error;
             try {
                 joining_subscribe_->ObjectReceived(resolved->headers, resolved->payload);
             } catch (const std::exception& e) {
-                SPDLOG_ERROR("Caught exception trying to receive Joining Fetch object. (error={})", e.what());
+                error = std::make_exception_ptr(e);
             }
 
             stream.buffer.ResetAnyB();
+
+            if (error) {
+                std::rethrow_exception(error);
+            }
         }
     }
 }

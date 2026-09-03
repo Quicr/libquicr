@@ -39,7 +39,7 @@ jobs:
     - name: Install Packages (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        brew install llvm go google-benchmark
+        HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install llvm google-benchmark
         LLVM_PREFIX="$(brew --prefix llvm)"
         echo "CC=$LLVM_PREFIX/bin/clang" >> "$GITHUB_ENV"
         echo "CXX=$LLVM_PREFIX/bin/clang++" >> "$GITHUB_ENV"
@@ -64,7 +64,7 @@ jobs:
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j
 
     - name: Upload Build Artifact
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: ${{matrix.os}}-build-output
         path: ${{github.workspace}}/build
@@ -82,7 +82,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Download Build Artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ${{matrix.os}}-build-output
           path: ${{github.workspace}}/build
@@ -105,7 +105,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Download Build Artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ${{matrix.os}}-build-output
           path: ${{github.workspace}}/build

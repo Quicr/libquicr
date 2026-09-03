@@ -3,12 +3,14 @@
 
 #pragma once
 
+#include "picoquic_connection.h"
 #include "quicr/containers/priority_queue.h"
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/safe_time_queue.h"
 #include "quicr/containers/stream_buffer.h"
+#include "quicr/log.h"
+#include "quicr/metrics.h"
 #include "quicr/transport.h"
-#include "quicr/transport_metrics.h"
 
 #include <h3zero.h>
 #include <h3zero_common.h>
@@ -16,7 +18,6 @@
 #include <picoquic.h>
 #include <picoquic_config.h>
 #include <picoquic_packet_loop.h>
-#include <spdlog/spdlog.h>
 #include <timeq/time_queue.h>
 #include <tls_api.h>
 
@@ -39,7 +40,6 @@
 namespace quicr {
 
     constexpr int kPqLoopMaxDelayUs = 5000;           /// The max microseconds that pq_loop will be ran again
-    constexpr int kPqRestWaitMinPriority = 4;         /// Minimum priority value to consider for RESET and WAIT
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
     constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
 
@@ -48,13 +48,7 @@ namespace quicr {
      */
     constexpr int kMinStreamBytesForSend = 2;
 
-    enum class TransportMode
-    {
-        kQuic,        // Raw QUIC transport with moq-00 ALPN
-        kWebTransport // WebTransport over HTTP/3 with h3 ALPN
-    };
-
-    class PicoQuicTransport : public ITransport
+    class PicoQuicTransport : public Transport
     {
       public:
         const char* webtransport_alpn = "h3";
@@ -68,182 +62,16 @@ namespace quicr {
         };
 
         /**
-         * Data context information
-         *  Data context is intended to be a container for metrics and other state that is
-         *  related to a flow of data that may use datagram or one or more stream QUIC frames
+         * @brief A request from another thread to mark a stream active on the picoquic thread
+         *
+         * @details Weak so that queuing a mark cannot keep a torn-down stream or connection alive,
+         *      and so the queue can outlive them. `ProcessMarkActive` drops entries whose stream is
+         *      gone or already closed.
          */
-        struct DataContext
-        {
-          public:
-            DataContext() = default;
-            DataContext(DataContext&& other)
-              : data_ctx_id(other.data_ctx_id)
-              , conn_id(other.conn_id)
-              , is_bidir(other.is_bidir)
-              , uses_reset_wait(other.uses_reset_wait)
-              , delete_on_empty(other.delete_on_empty)
-              , metrics(std::move(other.metrics))
-            {
-            }
-
-            DataContext& operator=(const DataContext&) = delete;
-            DataContext& operator=(DataContext&&) = delete;
-
-            ~DataContext() = default;
-
-          public:
-            std::uint64_t data_ctx_id{ 0 };     /// The ID of this context
-            std::uint64_t conn_id{ 0 };         /// The connection ID this context is under
-            bool is_bidir : 1 { false };        /// Indicates if the stream is bidir (true) or unidir (false)
-            bool uses_reset_wait : 1 { false }; /// Indicates if data context can/uses reset wait strategy
-            bool delete_on_empty{ false };      /// Instructs TX objects to be discarded on POP instead
-
-            QuicDataContextMetrics metrics;
-
-            struct StreamContext
-            {
-                /**
-                 * Reset the TX object buffer
-                 */
-                void ResetTxObject()
-                {
-                    tx_object = nullptr;
-                    tx_object_offset = 0;
-                }
-
-              public:
-                /// Instructs that the stream should be closed upon empty
-                bool close_on_empty : 1 { false };
-
-                /// Instructs to use reset when closing stream
-                bool close_using_reset : 1 { false };
-
-                /// Instructs TX objects to be discarded on POP instead
-                bool tx_reset_wait_discard{ false };
-
-                /// The priority of the stream.
-                uint8_t priority{ 0 };
-
-                /// Pending objects to be written to the network
-                std::unique_ptr<SafeTimeQueue<ConnData>> tx_data;
-
-                /// Current object that is being sent as a byte stream
-                std::shared_ptr<const std::vector<uint8_t>> tx_object;
-
-                /// Pointer offset to next byte to send
-                size_t tx_object_offset{ 0 };
-
-                // The last ticks when TX callback was run
-                uint64_t last_tx_tick{ 0 };
-
-                /// WebTransport stream context (only used in WebTransport mode)
-                h3zero_stream_ctx_t* wt_stream_ctx{ nullptr };
-            };
-
-            std::map<std::uint64_t, StreamContext> streams;
-            std::mutex stream_mutex;
-        };
-
-        /**
-         * Connection context information
-         */
-        struct ConnectionContext
-        {
-            std::uint64_t conn_id{ 0 };       /// This connection ID
-            picoquic_cnx_t* pq_cnx = nullptr; /// Picoquic connection/path context
-            uint64_t last_stream_id{ 0 };     /// last stream Id
-            std::size_t shard_idx{ 0 };       /// Which shard this connection belongs to.
-
-            TransportMode transport_mode{ TransportMode::kQuic }; /// Transport mode for this connection
-
-            std::uint64_t next_data_ctx_id{ 1 }; /// Next data context ID; zero is reserved for default context
-
-            std::shared_ptr<PriorityQueue<ConnData>>
-              dgram_tx_data; /// Datagram pending objects to be written to the network
-
-            struct DgramRxQueue : SafeQueue<std::shared_ptr<const std::vector<uint8_t>>>
-            {
-                std::atomic<bool> notify_pending{ false }; // True if we're waiting to be read.
-            };
-            std::shared_ptr<DgramRxQueue> dgram_rx_data;
-
-            /**
-             * Active stream buffers for received unidirectional streams
-             */
-            struct RxStreamBuffer
-            {
-                std::shared_ptr<StreamRxContext> rx_ctx; /// Stream RX context that holds data and caller info
-                bool closed{ false };                    /// Indicates if stream is active or in closed state
-
-                RxStreamBuffer()
-                  : rx_ctx(std::make_shared<StreamRxContext>())
-                {
-                    rx_ctx->caller_any.reset();
-                    rx_ctx->data_queue.Clear();
-                }
-            };
-
-            std::map<uint64_t, RxStreamBuffer> rx_stream_buffer; /// Map of stream receive buffers, key is stream_id
-
-            /**
-             * Active data contexts (streams bidir/unidir and datagram)
-             */
-            std::map<std::uint64_t, DataContext> active_data_contexts;
-
-            /**
-             * WebTransport stream ID to data context ID mapping
-             * Used in WebTransport mode to look up data context for a stream
-             */
-            std::map<uint64_t, std::uint64_t> wt_stream_to_data_ctx;
-
-            /// WebTransport HTTP/3 context for this connection (only used in WebTransport mode)
-            /// - Server mode: created by h3zero_callback per connection
-            /// - Client mode: created by picowt_prepare_client_cnx per connection
-            h3zero_callback_ctx_t* wt_h3_ctx{ nullptr };
-
-            /// WebTransport control stream context for this connection (only used in WebTransport mode)
-            h3zero_stream_ctx_t* wt_control_stream_ctx{ nullptr };
-
-            /// True if this connection owns the wt_h3_ctx and should free it on cleanup (client mode)
-            /// False for server mode where h3zero manages the h3_ctx lifecycle
-            bool wt_h3_ctx_owned{ false };
-
-            /// Client mode: connection-specific authority (server:port)
-            std::string wt_authority;
-
-            /// WebTransport capsule accumulator for control stream message parsing
-            /// Used to parse CLOSE_WEBTRANSPORT_SESSION and other capsules
-            picowt_capsule_t wt_capsule{};
-
-            char peer_addr_text[45]{ 0 };
-            uint16_t peer_port{ 0 };
-            sockaddr_storage peer_addr;
-
-            // States
-            bool is_congested{ false };
-            uint16_t not_congested_gauge{ 0 }; /// Interval gauge count of consecutive not congested checks
-
-            // Metrics
-            QuicConnectionMetrics metrics;
-
-            ConnectionContext()
-              : dgram_rx_data(std::make_shared<DgramRxQueue>())
-            {
-            }
-
-            ConnectionContext(picoquic_cnx_t* cnx)
-              : ConnectionContext()
-            {
-                pq_cnx = cnx;
-            }
-        };
-
         struct StreamMarkActiveInfo
         {
-            ConnectionContext& conn_ctx;
-            DataContext& data_ctx;
-            std::uint64_t stream_id;
-            DataContext::StreamContext& stream_ctx;
+            std::weak_ptr<PicoQuicConnection> connection;
+            std::weak_ptr<PicoQuicStream> stream;
         };
 
         /// Picoquic instance.
@@ -252,6 +80,9 @@ namespace quicr {
             PicoQuicTransport* transport{ nullptr };
             std::size_t index{ 0 };
 
+            /// Thread id of this shard's picoquic network thread, recorded by PqLoopCb.
+            std::atomic<std::thread::id> thread_id{};
+
             picoquic_quic_t* quic_ctx{ nullptr };
             picoquic_network_thread_ctx_t* quic_network_thread_ctx{ nullptr };
             picoquic_packet_loop_param_t quic_network_thread_params{};
@@ -259,7 +90,7 @@ namespace quicr {
 
             SafeQueue<std::function<int()>> picoquic_runner_queue;
             SafeQueue<StreamMarkActiveInfo> stream_mark_active_queue;
-            SafeQueue<ConnectionContext*> datagram_mark_active_queue;
+            SafeQueue<std::weak_ptr<PicoQuicConnection>> datagram_mark_active_queue;
 
             uint64_t pq_loop_prev_time{ 0 };
             uint64_t pq_loop_metrics_prev_time{ 0 };
@@ -283,83 +114,64 @@ namespace quicr {
             using Exception::Exception;
         };
 
-        static void PicoQuicLogging(const char* message, void* argp)
-        {
-            auto instance = reinterpret_cast<PicoQuicTransport*>(argp);
-            if (!instance->stop_ && instance->logger) {
-                instance->logger->info(message);
-            }
-        }
-
       public:
         /**
          * @brief Constructor for PicoQuicTransport
          * @param server Server connection information
          * @param tcfg Transport configuration
-         * @param delegate Transport delegate for callbacks
          * @param is_server_mode True for server mode, false for client mode
          * @param tick_service Shared pointer to tick service
          * @param logger Shared pointer to logger
-         * @param transport_mode For clients: sets ALPN (kQuic→moq-00, kWebTransport→h3).
-         *                       For servers: NOT USED - server auto-negotiates per connection
-         *                       based on client ALPN (supports both moq-00 and h3 simultaneously)
          */
         PicoQuicTransport(const TransportRemote& server,
                           const TransportConfig& tcfg,
-                          TransportDelegate& delegate,
                           bool is_server_mode,
                           std::shared_ptr<timeq::tick_service> tick_service,
-                          std::shared_ptr<spdlog::logger> logger,
-                          TransportMode transport_mode = TransportMode::kQuic);
+                          std::shared_ptr<Logger> logger,
+                          Connection::API connection_api);
 
         virtual ~PicoQuicTransport();
 
         TransportStatus Status() const override;
-        std::uint64_t Start() override;
-        void Close(const std::uint64_t& conn_id,
+
+        std::shared_ptr<Connection> Start() override;
+
+        void Shutdown() override;
+
+        void Close(const std::shared_ptr<Connection>& connection,
                    AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose) override;
-        void CloseInternal(const std::uint64_t& conn_id,
+
+        void CloseInternal(const std::shared_ptr<Connection>& connection,
                            AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose);
 
-        virtual bool GetPeerAddrInfo(const std::uint64_t& conn_id, sockaddr_storage* addr) override;
+        virtual bool GetPeerAddrInfo(const std::shared_ptr<Connection>& connection, sockaddr_storage* addr) override;
 
-        std::uint64_t CreateDataContext(std::uint64_t conn_id,
-                                        bool use_reliable_transport,
-                                        uint8_t priority,
-                                        bool bidir) override;
+        TransportError EnqueueDatagram(const std::shared_ptr<Connection>& connection,
+                                       std::shared_ptr<const std::vector<uint8_t>> bytes,
+                                       uint8_t priority,
+                                       uint32_t ttl_ms) override;
 
-        void DeleteDataContext(const std::uint64_t& conn_id,
-                               std::uint64_t data_ctx_id,
-                               bool delete_on_empty = false) override;
-
-        TransportError Enqueue(const std::uint64_t& conn_id,
-                               const std::uint64_t& data_ctx_id,
-                               std::uint64_t stream_id,
+        TransportError Enqueue(const std::shared_ptr<Connection>& connection,
+                               const std::shared_ptr<Stream>& stream,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                uint8_t priority,
                                uint32_t ttl_ms,
-                               uint32_t delay_ms,
                                EnqueueFlags flags) override;
 
-        std::shared_ptr<const std::vector<uint8_t>> Dequeue(std::uint64_t conn_id,
-                                                            std::optional<std::uint64_t> data_ctx_id) override;
+        std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<Connection>& connection) override;
 
-        std::shared_ptr<StreamRxContext> GetStreamRxContext(std::uint64_t conn_id, uint64_t stream_id) override;
-
-        int CloseWebTransportSession(std::uint64_t conn_id,
+        int CloseWebTransportSession(const std::shared_ptr<Connection>& connection,
                                      uint32_t error_code,
                                      const char* error_msg = nullptr) override;
 
-        int DrainWebTransportSession(std::uint64_t conn_id) override;
-
-        void SetRemoteDataCtxId(std::uint64_t conn_id,
-                                std::uint64_t data_ctx_id,
-                                std::uint64_t remote_data_ctx_id) override;
+        int DrainWebTransportSession(const std::shared_ptr<Connection>& connection) override;
 
         /*
          * Internal public methods
          */
-        ConnectionContext* GetConnContext(const std::uint64_t& conn_id);
+
+        std::shared_ptr<PicoQuicConnection> GetConnection(const std::uint64_t& conn_id);
+
         void SetStatus(TransportStatus status);
         std::uint64_t MetricsSampleIntervalUs() const { return tconfig_.metrics_sample_ms * 1'000; }
 
@@ -371,7 +183,7 @@ namespace quicr {
         /**
          * @brief Accept an incoming WebTransport connection
          * @details Initializes WebTransport context, updates internal data structures,
-         *          and reports OnNewConnection() callback. Similar to wt_baton_accept.
+         *          and reports the OnNewConnection application callback. Similar to wt_baton_accept.
          * @param cnx Picoquic connection
          * @param path WebTransport path (may be nullptr)
          * @param path_length Length of path
@@ -383,69 +195,59 @@ namespace quicr {
                                          size_t path_length,
                                          h3zero_stream_ctx_t* stream_ctx);
 
+        /// @returns A TX queue configured from the transport's time-queue settings.
+        std::unique_ptr<SafeTimeQueue<ConnData>> MakeStreamTxQueue() const;
+
+        const std::shared_ptr<PicoQuicConnection>& CreateConnection(picoquic_cnx_t* pq_cnx,
+                                                                    Connection::API api = Connection::API::kNativeQuic);
+
+        void SendNextDatagram(const std::shared_ptr<PicoQuicConnection>& conn_ctx, uint8_t* bytes_ctx, size_t max_len);
+
+        void SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& conn_ctx,
+                             const std::shared_ptr<PicoQuicStream>& stream,
+                             uint8_t* bytes_ctx,
+                             size_t max_len);
+
+        void OnConnectionStatus(const std::shared_ptr<PicoQuicConnection>& connection, TransportStatus status);
+
+        void HandleNewConnection(const std::shared_ptr<PicoQuicConnection>& connection);
+
+        void OnRecvDatagram(const std::shared_ptr<PicoQuicConnection>& conn_ctx, uint8_t* bytes, size_t length);
+
         /**
-         * @brief Create bidirectional data context for received new stream
-         *
-         * @details Create a bidir data context for received bidir stream. This is only called
-         *  for received bidirectional streams.
-         *
-         * @param conn_id           Connection context ID for the stream
-         * @param stream_id         Stream ID of the new received stream
-         *
-         * @returns DataContext pointer to the created context, nullptr if invalid connection id
+         * @param stream_handle  Stream the data arrived on, or nullptr if the transport has not seen
+         *                       this remote-initiated stream before, in which case it adopts it.
          */
-        DataContext* CreateDataContextBiDirRecv(std::uint64_t conn_id, uint64_t stream_id);
-
-        ConnectionContext& CreateConnContext(picoquic_cnx_t* pq_cnx);
-
-        void SendNextDatagram(ConnectionContext* conn_ctx, uint8_t* bytes_ctx, size_t max_len);
-        void SendStreamBytes(DataContext* data_ctx, std::uint64_t stream_id, uint8_t* bytes_ctx, size_t max_len);
-
-        void OnConnectionStatus(std::uint64_t conn_id, TransportStatus status);
-
-        void OnNewConnection(std::uint64_t conn_id);
-        void OnRecvDatagram(ConnectionContext* conn_ctx, uint8_t* bytes, size_t length);
-        void OnRecvStreamBytes(ConnectionContext* conn_ctx,
-                               DataContext* data_ctx,
+        void OnRecvStreamBytes(const std::shared_ptr<PicoQuicConnection>& conn_ctx,
+                               const std::shared_ptr<PicoQuicStream>& stream_handle,
                                uint64_t stream_id,
                                int is_fin,
                                std::span<const uint8_t> bytes);
 
-        void OnStreamClosed(std::uint64_t conn_id,
+        void OnStreamClosed(const std::shared_ptr<PicoQuicConnection>& connection,
                             uint64_t stream_id,
                             std::shared_ptr<StreamRxContext> rx_ctx,
-                            std::optional<uint64_t> data_ctx_id,
                             StreamClosedFlag flag);
 
         // Notify new stream data arrived.
-        void NotifyStreamRecv(std::uint64_t conn_id,
+        void NotifyStreamRecv(const std::shared_ptr<PicoQuicConnection>& connection,
                               uint64_t stream_id,
-                              std::optional<std::uint64_t> data_ctx_id,
-                              std::shared_ptr<StreamRxContext> rx_ctx);
+                              std::shared_ptr<StreamRxContext> rx_ctx,
+                              std::shared_ptr<Stream> reply_stream,
+                              bool is_bidir);
 
         // Notify new datagram arrived.
-        void NotifyDgramRecv(std::uint64_t conn_id, std::shared_ptr<ConnectionContext::DgramRxQueue> rx_data);
-
-        void NotifyStreamClosed(std::uint64_t conn_id,
-                                uint64_t stream_id,
-                                std::shared_ptr<StreamRxContext> rx_ctx,
-                                std::optional<uint64_t> data_ctx_id,
-                                StreamClosedFlag flag);
+        void NotifyDgramRecv(const std::shared_ptr<PicoQuicConnection>& connection);
 
         void CheckConnsForCongestion(std::size_t shard_idx);
         void EmitMetrics(std::size_t shard_idx);
         void RemoveClosedStreams(std::size_t shard_idx);
 
-        bool StreamActionCheck(DataContext* data_ctx, StreamAction stream_action);
+        void CloseStream(const std::shared_ptr<Connection>& connection,
+                         const std::shared_ptr<Stream>& stream,
+                         bool use_reset) override;
 
-        /**
-         * @brief Close stream by stream id
-         * @param conn_id           Connection id of stream
-         * @param data_ctx_id       Data context id that owns the stream
-         * @param stream_id         Stream ID to close
-         * @param use_reset         True to close by RESET, false to close by FIN
-         */
-        void CloseStream(std::uint64_t conn_id, uint64_t data_ctx_id, uint64_t stream_id, bool use_reset) override;
+        void CloseStream(const std::shared_ptr<Connection>& connection, uint64_t stream_id, bool use_reset) override;
 
         /**
          * @brief Deregister WebTransport context
@@ -483,48 +285,51 @@ namespace quicr {
          *
          * @note Thread-safe
          *
-         * @param conn_id           Connection ID to create the stream
-         * @param data_ctx_id       Data context to create stream in
+         * @param connection        Connection to create the stream on
          * @param priority          Priority of the stream
          *
-         * @return stream ID if created
+         * @return Handle to the created stream
          * @throws PicoQuicException if unable to create stram
          */
-        std::uint64_t CreateStream(std::uint64_t conn_id, std::uint64_t data_ctx_id, uint8_t priority) override;
+        std::shared_ptr<Stream> CreateDataStream(const std::shared_ptr<Connection>& connection,
+                                                 uint8_t priority) override;
+
+        std::shared_ptr<Stream> CreateControlStream(const std::shared_ptr<Connection>& connection) override;
+
+        std::shared_ptr<Stream> CreateRequestStream(const std::shared_ptr<Connection>& connection) override;
 
         /**
          * @brief Erase local state for the given stream.
          *
          * @param conn_ctx Connection context for the stream
-         * @param data_ctx Data context for the stream
          * @param stream_id ID of the stream to erase
          *
          * @warning This method must be called within the picoquic thread.
          */
-        void EraseStreamState(ConnectionContext& conn_ctx, DataContext* data_ctx, std::uint64_t stream_id);
+        void EraseStreamState(const std::shared_ptr<PicoQuicConnection>& conn_ctx, std::uint64_t stream_id);
 
         /**
-         * @brief Process Mark Stream and Datagram connections active
-         * @note The queue contains references to connection and stream contexts. Before removing
-         *      streams, data context, and/or connections this method MUST be called.
+         * @brief Mark queued streams and datagram connections active
+         *
+         * @details Drains the shard's mark-active queues on the picoquic thread. Entries hold weak
+         *      handles and marking is skipped for a stream that is no longer open, so stream
+         *      teardown does not have to flush the queue first. Closing a connection still does,
+         *      because a queued datagram mark has no equivalent guard.
          */
         void ProcessMarkActive(Shard& shard);
 
       public:
-        std::shared_ptr<spdlog::logger> logger;
+        std::shared_ptr<Logger> logger;
         bool is_server_mode;
         bool is_unidirectional{ false };
         bool debug{ false };
-        TransportMode transport_mode{ TransportMode::kQuic };
+        Connection::API connection_api{ Connection::API::kNativeQuic };
 
       private:
-        void DeleteDataContextInternal(std::uint64_t conn_id, std::uint64_t data_ctx_id, bool delete_on_empty);
-
         /// Get shard ID for given connection ID.
         std::optional<std::size_t> GetConnShardIdx(const std::uint64_t& conn_id);
 
-        std::uint64_t StartClient();
-        void Shutdown();
+        std::shared_ptr<Connection> StartClient();
 
         /// Create a picoquic instance for the current config.
         picoquic_quic_t* CreateQuicInstance(uint64_t current_time);
@@ -533,19 +338,21 @@ namespace quicr {
         bool ClientLoop();
         void CbNotifier();
         void RunPqFunction(std::size_t shard_idx, std::function<int()>&& function);
-        void CheckCallbackDelta(DataContext* data_ctx, bool tx = true);
+        void CheckCallbackDelta(const std::shared_ptr<PicoQuicStream>& stream, bool tx = true);
 
         /**
          * @brief Mark a stream active
-         * @details This method MUST only be called within the picoquic thread.
+         * @details This method MUST only be called within the picoquic thread. Other threads reach it
+         *      by pushing onto the shard's mark-active queue.
          */
-        void MarkStreamActive(StreamMarkActiveInfo& info);
+        void MarkStreamActive(const std::shared_ptr<PicoQuicConnection>& connection,
+                              const std::shared_ptr<PicoQuicStream>& stream);
 
         /**
          * @brief Mark datagram ready
          * @details This method MUST only be called within the picoquic thread.
          */
-        void MarkDgramReady(const ConnectionContext& conn_ctx);
+        void MarkDgramReady(const std::shared_ptr<PicoQuicConnection>& connection);
 
         /**
          * @brief Initialize WebTransport context
@@ -597,27 +404,40 @@ namespace quicr {
         int SendWebTransportCloseSession(picoquic_cnx_t* cnx, uint32_t error_code, const char* error_msg);
 
         /**
-         * @brief Create a new stream
+         * @brief Create a stream on the picoquic thread and wait for it.
          *
-         * @param conn_id       Connection id
-         * @param data_ctx_id   Data context id
-         * @param priority      Priority of the stream
+         * @param bidir     Whether to open a bidirectional stream.
+         *
+         * @throws PicoQuicException if the stream could not be created in time.
          */
-        std::uint64_t CreateStreamInternal(std::uint64_t conn_id, std::uint64_t data_ctx_id, uint8_t priority);
+        std::shared_ptr<PicoQuicStream> CreateStreamOnPqThread(const std::shared_ptr<Connection>& connection,
+                                                               bool bidir,
+                                                               uint8_t priority);
+
+        /// @brief Queue bytes on an already-resolved stream handle.
+        TransportError EnqueueStream(const std::shared_ptr<PicoQuicConnection>& connection,
+                                     const std::shared_ptr<PicoQuicStream>& stream,
+                                     std::shared_ptr<const std::vector<uint8_t>> bytes,
+                                     uint8_t priority,
+                                     uint32_t ttl_ms,
+                                     EnqueueFlags flags);
+
+        std::shared_ptr<PicoQuicStream> CreateStreamInternal(const std::shared_ptr<Connection>& connection,
+                                                             bool bidir,
+                                                             uint8_t priority);
 
         /**
          * @brief App initiated Close stream
-         * @details App initiated close stream. When the app deletes a context or wants to switch streams to a new
-         * stream this function is used to close out the current stream. A FIN will be sent.
+         * @details App initiated close stream. When the app wants to switch streams to a new stream this
+         * function is used to close out the current stream. A FIN will be sent.
          *
          * @warning This method must be called within the picoquic thread
          *
          * @param conn_ctx      Connection context for the stream
-         * @param data_ctx      Data context for the stream
          * @param stream_id     ID of the stream to close.
          * @param send_reset    Indicates if the stream should be closed by RESET, otherwise FIN
          */
-        void CloseStream(ConnectionContext& conn_ctx, DataContext* data_ctx, std::uint64_t stream_id, bool send_reset);
+        void CloseStream(const std::shared_ptr<PicoQuicConnection>& conn_ctx, std::uint64_t stream_id, bool send_reset);
 
         /*
          * Variables
@@ -635,10 +455,9 @@ namespace quicr {
         std::thread cbNotifyThread_;
 
         TransportRemote serverInfo_;
-        TransportDelegate& delegate_;
         TransportConfig tconfig_;
 
-        std::map<std::uint64_t, ConnectionContext> conn_context_;
+        std::map<std::uint64_t, std::shared_ptr<PicoQuicConnection>> connections_;
         std::shared_ptr<timeq::tick_service> tick_service_;
 
         // WebTransport configuration (server-wide, not per-connection)

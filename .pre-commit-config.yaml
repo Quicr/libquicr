@@ -1,5 +1,20 @@
 repos:
-- repo: https://github.com/pre-commit/mirrors-clang-format
-  rev: v18.1.8
-  hooks:
-  - id: clang-format
+  - repo: local
+    hooks:
+      - id: format
+        name: Format
+        entry: make format
+        language: system
+        pass_filenames: false
+
+      - id: build
+        name: Build
+        entry: make
+        language: system
+        pass_filenames: false
+
+      - id: test
+        name: Test
+        entry: ctest --test-dir build
+        language: system
+        pass_filenames: false

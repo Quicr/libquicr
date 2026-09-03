@@ -4,8 +4,8 @@
 #pragma once
 
 #include "quicr/attributes.h"
-#include "quicr/common.h"
 #include "quicr/config.h"
+#include "quicr/connection.h"
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/handlers/fetch_track_handler.h"
 #include "quicr/handlers/publish_fetch_handler.h"
@@ -27,11 +27,28 @@
 #include <string>
 #include <string_view>
 
-namespace spdlog {
-    class logger;
-}
-
 namespace quicr {
+
+    class Logger;
+
+    /**
+     * @brief Response to a received subscribe or track status request
+     */
+    struct RequestResponse
+    {
+        bool is_publisher_initiated = false;
+        std::optional<messages::Location> largest_location = std::nullopt;
+        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+    };
+
+    /**
+     * @brief Response to a received MOQT Fetch message
+     */
+    struct FetchResponse
+    {
+        std::optional<messages::Location> largest_location = std::nullopt;
+        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+    };
 
     /**
      * @brief MoQ Session endpoint supporting connection-explicit operations
@@ -40,12 +57,12 @@ namespace quicr {
      *   configuration. `Client` provides the single-connection convenience API for outbound clients.
      */
     class Session
-      : public ITransport::TransportDelegate
+      : public Connection::Delegate
       , public std::enable_shared_from_this<Session>
     {
-      public:
-        Session() = delete;
+        static constexpr std::size_t kControlMessageBufferSize = 4096;
 
+      public:
         /**
          * @brief Status of the transport
          */
@@ -64,6 +81,17 @@ namespace quicr {
             kFailedToConnect,
             kPendingServerSetup,
         };
+
+        /**
+         * @brief Callback interfaces for session events
+         *
+         * @details Nested under `Session` so that callback signatures can reference `Session::Status` (and other
+         *      nested `Session` types) directly. Defined out-of-line in `session_callbacks.h`, which is included
+         *      after this class is fully defined.
+         */
+        struct Callbacks;
+        struct ClientCallbacks;
+        struct ServerCallbacks;
 
         /**
          * @brief Control message status codes
@@ -102,215 +130,14 @@ namespace quicr {
             uint16_t port;  ///< remote port
         };
 
-        /**
-         * @brief Create a client-mode endpoint
-         *
-         * @param cfg MoQ Client Configuration
-         */
-        static std::shared_ptr<Session> Create(const ClientConfig& cfg)
+        /// Subscribe Context by received subscribe IDs
+        /// Used to map published tracks to subscribes in client mode and to handle joining fetch lookups
+        struct SubscribeContext
         {
-            return std::shared_ptr<Session>(new Session(cfg));
-        }
-
-        /**
-         * @brief Create a server-mode endpoint
-         *
-         * @param cfg MoQ Server Configuration
-         */
-        static std::shared_ptr<Session> Create(const ServerConfig& cfg)
-        {
-            return std::shared_ptr<Session>(new Session(cfg));
-        }
-
-        ~Session();
-
-        const std::shared_ptr<timeq::tick_service>& GetTickService() const noexcept { return tick_service_; }
-
-        // -------------------------------------------------------------------------------------------------
-        // Lifecycle
-        // -------------------------------------------------------------------------------------------------
-
-        /**
-         * @brief Startup transport. Server mode will listen for connection, client mode will make a connection.
-         *
-         * @details Creates a new transport thread to listen for new connections. All control and track
-         *   callbacks will be run based on events.
-         *
-         * @return Status indicating state or error. If successful, status will be kReady.
-         */
-        virtual Status Start();
-
-        /**
-         * @brief Stop the transport and teardown.
-         *
-         * @details Stops the transport thread and any connections.
-         */
-        virtual void Stop();
-
-        // -------------------------------------------------------------------------------------------------
-        // Public API MoQ Instance API methods
-        // -------------------------------------------------------------------------------------------------
-        /**
-         * @brief Subscribe to a track
-         *
-         * @param connection_id     Connection ID to send subscribe
-         * @param track_handler     Track handler to use for track related functions and callbacks
-         *
-         */
-        void SubscribeTrack(std::uint64_t connection_id, std::shared_ptr<SubscribeTrackHandler> track_handler);
-
-        /**
-         * @brief Unsubscribe track
-         *
-         * @param connection_id     Connection ID to send subscribe
-         * @param track_handler     Track handler to use for track related functions and callbacks
-         */
-        void UnsubscribeTrack(std::uint64_t connection_id, const std::shared_ptr<SubscribeTrackHandler>& track_handler);
-
-        /**
-         * @brief Update Subscription to a track
-         *
-         * @param connection_id     Connection ID to send subscribe
-         * @param track_handler     Track handler to use for track related functions and callbacks
-         *
-         */
-        void UpdateTrackSubscription(std::uint64_t connection_id, std::shared_ptr<SubscribeTrackHandler> track_handler);
-
-        /**
-         * @brief Publish to a track
-         *
-         * @param connection_id     Connection ID from transport for the QUIC connection context
-         * @param track_handler     Track handler to use for track related functions and callbacks
-         */
-        void PublishTrack(std::uint64_t connection_id, std::shared_ptr<PublishTrackHandler> track_handler);
-
-        /**
-         * @brief Unpublish track
-         *
-         * @param connection_id     Connection ID from transport for the QUIC connection context
-         * @param track_handler     Track handler used when published track
-         */
-        void UnpublishTrack(std::uint64_t connection_id, const std::shared_ptr<PublishTrackHandler>& track_handler);
-
-        /**
-         * @brief Publish a track namespace
-         *
-         * @param connection_id     Connection ID from transport for the QUIC connection context
-         * @param ns_handler        Namespace handler to use for track related functions and callbacks
-         * @param passive           True indicates that PUBLISH_NAMESPACE will not be sent
-         */
-        void PublishNamespace(std::uint64_t connection_id,
-                              std::shared_ptr<PublishNamespaceHandler> ns_handler,
-                              bool passive = false);
-
-        /**
-         * @brief Unpublish track namespace
-         *
-         * @param connection_id     Connection ID from transport for the QUIC connection context
-         * @param track_handler     Track handler used when published track
-         */
-        void PublishNamespaceDone(std::uint64_t connection_id,
-                                  const std::shared_ptr<PublishNamespaceHandler>& track_handler);
-
-        /**
-         * @brief Subscribe to a prefix namespace on a specific connection
-         *
-         * @param connection_id     Connection ID from transport for the QUIC connection context
-         * @param handler           Namespace handler to subscribe with
-         */
-        void SubscribeNamespace(std::uint64_t connection_id, std::shared_ptr<SubscribeNamespaceHandler> handler);
-
-        /**
-         * @brief Unsubscribe from a prefix namespace on a specific connection
-         *
-         * @param connection_id     Connection ID from transport for the QUIC connection context
-         * @param handler           Namespace handler to unsubscribe
-         */
-        void UnsubscribeNamespace(std::uint64_t connection_id,
-                                  const std::shared_ptr<SubscribeNamespaceHandler>& handler);
-
-        /**
-         * @brief Accept or reject publish that was received
-         *
-         * @details Accept or reject publish received via PublishReceived(). The MoQ Transport
-         *      will send the protocol message based on the PublishResponse
-         *      This method will SubscribeTrack() using the handler passed and the
-         *      attributes provided.
-         *
-         * @param connection_id             Source connection ID
-         * @param request_id                Request ID
-         * @param attributes                Attributes for the accepted publish
-         * @param publish_response          response for the publish
-         * @param handler                   Constructed SubscribeTrackHandler to subscribe track using
-         *                                  Clients set this, relay/server does not need to.
-         */
-        void ResolvePublish(std::uint64_t connection_id,
-                            uint64_t request_id,
-                            const PublishAttributes& attributes,
-                            const PublishResponse& publish_response,
-                            std::shared_ptr<SubscribeTrackHandler> handler);
-
-        /**
-         * @brief Fetch track
-         *
-         * @param connection_id         Connection ID to send fetch
-         * @param track_handler         Track handler used for fetching
-         */
-        void FetchTrack(std::uint64_t connection_id, std::shared_ptr<FetchTrackHandler> track_handler);
-
-        /**
-         * @brief Cancel Fetch track
-         *
-         * @param connection_id         Connection ID to send fetch cancel.
-         * @param track_handler         Fetch Track handler to cancel.
-         */
-        void CancelFetchTrack(std::uint64_t connection_id, std::shared_ptr<FetchTrackHandler> track_handler);
-
-        /**
-         * @brief Request track status
-         *
-         * @param connection_id             Source connection ID.
-         * @param track_full_name           Track full name
-         * @param subscribe_attributes      Subscribe attributes for track status
-         *
-         * * @returns Request ID that is used for the track status request
-         */
-        uint64_t RequestTrackStatus(std::uint64_t connection_id,
-                                    const FullTrackName& track_full_name,
-                                    const SubscribeAttributes& subscribe_attributes);
-
-        /**
-         * @brief Get the status of the endpoint
-         *
-         * @return Status of the endpoint
-         */
-        Status GetStatus() const noexcept { return status_; }
-
-        /**
-         * @brief Set the WebTransport flag for a connection
-         * @param conn_id Connection ID
-         * @param is_webtransport True if this is a WebTransport connection
-         */
-        void SetWebTransportMode(std::uint64_t conn_id, bool is_webtransport);
-
-        /**
-         * @brief Response to received MOQT Announce message
-         */
-        struct PublishNamespaceResponse
-        {
-            /**
-             * @details **kOK** indicates that the announce is accepted and OK should be sent. Any other
-             *       value indicates that the announce is not accepted and the reason code and other
-             *       fields will be set.
-             */
-            enum class ReasonCode : uint8_t
-            {
-                kOk = 0,
-                kInternalError
-            };
-            ReasonCode reason_code;
-
-            std::optional<Bytes> error_reason;
+            FullTrackName track_full_name;
+            TrackHash track_hash{ 0, 0 };
+            std::optional<messages::Location> largest_location{ std::nullopt };
+            std::shared_ptr<Stream> stream;
         };
 
         struct RequestUpdateResponse
@@ -324,6 +151,157 @@ namespace quicr {
             const std::optional<Error> error;
             const messages::Parameters params;
         };
+
+      public:
+        /**
+         * @brief Create a client-mode endpoint
+         *
+         * @param cfg MoQ Client Configuration
+         */
+        static std::shared_ptr<Session> Create(const ClientConfig& cfg,
+                                               std::shared_ptr<Transport> transport,
+                                               std::shared_ptr<Connection> connection,
+                                               std::shared_ptr<ClientCallbacks> callbacks,
+                                               std::shared_ptr<timeq::tick_service> tick_service,
+                                               std::shared_ptr<Logger> logger = nullptr)
+        {
+            return std::shared_ptr<Session>(new Session(cfg,
+                                                        std::move(transport),
+                                                        std::move(connection),
+                                                        std::move(callbacks),
+                                                        std::move(tick_service),
+                                                        std::move(logger)));
+        }
+
+        /**
+         * @brief Create a server-mode endpoint
+         *
+         * @param cfg MoQ Server Configuration
+         */
+        static std::shared_ptr<Session> Create(const ServerConfig& cfg,
+                                               std::shared_ptr<Transport> transport,
+                                               std::shared_ptr<Connection> connection,
+                                               std::shared_ptr<ServerCallbacks> callbacks,
+                                               std::shared_ptr<timeq::tick_service> tick_service,
+                                               std::shared_ptr<Logger> logger = nullptr)
+        {
+            return std::shared_ptr<Session>(new Session(cfg,
+                                                        std::move(transport),
+                                                        std::move(connection),
+                                                        std::move(callbacks),
+                                                        std::move(tick_service),
+                                                        std::move(logger)));
+        }
+
+        virtual ~Session();
+
+        const std::shared_ptr<Connection>& GetConnection() const noexcept { return current_connection_; }
+
+        const std::shared_ptr<timeq::tick_service>& GetTickService() const noexcept { return tick_service_; }
+
+        const std::shared_ptr<Logger>& GetLogger() const noexcept { return logger_; }
+
+        Status GetStatus() const noexcept { return status_; }
+
+        /**
+         * @brief Close the underlying transport connection and detach this session as delegate.
+         */
+        void Disconnect();
+
+        /*===================================================================*/
+        // Public API MoQ Instance API methods
+        /*===================================================================*/
+
+        /**
+         * @brief Subscribe to a track
+         *
+         * @param track_handler     Track handler to use for track related functions and callbacks
+         *
+         */
+        void SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler);
+
+        /**
+         * @brief Unsubscribe track
+         *
+         * @param track_handler     Track handler to use for track related functions and callbacks
+         */
+        void UnsubscribeTrack(const std::shared_ptr<SubscribeTrackHandler>& track_handler);
+
+        /**
+         * @brief Update Subscription to a track
+         *
+         * @param track_handler     Track handler to use for track related functions and callbacks
+         *
+         */
+        void UpdateTrackSubscription(std::shared_ptr<SubscribeTrackHandler> track_handler);
+
+        /**
+         * @brief Publish to a track
+         *
+         * @param track_handler     Track handler to use for track related functions and callbacks
+         */
+        void PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler);
+
+        /**
+         * @brief Unpublish track
+         *
+         * @param track_handler     Track handler used when published track
+         */
+        void UnpublishTrack(const std::shared_ptr<PublishTrackHandler>& track_handler);
+
+        /**
+         * @brief Publish a track namespace
+         *
+         * @param ns_handler        Namespace handler to use for track related functions and callbacks
+         * @param passive           True indicates that PUBLISH_NAMESPACE will not be sent
+         */
+        void PublishNamespace(std::shared_ptr<PublishNamespaceHandler> ns_handler, bool passive = false);
+
+        /**
+         * @brief Unpublish track namespace
+         *
+         * @param track_handler     Track handler used when published track
+         */
+        void PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& track_handler);
+
+        /**
+         * @brief Subscribe to a prefix namespace on a specific connection
+         *
+         * @param handler           Namespace handler to subscribe with
+         */
+        void SubscribeNamespace(std::shared_ptr<SubscribeNamespaceHandler> handler);
+
+        /**
+         * @brief Unsubscribe from a prefix namespace on a specific connection
+         *
+         * @param handler           Namespace handler to unsubscribe
+         */
+        void UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler);
+
+        /**
+         * @brief Fetch track
+         *
+         * @param track_handler         Track handler used for fetching
+         */
+        void FetchTrack(std::shared_ptr<FetchTrackHandler> track_handler);
+
+        /**
+         * @brief Cancel Fetch track
+         *
+         * @param track_handler         Fetch Track handler to cancel.
+         */
+        void CancelFetchTrack(std::shared_ptr<FetchTrackHandler> track_handler);
+
+        /**
+         * @brief Request track status
+         *
+         * @param track_full_name           Track full name
+         * @param subscribe_attributes      Subscribe attributes for track status
+         *
+         * @returns Request ID that is used for the track status request
+         */
+        std::uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
+                                         const SubscribeAttributes& subscribe_attributes);
 
         // --BEGIN RESOLVE METHODS ---------------------------------------------------------------------------
         /** @name Resolve Methods
@@ -339,49 +317,11 @@ namespace quicr {
          *      as a publisher in client mode. The MoQ transport will send the protocol message based on the
          *      `RequestResponse`.
          *
-         * @param connection_id      Source connection ID
          * @param request_id         Request ID
          * @param track_alias        Track alias the subscriber should use
          * @param subscribe_response Response for the subscribe
          */
-        void ResolveSubscribe(std::uint64_t connection_id,
-                              uint64_t request_id,
-                              uint64_t track_alias,
-                              const RequestResponse& subscribe_response);
-
-        /**
-         * @brief Accept or reject subscribe namespace that was received
-         *
-         * @details Server mode only. Called after `SubscribeNamespaceReceived()`.
-         *
-         * @param connection_id     Source connection ID
-         * @param data_ctx_id       Data context ID for the bidir connection to use
-         * @param request_id        Request ID
-         * @param prefix            Track namespace prefix
-         * @param response          Response for remainder of subscribe namespace flow
-         */
-        void ResolveSubscribeNamespace(std::uint64_t connection_id,
-                                       std::uint64_t data_ctx_id,
-                                       uint64_t request_id,
-                                       const TrackNamespace& prefix,
-                                       const SubscribeNamespaceResponse& response);
-
-        /**
-         * @brief Accept or reject subscribe tracks that was received
-         *
-         * @details Server mode only. Called after `SubscribeTracksReceived()`.
-         *
-         * @param connection_id     Source connection ID
-         * @param data_ctx_id       Data context ID for the bidir connection to use
-         * @param request_id        Request ID
-         * @param prefix            Track namespace prefix
-         * @param response          Response for remainder of subscribe tracks flow
-         */
-        void ResolveSubscribeTracks(std::uint64_t connection_id,
-                                    std::uint64_t data_ctx_id,
-                                    uint64_t request_id,
-                                    const TrackNamespace& prefix,
-                                    const SubscribeNamespaceResponse& response);
+        void ResolveSubscribe(uint64_t request_id, uint64_t track_alias, const RequestResponse& subscribe_response);
 
         /**
          * @brief Accept or reject a fetch that was received
@@ -389,60 +329,22 @@ namespace quicr {
          * @details Accept or reject a fetch received via `StandaloneFetchReceived()` or
          *      `JoiningFetchReceived()`.
          *
-         * @param connection_id     Source connection ID
          * @param request_id        Request ID
          * @param priority          Subscriber priority for the fetch response
          * @param group_order       Optional group order for the fetch response
          * @param response          Response to the fetch
          */
-        void ResolveFetch(std::uint64_t connection_id,
-                          uint64_t request_id,
-                          std::uint8_t priority,
+        void ResolveFetch(uint64_t request_id,
                           std::optional<messages::GroupOrder> group_order,
                           const FetchResponse& response);
 
         /**
-         * @brief Accept or reject an announce that was received
-         *
-         * @details Server mode only. Accept or reject an announce received via `PublishNamespaceReceived()`.
-         *      The MoQ transport will send the protocol message based on the `PublishNamespaceResponse`.
-         *      Subscribers defined will be sent a copy of the announcement.
-         *
-         * @param connection_id      Source connection ID
-         * @param request_id         Request ID received for the announce request
-         * @param track_namespace    Track namespace
-         * @param subscribers        Subscriber connection handles that should be sent the announce
-         * @param announce_response  Response for the announcement
-         */
-        void ResolvePublishNamespace(std::uint64_t connection_id,
-                                     uint64_t request_id,
-                                     const TrackNamespace& track_namespace,
-                                     const std::vector<std::uint64_t>& subscribers,
-                                     const PublishNamespaceResponse& announce_response);
-
-        /**
-         * @brief Finalize the publish namespace done received
-         *
-         * @details Server mode only. Sends Publish Namespace Done to SUBSCRIBE_NAMESPACE requestors.
-         *
-         * @param connection_id     Connection ID of the received publish namespace done message
-         * @param request_id        Request ID of the namespace that is done
-         * @param subscribers       Subscriber connection handles that should be sent a done message
-         */
-        void ResolvePublishNamespaceDone(std::uint64_t connection_id,
-                                         std::uint64_t request_id,
-                                         const std::vector<std::uint64_t>& subscribers);
-
-        /**
          * @brief Accept or reject a request update
          *
-         * @param connection_id         Source connection ID
          * @param request_id            Request being updated
          * @param response              Request update response
          */
-        void ResolveRequestUpdate(std::uint64_t connection_id,
-                                  uint64_t request_id,
-                                  const RequestUpdateResponse& response);
+        void ResolveRequestUpdate(uint64_t request_id, const RequestUpdateResponse& response);
 
         /**
          * @brief Accept or reject track status that was received
@@ -451,14 +353,11 @@ namespace quicr {
          *      will send the protocol message based on the RequestResponse. Per MOQT draft-14,
          *      track status request, ok, and error are the same as subscribe
          *
-         * @param connection_id            Source connection ID
          * @param request_id               Request ID that was provided by TrackStatusReceived
          * @param subscribe_response       Response to the track status request, either Ok or Error.
          *                                 Largest loation should be set if kOk and there is content
          */
-        void ResolveTrackStatus(std::uint64_t connection_id,
-                                uint64_t request_id,
-                                const RequestResponse& subscribe_response);
+        void ResolveTrackStatus(uint64_t request_id, const RequestResponse& subscribe_response);
 
         ///@}
         // --END RESOLVE METHODS -----------------------------------------------------------------------------
@@ -475,14 +374,12 @@ namespace quicr {
          * @details The server will create a server publish track handler based on a received subscribe. It will
          *      use this handler to send objects to the subscriber.
          *
-         * @param connection_id Connection ID of the client/subscriber
          * @param src_id            Connection or peering ID for publisher origin
          * @param request_id        Request ID from the received subscribe
          * @param track_handler     Server publish track handler
          * @param ephemeral         Indicates if persistent state tracking is needed
          */
-        void BindPublisherTrack(std::uint64_t connection_id,
-                                std::uint64_t src_id,
+        void BindPublisherTrack(std::uint64_t src_id,
                                 uint64_t request_id,
                                 const std::shared_ptr<PublishTrackHandler>& track_handler,
                                 bool ephemeral = false);
@@ -492,368 +389,52 @@ namespace quicr {
          *
          * @details Removes a server publish track handler state.
          *
-         * @param connection_id Connection ID of the client/subscriber
          * @param src_id            Connection or peering ID of the receiving publisher
          * @param track_handler     Server publish track handler
          * @param send_publish_done Indicates to send publish done or not
          */
-        void UnbindPublisherTrack(std::uint64_t connection_id,
-                                  std::uint64_t src_id,
+        void UnbindPublisherTrack(std::uint64_t src_id,
                                   const std::shared_ptr<PublishTrackHandler>& track_handler,
                                   bool send_publish_done = false);
 
         /**
          * @brief Bind a server fetch publisher track handler
          *
-         * @param conn_id       Connection ID of the client/fetcher
          * @param track_handler The fetch publisher
          */
-        void BindFetchTrack(std::uint64_t conn_id, std::shared_ptr<PublishFetchHandler> track_handler);
+        void BindFetchTrack(std::shared_ptr<PublishFetchHandler> track_handler);
 
         /**
          * @brief Unbind a server fetch publisher track handler
          *
-         * @param conn_id       Connection ID of the client/fetcher
          * @param track_handler The fetch publisher
          */
-        void UnbindFetchTrack(std::uint64_t conn_id, const std::shared_ptr<PublishFetchHandler>& track_handler);
+        void UnbindFetchTrack(const std::shared_ptr<PublishFetchHandler>& track_handler);
 
         ///@}
         // --END SERVER RELAY METHODS ------------------------------------------------------------------------
 
-        // --BEGIN CALLBACKS ---------------------------------------------------------------------------------
-        /** @name Base Callbacks
-         *  Callbacks that may be invoked in either client or server mode.
-         */
-        ///@{
-        /**
-         * @brief Callback notification for status/state change
-         * @details Callback notification indicates state change of connection, such as disconnected
-         *
-         * @param status           Changed Status value
-         */
-        virtual void StatusChanged([[maybe_unused]] Status status) {}
-
-        /**
-         * @brief Callback notification for new publish received
-         *
-         * @details The app must call `ResolvePublish()` with a reason code of OK to accept, or another reason code
-         *      to reject. In client mode the default implementation rejects with `kNotSupported`.
-         *
-         * @param connection_id  Connection that received this publish
-         * @param request_id         Incoming publish request ID
-         * @param publish_attributes Attributes of the publish
-         * @param sub_ns_handler     Matching subscribe namespace handler, if any
-         */
-        virtual void PublishReceived(std::uint64_t connection_id,
-                                     uint64_t request_id,
-                                     const PublishAttributes& publish_attributes,
-                                     std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler);
-
-        /**
-         * @brief Event to run on receiving a Standalone Fetch request.
-         *
-         * @param connection_id Source connection ID.
-         * @param request_id        Request ID received.
-         * @param track_full_name   Track full name
-         * @param attributes        Fetch attributes received.
-         */
-        virtual void StandaloneFetchReceived(std::uint64_t connection_id,
-                                             uint64_t request_id,
-                                             const FullTrackName& track_full_name,
-                                             const StandaloneFetchAttributes& attributes);
-
-        /**
-         * @brief Event to run on receiving a Joining Fetch request.
-         *
-         * @param connection_id Source connection ID.
-         * @param request_id        Request ID received.
-         * @param track_full_name   Track full name
-         * @param attributes        Fetch attributes received.
-         */
-        virtual void JoiningFetchReceived(std::uint64_t connection_id,
-                                          uint64_t request_id,
-                                          const FullTrackName& track_full_name,
-                                          const JoiningFetchAttributes& attributes);
-
-        /**
-         * @brief Callback notification on receiving a FetchCancel message.
-         *
-         * @param connection_id Source connection ID.
-         * @param request_id        Request ID received.
-         */
-        virtual void FetchCancelReceived(std::uint64_t connection_id, uint64_t request_id);
-
-        /**
-         * @brief Callback notification for track status message received
-         *
-         * @note The caller **MUST** respond to this via ResolveTrackStatus(). If the caller does not
-         * override this method, the default will call ResolveTrackStatus() with the status of OK
-         *
-         * @param connection_id     Source connection ID
-         * @param request_id            Request ID received
-         * @param track_full_name       Track full name
-         */
-        virtual void TrackStatusReceived(std::uint64_t connection_id,
-                                         uint64_t request_id,
-                                         const FullTrackName& track_full_name);
-
-        ///@}
-
-        /** @name Client Callbacks
-         *      Callbacks invoked in client mode unless noted otherwise.
-         */
-        ///@{
-
-        /**
-         * @brief Callback on server setup message
-         *
-         * @details Server will send server setup in response to client setup message sent. This callback is
-         *      called when a server setup has been received. Client mode only.
-         *
-         * @param server_setup_attributes Server setup attributes received
-         */
-        virtual void ServerSetupReceived(const ServerSetupAttributes& server_setup_attributes);
-
-        /**
-         * @brief Callback notification for announce received by subscribe namespace
-         *
-         * @details Client mode only. Called when a PUBLISH_NAMESPACE is received for a subscribed prefix.
-         *
-         * @param track_namespace                Track namespace
-         * @param publish_namespace_attributes   Publish announce attributes received
-         */
-        virtual void PublishNamespaceReceived(const TrackNamespace& track_namespace,
-                                              const PublishNamespaceAttributes& publish_namespace_attributes);
-
-        /**
-         * @brief Callback notification for publish namespace done received
-         *
-         * @details Client mode only. Called when a PUBLISH_NAMESPACE_DONE is received.
-         *
-         * @param request_id Request ID of the namespace that is done
-         */
-        virtual void PublishNamespaceDoneReceived(std::uint64_t request_id);
-
-        /**
-         * @brief Callback notification for new subscribe received that doesn't match an existing publish track
-         *
-         * @details Client mode only. When a new subscribe is received that doesn't match any existing publish
-         *      track, this method signals the application that there is a new subscribe full track name. The
-         *      application should `PublishTrack()` within this callback (or afterwards).
-         *
-         * @note The caller **MUST** respond via `ResolveSubscribe()`.
-         *
-         * @param track_full_name      Track full name
-         * @param subscribe_attributes Subscribe attributes received
-         */
-        virtual void UnpublishedSubscribeReceived(const FullTrackName& track_full_name,
-                                                  const SubscribeAttributes& subscribe_attributes);
-
-        /**
-         * @brief Notification callback to provide sampled metrics
-         *
-         * @details Client mode only. Callback will be triggered on `Config::metrics_sample_ms` to provide the
-         *      sampled data based on the sample period. After this callback, the period/sample based metrics will
-         *      reset and start over for the new period.
-         *
-         * @param metrics Copy of the connection metrics for the sample period
-         */
-        virtual void MetricsSampled(const ConnectionMetrics& metrics);
-
-        ///@}
-
-        /** @name Server Callbacks
-         *      Callbacks invoked in server mode unless noted otherwise.
-         */
-        ///@{
-
-        /**
-         * @brief Callback notification on new connection
-         *
-         * @details Server mode only. Callback notification that a new connection has been accepted.
-         *
-         * @param connection_id Transport connection ID
-         * @param remote              Transport remote connection information
-         */
-        virtual void NewConnectionAccepted(std::uint64_t connection_id, const ConnectionRemoteInfo& remote);
-
-        /**
-         * @brief Callback notification for connection status/state change
-         *
-         * @details Server mode only. Callback notification indicates state change of connection, such as
-         *      disconnected.
-         *
-         * @param connection_id Transport connection ID
-         * @param status            ConnectionStatus of connection id
-         */
-        virtual void ConnectionStatusChanged(std::uint64_t connection_id, ConnectionStatus status);
-
-        /**
-         * @brief Notification callback to provide sampled metrics
-         *
-         * @details Server mode only. Callback will be triggered on `Config::metrics_sample_ms` to provide the
-         *      sampled data based on the sample period. After this callback, the period/sample based metrics will
-         *      reset and start over for the new period.
-         *
-         * @param connection_id Source connection ID
-         * @param metrics           Copy of the connection metrics for the sample period
-         */
-        virtual void MetricsSampled(std::uint64_t connection_id, const ConnectionMetrics& metrics);
-
-        /**
-         * @brief Callback on client setup message
-         *
-         * @details Server mode only. Client will send a setup message on new connection. Server responds with
-         *      server setup.
-         *
-         * @param connection_id       Transport connection ID
-         * @param client_setup_attributes Decoded client setup message
-         */
-        virtual void ClientSetupReceived(std::uint64_t connection_id,
-                                         const ClientSetupAttributes& client_setup_attributes);
-
-        /**
-         * @brief Callback notification for new announce received that needs to be authorized
-         *
-         * @details Server mode only.
-         *
-         * @note The caller **MUST** respond to this via `ResolvePublishNamespace()`. If the caller does not
-         *      override this method, the default will call `ResolvePublishNamespace()` with the status of OK.
-         *
-         * @param connection_id       Source connection ID
-         * @param track_namespace   Track namespace
-         * @param publish_announce_attributes   Publish announce attributes received
-         */
-        virtual void PublishNamespaceReceived(std::uint64_t connection_id,
-                                              const TrackNamespace& track_namespace,
-                                              const PublishNamespaceAttributes& publish_announce_attributes);
-
-        /**
-         * @brief Callback notification for publish namespace done received
-         *
-         * @details Server mode only. The callback will indicate that publish namespace done has been received.
-         *      The app should return a vector of connection handler ids that should receive a copy of the publish
-         *      namespace done message. The returned list is based on subscribe namespace prefix matching.
-         *
-         * @param connection_id Source connection ID
-         * @param request_id        Request ID for the namespace that is done
-         *
-         * @returns Vector of subscribe namespace connection handler ids matching prefix to the namespace being
-         *      marked as done.
-         */
-        virtual std::vector<std::uint64_t> PublishNamespaceDoneReceived(std::uint64_t connection_id,
-                                                                        std::uint64_t request_id);
-
-        /**
-         * @brief Callback notification for unsubscribe namespace received
-         *
-         * @details Server mode only.
-         *
-         * @param connection_id Source connection ID
-         * @param prefix_namespace  Prefix namespace
-         */
-        virtual void UnsubscribeNamespaceReceived(std::uint64_t connection_id, const TrackNamespace& prefix_namespace);
-
-        /**
-         * @brief Callback notification for new subscribe namespace received
-         *
-         * @details Server mode only.
-         *
-         * @note The implementor **MUST** call `ResolveSubscribeNamespace()`.
-         *
-         * @param connection_id  Source connection ID
-         * @param data_ctx_id        Data context ID that the message was received on
-         * @param prefix_namespace   Track namespace prefix
-         * @param attributes         Attributes received
-         */
-        virtual void SubscribeNamespaceReceived(std::uint64_t connection_id,
-                                                std::uint64_t data_ctx_id,
-                                                const TrackNamespace& prefix_namespace,
-                                                const SubscribeNamespaceAttributes& attributes);
-
-        /**
-         * @brief Callback notification for new subscribe tracks received
-         *
-         * @details Server mode only.
-         *
-         * @note The implementor **MUST** call `ResolveSubscribeTracks()`.
-         *
-         * @param connection_id  Source connection ID
-         * @param data_ctx_id        Data context ID that the message was received on
-         * @param prefix_namespace   Track namespace prefix
-         * @param attributes         Attributes received
-         */
-        virtual void SubscribeTracksReceived(std::uint64_t connection_id,
-                                             std::uint64_t data_ctx_id,
-                                             const TrackNamespace& prefix_namespace,
-                                             const SubscribeNamespaceAttributes& attributes);
-
-        /**
-         * @brief Callback notification for new subscribe received
-         *
-         * @details Server mode only.
-         *
-         * @note The caller **MUST** respond to this via `ResolveSubscribe()`. If the caller does not override this
-         *      method, the default will call `ResolveSubscribe()` with the status of OK.
-         *
-         * @param connection_id    Source connection ID
-         * @param request_id           Request ID received
-         * @param track_full_name      Track full name
-         * @param subscribe_attributes Subscribe attributes received
-         */
-        virtual void SubscribeReceived(std::uint64_t connection_id,
-                                       uint64_t request_id,
-                                       const FullTrackName& track_full_name,
-                                       const SubscribeAttributes& subscribe_attributes);
-
-        /**
-         * @brief Callback notification on unsubscribe received
-         *
-         * @details Server mode only.
-         *
-         * @param connection_handle Source connection ID
-         * @param request_id        Request ID received
-         */
-        virtual void UnsubscribeReceived(std::uint64_t connection_id, uint64_t request_id);
-
-        /**
-         * @brief Callback notification on publish done received
-         *
-         * @details Server mode only.
-         *
-         * @param connection_id Source connection ID
-         * @param request_id        Request ID received
-         */
-        virtual void PublishDoneReceived(std::uint64_t connection_id, uint64_t request_id);
-
-        /**
-         * @brief New group requested received by a subscription
-         *
-         * @details Server mode only.
-         *
-         * @param track_full_name Track full name
-         * @param group_id        Group ID requested — should be plus one of current group or zero
-         */
-        virtual void NewGroupRequested(const FullTrackName& track_full_name, std::uint64_t group_id);
-
-        ///@}
-        // --END CALLBACKS -----------------------------------------------------------------------------------
-
       protected:
-        struct StartTransportResult
-        {
-            Status status;
-            std::optional<std::uint64_t> connection_id;
-        };
+        Session() = delete;
 
         /**
          * @brief Client mode constructor
          *
          * @param cfg MoQ Client Configuration
          */
-        Session(const ClientConfig& cfg)
-          : Session(cfg, std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us))
+        Session(const ClientConfig& cfg,
+
+                std::shared_ptr<Transport> transport,
+
+                std::shared_ptr<Connection> connection,
+                std::shared_ptr<ClientCallbacks> callbacks,
+                std::shared_ptr<Logger> logger)
+          : Session(cfg,
+                    std::move(transport),
+                    std::move(connection),
+                    std::move(callbacks),
+                    std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us),
+                    std::move(logger))
         {
         }
 
@@ -862,8 +443,19 @@ namespace quicr {
          *
          * @param cfg MoQ Server Configuration
          */
-        Session(const ServerConfig& cfg)
-          : Session(cfg, std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us))
+        Session(const ServerConfig& cfg,
+
+                std::shared_ptr<Transport> transport,
+
+                std::shared_ptr<Connection> connection,
+                std::shared_ptr<ServerCallbacks> callbacks,
+                std::shared_ptr<Logger> logger)
+          : Session(cfg,
+                    std::move(transport),
+                    std::move(connection),
+                    std::move(callbacks),
+                    std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us),
+                    std::move(logger))
         {
         }
 
@@ -873,7 +465,12 @@ namespace quicr {
          * @param cfg            MoQ Instance Client Configuration
          * @param tick_service   Shared pointer to the tick service to use
          */
-        Session(const ClientConfig& cfg, std::shared_ptr<timeq::tick_service> tick_service);
+        Session(const ClientConfig& cfg,
+                std::shared_ptr<Transport> transport,
+                std::shared_ptr<Connection> connection,
+                std::shared_ptr<ClientCallbacks> callbacks,
+                std::shared_ptr<timeq::tick_service> tick_service,
+                std::shared_ptr<Logger> logger);
 
         /**
          * @brief Server mode constructor with explicit tick service
@@ -881,247 +478,100 @@ namespace quicr {
          * @param cfg            MoQ Server Configuration
          * @param tick_service   Shared pointer to the tick service to use
          */
-        Session(const ServerConfig& cfg, std::shared_ptr<timeq::tick_service> tick_service);
+        Session(const ServerConfig& cfg,
+                std::shared_ptr<Transport> transport,
+                std::shared_ptr<Connection> connection,
+                std::shared_ptr<ServerCallbacks> callbacks,
+                std::shared_ptr<timeq::tick_service> tick_service,
+                std::shared_ptr<Logger> logger);
 
-        StartTransportResult StartTransport();
-
-        void OnStreamClosed(const std::uint64_t& connection_id,
-                            std::uint64_t stream_id,
+        void OnStreamClosed(std::uint64_t stream_id,
                             std::shared_ptr<StreamRxContext> rx_ctx,
-                            std::optional<uint64_t> data_ctx_id,
                             StreamClosedFlag flag) override;
 
       private:
-        Status StopTransport();
-
-        // -------------------------------------------------------------------------------------------------
+        /*===================================================================*/
         // Transport Delegate/callback functions
-        // -------------------------------------------------------------------------------------------------
+        /*===================================================================*/
 
-        void OnNewDataContext([[maybe_unused]] const std::uint64_t& connection_id,
-                              [[maybe_unused]] const std::uint64_t& data_ctx_id) override;
+        void OnConnectionStatus(Connection::Status status) override;
 
-        void OnConnectionStatus(const std::uint64_t& connection_id, const TransportStatus status) override;
-        void OnNewConnection(const std::uint64_t& connection_id, const TransportRemote& remote) override;
-        void OnRecvStream(const std::uint64_t& connection_id,
-                          uint64_t stream_id,
-                          std::optional<std::uint64_t> data_ctx_id,
+        void OnRecvStream(uint64_t stream_id,
+                          const std::shared_ptr<StreamRxContext>& rx_ctx,
+                          const std::shared_ptr<Stream>& stream,
                           const bool is_bidir = false) override;
-        void OnRecvDgram(const std::uint64_t& connection_id, std::optional<std::uint64_t> data_ctx_id) override;
+
+        void OnRecvDgram() override;
 
         void OnConnectionMetricsSampled(MetricsTimeStamp sample_time,
-                                        std::uint64_t conn_id,
+
                                         const QuicConnectionMetrics& quic_connection_metrics) override;
 
-        void OnDataMetricsStampled(MetricsTimeStamp sample_time,
-                                   std::uint64_t conn_id,
-                                   std::uint64_t data_ctx_id,
-                                   const QuicDataContextMetrics& quic_data_context_metrics) override;
+        void OnStreamMetricsStampled(MetricsTimeStamp sample_time,
+                                     std::uint64_t stream_id,
+                                     const QuicStreamMetrics& quic_stream_metrics,
+                                     bool is_final) override;
 
-        // -------------------------------------------------------------------------------------------------
-        // End of transport handler/callback functions
-        // -------------------------------------------------------------------------------------------------
-
-        static constexpr std::size_t kControlMessageBufferSize = 4096;
-
-        struct TrackHandler
-        {
-            std::shared_ptr<BaseTrackHandler> handler;
-
-            TrackHandler() = default;
-            ~TrackHandler() = default;
-
-            TrackHandler(const std::shared_ptr<BaseTrackHandler>& other_handler)
-              : handler(other_handler)
-            {
-            }
-
-            TrackHandler& operator=(const TrackHandler& other) = default;
-
-            TrackHandler& operator=(const std::shared_ptr<BaseTrackHandler>& other_handler)
-            {
-                handler = other_handler;
-                return *this;
-            }
-
-            template<typename T>
-            std::shared_ptr<T> Get()
-            {
-                return std::dynamic_pointer_cast<T>(handler);
-            }
-
-            template<typename T>
-            std::shared_ptr<T> Get() const
-            {
-                return std::dynamic_pointer_cast<T>(handler);
-            }
-        };
-
-        struct ConnectionContext
-        {
-            ConnectionContext(const ConnectionContext& other)
-              : next_request_id(other.next_request_id.load(std::memory_order_seq_cst))
-            {
-            }
-
-            std::uint64_t connection_id{ 0 };
-            std::optional<uint64_t> tx_ctrl_data_ctx_id;
-            std::optional<uint64_t> tx_ctrl_stream_id;
-            std::optional<uint64_t> rx_ctrl_stream_id;
-
-            bool setup_complete{ false }; ///< True if both client and server setup messages have completed
-            bool closed{ false };
-            uint64_t client_version{ 0 };
-
-            /// Received data holders for streams: control, request, unrouted data.
-            std::map<uint64_t, InitialStreamData> stream_buffers;
-
-            /** Next Connection request Id. This value is shifted left when setting Request Id.
-             * The least significant bit is used to indicate client (0) vs server (1).
-             */
-            std::atomic<uint64_t> next_request_id{ 0 }; ///< Connection specific ID for control messages messages
-
-            /// Subscribe Context by received subscribe IDs
-            /// Used to map published tracks to subscribes in client mode and to handle joining fetch lookups
-            struct SubscribeContext
-            {
-                FullTrackName track_full_name;
-                TrackHash track_hash{ 0, 0 };
-                std::optional<messages::Location> largest_location{ std::nullopt };
-                std::uint64_t data_ctx_id{ 0 };
-            };
-
-            std::map<std::uint64_t, SubscribeContext> recv_req_id;
-
-            /// Lookup request ID by carrying data context.
-            std::map<std::uint64_t, std::uint64_t> request_id_by_data_ctx;
-
-            /// Active inbound publish namespace notifications (not handler based).
-            std::vector<std::uint64_t> recv_publish_namespaces;
-
-            /// Handlers by request ID
-            std::map<std::uint64_t, TrackHandler> request_handlers;
-
-            /**
-             * Data is received with a track alias that is set by the publisher. The map key
-             * track alias is the received publisher track alias specific to the connection. Data received
-             * is matched to this track alias to find the subscriber handler that matches. The
-             * subscribe handler has both received track alias and generated track alias.
-             */
-            std::map<std::uint64_t, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
-
-            /**
-             * Publish tracks by namespace and name. map[track namespace][track name] = track handler
-             * Used mainly in client mode only
-             */
-            std::map<std::uint64_t, std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_name;
-
-            /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
-            std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias;
-
-            /// Fetch Publishers by request ID.
-            std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
-
-            ConnectionMetrics metrics{};   ///< Connection metrics
-            bool is_webtransport{ false }; ///< True if this connection uses WebTransport over HTTP/3
-
-            ConnectionContext() {}
-
-            /*
-             * Get the next request Id to use
-             */
-            uint64_t GetNextRequestId()
-            {
-                uint64_t rid = next_request_id;
-                next_request_id += 2;
-
-                return rid;
-            }
-        };
-
-        // -------------------------------------------------------------------------------------------------
+        /*===================================================================*/
         // Private methods
-        // -------------------------------------------------------------------------------------------------
+        /*===================================================================*/
 
         void Init();
 
         std::shared_ptr<Session> GetSharedPtr();
 
-        ConnectionContext& GetConnectionContext(std::uint64_t conn);
-
-        bool ProcessRequestMessage(ConnectionContext& conn_ctx,
-                                   std::uint64_t data_ctx_id,
+        bool ProcessRequestMessage(const std::shared_ptr<Stream>& stream,
                                    messages::ControlMessageType msg_type,
                                    BytesSpan msg_bytes);
 
-        bool ProcessCtrlMessage(ConnectionContext& conn_ctx,
-                                messages::ControlMessageType msg_type,
-                                BytesSpan msg_bytes);
+        bool ProcessCtrlMessage(messages::ControlMessageType msg_type, BytesSpan msg_bytes);
 
-        void SetStatus(Status status)
-        {
-            status_ = status;
-            StatusChanged(status);
-        }
+        void SetStatus(Status status);
 
-        void SendCtrlMsg(const ConnectionContext& conn_ctx,
-                         std::uint64_t data_ctx_id,
-                         std::shared_ptr<const std::vector<uint8_t>> data);
+        void SendCtrlMsg(const std::shared_ptr<Stream>& stream, std::shared_ptr<const std::vector<uint8_t>> data);
 
         template<typename... Fields>
-        void SendCtrlMsg(const ConnectionContext& conn_ctx,
-                         std::uint64_t data_ctx_id,
-                         messages::ControlMessageType type,
-                         Fields&&... args)
+        void SendCtrlMsg(const std::shared_ptr<Stream>& stream, messages::ControlMessageType type, Fields&&... args)
         {
             messages::Message msg = messages::Message{}.PrependType(type).ReserveLength();
 
             (msg.Append(args), ...);
 
-            SendCtrlMsg(conn_ctx, data_ctx_id, msg.ToBytes());
+            SendCtrlMsg(stream, msg.ToBytes());
         }
 
-        void SendSetup(ConnectionContext& conn_ctx);
+        void SendSetup();
 
         /*===================================================================*/
         // Requests
         /*===================================================================*/
 
-        void SendTrackStatusOk(ConnectionContext& conn_ctx,
-                               std::uint64_t data_ctx_id,
+        void SendTrackStatusOk(const std::shared_ptr<Stream>& stream,
                                const std::optional<messages::Location>& largest_object,
                                const messages::TrackExtensions& track_properties);
 
-        void SendSubscribeNamespaceOk(ConnectionContext& conn_ctx, std::uint64_t data_ctx_id);
-        void SendSubscribeTracksOk(ConnectionContext& conn_ctx, std::uint64_t data_ctx_id)
-        {
-            SendSubscribeNamespaceOk(conn_ctx, data_ctx_id);
-        }
-        void SendPublishNamespaceOk(ConnectionContext& conn_ctx, std::uint64_t data_ctx_id)
-        {
-            SendSubscribeNamespaceOk(conn_ctx, data_ctx_id);
-        }
-        void SendRequestUpdateOk(ConnectionContext& conn_ctx,
-                                 std::uint64_t data_ctx_id,
+        void SendSubscribeNamespaceOk(const std::shared_ptr<Stream>& stream);
+
+        void SendSubscribeTracksOk(const std::shared_ptr<Stream>& stream) { SendSubscribeNamespaceOk(stream); }
+
+        void SendPublishNamespaceOk(const std::shared_ptr<Stream>& stream) { SendSubscribeNamespaceOk(stream); }
+
+        void SendRequestUpdateOk(const std::shared_ptr<Stream>& stream,
                                  std::optional<std::uint64_t> expires,
                                  const std::optional<messages::Location>& largest_object);
 
         // Prefer the above typed overloads.
-        void SendRequestOk(ConnectionContext& conn_ctx,
-                           std::uint64_t data_ctx_id,
+        void SendRequestOk(const std::shared_ptr<Stream>& stream,
                            const messages::Parameters& params,
                            const messages::TrackExtensions& track_properties = {});
 
-        void SendRequestUpdate(const ConnectionContext& conn_ctx,
-                               std::uint64_t data_ctx_id,
-                               std::uint64_t request_id,
+        void SendRequestUpdate(const std::shared_ptr<Stream>& stream,
                                TrackHash th,
                                std::optional<std::uint64_t> end_group_id,
                                std::uint8_t priority,
                                bool forward);
 
-        void SendRequestError(ConnectionContext& conn_ctx,
-                              std::uint64_t data_ctx_id,
+        void SendRequestError(const std::shared_ptr<Stream>& stream,
                               std::uint64_t request_id,
                               messages::ErrorCode error,
                               std::chrono::milliseconds retry_interval,
@@ -1131,8 +581,7 @@ namespace quicr {
         // Publish Namespace
         /*===================================================================*/
 
-        void SendPublishNamespace(ConnectionContext& conn_ctx,
-                                  std::uint64_t data_ctx_id,
+        void SendPublishNamespace(const std::shared_ptr<Stream>& stream,
                                   std::uint64_t request_id,
                                   const TrackNamespace& track_namespace);
 
@@ -1140,23 +589,19 @@ namespace quicr {
         // Subscribe Namespace
         /*===================================================================*/
 
-        void SendSubscribeNamespace(ConnectionContext& conn_ctx,
-                                    std::uint64_t data_ctx_id,
+        void SendSubscribeNamespace(const std::shared_ptr<Stream>& stream,
                                     std::uint64_t request_id,
                                     const TrackNamespace& prefix,
                                     const messages::Filter& filter,
                                     messages::ControlMessageType type);
 
-        void SendUnsubscribeNamespace(ConnectionContext& conn_ctx,
-                                      std::uint64_t data_ctx_id,
-                                      const TrackNamespace& prefix);
+        void SendUnsubscribeNamespace(const std::shared_ptr<Stream>& stream, const TrackNamespace& prefix);
 
         /*===================================================================*/
         // Subscribe
         /*===================================================================*/
 
-        void SendSubscribe(ConnectionContext& conn_ctx,
-                           std::uint64_t data_ctx_id,
+        void SendSubscribe(const std::shared_ptr<Stream>& stream,
                            std::uint64_t request_id,
                            const FullTrackName& tfn,
                            TrackHash th,
@@ -1165,8 +610,7 @@ namespace quicr {
                            const messages::Filter& filter,
                            std::optional<std::chrono::milliseconds> delivery_timeout);
 
-        void SendSubscribeOk(ConnectionContext& conn_ctx,
-                             std::uint64_t data_ctx_id,
+        void SendSubscribeOk(const std::shared_ptr<Stream>& stream,
                              std::uint64_t request_id,
                              uint64_t track_alias,
                              uint64_t expires,
@@ -1177,38 +621,32 @@ namespace quicr {
         // Publish
         /*===================================================================*/
 
-        void SendPublish(ConnectionContext& conn_ctx,
-                         std::uint64_t data_ctx_id,
+        void SendPublish(const std::shared_ptr<Stream>& stream,
                          std::uint64_t request_id,
                          const PublishAttributes& publish);
 
-        void SendPublishDone(ConnectionContext& conn_ctx,
-                             std::uint64_t data_ctx_id,
+        void SendPublishDone(const std::shared_ptr<Stream>& stream,
                              std::uint64_t request_id,
                              messages::PublishDoneStatusCode status,
                              const std::string& reason);
 
-        void SendPublishOk(ConnectionContext& conn_ctx,
-                           std::uint64_t data_ctx_id,
-                           const PublishOkAttributes& attributes);
+        void SendPublishOk(const std::shared_ptr<Stream>& stream, const PublishOkAttributes& attributes);
 
-        std::optional<std::uint64_t> FindSubscribeNamespaceDataContext(const ConnectionContext& conn_ctx,
-                                                                       const TrackNamespace& track_namespace) const;
+        std::shared_ptr<Stream> FindSubscribeNamespaceStream(const TrackNamespace& track_namespace) const;
 
-        std::uint64_t ResponseDataContext(const ConnectionContext& conn_ctx, std::uint64_t request_id) const;
+        std::shared_ptr<Stream> ResponseStream(const std::uint64_t request_id) const;
 
         /*===================================================================*/
         // Track Status
         /*===================================================================*/
 
-        void SendTrackStatus(ConnectionContext& conn_ctx, std::uint64_t request_id, const FullTrackName& tfn);
+        void SendTrackStatus(std::uint64_t request_id, const FullTrackName& tfn);
 
         /*===================================================================*/
         // Fetch
         /*===================================================================*/
 
-        void SendFetch(ConnectionContext& conn_ctx,
-                       std::uint64_t data_ctx_id,
+        void SendFetch(const std::shared_ptr<Stream>& stream,
                        std::uint64_t request_id,
                        const FullTrackName& tfn,
                        std::uint8_t priority,
@@ -1216,8 +654,7 @@ namespace quicr {
                        const messages::Location& start_location,
                        const messages::FetchEndLocation& end_location);
 
-        void SendJoiningFetch(ConnectionContext& conn_ctx,
-                              std::uint64_t data_ctx_id,
+        void SendJoiningFetch(const std::shared_ptr<Stream>& stream,
                               std::uint64_t request_id,
                               std::uint8_t priority,
                               std::optional<messages::GroupOrder> group_order,
@@ -1225,8 +662,7 @@ namespace quicr {
                               std::uint64_t joining_start,
                               bool absolute);
 
-        void SendFetchOk(ConnectionContext& conn_ctx,
-                         std::uint64_t data_ctx_id,
+        void SendFetchOk(const std::shared_ptr<Stream>& stream,
                          messages::GroupOrder publisher_default_group_order,
                          bool end_of_track,
                          messages::Location end_location);
@@ -1235,74 +671,123 @@ namespace quicr {
         // Other member functions
         /*===================================================================*/
 
-        void CloseConnection(std::uint64_t connection_id,
-                             messages::TerminationReason reason,
-                             const std::string& reason_str);
+        void RemoveSubscribeTrack(SubscribeTrackHandler& handler, bool remove_handler = true);
 
-        void RemoveSubscribeTrack(ConnectionContext& conn_ctx,
-                                  SubscribeTrackHandler& handler,
-                                  bool remove_handler = true);
-
-        void RemoveSubscribeNamespace(ConnectionContext& conn_ctx,
-                                      SubscribeNamespaceHandler& handler,
+        void RemoveSubscribeNamespace(SubscribeNamespaceHandler& handler,
                                       bool remove_handler = true,
                                       bool send_unsubscribe = true);
 
-        void CloseRequestHandler(ConnectionContext& conn_ctx,
-                                 std::uint64_t connection_id,
-                                 std::uint64_t request_id,
-                                 std::uint64_t stream_id,
-                                 StreamClosedFlag flag);
+        void CloseRequestHandler(std::uint64_t request_id, std::uint64_t stream_id, StreamClosedFlag flag);
 
-        void ClosePublishTrackLocal(ConnectionContext& conn_ctx,
-                                    std::uint64_t connection_id,
-                                    PublishTrackHandler& handler,
-                                    std::uint64_t stream_id,
-                                    bool is_reset);
+        void ClosePublishTrackLocal(PublishTrackHandler& handler, std::uint64_t stream_id, bool is_reset);
 
-        std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(ConnectionContext& conn_ctx, TrackHash& th);
+        std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th);
 
-        void RemoveAllTracksForConnectionClose(ConnectionContext& conn_ctx);
+        void RemoveAllTracksForConnectionClose();
 
-        uint64_t GetNextRequestId();
+        uint64_t GetNextRequestID();
 
-        bool OnRecvSubgroup(std::uint64_t track_alias,
-                            StreamRxContext& rx_ctx,
-                            std::uint64_t stream_id,
-                            ConnectionContext& conn_ctx) const;
-        bool OnRecvFetch(std::uint64_t request_id,
-                         StreamRxContext& rx_ctx,
-                         std::uint64_t stream_id,
-                         ConnectionContext& conn_ctx) const;
+        bool OnRecvSubgroup(std::uint64_t track_alias, StreamRxContext& rx_ctx, std::uint64_t stream_id);
 
-        std::uint64_t CreateStream(std::uint64_t conn, std::uint64_t data_ctx_id, uint8_t priority);
+        bool OnRecvFetch(std::uint64_t request_id, StreamRxContext& rx_ctx, std::uint64_t stream_id);
 
-        TransportError Enqueue(const std::uint64_t& conn_id,
-                               const std::uint64_t& data_ctx_id,
-                               std::uint64_t stream_id,
+        /**
+         * @brief Create a data stream for a track.
+         *
+         * @param request_id  Track the stream carries, so that its metrics find the right handler.
+         */
+        std::shared_ptr<Stream> CreateStream(std::uint64_t request_id, uint8_t priority);
+
+        /**
+         * @brief Send published data.
+         *
+         * @param stream  Stream to send on, ignored when the flags ask for a datagram.
+         */
+        TransportError Enqueue(const std::shared_ptr<Stream>& stream,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
                                const uint8_t priority,
                                const uint32_t ttl_ms,
-                               const uint32_t delay_ms,
-                               const ITransport::EnqueueFlags flags);
+                               const Transport::EnqueueFlags flags);
 
       private:
-        // -------------------------------------------------------------------------------------------------
-        // Private member variables
-        // -------------------------------------------------------------------------------------------------
-        std::mutex state_mutex_;
-        const bool client_mode_;
-        std::shared_ptr<spdlog::logger> logger_;
-        bool stop_{ false };
-        const ServerConfig server_config_;
-        const ClientConfig client_config_;
+        std::shared_ptr<Connection> current_connection_;
 
-        std::map<std::uint64_t, ConnectionContext> connections_;
+        std::shared_ptr<Callbacks> callbacks_;
+
+        std::optional<std::uint64_t> rx_ctrl_stream_id_;
+
+        std::shared_ptr<Stream> tx_ctrl_stream_;
+
+        ///< Control message buffers for streams.
+        std::map<std::uint64_t, InitialStreamData> stream_buffers;
+
+        /**
+         * Next Connection request Id. This value is shifted left when setting Request Id.
+         * The least significant bit is used to indicate client (0) vs server (1).
+         */
+        std::atomic<uint64_t> next_request_id_;
+
+        std::map<std::uint64_t, SubscribeContext> recv_req_id;
+
+        struct StreamRequest
+        {
+            std::uint64_t request_id;
+
+            /**
+             * Whether this is the request's own bidirectional stream, whose close ends the request.
+             *
+             * @details A track's data streams are mapped here too, but only so that their metrics
+             *      find the right handler; they come and go while the request stays open.
+             */
+            bool is_request_stream;
+        };
+
+        /// Lookup the request each stream carries, by stream ID.
+        std::map<std::uint64_t, StreamRequest> request_by_stream;
+
+        /// Active inbound publish namespace notifications (not handler based).
+        std::vector<std::uint64_t> recv_publish_namespaces;
+
+        /// Handlers by request ID
+        std::map<std::uint64_t, std::shared_ptr<TrackHandler>> request_handlers;
+
+        /**
+         * Data is received with a track alias that is set by the publisher. The map key
+         * track alias is the received publisher track alias specific to the connection. Data received
+         * is matched to this track alias to find the subscriber handler that matches. The
+         * subscribe handler has both received track alias and generated track alias.
+         */
+        std::map<std::uint64_t, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
+
+        /**
+         * Publish tracks by namespace and name. map[track namespace][track name] = track handler
+         * Used mainly in client mode only
+         */
+        std::map<std::uint64_t, std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_name;
+
+        /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
+        std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias;
+
+        /// Fetch Publishers by request ID.
+        std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
+
+        std::mutex state_mutex_;
+
+        const bool client_mode_;
+
+        std::shared_ptr<Logger> logger_;
+
+        bool stop_{ false };
+
+        const ServerConfig server_config_;
+
+        const ClientConfig client_config_;
 
         Status status_{ Status::kNotReady };
 
         std::shared_ptr<timeq::tick_service> tick_service_;
-        std::shared_ptr<ITransport> quic_transport_; // **MUST** be last for proper order of destruction
+
+        std::shared_ptr<Transport> quic_transport_; // **MUST** be last for proper order of destruction
 
         friend class PublishTrackHandler;
         friend class PublishFetchHandler;

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "quicr/handlers/base_track_handler.h"
+#include "quicr/handlers/track_handler.h"
 #include "quicr/messages/messages.h"
 #include "quicr/messages/object.h"
 #include "quicr/metrics.h"
@@ -21,7 +21,7 @@ namespace quicr {
      *
      *  This extends the base track handler to add publish (aka send) handling
      */
-    class PublishTrackHandler : public BaseTrackHandler
+    class PublishTrackHandler : public TrackHandler
     {
       public:
         /**
@@ -316,6 +316,15 @@ namespace quicr {
         virtual void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true);
 
         /**
+         * @brief End every subgroup still open on this track.
+         *
+         * @details Called by the session when the track is unbound, so that subgroups the application
+         *      never ended do not keep their streams open for the life of the connection. Each is
+         *      ended as completed, matching what a well-behaved application would have done.
+         */
+        void EndAllSubgroups();
+
+        /**
          * @brief Set the publish status
          * @param status                Status of publishing (aka publish objects)
          */
@@ -355,14 +364,19 @@ namespace quicr {
         uint8_t default_priority_; // Set by caller and is used when priority is not specified
         uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
 
-        uint64_t publish_data_ctx_id_; // set by the transport; publishing data context ID
-
         struct StreamInfo
         {
-            uint64_t stream_id{ 0 };
+            /**
+             * Stream the subgroup is written to.
+             *
+             * @details Held from stream creation until the subgroup ends, so publishing an object
+             *      costs no lookup. The transport may close the stream underneath this handle, which
+             *      it detects and rejects on send.
+             */
+            std::shared_ptr<Stream> stream;
             uint64_t last_group_id{ 0 };
             uint64_t last_subgroup_id{ 0 };
-            std::optional<uint64_t> last_object_id;
+            std::optional<uint64_t> last_object_id{ std::nullopt };
         };
 
         // Key is group and subgroup id
