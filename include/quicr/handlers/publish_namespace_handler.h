@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "quicr/errors.h"
 #include "quicr/handlers/publish_track_handler.h"
 #include "quicr/track_name.h"
 
@@ -16,8 +17,6 @@ namespace quicr {
     class PublishNamespaceHandler : public TrackHandler
     {
       public:
-        using Error = std::pair<messages::ErrorCode, Bytes>;
-
         /**
          * @brief  Status codes for the Publish track
          */
@@ -123,7 +122,7 @@ namespace quicr {
          * @brief Get the error code and reason for the Publish namespace, if any.
          * @return Publish namespace error code and reason.
          */
-        std::optional<Error> GetError() const noexcept { return error_; }
+        std::optional<Error<ErrorCode>> GetError() const noexcept { return error_; }
 
       protected:
         /**
@@ -134,17 +133,13 @@ namespace quicr {
         {
             status_ = status;
             if (status == Status::kError && !error_.has_value()) {
-                const std::string reason = "Unknown error";
-                error_ = {
-                    messages::ErrorCode::kInternalError,
-                    Bytes{ reason.begin(), reason.end() },
-                };
+                error_ = Error<ErrorCode>{ ErrorCode::kInternalError, "Unknown error" };
             }
 
             StatusChanged(status);
         }
 
-        void SetError(const Error& error)
+        void SetError(const Error<ErrorCode>& error)
         {
             error_ = error;
             SetStatus(Status::kError);
@@ -152,11 +147,11 @@ namespace quicr {
 
         void RequestOkReceived(const messages::Parameters&) override;
 
-        void RequestUpdateReceived(const messages::Parameters& params) override;
+        Reply<messages::Parameters, ErrorCode> RequestUpdateReceived(const messages::Parameters& params) override;
 
-        void RequestError(messages::ErrorCode error_code, std::string reason) override
+        void RequestError(ErrorCode error_code, std::string reason) override
         {
-            SetError(Error{ error_code, Bytes{ reason.begin(), reason.end() } });
+            SetError(Error<ErrorCode>{ error_code, std::move(reason) });
         }
 
         // Publish handlers used to transmit track data
@@ -168,7 +163,7 @@ namespace quicr {
 
         Status status_{ Status::kNotPublished };
 
-        std::optional<Error> error_{};
+        std::optional<Error<ErrorCode>> error_{};
 
         friend class Session;
     };

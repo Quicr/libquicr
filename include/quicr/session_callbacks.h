@@ -3,31 +3,20 @@
 
 #pragma once
 
+#include "quicr/errors.h"
+#include "quicr/reply.h"
 #include "quicr/session.h"
 #include "quicr/utilities/expected.h"
 
-#include <concepts>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
-#include <thread>
-#include <type_traits>
-#include <variant>
 #include <vector>
 
 namespace quicr {
 
     class SubscribeNamespaceHandler;
-
-    template<typename E>
-    struct Error
-    {
-        E reason_code;
-
-        std::optional<std::string> error_reason;
-    };
 
     /**
      * @details **kOK** indicates that the subscribe is accepted and OK should be sent. Any other
@@ -93,83 +82,6 @@ namespace quicr {
         kNoObjects,
         kInternalError,
         // TODO: Expand reasons.
-    };
-
-    /**
-     * @brief The reply to a callback, which may be answered immediately or deferred.
-     *
-     * @details A Reply either holds the result of the callback, or an action that will produce it. A deferred
-     *      action is run off the calling thread, which lets an application answer a callback without blocking
-     *      the session's message handling.
-     *
-     * @tparam T The value type of a successful reply.
-     * @tparam E The reason code type of a failed reply.
-     */
-    template<typename T, typename E>
-    class Reply
-    {
-      public:
-        using ResultType = Expected<T, Error<E>>;
-        using DeferType = std::function<ResultType()>;
-
-      private:
-        Reply(DeferType&& action)
-          : result_(std::in_place_type<DeferType>, std::move(action))
-        {
-        }
-
-        bool IsDeferred() const noexcept { return std::holds_alternative<DeferType>(result_); }
-
-      public:
-        Reply() = default;
-
-        Reply(const Reply& other) = delete;
-
-        Reply(Reply&& other) noexcept = default;
-
-        Reply& operator=(const Reply& other) = delete;
-
-        Reply& operator=(Reply&& other) noexcept = default;
-
-        /**
-         * @brief Construct an immediate reply from anything the result is constructible from, such as a value,
-         *      or an Unexpected error.
-         */
-        template<typename U>
-            requires(!std::same_as<std::remove_cvref_t<U>, Reply> && std::is_constructible_v<ResultType, U &&>)
-        Reply(U&& value)
-          : result_(std::in_place_type<ResultType>, std::forward<U>(value))
-        {
-        }
-
-        /**
-         * @brief Construct a reply whose result is produced later, off the calling thread.
-         */
-        static Reply Defer(DeferType&& action) { return Reply(std::move(action)); }
-
-        /**
-         * @brief Hand the result to the given continuation, either now or once the deferred action completes.
-         *
-         * @note Consumes the reply; it must not be resolved more than once.
-         */
-        template<typename F>
-        void Resolve(F&& f)
-        {
-            if (IsDeferred()) {
-                std::thread([action = std::move(std::get<DeferType>(result_)), f = std::forward<F>(f)]() mutable {
-                    try {
-                        f(action());
-                    } catch (...) {
-                    }
-                }).detach();
-                return;
-            }
-
-            f(std::move(std::get<ResultType>(result_)));
-        }
-
-      private:
-        std::variant<ResultType, DeferType> result_;
     };
 
     /**
@@ -298,8 +210,8 @@ namespace quicr {
          *
          * @param server_setup_attributes Server setup attributes received
          */
-        virtual Reply<void, int> ServerSetupReceived(const std::shared_ptr<Session>& session,
-                                                     const ServerSetupAttributes& server_setup_attributes);
+        virtual Reply<void, ErrorCode> ServerSetupReceived(const std::shared_ptr<Session>& session,
+                                                           const ServerSetupAttributes& server_setup_attributes);
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -313,9 +225,9 @@ namespace quicr {
          * @param track_full_name      Track full name
          * @param subscribe_attributes Subscribe attributes received
          */
-        virtual Reply<void, int> UnpublishedSubscribeReceived(const std::shared_ptr<Session>& session,
-                                                              const FullTrackName& track_full_name,
-                                                              const SubscribeAttributes& subscribe_attributes);
+        virtual Reply<void, ErrorCode> UnpublishedSubscribeReceived(const std::shared_ptr<Session>& session,
+                                                                    const FullTrackName& track_full_name,
+                                                                    const SubscribeAttributes& subscribe_attributes);
     };
 
     /**
@@ -335,8 +247,8 @@ namespace quicr {
          *
          * @param client_setup_attributes Decoded client setup message
          */
-        virtual Reply<void, int> ClientSetupReceived(const std::shared_ptr<Session>& session,
-                                                     const ClientSetupAttributes& client_setup_attributes);
+        virtual Reply<void, ErrorCode> ClientSetupReceived(const std::shared_ptr<Session>& session,
+                                                           const ClientSetupAttributes& client_setup_attributes);
 
         /**
          * @brief Callback notification for publish namespace done received
@@ -358,8 +270,8 @@ namespace quicr {
          *
          * @param prefix_namespace  Prefix namespace
          */
-        virtual Reply<void, int> UnsubscribeNamespaceReceived(const std::shared_ptr<Session>& session,
-                                                              const TrackNamespace& prefix_namespace);
+        virtual Reply<void, ErrorCode> UnsubscribeNamespaceReceived(const std::shared_ptr<Session>& session,
+                                                                    const TrackNamespace& prefix_namespace);
 
         /**
          * @brief Callback notification for new subscribe namespace received
@@ -416,7 +328,8 @@ namespace quicr {
          *
          * @param request_id        Request ID received
          */
-        virtual Reply<void, int> UnsubscribeReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
+        virtual Reply<void, ErrorCode> UnsubscribeReceived(const std::shared_ptr<Session>& session,
+                                                           std::uint64_t request_id);
 
         /**
          * @brief Callback notification on publish done received
@@ -425,7 +338,8 @@ namespace quicr {
          *
          * @param request_id        Request ID received
          */
-        virtual Reply<void, int> PublishDoneReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
+        virtual Reply<void, ErrorCode> PublishDoneReceived(const std::shared_ptr<Session>& session,
+                                                           std::uint64_t request_id);
 
         /**
          * @brief New group requested received by a subscription
@@ -435,6 +349,6 @@ namespace quicr {
          * @param track_full_name Track full name
          * @param group_id        Group ID requested — should be plus one of current group or zero
          */
-        virtual Reply<void, int> NewGroupRequested(const FullTrackName& track_full_name, std::uint64_t group_id);
+        virtual Reply<void, ErrorCode> NewGroupRequested(const FullTrackName& track_full_name, std::uint64_t group_id);
     };
 }

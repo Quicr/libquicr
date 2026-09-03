@@ -716,23 +716,6 @@ namespace quicr::messages {
         kMalformedAuthority = 0x1A,
     };
 
-    enum class ErrorCode : uint64_t
-    {
-        kInternalError = 0x0,
-        kUnauthorized = 0x1,
-        kTimeout = 0x2,
-        kNotSupported = 0x3,
-        kMalformedAuthToken = 0x4,
-        kExpiredAuthToken = 0x5,
-        kDoesNotExist = 0x10,
-        kInvalidRange = 0x11,
-        kMalformedTrack = 0x12,
-        kDuplicateSubscription = 0x19,
-        kUninterested = 0x20,
-        kPrefixOverlap = 0x30,
-        kInvalidJoiningRequestId = 0x32,
-    };
-
     enum class PublishDoneStatus : uint64_t
     {
         kInternalError = 0x0,

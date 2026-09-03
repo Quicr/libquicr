@@ -235,7 +235,8 @@ namespace quicr {
         // TODO: LARGEST_OBJECT
     }
 
-    void SubscribeTrackHandler::RequestUpdateReceived(const messages::Parameters& params)
+    Reply<messages::Parameters, ErrorCode> SubscribeTrackHandler::RequestUpdateReceived(
+      const messages::Parameters& params)
     {
         if (IsPublisherInitiated()) {
             // Publish can rev keys but nothing else.
@@ -244,10 +245,7 @@ namespace quicr {
                                            messages::ParameterType::kAuthorizationToken,
                                          });
             // TODO: AUTHORIZATION_TOKEN
-            if (const auto session = GetSession().lock()) {
-                session->ResolveRequestUpdate(*GetRequestId(), { .error = std::nullopt, .params = {} });
-            }
-            return;
+            return messages::Parameters{};
         }
 
         throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");

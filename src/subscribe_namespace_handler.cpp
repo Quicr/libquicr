@@ -45,7 +45,7 @@ quicr::SubscribeNamespaceHandler::RequestOkReceived(const messages::Parameters& 
     SetStatus(Status::kOk);
 }
 
-void
+quicr::Reply<quicr::messages::Parameters, quicr::ErrorCode>
 quicr::SubscribeNamespaceHandler::RequestUpdateReceived([[maybe_unused]] const messages::Parameters& params)
 {
     throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");

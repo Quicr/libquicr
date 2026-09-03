@@ -286,7 +286,7 @@ namespace quicr_test {
             return {};
         }
 
-        quicr::Reply<void, int> UnsubscribeNamespaceReceived(
+        quicr::Reply<void, quicr::ErrorCode> UnsubscribeNamespaceReceived(
           const std::shared_ptr<quicr::Session>& session,
           [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override
         {
@@ -324,8 +324,8 @@ namespace quicr_test {
           const quicr::FullTrackName& track_full_name,
           const quicr::SubscribeAttributes& subscribe_attributes) override;
 
-        quicr::Reply<void, int> PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
-                                                    uint64_t request_id) override;
+        quicr::Reply<void, quicr::ErrorCode> PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
+                                                                 uint64_t request_id) override;
 
         quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode> SubscribeTracksReceived(
           const std::shared_ptr<quicr::Session>& session,
@@ -342,11 +342,11 @@ namespace quicr_test {
           const quicr::TrackNamespace& track_namespace,
           const quicr::PublishNamespaceAttributes& publish_announce_attributes) override;
 
-        quicr::Reply<void, int> NewGroupRequested(const quicr::FullTrackName& track_full_name,
-                                                  std::uint64_t group_id) override;
+        quicr::Reply<void, quicr::ErrorCode> NewGroupRequested(const quicr::FullTrackName& track_full_name,
+                                                               std::uint64_t group_id) override;
 
-        quicr::Reply<void, int> UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session,
-                                                    std::uint64_t request_id) override;
+        quicr::Reply<void, quicr::ErrorCode> UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session,
+                                                                 std::uint64_t request_id) override;
 
       public:
         std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;

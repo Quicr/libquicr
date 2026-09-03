@@ -7,6 +7,7 @@
 #include "quicr/config.h"
 #include "quicr/connection.h"
 #include "quicr/containers/stream_buffer.h"
+#include "quicr/errors.h"
 #include "quicr/handlers/fetch_track_handler.h"
 #include "quicr/handlers/publish_fetch_handler.h"
 #include "quicr/handlers/publish_namespace_handler.h"
@@ -138,18 +139,6 @@ namespace quicr {
             TrackHash track_hash{ 0, 0 };
             std::optional<messages::Location> largest_location{ std::nullopt };
             std::shared_ptr<Stream> stream;
-        };
-
-        struct RequestUpdateResponse
-        {
-            struct Error
-            {
-                const messages::ErrorCode error_code;
-                const std::chrono::milliseconds retry_interval;
-                const std::string reason;
-            };
-            const std::optional<Error> error;
-            const messages::Parameters params;
         };
 
       public:
@@ -311,19 +300,6 @@ namespace quicr {
         ///@{
 
         /**
-         * @brief Accept or reject a subscribe that was received
-         *
-         * @details Accept or reject a subscribe received via `SubscribeReceived()` (server mode) or when acting
-         *      as a publisher in client mode. The MoQ transport will send the protocol message based on the
-         *      `RequestResponse`.
-         *
-         * @param request_id         Request ID
-         * @param track_alias        Track alias the subscriber should use
-         * @param subscribe_response Response for the subscribe
-         */
-        void ResolveSubscribe(uint64_t request_id, uint64_t track_alias, const RequestResponse& subscribe_response);
-
-        /**
          * @brief Accept or reject a fetch that was received
          *
          * @details Accept or reject a fetch received via `StandaloneFetchReceived()` or
@@ -337,27 +313,6 @@ namespace quicr {
         void ResolveFetch(uint64_t request_id,
                           std::optional<messages::GroupOrder> group_order,
                           const FetchResponse& response);
-
-        /**
-         * @brief Accept or reject a request update
-         *
-         * @param request_id            Request being updated
-         * @param response              Request update response
-         */
-        void ResolveRequestUpdate(uint64_t request_id, const RequestUpdateResponse& response);
-
-        /**
-         * @brief Accept or reject track status that was received
-         *
-         * @details Accept or reject track status received via TrackStatusReceived(). The MoQ Transport
-         *      will send the protocol message based on the RequestResponse. Per MOQT draft-14,
-         *      track status request, ok, and error are the same as subscribe
-         *
-         * @param request_id               Request ID that was provided by TrackStatusReceived
-         * @param subscribe_response       Response to the track status request, either Ok or Error.
-         *                                 Largest loation should be set if kOk and there is content
-         */
-        void ResolveTrackStatus(uint64_t request_id, const RequestResponse& subscribe_response);
 
         ///@}
         // --END RESOLVE METHODS -----------------------------------------------------------------------------
@@ -573,7 +528,7 @@ namespace quicr {
 
         void SendRequestError(const std::shared_ptr<Stream>& stream,
                               std::uint64_t request_id,
-                              messages::ErrorCode error,
+                              ErrorCode error,
                               std::chrono::milliseconds retry_interval,
                               const std::string& reason);
 
