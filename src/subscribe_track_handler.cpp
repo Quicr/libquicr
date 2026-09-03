@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include <exception>
+
 #include "quicr/handlers/subscribe_track_handler.h"
 
 #include "quicr/containers/stream_buffer.h"
