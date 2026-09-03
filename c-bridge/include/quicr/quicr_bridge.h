@@ -238,8 +238,6 @@ extern "C"
         uint32_t tick_service_sleep_delay_us;
         /** Enable debug logging (default: false) */
         bool debug_logs;
-        /** Use reset and wait strategy (default: false) */
-        bool use_reset_wait_strategy;
     } qbridge_client_config_t;
 
     /**
@@ -693,7 +691,6 @@ extern "C"
      * - idle_timeout_ms: 30000
      * - tick_service_sleep_delay_us: 333
      * - debug_logs: false
-     * - use_reset_wait_strategy: false
      */
     void qbridge_client_config_init(qbridge_client_config_t* config);
 

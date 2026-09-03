@@ -36,13 +36,6 @@ namespace quicr {
         return Bytes{ bytes.begin(), bytes.end() };
     }
 
-    template<>
-    inline Bytes AsOwnedBytes<std::string>(const std::string& value)
-    {
-        auto bytes = AsBytes<std::string>(value);
-        return Bytes{ bytes.begin(), bytes.end() };
-    }
-
     template<class T>
     T FromBytes(std::span<const uint8_t> bytes)
     {

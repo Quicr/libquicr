@@ -23,7 +23,6 @@ find_package(PkgConfig REQUIRED)
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/dependencies/spdlog/include
 )
 
 # Collect source files
@@ -43,7 +42,6 @@ add_library(quicr-bridge STATIC ${BRIDGE_SOURCES} ${BRIDGE_HEADERS})
 target_link_libraries(quicr-bridge
     PRIVATE
     quicr
-    spdlog::spdlog
 )
 
 # Set include directories for the library

@@ -1,20 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-include(FetchContent)
+CPMAddPackage("gh:nlohmann/json@3.11.3")
+CPMAddPackage("gh:cisco/sframe#9af3e9942180a754fc953d7205e26355ad9fe31e")
 
-FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
-FetchContent_MakeAvailable(json)
+if (NOT HAS_STD_VFORMAT)
+    set(SPDLOG_FMT_EXTERNAL ON)
+endif()
 
-FetchContent_Declare(
-        sframe
-        GIT_REPOSITORY https://github.com/cisco/sframe.git
-        GIT_TAG 9af3e9942180a754fc953d7205e26355ad9fe31e
-)
-FetchContent_MakeAvailable(sframe)
+CPMAddPackage("gh:gabime/spdlog@1.17.0")
 
 add_executable(qclient client.cpp)
-target_link_libraries(qclient PRIVATE quicr nlohmann_json::nlohmann_json sframe)
+target_link_libraries(qclient PRIVATE quicr nlohmann_json::nlohmann_json sframe spdlog::spdlog)
 target_include_directories(qclient PRIVATE ../dependencies )
 
 target_compile_options(qclient
@@ -27,8 +24,6 @@ set_target_properties(qclient
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS OFF)
-
-target_compile_definitions(qclient PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 
 if(LINT)
         include(Lint)

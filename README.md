@@ -74,7 +74,7 @@ brew install cmake clang-format
 ---
 
 ## Examples
-[cmd/examples](https://github.com/Quicr/libquicr/tree/main/cmd/examples) has an example client implementation showing chat and clock
+[examples/qclient](https://github.com/Quicr/libquicr/tree/main/examples/qclient) has an example client implementation showing chat and clock
 applications.
 
 Running `make` will build the examples.
@@ -151,16 +151,10 @@ See [c-bridge/README.md](c-bridge/README.md) for details.
 Server requires a TLS certificate and key file. For development and testing, use a self-signed certificate. Below
 are the steps to create a self-signed certificate and private ey.
 
-### Create cert under cmd/examples
-
-```
-make cert
-```
-
 ### OpenSSL/BorningSSL
 
 ```
-cd build/cmd/examples
+cd build/examples/qclient
 openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
     -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
     -keyout server-key.pem -out server-cert.pem

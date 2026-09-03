@@ -9,11 +9,11 @@ add_executable(quicr_test
     main.cpp
     moq_ctrl_messages.cpp
     moq_data_messages.cpp
+    picoquic_connection.cpp
     priority_queue.cpp
-    session.cpp
     track_handlers.cpp
     track_namespace.cpp
-    transport_metrics.cpp
+    metrics.cpp
     uintvar.cpp
 )
 
@@ -22,7 +22,10 @@ if(QUICR_ENABLE_SANITIZERS)
 endif()
 
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
-target_link_libraries(quicr_test PRIVATE quicr doctest::doctest)
+
+# quicr links picoquic privately, so its include paths do not reach this target. They are needed
+# here because unit tests of internal classes include private headers that pull in picoquic.
+target_link_libraries(quicr_test PRIVATE quicr doctest::doctest picoquic-core picoquic-log picohttp-core)
 
 set_target_properties(quicr_test PROPERTIES
     CXX_STANDARD 20
