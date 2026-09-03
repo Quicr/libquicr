@@ -19,9 +19,10 @@ namespace quicr {
     class SubscribeNamespaceHandler;
 
     /**
-     * @details **kOK** indicates that the subscribe is accepted and OK should be sent. Any other
-     *       value indicates that the subscribe is not accepted and the reason code and other
-     *       fields will be set.
+     * @brief Why a request was rejected, carried by the error of a `Reply`.
+     *
+     * @details Acceptance is expressed by the reply holding a value, so these are reasons for rejection
+     *      only.
      */
     enum class RequestErrorCode : uint8_t
     {
@@ -41,9 +42,10 @@ namespace quicr {
     };
 
     /**
-     * @details **kOK** indicates that the subscribe is accepted and OK should be sent. Any other
-     *       value indicates that the subscribe is not accepted and the reason code and other
-     *       fields will be set.
+     * @brief Why a publish was rejected, carried by the error of a `Reply`.
+     *
+     * @details Acceptance is expressed by the reply holding a `PublishResponse`, so these are reasons for
+     *      rejection only.
      */
     enum class PublishErrorCode : std::uint8_t
     {
@@ -60,9 +62,10 @@ namespace quicr {
     };
 
     /**
-     * @details **kOK** indicates that the announce is accepted and OK should be sent. Any other
-     *       value indicates that the announce is not accepted and the reason code and other
-     *       fields will be set.
+     * @brief Why a publish namespace was rejected, carried by the error of a `Reply`.
+     *
+     * @details Acceptance is expressed by the reply holding a value, so `kOk` is vestigial and should not
+     *      be returned as an error.
      */
     enum class PublishNamespaceErrorCode : uint8_t
     {
@@ -71,9 +74,10 @@ namespace quicr {
     };
 
     /**
-     * @details **kOK** indicates that the fetch is accepted and OK should be sent. Any other
-     *       value indicates that the subscribe is not accepted and the reason code and other
-     *       fields will be set.
+     * @brief Why a fetch was rejected, carried by the error of a `Reply`.
+     *
+     * @details Acceptance is expressed by the reply holding a `FetchResponse`, so `kOk` is vestigial and
+     *      should not be returned as an error.
      */
     enum class FetchErrorCode : uint8_t
     {
@@ -86,6 +90,26 @@ namespace quicr {
 
     /**
      * @brief Callback interface for session events common to both client and server mode
+     *
+     * @details Callbacks that answer an inbound request return a `Reply`, which carries either the response
+     *      or a reason code for rejecting it. The session sends the protocol message from that reply and
+     *      correlates it with the request itself, so there is nothing further for the application to call
+     *      and no request identifier for it to keep.
+     *
+     *      Return a value to accept, or an `Unexpected<Error<E>>` holding a reason code and optional reason
+     *      string to reject. A `Reply<void, E>` accepts by returning `{}`.
+     *
+     *      An answer that cannot be given straight away is deferred with `Reply::Defer()`, which takes an
+     *      action returning the same result and runs it off the session's message handling thread. This is
+     *      the way to consult something slow, such as an authorization service, without stalling the
+     *      session.
+     *
+     *      Callbacks are invoked on the transport notify thread, which also carries stream and connection
+     *      events, so an immediate reply must return promptly; anything slow belongs in a deferred one. Each
+     *      reply is answered exactly once, and an exception escaping a deferred action is swallowed, which
+     *      leaves the request unanswered until the peer times it out.
+     *
+     *      A callback that is not overridden keeps its default, given per method below.
      */
     struct Session::Callbacks
     {
@@ -121,8 +145,7 @@ namespace quicr {
         /**
          * @brief Callback notification for new publish received
          *
-         * @details The app must call `ResolvePublish()` with a reason code of OK to accept, or another reason code
-         *      to reject. In client mode the default implementation rejects with `kNotSupported`.
+         * @details Return the publish response to accept. Defaults to rejecting with `kNotSupported`.
          *
          * @param request_id         Incoming publish request ID
          * @param publish_attributes Attributes of the publish
@@ -150,6 +173,8 @@ namespace quicr {
         /**
          * @brief Event to run on receiving a Standalone Fetch request.
          *
+         * @details Defaults to rejecting with `kInternalError`, since fetch is not served unless implemented.
+         *
          * @param request_id        Request ID received.
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
@@ -162,6 +187,8 @@ namespace quicr {
 
         /**
          * @brief Event to run on receiving a Joining Fetch request.
+         *
+         * @details Defaults to rejecting with `kInternalError`, since fetch is not served unless implemented.
          *
          * @param request_id        Request ID received.
          * @param track_full_name   Track full name
@@ -184,8 +211,7 @@ namespace quicr {
         /**
          * @brief Callback notification for track status message received
          *
-         * @note The caller **MUST** respond to this via ResolveTrackStatus(). If the caller does not
-         * override this method, the default will call ResolveTrackStatus() with the status of OK
+         * @details Defaults to accepting with an empty `RequestResponse`.
          *
          * @param request_id            Request ID received
          * @param track_full_name       Track full name
@@ -220,7 +246,7 @@ namespace quicr {
          *      track, this method signals the application that there is a new subscribe full track name. The
          *      application should `PublishTrack()` within this callback (or afterwards).
          *
-         * @note The caller **MUST** respond via `ResolveSubscribe()`.
+         *      Defaults to accepting.
          *
          * @param track_full_name      Track full name
          * @param subscribe_attributes Subscribe attributes received
@@ -276,9 +302,8 @@ namespace quicr {
         /**
          * @brief Callback notification for new subscribe namespace received
          *
-         * @details Server mode only.
-         *
-         * @note The implementor **MUST** call `ResolveSubscribeNamespace()`.
+         * @details Server mode only. Accept by returning the namespaces already published under the prefix,
+         *      which the session sends with the OK. Defaults to accepting with none.
          *
          * @param prefix_namespace   Track namespace prefix
          * @param attributes         Attributes received
@@ -291,9 +316,8 @@ namespace quicr {
         /**
          * @brief Callback notification for new subscribe tracks received
          *
-         * @details Server mode only.
-         *
-         * @note The implementor **MUST** call `ResolveSubscribeTracks()`.
+         * @details Server mode only. Accept by returning the namespaces already published under the prefix,
+         *      which the session sends with the OK. Defaults to accepting with none.
          *
          * @param prefix_namespace   Track namespace prefix
          * @param attributes         Attributes received
@@ -306,10 +330,7 @@ namespace quicr {
         /**
          * @brief Callback notification for new subscribe received
          *
-         * @details Server mode only.
-         *
-         * @note The caller **MUST** respond to this via `ResolveSubscribe()`. If the caller does not override this
-         *      method, the default will call `ResolveSubscribe()` with the status of OK.
+         * @details Server mode only. Defaults to accepting with an empty `RequestResponse`.
          *
          * @param request_id           Request ID received
          * @param track_full_name      Track full name

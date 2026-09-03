@@ -292,31 +292,6 @@ namespace quicr {
         std::uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
                                          const SubscribeAttributes& subscribe_attributes);
 
-        // --BEGIN RESOLVE METHODS ---------------------------------------------------------------------------
-        /** @name Resolve Methods
-         *      Methods to accept or reject inbound requests. Most are used in server mode; `ResolveSubscribe()`
-         *      is also used when acting as a publisher in client mode.
-         */
-        ///@{
-
-        /**
-         * @brief Accept or reject a fetch that was received
-         *
-         * @details Accept or reject a fetch received via `StandaloneFetchReceived()` or
-         *      `JoiningFetchReceived()`.
-         *
-         * @param request_id        Request ID
-         * @param priority          Subscriber priority for the fetch response
-         * @param group_order       Optional group order for the fetch response
-         * @param response          Response to the fetch
-         */
-        void ResolveFetch(uint64_t request_id,
-                          std::optional<messages::GroupOrder> group_order,
-                          const FetchResponse& response);
-
-        ///@}
-        // --END RESOLVE METHODS -----------------------------------------------------------------------------
-
         // --BEGIN SERVER RELAY METHODS ----------------------------------------------------------------------
         /** @name Server Relay Methods
          *      Methods for relaying published content to subscribers. Server mode only.
@@ -600,6 +575,10 @@ namespace quicr {
         /*===================================================================*/
         // Fetch
         /*===================================================================*/
+
+        void ResolveFetch(uint64_t request_id,
+                          std::optional<messages::GroupOrder> group_order,
+                          const FetchResponse& response);
 
         void SendFetch(const std::shared_ptr<Stream>& stream,
                        std::uint64_t request_id,
