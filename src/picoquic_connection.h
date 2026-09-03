@@ -191,7 +191,7 @@ namespace quicr {
         std::shared_ptr<SafeQueue<std::shared_ptr<const Bytes>>> dgram_rx_data;
 
         /// True while a receive notification for the datagram queue is pending
-        std::atomic_bool dgram_notify_pending{ false };
+        std::atomic<bool> dgram_notify_pending{ false };
 
         /// Priority last given to picoquic for this connection's datagrams; unset until the first send
         std::optional<std::uint8_t> dgram_priority;
