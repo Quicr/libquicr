@@ -74,7 +74,8 @@ namespace quicr {
         std::unique_ptr<SafeTimeQueue<ConnData>> tx_data;
 
         /// True once the send direction has been closed or reset.
-        std::atomic_bool tx_closed{ false };
+        std::atomic<bool> tx_closed{ false };
+
         /// Current object that is being sent as a byte stream
         std::shared_ptr<const std::vector<uint8_t>> tx_object;
 
