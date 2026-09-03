@@ -1801,7 +1801,6 @@ namespace quicr {
                     if (flag == StreamClosedFlag::kStopSending) {
                         return;
                     }
-
                     const auto request_id = req_it->second.request_id;
                     request_by_stream.erase(req_it);
 
@@ -1809,7 +1808,6 @@ namespace quicr {
                     CloseRequestHandler(request_id, stream_id, flag);
                     return;
                 }
-
                 const auto handler_it = request_handlers.find(req_it->second.request_id);
                 if (handler_it != request_handlers.end()) {
                     if (const auto handler = handler_it->second->Get<PublishTrackHandler>()) {

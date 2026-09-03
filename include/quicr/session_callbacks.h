@@ -180,7 +180,6 @@ namespace quicr {
         virtual ~Callbacks() = default;
 
         virtual void OnStreamClosed(std::uint64_t stream_id, StreamClosedFlag flag);
-
         /**
          * @brief Callback notification for status/state change
          *
@@ -327,6 +326,7 @@ namespace quicr {
     {
         virtual ~ServerCallbacks() = default;
 
+        virtual void OnStreamClosed(std::uint64_t stream_id, StreamClosedFlag flag);
         /**
          * @brief Callback on client setup message
          *

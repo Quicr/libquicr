@@ -68,7 +68,6 @@ IsStreamFullyClosed(const PicoQuicStream& stream)
     }
     return stream.tx_data != nullptr ? stream.tx_closed.load(std::memory_order_acquire) : stream.rx_closed;
 }
-
 /* ============================================================================
  * PicoQuic Callbacks
  * ============================================================================
@@ -250,7 +249,6 @@ try {
              */
             QUICR_LOGGER_DEBUG(
               transport->logger, "Stream released by picoquic conn_id: {} stream_id: {}", conn_id, stream_id);
-
             if (auto connection = transport->GetConnection(conn_id)) {
                 connection->RemoveStream(stream_id);
             }

@@ -254,7 +254,6 @@ namespace quicr_test {
                 session->GetConnection()->OnStreamClosed(stream_id, nullptr, flag);
             }
         }
-
         /**
          * @brief Unbind the publish track handler the server bound for a subscriber
          *
