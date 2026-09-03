@@ -353,9 +353,7 @@ namespace quicr {
          * @param cfg MoQ Client Configuration
          */
         Session(const ClientConfig& cfg,
-
                 std::shared_ptr<Transport> transport,
-
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ClientCallbacks> callbacks,
                 std::shared_ptr<Logger> logger)
@@ -374,9 +372,7 @@ namespace quicr {
          * @param cfg MoQ Server Configuration
          */
         Session(const ServerConfig& cfg,
-
                 std::shared_ptr<Transport> transport,
-
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ServerCallbacks> callbacks,
                 std::shared_ptr<Logger> logger)

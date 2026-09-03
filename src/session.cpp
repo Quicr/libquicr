@@ -367,9 +367,9 @@ namespace quicr {
                                 const TrackExtensions& track_properties)
     try {
         QUICR_LOGGER_DEBUG(logger_,
-                           "Sending REQUEST_OK to conn_id: {} request_id: {}",
+                           "Sending REQUEST_OK to conn_id: {} stream_id: {}",
                            current_connection_->GetID(),
-                           request_by_stream.at(stream->GetStreamId()).request_id);
+                           stream->GetStreamId());
 
         SendCtrlMsg(stream, ControlMessageType::kRequestOk, params, track_properties);
     } catch (const std::exception& e) {
@@ -3203,6 +3203,8 @@ namespace quicr {
 
                     track_it->second->RequestUpdateReceived(parameters)
                       .Resolve([request_id, self = GetSharedPtr()](const auto& result) {
+                          std::lock_guard lock(self->state_mutex_);
+
                           const auto handler_it = self->request_handlers.find(request_id);
                           if (handler_it == self->request_handlers.end()) {
                               QUICR_LOGGER_ERROR(
