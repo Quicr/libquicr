@@ -21,7 +21,7 @@ namespace quicr_test {
             client_connected_ = std::move(promise);
         }
 
-        quicr::Reply<void, int> ServerSetupReceived(
+        quicr::Reply<void, quicr::ErrorCode> ServerSetupReceived(
           const std::shared_ptr<quicr::Session>& session,
           const quicr::ServerSetupAttributes& server_setup_attributes) override;
 

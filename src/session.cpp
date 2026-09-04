@@ -11,6 +11,7 @@
 #include "quicr/messages/messages.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session_callbacks.h"
+#include "stream.h"
 #include "track_properties.h"
 #include "transport_picoquic.h"
 
@@ -52,67 +53,67 @@ namespace quicr {
             return value;
         }
 
-        RequestErrorCode FromErrorCode(messages::ErrorCode error_code)
+        RequestErrorCode FromErrorCode(ErrorCode error_code)
         {
             switch (error_code) {
-                case messages::ErrorCode::kInternalError:
+                case ErrorCode::kInternalError:
                     return RequestErrorCode::kInternalError;
-                case messages::ErrorCode::kUnauthorized:
+                case ErrorCode::kUnauthorized:
                     return RequestErrorCode::kUnauthorized;
-                case messages::ErrorCode::kTimeout:
+                case ErrorCode::kTimeout:
                     return RequestErrorCode::kTimeout;
-                case messages::ErrorCode::kNotSupported:
+                case ErrorCode::kNotSupported:
                     return RequestErrorCode::kNotSupported;
-                case messages::ErrorCode::kMalformedAuthToken:
+                case ErrorCode::kMalformedAuthToken:
                     return RequestErrorCode::kMalformedAuthToken;
-                case messages::ErrorCode::kExpiredAuthToken:
+                case ErrorCode::kExpiredAuthToken:
                     return RequestErrorCode::kExpiredAuthToken;
-                case messages::ErrorCode::kDoesNotExist:
+                case ErrorCode::kDoesNotExist:
                     return RequestErrorCode::kDoesNotExist;
-                case messages::ErrorCode::kInvalidRange:
+                case ErrorCode::kInvalidRange:
                     return RequestErrorCode::kInvalidRange;
-                case messages::ErrorCode::kMalformedTrack:
+                case ErrorCode::kMalformedTrack:
                     return RequestErrorCode::kMalformedTrack;
-                case messages::ErrorCode::kDuplicateSubscription:
+                case ErrorCode::kDuplicateSubscription:
                     return RequestErrorCode::kDuplicateSubscription;
-                case messages::ErrorCode::kUninterested:
+                case ErrorCode::kUninterested:
                     return RequestErrorCode::kUninterested;
-                case messages::ErrorCode::kPrefixOverlap:
+                case ErrorCode::kPrefixOverlap:
                     return RequestErrorCode::kPrefixOverlap;
-                case messages::ErrorCode::kInvalidJoiningRequestId:
+                case ErrorCode::kInvalidJoiningRequestId:
                     return RequestErrorCode::kInvalidJoiningRequestId;
             }
         }
 
-        messages::ErrorCode ToErrorCode(RequestErrorCode error_code)
+        ErrorCode ToErrorCode(RequestErrorCode error_code)
         {
             switch (error_code) {
                 case RequestErrorCode::kInternalError:
-                    return messages::ErrorCode::kInternalError;
+                    return ErrorCode::kInternalError;
                 case RequestErrorCode::kUnauthorized:
-                    return messages::ErrorCode::kUnauthorized;
+                    return ErrorCode::kUnauthorized;
                 case RequestErrorCode::kTimeout:
-                    return messages::ErrorCode::kTimeout;
+                    return ErrorCode::kTimeout;
                 case RequestErrorCode::kNotSupported:
-                    return messages::ErrorCode::kNotSupported;
+                    return ErrorCode::kNotSupported;
                 case RequestErrorCode::kMalformedAuthToken:
-                    return messages::ErrorCode::kMalformedAuthToken;
+                    return ErrorCode::kMalformedAuthToken;
                 case RequestErrorCode::kExpiredAuthToken:
-                    return messages::ErrorCode::kExpiredAuthToken;
+                    return ErrorCode::kExpiredAuthToken;
                 case RequestErrorCode::kDoesNotExist:
-                    return messages::ErrorCode::kDoesNotExist;
+                    return ErrorCode::kDoesNotExist;
                 case RequestErrorCode::kInvalidRange:
-                    return messages::ErrorCode::kInvalidRange;
+                    return ErrorCode::kInvalidRange;
                 case RequestErrorCode::kMalformedTrack:
-                    return messages::ErrorCode::kMalformedTrack;
+                    return ErrorCode::kMalformedTrack;
                 case RequestErrorCode::kDuplicateSubscription:
-                    return messages::ErrorCode::kDuplicateSubscription;
+                    return ErrorCode::kDuplicateSubscription;
                 case RequestErrorCode::kUninterested:
-                    return messages::ErrorCode::kUninterested;
+                    return ErrorCode::kUninterested;
                 case RequestErrorCode::kPrefixOverlap:
-                    return messages::ErrorCode::kPrefixOverlap;
+                    return ErrorCode::kPrefixOverlap;
                 case RequestErrorCode::kInvalidJoiningRequestId:
-                    return messages::ErrorCode::kInvalidJoiningRequestId;
+                    return ErrorCode::kInvalidJoiningRequestId;
             }
         }
 
@@ -368,9 +369,9 @@ namespace quicr {
                                 const TrackExtensions& track_properties)
     try {
         QUICR_LOGGER_DEBUG(logger_,
-                           "Sending REQUEST_OK to conn_id: {} request_id: {}",
+                           "Sending REQUEST_OK to conn_id: {} stream_id: {}",
                            current_connection_->GetID(),
-                           request_by_stream.at(stream->GetStreamId()).request_id);
+                           stream->GetStreamId());
 
         SendCtrlMsg(stream, ControlMessageType::kRequestOk, params, track_properties);
     } catch (const std::exception& e) {
@@ -389,17 +390,18 @@ namespace quicr {
                         .Add(ParameterType::kForward, forward)
                         .AddOptional(ParameterType::kNewGroupRequest, end_group_id);
 
+        const auto update_request_id = GetNextRequestID();
         QUICR_LOGGER_DEBUG(logger_,
-                           "Sending REQUEST_UPDATE to conn_id: {} request_id: {} track namespace hash: {} name "
+                           "Sending REQUEST_UPDATE to conn_id: {} update_request_id: {} track namespace hash: {} name "
                            "hash: {} forward: {} ngr: {}",
                            current_connection_->GetID(),
-                           GetNextRequestID(),
+                           update_request_id,
                            th.track_namespace_hash,
                            th.track_name_hash,
                            forward,
                            end_group_id.has_value());
 
-        SendCtrlMsg(stream, ControlMessageType::kRequestUpdate, UintVar(GetNextRequestID()), params);
+        SendCtrlMsg(stream, ControlMessageType::kRequestUpdate, UintVar(update_request_id), params);
     } catch (const std::exception& e) {
         QUICR_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_UPDATE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -1114,7 +1116,7 @@ namespace quicr {
                                          "reason: {}",
                                          self->current_connection_->GetID(),
                                          request_id,
-                                         code,
+                                         static_cast<std::uint64_t>(code),
                                          reason.value_or("unknown"));
                   });
             }
@@ -1141,7 +1143,7 @@ namespace quicr {
                                          "reason: {}",
                                          self->current_connection_->GetID(),
                                          request_id,
-                                         code,
+                                         static_cast<std::uint64_t>(code),
                                          reason.value_or("unknown"));
                   });
             }
@@ -2150,38 +2152,6 @@ namespace quicr {
           request_it->second.stream, response.publisher_default_group_order, false, response.largest_location.value());
     }
 
-    void Session::ResolveRequestUpdate(std::uint64_t request_id, const RequestUpdateResponse& response)
-    {
-        auto track_it = request_handlers.find(request_id);
-        if (track_it == request_handlers.end()) {
-            QUICR_LOGGER_ERROR(logger_, "Resolve REQUEST_UPDATE for request {} had no handler", request_id);
-            return;
-        }
-
-        QUICR_LOGGER_DEBUG(logger_, "Request Updated resolve req_id: {}", request_id);
-
-        const auto request_stream = track_it->second->GetRequestStream();
-        if (request_stream == nullptr) {
-            QUICR_LOGGER_WARN(logger_,
-                              "ResolveRequestUpdate missing handler request stream conn_id: {} request_id: {}",
-                              current_connection_->GetID(),
-                              request_id);
-            return;
-        }
-
-        if (response.error.has_value()) {
-            SendRequestError(request_stream,
-                             request_id,
-                             response.error->error_code,
-                             response.error->retry_interval,
-                             response.error->reason,
-                             false);
-        } else {
-            // TODO: Type the params in resolve, fill in here.
-            SendRequestUpdateOk(request_stream, std::nullopt, std::nullopt);
-        }
-    }
-
     std::shared_ptr<Stream> Session::FindSubscribeNamespaceStream(const TrackNamespace& track_namespace) const
     {
         for (const auto& [_, handler] : request_handlers) {
@@ -2362,7 +2332,7 @@ namespace quicr {
                               QUICR_LOGGER_ERROR(self->logger_,
                                                  "Server setup rejected conn_id: {} code: {} reason: {}",
                                                  self->current_connection_->GetID(),
-                                                 code,
+                                                 static_cast<std::uint64_t>(code),
                                                  reason.value_or("unknown"));
                           });
                     }
@@ -2376,7 +2346,7 @@ namespace quicr {
                                                      "Client setup rejected, not sending SETUP conn_id: {} code: {} "
                                                      "reason: {}",
                                                      self->current_connection_->GetID(),
-                                                     code,
+                                                     static_cast<std::uint64_t>(code),
                                                      reason.value_or("unknown"));
                                   return;
                               }
@@ -2436,7 +2406,7 @@ namespace quicr {
                                           request_id);
 
                         SendRequestError(
-                          stream, request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Published track not found");
+                          stream, request_id, ErrorCode::kDoesNotExist, 0ms, "Published track not found");
                         return true;
                     }
 
@@ -2495,7 +2465,7 @@ namespace quicr {
                               // TODO: Should server not send if publisher initiated?
                               self->SendRequestError(self->ResponseStream(request_id),
                                                      request_id,
-                                                     messages::ErrorCode::kInternalError,
+                                                     ErrorCode::kInternalError,
                                                      0ms,
                                                      reason.value_or("Internal error"));
 
@@ -2551,7 +2521,7 @@ namespace quicr {
                                                    "code: {} reason: {}",
                                                    request_id,
                                                    *new_group_request_id,
-                                                   code,
+                                                   static_cast<std::uint64_t>(code),
                                                    reason.value_or("unknown"));
                             });
                       });
@@ -2645,7 +2615,7 @@ namespace quicr {
                     return true;
                 }
                 const auto request_id = request_it->second.request_id;
-                const auto error_code = messages::Message::ParseField<messages::ErrorCode>(msg_bytes);
+                const auto error_code = messages::Message::ParseField<ErrorCode>(msg_bytes);
                 [[maybe_unused]] const auto retry_interval = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
 
@@ -2861,7 +2831,7 @@ namespace quicr {
                           QUICR_LOGGER_ERROR(self->logger_,
                                              "Unsubscribe namespace failed conn_id: {} code: {} reason: {}",
                                              self->current_connection_->GetID(),
-                                             code,
+                                             static_cast<std::uint64_t>(code),
                                              reason.value_or("unknown"));
                       });
                 }
@@ -2916,7 +2886,7 @@ namespace quicr {
                                                  "Publish done failed conn_id: {} request_id: {} code: {} reason: {}",
                                                  self->current_connection_->GetID(),
                                                  request_id,
-                                                 code,
+                                                 static_cast<std::uint64_t>(code),
                                                  reason.value_or("unknown"));
                           });
                     }
@@ -3020,10 +2990,10 @@ namespace quicr {
                                   if (!result) {
                                       const auto& [code, reason] = result.error();
 
-                                      messages::ErrorCode error_code = messages::ErrorCode::kInternalError;
+                                      ErrorCode error_code = ErrorCode::kInternalError;
                                       switch (code) {
                                           case FetchErrorCode::kInvalidRange:
-                                              error_code = messages::ErrorCode::kInvalidRange;
+                                              error_code = ErrorCode::kInvalidRange;
                                               break;
 
                                           default:
@@ -3055,7 +3025,7 @@ namespace quicr {
                         if (subscribe_state == recv_req_id.end()) {
                             SendRequestError(stream,
                                              request_id,
-                                             messages::ErrorCode::kDoesNotExist,
+                                             ErrorCode::kDoesNotExist,
                                              0ms,
                                              "Corresponding subscribe does not exist");
                             return true;
@@ -3091,10 +3061,10 @@ namespace quicr {
                                   if (!result) {
                                       const auto& [code, reason] = result.error();
 
-                                      messages::ErrorCode error_code = messages::ErrorCode::kInternalError;
+                                      ErrorCode error_code = ErrorCode::kInternalError;
                                       switch (code) {
                                           case FetchErrorCode::kInvalidRange:
-                                              error_code = messages::ErrorCode::kInvalidRange;
+                                              error_code = ErrorCode::kInvalidRange;
                                               break;
 
                                           default:
@@ -3113,8 +3083,7 @@ namespace quicr {
                         return true;
                     }
                     default: {
-                        SendRequestError(
-                          stream, request_id, messages::ErrorCode::kNotSupported, 0ms, "Unknown fetch type");
+                        SendRequestError(stream, request_id, ErrorCode::kNotSupported, 0ms, "Unknown fetch type");
                         return true;
                     }
                 }
@@ -3175,7 +3144,7 @@ namespace quicr {
                           if (!result) {
                               const auto& [code, reason] = result.error();
 
-                              messages::ErrorCode error_code;
+                              ErrorCode error_code;
                               switch (code) {
                                   case PublishErrorCode::kRejected:
                                       error_code = ErrorCode::kUninterested;
@@ -3252,7 +3221,38 @@ namespace quicr {
                         return true;
                     }
 
-                    track_it->second->RequestUpdateReceived(parameters);
+                    track_it->second->RequestUpdateReceived(parameters)
+                      .Resolve([request_id, self = GetSharedPtr()](const auto& result) {
+                          std::lock_guard lock(self->state_mutex_);
+
+                          const auto handler_it = self->request_handlers.find(request_id);
+                          if (handler_it == self->request_handlers.end()) {
+                              QUICR_LOGGER_ERROR(
+                                self->logger_, "Resolve REQUEST_UPDATE for request {} had no handler", request_id);
+                              return;
+                          }
+
+                          const auto request_stream = handler_it->second->GetRequestStream();
+                          if (request_stream == nullptr) {
+                              QUICR_LOGGER_WARN(self->logger_,
+                                                "Resolve REQUEST_UPDATE missing handler request stream conn_id: {} "
+                                                "request_id: {}",
+                                                self->current_connection_->GetID(),
+                                                request_id);
+                              return;
+                          }
+
+                          if (!result) {
+                              const auto& [code, reason] = result.error();
+                              self->SendRequestError(
+                                request_stream, request_id, code, 0ms, reason.value_or("Request update rejected"));
+                              return;
+                          }
+
+                          QUICR_LOGGER_DEBUG(self->logger_, "Request update resolved req_id: {}", request_id);
+
+                          self->SendRequestOk(request_stream, result.value());
+                      });
                     return true;
                 }
 
@@ -3264,7 +3264,7 @@ namespace quicr {
                                       request_id);
 
                     SendRequestError(
-                      stream, request_id, messages::ErrorCode::kDoesNotExist, 0ms, "Subscription not found", false);
+                      stream, request_id, ErrorCode::kDoesNotExist, 0ms, "Subscription not found", false);
                     return true;
                 }
 
@@ -3290,7 +3290,7 @@ namespace quicr {
                                                    "code: {} reason: {}",
                                                    request_id,
                                                    group_id,
-                                                   code,
+                                                   static_cast<std::uint64_t>(code),
                                                    reason.value_or("unknown"));
                             });
                     }

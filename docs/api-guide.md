@@ -70,6 +70,87 @@ tracks.
 ### Thread Safety
 All API methods are thead safe.
 
+### Callbacks
+
+The application receives events by implementing `Session::Callbacks`, plus `Session::ClientCallbacks` or
+`Session::ServerCallbacks` for the mode it runs in. Track handlers carry their own callbacks for the events
+that belong to a single track.
+
+Callbacks come in two kinds.
+
+**Notifications** return `void` and simply inform the application: `StatusChanged()`, `MetricsSampled()`,
+`ObjectReceived()` on a subscribe handler.
+
+**Requests** answer something the peer asked for, and return a `Reply`. The reply carries either the
+response or a reason code for rejecting it, and the session sends the resulting protocol message. There is
+nothing to call afterwards.
+
+```cpp
+quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode> SubscribeReceived(
+  const std::shared_ptr<quicr::Session>& session,
+  std::uint64_t request_id,
+  const quicr::FullTrackName& track_full_name,
+  const quicr::SubscribeAttributes& attributes) override
+{
+    if (!Authorized(track_full_name)) {
+        return quicr::Unexpected<quicr::Error<quicr::RequestErrorCode>>(
+          quicr::RequestErrorCode::kUnauthorized, "not permitted on this namespace");
+    }
+
+    return quicr::RequestResponse{ .largest_location = LargestFor(track_full_name) };
+}
+```
+
+A `Reply<void, E>` accepts by returning `{}`:
+
+```cpp
+quicr::Reply<void, quicr::ErrorCode> ClientSetupReceived(
+  const std::shared_ptr<quicr::Session>& session,
+  const quicr::ClientSetupAttributes& attributes) override
+{
+    return {};
+}
+```
+
+#### Deferring an answer
+
+Callbacks are invoked on the transport notify thread, which also carries stream and connection events. A
+slow callback backs that queue up and other notifications are dropped to make room, so an answer that
+cannot be given straight away should be deferred rather than blocking.
+
+`Reply::Defer()` takes an action producing the same result and runs it off that thread, answering the
+request when it returns:
+
+```cpp
+using Reply = quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode>;
+
+Reply SubscribeReceived(..., const quicr::FullTrackName& track_full_name, ...) override
+{
+    return Reply::Defer([this, track_full_name]() -> Reply::ResultType {
+        if (!auth_service_.Check(track_full_name)) {
+            return quicr::Unexpected<quicr::Error<quicr::RequestErrorCode>>(
+              quicr::RequestErrorCode::kUnauthorized, "rejected by authorization service");
+        }
+
+        return quicr::RequestResponse{};
+    });
+}
+```
+
+Each reply is answered exactly once. An exception escaping a deferred action is swallowed and the request
+goes unanswered, so a deferred action should return a rejection rather than throw.
+
+#### No resolve step
+
+Earlier versions required the application to keep the `request_id` from a callback and pass it back to a
+matching `Resolve*()` method. Those methods are gone: the session correlates the reply with the request
+itself. The `request_id` parameters that remain on the callback signatures are informational, and are
+intended to be removed once nothing needs them.
+
+Track handlers follow the same pattern. `TrackHandler::RequestUpdateReceived()` returns a
+`Reply<messages::Parameters, ErrorCode>`, and the session sends REQUEST_UPDATE_OK with those parameters or
+REQUEST_ERROR with the reason code.
+
 ### Client
 Client has minimal components and involvement in MoQT. Client API primarily focus on establish and maintaining a QUIC
 connection to a server/relay and to establish and maintain subscriptions and publications. 

@@ -556,8 +556,9 @@ class MyClient : public quicr::Session::ClientCallbacks
 
     // -- quicr::Session::ClientCallbacks -------------------------------------------------------
 
-    quicr::Reply<void, int> ServerSetupReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-                                                const quicr::ServerSetupAttributes& server_setup_attributes) override
+    quicr::Reply<void, quicr::ErrorCode> ServerSetupReceived(
+      [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
+      const quicr::ServerSetupAttributes& server_setup_attributes) override
     {
         QUICR_LOGGER_INFO(qclient_vars::logger,
                           "Server setup received from '{}' (MOQT version: {})",
@@ -566,7 +567,7 @@ class MyClient : public quicr::Session::ClientCallbacks
         return {};
     }
 
-    quicr::Reply<void, int> UnpublishedSubscribeReceived(
+    quicr::Reply<void, quicr::ErrorCode> UnpublishedSubscribeReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       const quicr::FullTrackName& track_full_name,
       [[maybe_unused]] const quicr::SubscribeAttributes& subscribe_attributes) override

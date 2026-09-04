@@ -229,6 +229,16 @@ namespace quicr {
                             std::shared_ptr<StreamRxContext> rx_ctx,
                             StreamClosedFlag flag);
 
+        // Notify new stream data arrived.
+        void NotifyStreamRecv(const std::shared_ptr<PicoQuicConnection>& connection,
+                              uint64_t stream_id,
+                              std::shared_ptr<StreamRxContext> rx_ctx,
+                              std::shared_ptr<Stream> reply_stream,
+                              bool is_bidir);
+
+        // Notify new datagram arrived.
+        void NotifyDgramRecv(const std::shared_ptr<PicoQuicConnection>& connection);
+
         void CheckConnsForCongestion(std::size_t shard_idx);
         void EmitMetrics(std::size_t shard_idx);
         void RemoveClosedStreams(std::size_t shard_idx);

@@ -1084,7 +1084,7 @@ PicoQuicTransport::Start()
 
     QUICR_LOGGER_INFO(logger, "Setting idle timeout to {}ms", tconfig_.idle_timeout_ms);
 
-    cbNotifyQueue_.SetLimit(tconfig_.callback_queue_size);
+    cbNotifyQueue_.SetLimit(0);
     cbNotifyThread_ = std::thread(&PicoQuicTransport::CbNotifier, this);
 
     const auto shard_count = is_server_mode ? tconfig_.quic_shards : 1;
@@ -1856,13 +1856,7 @@ try {
     connection->metrics.rx_dgrams++;
     connection->metrics.rx_dgrams_bytes += length;
 
-    if (cbNotifyQueue_.Size() > 1000) {
-        QUICR_LOGGER_INFO(logger, "on_recv_datagram cbNotifyQueue size {}", cbNotifyQueue_.Size());
-    }
-
-    if (connection->dgram_rx_data->Size() < 10 && !cbNotifyQueue_.Push([=, this]() { connection->OnRecvDgram(); })) {
-        QUICR_LOGGER_ERROR(logger, "conn_id: {} DGRAM notify queue is full", connection->GetID());
-    }
+    NotifyDgramRecv(connection);
 } catch (const std::exception& e) {
     QUICR_LOGGER_ERROR(logger, "Caught exception in OnRecvDatagram. (error={})", e.what());
     // TODO(tievens): Add metrics to track if this happens
@@ -2013,17 +2007,60 @@ try {
     // the notify thread from looking it up again under the state mutex.
     const auto reply_stream = is_bidir ? stream : nullptr;
 
-    // Backpressure only applies once the peer has given us a queue to fall behind on.
-    if (!is_bidir && rx_ctx->data_queue.Size() >= 10) {
-        return;
-    }
-
-    if (!cbNotifyQueue_.Push([=]() { connection->OnRecvStream(stream_id, rx_ctx, reply_stream, is_bidir); })) {
-        QUICR_LOGGER_ERROR(logger, "conn_id: {} stream_id: {} notify queue is full", connection->GetID(), stream_id);
-    }
+    NotifyStreamRecv(connection, stream_id, rx_ctx, reply_stream, is_bidir);
 } catch (const std::exception& e) {
     QUICR_LOGGER_ERROR(logger, "Caught exception in OnRecvStreamBytes. (error={})", e.what());
     // TODO(tievens): Add metrics to track if this happens
+}
+
+void
+PicoQuicTransport::NotifyStreamRecv(const std::shared_ptr<PicoQuicConnection>& connection,
+                                    uint64_t stream_id,
+                                    std::shared_ptr<StreamRxContext> rx_ctx,
+                                    std::shared_ptr<Stream> reply_stream,
+                                    bool is_bidir)
+{
+    if (rx_ctx->notify_pending.exchange(true)) {
+        return; // De-duped.
+    }
+
+    cbNotifyQueue_.Push([this,
+                         connection,
+                         stream_id,
+                         rx_ctx = std::move(rx_ctx),
+                         reply_stream = std::move(reply_stream),
+                         is_bidir]() mutable {
+        rx_ctx->notify_pending.store(false);
+        const auto queued = rx_ctx->data_queue.Size();
+        connection->OnRecvStream(stream_id, rx_ctx, reply_stream, is_bidir);
+
+        // If there's more to read, re-notify at the back of the queue.
+        const auto remaining = rx_ctx->data_queue.Size();
+        if (remaining > 0 && remaining < queued) {
+            NotifyStreamRecv(connection, stream_id, std::move(rx_ctx), std::move(reply_stream), is_bidir);
+        }
+    });
+}
+
+void
+PicoQuicTransport::NotifyDgramRecv(const std::shared_ptr<PicoQuicConnection>& connection)
+{
+    const auto& rx_data = connection->dgram_rx_data;
+    if (connection->dgram_notify_pending.exchange(true)) {
+        return; // De-deuped.
+    }
+
+    cbNotifyQueue_.Push([this, connection, rx_data]() mutable {
+        connection->dgram_notify_pending.store(false);
+        const auto queued = rx_data->Size();
+        connection->OnRecvDgram();
+
+        // If there's more to read, re-notify at the back of the queue.
+        const auto remaining = rx_data->Size();
+        if (remaining > 0 && remaining < queued) {
+            NotifyDgramRecv(connection);
+        }
+    });
 }
 
 void
@@ -2033,8 +2070,13 @@ PicoQuicTransport::OnStreamClosed(const std::shared_ptr<PicoQuicConnection>& con
                                   StreamClosedFlag flag)
 {
     QUICR_LOGGER_DEBUG(logger, "Stream {} closed for connection {}", stream_id, connection->GetID());
-    cbNotifyQueue_.Push(
-      [=, rx_ctx = std::move(rx_ctx)]() { connection->OnStreamClosed(stream_id, std::move(rx_ctx), flag); });
+    cbNotifyQueue_.Push([=, rx_ctx = std::move(rx_ctx), this]() mutable {
+        if (rx_ctx != nullptr && rx_ctx->notify_pending.load()) {
+            OnStreamClosed(connection, stream_id, std::move(rx_ctx), flag);
+            return;
+        }
+        connection->OnStreamClosed(stream_id, std::move(rx_ctx), flag);
+    });
 }
 
 void
@@ -2079,10 +2121,9 @@ PicoQuicTransport::RemoveClosedStreams(std::size_t shard_idx)
                 continue;
             }
 
-            if (stream->rx_closed && (stream->rx_ctx->data_queue.Empty() || stream->rx_checked_once)) {
+            if (stream->rx_closed && stream->rx_ctx->data_queue.Empty() && !stream->rx_ctx->notify_pending.load()) {
                 drained_streams.push_back(stream->GetStreamId());
             }
-            stream->rx_checked_once = true;
         }
 
         /*
@@ -2100,7 +2141,6 @@ PicoQuicTransport::RemoveClosedStreams(std::size_t shard_idx)
                 connection->RemoveStream(stream_id);
             } else if (stream->tx_data != nullptr) {
                 stream->rx_ctx.reset();
-                stream->rx_checked_once = false;
             } else {
                 connection->RemoveStream(stream_id);
             }

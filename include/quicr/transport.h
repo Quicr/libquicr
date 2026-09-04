@@ -10,6 +10,7 @@
 
 #include <timeq/tick_service.h>
 
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <functional>
@@ -142,6 +143,9 @@ namespace quicr {
 
         /// Data queue for received data on the stream
         SafeQueue<std::shared_ptr<const std::vector<uint8_t>>> data_queue;
+
+        /// True if we're waiting to be read.
+        std::atomic<bool> notify_pending{ false };
     };
 
     struct TransportException : std::runtime_error

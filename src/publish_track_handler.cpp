@@ -6,6 +6,7 @@
 #include "quicr/messages/messages.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
+#include "stream.h"
 
 namespace quicr {
     PublishTrackHandler::PublishTrackHandler(const FullTrackName& full_track_name,
@@ -445,7 +446,8 @@ namespace quicr {
         }
     }
 
-    void PublishTrackHandler::RequestUpdateReceived(const messages::Parameters& params)
+    Reply<messages::Parameters, ErrorCode> PublishTrackHandler::RequestUpdateReceived(
+      const messages::Parameters& params)
     {
         // The subscriber can update their subscription with lots of details.
         // TODO: AUTHORIZATION_TOKEN
@@ -461,9 +463,7 @@ namespace quicr {
             SetStatus(Status::kNewGroupRequested);
         }
 
-        if (const auto session = GetSession().lock()) {
-            session->ResolveRequestUpdate(*GetRequestId(), { .error = std::nullopt, .params = {} });
-        }
+        return messages::Parameters{};
     }
 
     void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, [[maybe_unused]] bool reset)

@@ -8,8 +8,8 @@
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/safe_time_queue.h"
 #include "quicr/metrics.h"
-#include "quicr/stream.h"
 #include "quicr/transport.h"
+#include "stream.h"
 
 #include <pico_webtransport.h>
 #include <picoquic.h>
@@ -192,6 +192,9 @@ namespace quicr {
 
         /// Buffered datagrams received from the network
         std::shared_ptr<SafeQueue<std::shared_ptr<const Bytes>>> dgram_rx_data;
+
+        /// True while a receive notification for the datagram queue is pending
+        std::atomic<bool> dgram_notify_pending{ false };
 
         /// Priority last given to picoquic for this connection's datagrams; unset until the first send
         std::optional<std::uint8_t> dgram_priority;
