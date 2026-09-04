@@ -282,6 +282,13 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         return streams_.size();
     }
 
+    // Did we get a REQUEST_ERROR?
+    bool RequestErrorReceived() const
+    {
+        std::lock_guard lock(mutex_);
+        return request_error_.has_value();
+    }
+
     std::uint64_t RequestUpdateOks() const noexcept { return request_update_oks_; }
 
     /// @brief Set a promise to be fulfilled when a specific object count is reached
@@ -339,6 +346,12 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         }
     }
 
+    void RequestError(ErrorCode error_code, std::string) override
+    {
+        std::lock_guard lock(mutex_);
+        request_error_ = error_code;
+    }
+
     void RequestOkReceived(const messages::Parameters& params) override
     {
         SubscribeTrackHandler::RequestOkReceived(params);
@@ -348,6 +361,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
   private:
     mutable std::mutex mutex_;
     std::vector<ReceivedObject> received_objects_;
+    std::optional<ErrorCode> request_error_;
     std::size_t target_object_count_{ 0 };
     std::optional<std::promise<void>> object_count_promise_;
     std::optional<std::promise<SubscribeTrackMetrics>> metrics_promise_;
@@ -772,7 +786,9 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
     auto server = MakeTestServer(session_mgr);
 
     auto test_unsubscribe = [&](const std::string& protocol_scheme) {
-        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto& session = client.first;
+        const auto& callbacks = client.second;
 
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
@@ -798,9 +814,13 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
         // Unsubscribe.
         CHECK_NOTHROW(session->UnsubscribeTrack(handler));
 
-        // The request stream should be reset.
+        // The peer should see that we closed our SUBSCRIBE request stream with RESET.
         REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
         CHECK(server->WasStreamReset(request_stream_id) == true);
+
+        // We should see that the peer RESET their side in response.
+        REQUIRE(WaitFor([&]() { return callbacks->CheckStreamState(request_stream_id).has_value(); }));
+        CHECK(callbacks->CheckStreamState(request_stream_id) == true);
 
         // Callback should fire.
         REQUIRE(unsub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
@@ -870,6 +890,132 @@ TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client Uns
     {
         CAPTURE("WebTransport");
         test_unsubscribe_received("https");
+    }
+}
+
+TEST_CASE("Integration - Rejected request closes both stream directions")
+{
+    auto test_rejection = [](const std::string& protocol_scheme) {
+        quicr::SessionManager session_mgr;
+        auto server = MakeTestServer(session_mgr);
+
+        // Setup to blanket reject the request.
+        server->SetSubscribeError(RequestErrorCode::kDoesNotExist, "Track does not exist");
+        const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto& session = client.first;
+        const auto& callbacks = client.second;
+
+        // Subscribe and get our request's stream ID.
+        const FullTrackName ftn{ TrackNamespace({ "missing" }), { 1 } };
+        auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
+        CHECK_NOTHROW(session->SubscribeTrack(handler));
+        REQUIRE(handler->GetRequestStreamId().has_value());
+        const auto request_stream_id = *handler->GetRequestStreamId();
+
+        // Ensure we get REQUEST_ERROR from the peer before any stream closure.
+        REQUIRE(WaitFor([&handler] { return handler->RequestErrorReceived(); }));
+
+        // The peer should now have FIN'd their side.
+        REQUIRE(WaitFor([&] { return callbacks->CheckStreamState(request_stream_id).has_value(); }));
+        CHECK(callbacks->CheckStreamState(request_stream_id) == false);
+
+        // We should now have RESET our side in response.
+        REQUIRE(WaitFor([&] { return server->WasStreamReset(request_stream_id).has_value(); }));
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_rejection("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_rejection("https");
+    }
+}
+
+TEST_CASE("Integration - Cancelling a subgroup")
+{
+    auto test_subgroup_cancel = [&](const std::string& protocol_scheme) {
+        quicr::SessionManager session_mgr;
+        auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+        auto [subscriber_client, subscriber_callbacks] =
+          MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [publisher_client, publisher_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+
+        FullTrackName ftn;
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "subgroup", "cancel" });
+        ftn.name = { 0x01 };
+        const auto track_alias = TrackHash(ftn).track_fullname_hash;
+
+        // Lookup subscriber on relay.
+        std::promise<TestServer::SubscribeDetails> subscribe_promise;
+        auto subscribe_future = subscribe_promise.get_future();
+        server->SetSubscribePromise(std::move(subscribe_promise));
+
+        // Subscription should survive subgroup cancel.
+        std::promise<TestServer::UnsubscribeReceivedDetails> unsubscribe_promise;
+        auto unsubscribe_future = unsubscribe_promise.get_future();
+        server->SetUnsubscribeReceivedPromise(std::move(unsubscribe_promise));
+
+        // Sub.
+        auto sub_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+        subscriber_client->SubscribeTrack(sub_handler);
+        REQUIRE(WaitFor([&] { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+        REQUIRE(subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        subscribe_future.get();
+
+        // Pub.
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+        publisher_client->PublishTrack(pub_handler);
+        REQUIRE(WaitFor([&] { return pub_handler->CanPublish(); }));
+
+        const auto publish_object = [&pub_handler](std::uint64_t group_id) {
+            std::vector<std::uint8_t> payload(64, static_cast<std::uint8_t>(group_id));
+            const ObjectHeaders headers{ .group_id = group_id,
+                                         .object_id = 0,
+                                         .subgroup_id = 0,
+                                         .payload_length = payload.size(),
+                                         .status = ObjectStatus::kAvailable,
+                                         .priority = 3,
+                                         .ttl = 1000,
+                                         .track_mode = TrackMode::kStream,
+                                         .extensions = std::nullopt,
+                                         .immutable_extensions = std::nullopt };
+            CHECK_EQ(pub_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        };
+
+        // Open subgroup stream.
+        publish_object(0);
+        REQUIRE(WaitFor([&] { return sub_handler->GetReceivedCount() >= 1; }));
+        const auto server_pub_handler = server->GetSubscriberPublishHandler(track_alias);
+        REQUIRE(server_pub_handler != nullptr);
+        const auto subgroup_stream_id = server_pub_handler->GetSubgroupStreamId(0, 0);
+        REQUIRE(subgroup_stream_id.has_value());
+
+        // If the subscriber cancels the subgroup, everything else should work.
+        // TODO: Replace with subgroup cancel API if it exists.
+        server->MockStreamClosed(track_alias, *subgroup_stream_id, StreamClosedFlag::kStopSending);
+
+        // Everything else should continue as normal: request + publishing.
+        CHECK(server_pub_handler->CanPublish());
+        CHECK(unsubscribe_future.wait_for(kNegativeTimeout) == std::future_status::timeout);
+        publish_object(1);
+        CHECK(WaitFor([&] { return sub_handler->GetReceivedCount() >= 2; }));
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_subgroup_cancel("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_subgroup_cancel("https");
     }
 }
 

@@ -2,6 +2,9 @@
 #include <quicr/session_callbacks.h>
 
 #include <future>
+#include <map>
+#include <mutex>
+#include <optional>
 
 namespace quicr {
     class Session;
@@ -49,8 +52,33 @@ namespace quicr_test {
           uint64_t request_id,
           const quicr::PublishAttributes& publish_attributes,
           std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;
+        /**
+         * Check the state of a stream.
+         * @param stream_id The stream to query.
+         * @return True for closed with RESET, false for cloesd with FIN, nullopt for not closed.
+         */
+        std::optional<bool> CheckStreamState(std::uint64_t stream_id)
+        {
+            std::lock_guard _(stream_state_mutex_);
+            const auto it = closed_streams_.find(stream_id);
+            if (it == closed_streams_.end()) {
+                return std::nullopt;
+            }
+            return it->second;
+        }
+
+      protected:
+        void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override
+        {
+            if (flag != quicr::StreamClosedFlag::kStopSending) {
+                std::lock_guard lock(stream_state_mutex_);
+                closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
+            }
+        }
 
       private:
+        std::mutex stream_state_mutex_;
+        std::map<std::uint64_t, bool> closed_streams_;
         std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;
         std::optional<std::promise<quicr::TrackNamespace>> publish_namespace_received_;
         std::optional<std::promise<quicr::FullTrackName>> publish_received_;

@@ -5,6 +5,7 @@
 #include "quicr/handlers/subscribe_track_handler.h"
 #include "quicr/log.h"
 #include "quicr/session_callbacks.h"
+#include "stream.h"
 
 #include <future>
 #include <map>
@@ -95,6 +96,19 @@ namespace quicr_test {
 
         void StatusChanged(Status status) override;
 
+        std::optional<std::uint64_t> GetSubgroupStreamId(std::uint64_t group_id, std::uint64_t subgroup_id) const
+        {
+            const auto group_it = stream_info_by_group_.find(group_id);
+            if (group_it == stream_info_by_group_.end()) {
+                return std::nullopt;
+            }
+            const auto subgroup_it = group_it->second.find(subgroup_id);
+            if (subgroup_it == group_it->second.end() || subgroup_it->second.stream == nullptr) {
+                return std::nullopt;
+            }
+            return subgroup_it->second.stream->GetStreamId();
+        }
+
       private:
         std::weak_ptr<TestServer> server_;
     };
@@ -180,6 +194,12 @@ namespace quicr_test {
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
+        void SetSubscribeError(quicr::RequestErrorCode reason_code, std::string error_reason)
+        {
+            std::lock_guard lock(state_mutex_);
+            subscribe_error_ = quicr::Error<quicr::RequestErrorCode>{ reason_code, std::move(error_reason) };
+        }
+
         // Set up promise for subscribe namespace event
         void SetSubscribeNamespacePromise(std::promise<SubscribeNamespaceDetails> promise)
         {
@@ -221,6 +241,19 @@ namespace quicr_test {
         /// @returns The publish track handler the server bound for a subscriber, or nullptr.
         std::shared_ptr<TestPublishTrackHandler> GetSubscriberPublishHandler(std::uint64_t track_alias) const;
 
+        void MockStreamClosed(std::uint64_t track_alias, std::uint64_t stream_id, quicr::StreamClosedFlag flag)
+        {
+            std::shared_ptr<quicr::Session> session;
+            {
+                std::lock_guard lock(state_mutex_);
+                if (const auto it = subscribe_sessions_.find(track_alias); it != subscribe_sessions_.end()) {
+                    session = it->second.lock();
+                }
+            }
+            if (session != nullptr) {
+                session->GetConnection()->OnStreamClosed(stream_id, nullptr, flag);
+            }
+        }
         /**
          * @brief Unbind the publish track handler the server bound for a subscriber
          *
@@ -259,6 +292,9 @@ namespace quicr_test {
       protected:
         void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override
         {
+            if (flag == quicr::StreamClosedFlag::kStopSending) {
+                return;
+            }
             std::lock_guard lock(state_mutex_);
             closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
         }
@@ -356,6 +392,7 @@ namespace quicr_test {
         mutable std::mutex state_mutex_;
 
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
+        std::optional<quicr::Error<quicr::RequestErrorCode>> subscribe_error_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
         std::optional<std::promise<JoiningFetchDetails>> joining_fetch_promise_;

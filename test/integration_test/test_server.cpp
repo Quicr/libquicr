@@ -101,6 +101,10 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
         subscribe_promise_->set_value(details);
     }
 
+    if (subscribe_error_.has_value()) {
+        return quicr::Unexpected<quicr::Error<quicr::RequestErrorCode>>(*subscribe_error_);
+    }
+
     const auto th = TrackHash(track_full_name);
     const auto track_alias = th.track_fullname_hash;
 

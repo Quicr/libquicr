@@ -73,6 +73,9 @@ namespace quicr {
         /// Pending objects to be written to the network
         std::unique_ptr<SafeTimeQueue<ConnData>> tx_data;
 
+        /// True once the send direction has been closed or reset.
+        std::atomic<bool> tx_closed{ false };
+
         /// Current object that is being sent as a byte stream
         std::shared_ptr<const std::vector<uint8_t>> tx_object;
 

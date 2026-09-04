@@ -59,6 +59,15 @@ using namespace quicr;
 
 constexpr const char* kMoqtAlpn = "moqt-18";
 
+static bool
+IsStreamFullyClosed(const PicoQuicStream& stream)
+{
+    const bool is_bidir = (stream.GetStreamId() & 0x2) == 0;
+    if (is_bidir) {
+        return stream.tx_closed.load(std::memory_order_acquire) && stream.rx_closed;
+    }
+    return stream.tx_data != nullptr ? stream.tx_closed.load(std::memory_order_acquire) : stream.rx_closed;
+}
 /* ============================================================================
  * PicoQuic Callbacks
  * ============================================================================
@@ -195,27 +204,37 @@ try {
             break;
         }
 
-        case picoquic_callback_stop_sending:
+        case picoquic_callback_stop_sending: {
             // Stop sending is basically a reset initiated by the other side. MOQT suggests to RESET on this
             QUICR_LOGGER_DEBUG(
               transport->logger, "Received STOP_SENDING stream conn_id: {} stream_id: {}", conn_id, stream_id);
             picoquic_reset_stream(pq_cnx, stream_id, 0);
-            [[fallthrough]];
+
+            if (auto connection = transport->GetConnection(conn_id)) {
+                if (const auto tx_stream = stream ? stream : connection->GetStream(stream_id)) {
+                    tx_stream->tx_closed.store(true, std::memory_order_release);
+                    transport->OnStreamClosed(connection, stream_id, tx_stream->rx_ctx, StreamClosedFlag::kStopSending);
+                    if (IsStreamFullyClosed(*tx_stream)) {
+                        transport->EraseStreamState(connection, stream_id);
+                    }
+                }
+            }
+            break;
+        }
 
         case picoquic_callback_stream_reset: {
             QUICR_LOGGER_DEBUG(
               transport->logger, "Received RESET stream conn_id: {} stream_id: {}", conn_id, stream_id);
 
-            picoquic_reset_stream_ctx(pq_cnx, stream_id);
-
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto rx_stream = stream ? stream : connection->GetStream(stream_id)) {
                     rx_stream->rx_closed = true;
                     transport->OnStreamClosed(connection, stream_id, rx_stream->rx_ctx, StreamClosedFlag::kReset);
+                    if (IsStreamFullyClosed(*rx_stream)) {
+                        picoquic_reset_stream_ctx(pq_cnx, stream_id);
+                        transport->EraseStreamState(connection, stream_id);
+                    }
                 }
-
-                // Cleanup the reset stream.
-                transport->EraseStreamState(connection, stream_id);
             }
 
             break;
@@ -230,7 +249,6 @@ try {
              */
             QUICR_LOGGER_DEBUG(
               transport->logger, "Stream released by picoquic conn_id: {} stream_id: {}", conn_id, stream_id);
-
             if (auto connection = transport->GetConnection(conn_id)) {
                 connection->RemoveStream(stream_id);
             }
@@ -805,9 +823,10 @@ try {
                 if (const auto stream = GetStreamForWT(connection, stream_id)) {
                     stream->rx_closed = true;
                     transport->OnStreamClosed(connection, stream_id, stream->rx_ctx, StreamClosedFlag::kReset);
+                    if (IsStreamFullyClosed(*stream)) {
+                        ClearStreamForWT(connection, stream_id);
+                    }
                 }
-
-                ClearStreamForWT(connection, stream_id);
             }
 
             // Use picowt_reset_stream to properly reset the WebTransport stream
@@ -833,11 +852,12 @@ try {
 
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto stream = GetStreamForWT(connection, stream_id)) {
-                    stream->rx_closed = true;
-                    transport->OnStreamClosed(connection, stream_id, stream->rx_ctx, StreamClosedFlag::kReset);
+                    stream->tx_closed.store(true, std::memory_order_release);
+                    transport->OnStreamClosed(connection, stream_id, stream->rx_ctx, StreamClosedFlag::kStopSending);
+                    if (IsStreamFullyClosed(*stream)) {
+                        ClearStreamForWT(connection, stream_id);
+                    }
                 }
-
-                ClearStreamForWT(connection, stream_id);
             }
 
             // Use picowt_reset_stream to properly reset the WebTransport stream
@@ -1189,7 +1209,7 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
     // A caller-held handle outlives removal from the connection, so being open is what says the
     // stream is still writable. Queuing past that point would mark a stream active that the
     // transport has already committed to tearing down.
-    if (stream == nullptr || !stream->IsOpen()) {
+    if (stream == nullptr || !stream->IsOpen() || stream->tx_closed.load(std::memory_order_acquire)) {
         return TransportError::kInvalidStreamId;
     }
 
@@ -1654,9 +1674,9 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
         }();
 
         if (should_reset) {
-            CloseStream(connection, stream_id, true);
+            CloseStream(connection, stream_id, StreamOperation::kReset);
         } else if (stream_ctx.close_on_empty && empty) {
-            CloseStream(connection, stream_id, false);
+            CloseStream(connection, stream_id, StreamOperation::kFin);
         }
     });
 
@@ -2117,7 +2137,9 @@ PicoQuicTransport::RemoveClosedStreams(std::size_t shard_idx)
                 continue;
             }
 
-            if (stream->tx_data != nullptr) {
+            if (IsStreamFullyClosed(*stream)) {
+                connection->RemoveStream(stream_id);
+            } else if (stream->tx_data != nullptr) {
                 stream->rx_ctx.reset();
             } else {
                 connection->RemoveStream(stream_id);
@@ -2770,7 +2792,7 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
 void
 PicoQuicTransport::CloseStream(const std::shared_ptr<Connection>& connection,
                                const std::shared_ptr<Stream>& stream,
-                               bool use_reset)
+                               StreamOperation operation)
 {
     // Holders keep handles for the life of a subgroup, so being handed one the transport has already
     // torn down is expected rather than an error.
@@ -2784,24 +2806,29 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<Connection>& connection,
     }
 
     const auto pq_stream = std::static_pointer_cast<PicoQuicStream>(stream);
+    CheckCloseStream(pq_stream->GetStreamId(), is_server_mode, operation);
 
     // Capturing the handle keeps the stream alive until the queued function runs.
     RunPqFunction(conn->shard_idx, [=, this]() {
-        CloseStream(conn, pq_stream->GetStreamId(), use_reset);
+        CloseStream(conn, pq_stream->GetStreamId(), operation);
         return 0;
     });
 }
 
 void
-PicoQuicTransport::CloseStream(const std::shared_ptr<Connection>& connection, uint64_t stream_id, bool use_reset)
+PicoQuicTransport::CloseStream(const std::shared_ptr<Connection>& connection,
+                               uint64_t stream_id,
+                               StreamOperation operation)
 {
     const auto conn = std::static_pointer_cast<PicoQuicConnection>(connection);
     if (conn == nullptr) {
         return;
     }
 
+    CheckCloseStream(stream_id, is_server_mode, operation);
+
     RunPqFunction(conn->shard_idx, [=, this]() {
-        CloseStream(conn, stream_id, use_reset);
+        CloseStream(conn, stream_id, operation);
         return 0;
     });
 }
@@ -2809,7 +2836,7 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<Connection>& connection, ui
 void
 PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connection,
                                std::uint64_t stream_id,
-                               const bool use_reset)
+                               StreamOperation operation)
 {
     if (connection->GetStream(stream_id) == nullptr) {
         QUICR_LOGGER_ERROR(logger,
@@ -2821,10 +2848,27 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
 
     QUICR_LOGGER_DEBUG(logger, "conn_id: {} closing stream stream_id: {}", connection->GetID(), stream_id);
 
-    if (use_reset) {
-        picoquic_reset_stream_ctx(connection->pq_cnx, stream_id);
-        picoquic_reset_stream(connection->pq_cnx, stream_id, 0);
-    } else {
+    const auto stream = connection->GetStream(stream_id);
+    if (stream == nullptr) {
+        return;
+    }
+
+    if (operation == StreamOperation::kStopSending || operation == StreamOperation::kCancel) {
+        picoquic_stop_sending(connection->pq_cnx, stream_id, 0);
+    }
+
+    if (operation == StreamOperation::kReset || operation == StreamOperation::kCancel) {
+        stream->tx_closed.store(true, std::memory_order_release);
+        if (connection->GetAPI() == Connection::API::kWebTransport) {
+            if (stream != nullptr && stream->wt_stream_ctx != nullptr) {
+                picowt_reset_stream(connection->pq_cnx, stream->wt_stream_ctx, 0);
+            }
+        } else {
+            picoquic_reset_stream_ctx(connection->pq_cnx, stream_id);
+            picoquic_reset_stream(connection->pq_cnx, stream_id, 0);
+        }
+    } else if (operation == StreamOperation::kFin) {
+        stream->tx_closed.store(true, std::memory_order_release);
         // TODO: PQ doesn't have a method to call to FIN a stream correctly, so we FIN it in SendStreamBytes()
 
         // Below doesn't work correctly, results in loss of data inflight
@@ -2832,7 +2876,9 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
         picoquic_add_to_stream(connection->pq_cnx, stream_id, &empty, 0, 1);
     }
 
-    EraseStreamState(connection, stream_id);
+    if (IsStreamFullyClosed(*stream)) {
+        EraseStreamState(connection, stream_id);
+    }
 }
 
 void
