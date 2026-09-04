@@ -786,7 +786,9 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
     auto server = MakeTestServer(session_mgr);
 
     auto test_unsubscribe = [&](const std::string& protocol_scheme) {
-        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto& session = client.first;
+        const auto& callbacks = client.second;
 
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
@@ -899,12 +901,14 @@ TEST_CASE("Integration - Rejected request closes both stream directions")
 
         // Setup to blanket reject the request.
         server->SetSubscribeError(RequestErrorCode::kDoesNotExist, "Track does not exist");
-        auto [client, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto& session = client.first;
+        const auto& callbacks = client.second;
 
         // Subscribe and get our request's stream ID.
         const FullTrackName ftn{ TrackNamespace({ "missing" }), { 1 } };
         auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
-        CHECK_NOTHROW(client->SubscribeTrack(handler));
+        CHECK_NOTHROW(session->SubscribeTrack(handler));
         REQUIRE(handler->GetRequestStreamId().has_value());
         const auto request_stream_id = *handler->GetRequestStreamId();
 
