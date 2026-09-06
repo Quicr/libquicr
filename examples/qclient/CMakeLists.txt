@@ -4,6 +4,9 @@
 CPMAddPackage("gh:nlohmann/json@3.11.3")
 CPMAddPackage("gh:cisco/sframe#9af3e9942180a754fc953d7205e26355ad9fe31e")
 
+# TODO: Remove when sframe upgraded
+target_compile_options(sframe PRIVATE $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Wno-error>)
+
 if (NOT HAS_STD_VFORMAT)
     set(SPDLOG_FMT_EXTERNAL ON)
 endif()
