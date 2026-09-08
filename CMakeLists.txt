@@ -117,7 +117,34 @@ endif()
 add_subdirectory(dependencies)
 
 if(QUICR_BUILD_MSQUIC)
-    find_package(msquic CONFIG REQUIRED)
+    if(WIN32)
+        set(QUICR_MSQUIC_SUBMODULES "")
+    else()
+        set(QUICR_MSQUIC_SUBMODULES submodules/quictls)
+    endif()
+
+    CPMFindPackage(
+        NAME msquic
+        VERSION 2.6.0
+        GITHUB_REPOSITORY microsoft/msquic
+        GIT_TAG e7e7a114e20a55ec2d5f723cf6bdf3bfb7b0b24a
+        GIT_SUBMODULES "${QUICR_MSQUIC_SUBMODULES}"
+        GIT_SUBMODULES_RECURSE FALSE
+        OPTIONS
+            "QUIC_BUILD_TOOLS OFF"
+            "QUIC_BUILD_TEST OFF"
+            "QUIC_BUILD_PERF OFF"
+            "QUIC_BUILD_SHARED ON"
+    )
+
+    if(msquic_ADDED)
+        # MsQuic v2.6.0 only exports its public headers from an installed package.
+        target_include_directories(msquic INTERFACE
+            "$<BUILD_INTERFACE:${msquic_SOURCE_DIR}/src/inc>"
+        )
+    endif()
+
+    unset(QUICR_MSQUIC_SUBMODULES)
 endif()
 
 #=============================================================================#
