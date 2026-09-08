@@ -17,12 +17,11 @@ quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace
 
 quicr::SubscribeNamespaceHandler::~SubscribeNamespaceHandler()
 {
+#if 0
     const auto& transport = GetSession().lock();
     if (!transport) {
         return;
     }
-
-#if 0
     /**
      * TODO: Need to revist this as the draft suggests subscribe namespace done should not result
      *       in unsubscribe of tracks
@@ -34,7 +33,7 @@ quicr::SubscribeNamespaceHandler::~SubscribeNamespaceHandler()
 }
 
 void
-quicr::SubscribeNamespaceHandler::StatusChanged(Status status)
+quicr::SubscribeNamespaceHandler::StatusChanged(Status)
 {
 }
 
