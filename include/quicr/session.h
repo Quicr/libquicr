@@ -133,12 +133,41 @@ namespace quicr {
 
         /// Subscribe Context by received subscribe IDs
         /// Used to map published tracks to subscribes in client mode and to handle joining fetch lookups
-        struct SubscribeContext
+        /**
+         * @brief Everything the session tracks for one request, keyed by the stream carrying it.
+         *
+         * @details Responses carry no Request ID on the wire; MOQT correlates them by the stream
+         *      the request opened, so the stream is what identifies a request on receive. A stream
+         *      also outlives any single Request ID, because a REQUEST_UPDATE sent on it consumes a
+         *      new one, which is why the stream rather than the Request ID owns this state.
+         */
+        struct RequestContext
         {
-            FullTrackName track_full_name;
-            TrackHash track_hash{ 0, 0 };
-            std::optional<messages::Location> largest_location{ std::nullopt };
+            /// Stream carrying the request, held so responses can be sent without a second lookup.
             std::shared_ptr<Stream> stream;
+
+            /**
+             * Request ID of the request that opened the stream.
+             *
+             * @details This is the ID reported to the application. REQUEST_UPDATEs on the stream
+             *      consume further IDs, but those name the same request and are not recorded here.
+             */
+            std::uint64_t request_id{ 0 };
+
+            /**
+             * Handler driving the request.
+             *
+             * @details Null while a request is known but unbound: an inbound request is recorded
+             *      when it arrives, but the application supplies its handler later, and an inbound
+             *      PUBLISH_NAMESPACE never gets one.
+             */
+            std::shared_ptr<TrackHandler> handler;
+
+            FullTrackName track_full_name;
+            std::optional<messages::Location> largest_location{ std::nullopt };
+
+            /// Marks an inbound PUBLISH_NAMESPACE, which is tracked without a handler.
+            bool is_publish_namespace{ false };
         };
 
       public:
@@ -563,6 +592,23 @@ namespace quicr {
         std::shared_ptr<Stream> ResponseStream(const std::uint64_t request_id) const;
 
         /*===================================================================*/
+        // Request bookkeeping
+        /*===================================================================*/
+
+        /**
+         * @brief Record that @p request_id is carried by @p stream, replacing any prior entry.
+         *
+         * @returns The request's state, for the caller to fill in.
+         */
+        RequestContext& TrackRequest(std::uint64_t request_id, std::shared_ptr<Stream> stream);
+
+        /// Drop a request and every index entry naming it. Safe if the request is unknown.
+        void EraseRequest(std::uint64_t request_id);
+
+        /// Drop the request a stream carries. Safe if the stream carries none.
+        void EraseRequestsByStream(std::uint64_t stream_id);
+
+        /*===================================================================*/
         // Track Status
         /*===================================================================*/
 
@@ -657,29 +703,32 @@ namespace quicr {
          */
         std::atomic<uint64_t> next_request_id_;
 
-        std::map<std::uint64_t, SubscribeContext> recv_req_id;
+        /**
+         * Requests by the ID of the stream carrying them.
+         *
+         * @details Shares ownership of each request with ::requests_by_id_ so that either key
+         *      reaches the state in one lookup. Erase only through EraseRequestByStream, which
+         *      drops the request from both maps together; erasing from one alone strands the other.
+         */
+        std::map<std::uint64_t, std::shared_ptr<RequestContext>> requests_by_stream_;
 
-        struct StreamRequest
-        {
-            std::uint64_t request_id;
+        /**
+         * The same requests, by every Request ID that names them.
+         *
+         * @details Several IDs can name one request, since the message that opened its stream and
+         *      every REQUEST_UPDATE sent on that stream each consume one.
+         */
+        std::map<std::uint64_t, std::shared_ptr<RequestContext>> requests_by_id_;
 
-            /**
-             * Whether this is the request's own bidirectional stream, whose close ends the request.
-             *
-             * @details A track's data streams are mapped here too, but only so that their metrics
-             *      find the right handler; they come and go while the request stays open.
-             */
-            bool is_request_stream;
-        };
-
-        /// Lookup the request each stream carries, by stream ID.
-        std::map<std::uint64_t, StreamRequest> request_by_stream;
-
-        /// Active inbound publish namespace notifications (not handler based).
-        std::vector<std::uint64_t> recv_publish_namespaces;
-
-        /// Handlers by request ID
-        std::map<std::uint64_t, std::shared_ptr<TrackHandler>> request_handlers;
+        /**
+         * Request each data stream carries objects for.
+         *
+         * @details Kept apart from ::requests_by_stream_ because data streams carry no request of
+         *      their own: they exist only so a data stream's metrics can reach the request's
+         *      handler, and they come and go while the request stays open. Held weakly so that a
+         *      draining data stream cannot outlive the request it belonged to.
+         */
+        std::map<std::uint64_t, std::weak_ptr<RequestContext>> requests_by_data_stream_;
 
         /**
          * Data is received with a track alias that is set by the publisher. The map key
@@ -689,17 +738,8 @@ namespace quicr {
          */
         std::map<std::uint64_t, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
 
-        /**
-         * Publish tracks by namespace and name. map[track namespace][track name] = track handler
-         * Used mainly in client mode only
-         */
-        std::map<std::uint64_t, std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_name;
-
         /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
         std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias;
-
-        /// Fetch Publishers by request ID.
-        std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
 
         std::mutex state_mutex_;
 
