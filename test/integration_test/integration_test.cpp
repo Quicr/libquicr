@@ -202,7 +202,8 @@ MakeTestClient(quicr::SessionManager& session_mgr,
                const bool connect = true,
                const std::optional<std::string>& qlog_path = std::nullopt,
                const std::string& protocol_scheme = "moq",
-               const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt)
+               const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
+               std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>())
 {
     // Connect a client.
     ClientConfig client_config;
@@ -217,7 +218,6 @@ MakeTestClient(quicr::SessionManager& session_mgr,
         client_config.transport_config.quic_qlog_path = *qlog_path;
     }
 
-    auto callbacks = std::make_shared<TestClient>();
     auto w_session = session_mgr.AddTransport(client_config, callbacks);
 
     CHECK_NE(w_session.lock(), nullptr);
@@ -275,12 +275,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         return received_objects_.size();
     }
 
-    /// @brief Get number of active streams (exposes protected streams_ member)
-    std::size_t GetActiveStreamCount() const
-    {
-        std::lock_guard lock(mutex_);
-        return streams_.size();
-    }
+    /// @brief Get number of active streams observed through callbacks
+    std::size_t GetActiveStreamCount() const noexcept { return active_stream_count_; }
 
     std::uint64_t RequestUpdateOks() const noexcept { return request_update_oks_; }
 
@@ -339,6 +335,18 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         }
     }
 
+    void StreamDataRecv(uint64_t stream_id, InitialStreamData&& initial_buffer) override
+    {
+        SubscribeTrackHandler::StreamDataRecv(stream_id, std::move(initial_buffer));
+        ++active_stream_count_;
+    }
+
+    void StreamClosed(std::uint64_t stream_id, bool reset) override
+    {
+        SubscribeTrackHandler::StreamClosed(stream_id, reset);
+        --active_stream_count_;
+    }
+
     void RequestOkReceived(const messages::Parameters& params) override
     {
         SubscribeTrackHandler::RequestOkReceived(params);
@@ -352,6 +360,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     std::optional<std::promise<void>> object_count_promise_;
     std::optional<std::promise<SubscribeTrackMetrics>> metrics_promise_;
     std::atomic<std::uint64_t> request_update_oks_{ 0 };
+    std::atomic<std::size_t> active_stream_count_{ 0 };
 };
 
 class CloseOrderingSubscribeHandler final : public TestSubscribeHandler
@@ -399,10 +408,12 @@ TEST_CASE("Integration - Connection")
     auto server = MakeTestServer(session_mgr);
 
     auto test_connection = [&](const std::string& protocol_scheme) {
-        auto [session, callbacks] = MakeTestClient(session_mgr, false, std::nullopt, protocol_scheme);
         std::promise<ServerSetupAttributes> recv_attributes;
         auto future = recv_attributes.get_future();
+        auto callbacks = std::make_shared<TestClient>();
         callbacks->SetConnectedPromise(std::move(recv_attributes));
+        auto [session, _] =
+          MakeTestClient(session_mgr, false, std::nullopt, protocol_scheme, std::nullopt, std::move(callbacks));
         auto status = future.wait_for(kDefaultTimeout);
         REQUIRE(status == std::future_status::ready);
         const auto& [moqt_version, server_id] = future.get();
