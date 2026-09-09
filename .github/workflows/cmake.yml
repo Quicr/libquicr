@@ -57,10 +57,6 @@ jobs:
         echo "CC=/usr/bin/gcc-12" >> $GITHUB_ENV
         echo "CXX=/usr/bin/g++-12" >> $GITHUB_ENV
 
-    - name: Configure vcpkg (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-
     - name: Configure CMake (Windows)
       if: matrix.os == 'windows-latest'
       run: cmake -B ${{github.workspace}}/build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM="3.5" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON
@@ -122,6 +118,7 @@ jobs:
           path: ${{github.workspace}}/build
 
       - name: Benchmark
+        working-directory: ${{github.workspace}}/build
         run: |
-          chmod +x ${{github.workspace}}/build/benchmark/quicr_benchmark
-          ${{github.workspace}}/build/benchmark/quicr_benchmark
+          chmod -R +rx ${{github.workspace}}/build
+          ctest -C ${{env.BUILD_TYPE}} -R "benchmark" --verbose

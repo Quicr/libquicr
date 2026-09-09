@@ -40,3 +40,5 @@ endif()
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(quicr_benchmark PRIVATE -Wall -pedantic -Wextra -Werror -Wmissing-declarations)
 endif()
+
+add_test(NAME quicr_benchmark COMMAND quicr_benchmark)
