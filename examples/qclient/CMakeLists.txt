@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
 CPMAddPackage("gh:nlohmann/json@3.11.3")
-CPMAddPackage("gh:cisco/sframe#9af3e9942180a754fc953d7205e26355ad9fe31e")
+CPMAddPackage("gh:cisco/sframe#8ef171cb10b960989fff9e26e8fb0b8329d60b6f")
 
 if (NOT HAS_STD_VFORMAT)
     set(SPDLOG_FMT_EXTERNAL ON)

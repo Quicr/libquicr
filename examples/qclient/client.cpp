@@ -249,7 +249,16 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     {
         quicr::Bytes pt(data.size());
         if (qclient_vars::mls_ctx.has_value()) {
-            data = qclient_vars::mls_ctx->unprotect(pt, data, {});
+            auto plaintext = qclient_vars::mls_ctx->unprotect(pt, data, {});
+            if (plaintext.is_err()) {
+                const auto error = plaintext.error();
+                QUICR_LOGGER_WARN(qclient_vars::logger,
+                                  "Failed to unprotect SFrame object (type={}, error={})",
+                                  static_cast<int>(error.type()),
+                                  error.message() != nullptr ? error.message() : "unspecified");
+                return;
+            }
+            data = plaintext.value();
         }
 
         if (qclient_vars::record && !data.empty()) {
@@ -453,7 +462,15 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
         if (qclient_vars::mls_ctx.has_value()) {
             quicr::Bytes ct(data.size() + sframe::Context::max_overhead);
             auto payload = qclient_vars::mls_ctx->protect(0, track_alias.value(), ct, data, {});
-            return quicr::PublishTrackHandler::PublishObject(object_headers, payload);
+            if (payload.is_err()) {
+                const auto error = payload.error();
+                QUICR_LOGGER_ERROR(qclient_vars::logger,
+                                   "Failed to protect SFrame object (type={}, error={})",
+                                   static_cast<int>(error.type()),
+                                   error.message() != nullptr ? error.message() : "unspecified");
+                return PublishObjectStatus::kInternalError;
+            }
+            return quicr::PublishTrackHandler::PublishObject(object_headers, payload.value());
         } else {
             return quicr::PublishTrackHandler::PublishObject(object_headers, data);
         }
@@ -1560,7 +1577,15 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     if (cli_opts.count("mls_key")) {
         const std::string mls_key = cli_opts["mls_key"].as<std::string>();
         const std::vector<uint8_t> mls_key_bytes(mls_key.begin(), mls_key.end());
-        qclient_vars::mls_ctx->add_epoch(0, mls_key_bytes);
+        auto add_epoch = qclient_vars::mls_ctx->add_epoch(0, mls_key_bytes);
+        if (add_epoch.is_err()) {
+            const auto error = add_epoch.error();
+            QUICR_LOGGER_ERROR(qclient_vars::logger,
+                               "Failed to configure SFrame epoch (type={}, error={})",
+                               static_cast<int>(error.type()),
+                               error.message() != nullptr ? error.message() : "unspecified");
+            exit(EXIT_FAILURE);
+        }
     } else {
         qclient_vars::mls_ctx = std::nullopt;
     }
