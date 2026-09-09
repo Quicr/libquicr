@@ -19,6 +19,8 @@
 
 namespace quicr {
 
+    QUIC_ADDR MakeMsQuicServerAddress(const TransportRemote& remote);
+
     class MsQuicTransport : public Transport
     {
       public:
@@ -86,7 +88,6 @@ namespace quicr {
         void CallbackLoop();
         void MaintenanceLoop();
         void FlushCallbacks();
-        static QUIC_ADDR MakeAddress(const TransportRemote& remote);
         static std::uint64_t AppErrorCode(AppReasonForClose reason);
 
         const TransportRemote remote_;

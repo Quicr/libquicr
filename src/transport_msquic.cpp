@@ -6,7 +6,6 @@
 #include "quicr/log.h"
 
 #include <algorithm>
-#include <arpa/inet.h>
 #include <chrono>
 #include <future>
 #include <limits>
@@ -214,30 +213,12 @@ namespace quicr {
         return connection;
     }
 
-    QUIC_ADDR MsQuicTransport::MakeAddress(const TransportRemote& remote)
+    QUIC_ADDR MakeMsQuicServerAddress(const TransportRemote& remote)
     {
         QUIC_ADDR address{};
-        if (remote.host_or_ip.empty() || remote.host_or_ip == "0.0.0.0" || remote.host_or_ip == "::") {
-            QuicAddrSetFamily(&address, QUIC_ADDRESS_FAMILY_UNSPEC);
-            QuicAddrSetPort(&address, remote.port);
-            return address;
-        }
-
-        auto* ipv4 = reinterpret_cast<sockaddr_in*>(&address);
-        if (inet_pton(AF_INET, remote.host_or_ip.c_str(), &ipv4->sin_addr) == 1) {
-            ipv4->sin_family = AF_INET;
-            ipv4->sin_port = htons(remote.port);
-            return address;
-        }
-
-        auto* ipv6 = reinterpret_cast<sockaddr_in6*>(&address);
-        if (inet_pton(AF_INET6, remote.host_or_ip.c_str(), &ipv6->sin6_addr) == 1) {
-            ipv6->sin6_family = AF_INET6;
-            ipv6->sin6_port = htons(remote.port);
-            return address;
-        }
-
-        throw std::invalid_argument("MsQuic server bind address must be an IPv4 or IPv6 literal");
+        QuicAddrSetFamily(&address, QUIC_ADDRESS_FAMILY_UNSPEC);
+        QuicAddrSetPort(&address, remote.port);
+        return address;
     }
 
     void MsQuicTransport::StartServer()
@@ -247,7 +228,7 @@ namespace quicr {
             throw TransportException(TransportError::kFailedToCreateQuicInstance);
         }
 
-        const auto address = MakeAddress(remote_);
+        const auto address = MakeMsQuicServerAddress(remote_);
         status = api_->ListenerStart(listener_, &alpn_, 1, &address);
         if (QUIC_FAILED(status)) {
             api_->ListenerClose(listener_);
