@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
+#include "example_sleep.h"
 #include "quicr/quicr_bridge.h"
 
 static volatile int keep_running = 1;
@@ -177,7 +177,7 @@ main(int argc, char* argv[])
     // Wait for connection
     printf("Waiting for connection...\n");
     while (keep_running && qbridge_client_get_status(client) == QBRIDGE_STATUS_CONNECTING) {
-        usleep(100000); // 100ms
+        example_sleep_ms(100);
     }
 
     if (!keep_running) {
@@ -245,7 +245,7 @@ main(int argc, char* argv[])
 
     // Main loop - just wait for objects to arrive via callbacks
     while (keep_running) {
-        usleep(100000); // 100ms
+        example_sleep_ms(100);
     }
 
     printf("Shutting down subscriber...\n");

@@ -27,7 +27,6 @@
 #include <timeq/time_queue.h>
 #include <tls_api.h>
 
-#include <arpa/inet.h>
 #include <cassert>
 #include <chrono>
 #include <condition_variable>
@@ -45,10 +44,16 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <sys/socket.h>
 #include <thread>
 #include <utility>
 #include <vector>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#endif
 
 #if defined(__linux__)
 #include <net/ethernet.h>
@@ -1648,7 +1653,7 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
 
     bool should_reset = false;
     defer({
-        const bool empty = [&] {
+        const bool empty = [&]() {
             std::lock_guard _(*stream_ctx.tx_data);
             return stream_ctx.tx_data->Empty() && stream_ctx.tx_object == nullptr;
         }();

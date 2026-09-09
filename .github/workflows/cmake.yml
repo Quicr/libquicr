@@ -2,9 +2,9 @@ name: CMake
 
 on:
   push:
-    branches: [ "main", "draft-18" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "draft-18" ]
+    branches: [ "main" ]
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -25,7 +25,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
+        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm, windows-latest ]
 
     runs-on: ${{ matrix.os }}
     continue-on-error: true
@@ -74,7 +74,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
+        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm, windows-latest ]
 
     runs-on: ${{ matrix.os }}
     continue-on-error: true
@@ -97,7 +97,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
+        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm, windows-latest ]
 
     runs-on: ${{ matrix.os }}
     continue-on-error: true

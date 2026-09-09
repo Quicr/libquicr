@@ -41,6 +41,10 @@ set_target_properties(quicr_integration_test
         CXX_EXTENSIONS OFF
 )
 
+if (WIN32)
+    target_compile_definitions(quicr_integration_test PRIVATE NOMINMAX)
+endif()
+
 set(TEST_KEY ${CMAKE_CURRENT_BINARY_DIR}/server-key.pem)
 set(TEST_CERT ${CMAKE_CURRENT_BINARY_DIR}/server-cert.pem)
 add_custom_command(
@@ -52,6 +56,15 @@ add_custom_command(
 )
 
 add_custom_target(generate_test_certs ALL DEPENDS ${TEST_KEY} ${TEST_CERT})
+
+if (CMAKE_CONFIGURATION_TYPES)
+    add_dependencies(quicr_integration_test generate_test_certs)
+    add_custom_command(TARGET quicr_integration_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${TEST_KEY} ${TEST_CERT} $<TARGET_FILE_DIR:quicr_integration_test>
+        COMMENT "Copying test certificates next to quicr_integration_test"
+    )
+endif()
 
 # Enable test discovery with doctest - can't run in parallel.
 doctest_discover_tests(quicr_integration_test

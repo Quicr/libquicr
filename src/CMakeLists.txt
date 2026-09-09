@@ -15,6 +15,10 @@ set_target_properties(quicr PROPERTIES
 
 target_compile_options(quicr PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wall -pedantic -Wextra -Wmissing-declarations -Werror=switch>
+    $<$<CXX_COMPILER_ID:MSVC>:/MP>
+)
+
+target_compile_options(quicr PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>
 )
 
 if(NOT QUICR_BUILD_FUZZ)
@@ -53,6 +57,11 @@ target_link_libraries(quicr PRIVATE
     picoquic-log
     picohttp-core
 )
+
+if (WIN32)
+    target_compile_definitions(quicr PRIVATE NOMINMAX)
+    target_link_libraries(quicr PRIVATE ws2_32)
+endif()
 
 if (NOT HAS_STD_VFORMAT)
     target_link_libraries(quicr PUBLIC fmt::fmt)

@@ -16,7 +16,7 @@ namespace quicr {
     using BytesSpan = std::span<const Byte>;
 
     template<class T>
-        requires std::is_standard_layout_v<T>
+        requires std::is_standard_layout_v<T> || std::is_same_v<std::decay_t<T>, std::string>
     inline std::span<const uint8_t> AsBytes(const T& value)
     {
         return std::span{ reinterpret_cast<const std::uint8_t*>(&value), sizeof(T) };
@@ -29,7 +29,7 @@ namespace quicr {
     }
 
     template<class T>
-        requires std::is_standard_layout_v<T>
+        requires std::is_standard_layout_v<T> || std::is_same_v<std::decay_t<T>, std::string>
     inline Bytes AsOwnedBytes(const T& value)
     {
         auto bytes = AsBytes<T>(value);

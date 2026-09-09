@@ -3,6 +3,7 @@
 
 #include "quicr/containers/data_storage.h"
 #include "quicr/messages/uintvar.h"
+#include "quicr/utilities/bytes.h"
 
 #include <benchmark/benchmark.h>
 

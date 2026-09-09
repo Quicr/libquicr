@@ -28,6 +28,10 @@ set_target_properties(quicr_benchmark PROPERTIES
     CXX_EXTENSIONS ON
 )
 
+if (WIN32)
+    target_compile_definitions(quicr_benchmark PRIVATE NOMINMAX)
+endif()
+
 if(LINT)
     include(Lint)
     Lint(quicr_benchmark)
