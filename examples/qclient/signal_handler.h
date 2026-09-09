@@ -73,7 +73,7 @@ signalHandler(int signal_number)
         default:
             moq_example::termination_reason = "Unknown signal received";
             break;
-    }
+    };
 
     // Unblock any getline() waiting on stdin.
 #ifdef _WIN32
