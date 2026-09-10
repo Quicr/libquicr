@@ -7,7 +7,6 @@ on:
     branches: [ "main" ]
 
 env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
 
 jobs:
@@ -25,7 +24,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm, windows-latest ]
+        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
 
     runs-on: ${{ matrix.os }}
     continue-on-error: true
@@ -57,12 +56,7 @@ jobs:
         echo "CC=/usr/bin/gcc-12" >> $GITHUB_ENV
         echo "CXX=/usr/bin/g++-12" >> $GITHUB_ENV
 
-    - name: Configure CMake (Windows)
-      if: matrix.os == 'windows-latest'
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM="3.5" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON
-
-    - name: Configure CMake (Ubuntu|MacOS)
-      if: matrix.os != 'windows-latest'
+    - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM="3.5" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON
 
     - name: Build
@@ -80,7 +74,7 @@ jobs:
     if: ${{ needs.build.result == 'success' }}
     strategy:
       matrix:
-        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm, windows-latest ]
+        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
 
     runs-on: ${{ matrix.os }}
     continue-on-error: true
@@ -104,7 +98,7 @@ jobs:
     if: ${{ needs.build.result == 'success' }}
     strategy:
       matrix:
-        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm, windows-latest ]
+        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
 
     runs-on: ${{ matrix.os }}
     continue-on-error: true

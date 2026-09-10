@@ -1,0 +1,81 @@
+name: Windows
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    name: Build and Test (Windows)
+    runs-on: windows-latest
+    # A cold vcpkg cache builds OpenSSL from source.
+    timeout-minutes: 60
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Fetch the pinned vcpkg baseline
+        # The runner's vcpkg checkout predates any baseline we pin, so configure
+        # would fail with "could not find baseline" unless we fetch the commit.
+        run: |
+          # Otherwise git's non-zero exits become terminating errors.
+          $PSNativeCommandUseErrorActionPreference = $false
+
+          $baseline = (Get-Content vcpkg.json -Raw | ConvertFrom-Json).'builtin-baseline'
+          if (-not $baseline) { throw 'vcpkg.json is missing builtin-baseline' }
+
+          $vcpkg = $env:VCPKG_INSTALLATION_ROOT
+          git -C $vcpkg cat-file -e "${baseline}^{commit}" 2>$null
+          if ($LASTEXITCODE -eq 0) { exit 0 }
+
+          # Only the baseline's tree gets read, so depth 1 is enough, and a
+          # shallow checkout must stay shallow or it pulls all of vcpkg history.
+          Write-Host "fetching baseline $baseline"
+          $depth = @()
+          if ((git -C $vcpkg rev-parse --is-shallow-repository) -eq 'true') {
+            $depth = @('--depth', '1')
+          }
+          git -C $vcpkg fetch --no-tags @depth origin $baseline
+
+          git -C $vcpkg cat-file -e "${baseline}^{commit}" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            throw "baseline $baseline is not reachable from microsoft/vcpkg"
+          }
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/build/vcpkg_installed
+          # No restore-keys: a tree from another manifest is worse than a rebuild.
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Configure CMake
+        run: >
+          cmake -B ${{ github.workspace }}/build
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DCMAKE_POLICY_VERSION_MINIMUM="3.5"
+          -DBUILD_TESTING=ON
+          -DQUICR_BUILD_EXAMPLES=ON
+          -DLINT=OFF
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} -j
+
+      - name: Test
+        working-directory: ${{ github.workspace }}/build
+        run: ctest -C ${{ env.BUILD_TYPE }} --output-on-failure -E "benchmark"
+
+      - name: Benchmark
+        working-directory: ${{ github.workspace }}/build
+        run: ctest -C ${{ env.BUILD_TYPE }} -R "benchmark" --verbose
