@@ -11,6 +11,7 @@
 #include <limits>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 namespace quicr {
     namespace {
@@ -93,6 +94,35 @@ namespace quicr {
         QUIC_STATUS status = MsQuicOpen2(&api_);
         if (QUIC_FAILED(status)) {
             throw TransportException(TransportError::kFailedToCreateQuicInstance);
+        }
+
+        if (server_mode_) {
+            if (config_.quic_shards == 0 || config_.quic_shards > std::numeric_limits<std::uint16_t>::max()) {
+                MsQuicClose(api_);
+                api_ = nullptr;
+                throw std::invalid_argument("MsQuic quic_shards must be between 1 and 65535");
+            }
+
+            const auto worker_count = static_cast<std::uint32_t>(config_.quic_shards);
+            std::vector<std::uint8_t> storage(QUIC_GLOBAL_EXECUTION_CONFIG_MIN_SIZE +
+                                              worker_count * sizeof(std::uint16_t));
+            auto* execution_config = reinterpret_cast<QUIC_GLOBAL_EXECUTION_CONFIG*>(storage.data());
+            execution_config->Flags = QUIC_GLOBAL_EXECUTION_CONFIG_FLAG_NONE;
+            execution_config->PollingIdleTimeoutUs = 0;
+            execution_config->ProcessorCount = worker_count;
+            for (std::uint32_t worker = 0; worker < worker_count; ++worker) {
+                execution_config->ProcessorList[worker] = static_cast<std::uint16_t>(worker);
+            }
+
+            status = api_->SetParam(nullptr,
+                                    QUIC_PARAM_GLOBAL_EXECUTION_CONFIG,
+                                    static_cast<std::uint32_t>(storage.size()),
+                                    execution_config);
+            if (QUIC_FAILED(status)) {
+                MsQuicClose(api_);
+                api_ = nullptr;
+                throw TransportException(TransportError::kFailedToCreateQuicInstance);
+            }
         }
 
         const QUIC_REGISTRATION_CONFIG registration_config{ "libquicr", QUIC_EXECUTION_PROFILE_LOW_LATENCY };

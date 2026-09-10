@@ -64,7 +64,7 @@ if(QUICR_BUILD_MSQUIC)
         transport_msquic.cpp
     )
     target_link_libraries(quicr PUBLIC msquic)
-    target_compile_definitions(quicr PRIVATE QUICR_HAS_MSQUIC=1)
+    target_compile_definitions(quicr PRIVATE QUICR_HAS_MSQUIC=1 QUIC_API_ENABLE_PREVIEW_FEATURES=1)
 endif()
 target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include)
 
