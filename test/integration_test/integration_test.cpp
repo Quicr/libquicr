@@ -899,9 +899,7 @@ TEST_CASE("Integration - Rejected request closes both stream directions")
 
         // Setup to blanket reject the request.
         server->SetSubscribeError(RequestErrorCode::kDoesNotExist, "Track does not exist");
-        const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-        const auto& session = client.first;
-        const auto& callbacks = client.second;
+        const auto& [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         // Subscribe and get our request's stream ID.
         const FullTrackName ftn{ TrackNamespace({ "missing" }), { 1 } };
