@@ -198,13 +198,14 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                         quicr::BytesSpan data,
                         std::optional<quicr::messages::StreamHeaderProperties>) override
     {
-        if (json info = json::from_bson(data, true, false); !info.is_discarded()) {
+        if (json::accept(data)) {
+            json info = json::parse(data);
             std::static_pointer_cast<SpdlogLogger>(qclient_vars::logger)
-              ->Log(static_cast<quicr::Logger::Level>(info["level"].get<int>()),
+              ->Log(moq_log::SeverityLevel(info["severity"].get_ref<const std::string&>()),
                     "[NETWORK] " + info["msg"].get_ref<const std::string&>(),
-                    spdlog::source_loc(info["location"]["file_name"].get_ref<const std::string&>().c_str(),
-                                       info["location"]["line"].get<int>(),
-                                       info["location"]["function_name"].get_ref<const std::string&>().c_str()));
+                    spdlog::source_loc(info["code.filepath"].get_ref<const std::string&>().c_str(),
+                                       info["code.lineno"].get<int>(),
+                                       info["code.function.name"].get_ref<const std::string&>().c_str()));
             return;
         }
 
@@ -1672,6 +1673,7 @@ main(int argc, char* argv[])
         // queue accepts rather than letting a backlog flush expire against a shorter one.
         qclient_vars::logger = network_logger = std::make_shared<NetworkLogger>(
           quicr::example::MakeFullTrackName(result["network_logs"].as<std::string>(), "logger"),
+          result["endpoint_id"].as<std::string>(),
           128,
           qclient_consts::kTimeQueueMaxDurationMs);
     }
