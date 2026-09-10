@@ -25,9 +25,11 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Fetch the pinned vcpkg baseline
-        # The runner's vcpkg checkout predates any baseline we pin, so configure
-        # would fail with "could not find baseline" unless we fetch the commit.
+      - name: Check out the pinned vcpkg baseline
+        # vcpkg takes the baseline version from the pinned commit but reads
+        # versions/ off the checkout on disk. The runner's checkout predates the
+        # pin, so openssl resolves to a version its database has never seen
+        # ("no version database entry"). Move the whole tree to the baseline.
         run: |
           # Otherwise git's non-zero exits become terminating errors.
           $PSNativeCommandUseErrorActionPreference = $false
@@ -36,22 +38,25 @@ jobs:
           if (-not $baseline) { throw 'vcpkg.json is missing builtin-baseline' }
 
           $vcpkg = $env:VCPKG_INSTALLATION_ROOT
-          git -C $vcpkg cat-file -e "${baseline}^{commit}" 2>$null
-          if ($LASTEXITCODE -eq 0) { exit 0 }
-
-          # Only the baseline's tree gets read, so depth 1 is enough, and a
-          # shallow checkout must stay shallow or it pulls all of vcpkg history.
-          Write-Host "fetching baseline $baseline"
-          $depth = @()
-          if ((git -C $vcpkg rev-parse --is-shallow-repository) -eq 'true') {
-            $depth = @('--depth', '1')
-          }
-          git -C $vcpkg fetch --no-tags @depth origin $baseline
+          if ((git -C $vcpkg rev-parse HEAD) -eq $baseline) { exit 0 }
 
           git -C $vcpkg cat-file -e "${baseline}^{commit}" 2>$null
           if ($LASTEXITCODE -ne 0) {
-            throw "baseline $baseline is not reachable from microsoft/vcpkg"
+            # Depth 1 still carries the commit's full tree; unshallowing would
+            # drag in all of vcpkg's history to reach a single commit.
+            Write-Host "fetching baseline $baseline"
+            $depth = @()
+            if ((git -C $vcpkg rev-parse --is-shallow-repository) -eq 'true') {
+              $depth = @('--depth', '1')
+            }
+            git -C $vcpkg fetch --no-tags @depth origin $baseline
+            if ($LASTEXITCODE -ne 0) {
+              throw "baseline $baseline is not reachable from microsoft/vcpkg"
+            }
           }
+
+          git -C $vcpkg checkout --force --detach $baseline
+          if ($LASTEXITCODE -ne 0) { throw "could not check out baseline $baseline" }
 
       - name: Cache vcpkg packages
         uses: actions/cache@v6
