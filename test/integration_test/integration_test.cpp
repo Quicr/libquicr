@@ -786,9 +786,7 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
     auto server = MakeTestServer(session_mgr);
 
     auto test_unsubscribe = [&](const std::string& protocol_scheme) {
-        const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-        const auto& session = client.first;
-        const auto& callbacks = client.second;
+        const auto& [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
