@@ -11,6 +11,7 @@ namespace quicr {
 
     void Session::Callbacks::MetricsSampled(const std::shared_ptr<Session>&, const ConnectionMetrics&) {}
 
+    void Session::Callbacks::OnStreamClosed(std::uint64_t, StreamClosedFlag) {}
     Reply<const PublishResponse, PublishErrorCode> Session::Callbacks::PublishReceived(
       const std::shared_ptr<Session>&,
       std::uint64_t,
@@ -75,7 +76,6 @@ namespace quicr {
     // -- Session::ServerCallbacks ---------------------------------------------------------------
 
     void Session::ServerCallbacks::OnStreamClosed(std::uint64_t, StreamClosedFlag) {}
-
     Reply<void, ErrorCode> Session::ServerCallbacks::ClientSetupReceived(const std::shared_ptr<Session>&,
                                                                          const ClientSetupAttributes&)
     {

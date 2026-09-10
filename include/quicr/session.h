@@ -454,7 +454,9 @@ namespace quicr {
 
         void SetStatus(Status status);
 
-        void SendCtrlMsg(const std::shared_ptr<Stream>& stream, std::shared_ptr<const std::vector<uint8_t>> data);
+        void SendCtrlMsg(const std::shared_ptr<Stream>& stream,
+                         std::shared_ptr<const std::vector<uint8_t>> data,
+                         bool close_stream = false);
 
         template<typename... Fields>
         void SendCtrlMsg(const std::shared_ptr<Stream>& stream, messages::ControlMessageType type, Fields&&... args)
@@ -501,7 +503,8 @@ namespace quicr {
                               std::uint64_t request_id,
                               ErrorCode error,
                               std::chrono::milliseconds retry_interval,
-                              const std::string& reason);
+                              const std::string& reason,
+                              bool close_stream = true);
 
         /*===================================================================*/
         // Publish Namespace

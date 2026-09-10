@@ -298,14 +298,16 @@ namespace quicr {
         return request_id;
     }
 
-    void Session::SendCtrlMsg(const std::shared_ptr<Stream>& stream, std::shared_ptr<const std::vector<uint8_t>> data)
+    void Session::SendCtrlMsg(const std::shared_ptr<Stream>& stream,
+                              std::shared_ptr<const std::vector<uint8_t>> data,
+                              bool close_stream)
     {
         if (stream == nullptr) {
             throw ProtocolViolationException("Control stream not created");
         }
 
         auto result = quic_transport_->Enqueue(
-          current_connection_, stream, std::move(data), 0, 2000, { true, false, false, false });
+          current_connection_, stream, std::move(data), 0, 2000, { true, close_stream, false, false });
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -409,7 +411,8 @@ namespace quicr {
                                    [[maybe_unused]] uint64_t request_id,
                                    ErrorCode error,
                                    std::chrono::milliseconds retry_interval,
-                                   const std::string& reason)
+                                   const std::string& reason,
+                                   bool close_stream)
     try {
         QUICR_LOGGER_DEBUG(logger_,
                            "Sending REQUEST_ERROR to conn_id: {} request_id: {} error code: {} reason: {}",
@@ -418,8 +421,11 @@ namespace quicr {
                            static_cast<int>(error),
                            reason);
 
-        SendCtrlMsg(
-          stream, ControlMessageType::kRequestError, error, UintVar(retry_interval.count()), AsOwnedBytes(reason));
+        messages::Message msg = messages::Message{}.PrependType(ControlMessageType::kRequestError).ReserveLength();
+        msg.Append(error);
+        msg.Append(UintVar(retry_interval.count()));
+        msg.Append(AsOwnedBytes(reason));
+        SendCtrlMsg(stream, msg.ToBytes(), close_stream);
     } catch (const std::exception& e) {
         QUICR_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -946,7 +952,8 @@ namespace quicr {
                 try {
                     if (not handler.IsPublisherInitiated()) {
                         // TODO: Is it possible for these to not be sent at this point?
-                        quic_transport_->CloseStream(current_connection_, handler.GetRequestStream(), true);
+                        quic_transport_->CloseStream(
+                          current_connection_, handler.GetRequestStream(), StreamOperation::kCancel);
                     }
                 } catch (const std::exception& e) {
                     QUICR_LOGGER_ERROR(logger_, "Failed to send unsubscribe: {}", e.what());
@@ -1354,7 +1361,7 @@ namespace quicr {
             return;
         }
 
-        quic_transport_->CloseStream(current_connection_, request_stream, true);
+        quic_transport_->CloseStream(current_connection_, request_stream, StreamOperation::kCancel);
         request_handlers.erase(track_handler->GetRequestId().value());
     }
 
@@ -1750,7 +1757,7 @@ namespace quicr {
                       stream_id);
 
                     if (stream != nullptr) {
-                        quic_transport_->CloseStream(current_connection_, stream, true);
+                        quic_transport_->CloseStream(current_connection_, stream, StreamOperation::kReset);
                     }
                 }
             }
@@ -1778,8 +1785,8 @@ namespace quicr {
     {
         QUICR_LOGGER_DEBUG(logger_, "Stream {} closed", stream_id);
 
-        if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-            callbacks->OnStreamClosed(stream_id, flag);
+        if (callbacks_ != nullptr) {
+            callbacks_->OnStreamClosed(stream_id, flag);
         }
 
         {
@@ -1792,16 +1799,24 @@ namespace quicr {
 
             const auto req_it = request_by_stream.find(stream_id);
             if (req_it != request_by_stream.end()) {
-                // Only the request stream closing ends the request. A track's data streams come and
-                // go, and were mapped just so their metrics find the right handler; their
-                // association is dropped by the closing metrics sample instead.
                 if (req_it->second.is_request_stream) {
+                    if (flag == StreamClosedFlag::kStopSending) {
+                        return;
+                    }
                     const auto request_id = req_it->second.request_id;
                     request_by_stream.erase(req_it);
 
                     lock.unlock();
                     CloseRequestHandler(request_id, stream_id, flag);
                     return;
+                }
+                const auto handler_it = request_handlers.find(req_it->second.request_id);
+                if (handler_it != request_handlers.end()) {
+                    if (const auto handler = handler_it->second->Get<PublishTrackHandler>()) {
+                        lock.unlock();
+                        handler->StreamClosed(stream_id, flag != StreamClosedFlag::kFin);
+                        return;
+                    }
                 }
             }
 
@@ -1822,6 +1837,8 @@ namespace quicr {
                     if (tx_ctrl_stream_ != nullptr && tx_ctrl_stream_->GetStreamId() == stream_id) {
                         throw ProtocolViolationException("Primary control stream RESET");
                     }
+                    break;
+                case StreamClosedFlag::kStopSending:
                     break;
             }
 
@@ -1852,6 +1869,8 @@ namespace quicr {
                         handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
                     }
                     handler->StreamClosed(stream_id, true);
+                    break;
+                case StreamClosedFlag::kStopSending:
                     break;
             }
         } catch (const ProtocolViolationException& e) {
@@ -3244,7 +3263,8 @@ namespace quicr {
                                       current_connection_->GetID(),
                                       request_id);
 
-                    SendRequestError(stream, request_id, ErrorCode::kDoesNotExist, 0ms, "Subscription not found");
+                    SendRequestError(
+                      stream, request_id, ErrorCode::kDoesNotExist, 0ms, "Subscription not found", false);
                     return true;
                 }
 

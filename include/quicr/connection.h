@@ -30,6 +30,7 @@ namespace quicr {
     {
         kFin,
         kReset,
+        kStopSending,
     };
 
     class Connection

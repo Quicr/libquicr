@@ -245,9 +245,11 @@ namespace quicr {
 
         void CloseStream(const std::shared_ptr<Connection>& connection,
                          const std::shared_ptr<Stream>& stream,
-                         bool use_reset) override;
+                         StreamOperation operation) override;
 
-        void CloseStream(const std::shared_ptr<Connection>& connection, uint64_t stream_id, bool use_reset) override;
+        void CloseStream(const std::shared_ptr<Connection>& connection,
+                         uint64_t stream_id,
+                         StreamOperation operation) override;
 
         /**
          * @brief Deregister WebTransport context
@@ -437,7 +439,9 @@ namespace quicr {
          * @param stream_id     ID of the stream to close.
          * @param send_reset    Indicates if the stream should be closed by RESET, otherwise FIN
          */
-        void CloseStream(const std::shared_ptr<PicoQuicConnection>& conn_ctx, std::uint64_t stream_id, bool send_reset);
+        void CloseStream(const std::shared_ptr<PicoQuicConnection>& connection,
+                         std::uint64_t stream_id,
+                         StreamOperation operation);
 
         /*
          * Variables
