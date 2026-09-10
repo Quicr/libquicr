@@ -51,6 +51,16 @@ namespace quicr {
             return std::static_pointer_cast<PicoQuicStream>(shared_from_this());
         }
 
+        /// @returns True once every direction available on this stream has closed.
+        bool IsFullyClosed() const noexcept
+        {
+            const bool is_bidir = (GetStreamId() & 0x2) == 0;
+            if (is_bidir) {
+                return tx_closed.load(std::memory_order_acquire) && rx_closed;
+            }
+            return tx_data != nullptr ? tx_closed.load(std::memory_order_acquire) : rx_closed;
+        }
+
         /**
          * Reset the TX object buffer
          */

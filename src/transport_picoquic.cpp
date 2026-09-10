@@ -58,16 +58,6 @@
 using namespace quicr;
 
 constexpr const char* kMoqtAlpn = "moqt-18";
-
-static bool
-IsStreamFullyClosed(const PicoQuicStream& stream)
-{
-    const bool is_bidir = (stream.GetStreamId() & 0x2) == 0;
-    if (is_bidir) {
-        return stream.tx_closed.load(std::memory_order_acquire) && stream.rx_closed;
-    }
-    return stream.tx_data != nullptr ? stream.tx_closed.load(std::memory_order_acquire) : stream.rx_closed;
-}
 /* ============================================================================
  * PicoQuic Callbacks
  * ============================================================================
@@ -214,7 +204,7 @@ try {
                 if (const auto tx_stream = stream ? stream : connection->GetStream(stream_id)) {
                     tx_stream->tx_closed.store(true, std::memory_order_release);
                     transport->OnStreamClosed(connection, stream_id, tx_stream->rx_ctx, StreamClosedFlag::kStopSending);
-                    if (IsStreamFullyClosed(*tx_stream)) {
+                    if (tx_stream->IsFullyClosed()) {
                         transport->EraseStreamState(connection, stream_id);
                     }
                 }
@@ -230,7 +220,7 @@ try {
                 if (const auto rx_stream = stream ? stream : connection->GetStream(stream_id)) {
                     rx_stream->rx_closed = true;
                     transport->OnStreamClosed(connection, stream_id, rx_stream->rx_ctx, StreamClosedFlag::kReset);
-                    if (IsStreamFullyClosed(*rx_stream)) {
+                    if (rx_stream->IsFullyClosed()) {
                         picoquic_reset_stream_ctx(pq_cnx, stream_id);
                         transport->EraseStreamState(connection, stream_id);
                     }
@@ -823,7 +813,7 @@ try {
                 if (const auto stream = GetStreamForWT(connection, stream_id)) {
                     stream->rx_closed = true;
                     transport->OnStreamClosed(connection, stream_id, stream->rx_ctx, StreamClosedFlag::kReset);
-                    if (IsStreamFullyClosed(*stream)) {
+                    if (stream->IsFullyClosed()) {
                         ClearStreamForWT(connection, stream_id);
                     }
                 }
@@ -854,7 +844,7 @@ try {
                 if (const auto stream = GetStreamForWT(connection, stream_id)) {
                     stream->tx_closed.store(true, std::memory_order_release);
                     transport->OnStreamClosed(connection, stream_id, stream->rx_ctx, StreamClosedFlag::kStopSending);
-                    if (IsStreamFullyClosed(*stream)) {
+                    if (stream->IsFullyClosed()) {
                         ClearStreamForWT(connection, stream_id);
                     }
                 }
@@ -2137,12 +2127,10 @@ PicoQuicTransport::RemoveClosedStreams(std::size_t shard_idx)
                 continue;
             }
 
-            if (IsStreamFullyClosed(*stream)) {
+            if (stream->IsFullyClosed()) {
                 connection->RemoveStream(stream_id);
-            } else if (stream->tx_data != nullptr) {
-                stream->rx_ctx.reset();
             } else {
-                connection->RemoveStream(stream_id);
+                stream->rx_ctx.reset();
             }
         }
     }
@@ -2876,7 +2864,7 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
         picoquic_add_to_stream(connection->pq_cnx, stream_id, &empty, 0, 1);
     }
 
-    if (IsStreamFullyClosed(*stream)) {
+    if (stream->IsFullyClosed()) {
         EraseStreamState(connection, stream_id);
     }
 }
