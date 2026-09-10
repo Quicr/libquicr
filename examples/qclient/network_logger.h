@@ -37,9 +37,9 @@ namespace moq_log {
 
     inline std::uint64_t Now() noexcept
     {
-        const auto since_unix_epoch = std::chrono::duration_cast<std::chrono::microseconds>(
-                                        std::chrono::system_clock::now().time_since_epoch())
-                                        .count();
+        const auto since_unix_epoch =
+          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+            .count();
 
         return static_cast<std::uint64_t>(since_unix_epoch) + kNtpEraZeroToUnixSeconds * 1000000;
     }
