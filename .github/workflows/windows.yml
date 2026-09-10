@@ -9,16 +9,16 @@ on:
 env:
   BUILD_TYPE: Release
 
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
   build:
-    name: Build and Test (Windows)
+    name: Build
     runs-on: windows-latest
     # A cold vcpkg cache builds OpenSSL from source.
     timeout-minutes: 60
-
-    defaults:
-      run:
-        shell: pwsh
 
     steps:
       - uses: actions/checkout@v6
@@ -63,12 +63,15 @@ jobs:
         with:
           path: ${{ github.workspace }}/build/vcpkg_installed
           # No restore-keys: a tree from another manifest is worse than a rebuild.
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-x64-windows-release-${{ hashFiles('vcpkg.json') }}
 
       - name: Configure CMake
+        # x64-windows-release is x64-windows plus VCPKG_BUILD_TYPE release. Left
+        # alone, vcpkg also builds a debug OpenSSL that this job never links.
         run: >
           cmake -B ${{ github.workspace }}/build
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows-release
           -DCMAKE_POLICY_VERSION_MINIMUM="3.5"
           -DBUILD_TESTING=ON
           -DQUICR_BUILD_EXAMPLES=ON
@@ -77,9 +80,55 @@ jobs:
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} -j
 
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-build-output
+          # Link-time-only output, and the bulk of a Windows build tree. Running
+          # an already-linked test needs the .exe and .dll, none of this.
+          path: |
+            ${{ github.workspace }}/build
+            !${{ github.workspace }}/build/**/*.obj
+            !${{ github.workspace }}/build/**/*.ilk
+            !${{ github.workspace }}/build/**/*.lib
+          retention-days: 5
+
+  # test and benchmark are split out so a spurious failure can be re-run on its
+  # own. They rely on the workspace path being identical across jobs, since the
+  # build tree records absolute paths to its executables.
+  test:
+    name: Test
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: windows-build-output
+          path: ${{ github.workspace }}/build
+
       - name: Test
         working-directory: ${{ github.workspace }}/build
         run: ctest -C ${{ env.BUILD_TYPE }} --output-on-failure -E "benchmark"
+
+  benchmark:
+    name: Benchmark
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: windows-build-output
+          path: ${{ github.workspace }}/build
 
       - name: Benchmark
         working-directory: ${{ github.workspace }}/build
