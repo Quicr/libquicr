@@ -202,7 +202,9 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
             json info = json::parse(data);
             std::static_pointer_cast<SpdlogLogger>(qclient_vars::logger)
               ->Log(moq_log::SeverityLevel(info["severity"].get_ref<const std::string&>()),
-                    "[NETWORK] " + info["msg"].get_ref<const std::string&>(),
+                    quicr::format("[{}] {}",
+                                  info["hostname"].get_ref<const std::string&>(),
+                                  info["msg"].get_ref<const std::string&>()),
                     spdlog::source_loc(info["code"]["filepath"].get_ref<const std::string&>().c_str(),
                                        info["code"]["lineno"].get<int>(),
                                        info["code"]["function.name"].get_ref<const std::string&>().c_str()));
