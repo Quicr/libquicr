@@ -165,20 +165,18 @@ namespace quicr {
         relay.proto = protocol;
         relay.path = path;
 
-        auto transport = Transport::MakeClientTransport(
-          relay,
-          config.transport_config,
-          tick_service_ ? tick_service_
-                        : std::make_shared<timeq::threaded_tick_service>(config.tick_service_sleep_delay_us),
-          logger_);
+        auto tick_service = tick_service_
+                              ? tick_service_
+                              : std::make_shared<timeq::threaded_tick_service>(config.tick_service_sleep_delay_us);
+        auto transport = Transport::MakeClientTransport(relay, config.transport_config, tick_service, logger_);
 
         transport->OnConnectionClosed = on_connection_closed_;
 
         std::unique_lock lock(mutex_);
         std::condition_variable cv;
 
-        transport->OnNewConnection = [&](const auto& connection) {
-            auto session = Session::Create(config, transport, connection, std::move(callbacks), tick_service_, logger_);
+        transport->OnNewConnection = [&, tick_service = std::move(tick_service)](const auto& connection) {
+            auto session = Session::Create(config, transport, connection, std::move(callbacks), tick_service, logger_);
             connection->SetDelegate(session);
 
             {
