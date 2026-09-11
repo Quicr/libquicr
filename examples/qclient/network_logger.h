@@ -335,10 +335,10 @@ class NetworkLogger
 
         // Section 4 treats anything else as structured data mapping to OpenTelemetry attributes,
         // so the call site travels under OpenTelemetry's code attribute names.
-        record["code.filepath"] = location.file_name();
-        record["code.lineno"] = location.line();
-        record["code.column"] = location.column();
-        record["code.function.name"] = location.function_name();
+        record["code"]["filepath"] = location.file_name();
+        record["code"]["lineno"] = location.line();
+        record["code"]["column"] = location.column();
+        record["code"]["function.name"] = location.function_name();
 
         // A log line can carry bytes that aren't valid UTF-8, and JSON can't. Substituting beats
         // throwing the record away, which is what dump() does by default.

@@ -203,9 +203,9 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
             std::static_pointer_cast<SpdlogLogger>(qclient_vars::logger)
               ->Log(moq_log::SeverityLevel(info["severity"].get_ref<const std::string&>()),
                     "[NETWORK] " + info["msg"].get_ref<const std::string&>(),
-                    spdlog::source_loc(info["code.filepath"].get_ref<const std::string&>().c_str(),
-                                       info["code.lineno"].get<int>(),
-                                       info["code.function.name"].get_ref<const std::string&>().c_str()));
+                    spdlog::source_loc(info["code"]["filepath"].get_ref<const std::string&>().c_str(),
+                                       info["code"]["lineno"].get<int>(),
+                                       info["code"]["function.name"].get_ref<const std::string&>().c_str()));
             return;
         }
 
