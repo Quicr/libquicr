@@ -1156,12 +1156,15 @@ TEST_CASE("Group ID Gap")
 TEST_CASE("Qlog Generation")
 {
     auto test_qlog = [&](const std::string& protocol_scheme) {
-        quicr::SessionManager session_mgr;
-
-        // Create temporary destination for QLOG files.
+        // Create temporary destination for QLOG files. This is declared ahead of the
+        // session manager so that it is torn down after it: Windows refuses to unlink
+        // the qlog files while the transports still hold them open.
         const auto temp_dir = std::filesystem::temp_directory_path() / "libquicr_qlog_test";
+        std::filesystem::remove_all(temp_dir);
         std::filesystem::create_directories(temp_dir);
         defer(std::filesystem::remove_all(temp_dir));
+
+        quicr::SessionManager session_mgr;
 
         // Enable qlog.
         auto server = MakeTestServer(session_mgr, temp_dir.string());

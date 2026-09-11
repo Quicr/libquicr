@@ -8,7 +8,6 @@
 #include <any>
 #include <optional>
 #include <string>
-#include <sys/socket.h>
 
 using namespace quicr;
 using namespace quicr::messages;

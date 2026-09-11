@@ -53,6 +53,10 @@ target_include_directories(quicr-bridge
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+if (WIN32)
+    target_compile_definitions(quicr-bridge PRIVATE NOMINMAX)
+endif()
+
 # Compiler-specific options
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_compile_options(quicr-bridge PRIVATE
@@ -96,7 +100,7 @@ if(BUILD_BRIDGE_EXAMPLES)
 
     # Chat Example
     add_executable(chat examples/chat.c)
-    target_link_libraries(chat quicr-bridge pthread)
+    target_link_libraries(chat quicr-bridge)
     target_include_directories(chat PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     )

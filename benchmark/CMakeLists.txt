@@ -28,6 +28,10 @@ set_target_properties(quicr_benchmark PROPERTIES
     CXX_EXTENSIONS ON
 )
 
+if (WIN32)
+    target_compile_definitions(quicr_benchmark PRIVATE NOMINMAX)
+endif()
+
 if(LINT)
     include(Lint)
     Lint(quicr_benchmark)
@@ -36,3 +40,5 @@ endif()
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(quicr_benchmark PRIVATE -Wall -pedantic -Wextra -Werror -Wmissing-declarations)
 endif()
+
+add_test(NAME quicr_benchmark COMMAND quicr_benchmark)

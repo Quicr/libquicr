@@ -28,14 +28,17 @@
 #include <map>
 #include <memory>
 #include <mutex>
-#include <netinet/in.h>
 #include <queue>
 #include <span>
 #include <string>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <thread>
 #include <vector>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/types.h>
+#endif
 
 namespace quicr {
 
