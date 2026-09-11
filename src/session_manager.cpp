@@ -103,14 +103,12 @@ namespace quicr {
     void SessionManager::Callbacks::OnSessionRemoved(const std::shared_ptr<Session>&) {}
 
     SessionManager::SessionManager(std::shared_ptr<Logger> logger)
-      : SessionManager(std::make_shared<Callbacks>(),
-                       std::make_shared<timeq::threaded_tick_service>(),
-                       std::move(logger))
+      : SessionManager(std::make_shared<Callbacks>(), nullptr, std::move(logger))
     {
     }
 
     SessionManager::SessionManager(std::shared_ptr<Callbacks> callbacks, std::shared_ptr<Logger> logger)
-      : SessionManager(std::move(callbacks), std::make_shared<timeq::threaded_tick_service>(), std::move(logger))
+      : SessionManager(std::move(callbacks), nullptr, std::move(logger))
     {
     }
 
@@ -167,7 +165,12 @@ namespace quicr {
         relay.proto = protocol;
         relay.path = path;
 
-        auto transport = Transport::MakeClientTransport(relay, config.transport_config, tick_service_, logger_);
+        auto transport = Transport::MakeClientTransport(
+          relay,
+          config.transport_config,
+          tick_service_ ? tick_service_
+                        : std::make_shared<timeq::threaded_tick_service>(config.tick_service_sleep_delay_us),
+          logger_);
 
         transport->OnConnectionClosed = on_connection_closed_;
 
@@ -217,21 +220,27 @@ namespace quicr {
         server.proto = TransportProtocol::kQuic; // Ignored by server
         server.path = "/relay";
 
-        auto transport = Transport::MakeServerTransport(server, config.transport_config, tick_service_, logger_);
+        auto tick_service = tick_service_
+                              ? tick_service_
+                              : std::make_shared<timeq::threaded_tick_service>(config.tick_service_sleep_delay_us);
+        auto transport = Transport::MakeServerTransport(server, config.transport_config, tick_service, logger_);
 
-        transport->OnNewConnection =
-          [=, this, wtransport = std::weak_ptr(transport), callbacks = std::move(callbacks)](const auto& connection) {
-              auto transport = wtransport.lock();
-              auto session = Session::Create(config, transport, connection, callbacks, tick_service_, logger_);
-              connection->SetDelegate(session);
+        transport->OnNewConnection = [=,
+                                      this,
+                                      wtransport = std::weak_ptr(transport),
+                                      callbacks = std::move(callbacks),
+                                      tick_service = std::move(tick_service)](const auto& connection) {
+            auto transport = wtransport.lock();
+            auto session = Session::Create(config, transport, connection, callbacks, tick_service, logger_);
+            connection->SetDelegate(session);
 
-              {
-                  std::lock_guard<std::mutex> lock(mutex_);
-                  sessions_[connection->GetID()] = session;
-              }
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                sessions_[connection->GetID()] = session;
+            }
 
-              callbacks_->OnNewServerSession(session);
-          };
+            callbacks_->OnNewServerSession(session);
+        };
 
         transport->OnConnectionClosed = on_connection_closed_;
 
