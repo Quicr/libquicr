@@ -1,4 +1,4 @@
-name: CMake
+name: macOS
 
 on:
   push:
@@ -10,23 +10,8 @@ env:
   BUILD_TYPE: Release
 
 jobs:
-  format-check:
-    name: Format Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: jidicula/clang-format-action@v4.13.0
-        with:
-          clang-format-version: '18'
-          exclude-regex: '(dependencies)'
-
   build:
-    strategy:
-      matrix:
-        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
-
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     continue-on-error: true
     timeout-minutes: 10
 
@@ -35,8 +20,9 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Install Packages (macOS)
-      if: matrix.os == 'macos-latest'
+    - name: Install Packages
+      # Builds against Homebrew's clang rather than the Xcode one. LINT=ON also
+      # needs clang-tidy, which Homebrew's llvm keeps off PATH.
       run: |
         HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install llvm google-benchmark
         LLVM_PREFIX="$(brew --prefix llvm)"
@@ -44,17 +30,6 @@ jobs:
         echo "CXX=$LLVM_PREFIX/bin/clang++" >> "$GITHUB_ENV"
         echo "$LLVM_PREFIX/bin" >> "$GITHUB_PATH"
         ln -s "$LLVM_PREFIX/bin/clang-tidy" "/usr/local/bin/clang-tidy"
-
-    - name: Install Packages (Ubuntu)
-      if: matrix.os == 'ubuntu-22.04' || matrix.os == 'ubuntu-22.04-arm'
-      run: |
-        sudo apt-get install -y clang-tidy-15
-
-    - name: Configure GCC 12 (Ubuntu)
-      if: matrix.os == 'ubuntu-22.04' || matrix.os == 'ubuntu-22.04-arm'
-      run: |
-        echo "CC=/usr/bin/gcc-12" >> $GITHUB_ENV
-        echo "CXX=/usr/bin/g++-12" >> $GITHUB_ENV
 
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM="3.5" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON
@@ -65,18 +40,14 @@ jobs:
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v7
       with:
-        name: ${{matrix.os}}-build-output
+        name: macos-build-output
         path: ${{github.workspace}}/build
         retention-days: 5
 
   test:
     needs: build
     if: ${{ needs.build.result == 'success' }}
-    strategy:
-      matrix:
-        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
-
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     continue-on-error: true
     timeout-minutes: 10
     steps:
@@ -84,7 +55,7 @@ jobs:
       - name: Download Build Artifact
         uses: actions/download-artifact@v7
         with:
-          name: ${{matrix.os}}-build-output
+          name: macos-build-output
           path: ${{github.workspace}}/build
 
       - name: Test
@@ -96,11 +67,7 @@ jobs:
   benchmark:
     needs: build
     if: ${{ needs.build.result == 'success' }}
-    strategy:
-      matrix:
-        os: [  macos-latest, ubuntu-22.04, ubuntu-22.04-arm ]
-
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     continue-on-error: true
     timeout-minutes: 10
     steps:
@@ -108,7 +75,7 @@ jobs:
       - name: Download Build Artifact
         uses: actions/download-artifact@v7
         with:
-          name: ${{matrix.os}}-build-output
+          name: macos-build-output
           path: ${{github.workspace}}/build
 
       - name: Benchmark
