@@ -9,6 +9,15 @@
 #include <string>
 
 namespace quicr {
+    /// Supported congestion control algorithms.
+    enum class CongestionControl : std::uint8_t
+    {
+        kBbr,
+        kC4,
+        kCubic,
+        kNewReno,
+    };
+
     /**
      * Transport configuration parameters
      */
@@ -24,8 +33,8 @@ namespace quicr {
         uint64_t quic_cwin_minimum{ 131072 };        ///< QUIC congestion control minimum size (default is 128k)
         uint32_t quic_wifi_shadow_rtt_us{ 20000 };   ///< QUIC wifi shadow RTT in microseconds
         uint64_t idle_timeout_ms{ 30000 };           ///< Idle timeout for transport connection(s) in milliseconds
-        bool use_bbr{ true };                        ///< Use BBR if true, NewReno if false
-        std::string quic_qlog_path;                  ///< If present, log QUIC LOG file to this path
+        CongestionControl congestion_control{ CongestionControl::kBbr }; /// Congestion control algorithm to use
+        std::string quic_qlog_path;                                      ///< If present, log QUIC LOG file to this path
         uint8_t quic_priority_limit{ 0 }; ///< Lowest priority that will not be bypassed from pacing/CC in picoquic
         std::size_t max_connections{ 1 }; ///< Max number of active QUIC connections per QUIC instance
         bool ssl_keylog{ false };         ///< Enable SSL key logging for QUIC connections

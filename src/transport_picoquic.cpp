@@ -18,7 +18,9 @@
 #include <pico_webtransport.h>
 #include <picoquic.h>
 #include <picoquic_bbr.h>
+#include <picoquic_c4.h>
 #include <picoquic_config.h>
+#include <picoquic_cubic.h>
 #include <picoquic_internal.h>
 #include <picoquic_newreno.h>
 #include <picoquic_packet_loop.h>
@@ -972,6 +974,27 @@ PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
         throw PicoQuicException("Unable to create picoquic context");
     }
 
+    picoquic_congestion_algorithm_t* selected_algorithm;
+    switch (tconfig_.congestion_control) {
+        case CongestionControl::kBbr:
+            selected_algorithm = picoquic_bbr_algorithm;
+            break;
+        case CongestionControl::kC4:
+            selected_algorithm = c4_algorithm;
+            break;
+        case CongestionControl::kCubic:
+            selected_algorithm = picoquic_cubic_algorithm;
+            break;
+        case CongestionControl::kNewReno:
+            selected_algorithm = picoquic_newreno_algorithm;
+            break;
+        default:
+            picoquic_free(quic_ctx);
+            throw InvalidConfigException("Invalid congestion control algorithm");
+    }
+    picoquic_set_default_congestion_algorithm(quic_ctx, selected_algorithm);
+    QUICR_LOGGER_INFO(logger, "Using {} congestion control", quic_ctx->default_congestion_alg->congestion_algorithm_id);
+
     if (config_.enable_sslkeylog) {
         if (std::getenv("SSLKEYLOGFILE") == nullptr) {
             QUICR_LOGGER_WARN(logger, "Key log enabled but $SSLKEYLOGFILE not set");
@@ -1014,11 +1037,6 @@ PicoQuicTransport::Start()
     if (auto wt_ret = InitializeWebTransportContext(); wt_ret != 0) {
         QUICR_LOGGER_ERROR(logger, "Failed to initialize WebTransport");
         return nullptr;
-    }
-
-    if (not tconfig_.use_bbr) {
-        QUICR_LOGGER_INFO(logger, "Using NewReno congestion control");
-        (void)picoquic_config_set_option(&config_, picoquic_option_CC_ALGO, "reno");
     }
 
     // For servers, don't set default ALPN - will use ALPN selector function
