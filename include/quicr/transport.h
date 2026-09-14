@@ -20,6 +20,7 @@
 #include <queue>
 #include <source_location>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 #include <vector>
@@ -154,6 +155,45 @@ namespace quicr {
         TransportError Error;
     };
 
+    enum class StreamOperation : uint8_t
+    {
+        kFin,
+        kReset,
+        kStopSending,
+        // Cancel a bidirectional stream: RESET the send side and STOP_SENDING the receive side.
+        kCancel,
+    };
+
+    constexpr void CheckCloseStream(std::uint64_t stream_id, bool is_server, StreamOperation operation)
+    {
+        const bool is_bidir = (stream_id & 0x2) == 0;
+        const bool is_locally_initiated = ((stream_id & 0x1) != 0) == is_server;
+        const bool can_send = is_bidir || is_locally_initiated;
+        const bool can_receive = is_bidir || !is_locally_initiated;
+
+        switch (operation) {
+            case StreamOperation::kFin:
+                [[fallthrough]];
+            case StreamOperation::kReset:
+                if (can_send) {
+                    return;
+                }
+                break;
+            case StreamOperation::kStopSending:
+                if (can_receive) {
+                    return;
+                }
+                break;
+            case StreamOperation::kCancel:
+                if (is_bidir) {
+                    return;
+                }
+                break;
+        }
+
+        throw std::invalid_argument("Stream close is invalid for the stream direction");
+    }
+
     /**
      * @brief Transport interface
      *
@@ -253,7 +293,7 @@ namespace quicr {
          */
         virtual void CloseStream(const std::shared_ptr<Connection>& connection,
                                  const std::shared_ptr<Stream>& stream,
-                                 bool use_reset) = 0;
+                                 StreamOperation operation) = 0;
 
         /**
          * @brief Close a stream by ID
@@ -263,9 +303,11 @@ namespace quicr {
          *
          * @param connection        Connection the stream belongs to
          * @param stream_id         Stream ID to close
-         * @param use_reset         True to close by RESET, false to close by FIN
+         * @param operation         Operation to use to close the stream
          */
-        virtual void CloseStream(const std::shared_ptr<Connection>& connection, uint64_t stream_id, bool use_reset) = 0;
+        virtual void CloseStream(const std::shared_ptr<Connection>& connection,
+                                 uint64_t stream_id,
+                                 StreamOperation operation) = 0;
 
         /**
          * @brief Get the peer IP address and port associated with the stream

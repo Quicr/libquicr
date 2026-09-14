@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include <doctest/doctest.h>
+#include <timeq/tick_service.h>
 
 #include "picoquic_connection.h"
 
@@ -69,4 +70,39 @@ TEST_CASE("A bidirectional stream is one object carrying both directions")
     stream->rx_ctx = std::make_shared<StreamRxContext>();
 
     CHECK(connection->GetStream(0)->rx_ctx == stream->rx_ctx);
+}
+
+TEST_CASE("A stream is fully closed when every available direction is closed")
+{
+    const auto connection = MakeConnection();
+
+    SUBCASE("Bidirectional")
+    {
+        const auto stream = connection->AddStream(0, nullptr);
+
+        CHECK_FALSE(stream->IsFullyClosed());
+        stream->rx_closed = true;
+        CHECK_FALSE(stream->IsFullyClosed());
+        stream->tx_closed.store(true);
+        CHECK(stream->IsFullyClosed());
+    }
+
+    SUBCASE("Receive-only")
+    {
+        const auto stream = connection->AddStream(2, nullptr);
+
+        CHECK_FALSE(stream->IsFullyClosed());
+        stream->rx_closed = true;
+        CHECK(stream->IsFullyClosed());
+    }
+
+    SUBCASE("Send-only")
+    {
+        auto queue = std::make_unique<SafeTimeQueue<ConnData>>(std::make_shared<timeq::threaded_tick_service>());
+        const auto stream = connection->AddStream(2, std::move(queue));
+
+        CHECK_FALSE(stream->IsFullyClosed());
+        stream->tx_closed.store(true);
+        CHECK(stream->IsFullyClosed());
+    }
 }

@@ -19,6 +19,7 @@ endif()
 # Include directories
 target_include_directories(quicr_integration_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/src
 )
 
 # Link against the quicr library and test framework
