@@ -1999,13 +1999,43 @@ try {
         return;
     }
 
-    {
-        std::lock_guard _(stream->rx_mutex);
-        stream->rx_data.Push(bytes);
+    if (stream->rx_closed) {
+        stream->metrics.rx_buffer_drops++;
+        return;
     }
+
+    const bool overflowed = [&] {
+        std::lock_guard _(stream->rx_mutex);
+
+        if (tconfig_.stream_rx_max_bytes != 0 && stream->rx_data.Size() + bytes.size() > tconfig_.stream_rx_max_bytes) {
+            stream->rx_data.Clear();
+            return true;
+        }
+
+        stream->rx_data.Push(bytes);
+        return false;
+    }();
 
     stream->metrics.rx_stream_cb++;
     stream->metrics.rx_stream_bytes += bytes.size();
+
+    /*
+     * Dropping part of a byte stream would leave whatever parses it reading the rest as though
+     * nothing were missing, so the stream is given up on whole: STOP_SENDING rather than a reset,
+     * which would be a protocol violation on a stream this end only receives on.
+     */
+    if (overflowed) {
+        QUICR_LOGGER_WARN(logger,
+                          "Stream {} overran its {} byte receive limit with bytes nothing has parsed, stopping it",
+                          stream_id,
+                          tconfig_.stream_rx_max_bytes);
+
+        picoquic_stop_sending(connection->pq_cnx, stream_id, static_cast<uint64_t>(StreamErrorCodes::kRxBufferFull));
+        stream->rx_closed = true;
+        stream->metrics.rx_buffer_drops++;
+
+        return;
+    }
 
     // The captured handle keeps the buffer just appended to alive until the delegate has read it.
     NotifyStreamRecv(connection, std::move(stream));

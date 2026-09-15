@@ -203,7 +203,8 @@ MakeTestClient(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
                const std::string& protocol_scheme = "moq",
                const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
-               std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>())
+               std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>(),
+               const std::optional<std::uint64_t> stream_rx_max_bytes = std::nullopt)
 {
     // Connect a client.
     ClientConfig client_config;
@@ -212,6 +213,9 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
     if (metrics_sample_ms.has_value()) {
         client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
+    }
+    if (stream_rx_max_bytes.has_value()) {
+        client_config.transport_config.stream_rx_max_bytes = *stream_rx_max_bytes;
     }
     client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(kPort) + "/relay";
     if (qlog_path.has_value()) {
@@ -2100,6 +2104,58 @@ TEST_CASE("Integration - Small data callbacks assemble")
                                  .track_mode = TrackMode::kStream };
     REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
     CHECK(received_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+}
+
+TEST_CASE("Integration - A stream over its receive limit is stopped")
+{
+    constexpr std::uint64_t rx_limit = 256 * 1024;
+    constexpr std::size_t in_limit_count = 10;
+    quicr::SessionManager session_mgr;
+
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto [subscriber, _] =
+      MakeTestClient(session_mgr, true, std::nullopt, "moq", std::nullopt, std::make_shared<TestClient>(), rx_limit);
+    auto [publisher, __] = MakeTestClient(session_mgr);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "stream", "rx-limit" }), { 1 } };
+
+    auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(
+      WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+    const auto publish = [&publish_handler](std::uint64_t group_id, std::size_t payload_size) {
+        const std::vector<std::uint8_t> payload(payload_size, 0x5a);
+        const ObjectHeaders headers{ .group_id = group_id,
+                                     .object_id = 0,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 10'000,
+                                     .track_mode = TrackMode::kStream };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+    };
+
+    // A group per object, so each arrives on a stream of its own.
+    for (std::uint64_t group_id = 0; group_id < in_limit_count; ++group_id) {
+        publish(group_id, 4096);
+    }
+    REQUIRE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() == in_limit_count; }));
+
+    // An object larger than the whole limit can never be parsed out, so its stream is given up on
+    // rather than buffered for as long as the bytes keep coming.
+    publish(in_limit_count, rx_limit * 2);
+    CHECK_FALSE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() > in_limit_count; },
+                        std::chrono::milliseconds(500)));
+
+    // Only the stream that overran is lost; the track carries on.
+    publish(in_limit_count + 1, 4096);
+    CHECK(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() == in_limit_count + 1; }));
 }
 
 TEST_CASE("Integration - Failed publish does not create subgroup state")

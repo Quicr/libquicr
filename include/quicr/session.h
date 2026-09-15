@@ -655,6 +655,14 @@ namespace quicr {
 
         ///@}
 
+        /**
+         * @brief Tell a data stream's handler that the subgroup or fetch it carried has ended
+         *
+         * @details Held on the stream and replayed by OnRecvStream if nothing has claimed it yet,
+         *      which a publisher closing a subgroup before its SUBSCRIBE_OK is handled will do.
+         */
+        void EndRecvStream(Stream& stream, StreamClosedFlag flag);
+
         bool OnRecvSubgroup(std::uint64_t track_alias, Stream& stream);
 
         bool OnRecvFetch(std::uint64_t request_id, Stream& stream);
