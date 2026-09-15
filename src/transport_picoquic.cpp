@@ -210,7 +210,7 @@ try {
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto tx_stream = stream ? stream : connection->GetStream(stream_id)) {
                     tx_stream->MarkTxClosed();
-                    transport->OnStreamClosed(connection, stream_id, tx_stream->rx_ctx, StreamClosedFlag::kStopSending);
+                    transport->OnStreamClosed(connection, tx_stream, StreamClosedFlag::kStopSending);
                     if (tx_stream->IsFullyClosed()) {
                         transport->EraseStreamState(connection, stream_id);
                     }
@@ -2161,7 +2161,7 @@ PicoQuicTransport::RemoveClosedStreams(std::size_t shard_idx)
 
         /*
          * Every path that sets `rx_closed` clears picoquic's pointer to the stream first, so there is
-         * nothing left to unlink here. A stream that also sends is left in place and only has its
+         * nothing left to unlink here. A stream still sending is left in place and only has its
          * receive state released: its send side is torn down when its owner closes it.
          */
         for (const auto stream_id : drained_streams) {
@@ -2172,7 +2172,7 @@ PicoQuicTransport::RemoveClosedStreams(std::size_t shard_idx)
 
             if (stream->IsFullyClosed()) {
                 connection->RemoveStream(stream_id);
-            } else if (stream->tx_data != nullptr) {
+            } else {
                 stream->ReleaseRxData();
             }
         }
@@ -2863,11 +2863,6 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
 
     QUICR_LOGGER_DEBUG(logger, "conn_id: {} closing stream stream_id: {}", connection->GetID(), stream_id);
 
-    const auto stream = connection->GetStream(stream_id);
-    if (stream == nullptr) {
-        return;
-    }
-
     if (operation == StreamOperation::kStopSending || operation == StreamOperation::kCancel) {
         picoquic_stop_sending(connection->pq_cnx, stream_id, 0);
     }
@@ -2875,7 +2870,7 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
     if (operation == StreamOperation::kReset || operation == StreamOperation::kCancel) {
         stream->MarkTxClosed();
         if (connection->GetAPI() == Connection::API::kWebTransport) {
-            if (stream != nullptr && stream->wt_stream_ctx != nullptr) {
+            if (stream->wt_stream_ctx != nullptr) {
                 picowt_reset_stream(connection->pq_cnx, stream->wt_stream_ctx, 0);
             }
         } else {
