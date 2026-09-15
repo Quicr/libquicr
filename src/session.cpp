@@ -1509,12 +1509,12 @@ namespace quicr {
 
             case Connection::Status::kShutdown:
                 remove_connection = true;
-                SetStatus(Status::kNotReady);
                 break;
         }
 
         if (remove_connection) {
             RemoveAllTracksForConnectionClose();
+            SetStatus(status == Connection::Status::kShutdown ? Status::kNotReady : Status::kNotConnected);
         }
     }
 
