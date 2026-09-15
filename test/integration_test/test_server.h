@@ -53,23 +53,11 @@ namespace quicr_test {
 
         void StatusChanged([[maybe_unused]] Status status) override {}
 
-        void StreamClosed(std::uint64_t stream_id, [[maybe_unused]] bool reset) override
+        void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, [[maybe_unused]] bool reset) override
         {
-            auto it = streams_.find(stream_id);
-            if (it != streams_.end()) {
-                quicr::ObjectHeaders object_headers;
-                object_headers.group_id = it->second.current_group_id;
-                object_headers.subgroup_id = it->second.current_subgroup_id;
-                object_headers.payload_length = 0;
-                object_headers.ttl = 5000; // TODO: Revisit TTL for end of subgroup/stream
-                object_headers.object_id =
-                  it->second.next_object_id.has_value() ? it->second.next_object_id.value() : 1;
-
-                if (pub_handler_) {
-                    pub_handler_->EndSubgroup(object_headers.group_id, object_headers.subgroup_id);
-                }
-
-                streams_.erase(it);
+            std::lock_guard lock(mutex_);
+            if (pub_handler_) {
+                pub_handler_->EndSubgroup(group_id, subgroup_id);
             }
         }
 
