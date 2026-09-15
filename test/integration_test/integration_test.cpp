@@ -1002,12 +1002,12 @@ TEST_CASE("Integration - Cancelling a subgroup")
         REQUIRE(WaitFor([&] { return sub_handler->GetReceivedCount() >= 1; }));
         const auto server_pub_handler = server->GetSubscriberPublishHandler(track_alias);
         REQUIRE(server_pub_handler != nullptr);
-        const auto subgroup_stream_id = server_pub_handler->GetSubgroupStreamId(0, 0);
-        REQUIRE(subgroup_stream_id.has_value());
+        const auto subgroup_stream = server_pub_handler->GetSubgroupStream(0, 0);
+        REQUIRE(subgroup_stream != nullptr);
 
         // If the subscriber cancels the subgroup, everything else should work.
         // TODO: Replace with subgroup cancel API if it exists.
-        server->MockStreamClosed(track_alias, *subgroup_stream_id, StreamClosedFlag::kStopSending);
+        server->MockStreamClosed(track_alias, subgroup_stream, StreamClosedFlag::kStopSending);
 
         // Everything else should continue as normal: request + publishing.
         CHECK(server_pub_handler->CanPublish());
