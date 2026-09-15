@@ -263,12 +263,12 @@ namespace quicr {
             session->PublishTrack(std::move(h));
         } else if (auto h = std::dynamic_pointer_cast<PublishNamespaceHandler>(handler)) {
             session->PublishNamespace(std::move(h));
+        } else if (auto h = std::dynamic_pointer_cast<FetchTrackHandler>(handler)) {
+            session->FetchTrack(std::move(h));
         } else if (auto h = std::dynamic_pointer_cast<SubscribeTrackHandler>(handler)) {
             session->SubscribeTrack(std::move(h));
         } else if (auto h = std::dynamic_pointer_cast<SubscribeNamespaceHandler>(handler)) {
             session->SubscribeNamespace(std::move(h));
-        } else if (auto h = std::dynamic_pointer_cast<FetchTrackHandler>(handler)) {
-            session->FetchTrack(std::move(h));
         } else {
             throw std::invalid_argument("Unknown track handler type");
         }
@@ -285,12 +285,12 @@ namespace quicr {
             session->UnpublishTrack(h);
         } else if (auto h = std::dynamic_pointer_cast<PublishNamespaceHandler>(handler)) {
             session->PublishNamespaceDone(h);
+        } else if (auto h = std::dynamic_pointer_cast<FetchTrackHandler>(handler)) {
+            session->CancelFetchTrack(h);
         } else if (auto h = std::dynamic_pointer_cast<SubscribeTrackHandler>(handler)) {
             session->UnsubscribeTrack(h);
         } else if (auto h = std::dynamic_pointer_cast<SubscribeNamespaceHandler>(handler)) {
             session->UnsubscribeNamespace(h);
-        } else if (auto h = std::dynamic_pointer_cast<FetchTrackHandler>(handler)) {
-            session->CancelFetchTrack(h);
         } else {
             throw std::invalid_argument("Unknown track handler type");
         }

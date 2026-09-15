@@ -1781,7 +1781,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
 
         auto fetch_handler = TestFetchTrackHandler::Create(ftn, 0, { 100, 0 }, { 103, std::nullopt });
 
-        session->FetchTrack(fetch_handler);
+        session_mgr.AddHandler(session, fetch_handler);
 
         REQUIRE(WaitFor([&fetch_handler]() { return fetch_handler->GetStatus() == FetchTrackHandler::Status::kOk; }));
 
@@ -1807,6 +1807,9 @@ TEST_CASE("Integration - Fetch object roundtrip")
             CHECK_EQ(received.headers.extensions, expected.headers.extensions);
             CHECK_EQ(received.payload, expected.payload);
         }
+
+        session_mgr.RemoveHandler(session, fetch_handler);
+        CHECK_FALSE(fetch_handler->GetRequestId().has_value());
     };
 
     SUBCASE("Raw QUIC")
