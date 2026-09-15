@@ -8,9 +8,6 @@
 #include "quicr/messages/messages.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
-#include "quicr/utilities/format.h"
-
-#include <exception>
 
 namespace quicr {
 
@@ -24,114 +21,6 @@ namespace quicr {
       [[maybe_unused]] BytesSpan data,
       [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
-    }
-
-    void SubscribeTrackHandler::StreamDataRecv(uint64_t stream_id, InitialStreamData&& initial_buffer)
-    {
-        auto [it, inserted] =
-          streams_.try_emplace(stream_id, StreamContext{ .buffer = std::move(initial_buffer.buffer) });
-        if (!inserted) {
-            throw std::runtime_error(
-              quicr::format("StreamDataRecv got new stream for existing Stream ID {}", stream_id));
-        }
-        TryParseStreamBufferData(it->second);
-    }
-
-    void SubscribeTrackHandler::StreamDataRecv(uint64_t stream_id, std::shared_ptr<const std::vector<uint8_t>> data)
-    {
-        const auto it = streams_.find(stream_id);
-        if (it == streams_.end()) {
-            throw std::runtime_error(
-              quicr::format("StreamDataRecv had no stream for expected Stream ID {}", stream_id));
-        }
-        it->second.buffer.Push(*data);
-        TryParseStreamBufferData(it->second);
-    }
-
-    void SubscribeTrackHandler::TryParseStreamBufferData(StreamContext& stream)
-    {
-        if (not stream.buffer.AnyHasValue()) {
-            stream.buffer.InitAny<messages::StreamHeaderSubGroup>();
-        }
-
-        auto& s_hdr = stream.buffer.GetAny<messages::StreamHeaderSubGroup>();
-        if (not(stream.buffer >> s_hdr)) {
-            return;
-        }
-
-        // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
-        if (s_hdr.priority.has_value()) {
-            SetPriority(*s_hdr.priority);
-        }
-
-        while (not stream.buffer.Empty()) {
-            if (not stream.buffer.AnyHasValueB()) {
-                stream.buffer.InitAnyB<messages::StreamSubGroupObject>();
-            }
-
-            auto& obj = stream.buffer.GetAnyB<messages::StreamSubGroupObject>();
-            obj.properties.emplace(*s_hdr.properties);
-            if (not(stream.buffer >> obj)) {
-                return;
-            }
-
-            std::optional<messages::StreamHeaderProperties> stream_properties;
-            if (!stream.next_object_id.has_value()) {
-                stream_properties.emplace(*s_hdr.properties);
-            }
-
-            if (stream.next_object_id.has_value()) {
-                if (stream.current_group_id != s_hdr.group_id || stream.current_subgroup_id != s_hdr.subgroup_id) {
-                    stream.next_object_id = obj.object_delta;
-                } else {
-                    *stream.next_object_id += obj.object_delta;
-                }
-            } else {
-                stream.next_object_id = obj.object_delta;
-            }
-
-            if (!s_hdr.subgroup_id.has_value()) {
-                if (obj.properties->subgroup_id_mode != messages::SubgroupIdType::kSetFromFirstObject) {
-                    throw messages::ProtocolViolationException("Subgoup ID mismatch");
-                }
-                // Set the subgroup ID from the first object ID.
-                s_hdr.subgroup_id = stream.next_object_id;
-            }
-
-            stream.current_group_id = s_hdr.group_id;
-            stream.current_subgroup_id = s_hdr.subgroup_id.value();
-
-            subscribe_track_metrics_.objects_received++;
-
-            std::exception_ptr error;
-            try {
-                ObjectReceived(
-                  {
-                    s_hdr.group_id,
-                    stream.next_object_id.value(),
-                    s_hdr.subgroup_id.value(),
-                    obj.payload.size(),
-                    obj.object_status,
-                    s_hdr.priority,
-                    std::nullopt,
-                    TrackMode::kStream,
-                    std::move(obj.extensions),
-                    std::move(obj.immutable_extensions),
-                  },
-                  obj.payload,
-                  std::move(stream_properties));
-
-                *stream.next_object_id += 1;
-            } catch (...) {
-                error = std::current_exception();
-            }
-
-            stream.buffer.ResetAnyB();
-
-            if (error) {
-                std::rethrow_exception(error);
-            }
-        }
     }
 
     void SubscribeTrackHandler::DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data)
@@ -218,11 +107,6 @@ namespace quicr {
         }
 
         session->SendRequestUpdate(request_stream, TrackHash(GetFullTrackName()), group_id, GetPriority(), true);
-    }
-
-    void SubscribeTrackHandler::StreamClosed(std::uint64_t stream_id, bool)
-    {
-        streams_.erase(stream_id);
     }
 
     void SubscribeTrackHandler::RequestOkReceived(const messages::Parameters& params)

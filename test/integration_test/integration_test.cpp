@@ -275,8 +275,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         return received_objects_.size();
     }
 
-    /// @brief Get number of active streams observed through callbacks
-    std::size_t GetActiveStreamCount() const noexcept { return active_stream_count_; }
+    /// @brief Get number of subgroups started but not yet ended, observed through callbacks
+    std::size_t GetActiveSubgroupCount() const noexcept { return active_subgroup_count_; }
 
     // Did we get a REQUEST_ERROR?
     bool RequestErrorReceived() const
@@ -315,6 +315,11 @@ class TestSubscribeHandler : public SubscribeTrackHandler
                         BytesSpan data,
                         std::optional<messages::StreamHeaderProperties> stream_mode) override
     {
+        // Only the object a subgroup starts with reports how the subgroup is framed.
+        if (stream_mode.has_value()) {
+            ++active_subgroup_count_;
+        }
+
         std::lock_guard lock(mutex_);
         if (!data.empty()) {
             received_objects_.push_back({ .group_id = object_headers.group_id,
@@ -348,16 +353,10 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         request_error_ = error_code;
     }
 
-    void StreamDataRecv(uint64_t stream_id, InitialStreamData&& initial_buffer) override
+    void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
     {
-        SubscribeTrackHandler::StreamDataRecv(stream_id, std::move(initial_buffer));
-        ++active_stream_count_;
-    }
-
-    void StreamClosed(std::uint64_t stream_id, bool reset) override
-    {
-        SubscribeTrackHandler::StreamClosed(stream_id, reset);
-        --active_stream_count_;
+        SubscribeTrackHandler::SubgroupEnded(group_id, subgroup_id, reset);
+        --active_subgroup_count_;
     }
 
     void RequestOkReceived(const messages::Parameters& params) override
@@ -374,7 +373,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     std::optional<std::promise<void>> object_count_promise_;
     std::optional<std::promise<SubscribeTrackMetrics>> metrics_promise_;
     std::atomic<std::uint64_t> request_update_oks_{ 0 };
-    std::atomic<std::size_t> active_stream_count_{ 0 };
+    std::atomic<std::size_t> active_subgroup_count_{ 0 };
 };
 
 class CloseOrderingSubscribeHandler final : public TestSubscribeHandler
@@ -405,10 +404,10 @@ class CloseOrderingSubscribeHandler final : public TestSubscribeHandler
         TestSubscribeHandler::ObjectReceived(object_headers, data, stream_mode);
     }
 
-    void StreamClosed(std::uint64_t stream_id, bool reset) override
+    void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
     {
         received_count_at_close_ = GetReceivedCount();
-        SubscribeTrackHandler::StreamClosed(stream_id, reset);
+        TestSubscribeHandler::SubgroupEnded(group_id, subgroup_id, reset);
     }
 
   private:
@@ -1938,16 +1937,16 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
             }
         }
 
-        // Wait for all 6 streams to be created (2 groups × 3 subgroups)
-        const bool streams_created = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() >= 4; },
-                                             std::chrono::milliseconds(1000));
-        INFO("Active streams after publishing phase 1: ", sub_handler->GetActiveStreamCount());
-        CHECK(streams_created);
+        // Wait for all 6 subgroups to be started (2 groups × 3 subgroups)
+        const bool subgroups_started = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() >= 4; },
+                                               std::chrono::milliseconds(1000));
+        INFO("Active subgroups after publishing phase 1: ", sub_handler->GetActiveSubgroupCount());
+        CHECK(subgroups_started);
 
-        // Verify subgroup 0 is closed (4 streams remain)
-        const bool subgroup0_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() <= 4; },
+        // Verify subgroup 0 is closed (4 subgroups remain)
+        const bool subgroup0_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() <= 4; },
                                               std::chrono::milliseconds(1000));
-        INFO("Active streams after phase 1 (subgroup 0 closed): ", sub_handler->GetActiveStreamCount());
+        INFO("Active subgroups after phase 1 (subgroup 0 closed): ", sub_handler->GetActiveSubgroupCount());
         CHECK(subgroup0_closed);
 
         // ================================================================================
@@ -1972,10 +1971,10 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
             }
         }
 
-        // Verify subgroup 1 is closed (2 streams remain - subgroup 2 in both groups)
-        const bool subgroup1_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() <= 2; },
+        // Verify subgroup 1 is closed (2 subgroups remain - subgroup 2 in both groups)
+        const bool subgroup1_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() <= 2; },
                                               std::chrono::milliseconds(1000));
-        INFO("Active streams after phase 2 (subgroup 1 closed): ", sub_handler->GetActiveStreamCount());
+        INFO("Active subgroups after phase 2 (subgroup 1 closed): ", sub_handler->GetActiveSubgroupCount());
         CHECK(subgroup1_closed);
 
         // ================================================================================
@@ -2000,11 +1999,11 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
             }
         }
 
-        // Wait for all streams to be closed
-        const bool all_streams_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() == 0; },
-                                                std::chrono::milliseconds(1000));
-        INFO("Active streams after phase 3 (all closed): ", sub_handler->GetActiveStreamCount());
-        CHECK(all_streams_closed);
+        // Wait for all subgroups to be closed
+        const bool all_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() == 0; },
+                                        std::chrono::milliseconds(1000));
+        INFO("Active subgroups after phase 3 (all closed): ", sub_handler->GetActiveSubgroupCount());
+        CHECK(all_closed);
 
         // Wait for all messages to be received
         auto receive_status = all_received_future.wait_for(std::chrono::milliseconds(3000));

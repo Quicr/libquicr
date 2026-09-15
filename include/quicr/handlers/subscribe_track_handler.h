@@ -11,14 +11,6 @@
 
 namespace quicr {
 
-    struct InitialStreamData
-    {
-        // Accumulated stream data up to handoff.
-        StreamBuffer<uint8_t> buffer;
-        // Original data pointers used to construct stream buffer.
-        std::vector<std::shared_ptr<const std::vector<uint8_t>>> source_buffers;
-    };
-
     /**
      * @brief MOQ track handler for subscribed track
      *
@@ -318,22 +310,22 @@ namespace quicr {
         }
 
         /**
-         * @brief Notification of received stream data slice
+         * @brief Notification that no more objects are coming for a subgroup
          *
-         * @details Event notification to provide the caller the raw data received on a stream
-         * @param stream_id       Stream ID data was received on
-         * @param initial_buffer  Initial buffered stream data from start of stream
-         */
-        virtual void StreamDataRecv(uint64_t stream_id, InitialStreamData&& initial_buffer);
-
-        /**
-         * @brief Notification of received stream data slice
+         * @details The publisher has either finished the subgroup or given up on it, so a
+         *      subscriber forwarding it on can close out the subgroup it is publishing. Only
+         *      reported for subgroups at least one object arrived for.
          *
-         * @details Event notification to provide the caller the raw data received on a stream
-         * @param stream_id   Stream ID data was received on
-         * @param data        Shared pointer to the data received
+         * @param group_id      Group the subgroup belongs to
+         * @param subgroup_id   Subgroup that has ended
+         * @param reset         True if the publisher gave up on the subgroup rather than
+         *                      finishing it
          */
-        virtual void StreamDataRecv(uint64_t stream_id, std::shared_ptr<const std::vector<uint8_t>> data);
+        virtual void SubgroupEnded([[maybe_unused]] std::uint64_t group_id,
+                                   [[maybe_unused]] std::uint64_t subgroup_id,
+                                   [[maybe_unused]] bool reset)
+        {
+        }
 
         /**
          * @brief Notification of received datagram data
@@ -390,14 +382,6 @@ namespace quicr {
         bool IsPublisherInitiated() const noexcept { return publisher_initiated_; }
 
         /**
-         * @brief Notification that a stream has been closed.
-         * @param stream_id The ID of the stream being closed.
-         * @param reset     True if stream closed by reset
-         *
-         */
-        virtual void StreamClosed(std::uint64_t stream_id, bool reset = false);
-
-        /**
          * @brief Subscribe metrics for the track
          *
          * @details Subscribe metrics are updated real-time and transport quic metrics on metrics_sample_ms
@@ -418,25 +402,18 @@ namespace quicr {
             StatusChanged(status);
         }
 
-        struct StreamContext
-        {
-            StreamBuffer<uint8_t> buffer;
-
-            std::optional<uint64_t> next_object_id;
-            uint64_t current_group_id{ 0 };
-            uint64_t current_subgroup_id{ 0 };
-        };
-
-        /**
-         * @brief When new data arrives, attempt to parse any complete messages.
-         * @details The stream buffer may contain zero or more objects and/or incomplete data.
-         * @param stream Context of stream with newly arrived data.
-         */
-        virtual void TryParseStreamBufferData(StreamContext& stream);
-
         std::optional<uint64_t> pending_new_group_request_id_;
         bool is_fetch_handler_{ false };
-        std::map<std::uint64_t, StreamContext> streams_;
+
+        /**
+         * Delta state for decoding the objects of a fetch, set up when its stream is identified
+         *
+         * @details Only fetch handlers ever have this. It belongs to the handler rather than the
+         *      stream carrying the fetch because the group order it decodes against is the one
+         *      the handler was created with.
+         */
+        std::optional<messages::FetchObjectSerializationState> fetch_state_;
+
         StreamBuffer<uint8_t> dgram_buffer_;
 
       private:
