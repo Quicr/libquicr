@@ -1573,16 +1573,27 @@ namespace quicr {
 
         // Reading stops short of draining the stream, so a burst on one does not starve the others,
         // and says as much to earn another turn once they have had theirs.
-        for (int i = 0; i < kReadLoopMax; i++) {
-            const bool read = is_ctrl_stream    ? RecvCtrlMessage(stream, is_request_stream)
-                              : reads_subgroups ? RecvSubgroupObject(*stream, *handler)
-                                                : RecvFetchObject(*stream, *handler);
-            if (!read) {
-                return false;
+        const bool has_remaining = [&] {
+            for (int i = 0; i < kReadLoopMax; i++) {
+                const bool read = is_ctrl_stream    ? RecvCtrlMessage(stream, is_request_stream)
+                                  : reads_subgroups ? RecvSubgroupObject(*stream, *handler)
+                                                    : RecvFetchObject(*stream, *handler);
+                if (!read) {
+                    return false;
+                }
             }
+
+            return stream->RxDataSize() != 0;
+        }();
+
+        // A close that arrived before anything had claimed the stream is delivered now that all it
+        // buffered has been, since no further read will come to carry it.
+        if (!has_remaining && stream->rx_deferred_close.has_value()) {
+            const auto flag = *std::exchange(stream->rx_deferred_close, std::nullopt);
+            EndRecvStream(*stream, flag);
         }
 
-        return stream->RxDataSize() != 0;
+        return has_remaining;
     } catch (const TransportException& e) {
         QUICR_LOGGER_INFO(logger_, "OnRecvStream: connection or stream no longer exists (error={})", e.what());
         return false;
@@ -1918,8 +1929,23 @@ namespace quicr {
             return;
         }
 
-        const auto handler_ptr = stream->rx_handler.lock();
+        EndRecvStream(*stream, flag);
+    }
+
+    void Session::EndRecvStream(Stream& stream, StreamClosedFlag flag)
+    {
+        const auto handler_ptr = stream.rx_handler.lock();
         if (handler_ptr == nullptr) {
+            /*
+             * A stream never bound to anything and still holding what arrived on it is one
+             * RetryUnclaimedStreams may yet find a handler for, so its close waits for that rather
+             * than being dropped, which would leave the subgroup it carried open forever.
+             */
+            if (stream.rx_is_new && stream.RxDataSize() != 0) {
+                stream.rx_deferred_close = flag;
+                return;
+            }
+
             QUICR_LOGGER_WARN(logger_, "Received stream closed for unknown handler");
             return;
         }
@@ -1938,8 +1964,8 @@ namespace quicr {
              * so this says nothing about a fetch or about a stream that closed before delivering
              * anything.
              */
-            if (stream->rx_parse.next_object_id.has_value()) {
-                handler_ptr->SubgroupEnded(stream->rx_parse.group_id, stream->rx_parse.subgroup_id, reset);
+            if (stream.rx_parse.next_object_id.has_value()) {
+                handler_ptr->SubgroupEnded(stream.rx_parse.group_id, stream.rx_parse.subgroup_id, reset);
             }
         } catch (const ProtocolViolationException& e) {
             QUICR_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);

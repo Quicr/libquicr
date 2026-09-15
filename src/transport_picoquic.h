@@ -61,7 +61,8 @@ namespace quicr {
         enum class StreamErrorCodes : uint32_t
         {
             kInternalError = 20,
-            kUnknownExpiry = 50
+            kUnknownExpiry = 50,
+            kRxBufferFull = 51
         };
 
         /**
