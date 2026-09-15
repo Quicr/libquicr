@@ -25,7 +25,7 @@ SPDX-License-Identifier = "CC-BY-4.0"
 path = [
   ".clang-format",
   ".clang-tidy",
-  ".github/workflows/cmake.yml",
+  ".github/workflows/**",
   ".gitignore",
   ".gitmodules",
   "AUTHORS.md",
