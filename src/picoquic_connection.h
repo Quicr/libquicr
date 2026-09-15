@@ -34,7 +34,7 @@ namespace quicr {
      *
      *      A stream carries both directions, so a bidirectional stream is one object rather than a
      *      send entry and an unrelated receive buffer. Receive-only streams, which the remote peer
-     *      opened, have no transmit queue; send-only streams never populate the receive context.
+     *      opened, have no transmit queue; send-only streams never receive.
      */
     class PicoQuicStream : public Stream
     {
@@ -107,13 +107,10 @@ namespace quicr {
         /**
          * @name Receive state
          *
-         * @details Touched only on the picoquic thread, except for `rx_ctx`, which is handed to the
-         *      notify thread and is internally synchronised.
+         * @details Touched only on the picoquic thread. The received data itself, and the handler
+         *      that consumes it, live on `Stream` since they are what the delegate is handed.
          */
         ///@{
-
-        /// Received data queue and the caller state that consumes it
-        std::shared_ptr<StreamRxContext> rx_ctx;
 
         /// Indicates if the receive side is closed
         bool rx_closed{ false };

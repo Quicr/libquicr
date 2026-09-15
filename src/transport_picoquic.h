@@ -58,7 +58,8 @@ namespace quicr {
         enum class StreamErrorCodes : uint32_t
         {
             kInternalError = 20,
-            kUnknownExpiry = 50
+            kUnknownExpiry = 50,
+            kRxBufferFull = 51
         };
 
         /**
@@ -225,16 +226,12 @@ namespace quicr {
                                std::span<const uint8_t> bytes);
 
         void OnStreamClosed(const std::shared_ptr<PicoQuicConnection>& connection,
-                            uint64_t stream_id,
-                            std::shared_ptr<StreamRxContext> rx_ctx,
+                            const std::shared_ptr<PicoQuicStream>& stream,
                             StreamClosedFlag flag);
 
         // Notify new stream data arrived.
         void NotifyStreamRecv(const std::shared_ptr<PicoQuicConnection>& connection,
-                              uint64_t stream_id,
-                              std::shared_ptr<StreamRxContext> rx_ctx,
-                              std::shared_ptr<Stream> reply_stream,
-                              bool is_bidir);
+                              std::shared_ptr<PicoQuicStream> stream);
 
         // Notify new datagram arrived.
         void NotifyDgramRecv(const std::shared_ptr<PicoQuicConnection>& connection);
@@ -247,9 +244,7 @@ namespace quicr {
                          const std::shared_ptr<Stream>& stream,
                          StreamOperation operation) override;
 
-        void CloseStream(const std::shared_ptr<Connection>& connection,
-                         uint64_t stream_id,
-                         StreamOperation operation) override;
+        void RetryRecvStreams(const std::shared_ptr<Connection>& connection) override;
 
         /**
          * @brief Deregister WebTransport context
@@ -436,11 +431,11 @@ namespace quicr {
          * @warning This method must be called within the picoquic thread
          *
          * @param conn_ctx      Connection context for the stream
-         * @param stream_id     ID of the stream to close.
+         * @param stream        Stream to close; no-op if the transport has already torn it down
          * @param send_reset    Indicates if the stream should be closed by RESET, otherwise FIN
          */
         void CloseStream(const std::shared_ptr<PicoQuicConnection>& connection,
-                         std::uint64_t stream_id,
+                         const std::shared_ptr<PicoQuicStream>& stream,
                          StreamOperation operation);
 
         /*

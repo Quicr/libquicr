@@ -203,7 +203,8 @@ MakeTestClient(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
                const std::string& protocol_scheme = "moq",
                const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
-               std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>())
+               std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>(),
+               const std::optional<std::uint64_t> stream_rx_max_bytes = std::nullopt)
 {
     // Connect a client.
     ClientConfig client_config;
@@ -212,6 +213,9 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
     if (metrics_sample_ms.has_value()) {
         client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
+    }
+    if (stream_rx_max_bytes.has_value()) {
+        client_config.transport_config.stream_rx_max_bytes = *stream_rx_max_bytes;
     }
     client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(kPort) + "/relay";
     if (qlog_path.has_value()) {
@@ -275,8 +279,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         return received_objects_.size();
     }
 
-    /// @brief Get number of active streams observed through callbacks
-    std::size_t GetActiveStreamCount() const noexcept { return active_stream_count_; }
+    /// @brief Get number of subgroups started but not yet ended, observed through callbacks
+    std::size_t GetActiveSubgroupCount() const noexcept { return active_subgroup_count_; }
 
     // Did we get a REQUEST_ERROR?
     bool RequestErrorReceived() const
@@ -315,6 +319,11 @@ class TestSubscribeHandler : public SubscribeTrackHandler
                         BytesSpan data,
                         std::optional<messages::StreamHeaderProperties> stream_mode) override
     {
+        // Only the object a subgroup starts with reports how the subgroup is framed.
+        if (stream_mode.has_value()) {
+            ++active_subgroup_count_;
+        }
+
         std::lock_guard lock(mutex_);
         if (!data.empty()) {
             received_objects_.push_back({ .group_id = object_headers.group_id,
@@ -348,16 +357,10 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         request_error_ = error_code;
     }
 
-    void StreamDataRecv(uint64_t stream_id, InitialStreamData&& initial_buffer) override
+    void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
     {
-        SubscribeTrackHandler::StreamDataRecv(stream_id, std::move(initial_buffer));
-        ++active_stream_count_;
-    }
-
-    void StreamClosed(std::uint64_t stream_id, bool reset) override
-    {
-        SubscribeTrackHandler::StreamClosed(stream_id, reset);
-        --active_stream_count_;
+        SubscribeTrackHandler::SubgroupEnded(group_id, subgroup_id, reset);
+        --active_subgroup_count_;
     }
 
     void RequestOkReceived(const messages::Parameters& params) override
@@ -374,7 +377,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     std::optional<std::promise<void>> object_count_promise_;
     std::optional<std::promise<SubscribeTrackMetrics>> metrics_promise_;
     std::atomic<std::uint64_t> request_update_oks_{ 0 };
-    std::atomic<std::size_t> active_stream_count_{ 0 };
+    std::atomic<std::size_t> active_subgroup_count_{ 0 };
 };
 
 class CloseOrderingSubscribeHandler final : public TestSubscribeHandler
@@ -405,10 +408,10 @@ class CloseOrderingSubscribeHandler final : public TestSubscribeHandler
         TestSubscribeHandler::ObjectReceived(object_headers, data, stream_mode);
     }
 
-    void StreamClosed(std::uint64_t stream_id, bool reset) override
+    void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
     {
         received_count_at_close_ = GetReceivedCount();
-        SubscribeTrackHandler::StreamClosed(stream_id, reset);
+        TestSubscribeHandler::SubgroupEnded(group_id, subgroup_id, reset);
     }
 
   private:
@@ -1003,12 +1006,12 @@ TEST_CASE("Integration - Cancelling a subgroup")
         REQUIRE(WaitFor([&] { return sub_handler->GetReceivedCount() >= 1; }));
         const auto server_pub_handler = server->GetSubscriberPublishHandler(track_alias);
         REQUIRE(server_pub_handler != nullptr);
-        const auto subgroup_stream_id = server_pub_handler->GetSubgroupStreamId(0, 0);
-        REQUIRE(subgroup_stream_id.has_value());
+        const auto subgroup_stream = server_pub_handler->GetSubgroupStream(0, 0);
+        REQUIRE(subgroup_stream != nullptr);
 
         // If the subscriber cancels the subgroup, everything else should work.
         // TODO: Replace with subgroup cancel API if it exists.
-        server->MockStreamClosed(track_alias, *subgroup_stream_id, StreamClosedFlag::kStopSending);
+        server->MockStreamClosed(track_alias, subgroup_stream, StreamClosedFlag::kStopSending);
 
         // Everything else should continue as normal: request + publishing.
         CHECK(server_pub_handler->CanPublish());
@@ -1941,16 +1944,16 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
             }
         }
 
-        // Wait for all 6 streams to be created (2 groups × 3 subgroups)
-        const bool streams_created = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() >= 4; },
-                                             std::chrono::milliseconds(1000));
-        INFO("Active streams after publishing phase 1: ", sub_handler->GetActiveStreamCount());
-        CHECK(streams_created);
+        // Wait for all 6 subgroups to be started (2 groups × 3 subgroups)
+        const bool subgroups_started = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() >= 4; },
+                                               std::chrono::milliseconds(1000));
+        INFO("Active subgroups after publishing phase 1: ", sub_handler->GetActiveSubgroupCount());
+        CHECK(subgroups_started);
 
-        // Verify subgroup 0 is closed (4 streams remain)
-        const bool subgroup0_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() <= 4; },
+        // Verify subgroup 0 is closed (4 subgroups remain)
+        const bool subgroup0_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() <= 4; },
                                               std::chrono::milliseconds(1000));
-        INFO("Active streams after phase 1 (subgroup 0 closed): ", sub_handler->GetActiveStreamCount());
+        INFO("Active subgroups after phase 1 (subgroup 0 closed): ", sub_handler->GetActiveSubgroupCount());
         CHECK(subgroup0_closed);
 
         // ================================================================================
@@ -1975,10 +1978,10 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
             }
         }
 
-        // Verify subgroup 1 is closed (2 streams remain - subgroup 2 in both groups)
-        const bool subgroup1_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() <= 2; },
+        // Verify subgroup 1 is closed (2 subgroups remain - subgroup 2 in both groups)
+        const bool subgroup1_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() <= 2; },
                                               std::chrono::milliseconds(1000));
-        INFO("Active streams after phase 2 (subgroup 1 closed): ", sub_handler->GetActiveStreamCount());
+        INFO("Active subgroups after phase 2 (subgroup 1 closed): ", sub_handler->GetActiveSubgroupCount());
         CHECK(subgroup1_closed);
 
         // ================================================================================
@@ -2003,11 +2006,11 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
             }
         }
 
-        // Wait for all streams to be closed
-        const bool all_streams_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() == 0; },
-                                                std::chrono::milliseconds(1000));
-        INFO("Active streams after phase 3 (all closed): ", sub_handler->GetActiveStreamCount());
-        CHECK(all_streams_closed);
+        // Wait for all subgroups to be closed
+        const bool all_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() == 0; },
+                                        std::chrono::milliseconds(1000));
+        INFO("Active subgroups after phase 3 (all closed): ", sub_handler->GetActiveSubgroupCount());
+        CHECK(all_closed);
 
         // Wait for all messages to be received
         auto receive_status = all_received_future.wait_for(std::chrono::milliseconds(3000));
@@ -2104,6 +2107,65 @@ TEST_CASE("Integration - Small data callbacks assemble")
                                  .track_mode = TrackMode::kStream };
     REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
     CHECK(received_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+}
+
+TEST_CASE("Integration - A stream over its receive limit is stopped")
+{
+    constexpr std::uint64_t rx_limit = 256 * 1024;
+    constexpr std::size_t in_limit_count = 10;
+    quicr::SessionManager session_mgr;
+
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto [subscriber, _] =
+      MakeTestClient(session_mgr, true, std::nullopt, "moq", std::nullopt, std::make_shared<TestClient>(), rx_limit);
+    auto [publisher, __] = MakeTestClient(session_mgr);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "stream", "rx-limit" }), { 1 } };
+
+    auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(
+      WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+    const auto publish = [&publish_handler](std::uint64_t group_id, std::uint64_t object_id, std::size_t payload_size) {
+        const std::vector<std::uint8_t> payload(payload_size, 0x5a);
+        const ObjectHeaders headers{ .group_id = group_id,
+                                     .object_id = object_id,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 10'000,
+                                     .track_mode = TrackMode::kStream };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+    };
+
+    // A group per object, so each arrives on a stream of its own.
+    for (std::uint64_t group_id = 0; group_id < in_limit_count; ++group_id) {
+        publish(group_id, 0, 4096);
+    }
+    REQUIRE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() == in_limit_count; }));
+    REQUIRE(WaitFor([&subscribe_handler] { return subscribe_handler->GetActiveSubgroupCount() == in_limit_count; }));
+
+    // An object larger than the whole limit can never be parsed out, so the stream carrying it is
+    // given up on rather than buffered for as long as the bytes keep coming.
+    constexpr std::uint64_t overrun_group = in_limit_count;
+    publish(overrun_group, 0, 4096);
+    REQUIRE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() == in_limit_count + 1; }));
+    publish(overrun_group, 1, rx_limit * 2);
+    CHECK_FALSE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() > in_limit_count + 1; },
+                        std::chrono::milliseconds(500)));
+
+    // Abandoning the stream ends the subgroup it was carrying, which nothing else is going to say.
+    CHECK(WaitFor([&subscribe_handler] { return subscribe_handler->GetActiveSubgroupCount() == in_limit_count; }));
+
+    // Only the stream that overran is lost; the track carries on.
+    publish(overrun_group + 1, 0, 4096);
+    CHECK(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() == in_limit_count + 2; }));
 }
 
 TEST_CASE("Integration - Failed publish does not create subgroup state")

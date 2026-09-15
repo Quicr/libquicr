@@ -188,8 +188,10 @@ try {
 
                 // OnRecvStreamBytes adopts a remote-initiated stream, so re-read the handle here.
                 if (const auto rx_stream = stream ? stream : connection->GetStream(stream_id)) {
-                    rx_stream->rx_closed = true;
-                    transport->OnStreamClosed(connection, stream_id, rx_stream->rx_ctx, StreamClosedFlag::kFin);
+                    // A receive side already given up on has been reported closed once already.
+                    if (!std::exchange(rx_stream->rx_closed, true)) {
+                        transport->OnStreamClosed(connection, rx_stream, StreamClosedFlag::kFin);
+                    }
                 }
             }
 
@@ -205,7 +207,7 @@ try {
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto tx_stream = stream ? stream : connection->GetStream(stream_id)) {
                     tx_stream->tx_closed.store(true, std::memory_order_release);
-                    transport->OnStreamClosed(connection, stream_id, tx_stream->rx_ctx, StreamClosedFlag::kStopSending);
+                    transport->OnStreamClosed(connection, tx_stream, StreamClosedFlag::kStopSending);
                     if (tx_stream->IsFullyClosed()) {
                         transport->EraseStreamState(connection, stream_id);
                     }
@@ -220,8 +222,11 @@ try {
 
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto rx_stream = stream ? stream : connection->GetStream(stream_id)) {
-                    rx_stream->rx_closed = true;
-                    transport->OnStreamClosed(connection, stream_id, rx_stream->rx_ctx, StreamClosedFlag::kReset);
+                    // The reset a peer sends back after being stopped finds the stream already
+                    // given up on and reported closed, so only the teardown below is left to do.
+                    if (!std::exchange(rx_stream->rx_closed, true)) {
+                        transport->OnStreamClosed(connection, rx_stream, StreamClosedFlag::kReset);
+                    }
                     if (rx_stream->IsFullyClosed()) {
                         picoquic_reset_stream_ctx(pq_cnx, stream_id);
                         transport->EraseStreamState(connection, stream_id);
@@ -718,7 +723,7 @@ try {
                 picoquic_reset_stream_ctx(cnx, stream_id);
 
                 stream->rx_closed = true;
-                transport->OnStreamClosed(connection, stream_id, stream->rx_ctx, StreamClosedFlag::kFin);
+                transport->OnStreamClosed(connection, stream, StreamClosedFlag::kFin);
             }
 
             break;
@@ -814,7 +819,7 @@ try {
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto stream = GetStreamForWT(connection, stream_id)) {
                     stream->rx_closed = true;
-                    transport->OnStreamClosed(connection, stream_id, stream->rx_ctx, StreamClosedFlag::kReset);
+                    transport->OnStreamClosed(connection, stream, StreamClosedFlag::kReset);
                     if (stream->IsFullyClosed()) {
                         ClearStreamForWT(connection, stream_id);
                     }
@@ -845,7 +850,7 @@ try {
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto stream = GetStreamForWT(connection, stream_id)) {
                     stream->tx_closed.store(true, std::memory_order_release);
-                    transport->OnStreamClosed(connection, stream_id, stream->rx_ctx, StreamClosedFlag::kStopSending);
+                    transport->OnStreamClosed(connection, stream, StreamClosedFlag::kStopSending);
                     if (stream->IsFullyClosed()) {
                         ClearStreamForWT(connection, stream_id);
                     }
@@ -1317,17 +1322,17 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
 
     const auto streams = pq_conn->GetStreams();
 
-    // Release the buffers held by every stream, in both directions
+    /*
+     * Only what the streams hold to send. A notification already on its way to the delegate reads
+     * messages straight out of the receive buffer, which is freed with the stream itself anyway
+     * once the connection lets go of it below.
+     */
     for (const auto& stream : streams) {
         if (stream->tx_data) {
             std::lock_guard __(*stream->tx_data);
             stream->tx_data->Clear();
         }
         stream->tx_object = nullptr;
-
-        if (stream->rx_ctx) {
-            stream->rx_ctx->data_queue.Clear();
-        }
     }
 
     // Clear datagram RX and TX queues and reset shared pointers
@@ -1348,7 +1353,7 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
      */
     for (const auto& stream : streams) {
         const auto stream_id = stream->GetStreamId();
-        const bool received = stream->rx_ctx != nullptr;
+        const bool received = stream->rx_active;
 
         if (received) {
             picoquic_mark_active_stream(pq_conn->pq_cnx, stream_id, 0, NULL);
@@ -1682,9 +1687,9 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
         }();
 
         if (should_reset) {
-            CloseStream(connection, stream_id, StreamOperation::kReset);
+            CloseStream(connection, stream, StreamOperation::kReset);
         } else if (stream_ctx.close_on_empty && empty) {
-            CloseStream(connection, stream_id, StreamOperation::kFin);
+            CloseStream(connection, stream, StreamOperation::kFin);
         }
     });
 
@@ -1960,9 +1965,6 @@ try {
      * the connection's map and handing picoquic the pointer means every later callback on this stream
      * arrives with the handle already resolved.
      */
-    // QUIC stream IDs have bit 1 set to 0 for bidirectional streams
-    const bool is_bidir = (stream_id & 2) == 0;
-
     auto stream = stream_handle;
     if (stream == nullptr) {
         if (bytes.size() < kMinStreamBytesForSend) {
@@ -1973,6 +1975,8 @@ try {
         }
 
         // A peer-opened bidir stream is a request the application replies on, so it needs a TX queue.
+        // QUIC stream IDs have bit 1 set to 0 for bidirectional streams.
+        const bool is_bidir = (stream_id & 2) == 0;
         stream = connection->GetOrAddStream(stream_id, is_bidir ? MakeStreamTxQueue() : nullptr);
 
         // Picowt owns the app stream context slot in WebTransport mode; that path looks the stream up
@@ -1982,21 +1986,16 @@ try {
         }
     }
 
-    if (stream->rx_ctx == nullptr) {
-        stream->rx_ctx = std::make_shared<StreamRxContext>();
-        stream->rx_ctx->data_queue.SetLimit(tconfig_.time_queue_rx_size);
-    }
-
-    const auto& rx_ctx = stream->rx_ctx;
+    stream->rx_active = true;
 
     auto curr_ticks_ms =
       static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
 
-    if (rx_ctx->unknown_expiry_tick_ms && curr_ticks_ms > rx_ctx->unknown_expiry_tick_ms) {
+    if (stream->rx_unknown_expiry_tick_ms && curr_ticks_ms > stream->rx_unknown_expiry_tick_ms) {
         QUICR_LOGGER_DEBUG(logger,
                            "Stream is unknown and now has expired, resetting stream {} expiry {}ms > {}ms",
                            stream_id,
-                           rx_ctx->unknown_expiry_tick_ms,
+                           stream->rx_unknown_expiry_tick_ms,
                            curr_ticks_ms);
         picoquic_reset_stream_ctx(connection->pq_cnx, stream_id);
         picoquic_reset_stream(connection->pq_cnx, stream_id, static_cast<uint64_t>(StreamErrorCodes::kUnknownExpiry));
@@ -2005,17 +2004,53 @@ try {
         return;
     }
 
-    rx_ctx->data_queue.Push(std::make_shared<const std::vector<uint8_t>>(bytes.begin(), bytes.end()));
+    if (stream->rx_closed) {
+        stream->metrics.rx_buffer_drops++;
+        return;
+    }
+
+    const bool overflowed = [&] {
+        std::lock_guard _(stream->rx_mutex);
+
+        if (tconfig_.stream_rx_max_bytes != 0 && stream->rx_data.Size() + bytes.size() > tconfig_.stream_rx_max_bytes) {
+            stream->rx_data.Clear();
+            return true;
+        }
+
+        stream->rx_data.Push(bytes);
+        return false;
+    }();
 
     stream->metrics.rx_stream_cb++;
     stream->metrics.rx_stream_bytes += bytes.size();
 
-    // Only a request stream needs the handle, so that the application can reply on it. Capturing the
-    // handles keeps them alive until the notification is delivered, and passing the rx context saves
-    // the notify thread from looking it up again under the state mutex.
-    const auto reply_stream = is_bidir ? stream : nullptr;
+    /*
+     * Dropping part of a byte stream would leave whatever parses it reading the rest as though
+     * nothing were missing, so the stream is given up on whole: STOP_SENDING rather than a reset,
+     * which would be a protocol violation on a stream this end only receives on.
+     */
+    if (overflowed) {
+        QUICR_LOGGER_WARN(logger,
+                          "Stream {} overran its {} byte receive limit with bytes nothing has parsed, stopping it",
+                          stream_id,
+                          tconfig_.stream_rx_max_bytes);
 
-    NotifyStreamRecv(connection, stream_id, rx_ctx, reply_stream, is_bidir);
+        picoquic_stop_sending(connection->pq_cnx, stream_id, static_cast<uint64_t>(StreamErrorCodes::kRxBufferFull));
+
+        if (connection->GetAPI() != Connection::API::kWebTransport) {
+            picoquic_reset_stream_ctx(connection->pq_cnx, stream_id);
+        }
+
+        stream->rx_closed = true;
+        stream->metrics.rx_buffer_drops++;
+
+        OnStreamClosed(connection, stream, StreamClosedFlag::kReset);
+
+        return;
+    }
+
+    // The captured handle keeps the buffer just appended to alive until the delegate has read it.
+    NotifyStreamRecv(connection, std::move(stream));
 } catch (const std::exception& e) {
     QUICR_LOGGER_ERROR(logger, "Caught exception in OnRecvStreamBytes. (error={})", e.what());
     // TODO(tievens): Add metrics to track if this happens
@@ -2023,31 +2058,45 @@ try {
 
 void
 PicoQuicTransport::NotifyStreamRecv(const std::shared_ptr<PicoQuicConnection>& connection,
-                                    uint64_t stream_id,
-                                    std::shared_ptr<StreamRxContext> rx_ctx,
-                                    std::shared_ptr<Stream> reply_stream,
-                                    bool is_bidir)
+                                    std::shared_ptr<PicoQuicStream> stream)
 {
-    if (rx_ctx->notify_pending.exchange(true)) {
+    if (stream->rx_notify_pending.exchange(true)) {
         return; // De-duped.
     }
 
-    cbNotifyQueue_.Push([this,
-                         connection,
-                         stream_id,
-                         rx_ctx = std::move(rx_ctx),
-                         reply_stream = std::move(reply_stream),
-                         is_bidir]() mutable {
-        rx_ctx->notify_pending.store(false);
-        const auto queued = rx_ctx->data_queue.Size();
-        connection->OnRecvStream(stream_id, rx_ctx, reply_stream, is_bidir);
+    cbNotifyQueue_.Push([this, connection, stream = std::move(stream)]() mutable {
+        stream->rx_notify_delivering.store(true);
+        stream->rx_notify_pending.store(false);
 
-        // If there's more to read, re-notify at the back of the queue.
-        const auto remaining = rx_ctx->data_queue.Size();
-        if (remaining > 0 && remaining < queued) {
-            NotifyStreamRecv(connection, stream_id, std::move(rx_ctx), std::move(reply_stream), is_bidir);
+        /*
+         * The delegate stops short of draining a stream so a burst on one does not starve the
+         * others, and says when it has, earning another turn at the back of the queue. Claiming
+         * that turn before giving up this one leaves the sweep no gap to reclaim the buffer in
+         * while there is still something to read out of it.
+         */
+        if (connection->OnRecvStream(stream)) {
+            NotifyStreamRecv(connection, stream);
         }
+
+        stream->rx_notify_delivering.store(false);
     });
+}
+
+void
+PicoQuicTransport::RetryRecvStreams(const std::shared_ptr<Connection>& connection)
+{
+    if (connection == nullptr) {
+        return;
+    }
+
+    const auto pq_conn = std::static_pointer_cast<PicoQuicConnection>(connection);
+
+    for (const auto& stream : pq_conn->GetStreams()) {
+        // Notifying is de-duped, so a stream already owed one costs nothing here.
+        if (stream->RxDataSize() != 0) {
+            NotifyStreamRecv(pq_conn, stream);
+        }
+    }
 }
 
 void
@@ -2073,17 +2122,17 @@ PicoQuicTransport::NotifyDgramRecv(const std::shared_ptr<PicoQuicConnection>& co
 
 void
 PicoQuicTransport::OnStreamClosed(const std::shared_ptr<PicoQuicConnection>& connection,
-                                  uint64_t stream_id,
-                                  std::shared_ptr<StreamRxContext> rx_ctx,
+                                  const std::shared_ptr<PicoQuicStream>& stream,
                                   StreamClosedFlag flag)
 {
-    QUICR_LOGGER_DEBUG(logger, "Stream {} closed for connection {}", stream_id, connection->GetID());
-    cbNotifyQueue_.Push([=, rx_ctx = std::move(rx_ctx), this]() mutable {
-        if (rx_ctx != nullptr && rx_ctx->notify_pending.load()) {
-            OnStreamClosed(connection, stream_id, std::move(rx_ctx), flag);
+    QUICR_LOGGER_DEBUG(logger, "Stream {} closed for connection {}", stream->GetStreamId(), connection->GetID());
+    cbNotifyQueue_.Push([=, this]() {
+        // Let a pending read of this stream be delivered first, by re-queuing behind it.
+        if (stream->rx_notify_pending.load()) {
+            OnStreamClosed(connection, stream, flag);
             return;
         }
-        connection->OnStreamClosed(stream_id, std::move(rx_ctx), flag);
+        connection->OnStreamClosed(stream, flag);
     });
 }
 
@@ -2125,18 +2174,27 @@ PicoQuicTransport::RemoveClosedStreams(std::size_t shard_idx)
         std::vector<uint64_t> drained_streams;
 
         for (const auto& stream : connection->GetStreams()) {
-            if (stream->rx_ctx == nullptr) {
+            if (!stream->rx_active) {
                 continue;
             }
 
-            if (stream->rx_closed && stream->rx_ctx->data_queue.Empty() && !stream->rx_ctx->notify_pending.load()) {
-                drained_streams.push_back(stream->GetStreamId());
+            if (!stream->rx_closed || stream->RxNotifyInFlight()) {
+                continue;
             }
+
+            // Bytes left on a closed stream owed no read are the start of a message whose rest will
+            // never arrive. One sweep is let pass first, in case a read was still on its way.
+            if (stream->RxDataSize() != 0 && !stream->rx_checked_once) {
+                stream->rx_checked_once = true;
+                continue;
+            }
+
+            drained_streams.push_back(stream->GetStreamId());
         }
 
         /*
          * Every path that sets `rx_closed` clears picoquic's pointer to the stream first, so there is
-         * nothing left to unlink here. A stream that also sends is left in place and only has its
+         * nothing left to unlink here. A stream still sending is left in place and only has its
          * receive state released: its send side is torn down when its owner closes it.
          */
         for (const auto stream_id : drained_streams) {
@@ -2148,7 +2206,7 @@ PicoQuicTransport::RemoveClosedStreams(std::size_t shard_idx)
             if (stream->IsFullyClosed()) {
                 connection->RemoveStream(stream_id);
             } else {
-                stream->rx_ctx.reset();
+                stream->ReleaseRxData();
             }
         }
     }
@@ -2816,35 +2874,19 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<Connection>& connection,
 
     // Capturing the handle keeps the stream alive until the queued function runs.
     RunPqFunction(conn->shard_idx, [=, this]() {
-        CloseStream(conn, pq_stream->GetStreamId(), operation);
-        return 0;
-    });
-}
-
-void
-PicoQuicTransport::CloseStream(const std::shared_ptr<Connection>& connection,
-                               uint64_t stream_id,
-                               StreamOperation operation)
-{
-    const auto conn = std::static_pointer_cast<PicoQuicConnection>(connection);
-    if (conn == nullptr) {
-        return;
-    }
-
-    CheckCloseStream(stream_id, is_server_mode, operation);
-
-    RunPqFunction(conn->shard_idx, [=, this]() {
-        CloseStream(conn, stream_id, operation);
+        CloseStream(conn, pq_stream, operation);
         return 0;
     });
 }
 
 void
 PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connection,
-                               std::uint64_t stream_id,
+                               const std::shared_ptr<PicoQuicStream>& stream,
                                StreamOperation operation)
 {
-    if (connection->GetStream(stream_id) == nullptr) {
+    const auto stream_id = stream->GetStreamId();
+
+    if (!stream->IsOpen()) {
         QUICR_LOGGER_ERROR(logger,
                            "Failed to close stream as it does not exist (conn_id={}, stream_id={})",
                            connection->GetID(),
@@ -2854,11 +2896,6 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
 
     QUICR_LOGGER_DEBUG(logger, "conn_id: {} closing stream stream_id: {}", connection->GetID(), stream_id);
 
-    const auto stream = connection->GetStream(stream_id);
-    if (stream == nullptr) {
-        return;
-    }
-
     if (operation == StreamOperation::kStopSending || operation == StreamOperation::kCancel) {
         picoquic_stop_sending(connection->pq_cnx, stream_id, 0);
     }
@@ -2866,7 +2903,7 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
     if (operation == StreamOperation::kReset || operation == StreamOperation::kCancel) {
         stream->tx_closed.store(true, std::memory_order_release);
         if (connection->GetAPI() == Connection::API::kWebTransport) {
-            if (stream != nullptr && stream->wt_stream_ctx != nullptr) {
+            if (stream->wt_stream_ctx != nullptr) {
                 picowt_reset_stream(connection->pq_cnx, stream->wt_stream_ctx, 0);
             }
         } else {

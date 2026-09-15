@@ -411,9 +411,7 @@ namespace quicr {
                 std::shared_ptr<timeq::tick_service> tick_service,
                 std::shared_ptr<Logger> logger);
 
-        void OnStreamClosed(std::uint64_t stream_id,
-                            std::shared_ptr<StreamRxContext> rx_ctx,
-                            StreamClosedFlag flag) override;
+        void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override;
 
       private:
         /*===================================================================*/
@@ -422,10 +420,7 @@ namespace quicr {
 
         void OnConnectionStatus(Connection::Status status) override;
 
-        void OnRecvStream(uint64_t stream_id,
-                          const std::shared_ptr<StreamRxContext>& rx_ctx,
-                          const std::shared_ptr<Stream>& stream,
-                          const bool is_bidir = false) override;
+        bool OnRecvStream(const std::shared_ptr<Stream>& stream) override;
 
         void OnRecvDgram() override;
 
@@ -620,9 +615,57 @@ namespace quicr {
 
         [[nodiscard]] uint64_t GetNextRequestID();
 
-        bool OnRecvSubgroup(std::uint64_t track_alias, StreamRxContext& rx_ctx, std::uint64_t stream_id);
+        /**
+         * @brief Work out what a newly opened unidirectional stream carries and bind it to that
+         *
+         * @details Only peeks at the stream header, so it is still there to be parsed properly by
+         *      whoever the stream turns out to belong to.
+         *
+         * @returns False if too few bytes have arrived to tell yet, or if nothing is waiting for
+         *      what the stream carries, in which case it is left buffered
+         */
+        bool BindRecvStream(Stream& stream);
 
-        bool OnRecvFetch(std::uint64_t request_id, StreamRxContext& rx_ctx, std::uint64_t stream_id);
+        /**
+         * @brief Give streams holding data that could not be delivered another chance to be read
+         *
+         * @details A publisher can start sending a subgroup before the control message naming what
+         *      it belongs to has been handled, leaving the stream buffered with nothing to read it
+         *      and nothing owed to it. Registering a handler is when such streams are retried.
+         */
+        void RetryUnclaimedStreams();
+
+        /**
+         * @name Reading a stream
+         *
+         * @details Each reads one message, leaving how many a stream is given in one turn to the
+         *      caller, which is the only place that has to weigh it against the other streams.
+         *
+         * @returns True once a message has been read and the stream can be read on, false when
+         *      nothing is left of it or the rest of the next message has yet to arrive
+         */
+        ///@{
+
+        /// Dispatch one control message buffered on a control or request stream
+        bool RecvCtrlMessage(const std::shared_ptr<Stream>& stream, bool is_request_stream);
+
+        bool RecvSubgroupObject(Stream& stream, SubscribeTrackHandler& handler);
+
+        bool RecvFetchObject(Stream& stream, SubscribeTrackHandler& handler);
+
+        ///@}
+
+        /**
+         * @brief Tell a data stream's handler that the subgroup or fetch it carried has ended
+         *
+         * @details Held on the stream and replayed by OnRecvStream if nothing has claimed it yet,
+         *      which a publisher closing a subgroup before its SUBSCRIBE_OK is handled will do.
+         */
+        void EndRecvStream(Stream& stream, StreamClosedFlag flag);
+
+        bool OnRecvSubgroup(std::uint64_t track_alias, Stream& stream);
+
+        bool OnRecvFetch(std::uint64_t request_id, Stream& stream);
 
         /**
          * @brief Create a data stream for a track.
@@ -650,9 +693,6 @@ namespace quicr {
         std::optional<std::uint64_t> rx_ctrl_stream_id_;
 
         std::shared_ptr<Stream> tx_ctrl_stream_;
-
-        ///< Control message buffers for streams.
-        std::map<std::uint64_t, InitialStreamData> stream_buffers;
 
         /**
          * Next Connection request Id. This value is shifted left when setting Request Id.
