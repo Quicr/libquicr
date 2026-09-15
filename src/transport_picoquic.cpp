@@ -188,8 +188,10 @@ try {
 
                 // OnRecvStreamBytes adopts a remote-initiated stream, so re-read the handle here.
                 if (const auto rx_stream = stream ? stream : connection->GetStream(stream_id)) {
-                    rx_stream->rx_closed = true;
-                    transport->OnStreamClosed(connection, rx_stream, StreamClosedFlag::kFin);
+                    // A receive side already given up on has been reported closed once already.
+                    if (!std::exchange(rx_stream->rx_closed, true)) {
+                        transport->OnStreamClosed(connection, rx_stream, StreamClosedFlag::kFin);
+                    }
                 }
             }
 
@@ -220,8 +222,11 @@ try {
 
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto rx_stream = stream ? stream : connection->GetStream(stream_id)) {
-                    rx_stream->rx_closed = true;
-                    transport->OnStreamClosed(connection, rx_stream, StreamClosedFlag::kReset);
+                    // The reset a peer sends back after being stopped finds the stream already
+                    // given up on and reported closed, so only the teardown below is left to do.
+                    if (!std::exchange(rx_stream->rx_closed, true)) {
+                        transport->OnStreamClosed(connection, rx_stream, StreamClosedFlag::kReset);
+                    }
                     if (rx_stream->IsFullyClosed()) {
                         picoquic_reset_stream_ctx(pq_cnx, stream_id);
                         transport->EraseStreamState(connection, stream_id);
@@ -2031,8 +2036,15 @@ try {
                           tconfig_.stream_rx_max_bytes);
 
         picoquic_stop_sending(connection->pq_cnx, stream_id, static_cast<uint64_t>(StreamErrorCodes::kRxBufferFull));
+
+        if (connection->GetAPI() != Connection::API::kWebTransport) {
+            picoquic_reset_stream_ctx(connection->pq_cnx, stream_id);
+        }
+
         stream->rx_closed = true;
         stream->metrics.rx_buffer_drops++;
+
+        OnStreamClosed(connection, stream, StreamClosedFlag::kReset);
 
         return;
     }

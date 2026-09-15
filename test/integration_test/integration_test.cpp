@@ -2128,10 +2128,10 @@ TEST_CASE("Integration - A stream over its receive limit is stopped")
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
-    const auto publish = [&publish_handler](std::uint64_t group_id, std::size_t payload_size) {
+    const auto publish = [&publish_handler](std::uint64_t group_id, std::uint64_t object_id, std::size_t payload_size) {
         const std::vector<std::uint8_t> payload(payload_size, 0x5a);
         const ObjectHeaders headers{ .group_id = group_id,
-                                     .object_id = 0,
+                                     .object_id = object_id,
                                      .subgroup_id = 0,
                                      .payload_length = payload.size(),
                                      .status = ObjectStatus::kAvailable,
@@ -2143,19 +2143,26 @@ TEST_CASE("Integration - A stream over its receive limit is stopped")
 
     // A group per object, so each arrives on a stream of its own.
     for (std::uint64_t group_id = 0; group_id < in_limit_count; ++group_id) {
-        publish(group_id, 4096);
+        publish(group_id, 0, 4096);
     }
     REQUIRE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() == in_limit_count; }));
+    REQUIRE(WaitFor([&subscribe_handler] { return subscribe_handler->GetActiveSubgroupCount() == in_limit_count; }));
 
-    // An object larger than the whole limit can never be parsed out, so its stream is given up on
-    // rather than buffered for as long as the bytes keep coming.
-    publish(in_limit_count, rx_limit * 2);
-    CHECK_FALSE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() > in_limit_count; },
+    // An object larger than the whole limit can never be parsed out, so the stream carrying it is
+    // given up on rather than buffered for as long as the bytes keep coming.
+    constexpr std::uint64_t overrun_group = in_limit_count;
+    publish(overrun_group, 0, 4096);
+    REQUIRE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() == in_limit_count + 1; }));
+    publish(overrun_group, 1, rx_limit * 2);
+    CHECK_FALSE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() > in_limit_count + 1; },
                         std::chrono::milliseconds(500)));
 
+    // Abandoning the stream ends the subgroup it was carrying, which nothing else is going to say.
+    CHECK(WaitFor([&subscribe_handler] { return subscribe_handler->GetActiveSubgroupCount() == in_limit_count; }));
+
     // Only the stream that overran is lost; the track carries on.
-    publish(in_limit_count + 1, 4096);
-    CHECK(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() == in_limit_count + 1; }));
+    publish(overrun_group + 1, 0, 4096);
+    CHECK(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() == in_limit_count + 2; }));
 }
 
 TEST_CASE("Integration - Failed publish does not create subgroup state")
