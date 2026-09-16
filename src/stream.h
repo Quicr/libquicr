@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "quicr/connection.h"
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/utilities/thread_safety.h"
 
@@ -116,21 +115,6 @@ namespace quicr {
 
         /// Indicates if new stream, on read set to false
         bool rx_is_new{ true };
-
-        /**
-         * Close notification held back until something claims this stream
-         *
-         * @details A publisher can send a whole subgroup and close it before the control message
-         *      naming what it belongs to has been handled, leaving no handler to tell. Without
-         *      this, a later read that does deliver those objects would never end their subgroup.
-         */
-        std::optional<StreamClosedFlag> rx_deferred_close;
-
-        /**
-         * Future tick value in milliseconds that indicates this stream has expired due to being
-         * unknown. A value of zero indicates it's no longer unknown and will not expire.
-         */
-        std::uint64_t rx_unknown_expiry_tick_ms{ 0 };
 
         /**
          * Guards `rx_data`

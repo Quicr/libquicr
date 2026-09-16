@@ -135,7 +135,6 @@ namespace quicr {
 
         uint64_t rx_stream_cb{ 0 };    /// count of callbacks to receive data
         uint64_t rx_stream_bytes{ 0 }; /// count of stream bytes received
-        uint64_t rx_buffer_drops{ 0 }; /// count of receive buffer drops of data due to the stream exceeding its limit
 
         uint64_t tx_buffer_drops{ 0 };   /// Count of write buffer drops of data due to RESET request
         uint64_t tx_queue_discards{ 0 }; /// count of objects discarded due to TTL expiry or clear
@@ -164,7 +163,6 @@ namespace quicr {
 
             rx_stream_cb += other.rx_stream_cb;
             rx_stream_bytes += other.rx_stream_bytes;
-            rx_buffer_drops += other.rx_buffer_drops;
 
             tx_buffer_drops += other.tx_buffer_drops;
             tx_queue_discards += other.tx_queue_discards;
