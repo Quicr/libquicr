@@ -43,9 +43,6 @@ namespace quicr {
         uint64_t metrics_sample_ms{ 5000 };          ///< Metrics sampling interval in milliseconds
         uint64_t initial_max_stream_data{ 0 };       ///< Initial per-stream receive window (all streams). 0=default.
         std::size_t quic_shards{ 1 };                ///< Number of picoquic instances to use (server mode).
-        uint64_t stream_rx_max_bytes{
-            16'777'216
-        }; ///< Most bytes a receive stream may hold that have yet to be parsed. 0=unlimited.
     };
 
     struct Config

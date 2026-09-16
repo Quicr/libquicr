@@ -627,15 +627,6 @@ namespace quicr {
         bool BindRecvStream(Stream& stream);
 
         /**
-         * @brief Give streams holding data that could not be delivered another chance to be read
-         *
-         * @details A publisher can start sending a subgroup before the control message naming what
-         *      it belongs to has been handled, leaving the stream buffered with nothing to read it
-         *      and nothing owed to it. Registering a handler is when such streams are retried.
-         */
-        void RetryUnclaimedStreams();
-
-        /**
          * @name Reading a stream
          *
          * @details Each reads one message, leaving how many a stream is given in one turn to the
@@ -654,14 +645,6 @@ namespace quicr {
         bool RecvFetchObject(Stream& stream, SubscribeTrackHandler& handler);
 
         ///@}
-
-        /**
-         * @brief Tell a data stream's handler that the subgroup or fetch it carried has ended
-         *
-         * @details Held on the stream and replayed by OnRecvStream if nothing has claimed it yet,
-         *      which a publisher closing a subgroup before its SUBSCRIBE_OK is handled will do.
-         */
-        void EndRecvStream(Stream& stream, StreamClosedFlag flag);
 
         bool OnRecvSubgroup(std::uint64_t track_alias, Stream& stream);
 

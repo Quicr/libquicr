@@ -266,17 +266,6 @@ namespace quicr {
                                  StreamOperation operation) = 0;
 
         /**
-         * @brief Ask to be notified again of every stream still holding data
-         *
-         * @details Data can arrive on a stream before the delegate knows what it is for, and
-         *      nothing more is owed to that stream until the peer sends more. A delegate that has
-         *      since learned what such a stream carries uses this to ask for it again.
-         *
-         * @param connection        Connection whose streams to notify of again
-         */
-        virtual void RetryRecvStreams(const std::shared_ptr<Connection>& connection) = 0;
-
-        /**
          * @brief Get the peer IP address and port associated with the stream
          *
          * @param[in]  context_id	Identifying the connection

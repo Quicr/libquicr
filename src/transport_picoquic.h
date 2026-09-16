@@ -58,8 +58,7 @@ namespace quicr {
         enum class StreamErrorCodes : uint32_t
         {
             kInternalError = 20,
-            kUnknownExpiry = 50,
-            kRxBufferFull = 51
+            kUnknownExpiry = 50
         };
 
         /**
@@ -243,8 +242,6 @@ namespace quicr {
         void CloseStream(const std::shared_ptr<Connection>& connection,
                          const std::shared_ptr<Stream>& stream,
                          StreamOperation operation) override;
-
-        void RetryRecvStreams(const std::shared_ptr<Connection>& connection) override;
 
         /**
          * @brief Deregister WebTransport context

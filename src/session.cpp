@@ -837,7 +837,6 @@ namespace quicr {
             }
 
             sub_by_recv_track_alias[*track_handler->GetReceivedTrackAlias()] = track_handler;
-            RetryUnclaimedStreams();
         }
 
         auto priority = track_handler->GetPriority();
@@ -1586,13 +1585,6 @@ namespace quicr {
             return stream->RxDataSize() != 0;
         }();
 
-        // A close that arrived before anything had claimed the stream is delivered now that all it
-        // buffered has been, since no further read will come to carry it.
-        if (!has_remaining && stream->rx_deferred_close.has_value()) {
-            const auto flag = *std::exchange(stream->rx_deferred_close, std::nullopt);
-            EndRecvStream(*stream, flag);
-        }
-
         return has_remaining;
     } catch (const TransportException& e) {
         QUICR_LOGGER_INFO(logger_, "OnRecvStream: connection or stream no longer exists (error={})", e.what());
@@ -1607,13 +1599,6 @@ namespace quicr {
 
         // TODO(tievens): Add metrics to track if this happens
         return false;
-    }
-
-    void Session::RetryUnclaimedStreams()
-    {
-        if (quic_transport_ != nullptr && current_connection_ != nullptr) {
-            quic_transport_->RetryRecvStreams(current_connection_);
-        }
     }
 
     bool Session::BindRecvStream(Stream& stream)
@@ -1652,14 +1637,28 @@ namespace quicr {
             return true;
         }
 
-        // A header type that makes no sense throws, which closes the connection.
-        const auto message_type = GetStreamMessageType(*stream_type);
+        /*
+         * A header type nothing can be made of is the peer's problem with this one stream, not with
+         * the session, so it is dropped rather than thrown on.
+         */
+        StreamMessageType message_type;
+        try {
+            message_type = GetStreamMessageType(*stream_type);
+        } catch (const ProtocolViolationException&) {
+            QUICR_LOGGER_WARN(
+              logger_, "Received stream {} with invalid header type 0x{:02x}, dropping", stream_id, *stream_type);
+            current_connection_->metrics.rx_stream_invalid_type++;
+
+            // TODO(tievens): Need to reset this stream as this is invalid.
+            return false;
+        }
+
         if (!destination.has_value()) {
             return false; // Need more bytes, will try again.
         }
 
-        // TODO: We ignore a stream nothing is waiting for, but should set an expiry for how long
-        // we'll keep it (unknown_stream_expiry_ms, which the transport sweeps for) and reset it.
+        // TODO: A stream nothing is waiting for is held until it closes or the connection ends.
+        // Bounding that by unknown_stream_expiry_ms was never implemented.
         return message_type == StreamMessageType::kSubgroupHeader ? OnRecvSubgroup(*destination, stream)
                                                                   : OnRecvFetch(*destination, stream);
     }
@@ -1929,23 +1928,8 @@ namespace quicr {
             return;
         }
 
-        EndRecvStream(*stream, flag);
-    }
-
-    void Session::EndRecvStream(Stream& stream, StreamClosedFlag flag)
-    {
-        const auto handler_ptr = stream.rx_handler.lock();
+        const auto handler_ptr = stream->rx_handler.lock();
         if (handler_ptr == nullptr) {
-            /*
-             * A stream never bound to anything and still holding what arrived on it is one
-             * RetryUnclaimedStreams may yet find a handler for, so its close waits for that rather
-             * than being dropped, which would leave the subgroup it carried open forever.
-             */
-            if (stream.rx_is_new && stream.RxDataSize() != 0) {
-                stream.rx_deferred_close = flag;
-                return;
-            }
-
             QUICR_LOGGER_WARN(logger_, "Received stream closed for unknown handler");
             return;
         }
@@ -1964,8 +1948,8 @@ namespace quicr {
              * so this says nothing about a fetch or about a stream that closed before delivering
              * anything.
              */
-            if (stream.rx_parse.next_object_id.has_value()) {
-                handler_ptr->SubgroupEnded(stream.rx_parse.group_id, stream.rx_parse.subgroup_id, reset);
+            if (stream->rx_parse.next_object_id.has_value()) {
+                handler_ptr->SubgroupEnded(stream->rx_parse.group_id, stream->rx_parse.subgroup_id, reset);
             }
         } catch (const ProtocolViolationException& e) {
             QUICR_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
@@ -1980,7 +1964,7 @@ namespace quicr {
     {
         const auto stream_id = stream.GetStreamId();
 
-        auto sub_it = sub_by_recv_track_alias.find(track_alias);
+        const auto sub_it = sub_by_recv_track_alias.find(track_alias);
         if ((sub_it == sub_by_recv_track_alias.end() || sub_it->second == nullptr)) {
             current_connection_->metrics.rx_stream_unknown_track_alias++;
             QUICR_LOGGER_WARN(
@@ -2020,11 +2004,20 @@ namespace quicr {
         }
 
         if (auto h = fetch_it->second->Get<SubscribeTrackHandler>()) {
-            stream.rx_handler = h;
-
             // Fetched objects are each given as a step from the one before, against the order the
-            // fetch was made with.
-            h->fetch_state_.emplace(*h->GetGroupOrder());
+            // fetch was made with, so a request that never had one is not what this stream claims.
+            const auto group_order = h->GetGroupOrder();
+            if (!group_order.has_value()) {
+                QUICR_LOGGER_WARN(logger_,
+                                  "Received fetch_header naming request_id: {} which was not a fetch, stream: {}, "
+                                  "ignored",
+                                  request_id,
+                                  stream_id);
+                return false;
+            }
+
+            stream.rx_handler = h;
+            h->fetch_state_.emplace(*group_order);
 
             // The header itself is still at the front of the stream's buffer. Setting up to parse it
             // there is also what records, for every later arrival, what this stream carries.
@@ -2655,7 +2648,6 @@ namespace quicr {
                     sub_handler->SetPublisherDefaultGroupOrder(publisher_default_group_order);
                     sub_handler->SetStatus(SubscribeTrackHandler::Status::kOk);
                     sub_by_recv_track_alias[track_alias] = sub_handler;
-                    RetryUnclaimedStreams();
                 }
 
                 return true;
