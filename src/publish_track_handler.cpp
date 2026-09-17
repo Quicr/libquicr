@@ -382,6 +382,7 @@ namespace quicr {
         eflags.use_reliable = true;
         eflags.close_stream = true;
         eflags.use_reset = !completed;
+        eflags.clear_tx_queue = !completed;
 
         session->Enqueue(subgroup_it->second.stream, {}, default_priority_, default_ttl_, eflags);
 

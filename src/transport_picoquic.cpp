@@ -1239,6 +1239,11 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
     if (flags.clear_tx_queue) {
         stream->metrics.tx_queue_discards += stream->tx_data->Size();
         stream->tx_data->Clear();
+
+        if (flags.close_stream && flags.use_reset && stream->tx_object != nullptr) {
+            stream->metrics.tx_queue_discards++;
+            stream->ResetTxObject();
+        }
     }
 
     ConnData cd{
