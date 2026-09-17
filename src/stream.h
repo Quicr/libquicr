@@ -148,14 +148,25 @@ namespace quicr {
          */
         struct RxParseState
         {
+            /// A subgroup, as the pair naming it
+            struct Subgroup
+            {
+                std::uint64_t group_id;
+                std::uint64_t subgroup_id;
+            };
+
             /// ID the next object to arrive will have, unset until the first one does
             std::optional<std::uint64_t> next_object_id;
 
-            /// Group of the objects seen so far
-            std::uint64_t group_id{ 0 };
-
-            /// Subgroup of the objects seen so far
-            std::uint64_t subgroup_id{ 0 };
+            /**
+             * Subgroup the stream carries, once the handler has been told which
+             *
+             * @details Also what says the handler is owed the end of that subgroup when the
+             *      stream closes. A stream read as objects knows this from its first object,
+             *      since the header alone may leave the subgroup ID to be taken from that
+             *      object; one forwarded as bytes reads only as far as it must to know it.
+             */
+            std::optional<Subgroup> subgroup;
         };
 
         RxParseState rx_parse;

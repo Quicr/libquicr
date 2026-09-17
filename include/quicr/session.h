@@ -9,6 +9,7 @@
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/errors.h"
 #include "quicr/handlers/fetch_track_handler.h"
+#include "quicr/handlers/forwarding_subscribe_track_handler.h"
 #include "quicr/handlers/publish_fetch_handler.h"
 #include "quicr/handlers/publish_namespace_handler.h"
 #include "quicr/handlers/publish_track_handler.h"
@@ -645,6 +646,18 @@ namespace quicr {
         bool RecvFetchObject(Stream& stream, SubscribeTrackHandler& handler);
 
         ///@}
+
+        /**
+         * @brief Hand a subgroup stream's bytes to a handler that passes them on rather than
+         *      reading the objects in them
+         *
+         * @details Takes everything that has arrived, since where the objects in it begin and end
+         *      does not matter to such a handler and finding out is the cost it is avoiding. Only
+         *      the header is read, once, so that the handler can write an equivalent one.
+         *
+         * @returns False always, the stream having been taken whole
+         */
+        bool ForwardSubgroupBytes(Stream& stream, ForwardingSubscribeTrackHandler& handler);
 
         bool OnRecvSubgroup(std::uint64_t track_alias, Stream& stream);
 
