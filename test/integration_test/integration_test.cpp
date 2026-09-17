@@ -466,10 +466,10 @@ class TestForwardingSubscribeHandler final : public ForwardingSubscribeTrackHand
                          messages::StreamHeaderProperties properties) override
     {
         std::lock_guard lock(mutex_);
-        subgroups_.emplace_back(group_id, subgroup_id, priority, properties, std::vector<std::uint8_t>{}, false, false);
+        subgroups_.push_back(Subgroup{ group_id, subgroup_id, priority, properties, {}, false, false });
     }
 
-    void StreamBytesForwarded(std::uint64_t group_id, std::uint64_t subgroup_id, BytesSpan data) override
+    void StreamBytesForwarded(std::uint64_t group_id, std::uint64_t subgroup_id, Bytes&& data) override
     {
         std::lock_guard lock(mutex_);
         if (auto* subgroup = Find(group_id, subgroup_id)) {

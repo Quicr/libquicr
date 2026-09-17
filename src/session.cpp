@@ -1836,13 +1836,10 @@ namespace quicr {
         // has arrived costs nothing, since the bytes move out rather than being copied.
         Bytes data;
 
-        // What the header said, kept back until the lock is released along with the bytes.
-        struct SubgroupStart
-        {
-            std::optional<std::uint8_t> priority;
-            messages::StreamHeaderProperties properties;
-        };
-        std::optional<SubgroupStart> started;
+        // What the header said, set only on the turn the subgroup starts and kept back until the
+        // lock is released along with the bytes.
+        std::optional<messages::StreamHeaderProperties> start_properties;
+        std::optional<std::uint8_t> start_priority;
         Stream::RxParseState::Subgroup subgroup{};
         {
             std::lock_guard _(stream.rx_mutex);
@@ -1869,7 +1866,8 @@ namespace quicr {
                 }
 
                 stream.rx_parse.subgroup = { s_hdr.group_id, *subgroup_id };
-                started.emplace(s_hdr.priority, *s_hdr.properties);
+                start_properties.emplace(*s_hdr.properties);
+                start_priority = s_hdr.priority;
 
                 // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
                 if (s_hdr.priority.has_value()) {
@@ -1881,12 +1879,12 @@ namespace quicr {
             data = buffer.TakeAll();
         }
 
-        if (started.has_value()) {
-            handler.SubgroupStarted(subgroup.group_id, subgroup.subgroup_id, started->priority, started->properties);
+        if (start_properties.has_value()) {
+            handler.SubgroupStarted(subgroup.group_id, subgroup.subgroup_id, start_priority, *start_properties);
         }
 
         if (!data.empty()) {
-            handler.StreamBytesForwarded(subgroup.group_id, subgroup.subgroup_id, data);
+            handler.StreamBytesForwarded(subgroup.group_id, subgroup.subgroup_id, std::move(data));
         }
 
         return false; // Everything that had arrived has been taken.

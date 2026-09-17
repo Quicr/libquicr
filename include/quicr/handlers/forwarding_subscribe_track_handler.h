@@ -65,13 +65,15 @@ namespace quicr {
          *      A track's subgroups arrive on streams of their own and so interleave here, which
          *      is what names the subgroup on every call rather than only when it starts.
          *
-         * @warning The bytes are only valid for the duration of the call.
+         *      The bytes are the handler's to take, nothing here wanting them afterwards, so
+         *      handing them to something that holds them, as publishing them on does, copies none
+         *      of them. A handler that only reads them can leave them alone and let them go.
          *
          * @param group_id      Group the subgroup belongs to
          * @param subgroup_id   Subgroup the bytes belong to
-         * @param data          Bytes to pass on
+         * @param data          Bytes to pass on, to take if it wants them
          */
-        virtual void StreamBytesForwarded(std::uint64_t group_id, std::uint64_t subgroup_id, BytesSpan data) = 0;
+        virtual void StreamBytesForwarded(std::uint64_t group_id, std::uint64_t subgroup_id, Bytes&& data) = 0;
     };
 
 } // namespace quicr
