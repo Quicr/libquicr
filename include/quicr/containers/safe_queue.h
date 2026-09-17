@@ -171,6 +171,7 @@ namespace quicr {
             std::lock_guard<std::mutex> _(mutex_);
             std::queue<T> empty;
             std::swap(queue_, empty);
+            empty_ = true;
         }
 
         /**

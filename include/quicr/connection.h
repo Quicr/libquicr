@@ -24,8 +24,6 @@ namespace quicr {
     class SubscribeTrackHandler;
     class TrackHandler;
 
-    struct StreamRxContext;
-
     enum class StreamClosedFlag : uint8_t
     {
         kFin,
@@ -82,27 +80,21 @@ namespace quicr {
             /**
              * @brief callback notification that data has been received and should be processed
              *
-             * @param[in] stream_id     Transport stream ID
-             * @param[in] rx_ctx        Stream Rx context holding the received data queue
-             * @param[in] stream        Stream the data arrived on, for replying on a request stream.
-             *                          Null if the transport does not have a handle for it.
-             * @param[in] is_bidir      True if the message is from a bidirectional stream
+             * @param[in] stream        Stream the data arrived on, carrying its receive queue and
+             *                          the handler consuming it
+             *
+             * @returns True if the stream was left with more that can be read now, having stopped
+             *      short of draining it so as not to starve the others, and so wants another turn
              */
-            virtual void OnRecvStream(std::uint64_t stream_id,
-                                      const std::shared_ptr<StreamRxContext>& rx_ctx,
-                                      const std::shared_ptr<Stream>& stream,
-                                      bool is_bidir = false) = 0;
+            virtual bool OnRecvStream(const std::shared_ptr<Stream>& stream) = 0;
 
             /**
              * @brief Callback notification that a stream has been closed by either FIN or RST.
              *
-             * @param stream_id         Transport stream id.
-             * @param rx_ctx            Stream Rx context with the handler info.
+             * @param stream            Stream that closed, carrying the handler it belonged to
              * @param flag              Flag value for how the stream was closed. Values are FIN or RST
              */
-            virtual void OnStreamClosed(std::uint64_t stream_id,
-                                        std::shared_ptr<StreamRxContext> rx_ctx,
-                                        StreamClosedFlag flag) = 0;
+            virtual void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) = 0;
 
             /**
              * @brief callback notification on connection metrics sampled
@@ -185,27 +177,21 @@ namespace quicr {
         /**
          * @brief callback notification that data has been received and should be processed
          *
-         * @param[in] stream_id     Transport stream ID
-         * @param[in] rx_ctx        Stream Rx context holding the received data queue
-         * @param[in] stream        Stream the data arrived on, for replying on a request stream.
-         *                          Null if the transport does not have a handle for it.
-         * @param[in] is_bidir      True if the message is from a bidirectional stream
+         * @param[in] stream        Stream the data arrived on, carrying its receive queue and the
+         *                          handler consuming it
+         *
+         * @returns True if the stream was left with more that can be read now, and so wants
+         *      another turn; false if there is no delegate to read it
          */
-        virtual void OnRecvStream(std::uint64_t stream_id,
-                                  const std::shared_ptr<StreamRxContext>& rx_ctx,
-                                  const std::shared_ptr<Stream>& stream,
-                                  bool is_bidir = false);
+        virtual bool OnRecvStream(const std::shared_ptr<Stream>& stream);
 
         /**
          * @brief Callback notification that a stream has been closed by either FIN or RST.
          *
-         * @param stream_id         Transport stream id.
-         * @param rx_ctx            Stream Rx context with the handler info.
+         * @param stream            Stream that closed, carrying the handler it belonged to
          * @param flag              Flag value for how the stream was closed. Values are FIN or RST
          */
-        virtual void OnStreamClosed(std::uint64_t stream_id,
-                                    std::shared_ptr<StreamRxContext> rx_ctx,
-                                    StreamClosedFlag flag);
+        virtual void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag);
 
         // TODO: Move these to be private.
       public:

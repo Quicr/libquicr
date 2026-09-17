@@ -25,8 +25,8 @@ namespace quicr {
     using namespace quicr::messages;
     using namespace std::chrono_literals;
 
-    constexpr uint64_t kSubscribeExpires = 0;  ///< Never expires
-    constexpr int kReadLoopMaxPerStream = 100; ///< Support packet/frame bursts, but do not allow starving other streams
+    constexpr uint64_t kSubscribeExpires = 0; ///< Never expires
+    constexpr int kReadLoopMax = 100; ///< Support packet/frame bursts, but do not allow starving whatever reads next
 
     namespace {
 
@@ -1528,270 +1528,429 @@ namespace quicr {
         }
     }
 
-    void Session::OnRecvStream(uint64_t stream_id,
-                               const std::shared_ptr<StreamRxContext>& rx_ctx,
-                               const std::shared_ptr<Stream>& stream,
-                               const bool is_bidir)
+    bool Session::OnRecvStream(const std::shared_ptr<Stream>& stream)
     try {
-        if (rx_ctx == nullptr) {
-            return;
+        if (stream == nullptr) {
+            return false;
         }
 
-        /*
-         * RX data queue may have more messages at time of this callback. Attempt to
-         *      process all of them, up to a max. Setting a max prevents blocking
-         *      of other streams, etc.
-         */
-        for (int i = 0; i < kReadLoopMaxPerStream; i++) {
-            if (rx_ctx->data_queue.Empty()) {
-                break;
+        const bool is_request_stream = stream->IsBidirectional();
+        if (!is_request_stream && stream->rx_is_new && !BindRecvStream(*stream)) {
+            return false;
+        }
+        stream->rx_is_new = false;
+
+        // Every bidirectional stream is a request, and the peer sends the session's control
+        // messages on one unidirectional stream. Both carry control messages rather than data.
+        const bool is_ctrl_stream = is_request_stream || stream->GetStreamId() == rx_ctrl_stream_id_;
+
+        // What a stream carries and who consumes it do not change while it is read, so both are
+        // settled for the whole turn rather than per message. Holding the handler also keeps it
+        // alive across the turn, so a subgroup cannot be abandoned part way through.
+        std::shared_ptr<SubscribeTrackHandler> handler;
+        std::shared_ptr<ForwardingSubscribeTrackHandler> forwarder;
+        bool reads_subgroups = false;
+        if (!is_ctrl_stream) {
+            handler = stream->rx_handler.lock();
+            if (handler == nullptr) {
+                QUICR_LOGGER_ERROR(
+                  logger_, "Received data on existing stream_id: {} with no handler anymore", stream->GetStreamId());
+                return false;
             }
 
-            auto data_opt = rx_ctx->data_queue.Front();
-            if (not data_opt.has_value()) {
-                break;
+            // Binding set up parsing whichever header the stream carries, so that header's type
+            // says which kind it is. Only a stream drained and reclaimed after closing has none.
+            const auto stream_type = [&stream] {
+                std::lock_guard _(stream->rx_mutex);
+                return stream->rx_data.GetAnyType();
+            }();
+
+            reads_subgroups = stream_type == static_cast<std::uint64_t>(StreamMessageType::kSubgroupHeader);
+            if (!reads_subgroups && stream_type != static_cast<std::uint64_t>(StreamMessageType::kFetchHeader)) {
+                return false;
             }
 
-            auto& data = *data_opt.value(); // TODO: What's this double de-ref.
-            std::optional<std::uint64_t> initial_stream_type;
-            bool initial_data_buffered = false;
-            BytesSpan initial_cursor;
+            forwarder = std::dynamic_pointer_cast<ForwardingSubscribeTrackHandler>(handler);
+            if (forwarder != nullptr && !reads_subgroups) {
+                QUICR_LOGGER_WARN(logger_,
+                                  "Fetch on stream_id: {} is for a handler that takes bytes, which fetch does not "
+                                  "support, ignored",
+                                  stream->GetStreamId());
+                return false;
+            }
+        }
 
-            // All bidir streams are requests.
-            const bool is_request_stream = is_bidir;
+        // A stream passed on as bytes is taken whole, since it costs no more to take all of what
+        // has arrived than part of it. Reading objects instead stops short of draining the stream,
+        // so a burst on one does not starve the others, and says as much to earn another turn.
+        const bool has_remaining = [&] {
+            if (forwarder != nullptr) {
+                return ForwardSubgroupBytes(*stream, *forwarder);
+            }
 
-            // Single unidirection recv control stream.
-            bool is_control_stream = !is_request_stream && stream_id == rx_ctrl_stream_id_;
-
-            // Get message type if new stream
-            if (rx_ctx->is_new && !is_request_stream && !is_control_stream) {
-                // Store arriving data into stream's buffer.
-                rx_ctx->data_queue.PopFront();
-                auto& initial_buffer = stream_buffers[stream_id];
-                initial_buffer.buffer.Push(data);
-                initial_buffer.source_buffers.push_back(std::move(*data_opt));
-                initial_data_buffered = true;
-
-                // Attempt to peek what type this message is.
-                initial_cursor = initial_buffer.buffer.Data();
-                initial_stream_type = TryDecodeUintV(initial_cursor);
-                if (!initial_stream_type.has_value()) {
-                    QUICR_LOGGER_DEBUG(
-                      logger_,
-                      "New stream {} bidir: {} does not have enough bytes to process start of stream yet",
-                      stream_id,
-                      is_bidir);
-                    continue;
-                }
-
-                QUICR_LOGGER_DEBUG(logger_,
-                                   "New stream conn_id: {} stream_id: {} bidir: {} data size: {} msg_type: {}",
-                                   current_connection_->GetID(),
-                                   stream_id,
-                                   is_bidir,
-                                   initial_buffer.buffer.Size(),
-                                   *initial_stream_type);
-
-                // This might be incoming control stream arriving.
-                if (static_cast<ControlMessageType>(*initial_stream_type) == ControlMessageType::kSetup) {
-                    is_control_stream = true;
-                    rx_ctrl_stream_id_ = stream_id;
-                    initial_buffer.source_buffers.clear();
+            for (int i = 0; i < kReadLoopMax; i++) {
+                const bool read = is_ctrl_stream    ? RecvCtrlMessage(stream, is_request_stream)
+                                  : reads_subgroups ? RecvSubgroupObject(*stream, *handler)
+                                                    : RecvFetchObject(*stream, *handler);
+                if (!read) {
+                    return false;
                 }
             }
 
-            // Control or request handling.
-            if (is_control_stream || is_request_stream) {
-                if (!initial_data_buffered) {
-                    // Append.
-                    stream_buffers[stream_id].buffer.Push(data);
-                    rx_ctx->data_queue.PopFront();
-                }
+            return stream->RxDataSize() != 0;
+        }();
 
-                rx_ctx->is_new = false;
-
-                auto& stream_buffer = stream_buffers.at(stream_id).buffer;
-
-                QUICR_LOGGER_DEBUG(logger_,
-                                   "Transport:ControlMessageReceived conn_id: {} stream_id: {} data size: {}",
-                                   current_connection_->GetID(),
-                                   stream_id,
-                                   stream_buffer.Size());
-
-                // Parse control messages out of this stream data.
-                while (!stream_buffer.Empty()) {
-                    const auto message_view = stream_buffer.Data();
-                    auto cursor = message_view;
-
-                    // Type.
-                    const auto decoded_type = TryDecodeUintV(cursor);
-                    if (!decoded_type.has_value()) {
-                        i = kReadLoopMaxPerStream - 4;
-                        break;
-                    }
-                    const auto msg_type = static_cast<ControlMessageType>(*decoded_type);
-
-                    // Length.
-                    std::uint16_t payload_len;
-                    if (cursor.size() < sizeof(payload_len)) {
-                        i = kReadLoopMaxPerStream - 4;
-                        break;
-                    }
-                    std::memcpy(&payload_len, cursor.data(), sizeof(payload_len));
-                    payload_len = SwapBytes(payload_len);
-                    cursor = cursor.subspan(sizeof(payload_len));
-
-                    // Payload.
-                    if (cursor.size() < payload_len) {
-                        i = kReadLoopMaxPerStream - 4;
-                        break;
-                    }
-                    const auto payload = cursor.first(payload_len);
-                    // Consume completed message.
-                    const auto message_size = message_view.size() - cursor.size() + payload_len;
-
-                    bool processed = false;
-                    try {
-                        if (is_control_stream) {
-                            processed = ProcessCtrlMessage(msg_type, payload);
-                        } else if (is_request_stream) {
-                            if (stream == nullptr) {
-                                throw std::invalid_argument("Missing request stream");
-                            }
-                            processed = ProcessRequestMessage(stream, msg_type, payload);
-                        }
-                    } catch (const std::exception& e) {
-                        QUICR_LOGGER_ERROR(logger_,
-                                           "Caught exception trying to process control message. (type={}, error={})",
-                                           static_cast<int>(msg_type),
-                                           e.what());
-                        throw ProtocolViolationException(e.what());
-                    } catch (...) {
-                        QUICR_LOGGER_ERROR(logger_, "Unable to parse control message");
-                        throw ProtocolViolationException("Control message cannot be parsed");
-                    }
-
-                    stream_buffer.Pop(message_size);
-                    if (!processed) {
-                        current_connection_->metrics.invalid_ctrl_stream_msg++;
-                    }
-                }
-                continue;
-            } // end of control message processing
-
-            // DATA OBJECT
-            if (rx_ctx->is_new) {
-                QUICR_LOGGER_TRACE(
-                  logger_, "Received stream message type: 0x{:02x} ({})", *initial_stream_type, *initial_stream_type);
-
-                bool parsed_header = false;
-                switch (GetStreamMessageType(*initial_stream_type)) {
-                    case StreamMessageType::kSubgroupHeader: {
-                        // Subgroup needs at least track alias decoded before handoff.
-                        const auto track_alias = TryDecodeUintV(initial_cursor);
-                        if (!track_alias.has_value()) {
-                            continue; // Need more bytes, will try again.
-                        }
-                        parsed_header = OnRecvSubgroup(*track_alias, *rx_ctx, stream_id);
-                        break;
-                    }
-                    case StreamMessageType::kFetchHeader: {
-                        // Fetch needs at least request ID decoded before handoff.
-                        const auto request_id = TryDecodeUintV(initial_cursor);
-                        if (!request_id.has_value()) {
-                            continue; // Need more bytes, will try again.
-                        }
-                        parsed_header = OnRecvFetch(*request_id, *rx_ctx, stream_id);
-                        break;
-                    }
-                    default:
-                        QUICR_LOGGER_WARN(logger_,
-                                          "Received start of stream with invalid header type {}, dropping",
-                                          *initial_stream_type);
-                        current_connection_->metrics.rx_stream_invalid_type++;
-
-                        // TODO(tievens): Need to reset this stream as this is invalid.
-                        return;
-                }
-
-                if (!parsed_header) {
-                    // TODO: We ignore invalid parses for now, but set an expiry for how long we'll keep the stream
-                    if (!rx_ctx->unknown_expiry_tick_ms) {
-                        uint64_t age_ms = client_mode_ ? client_config_.unknown_stream_expiry_ms
-                                                       : server_config_.unknown_stream_expiry_ms;
-                        rx_ctx->unknown_expiry_tick_ms = static_cast<uint64_t>(
-                          std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
-                        rx_ctx->unknown_expiry_tick_ms += age_ms;
-
-                        QUICR_LOGGER_INFO(
-                          logger_,
-                          "Setting stream_id: {} unknown expiry to {}ms (current time is {}ms)",
-                          stream_id,
-                          rx_ctx->unknown_expiry_tick_ms,
-                          static_cast<uint64_t>(
-                            std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count()));
-                    }
-
-                    rx_ctx->unknown_expiry_tick_ms = 0;
-                    break;
-                }
-
-            } else {
-                rx_ctx->data_queue.PopFront();
-
-                // fast processing for existing stream using weak pointer to subscribe handler
-                if (auto sub_handler = rx_ctx->handler.lock()) {
-                    try {
-                        sub_handler->StreamDataRecv(stream_id, *data_opt);
-                    } catch (const ProtocolViolationException& e) {
-                        QUICR_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
-                        throw ProtocolViolationException(e.reason);
-                    } catch (std::exception& e) {
-                        QUICR_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
-                        throw e;
-                    }
-                } else {
-                    QUICR_LOGGER_ERROR(
-                      logger_,
-                      "Received data on existing stream_id: {} with no handler anymore, resetting stream",
-                      stream_id);
-
-                    if (stream != nullptr) {
-                        quic_transport_->CloseStream(current_connection_, stream, StreamOperation::kReset);
-                    }
-                }
-            }
-        } // end of for loop rx data queue
+        return has_remaining;
     } catch (const TransportException& e) {
         QUICR_LOGGER_INFO(logger_, "OnRecvStream: connection or stream no longer exists (error={})", e.what());
+        return false;
     } catch (const std::exception& e) {
-        // NOTE: Whatever message was being processed when this was thrown (e.g. a control message) was not
-        // removed from its buffer, so the connection cannot make forward progress on that stream if left
-        // alone: any partially buffered data at the front will simply be retried (and fail again) the next
-        // time data arrives, or - if no more data ever arrives - the connection will silently hang forever
-        // instead of surfacing an error. Rather than letting that exception disappear into the transport's
-        // callback notifier (which only logs and ignores it), close the connection so the failure is visible
-        // and the peer is not left waiting indefinitely.
+        // A stream that cannot be made sense of will fail the same way on every later arrival, and
+        // the transport's notifier would only swallow this, leaving the peer waiting on a session
+        // that can no longer make progress.
         QUICR_LOGGER_ERROR(logger_, "Caught exception on receiving stream, closing connection. (error={})", e.what());
         current_connection_->metrics.invalid_ctrl_stream_msg++;
         Disconnect();
 
         // TODO(tievens): Add metrics to track if this happens
+        return false;
     }
 
-    void Session::OnStreamClosed(std::uint64_t stream_id,
-                                 std::shared_ptr<StreamRxContext> rx_ctx,
-                                 StreamClosedFlag flag)
+    bool Session::BindRecvStream(Stream& stream)
     {
+        const auto stream_id = stream.GetStreamId();
+
+        // Peeked rather than consumed, so the header is still there for whoever the stream belongs
+        // to. Both kinds of data stream name their destination right after the type.
+        std::optional<std::uint64_t> stream_type;
+        std::optional<std::uint64_t> destination;
+        {
+            std::lock_guard _(stream.rx_mutex);
+            auto cursor = stream.rx_data.Data();
+
+            stream_type = TryDecodeUintV(cursor);
+            if (stream_type.has_value()) {
+                destination = TryDecodeUintV(cursor);
+            }
+        }
+
+        if (!stream_type.has_value()) {
+            QUICR_LOGGER_DEBUG(logger_, "New stream {} has too few bytes to say what it carries yet", stream_id);
+            return false;
+        }
+
+        QUICR_LOGGER_DEBUG(logger_,
+                           "New stream conn_id: {} stream_id: {} msg_type: 0x{:02x} ({})",
+                           current_connection_->GetID(),
+                           stream_id,
+                           *stream_type,
+                           *stream_type);
+
+        // This might be incoming control stream arriving.
+        if (static_cast<ControlMessageType>(*stream_type) == ControlMessageType::kSetup) {
+            rx_ctrl_stream_id_ = stream_id;
+            return true;
+        }
+
+        /*
+         * A header type nothing can be made of is the peer's problem with this one stream, not with
+         * the session, so it is dropped rather than thrown on.
+         */
+        StreamMessageType message_type;
+        try {
+            message_type = GetStreamMessageType(*stream_type);
+        } catch (const ProtocolViolationException&) {
+            QUICR_LOGGER_WARN(
+              logger_, "Received stream {} with invalid header type 0x{:02x}, dropping", stream_id, *stream_type);
+            current_connection_->metrics.rx_stream_invalid_type++;
+
+            // TODO(tievens): Need to reset this stream as this is invalid.
+            return false;
+        }
+
+        if (!destination.has_value()) {
+            return false; // Need more bytes, will try again.
+        }
+
+        // TODO: A stream nothing is waiting for is held until it closes or the connection ends.
+        // Bounding that by unknown_stream_expiry_ms was never implemented.
+        return message_type == StreamMessageType::kSubgroupHeader ? OnRecvSubgroup(*destination, stream)
+                                                                  : OnRecvFetch(*destination, stream);
+    }
+
+    bool Session::RecvCtrlMessage(const std::shared_ptr<Stream>& stream, const bool is_request_stream)
+    {
+        // A control message sits among the raw bytes, which move as more arrive, so it is copied
+        // out while the buffer is locked and handled once it is not: the network thread filling the
+        // buffer must not be left waiting on that.
+        ControlMessageType msg_type;
+        Bytes payload;
+        {
+            std::lock_guard _(stream->rx_mutex);
+            auto& buffer = stream->rx_data;
+
+            if (buffer.Empty()) {
+                return false;
+            }
+
+            const auto message_view = buffer.Data();
+            auto cursor = message_view;
+
+            const auto decoded_type = TryDecodeUintV(cursor);
+            if (!decoded_type.has_value()) {
+                return false;
+            }
+            msg_type = static_cast<ControlMessageType>(*decoded_type);
+
+            std::uint16_t payload_len;
+            if (cursor.size() < sizeof(payload_len)) {
+                return false;
+            }
+            std::memcpy(&payload_len, cursor.data(), sizeof(payload_len));
+            payload_len = SwapBytes(payload_len);
+            cursor = cursor.subspan(sizeof(payload_len));
+
+            if (cursor.size() < payload_len) {
+                return false;
+            }
+            payload.assign(cursor.begin(), cursor.begin() + payload_len);
+
+            buffer.Pop(message_view.size() - cursor.size() + payload_len);
+        }
+
+        QUICR_LOGGER_DEBUG(logger_,
+                           "Transport:ControlMessageReceived conn_id: {} stream_id: {} msg_type: 0x{:02x} size: {}",
+                           current_connection_->GetID(),
+                           stream->GetStreamId(),
+                           static_cast<std::uint64_t>(msg_type),
+                           payload.size());
+
+        bool processed = false;
+        try {
+            processed = is_request_stream ? ProcessRequestMessage(stream, msg_type, payload)
+                                          : ProcessCtrlMessage(msg_type, payload);
+        } catch (const std::exception& e) {
+            QUICR_LOGGER_ERROR(logger_,
+                               "Caught exception trying to process control message. (type={}, error={})",
+                               static_cast<int>(msg_type),
+                               e.what());
+            throw ProtocolViolationException(e.what());
+        } catch (...) {
+            QUICR_LOGGER_ERROR(logger_, "Unable to parse control message");
+            throw ProtocolViolationException("Control message cannot be parsed");
+        }
+
+        if (!processed) {
+            current_connection_->metrics.invalid_ctrl_stream_msg++;
+        }
+
+        return true;
+    }
+
+    bool Session::RecvSubgroupObject(Stream& stream, SubscribeTrackHandler& handler)
+    {
+        // An object is taken out of the buffer while it is locked and handed over once it is not:
+        // the network thread filling the buffer must not be left waiting on the handler. Its
+        // payload is a vector of its own rather than a view of the raw bytes, which move as more
+        // arrive, so taking it costs nothing.
+        Bytes payload;
+        ObjectHeaders headers{};
+        std::optional<messages::StreamHeaderProperties> stream_mode;
+        {
+            std::lock_guard _(stream.rx_mutex);
+            auto& buffer = stream.rx_data;
+
+            // Resuming an already parsed header costs nothing, so it is checked per object rather
+            // than tracked as another piece of receive state.
+            auto& s_hdr = buffer.GetAny<messages::StreamHeaderSubGroup>();
+            if (not(buffer >> s_hdr)) {
+                return false; // Header has not fully arrived yet.
+            }
+
+            // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
+            if (s_hdr.priority.has_value()) {
+                handler.SetPriority(*s_hdr.priority);
+            }
+
+            if (buffer.Empty()) {
+                return false;
+            }
+
+            if (not buffer.AnyHasValueB()) {
+                buffer.InitAnyB<messages::StreamSubGroupObject>();
+            }
+
+            auto& partial = buffer.GetAnyB<messages::StreamSubGroupObject>();
+            partial.properties.emplace(*s_hdr.properties);
+            if (not(buffer >> partial)) {
+                return false; // Object has not fully arrived yet.
+            }
+
+            // Objects carry only the step from the one before, counted from the start of each
+            // subgroup. The first also reports how the subgroup is framed.
+            auto& next_object_id = stream.rx_parse.next_object_id;
+            const auto carried = stream.rx_parse.subgroup;
+            const bool same_subgroup = next_object_id.has_value() && carried.has_value() &&
+                                       carried->group_id == s_hdr.group_id && carried->subgroup_id == s_hdr.subgroup_id;
+            if (!next_object_id.has_value()) {
+                stream_mode.emplace(*s_hdr.properties);
+            }
+            next_object_id = same_subgroup ? *next_object_id + partial.object_delta : partial.object_delta;
+
+            if (!s_hdr.subgroup_id.has_value()) {
+                if (partial.properties->subgroup_id_mode != messages::SubgroupIdType::kSetFromFirstObject) {
+                    throw messages::ProtocolViolationException("Subgoup ID mismatch");
+                }
+
+                s_hdr.subgroup_id = next_object_id;
+            }
+
+            stream.rx_parse.subgroup = { s_hdr.group_id, *s_hdr.subgroup_id };
+
+            payload = std::move(partial.payload);
+            headers = { s_hdr.group_id,
+                        *next_object_id,
+                        *s_hdr.subgroup_id,
+                        payload.size(),
+                        partial.object_status,
+                        s_hdr.priority,
+                        std::nullopt,
+                        TrackMode::kStream,
+                        std::move(partial.extensions),
+                        std::move(partial.immutable_extensions) };
+
+            buffer.ResetAnyB();
+            *next_object_id += 1;
+        }
+
+        handler.subscribe_track_metrics_.objects_received++;
+        handler.ObjectReceived(headers, payload, std::move(stream_mode));
+
+        return true;
+    }
+
+    bool Session::ForwardSubgroupBytes(Stream& stream, ForwardingSubscribeTrackHandler& handler)
+    {
+        // Taken out of the buffer while it is locked and handed over once it is not, so that the
+        // network thread filling it is not left waiting on the handler. Taking the whole of what
+        // has arrived costs nothing, since the bytes move out rather than being copied.
+        Bytes data;
+
+        // What the header said, set only on the turn the subgroup starts and kept back until the
+        // lock is released along with the bytes.
+        std::optional<messages::StreamHeaderProperties> start_properties;
+        std::optional<std::uint8_t> start_priority;
+        Stream::RxParseState::Subgroup subgroup{};
+        {
+            std::lock_guard _(stream.rx_mutex);
+            auto& buffer = stream.rx_data;
+
+            auto& s_hdr = buffer.GetAny<messages::StreamHeaderSubGroup>();
+            if (not(buffer >> s_hdr)) {
+                return false; // Header has not fully arrived yet.
+            }
+
+            if (not stream.rx_parse.subgroup.has_value()) {
+                /*
+                 * Framing that takes the subgroup ID from the first object leaves it out of the
+                 * header, so the one varint that object opens with is read to find it. Nothing
+                 * else of the object is, and it stays where it is to be passed on with the rest.
+                 */
+                auto subgroup_id = s_hdr.subgroup_id;
+                if (not subgroup_id.has_value()) {
+                    auto cursor = buffer.Data();
+                    subgroup_id = TryDecodeUintV(cursor);
+                    if (not subgroup_id.has_value()) {
+                        return false; // The first object has yet to say which subgroup this is.
+                    }
+                }
+
+                stream.rx_parse.subgroup = { s_hdr.group_id, *subgroup_id };
+                start_properties.emplace(*s_hdr.properties);
+                start_priority = s_hdr.priority;
+
+                // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
+                if (s_hdr.priority.has_value()) {
+                    handler.SetPriority(*s_hdr.priority);
+                }
+            }
+
+            subgroup = *stream.rx_parse.subgroup;
+            data = buffer.TakeAll();
+        }
+
+        if (start_properties.has_value()) {
+            handler.SubgroupStarted(subgroup.group_id, subgroup.subgroup_id, start_priority, *start_properties);
+        }
+
+        if (!data.empty()) {
+            handler.StreamBytesForwarded(subgroup.group_id, subgroup.subgroup_id, std::move(data));
+        }
+
+        return false; // Everything that had arrived has been taken.
+    }
+
+    bool Session::RecvFetchObject(Stream& stream, SubscribeTrackHandler& handler)
+    {
+        // Resolving an object against the deltas before it takes it out of the buffer, so the
+        // handler is called once that is unlocked, rather than leaving the network thread filling
+        // it waiting.
+        std::optional<messages::ResolvedFetchObject> resolved;
+        {
+            std::lock_guard _(stream.rx_mutex);
+            auto& buffer = stream.rx_data;
+
+            // Resuming an already parsed header costs nothing, so it is checked per object rather
+            // than tracked as another piece of receive state.
+            auto& f_hdr = buffer.GetAny<messages::FetchHeader>();
+            if (not(buffer >> f_hdr)) {
+                return false; // Header has not fully arrived yet.
+            }
+
+            if (buffer.Empty()) {
+                return false;
+            }
+
+            if (not buffer.AnyHasValueB()) {
+                buffer.InitAnyB<messages::FetchObject>();
+            }
+
+            auto& obj = buffer.GetAnyB<messages::FetchObject>();
+            if (not(buffer >> obj)) {
+                return false; // Object has not fully arrived yet.
+            }
+
+            resolved = handler.fetch_state_->Decode(std::move(obj));
+            buffer.ResetAnyB();
+        }
+
+        // An object the peer reports as non-existent leaves nothing to hand over, but the stream
+        // has been read and can be read on.
+        if (!resolved.has_value()) {
+            // TODO: We're being told this object doesn't exist, should we notify?
+            return true;
+        }
+
+        handler.subscribe_track_metrics_.objects_received++;
+        handler.subscribe_track_metrics_.bytes_received += resolved->payload.size();
+
+        handler.ObjectReceived(resolved->headers, resolved->payload);
+
+        return true;
+    }
+
+    void Session::OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag)
+    {
+        if (stream == nullptr) {
+            return;
+        }
+
+        const auto stream_id = stream->GetStreamId();
+
         QUICR_LOGGER_DEBUG(logger_, "Stream {} closed", stream_id);
 
         if (callbacks_ != nullptr) {
             callbacks_->OnStreamClosed(stream_id, flag);
-        }
-
-        {
-            std::lock_guard lock(state_mutex_);
-            stream_buffers.erase(stream_id);
         }
 
         try {
@@ -1826,7 +1985,7 @@ namespace quicr {
         }
 
         // TODO: Replace this check with control stream IDs check.
-        if ((stream_id & 2) == 0) { // bidir
+        if (stream->IsBidirectional()) {
             switch (flag) {
                 case StreamClosedFlag::kFin:
                     if (tx_ctrl_stream_ != nullptr && tx_ctrl_stream_->GetStreamId() == stream_id) {
@@ -1845,33 +2004,28 @@ namespace quicr {
             return;
         }
 
-        if (rx_ctx == nullptr) {
-            return;
-        }
-
-        const auto handler_ptr = rx_ctx->handler.lock();
+        const auto handler_ptr = stream->rx_handler.lock();
         if (handler_ptr == nullptr) {
             QUICR_LOGGER_WARN(logger_, "Received stream closed for unknown handler");
             return;
         }
 
+        const bool reset = flag == StreamClosedFlag::kReset;
+
         try {
-            auto handler = handler_ptr.get();
-            switch (flag) {
-                case StreamClosedFlag::kFin:
-                    if (handler->is_fetch_handler_) {
-                        handler->SetStatus(FetchTrackHandler::Status::kDoneByFin);
-                    }
-                    handler->StreamClosed(stream_id, false);
-                    break;
-                case StreamClosedFlag::kReset:
-                    if (handler->is_fetch_handler_) {
-                        handler->SetStatus(FetchTrackHandler::Status::kDoneByReset);
-                    }
-                    handler->StreamClosed(stream_id, true);
-                    break;
-                case StreamClosedFlag::kStopSending:
-                    break;
+            if (handler_ptr->is_fetch_handler_ && flag != StreamClosedFlag::kStopSending) {
+                handler_ptr->SetStatus(reset ? FetchTrackHandler::Status::kDoneByReset
+                                             : FetchTrackHandler::Status::kDoneByFin);
+            }
+
+            /*
+             * A stream carries a single subgroup, so the stream closing is that subgroup ending.
+             * Only a subgroup stream ever records which one it carries, and only once the handler
+             * has been told of it, so this says nothing about a fetch or about a stream that
+             * closed before anything reached its handler.
+             */
+            if (const auto& subgroup = stream->rx_parse.subgroup) {
+                handler_ptr->SubgroupEnded(subgroup->group_id, subgroup->subgroup_id, reset);
             }
         } catch (const ProtocolViolationException& e) {
             QUICR_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);
@@ -1882,9 +2036,11 @@ namespace quicr {
         }
     }
 
-    bool Session::OnRecvSubgroup(std::uint64_t track_alias, StreamRxContext& rx_ctx, std::uint64_t stream_id)
+    bool Session::OnRecvSubgroup(std::uint64_t track_alias, Stream& stream)
     {
-        auto sub_it = sub_by_recv_track_alias.find(track_alias);
+        const auto stream_id = stream.GetStreamId();
+
+        const auto sub_it = sub_by_recv_track_alias.find(track_alias);
         if ((sub_it == sub_by_recv_track_alias.end() || sub_it->second == nullptr)) {
             current_connection_->metrics.rx_stream_unknown_track_alias++;
             QUICR_LOGGER_WARN(
@@ -1896,27 +2052,21 @@ namespace quicr {
             return false;
         }
 
-        const auto stream_it = stream_buffers.find(stream_id);
-        if (stream_it == stream_buffers.end()) {
-            QUICR_LOGGER_ERROR(logger_, "Missing expected pending stream buffer");
-            return false;
-        }
-        auto initial_buffer = std::move(stream_it->second);
-        stream_buffers.erase(stream_it);
+        stream.rx_handler = sub_it->second;
 
-        rx_ctx.is_new = false;
-        rx_ctx.handler = sub_it->second;
-        try {
-            sub_it->second->StreamDataRecv(stream_id, std::move(initial_buffer));
-        } catch (const std::exception& e) {
-            QUICR_LOGGER_ERROR(
-              logger_, "Encountered an error while receiving stream data (stream={}, error={})", stream_id, e.what());
-        }
+        // The header itself is still at the front of the stream's buffer. Setting up to parse it
+        // there is also what records, for every later arrival, what this stream carries.
+        std::lock_guard _(stream.rx_mutex);
+        stream.rx_data.InitAny<messages::StreamHeaderSubGroup>(
+          static_cast<std::uint64_t>(StreamMessageType::kSubgroupHeader));
+
         return true;
     }
 
-    bool Session::OnRecvFetch(std::uint64_t request_id, StreamRxContext& rx_ctx, std::uint64_t stream_id)
+    bool Session::OnRecvFetch(std::uint64_t request_id, Stream& stream)
     {
+        const auto stream_id = stream.GetStreamId();
+
         const auto fetch_it = request_handlers.find(request_id);
         if (fetch_it == request_handlers.end()) {
             // TODO: Metrics.
@@ -1930,24 +2080,26 @@ namespace quicr {
         }
 
         if (auto h = fetch_it->second->Get<SubscribeTrackHandler>()) {
-            const auto stream_it = stream_buffers.find(stream_id);
-            if (stream_it == stream_buffers.end()) {
-                QUICR_LOGGER_ERROR(logger_, "Missing expected pending stream buffer");
+            // Fetched objects are each given as a step from the one before, against the order the
+            // fetch was made with, so a request that never had one is not what this stream claims.
+            const auto group_order = h->GetGroupOrder();
+            if (!group_order.has_value()) {
+                QUICR_LOGGER_WARN(logger_,
+                                  "Received fetch_header naming request_id: {} which was not a fetch, stream: {}, "
+                                  "ignored",
+                                  request_id,
+                                  stream_id);
                 return false;
             }
-            auto initial_buffer = std::move(stream_it->second);
-            stream_buffers.erase(stream_it);
 
-            rx_ctx.is_new = false;
-            rx_ctx.handler = h;
-            try {
-                h->StreamDataRecv(stream_id, std::move(initial_buffer));
-            } catch (const std::exception& e) {
-                QUICR_LOGGER_ERROR(logger_,
-                                   "Encountered an error while receiving stream data (stream={}, error={})",
-                                   stream_id,
-                                   e.what());
-            }
+            stream.rx_handler = h;
+            h->fetch_state_.emplace(*group_order);
+
+            // The header itself is still at the front of the stream's buffer. Setting up to parse it
+            // there is also what records, for every later arrival, what this stream carries.
+            std::lock_guard _(stream.rx_mutex);
+            stream.rx_data.InitAny<messages::FetchHeader>(static_cast<std::uint64_t>(StreamMessageType::kFetchHeader));
+
             return true;
         }
 
@@ -1967,7 +2119,7 @@ namespace quicr {
 
     void Session::OnRecvDgram()
     {
-        for (int i = 0; i < kReadLoopMaxPerStream; i++) {
+        for (int i = 0; i < kReadLoopMax; i++) {
             auto data = quic_transport_->Dequeue(current_connection_);
             if (data && !data->empty() && data->size() > 3) {
                 auto msg_type = data->front();

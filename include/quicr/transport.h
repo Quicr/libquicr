@@ -4,7 +4,6 @@
 #pragma once
 
 #include "quicr/config.h"
-#include "quicr/containers/safe_queue.h"
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/metrics.h"
 
@@ -30,7 +29,6 @@ namespace quicr {
     class Connection;
     class Logger;
     class Stream;
-    class SubscribeTrackHandler;
 
     /**
      * Close Connection App Reasons
@@ -118,34 +116,6 @@ namespace quicr {
         std::shared_ptr<const std::vector<uint8_t>> data;
 
         uint64_t tick_microseconds; // Tick value in microseconds
-    };
-
-    /// Received stream data and the handler that consumes it
-    struct StreamRxContext
-    {
-        /**
-         * Handler consuming this stream, bound once the stream header identifies its track
-         *
-         * @details Weak so a handler that goes away while data is still arriving is detected rather
-         *      than kept alive by the transport. Empty until the header is parsed, which is the same
-         *      condition as `is_new`.
-         */
-        std::weak_ptr<SubscribeTrackHandler> handler;
-
-        bool is_new{ true }; ///< Indicates if new stream, on read set to false
-
-        /**
-         * Future tick value in milliseconds that indicates this context has
-         * expired due to being unknown.  A value of zero indicates
-         * It's no longer unknown and will not expire.
-         */
-        uint64_t unknown_expiry_tick_ms{ 0 };
-
-        /// Data queue for received data on the stream
-        SafeQueue<std::shared_ptr<const std::vector<uint8_t>>> data_queue;
-
-        /// True if we're waiting to be read.
-        std::atomic<bool> notify_pending{ false };
     };
 
     struct TransportException : std::runtime_error
@@ -293,20 +263,6 @@ namespace quicr {
          */
         virtual void CloseStream(const std::shared_ptr<Connection>& connection,
                                  const std::shared_ptr<Stream>& stream,
-                                 StreamOperation operation) = 0;
-
-        /**
-         * @brief Close a stream by ID
-         *
-         * @details For receive streams, which the caller only knows by ID. Prefer the handle form
-         *      wherever one is available.
-         *
-         * @param connection        Connection the stream belongs to
-         * @param stream_id         Stream ID to close
-         * @param operation         Operation to use to close the stream
-         */
-        virtual void CloseStream(const std::shared_ptr<Connection>& connection,
-                                 uint64_t stream_id,
                                  StreamOperation operation) = 0;
 
         /**
