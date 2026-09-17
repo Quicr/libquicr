@@ -12,7 +12,6 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <sys/socket.h>
 
 using namespace quicr;
 using namespace quicr::messages;

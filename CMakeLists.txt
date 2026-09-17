@@ -20,21 +20,6 @@ endif()
 configure_file(cmake/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h)
 
 #=============================================================================#
-# Check System Requirements
-#=============================================================================#
-
-if(NOT UNIX AND NOT APPLE AND NOT DEFINED ENV{IDF_PATH})
-    message(FATAL_ERROR "Unsupported platform; Linux, Apple, and ESP-IDF are the only supported platforms")
-endif ()
-
-set(supported_archs arm64 x86_64 aarch64 i686 armv7-a arm64-v8a)
-if (NOT ${CMAKE_SYSTEM_PROCESSOR} IN_LIST supported_archs)
-    message(FATAL_ERROR "Unsupported system architecture '${CMAKE_SYSTEM_PROCESSOR}'. Supported is arm64 and x86_64")
-endif()
-
-message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
-
-#=============================================================================#
 # Options
 #=============================================================================#
 

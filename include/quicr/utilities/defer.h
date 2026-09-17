@@ -16,11 +16,19 @@
 #define DEFER_POP
 #endif
 
+#ifdef _WIN32
+#define defer(n)                                                                                                       \
+    quicr::ScopeGuard DEFER_CONCAT(defer_, __LINE__)([&]() {                                                           \
+        DEFER_PUSH n;                                                                                                  \
+        DEFER_POP                                                                                                      \
+    })
+#else
 #define defer(n)                                                                                                       \
     quicr::ScopeGuard DEFER_CONCAT(defer_, __LINE__)([&]() __attribute__((always_inline)) {                            \
         DEFER_PUSH n;                                                                                                  \
         DEFER_POP                                                                                                      \
     })
+#endif
 
 namespace quicr {
     template<typename F>
@@ -35,7 +43,7 @@ namespace quicr {
         ScopeGuard(const ScopeGuard&) = delete;
         ScopeGuard& operator=(const ScopeGuard&) = delete;
 
-        ~ScopeGuard() { func(); }
+        ~ScopeGuard() noexcept { func(); }
 
       private:
         F func;

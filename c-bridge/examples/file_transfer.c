@@ -17,8 +17,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <unistd.h>
 
+#include "example_sleep.h"
 #include "quicr/quicr_bridge.h"
 
 #define CHUNK_SIZE 1024             // 1KB chunks
@@ -32,13 +32,17 @@ static volatile int keep_running = 1;
 static volatile int can_send_data = 0;
 static volatile int transfer_complete = 0;
 
+// These two structures go on the wire, so their layout must not gain padding.
+// #pragma pack is the spelling that MSVC, GCC and Clang all understand.
+#pragma pack(push, 1)
+
 // Metadata structure for file information (sent in first chunk)
 typedef struct
 {
     uint8_t type;          // METADATA_TYPE_FILE_INFO
     uint64_t file_size;    // Total file size in bytes
     uint64_t total_chunks; // Total number of chunks
-} __attribute__((packed)) file_metadata_t;
+} file_metadata_t;
 
 // End of transfer marker structure
 typedef struct
@@ -46,7 +50,9 @@ typedef struct
     uint8_t type;          // METADATA_TYPE_END_OF_TRANSFER
     uint64_t total_chunks; // Total chunks sent (for verification)
     uint64_t total_bytes;  // Total bytes sent (for verification)
-} __attribute__((packed)) end_metadata_t;
+} end_metadata_t;
+
+#pragma pack(pop)
 
 typedef struct
 {
@@ -267,7 +273,7 @@ send_file(qbridge_client_t* client, const char* namespace_str, const char* track
     // Wait for subscribers
     printf("Waiting for subscribers...\n");
     while (keep_running && !can_send_data) {
-        usleep(100000);
+        example_sleep_ms(100);
     }
 
     if (!keep_running) {
@@ -312,7 +318,7 @@ send_file(qbridge_client_t* client, const char* namespace_str, const char* track
 
     while (keep_running && !feof(fp)) {
         if (!can_send_data || !qbridge_publish_track_can_publish(publish_handler)) {
-            usleep(10000);
+            example_sleep_ms(10);
             continue;
         }
 
@@ -353,7 +359,7 @@ send_file(qbridge_client_t* client, const char* namespace_str, const char* track
         }
 
         // Small delay between chunks
-        usleep(1000);
+        example_sleep_ms(1);
     }
 
     printf("\n");
@@ -386,7 +392,7 @@ send_file(qbridge_client_t* client, const char* namespace_str, const char* track
     }
 
     // Give time for the end marker to be transmitted
-    sleep(1);
+    example_sleep_ms(1000);
 
     fclose(fp);
 
@@ -459,7 +465,7 @@ receive_file(qbridge_client_t* client,
 
     // Wait for transfer to complete with timeout detection
     while (keep_running && !transfer_complete) {
-        sleep(1);
+        example_sleep_ms(1000);
 
         // Check for timeout (no chunks received for TRANSFER_TIMEOUT_SECONDS)
         time_t now = time(NULL);
@@ -473,7 +479,7 @@ receive_file(qbridge_client_t* client,
 
         // Show waiting message periodically
         if (state.chunks_received == 0 && elapsed > 5 && (elapsed % 5) == 0) {
-            printf("Still waiting for data... (%ld seconds)\n", elapsed);
+            printf("Still waiting for data... (%lld seconds)\n", (long long)elapsed);
         }
     }
 
@@ -571,7 +577,7 @@ main(int argc, char* argv[])
     // Wait for connection
     printf("Waiting for connection...\n");
     while (keep_running && qbridge_client_get_status(client) == QBRIDGE_STATUS_CONNECTING) {
-        usleep(100000);
+        example_sleep_ms(100);
     }
 
     if (!keep_running) {

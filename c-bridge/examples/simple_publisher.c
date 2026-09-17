@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 
+#include "example_sleep.h"
 #include "quicr/quicr_bridge.h"
 
 static volatile int keep_running = 1;
@@ -24,22 +24,22 @@ signal_handler(int signum)
 void
 get_time_string(char* buffer, size_t buffer_size)
 {
+    // timespec_get and localtime are the portable C11 spellings of this; the
+    // examples are single threaded, so localtime's shared buffer is fine.
     struct timespec ts;
-    struct tm tm_result;
-
-    clock_gettime(CLOCK_REALTIME, &ts);
-    localtime_r(&ts.tv_sec, &tm_result);
+    timespec_get(&ts, TIME_UTC);
+    const struct tm* tm_result = localtime(&ts.tv_sec);
 
     snprintf(buffer,
              buffer_size,
              "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
-             tm_result.tm_year + 1900,
-             tm_result.tm_mon + 1,
-             tm_result.tm_mday,
-             tm_result.tm_hour,
-             tm_result.tm_min,
-             tm_result.tm_sec,
-             ts.tv_nsec / 1000);
+             tm_result->tm_year + 1900,
+             tm_result->tm_mon + 1,
+             tm_result->tm_mday,
+             tm_result->tm_hour,
+             tm_result->tm_min,
+             tm_result->tm_sec,
+             (long)(ts.tv_nsec / 1000));
 }
 
 void
@@ -196,7 +196,7 @@ main(int argc, char* argv[])
     // Wait for connection
     printf("Waiting for connection...\n");
     while (keep_running && qbridge_client_get_status(client) == QBRIDGE_STATUS_CONNECTING) {
-        usleep(100000); // 100ms
+        example_sleep_ms(100);
     }
 
     if (!keep_running) {
@@ -328,7 +328,7 @@ main(int argc, char* argv[])
             }
 
             // Sleep for 1 second
-            sleep(1);
+            example_sleep_ms(1000);
         }
     } else {
         printf("Type messages and press Enter to publish (Ctrl+C to stop)...\n");
@@ -352,9 +352,9 @@ main(int argc, char* argv[])
             time_t now = time(NULL);
             snprintf(test_data,
                      sizeof(test_data),
-                     "Test object data - %s (timestamp: %ld, group: %llu, object: %llu)",
+                     "Test object data - %s (timestamp: %lld, group: %llu, object: %llu)",
                      input_buffer,
-                     now,
+                     (long long)now,
                      group_id,
                      object_id);
 

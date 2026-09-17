@@ -17,7 +17,11 @@ target_include_directories(qclient PRIVATE ../dependencies )
 target_compile_options(qclient
         PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
-        $<$<CXX_COMPILER_ID:MSVC>: >)
+        $<$<CXX_COMPILER_ID:MSVC>:>)
+
+if (MSVC)
+        target_compile_options(sframe PRIVATE $<$<CXX_COMPILER_ID:MSVC>: /WX->)
+endif()
 
 set_target_properties(qclient
         PROPERTIES
