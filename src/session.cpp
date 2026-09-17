@@ -1548,6 +1548,7 @@ namespace quicr {
         // settled for the whole turn rather than per message. Holding the handler also keeps it
         // alive across the turn, so a subgroup cannot be abandoned part way through.
         std::shared_ptr<SubscribeTrackHandler> handler;
+        std::shared_ptr<ForwardingSubscribeTrackHandler> forwarder;
         bool reads_subgroups = false;
         if (!is_ctrl_stream) {
             handler = stream->rx_handler.lock();
@@ -1568,11 +1569,25 @@ namespace quicr {
             if (!reads_subgroups && stream_type != static_cast<std::uint64_t>(StreamMessageType::kFetchHeader)) {
                 return false;
             }
+
+            forwarder = std::dynamic_pointer_cast<ForwardingSubscribeTrackHandler>(handler);
+            if (forwarder != nullptr && !reads_subgroups) {
+                QUICR_LOGGER_WARN(logger_,
+                                  "Fetch on stream_id: {} is for a handler that takes bytes, which fetch does not "
+                                  "support, ignored",
+                                  stream->GetStreamId());
+                return false;
+            }
         }
 
-        // Reading stops short of draining the stream, so a burst on one does not starve the others,
-        // and says as much to earn another turn once they have had theirs.
+        // A stream passed on as bytes is taken whole, since it costs no more to take all of what
+        // has arrived than part of it. Reading objects instead stops short of draining the stream,
+        // so a burst on one does not starve the others, and says as much to earn another turn.
         const bool has_remaining = [&] {
+            if (forwarder != nullptr) {
+                return ForwardSubgroupBytes(*stream, *forwarder);
+            }
+
             for (int i = 0; i < kReadLoopMax; i++) {
                 const bool read = is_ctrl_stream    ? RecvCtrlMessage(stream, is_request_stream)
                                   : reads_subgroups ? RecvSubgroupObject(*stream, *handler)
@@ -1774,8 +1789,9 @@ namespace quicr {
             // Objects carry only the step from the one before, counted from the start of each
             // subgroup. The first also reports how the subgroup is framed.
             auto& next_object_id = stream.rx_parse.next_object_id;
-            const bool same_subgroup = next_object_id.has_value() && stream.rx_parse.group_id == s_hdr.group_id &&
-                                       stream.rx_parse.subgroup_id == s_hdr.subgroup_id;
+            const auto carried = stream.rx_parse.subgroup;
+            const bool same_subgroup = next_object_id.has_value() && carried.has_value() &&
+                                       carried->group_id == s_hdr.group_id && carried->subgroup_id == s_hdr.subgroup_id;
             if (!next_object_id.has_value()) {
                 stream_mode.emplace(*s_hdr.properties);
             }
@@ -1789,8 +1805,7 @@ namespace quicr {
                 s_hdr.subgroup_id = next_object_id;
             }
 
-            stream.rx_parse.group_id = s_hdr.group_id;
-            stream.rx_parse.subgroup_id = *s_hdr.subgroup_id;
+            stream.rx_parse.subgroup = { s_hdr.group_id, *s_hdr.subgroup_id };
 
             payload = std::move(partial.payload);
             headers = { s_hdr.group_id,
@@ -1812,6 +1827,69 @@ namespace quicr {
         handler.ObjectReceived(headers, payload, std::move(stream_mode));
 
         return true;
+    }
+
+    bool Session::ForwardSubgroupBytes(Stream& stream, ForwardingSubscribeTrackHandler& handler)
+    {
+        // Taken out of the buffer while it is locked and handed over once it is not, so that the
+        // network thread filling it is not left waiting on the handler. Taking the whole of what
+        // has arrived costs nothing, since the bytes move out rather than being copied.
+        Bytes data;
+
+        // What the header said, kept back until the lock is released along with the bytes.
+        struct SubgroupStart
+        {
+            std::optional<std::uint8_t> priority;
+            messages::StreamHeaderProperties properties;
+        };
+        std::optional<SubgroupStart> started;
+        Stream::RxParseState::Subgroup subgroup{};
+        {
+            std::lock_guard _(stream.rx_mutex);
+            auto& buffer = stream.rx_data;
+
+            auto& s_hdr = buffer.GetAny<messages::StreamHeaderSubGroup>();
+            if (not(buffer >> s_hdr)) {
+                return false; // Header has not fully arrived yet.
+            }
+
+            if (not stream.rx_parse.subgroup.has_value()) {
+                /*
+                 * Framing that takes the subgroup ID from the first object leaves it out of the
+                 * header, so the one varint that object opens with is read to find it. Nothing
+                 * else of the object is, and it stays where it is to be passed on with the rest.
+                 */
+                auto subgroup_id = s_hdr.subgroup_id;
+                if (not subgroup_id.has_value()) {
+                    auto cursor = buffer.Data();
+                    subgroup_id = TryDecodeUintV(cursor);
+                    if (not subgroup_id.has_value()) {
+                        return false; // The first object has yet to say which subgroup this is.
+                    }
+                }
+
+                stream.rx_parse.subgroup = { s_hdr.group_id, *subgroup_id };
+                started.emplace(s_hdr.priority, *s_hdr.properties);
+
+                // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
+                if (s_hdr.priority.has_value()) {
+                    handler.SetPriority(*s_hdr.priority);
+                }
+            }
+
+            subgroup = *stream.rx_parse.subgroup;
+            data = buffer.TakeAll();
+        }
+
+        if (started.has_value()) {
+            handler.SubgroupStarted(subgroup.group_id, subgroup.subgroup_id, started->priority, started->properties);
+        }
+
+        if (!data.empty()) {
+            handler.StreamBytesForwarded(subgroup.group_id, subgroup.subgroup_id, data);
+        }
+
+        return false; // Everything that had arrived has been taken.
     }
 
     bool Session::RecvFetchObject(Stream& stream, SubscribeTrackHandler& handler)
@@ -1944,12 +2022,12 @@ namespace quicr {
 
             /*
              * A stream carries a single subgroup, so the stream closing is that subgroup ending.
-             * Only subgroup streams track which object comes next, and only once one has arrived,
-             * so this says nothing about a fetch or about a stream that closed before delivering
-             * anything.
+             * Only a subgroup stream ever records which one it carries, and only once the handler
+             * has been told of it, so this says nothing about a fetch or about a stream that
+             * closed before anything reached its handler.
              */
-            if (stream->rx_parse.next_object_id.has_value()) {
-                handler_ptr->SubgroupEnded(stream->rx_parse.group_id, stream->rx_parse.subgroup_id, reset);
+            if (const auto& subgroup = stream->rx_parse.subgroup) {
+                handler_ptr->SubgroupEnded(subgroup->group_id, subgroup->subgroup_id, reset);
             }
         } catch (const ProtocolViolationException& e) {
             QUICR_LOGGER_ERROR(logger_, "Protocol violation on stream data recv: {}", e.reason);

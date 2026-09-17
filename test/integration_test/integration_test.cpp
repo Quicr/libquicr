@@ -1,5 +1,6 @@
 #include "quicr/config.h"
 #include "quicr/handlers/fetch_track_handler.h"
+#include "quicr/handlers/forwarding_subscribe_track_handler.h"
 #include "quicr/handlers/publish_namespace_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
@@ -414,6 +415,119 @@ class CloseOrderingSubscribeHandler final : public TestSubscribeHandler
     std::atomic<bool> delayed_first_object_{ false };
     std::atomic<std::size_t> received_count_at_close_{ kNotClosed };
 };
+
+/// @brief Subscribe handler taking its track's streams as bytes, the way a relay passing them on does
+class TestForwardingSubscribeHandler final : public ForwardingSubscribeTrackHandler
+{
+  public:
+    /// @brief A subgroup as it was handed over, start to end
+    struct Subgroup
+    {
+        std::uint64_t group_id;
+        std::uint64_t subgroup_id;
+        std::optional<std::uint8_t> priority;
+        messages::StreamHeaderProperties properties;
+        std::vector<std::uint8_t> bytes;
+        bool ended;
+        bool reset;
+    };
+
+    static std::shared_ptr<TestForwardingSubscribeHandler> Create(const FullTrackName& full_track_name,
+                                                                  std::uint8_t priority)
+    {
+        return std::shared_ptr<TestForwardingSubscribeHandler>(
+          new TestForwardingSubscribeHandler(full_track_name, priority));
+    }
+
+    std::vector<Subgroup> GetSubgroups() const
+    {
+        std::lock_guard lock(mutex_);
+        return subgroups_;
+    }
+
+    std::size_t GetSubgroupCount() const
+    {
+        std::lock_guard lock(mutex_);
+        return subgroups_.size();
+    }
+
+    /// @returns Times an object was handed over, which must never happen for a forwarding handler
+    std::size_t GetObjectCount() const noexcept { return object_count_; }
+
+  protected:
+    TestForwardingSubscribeHandler(const FullTrackName& full_track_name, std::uint8_t priority)
+      : ForwardingSubscribeTrackHandler(full_track_name, priority, messages::GroupOrder::kAscending)
+    {
+    }
+
+    void SubgroupStarted(std::uint64_t group_id,
+                         std::uint64_t subgroup_id,
+                         std::optional<std::uint8_t> priority,
+                         messages::StreamHeaderProperties properties) override
+    {
+        std::lock_guard lock(mutex_);
+        subgroups_.emplace_back(group_id, subgroup_id, priority, properties, std::vector<std::uint8_t>{}, false, false);
+    }
+
+    void StreamBytesForwarded(std::uint64_t group_id, std::uint64_t subgroup_id, BytesSpan data) override
+    {
+        std::lock_guard lock(mutex_);
+        if (auto* subgroup = Find(group_id, subgroup_id)) {
+            subgroup->bytes.insert(subgroup->bytes.end(), data.begin(), data.end());
+        }
+    }
+
+    void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
+    {
+        std::lock_guard lock(mutex_);
+        if (auto* subgroup = Find(group_id, subgroup_id)) {
+            subgroup->ended = true;
+            subgroup->reset = reset;
+        }
+    }
+
+    void ObjectReceived(const ObjectHeaders&, BytesSpan, std::optional<messages::StreamHeaderProperties>) override
+    {
+        ++object_count_;
+    }
+
+  private:
+    Subgroup* Find(std::uint64_t group_id, std::uint64_t subgroup_id)
+    {
+        for (auto& subgroup : subgroups_) {
+            if (subgroup.group_id == group_id && subgroup.subgroup_id == subgroup_id) {
+                return &subgroup;
+            }
+        }
+
+        return nullptr;
+    }
+
+    mutable std::mutex mutex_;
+    std::vector<Subgroup> subgroups_;
+    std::atomic<std::size_t> object_count_{ 0 };
+};
+
+/// @brief Read the objects back out of a subgroup's forwarded bytes, as whatever they are passed to would
+static std::vector<std::vector<std::uint8_t>>
+DecodeForwardedObjects(const TestForwardingSubscribeHandler::Subgroup& subgroup)
+{
+    StreamBuffer<std::uint8_t> buffer;
+    buffer.Push(std::span<const std::uint8_t>{ subgroup.bytes });
+
+    std::vector<std::vector<std::uint8_t>> payloads;
+    while (!buffer.Empty()) {
+        messages::StreamSubGroupObject object;
+        object.properties.emplace(subgroup.properties);
+        if (!(buffer >> object)) {
+            break;
+        }
+
+        payloads.push_back(std::move(object.payload));
+    }
+
+    return payloads;
+}
 
 TEST_CASE("Integration - Connection")
 {
@@ -2100,6 +2214,134 @@ TEST_CASE("Integration - Small data callbacks assemble")
                                  .track_mode = TrackMode::kStream };
     REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
     CHECK(received_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+}
+
+TEST_CASE("Integration - A forwarding subscriber is given subgroup bytes rather than objects")
+{
+    quicr::SessionManager session_mgr;
+
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto [subscriber, _] = MakeTestClient(session_mgr);
+    auto [publisher, __] = MakeTestClient(session_mgr);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "forward", "bytes" }), { 1 } };
+
+    auto subscribe_handler = TestForwardingSubscribeHandler::Create(ftn, 3);
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(
+      WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+    const auto publish = [&publish_handler](std::uint64_t object_id, messages::SubgroupIdType mode) {
+        const std::vector<std::uint8_t> payload(16, static_cast<std::uint8_t>(object_id));
+        const ObjectHeaders headers{ .group_id = 0,
+                                     .object_id = object_id,
+                                     .subgroup_id = 4,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 10'000,
+                                     .track_mode = TrackMode::kStream };
+        std::optional<messages::StreamHeaderProperties> stream_mode;
+        stream_mode.emplace(true, mode, false, false, object_id == 0);
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload, stream_mode),
+                   PublishTrackHandler::PublishObjectStatus::kOk);
+    };
+
+    for (std::uint64_t object_id = 0; object_id < 3; ++object_id) {
+        publish(object_id, messages::SubgroupIdType::kExplicit);
+    }
+
+    REQUIRE(WaitFor([&subscribe_handler] { return subscribe_handler->GetSubgroupCount() == 1; }));
+
+    // The bytes handed over are the objects as they were sent, so what they are passed to reads
+    // the same objects back out of them using only the framing reported alongside.
+    REQUIRE(WaitFor([&subscribe_handler] {
+        const auto subgroups = subscribe_handler->GetSubgroups();
+        return !subgroups.empty() && DecodeForwardedObjects(subgroups.front()).size() == 3;
+    }));
+
+    {
+        const auto subgroups = subscribe_handler->GetSubgroups();
+        REQUIRE_EQ(subgroups.size(), 1);
+
+        const auto& subgroup = subgroups.front();
+        CHECK_EQ(subgroup.group_id, 0);
+        CHECK_EQ(subgroup.subgroup_id, 4);
+        CHECK_EQ(subgroup.priority, 3);
+        CHECK_EQ(subgroup.properties.subgroup_id_mode, messages::SubgroupIdType::kExplicit);
+
+        const auto payloads = DecodeForwardedObjects(subgroup);
+        REQUIRE_EQ(payloads.size(), 3);
+        for (std::size_t i = 0; i < payloads.size(); ++i) {
+            CHECK_EQ(payloads[i], std::vector<std::uint8_t>(16, static_cast<std::uint8_t>(i)));
+        }
+    }
+
+    // Nothing decodes objects on this handler's behalf, which is the point of it.
+    CHECK_EQ(subscribe_handler->GetObjectCount(), 0);
+
+    // Closing the subgroup ends it, so a relay knows to close the one it is publishing.
+    publish_handler->EndSubgroup(0, 4, true);
+    CHECK(WaitFor([&subscribe_handler] {
+        const auto subgroups = subscribe_handler->GetSubgroups();
+        return !subgroups.empty() && subgroups.front().ended;
+    }));
+    CHECK_FALSE(subscribe_handler->GetSubgroups().front().reset);
+}
+
+TEST_CASE("Integration - A forwarded subgroup framed from its first object is still named")
+{
+    quicr::SessionManager session_mgr;
+
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto [subscriber, _] = MakeTestClient(session_mgr);
+    auto [publisher, __] = MakeTestClient(session_mgr);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "forward", "first-object" }), { 1 } };
+
+    auto subscribe_handler = TestForwardingSubscribeHandler::Create(ftn, 3);
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(
+      WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+    // Framing that leaves the subgroup ID out of the header, to be taken from the first object.
+    constexpr std::uint64_t first_object_id = 7;
+    const std::vector<std::uint8_t> payload(8, 0x2b);
+    const ObjectHeaders headers{ .group_id = 0,
+                                 .object_id = first_object_id,
+                                 .subgroup_id = first_object_id,
+                                 .payload_length = payload.size(),
+                                 .status = ObjectStatus::kAvailable,
+                                 .priority = 3,
+                                 .ttl = 10'000,
+                                 .track_mode = TrackMode::kStream };
+    std::optional<messages::StreamHeaderProperties> stream_mode;
+    stream_mode.emplace(true, messages::SubgroupIdType::kSetFromFirstObject, false, false, true);
+    REQUIRE_EQ(publish_handler->PublishObject(headers, payload, stream_mode),
+               PublishTrackHandler::PublishObjectStatus::kOk);
+
+    // The header cannot say which subgroup this is, so it is read from the object that follows.
+    REQUIRE(WaitFor([&subscribe_handler] { return subscribe_handler->GetSubgroupCount() == 1; }));
+
+    const auto subgroups = subscribe_handler->GetSubgroups();
+    REQUIRE_EQ(subgroups.size(), 1);
+    CHECK_EQ(subgroups.front().subgroup_id, first_object_id);
+    CHECK_EQ(subgroups.front().properties.subgroup_id_mode, messages::SubgroupIdType::kSetFromFirstObject);
+
+    // That object is left where it is, so it is passed on along with the rest.
+    CHECK(WaitFor([&subscribe_handler] {
+        const auto current = subscribe_handler->GetSubgroups();
+        return !current.empty() && DecodeForwardedObjects(current.front()).size() == 1;
+    }));
+    CHECK_EQ(DecodeForwardedObjects(subscribe_handler->GetSubgroups().front()).front(), payload);
 }
 
 TEST_CASE("Integration - Failed publish does not create subgroup state")
