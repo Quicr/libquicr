@@ -1089,6 +1089,8 @@ PicoQuicTransport::Start()
         local_tp_options_.initial_max_stream_data_bidi_local = tconfig_.initial_max_stream_data;
         local_tp_options_.initial_max_stream_data_bidi_remote = tconfig_.initial_max_stream_data;
     }
+    local_tp_options_.initial_max_stream_id_bidir = tconfig_.initial_max_stream_id;
+    local_tp_options_.initial_max_stream_id_unidir = tconfig_.initial_max_stream_id;
 
     QUICR_LOGGER_INFO(logger, "Setting idle timeout to {}ms", tconfig_.idle_timeout_ms);
 
