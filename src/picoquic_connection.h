@@ -6,7 +6,6 @@
 #include "quicr/connection.h"
 #include "quicr/containers/priority_queue.h"
 #include "quicr/containers/safe_queue.h"
-#include "quicr/containers/safe_time_queue.h"
 #include "quicr/metrics.h"
 #include "quicr/transport.h"
 #include "stream.h"
@@ -19,6 +18,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <utility>
 #include <vector>
 
@@ -41,7 +41,7 @@ namespace quicr {
       public:
         PicoQuicStream(std::uint64_t stream_id,
                        std::uint64_t conn_id,
-                       std::unique_ptr<SafeTimeQueue<ConnData>> tx_queue);
+                       std::unique_ptr<std::queue<ConnData>> tx_queue);
 
         ~PicoQuicStream() = default;
 
@@ -81,7 +81,10 @@ namespace quicr {
         uint8_t priority{ 0 };
 
         /// Pending objects to be written to the network
-        std::unique_ptr<SafeTimeQueue<ConnData>> tx_data;
+        std::unique_ptr<std::queue<ConnData>> tx_data;
+
+        /// Guards tx_data; Enqueue runs on application threads, send on the picoquic thread
+        std::mutex tx_mutex;
 
         /// True once the send direction has been closed or reset.
         std::atomic<bool> tx_closed{ false };
@@ -167,7 +170,7 @@ namespace quicr {
          * @param tx_queue   Transmit queue, or nullptr for a receive-only stream
          */
         std::shared_ptr<PicoQuicStream> AddStream(std::uint64_t stream_id,
-                                                  std::unique_ptr<SafeTimeQueue<ConnData>> tx_queue);
+                                                  std::unique_ptr<std::queue<ConnData>> tx_queue);
 
         /**
          * @returns Handle to the existing stream, creating one if absent.
@@ -177,7 +180,7 @@ namespace quicr {
          *      is given a TX queue; a unidirectional one is receive-only and passes nullptr.
          */
         std::shared_ptr<PicoQuicStream> GetOrAddStream(std::uint64_t stream_id,
-                                                       std::unique_ptr<SafeTimeQueue<ConnData>> tx_queue);
+                                                       std::unique_ptr<std::queue<ConnData>> tx_queue);
 
         /// @returns Handle to the removed stream, or nullptr if no such stream existed.
         std::shared_ptr<PicoQuicStream> RemoveStream(std::uint64_t stream_id);
