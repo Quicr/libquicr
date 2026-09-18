@@ -88,8 +88,7 @@ quicr::PicoQuicConnection::AddStream(const std::uint64_t stream_id, std::unique_
 }
 
 std::shared_ptr<quicr::PicoQuicStream>
-quicr::PicoQuicConnection::GetOrAddStream(const std::uint64_t stream_id,
-                                          std::unique_ptr<std::queue<ConnData>> tx_queue)
+quicr::PicoQuicConnection::GetOrAddStream(const std::uint64_t stream_id, std::unique_ptr<std::queue<ConnData>> tx_queue)
 {
     std::lock_guard _(stream_mutex_);
 

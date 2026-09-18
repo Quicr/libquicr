@@ -44,7 +44,9 @@ namespace quicr {
         uint64_t initial_max_stream_data{ 0 };       ///< Initial per-stream receive window (all streams). 0=default.
         uint64_t initial_max_stream_id{ 512 };       ///< Initial stream limit (bidirectional and unidirectional).
         std::size_t quic_shards{ 1 };                ///< Number of picoquic instances to use (server mode).
-        bool use_af_xdp{ true }; ///< Use AF_XDP TX when available; fall back to sendmsg. GSO trains become one XDP batch.
+        bool use_af_xdp{
+            true
+        }; ///< Use AF_XDP TX when available; fall back to sendmsg. GSO trains become one XDP batch.
     };
 
     struct Config

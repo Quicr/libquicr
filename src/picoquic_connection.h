@@ -39,9 +39,7 @@ namespace quicr {
     class PicoQuicStream : public Stream
     {
       public:
-        PicoQuicStream(std::uint64_t stream_id,
-                       std::uint64_t conn_id,
-                       std::unique_ptr<std::queue<ConnData>> tx_queue);
+        PicoQuicStream(std::uint64_t stream_id, std::uint64_t conn_id, std::unique_ptr<std::queue<ConnData>> tx_queue);
 
         ~PicoQuicStream() = default;
 

@@ -410,10 +410,7 @@ try {
                 tx_reason = shard->quic_network_thread_ctx->tx_method_reason;
             }
             if (tx_reason != nullptr && tx_reason[0] != '\0') {
-                QUICR_LOGGER_INFO(transport->logger,
-                                 "packet_loop_ready, TX method: {} ({})",
-                                 tx_method,
-                                 tx_reason);
+                QUICR_LOGGER_INFO(transport->logger, "packet_loop_ready, TX method: {} ({})", tx_method, tx_reason);
             } else {
                 QUICR_LOGGER_INFO(transport->logger, "packet_loop_ready, TX method: {}", tx_method);
             }
