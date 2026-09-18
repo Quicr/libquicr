@@ -204,7 +204,7 @@ try {
 
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto tx_stream = stream ? stream : connection->GetStream(stream_id)) {
-                    tx_stream->tx_closed.store(true, std::memory_order_release);
+                    tx_stream->MarkTxClosed();
                     transport->OnStreamClosed(connection, stream_id, tx_stream->rx_ctx, StreamClosedFlag::kStopSending);
                     if (tx_stream->IsFullyClosed()) {
                         transport->EraseStreamState(connection, stream_id);
@@ -844,7 +844,7 @@ try {
 
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto stream = GetStreamForWT(connection, stream_id)) {
-                    stream->tx_closed.store(true, std::memory_order_release);
+                    stream->MarkTxClosed();
                     transport->OnStreamClosed(connection, stream_id, stream->rx_ctx, StreamClosedFlag::kStopSending);
                     if (stream->IsFullyClosed()) {
                         ClearStreamForWT(connection, stream_id);
@@ -1216,10 +1216,16 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
                                  const uint32_t ttl_ms,
                                  const EnqueueFlags flags)
 {
+    if (stream == nullptr || stream->tx_data == nullptr) {
+        return TransportError::kInvalidStreamId;
+    }
+
+    std::lock_guard _(*stream->tx_data);
+
     // A caller-held handle outlives removal from the connection, so being open is what says the
     // stream is still writable. Queuing past that point would mark a stream active that the
     // transport has already committed to tearing down.
-    if (stream == nullptr || !stream->IsOpen() || stream->tx_closed.load(std::memory_order_acquire)) {
+    if (!stream->IsOpen() || stream->tx_closed.load(std::memory_order_acquire)) {
         return TransportError::kInvalidStreamId;
     }
 
@@ -1227,8 +1233,6 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
     stream->priority = priority; // Match object priority for next stream create
 
     StreamAction stream_action{ StreamAction::kNoAction };
-
-    std::lock_guard _(*stream->tx_data);
 
     if (flags.close_stream) {
         if (flags.use_reset) {
@@ -2866,7 +2870,7 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
     }
 
     if (operation == StreamOperation::kReset || operation == StreamOperation::kCancel) {
-        stream->tx_closed.store(true, std::memory_order_release);
+        stream->MarkTxClosed();
         if (connection->GetAPI() == Connection::API::kWebTransport) {
             if (stream != nullptr && stream->wt_stream_ctx != nullptr) {
                 picowt_reset_stream(connection->pq_cnx, stream->wt_stream_ctx, 0);
@@ -2876,7 +2880,7 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
             picoquic_reset_stream(connection->pq_cnx, stream_id, 0);
         }
     } else if (operation == StreamOperation::kFin) {
-        stream->tx_closed.store(true, std::memory_order_release);
+        stream->MarkTxClosed();
         // TODO: PQ doesn't have a method to call to FIN a stream correctly, so we FIN it in SendStreamBytes()
 
         // Below doesn't work correctly, results in loss of data inflight
