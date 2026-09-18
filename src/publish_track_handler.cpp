@@ -378,12 +378,15 @@ namespace quicr {
 
         object_msg_buffer_.clear();
 
-        Transport::EnqueueFlags eflags;
-        eflags.use_reliable = true;
-        eflags.close_stream = true;
-        eflags.use_reset = !completed;
+        if (completed) {
+            Transport::EnqueueFlags eflags;
+            eflags.use_reliable = true;
+            eflags.close_stream = true;
 
-        session->Enqueue(subgroup_it->second.stream, {}, default_priority_, default_ttl_, eflags);
+            session->Enqueue(subgroup_it->second.stream, {}, default_priority_, default_ttl_, eflags);
+        } else {
+            session->ResetSubgroup(subgroup_it->second.stream);
+        }
 
         group_it->second.erase(subgroup_it);
         if (group_it->second.empty()) {
