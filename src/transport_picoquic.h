@@ -6,7 +6,6 @@
 #include "picoquic_connection.h"
 #include "quicr/containers/priority_queue.h"
 #include "quicr/containers/safe_queue.h"
-#include "quicr/containers/safe_time_queue.h"
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/log.h"
 #include "quicr/metrics.h"
@@ -39,7 +38,6 @@
 
 namespace quicr {
 
-    constexpr int kPqLoopMaxDelayUs = 5000;           /// The max microseconds that pq_loop will be ran again
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
     constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
 
@@ -178,7 +176,8 @@ namespace quicr {
         /// Get pq config to use.
         static picoquic_packet_loop_param_t MakeThreadConfig(uint16_t listen_port,
                                                              std::size_t socket_buffer_size,
-                                                             std::size_t shard_count);
+                                                             std::size_t shard_count,
+                                                             bool use_af_xdp);
 
         /**
          * @brief Accept an incoming WebTransport connection
@@ -195,8 +194,8 @@ namespace quicr {
                                          size_t path_length,
                                          h3zero_stream_ctx_t* stream_ctx);
 
-        /// @returns A TX queue configured from the transport's time-queue settings.
-        std::unique_ptr<SafeTimeQueue<ConnData>> MakeStreamTxQueue() const;
+        /// @returns A TX queue for a send-capable stream.
+        std::unique_ptr<std::queue<ConnData>> MakeStreamTxQueue() const;
 
         const std::shared_ptr<PicoQuicConnection>& CreateConnection(picoquic_cnx_t* pq_cnx,
                                                                     Connection::API api = Connection::API::kNativeQuic);
@@ -317,8 +316,11 @@ namespace quicr {
          *      handles and marking is skipped for a stream that is no longer open, so stream
          *      teardown does not have to flush the queue first. Closing a connection still does,
          *      because a queued datagram mark has no equivalent guard.
+         *
+         * @return true if at least one stream or datagram was marked, so the packet loop should
+         *      skip poll and send immediately.
          */
-        void ProcessMarkActive(Shard& shard);
+        bool ProcessMarkActive(Shard& shard);
 
       public:
         std::shared_ptr<Logger> logger;
@@ -355,6 +357,25 @@ namespace quicr {
          * @details This method MUST only be called within the picoquic thread.
          */
         void MarkDgramReady(const std::shared_ptr<PicoQuicConnection>& connection);
+
+        /**
+         * @brief Ask the picoquic thread to mark a stream active.
+         *
+         * @details Picoquic only re-wakes a stream on the inactive→active transition. Call this after
+         *      enqueueing when the stream had no TX in flight; skip it when picoquic is already
+         *      pulling from the queue. Same-thread callers mark immediately; others queue and wake
+         *      the loop once if the mark queue was empty.
+         */
+        void QueueStreamMarkActive(const std::shared_ptr<PicoQuicConnection>& connection,
+                                   const std::shared_ptr<PicoQuicStream>& stream);
+
+        /**
+         * @brief Ask the picoquic thread to mark datagrams ready.
+         *
+         * @details Same inactive→active rule as streams. Picoquic ignores repeated
+         *      `picoquic_mark_datagram_ready` once the connection is already ready.
+         */
+        void QueueDatagramMarkReady(const std::shared_ptr<PicoQuicConnection>& connection);
 
         /**
          * @brief Initialize WebTransport context
