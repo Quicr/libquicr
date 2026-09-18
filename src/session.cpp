@@ -2133,6 +2133,11 @@ namespace quicr {
         return quic_transport_->Enqueue(current_connection_, stream, std::move(bytes), priority, ttl_ms, flags);
     }
 
+    void Session::ResetSubgroup(const std::shared_ptr<Stream>& stream)
+    {
+        quic_transport_->CloseStream(current_connection_, stream, StreamOperation::kReset);
+    }
+
     // -- Resolve Methods --
 
     void Session::ResolveFetch(uint64_t request_id,

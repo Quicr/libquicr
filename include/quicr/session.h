@@ -643,6 +643,8 @@ namespace quicr {
                                const Transport::EnqueueFlags flags);
 
       private:
+        void ResetSubgroup(const std::shared_ptr<Stream>& stream);
+
         std::shared_ptr<Connection> current_connection_;
 
         std::shared_ptr<Callbacks> callbacks_;
