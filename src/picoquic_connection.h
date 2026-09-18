@@ -68,6 +68,18 @@ namespace quicr {
             tx_object_offset = 0;
         }
 
+        /**
+         * Close the send direction.
+         */
+        void MarkTxClosed()
+        {
+            if (tx_data == nullptr) {
+                return;
+            }
+            std::lock_guard _(*tx_data);
+            tx_closed.store(true, std::memory_order_release);
+        }
+
       public:
         /// Instructs that the stream should be closed upon empty
         bool close_on_empty : 1 { false };
