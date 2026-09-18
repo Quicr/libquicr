@@ -1748,7 +1748,7 @@ namespace quicr {
                         throw ProtocolViolationException(e.reason);
                     } catch (std::exception& e) {
                         QUICR_LOGGER_ERROR(logger_, "Caught exception on stream data recv: {}", e.what());
-                        throw e;
+                        throw;
                     }
                 } else {
                     QUICR_LOGGER_ERROR(
