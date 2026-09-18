@@ -76,7 +76,7 @@ namespace quicr {
             if (tx_data == nullptr) {
                 return;
             }
-            std::lock_guard _(*tx_data);
+            std::lock_guard _(tx_mutex);
             tx_closed.store(true, std::memory_order_release);
         }
 

@@ -79,7 +79,7 @@ TEST_CASE("A stream is fully closed when every available direction is closed")
 
     SUBCASE("Bidirectional")
     {
-        auto queue = std::make_unique<SafeTimeQueue<ConnData>>(std::make_shared<timeq::threaded_tick_service>());
+        auto queue = std::make_unique<std::queue<ConnData>>();
         const auto stream = connection->AddStream(0, std::move(queue));
 
         CHECK_FALSE(stream->IsFullyClosed());

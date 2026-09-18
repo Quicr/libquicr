@@ -1238,23 +1238,21 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
         return TransportError::kInvalidStreamId;
     }
 
-    std::lock_guard _(*stream->tx_data);
-
-    // A caller-held handle outlives removal from the connection, so being open is what says the
-    // stream is still writable. Queuing past that point would mark a stream active that the
-    // transport has already committed to tearing down.
-    if (!stream->IsOpen() || stream->tx_closed.load(std::memory_order_acquire)) {
-        return TransportError::kInvalidStreamId;
-    }
-
-    stream->metrics.enqueued_objs++;
-    stream->priority = priority; // Match object priority for next stream create
-
-    StreamAction stream_action{ StreamAction::kNoAction };
-
     bool needs_mark = false;
     {
         std::lock_guard _(stream->tx_mutex);
+
+        // A caller-held handle outlives removal from the connection, so being open is what says the
+        // stream is still writable. Queuing past that point would mark a stream active that the
+        // transport has already committed to tearing down.
+        if (!stream->IsOpen() || stream->tx_closed.load(std::memory_order_acquire)) {
+            return TransportError::kInvalidStreamId;
+        }
+
+        stream->metrics.enqueued_objs++;
+        stream->priority = priority; // Match object priority for next stream create
+
+        StreamAction stream_action{ StreamAction::kNoAction };
 
         if (flags.close_stream) {
             if (flags.use_reset) {
