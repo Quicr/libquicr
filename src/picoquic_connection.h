@@ -62,7 +62,7 @@ namespace quicr {
         /**
          * Reset the TX object buffer
          */
-        void ResetTxObject()
+        void ResetTxObject() QUICR_REQUIRES(tx_mutex)
         {
             tx_object = nullptr;
             tx_object_offset = 0;
@@ -91,16 +91,16 @@ namespace quicr {
         uint8_t priority{ 0 };
 
         /// Pending objects to be written to the network
-        std::unique_ptr<std::queue<ConnData>> tx_data;
+        const std::unique_ptr<std::queue<ConnData>> tx_data QUICR_PT_GUARDED_BY(tx_mutex);
 
-        /// Guards tx_data; Enqueue runs on application threads, send on the picoquic thread
+        /// Guards tx state; Enqueue runs on application threads, send on the picoquic thread
         std::mutex tx_mutex;
 
         /// True once the send direction has been closed or reset.
         std::atomic<bool> tx_closed{ false };
 
         /// Current object that is being sent as a byte stream
-        std::shared_ptr<const std::vector<uint8_t>> tx_object;
+        std::shared_ptr<const std::vector<uint8_t>> tx_object QUICR_GUARDED_BY(tx_mutex);
 
         /// Pointer offset to next byte to send
         size_t tx_object_offset{ 0 };
