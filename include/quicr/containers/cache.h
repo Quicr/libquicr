@@ -184,7 +184,7 @@ namespace quicr {
             ttl /= interval_;
 
             Advance();
-            const std::uint32_t future_index = (bucket_index_ + ttl - 1) % total_buckets_;
+            const std::size_t future_index = (bucket_index_ + ttl - 1) % total_buckets_;
 
             buckets_[future_index].push_back(key);
             cache_[key] = std::make_shared<T>(value);
