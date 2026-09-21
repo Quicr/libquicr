@@ -1336,10 +1336,8 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
         }
     }
 
-    // Clear datagram RX and TX queues and reset shared pointers
-    if (pq_conn->dgram_rx_data) {
-        pq_conn->dgram_rx_data.reset();
-    }
+    // Clear datagram RX and TX queues
+    pq_conn->dgram_rx_data->Clear();
     if (pq_conn->dgram_tx_data) {
         {
             std::lock_guard _(*pq_conn->dgram_tx_data);

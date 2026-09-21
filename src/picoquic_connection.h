@@ -213,7 +213,7 @@ namespace quicr {
         std::shared_ptr<PriorityQueue<ConnData>> dgram_tx_data;
 
         /// Buffered datagrams received from the network
-        std::shared_ptr<SafeQueue<std::shared_ptr<const Bytes>>> dgram_rx_data;
+        const std::shared_ptr<SafeQueue<std::shared_ptr<const Bytes>>> dgram_rx_data;
 
         /// True while a receive notification for the datagram queue is pending
         std::atomic<bool> dgram_notify_pending{ false };
