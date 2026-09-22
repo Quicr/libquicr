@@ -128,13 +128,35 @@ else ()
 
     CPMAddPackage("gh:quicr/picotls#3927c48be674d97ca8242580fab3b4af4eb6df2a")
 
+    if (WIN32)
+        target_compile_definitions(picotls-core PUBLIC _WINDOWS)
+        target_include_directories(picotls-core PUBLIC
+            "$<BUILD_INTERFACE:${picotls_SOURCE_DIR}/picotlsvs/picotls>")
+        target_sources(picotls-core PRIVATE
+            "${picotls_SOURCE_DIR}/picotlsvs/picotls/wintimeofday.c")
+
+        target_link_libraries(picotls-minicrypto bcrypt)
+
+        foreach(tgt cli test-openssl.t)
+            if (TARGET ${tgt})
+                set_target_properties(${tgt} PROPERTIES EXCLUDE_FROM_ALL ON)
+            endif()
+        endforeach()
+    endif()
+
     set(PICOQUIC_FETCH_PTLS ON)
     set(picoquic_BUILD_TESTS OFF)
     add_subdirectory(picoquic)
     add_dependencies(picoquic-core picotls-core)
 
+    if (WIN32)
+        target_link_libraries(picoquic-core PUBLIC ws2_32 iphlpapi)
+    endif()
+
     set(WARN_SUPPRESS_TARGET_LIST picoquic-core picoquic-log picohttp-core picotls-core picotls-openssl picotls-minicrypto)
     foreach(tgt ${WARN_SUPPRESS_TARGET_LIST})
-        target_compile_options(${tgt} PRIVATE -w)
+        target_compile_options(${tgt} PRIVATE
+            $<$<C_COMPILER_ID:MSVC>:/w>
+            $<$<NOT:$<C_COMPILER_ID:MSVC>>:-w>)
     endforeach()
 endif ()

@@ -1,0 +1,144 @@
+name: Windows
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Release
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build:
+    runs-on: windows-latest
+    # A cold vcpkg cache builds OpenSSL from source.
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Check out the pinned vcpkg baseline
+        # vcpkg takes the baseline version from the pinned commit but reads
+        # versions/ off the checkout on disk. The runner's checkout predates the
+        # pin, so openssl resolves to a version its database has never seen
+        # ("no version database entry"). Move the whole tree to the baseline.
+        run: |
+          # Otherwise git's non-zero exits become terminating errors.
+          $PSNativeCommandUseErrorActionPreference = $false
+
+          $baseline = (Get-Content vcpkg.json -Raw | ConvertFrom-Json).'builtin-baseline'
+          if (-not $baseline) { throw 'vcpkg.json is missing builtin-baseline' }
+
+          $vcpkg = $env:VCPKG_INSTALLATION_ROOT
+          if ((git -C $vcpkg rev-parse HEAD) -eq $baseline) { exit 0 }
+
+          git -C $vcpkg cat-file -e "${baseline}^{commit}" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            # Depth 1 still carries the commit's full tree; unshallowing would
+            # drag in all of vcpkg's history to reach a single commit.
+            Write-Host "fetching baseline $baseline"
+            $depth = @()
+            if ((git -C $vcpkg rev-parse --is-shallow-repository) -eq 'true') {
+              $depth = @('--depth', '1')
+            }
+            git -C $vcpkg fetch --no-tags @depth origin $baseline
+            if ($LASTEXITCODE -ne 0) {
+              throw "baseline $baseline is not reachable from microsoft/vcpkg"
+            }
+          }
+
+          git -C $vcpkg checkout --force --detach $baseline
+          if ($LASTEXITCODE -ne 0) { throw "could not check out baseline $baseline" }
+
+      - name: Set up MSVC environment
+        # Ninja, unlike the Visual Studio generator, needs cl.exe and the SDK
+        # already on the environment.
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/build/vcpkg_installed
+          # No restore-keys: a tree from another manifest is worse than a rebuild.
+          key: vcpkg-x64-windows-release-${{ hashFiles('vcpkg.json') }}
+
+      - name: Configure CMake
+        # Ninja rather than Visual Studio: CXX_CLANG_TIDY, and so LINT, is only
+        # honoured by the Makefile and Ninja generators. Being single-config,
+        # the build type is fixed here rather than at --build time.
+        # x64-windows-release is x64-windows plus VCPKG_BUILD_TYPE release. Left
+        # alone, vcpkg also builds a debug OpenSSL that this job never links.
+        run: >
+          cmake -B ${{ github.workspace }}/build
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows-release
+          -DCMAKE_POLICY_VERSION_MINIMUM="3.5"
+          -DBUILD_TESTING=ON
+          -DQUICR_BUILD_EXAMPLES=ON
+          -DLINT=ON
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build -j
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-build-output
+          # Link-time-only output, and the bulk of a Windows build tree. Running
+          # an already-linked test needs the .exe and .dll, none of this.
+          path: |
+            ${{ github.workspace }}/build
+            !${{ github.workspace }}/build/**/*.obj
+            !${{ github.workspace }}/build/**/*.ilk
+            !${{ github.workspace }}/build/**/*.lib
+          retention-days: 5
+
+  # test and benchmark are split out so a spurious failure can be re-run on its
+  # own. They rely on the workspace path being identical across jobs, since the
+  # build tree records absolute paths to its executables.
+  test:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: windows-build-output
+          path: ${{ github.workspace }}/build
+
+      - name: Test
+        working-directory: ${{ github.workspace }}/build
+        run: ctest --output-on-failure -E "benchmark"
+
+  benchmark:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: windows-build-output
+          path: ${{ github.workspace }}/build
+
+      - name: Benchmark
+        working-directory: ${{ github.workspace }}/build
+        run: ctest -R "benchmark" --verbose
