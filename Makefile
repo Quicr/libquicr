@@ -28,9 +28,9 @@ fuzz:
 	./${BUILD_DIR}/fuzz/ctrl_messages_fuzzer -max_total_time=10
 
 # Run the tests.
-test: ci
+test: ${BUILD_DIR}
 	cmake --build ${BUILD_DIR}
-	ctest --test-dir ${BUILD_DIR} --output-on-failure
+	ctest --test-dir ${BUILD_DIR} --output-on-failure --parallel
 
 # Clean all built targets.
 clean:
@@ -74,4 +74,3 @@ lint:
 
 sbom:
 	reuse spdx -o libquicr.spdx
-

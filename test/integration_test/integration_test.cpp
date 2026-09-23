@@ -32,10 +32,29 @@ using namespace quicr;
 using namespace quicr_test;
 
 const std::string kIp = "127.0.0.1";
-constexpr uint16_t kPort = 12345;
+constexpr uint16_t kDefaultPort = 12345;
 const std::string kServerId = "test-server";
 constexpr std::uint64_t kMetricsTestIntervalMs = 250;
 constexpr auto kMetricsTestTimeout = std::chrono::seconds(2);
+
+static uint16_t
+GetTestPort()
+{
+    const char* env_port = std::getenv("LIBQUICR_TEST_PORT");
+    if (env_port == nullptr) {
+        return kDefaultPort;
+    }
+
+    try {
+        const auto parsed_port = std::stoul(env_port);
+        if (parsed_port > 0 && parsed_port <= std::numeric_limits<uint16_t>::max()) {
+            return static_cast<uint16_t>(parsed_port);
+        }
+    } catch (...) {
+    }
+
+    return kDefaultPort;
+}
 
 /// @brief Get test timeout from environment or use default
 /// @details Set LIBQUICR_TEST_TIMEOUT_MS environment variable to override (useful for CI)
@@ -172,7 +191,7 @@ MakeTestServer(quicr::SessionManager& session_mgr,
     // Run the server.
     ServerConfig server_config;
     server_config.server_bind_ip = kIp;
-    server_config.server_port = kPort;
+    server_config.server_port = GetTestPort();
     server_config.endpoint_id = kServerId;
     server_config.transport_config.debug = true;
     server_config.transport_config.tls_cert_filename = "server-cert.pem";
@@ -217,7 +236,7 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     if (metrics_sample_ms.has_value()) {
         client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
     }
-    client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(kPort) + "/relay";
+    client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(GetTestPort()) + "/relay";
     if (qlog_path.has_value()) {
         client_config.transport_config.quic_qlog_path = *qlog_path;
     }
@@ -1309,7 +1328,8 @@ TEST_CASE("Qlog Generation")
         // Create temporary destination for QLOG files. This is declared ahead of the
         // session manager so that it is torn down after it: Windows refuses to unlink
         // the qlog files while the transports still hold them open.
-        const auto temp_dir = std::filesystem::temp_directory_path() / "libquicr_qlog_test";
+        const auto temp_dir =
+          std::filesystem::temp_directory_path() / ("libquicr_qlog_test_" + std::to_string(GetTestPort()));
         std::filesystem::remove_all(temp_dir);
         std::filesystem::create_directories(temp_dir);
         defer(std::filesystem::remove_all(temp_dir));

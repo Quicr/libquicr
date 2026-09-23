@@ -67,11 +67,10 @@ if (CMAKE_CONFIGURATION_TYPES)
     )
 endif()
 
-# Enable test discovery with doctest - can't run in parallel.
-doctest_discover_tests(quicr_integration_test
-    PROPERTIES
-        RESOURCE_LOCK integration_lock
-)
+# Each test process gets its own server port.
+doctest_discover_tests(quicr_integration_test)
+set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/ctest_integration_test_properties.cmake")
 
 # Linting configuration
 if(LINT)
