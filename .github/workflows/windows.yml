@@ -21,8 +21,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Check out the pinned vcpkg baseline
         # vcpkg takes the baseline version from the pinned commit but reads

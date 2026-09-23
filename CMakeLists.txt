@@ -39,6 +39,7 @@ option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 
 option(WITH_MBEDTLS "Build against MbedTLS rather than OpenSSL" OFF)
+option(WITH_BORINGSSL "Use BoringSSL as the OpenSSL provider (required on Android)" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_USE_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
 
@@ -59,6 +60,17 @@ if (NOT DEFINED ENV{IDF_PATH})
   find_package(PkgConfig REQUIRED)
 else()
   set(WITH_MBEDTLS ON CACHE BOOL "Build against MbedTLS rather than OpenSSL" FORCE)
+endif()
+
+# Android's NDK ships no linkable system OpenSSL, so default the OpenSSL provider
+# to BoringSSL there. It can still be requested on any platform via
+# -DWITH_BORINGSSL=ON.
+if (ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+    set(WITH_BORINGSSL ON)
+endif()
+
+if (WITH_MBEDTLS AND WITH_BORINGSSL)
+    message(FATAL_ERROR "WITH_MBEDTLS and WITH_BORINGSSL are mutually exclusive; enable at most one crypto backend")
 endif()
 
 #=============================================================================#
