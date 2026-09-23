@@ -1231,7 +1231,7 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
                                  const std::shared_ptr<PicoQuicStream>& stream,
                                  std::shared_ptr<const std::vector<uint8_t>> bytes,
                                  const uint8_t priority,
-                                 [[maybe_unused]] const uint32_t ttl_ms,
+                                 const uint32_t ttl_ms,
                                  const EnqueueFlags flags)
 {
     if (stream == nullptr || stream->tx_data == nullptr) {
@@ -1264,7 +1264,7 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
 
         if (flags.clear_tx_queue) {
             stream->metrics.tx_queue_discards += stream->tx_data->size();
-            *stream->tx_data = {};
+            stream->tx_data->clear();
         }
 
         // Picoquic only re-wakes on inactive→active. If it is already pulling this stream (queued
@@ -1280,7 +1280,7 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
             static_cast<uint64_t>(tick_service_->get().count()),
         };
 
-        stream->tx_data->push(std::move(cd));
+        stream->tx_data->push(std::move(cd), ttl_ms);
     }
 
     if (needs_mark) {
@@ -1352,7 +1352,7 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
     for (const auto& stream : streams) {
         if (stream->tx_data) {
             std::lock_guard __(stream->tx_mutex);
-            *stream->tx_data = {};
+            stream->tx_data->clear();
         }
         stream->tx_object = nullptr;
 
@@ -1583,10 +1583,13 @@ PicoQuicTransport::SetStatus(TransportStatus status)
     transportStatus_ = status;
 }
 
-std::unique_ptr<std::queue<ConnData>>
+std::unique_ptr<timeq::time_queue<ConnData>>
 PicoQuicTransport::MakeStreamTxQueue() const
 {
-    return std::make_unique<std::queue<ConnData>>();
+    return std::make_unique<timeq::time_queue<ConnData>>(tconfig_.time_queue_max_duration,
+                                                         tconfig_.time_queue_bucket_interval,
+                                                         tick_service_,
+                                                         tconfig_.time_queue_init_queue_size);
 }
 
 int
@@ -1721,12 +1724,14 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
     if (stream_ctx.tx_object == nullptr) {
         QUICR_LOGGER_TRACE(logger, "SendStreamBytes conn_id: {} stream_tx_object is nullptr", conn_id);
 
-        if (stream_ctx.tx_data->empty()) {
+        auto [conn_data_opt, expired] = stream_ctx.tx_data->pop_front();
+        stream_ctx.metrics.tx_queue_expired += expired;
+
+        if (!conn_data_opt.has_value()) {
             return; // empty queue, nothing to do
         }
 
-        ConnData conn_data = std::move(stream_ctx.tx_data->front());
-        stream_ctx.tx_data->pop();
+        ConnData conn_data = std::move(*conn_data_opt);
 
         switch (conn_data.stream_action) {
             case StreamAction::kCloseStreamUseFin:

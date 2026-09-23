@@ -13,12 +13,12 @@
 #include <pico_webtransport.h>
 #include <picoquic.h>
 #include <picoquic_config.h>
+#include <timeq/time_queue.h>
 
 #include <atomic>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <utility>
 #include <vector>
 
@@ -39,7 +39,9 @@ namespace quicr {
     class PicoQuicStream : public Stream
     {
       public:
-        PicoQuicStream(std::uint64_t stream_id, std::uint64_t conn_id, std::unique_ptr<std::queue<ConnData>> tx_queue);
+        PicoQuicStream(std::uint64_t stream_id,
+                       std::uint64_t conn_id,
+                       std::unique_ptr<timeq::time_queue<ConnData>> tx_queue);
 
         ~PicoQuicStream() = default;
 
@@ -91,7 +93,7 @@ namespace quicr {
         uint8_t priority{ 0 };
 
         /// Pending objects to be written to the network
-        std::unique_ptr<std::queue<ConnData>> tx_data;
+        std::unique_ptr<timeq::time_queue<ConnData>> tx_data;
 
         /// Guards tx_data; Enqueue runs on application threads, send on the picoquic thread
         std::mutex tx_mutex;
@@ -180,7 +182,7 @@ namespace quicr {
          * @param tx_queue   Transmit queue, or nullptr for a receive-only stream
          */
         std::shared_ptr<PicoQuicStream> AddStream(std::uint64_t stream_id,
-                                                  std::unique_ptr<std::queue<ConnData>> tx_queue);
+                                                  std::unique_ptr<timeq::time_queue<ConnData>> tx_queue);
 
         /**
          * @returns Handle to the existing stream, creating one if absent.
@@ -190,7 +192,7 @@ namespace quicr {
          *      is given a TX queue; a unidirectional one is receive-only and passes nullptr.
          */
         std::shared_ptr<PicoQuicStream> GetOrAddStream(std::uint64_t stream_id,
-                                                       std::unique_ptr<std::queue<ConnData>> tx_queue);
+                                                       std::unique_ptr<timeq::time_queue<ConnData>> tx_queue);
 
         /// @returns Handle to the removed stream, or nullptr if no such stream existed.
         std::shared_ptr<PicoQuicStream> RemoveStream(std::uint64_t stream_id);

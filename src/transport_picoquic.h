@@ -28,7 +28,6 @@
 #include <memory>
 #include <mutex>
 #include <netinet/in.h>
-#include <queue>
 #include <span>
 #include <string>
 #include <sys/socket.h>
@@ -195,7 +194,7 @@ namespace quicr {
                                          h3zero_stream_ctx_t* stream_ctx);
 
         /// @returns A TX queue for a send-capable stream.
-        std::unique_ptr<std::queue<ConnData>> MakeStreamTxQueue() const;
+        std::unique_ptr<timeq::time_queue<ConnData>> MakeStreamTxQueue() const;
 
         const std::shared_ptr<PicoQuicConnection>& CreateConnection(picoquic_cnx_t* pq_cnx,
                                                                     Connection::API api = Connection::API::kNativeQuic);

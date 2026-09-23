@@ -6,7 +6,6 @@
 #include "quicr/metrics.h"
 #include "quicr/session.h"
 
-#include <queue>
 #include <utility>
 
 namespace {
@@ -57,7 +56,7 @@ quicr::PicoQuicConnection::ReportMetricsSample(const MetricsTimeStamp& sample_ti
 
 quicr::PicoQuicStream::PicoQuicStream(const std::uint64_t stream_id,
                                       const std::uint64_t conn_id,
-                                      std::unique_ptr<std::queue<ConnData>> tx_queue)
+                                      std::unique_ptr<timeq::time_queue<ConnData>> tx_queue)
   : Stream(stream_id, conn_id)
   , tx_data(std::move(tx_queue))
 {
@@ -77,7 +76,8 @@ quicr::PicoQuicConnection::GetStream(const std::uint64_t stream_id) const
 }
 
 std::shared_ptr<quicr::PicoQuicStream>
-quicr::PicoQuicConnection::AddStream(const std::uint64_t stream_id, std::unique_ptr<std::queue<ConnData>> tx_queue)
+quicr::PicoQuicConnection::AddStream(const std::uint64_t stream_id,
+                                     std::unique_ptr<timeq::time_queue<ConnData>> tx_queue)
 {
     auto stream = std::make_shared<PicoQuicStream>(stream_id, GetID(), std::move(tx_queue));
 
@@ -88,7 +88,8 @@ quicr::PicoQuicConnection::AddStream(const std::uint64_t stream_id, std::unique_
 }
 
 std::shared_ptr<quicr::PicoQuicStream>
-quicr::PicoQuicConnection::GetOrAddStream(const std::uint64_t stream_id, std::unique_ptr<std::queue<ConnData>> tx_queue)
+quicr::PicoQuicConnection::GetOrAddStream(const std::uint64_t stream_id,
+                                          std::unique_ptr<timeq::time_queue<ConnData>> tx_queue)
 {
     std::lock_guard _(stream_mutex_);
 
