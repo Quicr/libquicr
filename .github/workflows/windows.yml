@@ -123,7 +123,7 @@ jobs:
 
       - name: Test
         working-directory: ${{ github.workspace }}/build
-        run: ctest --output-on-failure -E "benchmark"
+        run: ctest --output-on-failure --parallel -E "benchmark"
 
   benchmark:
     needs: build
