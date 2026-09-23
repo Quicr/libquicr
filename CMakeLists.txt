@@ -39,6 +39,7 @@ option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 
 option(USE_MBEDTLS OFF)
+option(USE_BORINGSSL "Use the in-tree BoringSSL as the crypto backend (required on Android)" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
 
 if(QUICR_ENABLE_SANITIZERS)
@@ -58,6 +59,17 @@ if (NOT DEFINED ENV{IDF_PATH})
   find_package(PkgConfig REQUIRED)
 else()
   set(USE_MBEDTLS ON)
+endif()
+
+# Android's NDK ships no linkable system OpenSSL, so default the crypto backend
+# to the in-tree BoringSSL there. It can still be requested on any platform via
+# -DUSE_BORINGSSL=ON.
+if (ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+    set(USE_BORINGSSL ON)
+endif()
+
+if (USE_MBEDTLS AND USE_BORINGSSL)
+    message(FATAL_ERROR "USE_MBEDTLS and USE_BORINGSSL are mutually exclusive; enable at most one crypto backend")
 endif()
 
 #=============================================================================#

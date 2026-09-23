@@ -148,6 +148,41 @@ The C Bridge provides a C wrapper around the C++ libquicr library.
 See [c-bridge/README.md](c-bridge/README.md) for details.
 
 
+## Crypto backends
+
+libquicr's QUIC/TLS stack (picoquic + picotls) can be built against one of three
+crypto backends, selected at CMake configure time:
+
+| Backend   | CMake option        | Notes                                              |
+|-----------|---------------------|----------------------------------------------------|
+| OpenSSL   | *(default)*         | Uses the system OpenSSL (`libssl-dev`).            |
+| MbedTLS   | `-DUSE_MBEDTLS=ON`  | Bundled submodule; default on ESP-IDF builds.      |
+| BoringSSL | `-DUSE_BORINGSSL=ON`| Bundled submodule; **default on Android**.         |
+
+`USE_MBEDTLS` and `USE_BORINGSSL` are mutually exclusive.
+
+### Android (BoringSSL)
+
+The Android NDK ships no linkable system OpenSSL, so libquicr builds the in-tree
+[BoringSSL](dependencies/boringssl) submodule and points picoquic/picotls at it.
+`USE_BORINGSSL` is enabled automatically when configuring with the NDK toolchain,
+so a typical cross-compile only needs the toolchain and ABI:
+
+```
+git submodule update --init --recursive
+cmake -B build-android \
+    -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+    -DANDROID_ABI=arm64-v8a \
+    -DANDROID_PLATFORM=android-24
+cmake --build build-android
+```
+
+BoringSSL builds with the NDK's Clang and requires no extra host tooling (Go is
+only needed for BoringSSL's optional symbol-prefix feature, which libquicr does
+not use). To exercise the BoringSSL path on a host for debugging, configure with
+`-DUSE_BORINGSSL=ON`.
+
+
 ## Self-signed Certificate
 
 Server requires a TLS certificate and key file. For development and testing, use a self-signed certificate. Below

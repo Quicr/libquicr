@@ -119,6 +119,50 @@ if (${USE_MBEDTLS})
     add_subdirectory(picoquic)
     add_dependencies(picoquic-core picotls-core mbedtls)
 else ()
+    if (USE_BORINGSSL)
+        message("Transport building with BoringSSL")
+
+        # Build the in-tree BoringSSL. Android's NDK ships no linkable system
+        # OpenSSL, so this replaces the system libssl/libcrypto that picotls and
+        # picoquic would otherwise expect.
+        #
+        # Captured here (dependencies/ scope) so the find_package() macro below
+        # resolves the include path correctly. Macros re-evaluate ${...} in the
+        # caller's scope, so CMAKE_CURRENT_SOURCE_DIR must not be used there.
+        set(QUICR_BORINGSSL_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/boringssl/include)
+        add_subdirectory(boringssl)
+
+        # picotls' BORINGSSL_ADJUST() and picoquic both consume the OpenSSL
+        # backend through these target names.
+        add_library(BoringSSL::crypto ALIAS crypto)
+        add_library(BoringSSL::ssl ALIAS ssl)
+        add_library(BoringSSL::decrepit ALIAS decrepit)
+
+        # libquicr may be built SHARED, so the static crypto it embeds must be PIC.
+        set_property(TARGET crypto ssl decrepit PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+        # picotls and picoquic each call find_package(OpenSSL) and reset
+        # CMAKE_MODULE_PATH to their own cmake/ dir, so a FindOpenSSL shim on our
+        # module path would never be seen. Intercept the command instead and
+        # resolve OpenSSL to the in-tree BoringSSL. This mirrors the install()
+        # override at the top of this file. picotls' BORINGSSL_ADJUST() keys off
+        # openssl/base.h in OPENSSL_INCLUDE_DIR and the "BoringSSL::ssl" entry in
+        # OPENSSL_LIBRARIES to wire in the decrepit library it needs.
+        macro(find_package)
+            if ("${ARGV0}" STREQUAL "OpenSSL")
+                set(OPENSSL_FOUND TRUE)
+                set(OPENSSL_VERSION "1.1.1")
+                set(OPENSSL_INCLUDE_DIR ${QUICR_BORINGSSL_INCLUDE_DIR})
+                set(OPENSSL_CRYPTO_LIBRARY BoringSSL::crypto)
+                set(OPENSSL_CRYPTO_LIBRARIES BoringSSL::crypto)
+                set(OPENSSL_SSL_LIBRARY BoringSSL::ssl)
+                set(OPENSSL_LIBRARIES BoringSSL::ssl BoringSSL::crypto)
+            else ()
+                _find_package(${ARGV})
+            endif ()
+        endmacro()
+    endif ()
+
     set(WITH_FUSION OFF)
     set(WITH_OPENSSL ON)
     set(ENABLE_TESTING OFF)
@@ -148,6 +192,11 @@ else ()
     set(picoquic_BUILD_TESTS OFF)
     add_subdirectory(picoquic)
     add_dependencies(picoquic-core picotls-core)
+
+    if (USE_BORINGSSL)
+        add_dependencies(picotls-openssl crypto ssl decrepit)
+        add_dependencies(picoquic-core crypto ssl)
+    endif()
 
     if (WIN32)
         target_link_libraries(picoquic-core PUBLIC ws2_32 iphlpapi)

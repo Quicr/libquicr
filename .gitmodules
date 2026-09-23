@@ -7,3 +7,6 @@
 [submodule "dependencies/timeq"]
 	path = dependencies/timeq
 	url = https://github.com/Quicr/timeq.git
+[submodule "dependencies/boringssl"]
+	path = dependencies/boringssl
+	url = https://github.com/google/boringssl.git
