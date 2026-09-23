@@ -3,7 +3,7 @@
 
 #include "quicr/handlers/publish_track_handler.h"
 
-#include "quicr/messages/messages.h"
+#include "quicr/messages/message_serialisation.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
 #include "stream.h"

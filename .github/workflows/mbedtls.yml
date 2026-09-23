@@ -1,0 +1,47 @@
+name: MbedTLS
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    name: MbedTLS (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-22.04, macos-latest ]
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Configure GCC 12
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          echo "CC=/usr/bin/gcc-12" >> $GITHUB_ENV
+          echo "CXX=/usr/bin/g++-12" >> $GITHUB_ENV
+
+      - name: Configure CMake
+        run: >
+          cmake -B ${{ github.workspace }}/build
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DBUILD_TESTING=ON
+          -DQUICR_BUILD_EXAMPLES=ON
+          -DQUICR_BUILD_BENCHMARKS=OFF
+          -DWITH_MBEDTLS=ON
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} -j
+
+      - name: Test
+        working-directory: ${{ github.workspace }}/build
+        run: ctest -C ${{ env.BUILD_TYPE }} --output-on-failure

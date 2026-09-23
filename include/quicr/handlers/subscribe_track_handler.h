@@ -6,7 +6,7 @@
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/handlers/track_handler.h"
 #include "quicr/messages/ctrl_message_types.h"
-#include "quicr/messages/messages.h"
+#include "quicr/messages/message_serialisation.h"
 #include "quicr/metrics.h"
 
 namespace quicr {

@@ -16,18 +16,19 @@
 #define DEFER_POP
 #endif
 
+#define DEFER_BODY(n)                                                                                                  \
+    DEFER_PUSH n;                                                                                                      \
+    DEFER_POP
+
 #ifdef _WIN32
 #define defer(n)                                                                                                       \
-    quicr::ScopeGuard DEFER_CONCAT(defer_, __LINE__)([&]() {                                                           \
+    quicr::ScopeGuard DEFER_CONCAT(defer_, __LINE__)([&]() [[msv::forceinline]] {                                      \
         DEFER_PUSH n;                                                                                                  \
         DEFER_POP                                                                                                      \
     })
 #else
 #define defer(n)                                                                                                       \
-    quicr::ScopeGuard DEFER_CONCAT(defer_, __LINE__)([&]() __attribute__((always_inline)) {                            \
-        DEFER_PUSH n;                                                                                                  \
-        DEFER_POP                                                                                                      \
-    })
+    quicr::ScopeGuard DEFER_CONCAT(defer_, __LINE__)([&]() __attribute__((always_inline)) { DEFER_BODY(n) })
 #endif
 
 namespace quicr {

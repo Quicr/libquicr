@@ -15,7 +15,7 @@
 #include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
 #include "quicr/messages/message.h"
-#include "quicr/messages/messages.h"
+#include "quicr/messages/message_serialisation.h"
 #include "quicr/metrics.h"
 #include "quicr/transport.h"
 
