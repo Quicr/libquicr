@@ -2,22 +2,23 @@ name: Sanitizers
 
 on:
   push:
-    branches: [ "main", "draft-18" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "draft-18" ]
+    branches: [ "main" ]
 
 env:
   BUILD_TYPE: Release
 
+permissions:
+  contents: read
+
 jobs:
   integration-tests:
-    name: Integration Tests (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: ASan & UBSan
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
-      matrix:
-        os: [ ubuntu-22.04 ]
 
     steps:
       - uses: actions/checkout@v6
@@ -52,4 +53,48 @@ jobs:
         run: >
           ctest --test-dir ${{ github.workspace }}/build/test/integration_test
           -C ${{ env.BUILD_TYPE }}
+          --output-on-failure
+
+  thread-sanitizer-integration-tests:
+    name: TSan
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Configure GCC 12
+        run: |
+          echo "CC=/usr/bin/gcc-12" >> "$GITHUB_ENV"
+          echo "CXX=/usr/bin/g++-12" >> "$GITHUB_ENV"
+
+      - name: Configure CMake
+        run: >
+          cmake -B ${{ github.workspace }}/build
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          -DCMAKE_BUILD_TYPE=Debug
+          -DBUILD_TESTING=ON
+          -DQUICR_BUILD_TESTS=ON
+          -DQUICR_BUILD_BENCHMARKS=OFF
+          -DQUICR_BUILD_EXAMPLES=OFF
+          -DQUICR_BUILD_C_BRIDGE=OFF
+          -DQUICR_ENABLE_THREAD_SANITIZER=ON
+
+      - name: Build integration tests
+        run: >
+          cmake --build ${{ github.workspace }}/build
+          --config Debug
+          --target quicr_integration_test generate_test_certs
+          -j
+
+      - name: Run integration tests
+        env:
+          TSAN_OPTIONS: halt_on_error=1:exitcode=66
+        run: >
+          ctest --test-dir ${{ github.workspace }}/build/test/integration_test
+          -C Debug
+          -j 1
           --output-on-failure
