@@ -15,6 +15,6 @@ repos:
 
       - id: test
         name: Test
-        entry: ctest --test-dir build
+        entry: ctest --test-dir build --output-on-failure --parallel
         language: system
         pass_filenames: false
