@@ -1353,8 +1353,8 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
         if (stream->tx_data) {
             std::lock_guard __(stream->tx_mutex);
             *stream->tx_data = {};
+            stream->tx_object = nullptr;
         }
-        stream->tx_object = nullptr;
 
         if (stream->rx_ctx) {
             stream->rx_ctx->data_queue.Clear();
