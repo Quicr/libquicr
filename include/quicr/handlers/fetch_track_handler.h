@@ -35,7 +35,6 @@ namespace quicr {
           , start_location_(start_location)
           , end_location_(end_location)
         {
-            is_fetch_handler_ = true;
         }
 
       public:

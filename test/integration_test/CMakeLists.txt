@@ -22,10 +22,15 @@ target_include_directories(quicr_integration_test PRIVATE
     ${PROJECT_SOURCE_DIR}/src
 )
 
-# Link against the quicr library and test framework
+# Link against the quicr library and test framework. quicr links picoquic privately, so its include
+# paths do not reach this target. They are needed here because tests of internal classes include
+# private headers that pull in picoquic.
 target_link_libraries(quicr_integration_test PRIVATE
     quicr
-    doctest::doctest)
+    doctest::doctest
+    picoquic-core
+    picoquic-log
+    picohttp-core)
 
 # Compiler options
 target_compile_options(quicr_integration_test

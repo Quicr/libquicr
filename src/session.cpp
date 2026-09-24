@@ -1654,17 +1654,19 @@ namespace quicr {
 
         /*
          * A header type nothing can be made of is the peer's problem with this one stream, not with
-         * the session, so it is dropped rather than thrown on.
+         * the session, so the stream is stopped rather than the session torn down.
          */
         StreamMessageType message_type;
         try {
             message_type = GetStreamMessageType(*stream_type);
         } catch (const ProtocolViolationException&) {
             QUICR_LOGGER_WARN(
-              logger_, "Received stream {} with invalid header type 0x{:02x}, dropping", stream_id, *stream_type);
+              logger_, "Received stream {} with invalid header type 0x{:02x}, stopping it", stream_id, *stream_type);
             current_connection_->metrics.rx_stream_invalid_type++;
 
-            // TODO(tievens): Need to reset this stream as this is invalid.
+            // Unlike the other ways binding fails, this one cannot come good on a later arrival, so
+            // the peer is told to stop rather than left free to keep filling a buffer nothing reads.
+            quic_transport_->CloseStream(current_connection_, stream.shared_from_this(), StreamOperation::kStopSending);
             return false;
         }
 
@@ -1920,7 +1922,7 @@ namespace quicr {
                 return false; // Object has not fully arrived yet.
             }
 
-            resolved = handler.fetch_state_->Decode(std::move(obj));
+            resolved = stream.rx_parse.fetch->Decode(std::move(obj));
             buffer.ResetAnyB();
         }
 
@@ -2013,7 +2015,8 @@ namespace quicr {
         const bool reset = flag == StreamClosedFlag::kReset;
 
         try {
-            if (handler_ptr->is_fetch_handler_ && flag != StreamClosedFlag::kStopSending) {
+            if (std::dynamic_pointer_cast<FetchTrackHandler>(handler_ptr) != nullptr &&
+                flag != StreamClosedFlag::kStopSending) {
                 handler_ptr->SetStatus(reset ? FetchTrackHandler::Status::kDoneByReset
                                              : FetchTrackHandler::Status::kDoneByFin);
             }
@@ -2093,11 +2096,11 @@ namespace quicr {
             }
 
             stream.rx_handler = h;
-            h->fetch_state_.emplace(*group_order);
 
             // The header itself is still at the front of the stream's buffer. Setting up to parse it
             // there is also what records, for every later arrival, what this stream carries.
             std::lock_guard _(stream.rx_mutex);
+            stream.rx_parse.fetch.emplace(*group_order);
             stream.rx_data.InitAny<messages::FetchHeader>(static_cast<std::uint64_t>(StreamMessageType::kFetchHeader));
 
             return true;
