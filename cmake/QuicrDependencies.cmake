@@ -20,7 +20,7 @@ endif()
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
-CPMAddPackage("gh:quicr/timeq#main")
+CPMAddPackage("gh:quicr/timeq#898d45c")
 
 if (WITH_MBEDTLS)
     message(STATUS "Transport building with MbedTLS")
