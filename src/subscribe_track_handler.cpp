@@ -5,7 +5,7 @@
 
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/log.h"
-#include "quicr/messages/messages.h"
+#include "quicr/messages/message_serialisation.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
 #include "quicr/utilities/format.h"

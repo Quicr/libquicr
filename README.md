@@ -75,6 +75,51 @@ brew install cmake clang-format
 ```
 ---
 
+## Dependencies
+
+libquicr's C/C++ dependencies are fetched at CMake configure time by
+[CPM.cmake](https://github.com/cpm-cmake/CPM.cmake). There is nothing to install by hand and no
+submodules to initialise — configuring the project is enough. `cmake/CPM.cmake` first downloads a
+pinned CPM release and checks it against a recorded SHA-256, and each dependency is then pinned to
+its own tag or commit:
+
+| Dependency | Declared in |
+| --- | --- |
+| picoquic, picotls, timeq, Mbed TLS | `cmake/QuicrDependencies.cmake` |
+| fmt | `CMakeLists.txt` |
+| doctest | `test/CMakeLists.txt` |
+| Google Benchmark | `benchmark/CMakeLists.txt` |
+| nlohmann/json, sframe, spdlog | `examples/qclient/CMakeLists.txt` |
+
+Mbed TLS is only fetched when configuring with `-DWITH_MBEDTLS=ON`. The default build links the
+system OpenSSL instead, which is why OpenSSL is the one TLS dependency you still install yourself.
+
+### Caching dependency sources
+
+By default CPM clones each dependency into the build tree under `build/_deps`, so removing the
+build directory with `make cclean` (or `rm -rf build`) discards the sources and the next configure
+re-downloads all of them.
+
+Setting `CPM_SOURCE_CACHE` to a directory outside the build tree keeps a single shared copy
+instead. It is read from the environment:
+
+```
+export CPM_SOURCE_CACHE=$HOME/.cache/CPM
+```
+
+or passed per configure:
+
+```
+cmake -B build -DCPM_SOURCE_CACHE=$HOME/.cache/CPM
+```
+
+Entries are keyed by package name and version, so separate build directories, `WITH_MBEDTLS=ON` and
+`OFF` builds, and branch switches all share the same clones and a clean rebuild costs no network.
+The cache also holds the bootstrapped CPM release itself, so the download in `cmake/CPM.cmake` is
+skipped as well.
+
+---
+
 ## Examples
 [examples/qclient](https://github.com/Quicr/libquicr/tree/main/examples/qclient) has an example client implementation showing chat and clock
 applications.

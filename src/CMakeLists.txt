@@ -32,7 +32,7 @@ target_sources(quicr PRIVATE
     fetch_track_handler.cpp
     joining_fetch_handler.cpp
     log.cpp
-    messages.cpp
+    message_serialisation.cpp
     publish_fetch_handler.cpp
     publish_namespace_handler.cpp
     publish_track_handler.cpp
@@ -61,6 +61,7 @@ target_link_libraries(quicr PRIVATE
 if (WIN32)
     target_compile_definitions(quicr PRIVATE NOMINMAX)
     target_link_libraries(quicr PRIVATE ws2_32)
+else()
 endif()
 
 if (NOT HAS_STD_VFORMAT)

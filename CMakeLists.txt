@@ -38,7 +38,7 @@ option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 
-option(USE_MBEDTLS OFF)
+option(WITH_MBEDTLS "Build against MbedTLS rather than OpenSSL" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
 
 if(QUICR_ENABLE_SANITIZERS)
@@ -57,16 +57,14 @@ if (NOT DEFINED ENV{IDF_PATH})
   find_package(Threads REQUIRED)
   find_package(PkgConfig REQUIRED)
 else()
-  set(USE_MBEDTLS ON)
+  set(WITH_MBEDTLS ON CACHE BOOL "Build against MbedTLS rather than OpenSSL" FORCE)
 endif()
 
 #=============================================================================#
 # Dependencies
 #=============================================================================#
 
-if (NOT DEFINED ENV{IDF_PATH})
-    set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-endif()
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(CPM)
 
@@ -98,8 +96,7 @@ else()
     message(STATUS "Using std::format")
 endif()
 
-add_subdirectory(dependencies)
-
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/QuicrDependencies.cmake)
 
 #=============================================================================#
 # Build the library
