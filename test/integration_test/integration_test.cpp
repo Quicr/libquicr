@@ -166,6 +166,63 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
     std::optional<std::promise<PublishTrackMetrics>> metrics_promise_;
 };
 
+class SetupBeforeReadyDelegate final : public Connection::Delegate
+{
+  public:
+    explicit SetupBeforeReadyDelegate(std::shared_ptr<Connection::Delegate> delegate)
+      : delegate_(std::move(delegate))
+    {
+    }
+
+    void OnConnectionStatus(Connection::Status status) override
+    {
+        if (status == Connection::Status::kReady && !first_stream_received_) {
+            ready_pending_ = true;
+            return;
+        }
+        delegate_->OnConnectionStatus(status);
+    }
+
+    void OnRecvDgram() override { delegate_->OnRecvDgram(); }
+
+    void OnRecvStream(std::uint64_t stream_id,
+                      const std::shared_ptr<StreamRxContext>& rx_ctx,
+                      const std::shared_ptr<Stream>& stream,
+                      bool is_bidir) override
+    {
+        first_stream_received_ = true;
+        delegate_->OnRecvStream(stream_id, rx_ctx, stream, is_bidir);
+        if (std::exchange(ready_pending_, false)) {
+            delegate_->OnConnectionStatus(Connection::Status::kReady);
+        }
+    }
+
+    void OnStreamClosed(std::uint64_t stream_id,
+                        std::shared_ptr<StreamRxContext> rx_ctx,
+                        StreamClosedFlag flag) override
+    {
+        delegate_->OnStreamClosed(stream_id, std::move(rx_ctx), flag);
+    }
+
+    void OnConnectionMetricsSampled(const MetricsTimeStamp sample_time, const QuicConnectionMetrics& metrics) override
+    {
+        delegate_->OnConnectionMetricsSampled(sample_time, metrics);
+    }
+
+    void OnStreamMetricsStampled(const MetricsTimeStamp sample_time,
+                                 std::uint64_t stream_id,
+                                 const QuicStreamMetrics& metrics,
+                                 bool is_final) override
+    {
+        delegate_->OnStreamMetricsStampled(sample_time, stream_id, metrics, is_final);
+    }
+
+  private:
+    std::shared_ptr<Connection::Delegate> delegate_;
+    bool first_stream_received_{ false };
+    bool ready_pending_{ false };
+};
+
 class TestPublishNamespaceHandler : public PublishNamespaceHandler
 {
   public:
@@ -468,6 +525,47 @@ TEST_CASE("Integration - Connection")
         CAPTURE("WebTransport");
         test_connection("https");
     }
+}
+
+TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
+{
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
+
+    std::promise<ServerSetupAttributes> recv_attributes;
+    auto setup_received = recv_attributes.get_future();
+    auto callbacks = std::make_shared<TestClient>();
+    callbacks->SetConnectedPromise(std::move(recv_attributes));
+
+    ClientConfig config;
+    config.endpoint_id = "client";
+    config.connect_uri = "moq://" + kIp + ":" + std::to_string(GetTestPort()) + "/relay";
+    auto tick_service = std::make_shared<timeq::threaded_tick_service>(config.tick_service_sleep_delay_us);
+    auto transport = Transport::MakeClientTransport(
+      { kIp, GetTestPort(), TransportProtocol::kQuic, "/relay" }, config.transport_config, tick_service, nullptr);
+
+    using ClientSession = std::pair<std::shared_ptr<Session>, std::shared_ptr<SetupBeforeReadyDelegate>>;
+    std::promise<ClientSession> session_created;
+    auto session_future = session_created.get_future();
+    transport->OnNewConnection = [&, transport](const std::shared_ptr<Connection>& connection) {
+        auto session = Session::Create(config, transport, connection, callbacks, tick_service);
+        auto ordered_delegate = std::make_shared<SetupBeforeReadyDelegate>(session);
+        connection->SetDelegate(ordered_delegate);
+        session_created.set_value({ std::move(session), std::move(ordered_delegate) });
+    };
+
+    REQUIRE(transport->Start() != nullptr);
+    REQUIRE(session_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+    auto session_and_delegate = session_future.get();
+    const auto& session = session_and_delegate.first;
+    transport->OnNewConnection = nullptr;
+
+    REQUIRE(setup_received.wait_for(kDefaultTimeout) == std::future_status::ready);
+    CHECK_EQ(callbacks->GetStatusAtServerSetup(), Session::Status::kConnecting);
+    REQUIRE(WaitFor([&session]() { return session->GetStatus() == Session::Status::kReady; }));
+
+    session->Disconnect();
+    transport->Shutdown();
 }
 
 TEST_CASE("Integration - Subscribe")

@@ -60,8 +60,8 @@ namespace quicr {
 
     // -- Session::ClientCallbacks ---------------------------------------------------------------
 
-    Reply<void, ErrorCode> Session::ClientCallbacks::ServerSetupReceived(const std::shared_ptr<Session>&,
-                                                                         const ServerSetupAttributes&)
+    Expected<void, Error<ErrorCode>> Session::ClientCallbacks::ServerSetupReceived(const std::shared_ptr<Session>&,
+                                                                                   const ServerSetupAttributes&)
     {
         return {};
     }
@@ -76,8 +76,8 @@ namespace quicr {
     // -- Session::ServerCallbacks ---------------------------------------------------------------
 
     void Session::ServerCallbacks::OnStreamClosed(std::uint64_t, StreamClosedFlag) {}
-    Reply<void, ErrorCode> Session::ServerCallbacks::ClientSetupReceived(const std::shared_ptr<Session>&,
-                                                                         const ClientSetupAttributes&)
+    Expected<void, Error<ErrorCode>> Session::ServerCallbacks::ClientSetupReceived(const std::shared_ptr<Session>&,
+                                                                                   const ClientSetupAttributes&)
     {
         return {};
     }

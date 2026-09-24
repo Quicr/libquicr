@@ -6,10 +6,15 @@
 using namespace quicr;
 using namespace quicr_test;
 
-quicr::Reply<void, quicr::ErrorCode>
+quicr::Expected<void, quicr::Error<quicr::ErrorCode>>
 TestClient::ServerSetupReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
                                 const ServerSetupAttributes& server_setup_attributes)
 {
+    {
+        std::lock_guard lock(status_mutex_);
+        status_at_server_setup_ = session->GetStatus();
+    }
+
     if (client_connected_) {
         client_connected_->set_value(server_setup_attributes);
     }
