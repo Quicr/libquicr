@@ -2017,6 +2017,8 @@ PicoQuicTransport::NotifyStreamRecv(const std::shared_ptr<PicoQuicConnection>& c
 
     cbNotifyQueue_.Push([this, connection, stream = std::move(stream)]() mutable {
         stream->rx_notify_delivering.store(true);
+        defer(stream->rx_notify_delivering.store(false));
+
         stream->rx_notify_pending.store(false);
 
         /*
@@ -2028,8 +2030,6 @@ PicoQuicTransport::NotifyStreamRecv(const std::shared_ptr<PicoQuicConnection>& c
         if (connection->OnRecvStream(stream)) {
             NotifyStreamRecv(connection, stream);
         }
-
-        stream->rx_notify_delivering.store(false);
     });
 }
 
@@ -2055,12 +2055,12 @@ PicoQuicTransport::NotifyDgramRecv(const std::shared_ptr<PicoQuicConnection>& co
 }
 
 void
-PicoQuicTransport::OnStreamClosed(const std::shared_ptr<PicoQuicConnection>& connection,
-                                  const std::shared_ptr<PicoQuicStream>& stream,
+PicoQuicTransport::OnStreamClosed(std::shared_ptr<PicoQuicConnection> connection,
+                                  std::shared_ptr<PicoQuicStream> stream,
                                   StreamClosedFlag flag)
 {
     QUICR_LOGGER_DEBUG(logger, "Stream {} closed for connection {}", stream->GetStreamId(), connection->GetID());
-    cbNotifyQueue_.Push([=, this]() {
+    cbNotifyQueue_.Push([=, this, connection = std::move(connection), stream = std::move(stream)]() {
         // Let a pending read of this stream be delivered first, by re-queuing behind it.
         if (stream->rx_notify_pending.load()) {
             OnStreamClosed(connection, stream, flag);

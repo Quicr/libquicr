@@ -227,8 +227,8 @@ namespace quicr {
                                int is_fin,
                                std::span<const uint8_t> bytes);
 
-        void OnStreamClosed(const std::shared_ptr<PicoQuicConnection>& connection,
-                            const std::shared_ptr<PicoQuicStream>& stream,
+        void OnStreamClosed(std::shared_ptr<PicoQuicConnection> connection,
+                            std::shared_ptr<PicoQuicStream> stream,
                             StreamClosedFlag flag);
 
         // Notify new stream data arrived.

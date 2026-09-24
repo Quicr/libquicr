@@ -10,27 +10,16 @@ namespace quicr {
     /**
      * @brief MOQ track handler that takes a subscribed track's streams as bytes
      *
-     * @details A relay passing a subgroup on writes it to another byte stream, so what it needs is
-     *      the bytes rather than the objects in them: where one object ends and the next begins
-     *      does not matter to it, and working that out is the cost it is trying to avoid. A handler
-     *      of this kind is given each subgroup's header once, so that it can write an equivalent
-     *      one of its own, and then the bytes that follow as they arrive.
+     * @details A relay writes a subgroup back out to another stream, so it wants the bytes rather
+     *      than the objects in them, working out where each one ends being the cost it is avoiding.
+     *      Each subgroup's header arrives once, to write an equivalent of, then its bytes as they
+     *      come. Only the track alias has to be rewritten, being agreed per session; the rest holds
+     *      as it came for as long as the subgroup is passed on in order.
      *
-     *      Only the track alias stands in the way of passing a subgroup on untouched, since it is
-     *      agreed per session and so has to be rewritten. Everything after the header can go as it
-     *      came: an object says only how far it is from the one before it, which holds for as long
-     *      as the whole subgroup is passed on in order.
-     *
-     *      What is given up is what needs an object to have been read. Nothing arriving on a
-     *      stream is reported to `ObjectReceived`, and nothing counts the objects in it. A track
-     *      wanting either of those wants a plain `SubscribeTrackHandler`.
-     *
-     *      Only streams are passed on as bytes, a datagram being a whole object with no stream to
-     *      pass on. Datagrams are still reported to `ObjectReceived` and still counted, and which
-     *      of the two an object arrives as is the publisher's to choose per object, so a track can
-     *      use both at once. Overriding `ObjectReceived` on one of these therefore reports the
-     *      track's datagrams and only its datagrams, and leaving it alone drops them; a relay
-     *      whose publisher may send any wants it implemented.
+     *      Nothing on a stream reaches `ObjectReceived` or is counted, so a track wanting objects
+     *      wants a plain `SubscribeTrackHandler`. Datagrams still do both, being whole objects with
+     *      no stream to pass on, and a publisher chooses between the two per object, so a relay
+     *      that might be sent datagrams still wants `ObjectReceived` implemented.
      */
     class ForwardingSubscribeTrackHandler : public SubscribeTrackHandler
     {
@@ -41,8 +30,8 @@ namespace quicr {
         /**
          * @brief Notification that a subgroup has started arriving on a stream of its own
          *
-         * @details Called once per stream, before any of its bytes are, with what the subgroup
-         *      header said. Enough to write an equivalent header on whatever this is passed on to.
+         * @details Called once per stream, before any of its bytes, with enough of the subgroup
+         *      header to write an equivalent one.
          *
          * @param group_id      Group the subgroup belongs to
          * @param subgroup_id   Subgroup that has started
@@ -59,15 +48,12 @@ namespace quicr {
          * @brief Notification of bytes arriving on a subgroup's stream
          *
          * @details Everything that has arrived since the last call, in order, starting after the
-         *      subgroup header. A run does not fall on any particular boundary, so it may hold
-         *      several objects, part of one, or the end of one and the start of the next.
+         *      subgroup header. A run falls on no particular boundary, so it may hold several
+         *      objects, part of one, or the end of one and the start of the next. A track's
+         *      subgroups arrive on streams of their own and so interleave here, which is why every
+         *      call names one.
          *
-         *      A track's subgroups arrive on streams of their own and so interleave here, which
-         *      is what names the subgroup on every call rather than only when it starts.
-         *
-         *      The bytes are the handler's to take, nothing here wanting them afterwards, so
-         *      handing them to something that holds them, as publishing them on does, copies none
-         *      of them. A handler that only reads them can leave them alone and let them go.
+         *      The bytes are the handler's to take, nothing here wanting them afterwards.
          *
          * @param group_id      Group the subgroup belongs to
          * @param subgroup_id   Subgroup the bytes belong to
