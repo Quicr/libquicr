@@ -246,8 +246,6 @@ namespace quicr {
       , tick_service_(std::move(tick_service))
       , quic_transport_(std::move(transport))
     {
-        tx_ctrl_stream_ = quic_transport_->CreateControlStream(current_connection_);
-
         QUICR_LOGGER_INFO(
           logger_, "Created MoQ Session in server mode listening on {}:{}", cfg.server_bind_ip, cfg.server_port);
         Init();
@@ -274,8 +272,14 @@ namespace quicr {
                 }
             }
         }
+    }
 
-        OnConnectionStatus(current_connection_->GetStatus());
+    void Session::CheckReady()
+    {
+        if (!local_setup_sent_ || !peer_setup_received_ || GetStatus() != Status::kPendingPeerSetup) {
+            return;
+        }
+        SetStatus(Status::kReady);
     }
 
     void Session::Disconnect()
@@ -1474,19 +1478,12 @@ namespace quicr {
 
         switch (status) {
             case Connection::Status::kReady: {
-                if (client_mode_) {
-                    QUICR_LOGGER_INFO(logger_, "Connection established, creating bi-dir stream and sending SETUP");
-
-                    tx_ctrl_stream_ = quic_transport_->CreateControlStream(current_connection_);
-
-                    SendSetup();
-
-                    if (client_mode_) {
-                        SetStatus(Status::kPendingServerSetup);
-                    } else {
-                        SetStatus(Status::kReady);
-                    }
-                }
+                SetStatus(Status::kPendingPeerSetup);
+                QUICR_LOGGER_INFO(logger_, "Connection established, creating unidir control stream and sending SETUP");
+                tx_ctrl_stream_ = quic_transport_->CreateControlStream(current_connection_);
+                SendSetup();
+                local_setup_sent_ = true;
+                CheckReady();
                 break;
             }
 
@@ -1520,7 +1517,7 @@ namespace quicr {
 
     void Session::SetStatus(Status status)
     {
-        status_ = status;
+        status_.store(status, std::memory_order_release);
         if (callbacks_) {
             if (auto self = weak_from_this().lock()) {
                 callbacks_->StatusChanged(self, status);
@@ -2318,6 +2315,10 @@ namespace quicr {
     {
         switch (msg_type) {
             case messages::ControlMessageType::kSetup: {
+                if (peer_setup_received_) {
+                    SetStatus(Status::kInternalError);
+                    throw ProtocolViolationException("Duplicate SETUP received");
+                }
                 const auto setup_options = messages::Message::ParseField<messages::KeyValuePairs>(msg_bytes);
 
                 std::string endpoint_id = "Unknown Endpoint ID";
@@ -2327,41 +2328,38 @@ namespace quicr {
 
                 if (client_mode_) {
                     if (auto callbacks = std::dynamic_pointer_cast<ClientCallbacks>(callbacks_)) {
-                        callbacks->ServerSetupReceived(GetSharedPtr(), { 0, endpoint_id })
-                          .Resolve([self = GetSharedPtr()](const auto& result) {
-                              if (result) {
-                                  return;
-                              }
-
-                              const auto& [code, reason] = result.error();
-                              QUICR_LOGGER_ERROR(self->logger_,
-                                                 "Server setup rejected conn_id: {} code: {} reason: {}",
-                                                 self->current_connection_->GetID(),
-                                                 static_cast<std::uint64_t>(code),
-                                                 reason.value_or("unknown"));
-                          });
+                        const auto result = callbacks->ServerSetupReceived(GetSharedPtr(), { 0, endpoint_id });
+                        if (!result) {
+                            const auto& [code, reason] = result.error();
+                            QUICR_LOGGER_ERROR(logger_,
+                                               "Server setup rejected conn_id: {} code: {} reason: {}",
+                                               current_connection_->GetID(),
+                                               static_cast<std::uint64_t>(code),
+                                               reason.value_or("unknown"));
+                            SetStatus(Status::kInternalError);
+                            Disconnect();
+                            return true;
+                        }
                     }
                 } else {
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                        callbacks->ClientSetupReceived(GetSharedPtr(), { endpoint_id })
-                          .Resolve([self = GetSharedPtr()](const auto& result) {
-                              if (!result) {
-                                  const auto& [code, reason] = result.error();
-                                  QUICR_LOGGER_ERROR(self->logger_,
-                                                     "Client setup rejected, not sending SETUP conn_id: {} code: {} "
-                                                     "reason: {}",
-                                                     self->current_connection_->GetID(),
-                                                     static_cast<std::uint64_t>(code),
-                                                     reason.value_or("unknown"));
-                                  return;
-                              }
-
-                              self->SendSetup();
-                          });
+                        const auto result = callbacks->ClientSetupReceived(GetSharedPtr(), { endpoint_id });
+                        if (!result) {
+                            const auto& [code, reason] = result.error();
+                            QUICR_LOGGER_ERROR(logger_,
+                                               "Client setup rejected conn_id: {} code: {} reason: {}",
+                                               current_connection_->GetID(),
+                                               static_cast<std::uint64_t>(code),
+                                               reason.value_or("unknown"));
+                            SetStatus(Status::kInternalError);
+                            Disconnect();
+                            return true;
+                        }
                     }
                 }
 
-                SetStatus(Status::kReady);
+                peer_setup_received_ = true;
+                CheckReady();
 
                 QUICR_LOGGER_INFO(
                   logger_, "Setup received conn_id: {} from: {}", current_connection_->GetID(), endpoint_id);

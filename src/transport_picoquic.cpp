@@ -349,7 +349,9 @@ try {
             if (transport->is_server_mode) {
                 QUICR_LOGGER_INFO(transport->logger,
                                   "PqEventCb: Creating connection context in picoquic_callback_ready");
-                transport->HandleNewConnection(transport->CreateConnection(pq_cnx));
+                auto connection = transport->CreateConnection(pq_cnx);
+                transport->HandleNewConnection(connection);
+                transport->OnConnectionStatus(connection, TransportStatus::kReady);
             } else {
                 // Client - for raw QUIC connections only, WebTransport connections use DefaultWebTransportCallback
                 auto connection = transport->GetConnection(conn_id);
@@ -3213,6 +3215,7 @@ PicoQuicTransport::AcceptWebTransportConnection(picoquic_cnx_t* cnx,
     QUICR_LOGGER_INFO(logger, "AcceptWebTransportConnection: Done accepting WebTransport connection {}", conn_id);
 
     HandleNewConnection(connection);
+    OnConnectionStatus(connection, TransportStatus::kReady);
 
     return ret;
 }

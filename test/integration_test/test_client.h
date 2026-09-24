@@ -21,7 +21,13 @@ namespace quicr_test {
             client_connected_ = std::move(promise);
         }
 
-        quicr::Reply<void, quicr::ErrorCode> ServerSetupReceived(
+        std::optional<quicr::Session::Status> GetStatusAtServerSetup() const
+        {
+            std::lock_guard lock(status_mutex_);
+            return status_at_server_setup_;
+        }
+
+        quicr::Expected<void, quicr::Error<quicr::ErrorCode>> ServerSetupReceived(
           const std::shared_ptr<quicr::Session>& session,
           const quicr::ServerSetupAttributes& server_setup_attributes) override;
 
@@ -77,6 +83,8 @@ namespace quicr_test {
         }
 
       private:
+        mutable std::mutex status_mutex_;
+        std::optional<quicr::Session::Status> status_at_server_setup_;
         std::mutex stream_state_mutex_;
         std::map<std::uint64_t, bool> closed_streams_;
         std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;

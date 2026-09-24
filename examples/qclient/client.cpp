@@ -456,7 +456,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
             group->insert(std::move(object));
         } else {
             qclient_vars::cache.at(*track_alias)
-              .Insert(object_headers.group_id, { std::move(object) }, qclient_vars ::cache_duration_ms.count());
+              .Insert(object_headers.group_id, { std::move(object) }, qclient_vars::cache_duration_ms.count());
         }
 
         if (qclient_vars::mls_ctx.has_value()) {
@@ -559,8 +559,8 @@ class MyClient : public quicr::Session::ClientCallbacks
                 break;
             case quicr::Session::Status::kConnecting:
                 break;
-            case quicr::Session::Status::kPendingServerSetup:
-                QUICR_LOGGER_INFO(qclient_vars::logger, "Connection connected and now pending server setup");
+            case quicr::Session::Status::kPendingPeerSetup:
+                QUICR_LOGGER_INFO(qclient_vars::logger, "Connection connected and now pending peer setup");
                 break;
             default:
                 QUICR_LOGGER_INFO(qclient_vars::logger, "Connection failed {0}", static_cast<int>(status));
@@ -573,7 +573,7 @@ class MyClient : public quicr::Session::ClientCallbacks
 
     // -- quicr::Session::ClientCallbacks -------------------------------------------------------
 
-    quicr::Reply<void, quicr::ErrorCode> ServerSetupReceived(
+    quicr::Expected<void, quicr::Error<quicr::ErrorCode>> ServerSetupReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       const quicr::ServerSetupAttributes& server_setup_attributes) override
     {

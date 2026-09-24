@@ -56,7 +56,7 @@ namespace quicr {
          *      or an Unexpected error.
          */
         template<typename U>
-            requires(!std::same_as<std::remove_cvref_t<U>, Reply> && std::is_constructible_v<ResultType, U &&>)
+            requires(!std::same_as<std::remove_cvref_t<U>, Reply> && std::is_constructible_v<ResultType, U&&>)
         Reply(U&& value)
           : result_(std::in_place_type<ResultType>, std::forward<U>(value))
         {
