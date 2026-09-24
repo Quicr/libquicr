@@ -1,3 +1,4 @@
+#include "picoquic_connection.h"
 #include "quicr/config.h"
 #include "quicr/handlers/fetch_track_handler.h"
 #include "quicr/handlers/forwarding_subscribe_track_handler.h"
@@ -2342,6 +2343,64 @@ TEST_CASE("Integration - A forwarded subgroup framed from its first object is st
         return !current.empty() && DecodeForwardedObjects(current.front()).size() == 1;
     }));
     CHECK_EQ(DecodeForwardedObjects(subscribe_handler->GetSubgroups().front()).front(), payload);
+}
+
+TEST_CASE("Integration - A stream header type meaning nothing stops the stream, not the session")
+{
+    quicr::SessionManager session_mgr;
+
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto [subscriber, _] = MakeTestClient(session_mgr);
+    auto [publisher, __] = MakeTestClient(session_mgr);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "invalid", "stream-type" }), { 1 } };
+
+    auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(
+      WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+    /*
+     * A peer opening a data stream that claims to carry something there is no reading of. Nothing
+     * in this library sends such a stream, so it is put together here: an ID of the kind a peer
+     * opens a one-way stream with, and a first byte naming no stream type there is.
+     */
+    const auto connection = subscriber->GetConnection();
+    const auto pq_connection = std::dynamic_pointer_cast<PicoQuicConnection>(connection);
+    REQUIRE(pq_connection != nullptr);
+
+    constexpr std::uint64_t kPeerUnidirectionalStreamId = 203;
+    const auto stream = pq_connection->AddStream(kPeerUnidirectionalStreamId, nullptr);
+    REQUIRE(stream != nullptr);
+    REQUIRE_FALSE(stream->IsBidirectional());
+
+    const std::vector<std::uint8_t> no_such_type{ 0x00, 0x00 };
+    {
+        std::lock_guard _(stream->rx_mutex);
+        stream->rx_data.Push(std::span<const std::uint8_t>{ no_such_type });
+    }
+
+    // Nothing is read from it, and it is counted against the connection rather than thrown on. Were
+    // it thrown on, or closed in a way the stream's direction does not allow, the session would go.
+    CHECK_FALSE(connection->OnRecvStream(stream));
+    CHECK_EQ(connection->metrics.rx_stream_invalid_type, 1);
+
+    // The session it arrived on carries on, which is the whole point of stopping only the stream.
+    const std::vector<std::uint8_t> payload(8, 0x5c);
+    const ObjectHeaders headers{ .group_id = 0,
+                                 .object_id = 0,
+                                 .subgroup_id = 0,
+                                 .payload_length = payload.size(),
+                                 .status = ObjectStatus::kAvailable,
+                                 .priority = 3,
+                                 .ttl = 10'000,
+                                 .track_mode = TrackMode::kStream };
+    REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+    CHECK(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() >= 1; }));
 }
 
 TEST_CASE("Integration - Failed publish does not create subgroup state")

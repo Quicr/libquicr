@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/containers/stream_buffer.h"
+#include "quicr/messages/messages.h"
 #include "quicr/utilities/thread_safety.h"
 
 #include <atomic>
@@ -167,6 +168,15 @@ namespace quicr {
              *      object; one forwarded as bytes reads only as far as it must to know it.
              */
             std::optional<Subgroup> subgroup;
+
+            /**
+             * Where a fetch's objects got to, set up when the stream is bound to its handler
+             *
+             * @details What a fetch stream keeps in place of the two above, a fetch stepping
+             *      through its objects differently. Seeded with the group order the fetch was
+             *      made with, which is all of the handler that it wants.
+             */
+            std::optional<messages::FetchObjectSerializationState> fetch;
         };
 
         RxParseState rx_parse;

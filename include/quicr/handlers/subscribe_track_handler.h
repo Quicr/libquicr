@@ -403,16 +403,6 @@ namespace quicr {
         }
 
         std::optional<uint64_t> pending_new_group_request_id_;
-        bool is_fetch_handler_{ false };
-
-        /**
-         * Delta state for decoding the objects of a fetch, set up when its stream is identified
-         *
-         * @details Only fetch handlers ever have this. It belongs to the handler rather than the
-         *      stream carrying the fetch because the group order it decodes against is the one
-         *      the handler was created with.
-         */
-        std::optional<messages::FetchObjectSerializationState> fetch_state_;
 
         StreamBuffer<uint8_t> dgram_buffer_;
 
