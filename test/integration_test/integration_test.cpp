@@ -556,7 +556,8 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
 
     REQUIRE(transport->Start() != nullptr);
     REQUIRE(session_future.wait_for(kDefaultTimeout) == std::future_status::ready);
-    auto [session, ordered_delegate] = session_future.get();
+    auto session_and_delegate = session_future.get();
+    const auto& session = session_and_delegate.first;
     transport->OnNewConnection = nullptr;
 
     REQUIRE(setup_received.wait_for(kDefaultTimeout) == std::future_status::ready);
