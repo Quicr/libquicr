@@ -1603,6 +1603,7 @@ namespace quicr {
         return has_remaining;
     } catch (const TransportException& e) {
         QUICR_LOGGER_INFO(logger_, "OnRecvStream: connection or stream no longer exists (error={})", e.what());
+        Disconnect();
         return false;
     } catch (const std::exception& e) {
         // A stream that cannot be made sense of will fail the same way on every later arrival, and
@@ -1652,22 +1653,17 @@ namespace quicr {
             return true;
         }
 
-        /*
-         * A header type nothing can be made of is the peer's problem with this one stream, not with
-         * the session, so the stream is stopped rather than the session torn down.
-         */
         StreamMessageType message_type;
         try {
             message_type = GetStreamMessageType(*stream_type);
         } catch (const ProtocolViolationException&) {
-            QUICR_LOGGER_WARN(
-              logger_, "Received stream {} with invalid header type 0x{:02x}, stopping it", stream_id, *stream_type);
+            QUICR_LOGGER_WARN(logger_,
+                              "Received stream {} with invalid header type 0x{:02x}, disconnecting session",
+                              stream_id,
+                              *stream_type);
             current_connection_->metrics.rx_stream_invalid_type++;
 
-            // Unlike the other ways binding fails, this one cannot come good on a later arrival, so
-            // the peer is told to stop rather than left free to keep filling a buffer nothing reads.
-            quic_transport_->CloseStream(current_connection_, stream.shared_from_this(), StreamOperation::kStopSending);
-            return false;
+            throw;
         }
 
         if (!destination.has_value()) {

@@ -2375,7 +2375,7 @@ TEST_CASE("Integration - A forwarded subgroup framed from its first object is st
     CHECK_EQ(DecodeForwardedObjects(subscribe_handler->GetSubgroups().front()).front(), payload);
 }
 
-TEST_CASE("Integration - A stream header type meaning nothing stops the stream, not the session")
+TEST_CASE("Integration - A stream header type meaning nothing takes the session down with it")
 {
     quicr::SessionManager session_mgr;
 
@@ -2414,12 +2414,16 @@ TEST_CASE("Integration - A stream header type meaning nothing stops the stream, 
         stream->rx_data.Push(std::span<const std::uint8_t>{ no_such_type });
     }
 
-    // Nothing is read from it, and it is counted against the connection rather than thrown on. Were
-    // it thrown on, or closed in a way the stream's direction does not allow, the session would go.
+    // Nothing is read from it, it is counted against the connection, and the violation is answered
+    // for by the session rather than the one stream: the connection it arrived on is closed.
     CHECK_FALSE(connection->OnRecvStream(stream));
     CHECK_EQ(connection->metrics.rx_stream_invalid_type, 1);
+    CHECK_EQ(connection->GetStatus(), Connection::Status::kRemoteRequestClose);
 
-    // The session it arrived on carries on, which is the whole point of stopping only the stream.
+    // Only the session that violated, the publisher's being a separate one on the same server.
+    CHECK_EQ(publisher->GetConnection()->GetStatus(), Connection::Status::kReady);
+
+    // Which leaves the track with nothing to arrive on, the subscription having gone with it.
     const std::vector<std::uint8_t> payload(8, 0x5c);
     const ObjectHeaders headers{ .group_id = 0,
                                  .object_id = 0,
@@ -2429,8 +2433,8 @@ TEST_CASE("Integration - A stream header type meaning nothing stops the stream, 
                                  .priority = 3,
                                  .ttl = 10'000,
                                  .track_mode = TrackMode::kStream };
-    REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
-    CHECK(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() >= 1; }));
+    publish_handler->PublishObject(headers, payload);
+    CHECK_FALSE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() >= 1; }, kNegativeTimeout));
 }
 
 TEST_CASE("Integration - Failed publish does not create subgroup state")
