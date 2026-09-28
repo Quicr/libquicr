@@ -1711,7 +1711,7 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
     bool should_reset = false;
     defer({
         const bool empty = [&]() {
-            std::lock_guard _(*stream_ctx.tx_data);
+            std::lock_guard _(stream_ctx.tx_mutex);
             return stream_ctx.tx_data->empty() && stream_ctx.tx_object == nullptr;
         }();
 
@@ -3219,11 +3219,13 @@ PicoQuicTransport::AcceptWebTransportConnection(picoquic_cnx_t* cnx,
         }
         // Parse query parameters if present
         if (query_offset < path_length) {
+#if QUICR_ACTIVE_LOG_LEVEL <= QUICR_LOG_DEBUG
             const uint8_t* queries = path + query_offset;
             size_t queries_length = path_length - query_offset;
             QUICR_LOGGER_DEBUG(logger,
                                "AcceptWebTransportConnection: query string '{}'",
                                std::string(reinterpret_cast<const char*>(queries), queries_length));
+#endif
 
             // Example: Parse a "version" parameter if needed in the future
             // uint64_t version = 0;

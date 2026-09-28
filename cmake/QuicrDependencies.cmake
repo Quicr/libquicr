@@ -89,7 +89,7 @@ if (WITH_MBEDTLS)
     set(OPENSSL_INCLUDE_DIR "")
 endif()
 
-CPMAddPackage("gh:quicr/picotls#3927c48be674d97ca8242580fab3b4af4eb6df2a")
+CPMAddPackage("gh:quicr/picotls#sync-092226")
 
 set(PTLS_INCLUDE_DIR ${picotls_SOURCE_DIR}/include)
 
@@ -111,7 +111,7 @@ endif()
 
 set(picoquic_BUILD_TESTS OFF)
 set(PICOQUIC_FETCH_PTLS ON)
-CPMAddPackage("gh:private-octopus/picoquic#6dc1f45cc3136b270fe1c04477145861b041bc93")
+CPMAddPackage("gh:private-octopus/picoquic#poll-recvmmsg")
 add_dependencies(picoquic-core picotls-core)
 
 if (WITH_MBEDTLS)
