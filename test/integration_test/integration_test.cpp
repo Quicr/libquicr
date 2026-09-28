@@ -2403,8 +2403,8 @@ TEST_CASE("Integration - A stream header type meaning nothing takes the session 
     const auto pq_connection = std::dynamic_pointer_cast<PicoQuicConnection>(connection);
     REQUIRE(pq_connection != nullptr);
 
-    constexpr std::uint64_t kPeerUnidirectionalStreamId = 203;
-    const auto stream = pq_connection->AddStream(kPeerUnidirectionalStreamId, nullptr);
+    constexpr std::uint64_t peer_unidirectional_stream_id = 203;
+    const auto stream = pq_connection->AddStream(peer_unidirectional_stream_id, nullptr);
     REQUIRE(stream != nullptr);
     REQUIRE_FALSE(stream->IsBidirectional());
 
