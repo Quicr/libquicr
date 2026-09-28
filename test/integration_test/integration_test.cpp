@@ -2141,12 +2141,18 @@ TEST_CASE("Integration - Fetch object roundtrip")
         cached[5].payload = { 4 };
 
         server->SetFetchResponseData(cached);
+        messages::TrackExtensions track_properties;
+        track_properties.Add(messages::ExtensionType::kDefaultPublisherGroupOrder, messages::GroupOrder::kDescending)
+          .Add(messages::ExtensionType::kDefaultPublisherPriority, std::uint8_t{ 5 });
+        server->SetFetchResponseTrackProperties(std::move(track_properties));
 
         auto fetch_handler = TestFetchTrackHandler::Create(ftn, 0, { 100, 0 }, { 103, std::nullopt });
 
         session_mgr.AddHandler(session, fetch_handler);
 
         REQUIRE(WaitFor([&fetch_handler]() { return fetch_handler->GetStatus() == FetchTrackHandler::Status::kOk; }));
+        CHECK_EQ(fetch_handler->GetLatestLocation(), (messages::Location{ 103, 1 }));
+        CHECK_EQ(fetch_handler->GetPublisherDefaultGroupOrder(), messages::GroupOrder::kDescending);
 
         // Wait for all objects to be received
         const auto expected_count = cached.size();

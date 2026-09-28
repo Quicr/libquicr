@@ -758,22 +758,17 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Session::SendFetchOk(const std::shared_ptr<Stream>& stream,
-                              GroupOrder publisher_default_group_order,
-                              bool end_of_track,
-                              Location largest_location)
+    void Session::SendFetchOk(const std::shared_ptr<Stream>& stream, const FetchResponse& response)
     try {
         /* Available parameters: None */
         auto params = Parameters{};
 
-        auto extensions = TrackExtensions{}
-                            .Add(ExtensionType::kDeliveryTimeout, 0)
-                            .Add(ExtensionType::kMaxCacheDuration, 0)
-                            .Add(ExtensionType::kDefaultPublisherGroupOrder, publisher_default_group_order)
-                            .Add(ExtensionType::kDefaultPublisherPriority, 1)
-                            .Add(ExtensionType::kDynamicGroups, true);
-
-        SendCtrlMsg(stream, ControlMessageType::kFetchOk, end_of_track, largest_location, params, extensions);
+        SendCtrlMsg(stream,
+                    ControlMessageType::kFetchOk,
+                    response.end_of_track,
+                    response.end_location,
+                    params,
+                    response.track_properties);
     } catch (const std::exception& e) {
         QUICR_LOGGER_ERROR(logger_, "Caught exception sending FetchOk (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -2265,9 +2260,7 @@ namespace quicr {
 
     // -- Resolve Methods --
 
-    void Session::ResolveFetch(uint64_t request_id,
-                               std::optional<messages::GroupOrder> group_order,
-                               const FetchResponse& response)
+    void Session::ResolveFetch(uint64_t request_id, const FetchResponse& response)
     {
         const auto request_it = recv_req_id.find(request_id);
         if (request_it == recv_req_id.end() || request_it->second.stream == nullptr) {
@@ -2278,8 +2271,7 @@ namespace quicr {
             return;
         }
 
-        SendFetchOk(
-          request_it->second.stream, response.publisher_default_group_order, false, response.largest_location.value());
+        SendFetchOk(request_it->second.stream, response);
     }
 
     std::shared_ptr<Stream> Session::FindSubscribeNamespaceStream(const TrackNamespace& track_namespace) const
@@ -3166,7 +3158,7 @@ namespace quicr {
                                       return;
                                   }
 
-                                  self->ResolveFetch(request_id, group_order, result.value());
+                                  self->ResolveFetch(request_id, result.value());
                               });
                         }
 
@@ -3237,7 +3229,7 @@ namespace quicr {
                                       return;
                                   }
 
-                                  self->ResolveFetch(request_id, group_order, result.value());
+                                  self->ResolveFetch(request_id, result.value());
                               });
                         }
                         return true;

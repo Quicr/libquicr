@@ -268,9 +268,8 @@ TestServer::StandaloneFetchReceived(const std::shared_ptr<quicr::Session>& sessi
                                                                       "No fetch test response configured");
     }
 
-    // Create location for the response
-    const messages::Location largest_location = { .group = fetch_response_data_.back().headers.group_id,
-                                                  .object = fetch_response_data_.back().headers.object_id };
+    const messages::Location end_location = { .group = fetch_response_data_.back().headers.group_id,
+                                              .object = fetch_response_data_.back().headers.object_id + 1 };
 
     // Publish the response
     auto pub_fetch_handler =
@@ -285,7 +284,9 @@ TestServer::StandaloneFetchReceived(const std::shared_ptr<quicr::Session>& sessi
         pub_fetch_handler->PublishObject(fetch_response_data_[i].headers, fetch_response_data_[i].payload);
     }
 
-    return FetchResponse{ largest_location };
+    return FetchResponse{ .end_location = end_location,
+                          .end_of_track = true,
+                          .track_properties = fetch_response_track_properties_ };
 }
 
 quicr::Reply<const quicr::FetchResponse, quicr::FetchErrorCode>
@@ -317,7 +318,9 @@ TestServer::JoiningFetchReceived(const std::shared_ptr<quicr::Session>& session,
             pub_fetch_handler->PublishObject(response.headers, response.payload);
         }
 
-        return FetchResponse{ .largest_location = largest_location };
+        return FetchResponse{ .end_location = { largest_location.group, largest_location.object + 1 },
+                              .end_of_track = true,
+                              .track_properties = fetch_response_track_properties_ };
     }
 
     return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(FetchErrorCode::kInternalError,

@@ -758,6 +758,21 @@ class MyClient : public quicr::Session::ClientCallbacks
                                                                           "No cached objects in requested range");
         }
 
+        std::optional<quicr::messages::Location> response_last_location;
+        for (const auto& entry : cache_entries) {
+            for (const auto& object : *entry) {
+                const quicr::messages::Location location{ object.headers.group_id, object.headers.object_id };
+                if (location < start || (end.object && location.group == end.group && location.object > *end.object)) {
+                    continue;
+                }
+                response_last_location = std::max(response_last_location.value_or(location), location);
+            }
+        }
+        if (!response_last_location) {
+            return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(quicr::FetchErrorCode::kInvalidRange,
+                                                                          "No cached objects in requested range");
+        }
+
         const auto resolved_group_order = group_order.value_or(quicr::messages::GroupOrder::kAscending);
 
         // TODO: Adjust the TTL
@@ -794,7 +809,8 @@ class MyClient : public quicr::Session::ClientCallbacks
 
         retrieve_cache_thread.detach();
 
-        return quicr::FetchResponse{ largest_location, resolved_group_order };
+        return quicr::FetchResponse{ .end_location = { response_last_location->group,
+                                                       response_last_location->object + 1 } };
     }
 };
 
