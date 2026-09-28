@@ -10,16 +10,12 @@ namespace quicr {
     /**
      * @brief MOQ track handler that takes a subscribed track's streams as bytes
      *
-     * @details A relay writes a subgroup back out to another stream, so it wants the bytes rather
-     *      than the objects in them, working out where each one ends being the cost it is avoiding.
-     *      Each subgroup's header arrives once, to write an equivalent of, then its bytes as they
-     *      come. Only the track alias has to be rewritten, being agreed per session; the rest holds
-     *      as it came for as long as the subgroup is passed on in order.
+     * @details Delivers each subgroup header followed by its raw stream bytes, allowing a relay to
+     *      forward the subgroup without parsing individual objects. The track alias must be
+     *      rewritten because it is scoped to the session.
      *
-     *      Nothing on a stream reaches `ObjectReceived` or is counted, so a track wanting objects
-     *      wants a plain `SubscribeTrackHandler`. Datagrams still do both, being whole objects with
-     *      no stream to pass on, and a publisher chooses between the two per object, so a relay
-     *      that might be sent datagrams still wants `ObjectReceived` implemented.
+     *      Stream objects are not delivered to `ObjectReceived` or counted individually. Datagrams
+     *      are still delivered to `ObjectReceived`, which a relay should override if it expects them.
      */
     class ForwardingSubscribeTrackHandler : public SubscribeTrackHandler
     {
@@ -34,10 +30,10 @@ namespace quicr {
          *      header to write an equivalent one.
          *
          * @param group_id      Group the subgroup belongs to
-         * @param subgroup_id   Subgroup that has started
+         * @param subgroup_id   Subgroup the bytes belong to
          * @param priority      Priority the publisher gave the subgroup, unset if it left it to
          *                      the framing's default
-         * @param properties    How the subgroup is framed, to frame the one passed on the same way
+         * @param properties    How the subgroup is framed
          */
         virtual void SubgroupStarted(std::uint64_t group_id,
                                      std::uint64_t subgroup_id,
@@ -52,8 +48,6 @@ namespace quicr {
          *      objects, part of one, or the end of one and the start of the next. A track's
          *      subgroups arrive on streams of their own and so interleave here, which is why every
          *      call names one.
-         *
-         *      The bytes are the handler's to take, nothing here wanting them afterwards.
          *
          * @param group_id      Group the subgroup belongs to
          * @param subgroup_id   Subgroup the bytes belong to
