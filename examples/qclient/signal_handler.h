@@ -6,9 +6,15 @@
 #include <atomic>
 #include <condition_variable>
 #include <csignal>
+#include <cstdio>
 #include <iostream>
 #include <mutex>
+
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 
 namespace moq_example {
     std::mutex main_mutex;                     // Main's mutex
@@ -67,10 +73,14 @@ signalHandler(int signal_number)
         default:
             moq_example::termination_reason = "Unknown signal received";
             break;
-    }
+    };
 
     // Unblock any getline() waiting on stdin.
+#ifdef _WIN32
+    _close(_fileno(stdin));
+#else
     close(STDIN_FILENO);
+#endif
 
     // Notify the main execution thread to terminate
     moq_example::cv.notify_all();

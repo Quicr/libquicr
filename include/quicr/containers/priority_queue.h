@@ -248,7 +248,7 @@ namespace quicr {
             /*
              * Initialize free time queues with two starting entries.
              */
-            for (int i = free_tqueues_.size(); i < kMinFreeTimeQueues; ++i) {
+            for (int i = static_cast<int>(free_tqueues_.size()); i < kMinFreeTimeQueues; ++i) {
                 free_tqueues_.emplace_back(
                   std::make_shared<TimeQueueType>(duration_ms_, interval_ms_, tick_service_, initial_queue_size_));
             }

@@ -5,7 +5,7 @@
 
 #include "quicr/attributes.h"
 #include "quicr/errors.h"
-#include "quicr/messages/messages.h"
+#include "quicr/messages/message_serialisation.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/reply.h"
 #include "quicr/track_name.h"
