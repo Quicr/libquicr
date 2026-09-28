@@ -47,8 +47,9 @@ namespace quicr {
      */
     struct FetchResponse
     {
-        std::optional<messages::Location> largest_location = std::nullopt;
-        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+        messages::Location end_location;
+        bool end_of_track = false;
+        messages::TrackExtensions track_properties;
     };
 
     /**
@@ -588,9 +589,7 @@ namespace quicr {
         // Fetch
         /*===================================================================*/
 
-        void ResolveFetch(uint64_t request_id,
-                          std::optional<messages::GroupOrder> group_order,
-                          const FetchResponse& response);
+        void ResolveFetch(uint64_t request_id, const FetchResponse& response);
 
         void SendFetch(const std::shared_ptr<Stream>& stream,
                        std::uint64_t request_id,
@@ -608,10 +607,7 @@ namespace quicr {
                               std::uint64_t joining_start,
                               bool absolute);
 
-        void SendFetchOk(const std::shared_ptr<Stream>& stream,
-                         messages::GroupOrder publisher_default_group_order,
-                         bool end_of_track,
-                         messages::Location end_location);
+        void SendFetchOk(const std::shared_ptr<Stream>& stream, const FetchResponse& response);
 
         /*===================================================================*/
         // Other member functions
