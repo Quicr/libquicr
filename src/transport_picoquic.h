@@ -27,7 +27,6 @@
 #include <map>
 #include <memory>
 #include <mutex>
-#include <netinet/in.h>
 #include <span>
 #include <string>
 #include <thread>
@@ -36,6 +35,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <netinet/in.h>
 #include <sys/types.h>
 #endif
 
