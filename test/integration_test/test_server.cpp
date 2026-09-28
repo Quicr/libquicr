@@ -178,11 +178,14 @@ TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& sessi
 
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
 TestServer::SubscribeNamespaceReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-                                       [[maybe_unused]] const TrackNamespace& prefix_namespace,
-                                       [[maybe_unused]] const SubscribeNamespaceAttributes& attributes)
+                                       const TrackNamespace& prefix_namespace,
+                                       const SubscribeNamespaceAttributes& attributes)
 {
-    // TODO: Implement.
-    return std::vector<quicr::TrackNamespace>{};
+    std::lock_guard lock(state_mutex_);
+    if (subscribe_namespace_promise_.has_value()) {
+        subscribe_namespace_promise_->set_value({ prefix_namespace, attributes });
+    }
+    return known_published_namespaces_;
 }
 
 void
