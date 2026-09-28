@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include <doctest/doctest.h>
-#include <timeq/tick_service.h>
 
 #include "picoquic_connection.h"
+
+#include <timeq/tick_service.h>
+#include <timeq/time_queue.h>
 
 using namespace quicr;
 
@@ -13,6 +15,17 @@ namespace {
     std::shared_ptr<PicoQuicConnection> MakeConnection()
     {
         return std::make_shared<PicoQuicConnection>(reinterpret_cast<picoquic_cnx_t*>(0x5000));
+    }
+
+    class TestTickService : public timeq::tick_service
+    {
+      public:
+        std::chrono::microseconds get() const override { return {}; }
+    };
+
+    std::unique_ptr<timeq::time_queue<ConnData>> MakeTxQueue()
+    {
+        return std::make_unique<timeq::time_queue<ConnData>>(1000, 1, std::make_shared<TestTickService>());
     }
 }
 
@@ -78,7 +91,7 @@ TEST_CASE("A stream is fully closed when every available direction is closed")
 
     SUBCASE("Bidirectional")
     {
-        auto queue = std::make_unique<SafeTimeQueue<ConnData>>(std::make_shared<timeq::threaded_tick_service>());
+        auto queue = MakeTxQueue();
         const auto stream = connection->AddStream(0, std::move(queue));
 
         CHECK_FALSE(stream->IsFullyClosed());
@@ -99,7 +112,7 @@ TEST_CASE("A stream is fully closed when every available direction is closed")
 
     SUBCASE("Send-only")
     {
-        auto queue = std::make_unique<SafeTimeQueue<ConnData>>(std::make_shared<timeq::threaded_tick_service>());
+        auto queue = MakeTxQueue();
         const auto stream = connection->AddStream(2, std::move(queue));
 
         CHECK_FALSE(stream->IsFullyClosed());
