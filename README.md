@@ -75,22 +75,51 @@ brew install cmake clang-format
 
 ## Dependencies
 
-libquicr's C/C++ dependencies are fetched at CMake configure time by
-[CPM.cmake](https://github.com/cpm-cmake/CPM.cmake). There is nothing to install by hand and no
-submodules to initialise — configuring the project is enough. `cmake/CPM.cmake` first downloads a
-pinned CPM release and checks it against a recorded SHA-256, and each dependency is then pinned to
-its own tag or commit:
+Most of libquicr's C/C++ dependencies are fetched at CMake configure time by
+[CPM.cmake](https://github.com/cpm-cmake/CPM.cmake). There are no submodules to initialise, but the
+TLS provider is supplied by the user. `cmake/CPM.cmake` first downloads a pinned CPM release and
+checks it against a recorded SHA-256, and each fetched dependency is then pinned to its own tag or
+commit:
 
 | Dependency | Declared in |
 | --- | --- |
-| picoquic, picotls, timeq, Mbed TLS | `cmake/QuicrDependencies.cmake` |
+| picoquic, picotls, timeq | `cmake/QuicrDependencies.cmake` |
 | fmt | `cmake/QuicrFormat.txt` |
 | doctest | `test/CMakeLists.txt` |
 | Google Benchmark | `benchmark/CMakeLists.txt` |
 | nlohmann/json, sframe, spdlog | `examples/qclient/CMakeLists.txt` |
 
-Mbed TLS is only fetched when configuring with `-DWITH_MBEDTLS=ON`. The default build links the
-system OpenSSL instead, which is why OpenSSL is the one TLS dependency you still install yourself.
+### TLS providers
+
+The default build uses OpenSSL. Install a supported OpenSSL release through the platform package
+manager and configure normally. For a non-standard installation, pass its prefix explicitly:
+
+```
+cmake -B build -DOPENSSL_ROOT_DIR=/path/to/openssl
+```
+
+BoringSSL can be used through its OpenSSL compatibility interface. Build and install a pinned
+BoringSSL revision, keep it isolated from the system OpenSSL installation, and pass its installation
+prefix in the same way:
+
+```
+cmake -B build -DOPENSSL_ROOT_DIR=/path/to/boringssl-install
+```
+
+BoringSSL does not provide stable API or ABI compatibility between revisions, so applications
+should vendor or otherwise pin the exact tested revision. The BoringSSL job in
+`.github/workflows/tls-backends.yml` is the reference build configuration.
+
+To use Mbed TLS, provide an installed or in-tree Mbed TLS build and configure with
+`-DWITH_MBEDTLS=ON`. Its location can be supplied through the `MBEDTLS_ROOT_DIR` and
+`MBEDTLS_PREFIX` CMake variables when it is not in a standard search path. In-tree providers can
+instead set `MBEDTLS_INCLUDE_DIR`, `MBEDTLS_INCLUDE_DIRS`, `MBEDTLS_LIBRARY`, `MBEDTLS_X509`, and
+`MBEDTLS_CRYPTO`.
+
+For every provider, use a currently supported release, apply security updates promptly, and avoid
+mixing headers and libraries from different installations. Use a fresh build directory when
+switching providers so cached discovery results cannot select the previous TLS stack. Do not weaken
+the provider's TLS 1.3, certificate-validation, or secure-random configuration.
 
 ### Caching dependency sources
 
