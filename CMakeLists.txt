@@ -54,13 +54,6 @@ if(QUICR_ENABLE_SANITIZERS)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
-if (NOT DEFINED ENV{IDF_PATH})
-  find_package(Threads REQUIRED)
-  find_package(PkgConfig REQUIRED)
-else()
-  set(WITH_MBEDTLS ON CACHE BOOL "Build against MbedTLS rather than OpenSSL" FORCE)
-endif()
-
 #=============================================================================#
 # Dependencies
 #=============================================================================#
