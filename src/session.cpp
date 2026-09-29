@@ -325,12 +325,11 @@ namespace quicr {
         throw e;
     }
 
-    void Session::SendTrackStatusOk(const std::shared_ptr<Stream>& stream,
-                                    const std::optional<messages::Location>& largest_object,
-                                    const TrackExtensions& track_properties)
+    void Session::SendTrackStatusOk(const std::shared_ptr<Stream>& stream, const TrackStatusResponse& response)
     {
-        SendRequestOk(
-          stream, Parameters().AddOptional(ParameterType::kLargestObject, largest_object), track_properties);
+        SendRequestOk(stream,
+                      Parameters().AddOptional(ParameterType::kLargestObject, response.largest_location),
+                      response.track_properties);
     }
 
     void Session::SendSubscribeNamespaceOk(const std::shared_ptr<Stream>& stream)
@@ -560,25 +559,18 @@ namespace quicr {
     void Session::SendSubscribeOk(const std::shared_ptr<Stream>& stream,
                                   [[maybe_unused]] uint64_t request_id,
                                   uint64_t track_alias,
-                                  uint64_t expires,
-                                  const std::optional<Location>& largest_location,
-                                  messages::GroupOrder publisher_default_group_order)
+                                  const SubscribeResponse& response)
     try {
+        const auto expires_ms =
+          response.expires.has_value() ? std::make_optional(response.expires->count()) : std::nullopt;
         auto params = Parameters{}
-                        .Add(ParameterType::kExpires, expires)
-                        .AddOptional(ParameterType::kLargestObject, largest_location);
-
-        auto extensions = TrackExtensions{}
-                            .Add(ExtensionType::kDeliveryTimeout, 0)
-                            .Add(ExtensionType::kMaxCacheDuration, 0)
-                            .Add(ExtensionType::kDefaultPublisherGroupOrder, publisher_default_group_order)
-                            .Add(ExtensionType::kDefaultPublisherPriority, 1)
-                            .Add(ExtensionType::kDynamicGroups, true);
+                        .AddOptional(ParameterType::kExpires, expires_ms)
+                        .AddOptional(ParameterType::kLargestObject, response.largest_location);
 
         QUICR_LOGGER_DEBUG(
           logger_, "Sending SUBSCRIBE OK to conn_id: {} request_id: {}", current_connection_->GetID(), request_id);
 
-        SendCtrlMsg(stream, ControlMessageType::kSubscribeOk, UintVar(track_alias), params, extensions);
+        SendCtrlMsg(stream, ControlMessageType::kSubscribeOk, UintVar(track_alias), params, response.track_properties);
     } catch (const std::exception& e) {
         QUICR_LOGGER_ERROR(logger_, "Caught exception sending SubscribeOk (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -2402,12 +2394,15 @@ namespace quicr {
 
                     ptd->SetRequestStream(stream);
 
-                    SendSubscribeOk(ResponseStream(request_id),
-                                    request_id,
-                                    ptd->GetTrackAlias().value(),
-                                    kSubscribeExpires,
-                                    std::nullopt,
-                                    messages::GroupOrder::kAscending);
+                    // TODO: These should not exist and only be set by a callback, but preserving existing behaviour.
+                    SubscribeResponse default_response;
+                    default_response.expires = std::chrono::milliseconds(kSubscribeExpires);
+                    default_response.track_properties = TrackExtensions{}
+                                                          .Add(ExtensionType::kDefaultPublisherPriority, 1)
+                                                          .Add(ExtensionType::kDynamicGroups, true);
+
+                    SendSubscribeOk(
+                      ResponseStream(request_id), request_id, ptd->GetTrackAlias().value(), default_response);
 
                     ptd->SetRequestId(request_id);
                     ptd->SetTrackAlias(ptd->GetTrackAlias().value());
@@ -2462,13 +2457,24 @@ namespace quicr {
                               return;
                           }
 
+                          // TODO: These should be set by the callback recipient, but preserving existing defaults for
+                          // now. Should remove once laps updated.
+                          SubscribeResponse response = result.value();
+                          if (response.expires == std::nullopt) {
+                              response.expires = std::chrono::milliseconds(kSubscribeExpires);
+                          }
+                          if (response.track_properties.GetOptional<std::uint64_t>(
+                                ExtensionType::kDefaultPublisherPriority) == std::nullopt) {
+                              response.track_properties.Add(ExtensionType::kDefaultPublisherPriority, 1);
+                          }
+                          if (response.track_properties.GetOptional<bool>(ExtensionType::kDynamicGroups) ==
+                              std::nullopt) {
+                              response.track_properties.Add(ExtensionType::kDynamicGroups, true);
+                          }
+
                           if (self->client_mode_) {
-                              self->SendSubscribeOk(self->ResponseStream(request_id),
-                                                    request_id,
-                                                    th.track_fullname_hash,
-                                                    kSubscribeExpires,
-                                                    result->largest_location,
-                                                    result->publisher_default_group_order);
+                              self->SendSubscribeOk(
+                                self->ResponseStream(request_id), request_id, th.track_fullname_hash, response);
                           } else {
 
                               // Save the latest state for joining fetch.
@@ -2486,12 +2492,8 @@ namespace quicr {
                               req_it->second.largest_location = result->largest_location;
 
                               if (!result->is_publisher_initiated) {
-                                  self->SendSubscribeOk(self->ResponseStream(request_id),
-                                                        request_id,
-                                                        th.track_fullname_hash,
-                                                        kSubscribeExpires,
-                                                        result->largest_location,
-                                                        result->publisher_default_group_order);
+                                  self->SendSubscribeOk(
+                                    self->ResponseStream(request_id), request_id, th.track_fullname_hash, response);
                               }
                           }
 
@@ -2680,9 +2682,7 @@ namespace quicr {
                               return;
                           }
 
-                          // TODO: TrackProperties should be in the subscribe_response.
-                          self->SendTrackStatusOk(
-                            self->ResponseStream(request_id), result.value().largest_location, TrackExtensions());
+                          self->SendTrackStatusOk(self->ResponseStream(request_id), result.value());
                       });
                 }
 
