@@ -85,36 +85,36 @@ cmake_dependent_option(BUILD_BRIDGE_EXAMPLES "Build C bridge example application
 
 if(BUILD_BRIDGE_EXAMPLES)
     # Simple Publisher Example
-    add_executable(simple_publisher examples/simple_publisher.c)
-    target_link_libraries(simple_publisher quicr-bridge)
+    add_executable(simple_publisher examples/simple_publisher.c examples/example_sleep.c)
+    target_link_libraries(simple_publisher PRIVATE quicr-bridge)
     target_include_directories(simple_publisher PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
 
     # Simple Subscriber Example
-    add_executable(simple_subscriber examples/simple_subscriber.c)
-    target_link_libraries(simple_subscriber quicr-bridge)
+    add_executable(simple_subscriber examples/simple_subscriber.c examples/example_sleep.c)
+    target_link_libraries(simple_subscriber PRIVATE quicr-bridge)
     target_include_directories(simple_subscriber PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
 
     # Chat Example
-    add_executable(chat examples/chat.c)
-    target_link_libraries(chat quicr-bridge)
+    add_executable(chat examples/chat.c examples/example_sleep.c)
+    target_link_libraries(chat PRIVATE quicr-bridge)
     target_include_directories(chat PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
 
     # Fetch Example
-    add_executable(fetch examples/fetch.c)
-    target_link_libraries(fetch quicr-bridge)
+    add_executable(fetch examples/fetch.c examples/example_sleep.c)
+    target_link_libraries(fetch PRIVATE quicr-bridge)
     target_include_directories(fetch PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
 
     # File Transfer Example
-    add_executable(file_transfer examples/file_transfer.c)
-    target_link_libraries(file_transfer quicr-bridge)
+    add_executable(file_transfer examples/file_transfer.c examples/example_sleep.c)
+    target_link_libraries(file_transfer PRIVATE quicr-bridge)
     target_include_directories(file_transfer PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     )

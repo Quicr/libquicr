@@ -10,7 +10,10 @@ endif()
 
 CPMAddPackage("gh:gabime/spdlog@1.17.0")
 
-add_executable(qclient client.cpp)
+add_executable(qclient
+    client.cpp
+    signal_handler.cpp
+)
 target_link_libraries(qclient PRIVATE quicr nlohmann_json::nlohmann_json sframe spdlog::spdlog)
 target_include_directories(qclient PRIVATE ../dependencies )
 
