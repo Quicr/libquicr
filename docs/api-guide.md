@@ -86,7 +86,7 @@ response or a reason code for rejecting it, and the session sends the resulting 
 nothing to call afterwards.
 
 ```cpp
-quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode> SubscribeReceived(
+quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode> SubscribeReceived(
   const std::shared_ptr<quicr::Session>& session,
   std::uint64_t request_id,
   const quicr::FullTrackName& track_full_name,
@@ -97,7 +97,9 @@ quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode> SubscribeReceived(
           quicr::RequestErrorCode::kUnauthorized, "not permitted on this namespace");
     }
 
-    return quicr::RequestResponse{ .largest_location = LargestFor(track_full_name) };
+    quicr::SubscribeResponse response;
+    response.largest_location = LargestFor(track_full_name);
+    return response;
 }
 ```
 
@@ -122,7 +124,7 @@ cannot be given straight away should be deferred rather than blocking.
 request when it returns:
 
 ```cpp
-using Reply = quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode>;
+using Reply = quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode>;
 
 Reply SubscribeReceived(..., const quicr::FullTrackName& track_full_name, ...) override
 {
@@ -132,7 +134,7 @@ Reply SubscribeReceived(..., const quicr::FullTrackName& track_full_name, ...) o
               quicr::RequestErrorCode::kUnauthorized, "rejected by authorization service");
         }
 
-        return quicr::RequestResponse{};
+        return quicr::SubscribeResponse{};
     });
 }
 ```
