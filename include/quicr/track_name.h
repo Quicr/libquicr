@@ -213,19 +213,27 @@ namespace quicr {
             return out.str();
         }
 
-        TrackNamespace GetPrefix(std::size_t length) const noexcept
+        TrackNamespace GetPrefix(std::size_t length) const
         {
-            if (length == 0 || length > entries_.size()) {
-                return TrackNamespace(std::span{ entries_ });
+            if (length > entries_.size()) {
+                throw std::invalid_argument("Prefix cannot be larger than the namespace");
+            }
+
+            if (length == 0) {
+                return TrackNamespace();
             }
 
             return TrackNamespace(std::span{ entries_ }.subspan(0, length));
         }
 
-        TrackNamespace GetSuffix(std::size_t length) const noexcept
+        TrackNamespace GetSuffix(std::size_t length) const
         {
-            if (length == 0 || length > entries_.size()) {
-                return TrackNamespace(std::span{ entries_ });
+            if (length > entries_.size()) {
+                throw std::invalid_argument("Suffix cannot be larger than the namespace");
+            }
+
+            if (length == 0) {
+                return TrackNamespace();
             }
 
             return TrackNamespace(std::span{ entries_ }.subspan(entries_.size() - length));

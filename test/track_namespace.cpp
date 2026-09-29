@@ -44,9 +44,9 @@ TEST_CASE("Hash namespace")
     CHECK_EQ(ns_hash, h);
 }
 
-TEST_CASE("Empty namespace prefix")
+TEST_CASE("Empty namespaces are allowed")
 {
-    TrackNamespace empty(std::vector<std::string>{});
+    TrackNamespace empty;
     TrackNamespace name_space{ "example"s };
 
     CHECK(empty.empty());
