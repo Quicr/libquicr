@@ -16,25 +16,11 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <queue>
 #include <source_location>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <vector>
-
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#else
-#include <sys/socket.h>
-#endif
 
 namespace quicr {
 
@@ -276,16 +262,6 @@ namespace quicr {
         virtual void CloseStream(const std::shared_ptr<Connection>& connection,
                                  const std::shared_ptr<Stream>& stream,
                                  StreamOperation operation) = 0;
-
-        /**
-         * @brief Get the peer IP address and port associated with the stream
-         *
-         * @param[in]  context_id	Identifying the connection
-         * @param[out] addr	Peer address
-         *
-         * @returns True if the address was successfully returned, false otherwise
-         */
-        virtual bool GetPeerAddrInfo(const std::shared_ptr<Connection>& connection, sockaddr_storage* addr) = 0;
 
         /**
          * Enqueue flags
