@@ -9,7 +9,7 @@
 namespace {
     volatile std::sig_atomic_t pending_signal = 0;
 
-    void signalHandler(int signal) noexcept
+    void SignalHandler(int signal) noexcept
     {
         pending_signal = signal;
     }
@@ -22,19 +22,19 @@ namespace moq_example {
     std::condition_variable cv;
     std::atomic<const char*> termination_reason{ nullptr };
 
-    bool installSignalHandlers()
+    bool InstallSignalHandlers()
     {
-        return std::signal(SIGINT, signalHandler) != SIG_ERR && std::signal(SIGTERM, signalHandler) != SIG_ERR;
+        return std::signal(SIGINT, SignalHandler) != SIG_ERR && std::signal(SIGTERM, SignalHandler) != SIG_ERR;
     }
 
-    int consumePendingSignal() noexcept
+    int ConsumePendingSignal() noexcept
     {
         const int signal = pending_signal;
         pending_signal = 0;
         return signal;
     }
 
-    const char* signalReason(int signal) noexcept
+    const char* SignalReason(int signal) noexcept
     {
         switch (signal) {
             case SIGINT:

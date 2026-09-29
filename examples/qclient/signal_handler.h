@@ -14,9 +14,9 @@ namespace moq_example {
     extern std::condition_variable cv;
     extern std::atomic<const char*> termination_reason;
 
-    bool installSignalHandlers();
+    bool InstallSignalHandlers();
 
-    int consumePendingSignal() noexcept;
+    int ConsumePendingSignal() noexcept;
 
-    const char* signalReason(int signal) noexcept;
+    const char* SignalReason(int signal) noexcept;
 }
