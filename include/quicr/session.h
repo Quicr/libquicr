@@ -33,13 +33,21 @@ namespace quicr {
     class Logger;
 
     /**
-     * @brief Response to a received subscribe or track status request
+     * @brief Response to a received TRACK_STATUS.
      */
-    struct RequestResponse
+    struct TrackStatusResponse
+    {
+        std::optional<messages::Location> largest_location{};
+        messages::TrackExtensions track_properties{};
+    };
+
+    /**
+     * @brief Response to a received SUBSCRIBE.
+     */
+    struct SubscribeResponse : TrackStatusResponse
     {
         bool is_publisher_initiated = false;
-        std::optional<messages::Location> largest_location = std::nullopt;
-        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+        std::optional<std::chrono::milliseconds> expires{};
     };
 
     /**
@@ -474,9 +482,7 @@ namespace quicr {
         // Requests
         /*===================================================================*/
 
-        void SendTrackStatusOk(const std::shared_ptr<Stream>& stream,
-                               const std::optional<messages::Location>& largest_object,
-                               const messages::TrackExtensions& track_properties);
+        void SendTrackStatusOk(const std::shared_ptr<Stream>& stream, const TrackStatusResponse& response);
 
         void SendSubscribeNamespaceOk(const std::shared_ptr<Stream>& stream);
 
@@ -542,9 +548,7 @@ namespace quicr {
         void SendSubscribeOk(const std::shared_ptr<Stream>& stream,
                              std::uint64_t request_id,
                              uint64_t track_alias,
-                             uint64_t expires,
-                             const std::optional<messages::Location>& largest_location,
-                             messages::GroupOrder publisher_default_group_order);
+                             const SubscribeResponse& response);
 
         /*===================================================================*/
         // Publish

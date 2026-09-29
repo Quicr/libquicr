@@ -51,11 +51,10 @@ namespace quicr {
         return {};
     }
 
-    Reply<RequestResponse, RequestErrorCode> Session::Callbacks::TrackStatusReceived(const std::shared_ptr<Session>&,
-                                                                                     std::uint64_t,
-                                                                                     const FullTrackName&)
+    Reply<TrackStatusResponse, RequestErrorCode>
+    Session::Callbacks::TrackStatusReceived(const std::shared_ptr<Session>&, std::uint64_t, const FullTrackName&)
     {
-        return RequestResponse{};
+        return TrackStatusResponse{};
     }
 
     // -- Session::ClientCallbacks ---------------------------------------------------------------
@@ -111,13 +110,13 @@ namespace quicr {
         return std::vector<TrackNamespace>{};
     }
 
-    Reply<RequestResponse, RequestErrorCode> Session::ServerCallbacks::SubscribeReceived(
+    Reply<SubscribeResponse, RequestErrorCode> Session::ServerCallbacks::SubscribeReceived(
       const std::shared_ptr<Session>&,
       std::uint64_t,
       const FullTrackName&,
       const SubscribeAttributes&)
     {
-        return RequestResponse{};
+        return SubscribeResponse{};
     }
 
     Reply<void, ErrorCode> Session::ServerCallbacks::UnsubscribeReceived(const std::shared_ptr<Session>&, std::uint64_t)

@@ -676,7 +676,7 @@ class MyClient : public quicr::Session::ClientCallbacks
         return {};
     }
 
-    quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode> TrackStatusReceived(
+    quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       std::uint64_t request_id,
       const quicr::FullTrackName& track_full_name) override
@@ -686,7 +686,10 @@ class MyClient : public quicr::Session::ClientCallbacks
                           "Track status requested request_id: {} track: {}",
                           request_id,
                           track_full_name.NameStr());
-        return quicr::RequestResponse{ false, largest_location, quicr::messages::GroupOrder::kAscending };
+
+        return quicr::TrackStatusResponse{
+            .largest_location = largest_location,
+        };
     }
 
   private:

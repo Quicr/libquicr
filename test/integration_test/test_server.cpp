@@ -88,7 +88,7 @@ TestServer::PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
     return {};
 }
 
-quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode>
+quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode>
 TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
                               std::uint64_t request_id,
                               const FullTrackName& track_full_name,
@@ -140,7 +140,9 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
         }
     }
 
-    return RequestResponse{ subscribe_attributes.is_publisher_initiated };
+    SubscribeResponse response;
+    response.is_publisher_initiated = subscribe_attributes.is_publisher_initiated;
+    return response;
 }
 
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>

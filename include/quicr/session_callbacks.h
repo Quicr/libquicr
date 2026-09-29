@@ -217,9 +217,10 @@ namespace quicr {
          * @param request_id            Request ID received
          * @param track_full_name       Track full name
          */
-        virtual Reply<RequestResponse, RequestErrorCode> TrackStatusReceived(const std::shared_ptr<Session>& session,
-                                                                             std::uint64_t request_id,
-                                                                             const FullTrackName& track_full_name);
+        virtual Reply<TrackStatusResponse, RequestErrorCode> TrackStatusReceived(
+          const std::shared_ptr<Session>& session,
+          std::uint64_t request_id,
+          const FullTrackName& track_full_name);
     };
 
     /**
@@ -336,7 +337,7 @@ namespace quicr {
          * @param track_full_name      Track full name
          * @param subscribe_attributes Subscribe attributes received
          */
-        virtual Reply<RequestResponse, RequestErrorCode> SubscribeReceived(
+        virtual Reply<SubscribeResponse, RequestErrorCode> SubscribeReceived(
           const std::shared_ptr<Session>& session,
           std::uint64_t request_id,
           const FullTrackName& track_full_name,
