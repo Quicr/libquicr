@@ -2795,6 +2795,7 @@ namespace quicr {
 
                         self->SendSubscribeNamespaceOk(stream);
 
+                        // TODO: Could argue that this should be left to a relay implementation?
                         const bool subscribe_namespace = msg_type == messages::ControlMessageType::kSubscribeNamespace;
                         for (const auto& name_space : result.value()) {
                             const auto match = track_namespace_prefix.IsPrefixOf(name_space);
@@ -2806,8 +2807,7 @@ namespace quicr {
                             if (subscribe_namespace) {
                                 const auto suffix_size =
                                   name_space.GetEntries().size() - track_namespace_prefix.GetEntries().size();
-                                const auto suffix =
-                                  suffix_size == 0 ? TrackNamespace{} : name_space.GetSuffix(suffix_size);
+                                const auto suffix = name_space.GetSuffix(suffix_size);
                                 self->SendCtrlMsg(stream, messages::ControlMessageType::kNamespace, suffix);
                             } else {
                                 self->SendPublishNamespace(stream, self->GetNextRequestID(), name_space);
