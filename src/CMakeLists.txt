@@ -64,7 +64,7 @@ if (WIN32)
 else()
 endif()
 
-if (NOT HAS_STD_VFORMAT)
+if (NOT QUICR_HAS_STD_FORMAT)
     target_link_libraries(quicr PUBLIC fmt::fmt)
 endif()
 
