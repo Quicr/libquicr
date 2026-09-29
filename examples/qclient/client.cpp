@@ -1705,7 +1705,7 @@ main(int argc, char* argv[])
     }
 
     // Install signal handlers to catch operating system termination signals.
-    if (!moq_example::installSignalHandlers()) {
+    if (!moq_example::InstallSignalHandlers()) {
         std::cerr << "Failed to install signal handlers" << std::endl;
     }
 
@@ -1820,8 +1820,8 @@ main(int argc, char* argv[])
         while (!moq_example::terminate) {
             moq_example::cv.wait_for(lock, std::chrono::milliseconds(100));
 
-            if (const int signal = moq_example::consumePendingSignal()) {
-                moq_example::termination_reason = moq_example::signalReason(signal);
+            if (const int signal = moq_example::ConsumePendingSignal()) {
+                moq_example::termination_reason = moq_example::SignalReason(signal);
                 moq_example::terminate = true;
             }
         }
