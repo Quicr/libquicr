@@ -475,7 +475,7 @@ namespace quicr {
             }
 
             auto result = quic_transport_->Enqueue(
-              current_connection_, stream, std::move(msg.ToBytes()), 0, 2000, { true, close_stream, false, false });
+              current_connection_, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
 
             if (result != TransportError::kNone) {
                 throw TransportException(result);
