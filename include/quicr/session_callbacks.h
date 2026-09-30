@@ -212,15 +212,26 @@ namespace quicr {
         /**
          * @brief Callback notification for track status message received
          *
-         * @details Defaults to accepting with an empty `RequestResponse`.
+         * @details Defaults to accepting with an empty `TrackStatusResponse`.
          *
          * @param request_id            Request ID received
          * @param track_full_name       Track full name
          */
-        virtual Reply<TrackStatusResponse, RequestErrorCode> TrackStatusReceived(
+        virtual Reply<TrackStatusResponse, RequestErrorCode> TrackStatusRequestReceived(
           const std::shared_ptr<Session>& session,
           std::uint64_t request_id,
           const FullTrackName& track_full_name);
+
+        /**
+         * @brief Callback notification for track status repsonse received
+         *
+         * @param session               The session that requested the track status.
+         * @param request_id            ID of the request.
+         * @param response              The response, or error.
+         */
+        virtual void TrackStatusResponseReceived(const std::shared_ptr<Session>& session,
+                                                 std::uint64_t request_id,
+                                                 const Expected<TrackStatusResponse, Error<ErrorCode>>& response);
     };
 
     /**
@@ -331,7 +342,7 @@ namespace quicr {
         /**
          * @brief Callback notification for new subscribe received
          *
-         * @details Server mode only. Defaults to accepting with an empty `RequestResponse`.
+         * @details Server mode only. Defaults to accepting with an empty `SubscribeResponse`.
          *
          * @param request_id           Request ID received
          * @param track_full_name      Track full name
