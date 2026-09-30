@@ -103,16 +103,18 @@ quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode> SubscribeReceive
 }
 ```
 
-A `Reply<void, E>` accepts by returning `{}`:
+SETUP callbacks return `Expected<void, Error<ErrorCode>>` synchronously. Accept by returning `{}`:
 
 ```cpp
-quicr::Reply<void, quicr::ErrorCode> ClientSetupReceived(
+quicr::Expected<void, quicr::Error<quicr::ErrorCode>> ClientSetupReceived(
   const std::shared_ptr<quicr::Session>& session,
   const quicr::ClientSetupAttributes& attributes) override
 {
     return {};
 }
 ```
+
+SETUP callbacks cannot defer their result.
 
 #### Deferring an answer
 

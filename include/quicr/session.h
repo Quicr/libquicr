@@ -25,6 +25,7 @@
 #include <atomic>
 #include <chrono>
 #include <map>
+#include <mutex>
 #include <span>
 #include <string>
 #include <string_view>
@@ -89,7 +90,7 @@ namespace quicr {
             kDisconnecting,
             kNotConnected,
             kFailedToConnect,
-            kPendingServerSetup,
+            kPendingPeerSetup,
         };
 
         /**
@@ -199,7 +200,7 @@ namespace quicr {
 
         const std::shared_ptr<Logger>& GetLogger() const noexcept { return logger_; }
 
-        Status GetStatus() const noexcept { return status_; }
+        Status GetStatus() const noexcept { return status_.load(std::memory_order_acquire); }
 
         /**
          * @brief Close the underlying transport connection and detach this session as delegate.
@@ -447,6 +448,8 @@ namespace quicr {
         /*===================================================================*/
 
         void Init();
+
+        void CheckReady();
 
         std::shared_ptr<Session> GetSharedPtr();
 
@@ -772,7 +775,10 @@ namespace quicr {
 
         const ClientConfig client_config_;
 
-        Status status_{ Status::kNotReady };
+        std::atomic<Status> status_{ Status::kConnecting };
+
+        bool local_setup_sent_{ false };
+        bool peer_setup_received_{ false };
 
         std::shared_ptr<timeq::tick_service> tick_service_;
 
