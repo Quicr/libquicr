@@ -38,6 +38,7 @@ jobs:
           ref: 427ec40cc8edc545253289232e885708c409e5ea
           path: dependencies/boringssl
 
+      # picotls requires libdecrepit, but BoringSSL does not install that target.
       - name: Build BoringSSL for Android
         run: >
           cmake -S ${{ github.workspace }}/dependencies/boringssl
