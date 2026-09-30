@@ -112,6 +112,13 @@ BoringSSL does not provide stable API or ABI compatibility between revisions, so
 should vendor or otherwise pin the exact tested revision. The BoringSSL job in
 `.github/workflows/tls-backends.yml` is the reference build configuration.
 
+The pinned picotls revision requires BoringSSL's `libdecrepit.a` compatibility library to be in the
+same directory as `libcrypto.a`. BoringSSL builds that target but intentionally omits it from
+`cmake --install`, so the reference CI builds `decrepit` explicitly and copies the archive into the
+isolated BoringSSL installation. Omitting that step causes picotls configuration to fail. This is a
+compatibility workaround for the pinned dependency combination, not a recommendation to use
+BoringSSL's legacy APIs directly, and should be re-evaluated when picotls is updated.
+
 To use Mbed TLS, provide an installed or in-tree Mbed TLS build and configure with
 `-DWITH_MBEDTLS=ON`. Its location can be supplied through the `MBEDTLS_ROOT_DIR` and
 `MBEDTLS_PREFIX` CMake variables when it is not in a standard search path. In-tree providers can
