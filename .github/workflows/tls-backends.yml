@@ -54,7 +54,7 @@ jobs:
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DBUILD_TESTING=ON
-          -DQUICR_BUILD_EXAMPLES=ON
+          -DQUICR_BUILD_EXAMPLES=OFF
           -DQUICR_BUILD_BENCHMARKS=OFF
           -DWITH_MBEDTLS=ON
           -DMBEDTLS_INCLUDE_DIR=${{ github.workspace }}/dependencies/mbedtls/include
@@ -114,9 +114,8 @@ jobs:
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DOPENSSL_ROOT_DIR=${{ github.workspace }}/dependencies/boringssl-install
           -DBUILD_TESTING=ON
-          -DQUICR_BUILD_EXAMPLES=ON
+          -DQUICR_BUILD_EXAMPLES=OFF
           -DQUICR_BUILD_BENCHMARKS=OFF
-          -DCRYPTO=BORINGSSL
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} -j
