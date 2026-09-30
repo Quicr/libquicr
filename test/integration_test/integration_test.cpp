@@ -187,23 +187,19 @@ class SetupBeforeReadyDelegate final : public Connection::Delegate
 
     void OnRecvDgram() override { delegate_->OnRecvDgram(); }
 
-    void OnRecvStream(std::uint64_t stream_id,
-                      const std::shared_ptr<StreamRxContext>& rx_ctx,
-                      const std::shared_ptr<Stream>& stream,
-                      bool is_bidir) override
+    bool OnRecvStream(const std::shared_ptr<Stream>& stream) override
     {
         first_stream_received_ = true;
-        delegate_->OnRecvStream(stream_id, rx_ctx, stream, is_bidir);
+        const bool wants_more = delegate_->OnRecvStream(stream);
         if (std::exchange(ready_pending_, false)) {
             delegate_->OnConnectionStatus(Connection::Status::kReady);
         }
+        return wants_more;
     }
 
-    void OnStreamClosed(std::uint64_t stream_id,
-                        std::shared_ptr<StreamRxContext> rx_ctx,
-                        StreamClosedFlag flag) override
+    void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override
     {
-        delegate_->OnStreamClosed(stream_id, std::move(rx_ctx), flag);
+        delegate_->OnStreamClosed(stream, flag);
     }
 
     void OnConnectionMetricsSampled(const MetricsTimeStamp sample_time, const QuicConnectionMetrics& metrics) override
