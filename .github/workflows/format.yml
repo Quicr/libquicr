@@ -1,0 +1,19 @@
+name: Format Check
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jidicula/clang-format-action@v4.13.0
+        with:
+          clang-format-version: '18'
+          exclude-regex: '(dependencies)'

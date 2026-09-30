@@ -1,9 +1,0 @@
-[submodule "dependencies/picoquic"]
-	path = dependencies/picoquic
-	url = https://github.com/private-octopus/picoquic
-[submodule "dependencies/mbedtls"]
-	path = dependencies/mbedtls
-	url = https://github.com/Mbed-TLS/mbedtls.git
-[submodule "dependencies/timeq"]
-	path = dependencies/timeq
-	url = https://github.com/Quicr/timeq.git

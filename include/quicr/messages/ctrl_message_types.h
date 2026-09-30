@@ -739,13 +739,6 @@ namespace quicr::messages {
         kMalformedTrack = 0x12,
     };
 
-    enum class SubscribeOptions : uint64_t
-    {
-        kPublish = 0x00,
-        kNamespace = 0x01,
-        kBoth = 0x02,
-    };
-
     enum class ExtensionType : uint64_t
     {
         // Track Scope Extensions

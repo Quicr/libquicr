@@ -53,3 +53,4 @@ jobs:
           ctest --test-dir ${{ github.workspace }}/build/test/integration_test
           -C ${{ env.BUILD_TYPE }}
           --output-on-failure
+          --parallel 4

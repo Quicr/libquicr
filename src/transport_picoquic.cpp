@@ -29,7 +29,6 @@
 #include <timeq/time_queue.h>
 #include <tls_api.h>
 
-#include <arpa/inet.h>
 #include <cassert>
 #include <chrono>
 #include <condition_variable>
@@ -47,10 +46,16 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <sys/socket.h>
 #include <thread>
 #include <utility>
 #include <vector>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#endif
 
 #if defined(__linux__)
 #include <net/ethernet.h>
@@ -1231,7 +1236,7 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
                                  const std::shared_ptr<PicoQuicStream>& stream,
                                  std::shared_ptr<const std::vector<uint8_t>> bytes,
                                  const uint8_t priority,
-                                 [[maybe_unused]] const uint32_t ttl_ms,
+                                 const uint32_t ttl_ms,
                                  const EnqueueFlags flags)
 {
     if (stream == nullptr || stream->tx_data == nullptr) {
@@ -1264,7 +1269,7 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
 
         if (flags.clear_tx_queue) {
             stream->metrics.tx_queue_discards += stream->tx_data->size();
-            *stream->tx_data = {};
+            stream->tx_data->clear();
         }
 
         // Picoquic only re-wakes on inactive→active. If it is already pulling this stream (queued
@@ -1280,7 +1285,7 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
             static_cast<uint64_t>(tick_service_->get().count()),
         };
 
-        stream->tx_data->push(std::move(cd));
+        stream->tx_data->push(std::move(cd), ttl_ms);
     }
 
     if (needs_mark) {
@@ -1352,7 +1357,7 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
     for (const auto& stream : streams) {
         if (stream->tx_data) {
             std::lock_guard __(stream->tx_mutex);
-            *stream->tx_data = {};
+            stream->tx_data->clear();
             stream->tx_object = nullptr;
         }
 
@@ -1361,10 +1366,8 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
         }
     }
 
-    // Clear datagram RX and TX queues and reset shared pointers
-    if (pq_conn->dgram_rx_data) {
-        pq_conn->dgram_rx_data.reset();
-    }
+    // Clear datagram RX and TX queues
+    pq_conn->dgram_rx_data->Clear();
     if (pq_conn->dgram_tx_data) {
         {
             std::lock_guard _(*pq_conn->dgram_tx_data);
@@ -1583,10 +1586,13 @@ PicoQuicTransport::SetStatus(TransportStatus status)
     transportStatus_ = status;
 }
 
-std::unique_ptr<std::queue<ConnData>>
+std::unique_ptr<timeq::time_queue<ConnData>>
 PicoQuicTransport::MakeStreamTxQueue() const
 {
-    return std::make_unique<std::queue<ConnData>>();
+    return std::make_unique<timeq::time_queue<ConnData>>(tconfig_.time_queue_max_duration,
+                                                         tconfig_.time_queue_bucket_interval,
+                                                         tick_service_,
+                                                         tconfig_.time_queue_init_queue_size);
 }
 
 int
@@ -1704,7 +1710,7 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
 
     bool should_reset = false;
     defer({
-        const bool empty = [&] {
+        const bool empty = [&]() {
             std::lock_guard _(stream_ctx.tx_mutex);
             return stream_ctx.tx_data->empty() && stream_ctx.tx_object == nullptr;
         }();
@@ -1721,12 +1727,14 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
     if (stream_ctx.tx_object == nullptr) {
         QUICR_LOGGER_TRACE(logger, "SendStreamBytes conn_id: {} stream_tx_object is nullptr", conn_id);
 
-        if (stream_ctx.tx_data->empty()) {
+        auto [conn_data_opt, expired] = stream_ctx.tx_data->pop_front();
+        stream_ctx.metrics.tx_queue_expired += expired;
+
+        if (!conn_data_opt.has_value()) {
             return; // empty queue, nothing to do
         }
 
-        ConnData conn_data = std::move(stream_ctx.tx_data->front());
-        stream_ctx.tx_data->pop();
+        ConnData conn_data = std::move(*conn_data_opt);
 
         switch (conn_data.stream_action) {
             case StreamAction::kCloseStreamUseFin:
@@ -3211,11 +3219,13 @@ PicoQuicTransport::AcceptWebTransportConnection(picoquic_cnx_t* cnx,
         }
         // Parse query parameters if present
         if (query_offset < path_length) {
+#if QUICR_ACTIVE_LOG_LEVEL <= QUICR_LOG_DEBUG
             const uint8_t* queries = path + query_offset;
             size_t queries_length = path_length - query_offset;
             QUICR_LOGGER_DEBUG(logger,
                                "AcceptWebTransportConnection: query string '{}'",
                                std::string(reinterpret_cast<const char*>(queries), queries_length));
+#endif
 
             // Example: Parse a "version" parameter if needed in the future
             // uint64_t version = 0;

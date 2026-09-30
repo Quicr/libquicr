@@ -20,21 +20,6 @@ endif()
 configure_file(cmake/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h)
 
 #=============================================================================#
-# Check System Requirements
-#=============================================================================#
-
-if(NOT UNIX AND NOT APPLE AND NOT DEFINED ENV{IDF_PATH})
-    message(FATAL_ERROR "Unsupported platform; Linux, Apple, and ESP-IDF are the only supported platforms")
-endif ()
-
-set(supported_archs arm64 x86_64 aarch64 i686 armv7-a arm64-v8a)
-if (NOT ${CMAKE_SYSTEM_PROCESSOR} IN_LIST supported_archs)
-    message(FATAL_ERROR "Unsupported system architecture '${CMAKE_SYSTEM_PROCESSOR}'. Supported is arm64 and x86_64")
-endif()
-
-message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
-
-#=============================================================================#
 # Options
 #=============================================================================#
 
@@ -53,8 +38,9 @@ option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 
-option(USE_MBEDTLS OFF)
+option(WITH_MBEDTLS "Build against MbedTLS rather than OpenSSL" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
+option(QUICR_USE_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
 
 if(QUICR_ENABLE_SANITIZERS)
     if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang|GNU" OR NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -72,16 +58,14 @@ if (NOT DEFINED ENV{IDF_PATH})
   find_package(Threads REQUIRED)
   find_package(PkgConfig REQUIRED)
 else()
-  set(USE_MBEDTLS ON)
+  set(WITH_MBEDTLS ON CACHE BOOL "Build against MbedTLS rather than OpenSSL" FORCE)
 endif()
 
 #=============================================================================#
 # Dependencies
 #=============================================================================#
 
-if (NOT DEFINED ENV{IDF_PATH})
-    set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-endif()
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(CPM)
 
@@ -113,8 +97,7 @@ else()
     message(STATUS "Using std::format")
 endif()
 
-add_subdirectory(dependencies)
-
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/QuicrDependencies.cmake)
 
 #=============================================================================#
 # Build the library

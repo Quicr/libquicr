@@ -13,7 +13,11 @@
 #include <vector>
 
 namespace quicr {
+#ifdef _MSC_VER
+#define FORCE_INLINE inline __forceinline
+#else
 #define FORCE_INLINE inline __attribute__((always_inline))
+#endif
 
     template<typename K, typename T>
     class Cache
@@ -180,7 +184,7 @@ namespace quicr {
             ttl /= interval_;
 
             Advance();
-            const std::uint32_t future_index = (bucket_index_ + ttl - 1) % total_buckets_;
+            const std::size_t future_index = (bucket_index_ + ttl - 1) % total_buckets_;
 
             buckets_[future_index].push_back(key);
             cache_[key] = std::make_shared<T>(value);

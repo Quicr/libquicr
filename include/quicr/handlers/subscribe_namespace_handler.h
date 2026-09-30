@@ -84,7 +84,13 @@ namespace quicr {
          */
         constexpr Mode GetMode() const noexcept { return mode_; }
 
+        /** Fully qualify a NAMESPACE suffix relative to the subscribed prefix. */
+        TrackNamespace ExpandSuffix(const TrackNamespace& suffix) const;
+
       protected:
+        /** Called for a NAMESPACE notification in kNamespaces mode. */
+        virtual void NamespaceReceived(const TrackNamespace&) {}
+
         /**
          * @brief Set the subscribe status
          * @param status                Status of the subscribe

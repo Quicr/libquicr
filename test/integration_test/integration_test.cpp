@@ -1,3 +1,7 @@
+#ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS // NOLINT
+#endif
+
 #include "quicr/config.h"
 #include "quicr/handlers/fetch_track_handler.h"
 #include "quicr/handlers/publish_namespace_handler.h"
@@ -28,10 +32,29 @@ using namespace quicr;
 using namespace quicr_test;
 
 const std::string kIp = "127.0.0.1";
-constexpr uint16_t kPort = 12345;
+constexpr uint16_t kDefaultPort = 12345;
 const std::string kServerId = "test-server";
 constexpr std::uint64_t kMetricsTestIntervalMs = 250;
 constexpr auto kMetricsTestTimeout = std::chrono::seconds(2);
+
+static uint16_t
+GetTestPort()
+{
+    const char* env_port = std::getenv("LIBQUICR_TEST_PORT");
+    if (env_port == nullptr) {
+        return kDefaultPort;
+    }
+
+    try {
+        const auto parsed_port = std::stoul(env_port);
+        if (parsed_port > 0 && parsed_port <= std::numeric_limits<uint16_t>::max()) {
+            return static_cast<uint16_t>(parsed_port);
+        }
+    } catch (...) {
+    }
+
+    return kDefaultPort;
+}
 
 /// @brief Get test timeout from environment or use default
 /// @details Set LIBQUICR_TEST_TIMEOUT_MS environment variable to override (useful for CI)
@@ -158,6 +181,30 @@ class TestPublishNamespaceHandler : public PublishNamespaceHandler
     }
 };
 
+class TestSubscribeNamespaceHandler : public SubscribeNamespaceHandler
+{
+  public:
+    static auto Create(const TrackNamespace& prefix)
+    {
+        return std::shared_ptr<TestSubscribeNamespaceHandler>(new TestSubscribeNamespaceHandler(prefix));
+    }
+
+    std::future<TrackNamespace> NamespaceFuture() { return namespace_received_.get_future(); }
+
+  private:
+    explicit TestSubscribeNamespaceHandler(const TrackNamespace& prefix)
+      : SubscribeNamespaceHandler(prefix, Mode::kNamespaces)
+    {
+    }
+
+    void NamespaceReceived(const TrackNamespace& suffix) override
+    {
+        namespace_received_.set_value(ExpandSuffix(suffix));
+    }
+
+    std::promise<TrackNamespace> namespace_received_;
+};
+
 static std::shared_ptr<TestServer>
 MakeTestServer(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
@@ -168,7 +215,7 @@ MakeTestServer(quicr::SessionManager& session_mgr,
     // Run the server.
     ServerConfig server_config;
     server_config.server_bind_ip = kIp;
-    server_config.server_port = kPort;
+    server_config.server_port = GetTestPort();
     server_config.endpoint_id = kServerId;
     server_config.transport_config.debug = true;
     server_config.transport_config.tls_cert_filename = "server-cert.pem";
@@ -213,7 +260,7 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     if (metrics_sample_ms.has_value()) {
         client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
     }
-    client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(kPort) + "/relay";
+    client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(GetTestPort()) + "/relay";
     if (qlog_path.has_value()) {
         client_config.transport_config.quic_qlog_path = *qlog_path;
     }
@@ -1302,12 +1349,16 @@ TEST_CASE("Group ID Gap")
 TEST_CASE("Qlog Generation")
 {
     auto test_qlog = [&](const std::string& protocol_scheme) {
-        quicr::SessionManager session_mgr;
-
-        // Create temporary destination for QLOG files.
-        const auto temp_dir = std::filesystem::temp_directory_path() / "libquicr_qlog_test";
+        // Create temporary destination for QLOG files. This is declared ahead of the
+        // session manager so that it is torn down after it: Windows refuses to unlink
+        // the qlog files while the transports still hold them open.
+        const auto temp_dir =
+          std::filesystem::temp_directory_path() / ("libquicr_qlog_test_" + std::to_string(GetTestPort()));
+        std::filesystem::remove_all(temp_dir);
         std::filesystem::create_directories(temp_dir);
         defer(std::filesystem::remove_all(temp_dir));
+
+        quicr::SessionManager session_mgr;
 
         // Enable qlog.
         auto server = MakeTestServer(session_mgr, temp_dir.string());
@@ -1400,6 +1451,56 @@ TEST_CASE("Integration - Raw Subscribe Tracks")
     }
 }
 
+TEST_CASE("Integration - Subscribe Namespace notifications")
+{
+    const auto check_notification = [](const std::string& protocol_scheme,
+                                       const TrackNamespace& prefix,
+                                       const std::optional<TrackNamespace>& published_namespace,
+                                       bool expect_notification) {
+        quicr::SessionManager session_mgr;
+        auto server = MakeTestServer(session_mgr);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+
+        std::promise<TestServer::SubscribeNamespaceDetails> server_promise;
+        auto server_future = server_promise.get_future();
+        server->SetSubscribeNamespacePromise(std::move(server_promise));
+
+        std::promise<TrackNamespace> publish_promise;
+        auto publish_future = publish_promise.get_future();
+        callbacks->SetPublishNamespaceReceivedPromise(std::move(publish_promise));
+
+        if (published_namespace) {
+            server->AddKnownPublishedNamespace(*published_namespace);
+        }
+
+        auto handler = TestSubscribeNamespaceHandler::Create(prefix);
+        auto namespace_future = handler->NamespaceFuture();
+        session->SubscribeNamespace(handler);
+
+        REQUIRE_EQ(server_future.wait_for(kDefaultTimeout), std::future_status::ready);
+        CHECK_EQ(server_future.get().prefix_namespace, prefix);
+        REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; }));
+
+        if (expect_notification) {
+            REQUIRE_EQ(namespace_future.wait_for(kDefaultTimeout), std::future_status::ready);
+            CHECK_EQ(namespace_future.get(), *published_namespace);
+        } else {
+            CHECK_EQ(namespace_future.wait_for(kNegativeTimeout), std::future_status::timeout);
+        }
+        CHECK_EQ(publish_future.wait_for(kNegativeTimeout), std::future_status::timeout);
+    };
+
+    for (const std::string protocol_scheme : { "moq", "https" }) {
+        CAPTURE(protocol_scheme);
+        const TrackNamespace prefix(std::vector<std::string>{ "foo", "bar" });
+        check_notification(protocol_scheme, prefix, TrackNamespace({ "foo", "bar", "baz" }), true);
+        check_notification(protocol_scheme, prefix, prefix, true);
+        check_notification(
+          protocol_scheme, TrackNamespace(std::vector<std::string>{}), TrackNamespace({ "foo", "bar", "baz" }), true);
+        check_notification(protocol_scheme, prefix, TrackNamespace({ "other" }), false);
+    }
+}
+
 TEST_CASE("Integration - Subscribe Tracks with matching namespace")
 {
     quicr::SessionManager session_mgr;
@@ -1410,11 +1511,12 @@ TEST_CASE("Integration - Subscribe Tracks with matching namespace")
 
         // Target namespace.
         TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
+        TrackNamespace published_namespace(std::vector<std::string>{ "foo", "bar", "baz" });
 
         // Set up promise to verify client received matching PUBLISH_NAMESPACE.
         std::promise<TrackNamespace> publish_namespace_promise;
         std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
-        server->AddKnownPublishedNamespace(prefix_namespace);
+        server->AddKnownPublishedNamespace(published_namespace);
         callbacks->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
 
         // SUBSCRIBE_NAMESPACE to prefix.
@@ -1425,7 +1527,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching namespace")
         auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
         REQUIRE(publish_namespace_status == std::future_status::ready);
         const auto& received_namespace = publish_namespace_future.get();
-        CHECK_EQ(received_namespace, prefix_namespace);
+        CHECK_EQ(received_namespace, published_namespace);
     };
 
     SUBCASE("Raw QUIC")

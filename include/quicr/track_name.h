@@ -74,8 +74,8 @@ namespace quicr {
         TrackNamespace(std::span<const std::span<const uint8_t>> entries)
           : entries_(entries.size())
         {
-            if (entries.size() > 32 || entries.size() == 0) {
-                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [1, 32]");
+            if (entries.size() > 32) {
+                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [0, 32]");
             }
 
             for (auto& entry : entries) {
@@ -95,8 +95,8 @@ namespace quicr {
         TrackNamespace(const std::vector<std::vector<uint8_t>>& entries)
           : entries_(entries.size())
         {
-            if (entries.size() > 32 || entries.size() == 0) {
-                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [1, 32]");
+            if (entries.size() > 32) {
+                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [0, 32]");
             }
 
             for (auto& entry : entries) {
@@ -116,8 +116,8 @@ namespace quicr {
         TrackNamespace(const std::vector<std::string>& entries)
           : entries_(entries.size())
         {
-            if (entries.size() > 32 || entries.size() == 0) {
-                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [1, 32]");
+            if (entries.size() > 32) {
+                throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [0, 32]");
             }
 
             for (auto& entry : entries) {
@@ -213,19 +213,27 @@ namespace quicr {
             return out.str();
         }
 
-        TrackNamespace GetPrefix(std::size_t length) const noexcept
+        TrackNamespace GetPrefix(std::size_t length) const
         {
-            if (length == 0 || length > entries_.size()) {
-                return TrackNamespace(std::span{ entries_ });
+            if (length > entries_.size()) {
+                throw std::invalid_argument("Prefix cannot be larger than the namespace");
+            }
+
+            if (length == 0) {
+                return TrackNamespace();
             }
 
             return TrackNamespace(std::span{ entries_ }.subspan(0, length));
         }
 
-        TrackNamespace GetSuffix(std::size_t length) const noexcept
+        TrackNamespace GetSuffix(std::size_t length) const
         {
-            if (length == 0 || length > entries_.size()) {
-                return TrackNamespace(std::span{ entries_ });
+            if (length > entries_.size()) {
+                throw std::invalid_argument("Suffix cannot be larger than the namespace");
+            }
+
+            if (length == 0) {
+                return TrackNamespace();
             }
 
             return TrackNamespace(std::span{ entries_ }.subspan(entries_.size() - length));

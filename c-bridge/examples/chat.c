@@ -11,20 +11,18 @@
  * Based on the qclient.cpp example from libquicr.
  */
 
-#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 
+#include "example_sleep.h"
 #include "quicr/quicr_bridge.h"
 
 static volatile int keep_running = 1;
 static volatile int can_send_data = 0;
 static char username[256] = "user";
-static pthread_t input_thread_handle = 0;
 
 void
 signal_handler(int signum)
@@ -32,10 +30,9 @@ signal_handler(int signum)
     printf("\nReceived signal %d, shutting down...\n", signum);
     keep_running = 0;
 
-    // Cancel the input thread to unblock it from fgets()
-    if (input_thread_handle != 0) {
-        pthread_cancel(input_thread_handle);
-    }
+    // Messages are read on the main thread, which is blocked in fgets() until it
+    // reads a line, so the exit completes on the next Enter.
+    printf("Press Enter to exit.\n");
 }
 
 void
@@ -119,19 +116,12 @@ print_usage(const char* program_name)
     printf("  %s --server 127.0.0.1 --port 33435 --room general --username Alice\n", program_name);
 }
 
-typedef struct
+void
+run_input_loop(qbridge_publish_track_handler_t* publish_handler)
 {
-    qbridge_publish_track_handler_t* publish_handler;
-    uint64_t group_id;
-    uint64_t object_id;
-    pthread_mutex_t* mutex;
-} input_thread_args_t;
-
-void*
-input_thread_func(void* arg)
-{
-    input_thread_args_t* args = (input_thread_args_t*)arg;
     char message[1024];
+    uint64_t group_id = 0;
+    uint64_t object_id = 0;
 
     while (keep_running) {
         if (fgets(message, sizeof(message), stdin) == NULL) {
@@ -163,32 +153,26 @@ input_thread_func(void* arg)
         fflush(stdout);
 
         // Publish the message
-        if (can_send_data && qbridge_publish_track_can_publish(args->publish_handler)) {
-            pthread_mutex_lock(args->mutex);
-
-            qbridge_object_headers_t headers = { .group_id = args->group_id,
+        if (can_send_data && qbridge_publish_track_can_publish(publish_handler)) {
+            qbridge_object_headers_t headers = { .group_id = group_id,
                                                  .subgroup_id = 0,
-                                                 .object_id = args->object_id,
+                                                 .object_id = object_id,
                                                  .priority = QBRIDGE_PRIORITY_NORMAL,
                                                  .ttl_ms = 5000,
                                                  .cacheable = true };
 
             qbridge_result_t result = qbridge_publish_object_with_headers(
-              args->publish_handler, &headers, (const uint8_t*)formatted_message, strlen(formatted_message));
+              publish_handler, &headers, (const uint8_t*)formatted_message, strlen(formatted_message));
 
             if (result == QBRIDGE_OK) {
-                args->object_id++;
-                if (args->object_id % 100 == 0) {
-                    args->group_id++;
-                    args->object_id = 0;
+                object_id++;
+                if (object_id % 100 == 0) {
+                    group_id++;
+                    object_id = 0;
                 }
             }
-
-            pthread_mutex_unlock(args->mutex);
         }
     }
-
-    return NULL;
 }
 
 int
@@ -260,7 +244,7 @@ main(int argc, char* argv[])
     // Wait for connection
     printf("Waiting for connection...\n");
     while (keep_running && qbridge_client_get_status(client) == QBRIDGE_STATUS_CONNECTING) {
-        usleep(100000);
+        example_sleep_ms(100);
     }
 
     if (!keep_running || qbridge_client_get_status(client) != QBRIDGE_STATUS_READY) {
@@ -365,23 +349,9 @@ main(int argc, char* argv[])
 
     printf("Chat ready! Start typing...\n\n");
 
-    // Start input thread for reading user messages
-    pthread_mutex_t pub_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-    input_thread_args_t thread_args = {
-        .publish_handler = publish_handler, .group_id = 0, .object_id = 0, .mutex = &pub_mutex
-    };
-
-    pthread_create(&input_thread_handle, NULL, input_thread_func, &thread_args);
-
-    // Main loop - just keep the application running
-    while (keep_running) {
-        usleep(100000);
-    }
-
-    // Wait for input thread to finish (it will exit quickly after being cancelled)
-    pthread_join(input_thread_handle, NULL);
-    pthread_mutex_destroy(&pub_mutex);
+    // Reads stdin until the user exits or the stream closes. Received messages
+    // arrive on the transport's own threads via the object callback.
+    run_input_loop(publish_handler);
 
     printf("\nShutting down chat...\n");
 

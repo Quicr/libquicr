@@ -14,7 +14,11 @@
 #include <vector>
 
 namespace quicr {
+#ifdef _MSC_VER
+#define FORCE_INLINE inline __forceinline
+#else
 #define FORCE_INLINE inline __attribute__((always_inline))
+#endif
 
     template<typename T, class Allocator = std::allocator<T>>
     class StreamBuffer
