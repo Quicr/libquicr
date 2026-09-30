@@ -295,12 +295,10 @@ namespace quicr {
          * @brief Request track status
          *
          * @param track_full_name           Track full name
-         * @param subscribe_attributes      Subscribe attributes for track status
          *
          * @returns Request ID that is used for the track status request
          */
-        std::uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
-                                         const SubscribeAttributes& subscribe_attributes);
+        std::uint64_t RequestTrackStatus(const FullTrackName& track_full_name);
 
         // --BEGIN SERVER RELAY METHODS ----------------------------------------------------------------------
         /** @name Server Relay Methods
@@ -510,7 +508,8 @@ namespace quicr {
         // Prefer the above typed overloads.
         void SendRequestOk(const std::shared_ptr<Stream>& stream,
                            const messages::Parameters& params,
-                           const messages::TrackExtensions& track_properties = {});
+                           const messages::TrackExtensions& track_properties = {},
+                           bool close_stream = false);
 
         void SendRequestUpdate(const std::shared_ptr<Stream>& stream,
                                TrackHash th,
@@ -586,7 +585,7 @@ namespace quicr {
         // Track Status
         /*===================================================================*/
 
-        void SendTrackStatus(std::uint64_t request_id, const FullTrackName& tfn);
+        void SendTrackStatus(const std::shared_ptr<Stream>& stream, std::uint64_t request_id, const FullTrackName& tfn);
 
         /*===================================================================*/
         // Fetch
@@ -739,6 +738,9 @@ namespace quicr {
 
         /// Active inbound publish namespace notifications (not handler based).
         std::vector<std::uint64_t> recv_publish_namespaces;
+
+        /// Active TRACK_STATUS requests (not handler based).
+        std::map<std::uint64_t, std::shared_ptr<Stream>> outbound_track_status QUICR_GUARDED_BY(state_mutex_);
 
         /// Handlers by request ID
         std::map<std::uint64_t, std::shared_ptr<TrackHandler>> request_handlers;

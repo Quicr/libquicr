@@ -676,7 +676,7 @@ class MyClient : public quicr::Session::ClientCallbacks
         return {};
     }
 
-    quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusReceived(
+    quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusRequestReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
       std::uint64_t request_id,
       const quicr::FullTrackName& track_full_name) override
@@ -1790,7 +1790,7 @@ main(int argc, char* argv[])
                                                                            result["sub_name"].as<std::string>());
 
             if (qclient_vars::req_track_status) {
-                session->RequestTrackStatus(sub_track_name, {});
+                session->RequestTrackStatus(sub_track_name);
             }
 
             sub_thread =

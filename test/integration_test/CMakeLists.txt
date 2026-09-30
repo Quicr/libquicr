@@ -34,7 +34,10 @@ target_include_directories(quicr_integration_test PRIVATE
 target_link_libraries(quicr_integration_test PRIVATE
     quicr
     doctest::doctest
-    spdlog::spdlog)
+    spdlog::spdlog
+    picoquic-core
+    picoquic-log
+    picohttp-core)
 
 # Compiler options
 target_compile_options(quicr_integration_test
