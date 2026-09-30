@@ -462,18 +462,32 @@ namespace quicr {
 
         void SetStatus(Status status);
 
-        void SendCtrlMsg(const std::shared_ptr<Stream>& stream,
-                         std::shared_ptr<const std::vector<uint8_t>> data,
-                         bool close_stream = false);
+        template<typename... Fields>
+        void SendCtrlMsg(const std::shared_ptr<Stream>& stream, messages::ControlMessageType msg_type, Fields&&... args)
+        {
+            SendCtrlMsg(stream, false, msg_type, std::forward<Fields>(args)...);
+        }
 
         template<typename... Fields>
-        void SendCtrlMsg(const std::shared_ptr<Stream>& stream, messages::ControlMessageType type, Fields&&... args)
+        void SendCtrlMsg(const std::shared_ptr<Stream>& stream,
+                         bool close_stream,
+                         messages::ControlMessageType type,
+                         Fields&&... args)
         {
             messages::Message msg = messages::Message{}.PrependType(type).ReserveLength();
 
             (msg.Append(args), ...);
 
-            SendCtrlMsg(stream, msg.ToBytes());
+            if (stream == nullptr) {
+                throw std::logic_error("Stream cannot be null");
+            }
+
+            auto result = quic_transport_->Enqueue(
+              current_connection_, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
+
+            if (result != TransportError::kNone) {
+                throw TransportException(result);
+            }
         }
 
         void SendSetup();

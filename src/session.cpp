@@ -298,22 +298,6 @@ namespace quicr {
         return request_id;
     }
 
-    void Session::SendCtrlMsg(const std::shared_ptr<Stream>& stream,
-                              std::shared_ptr<const std::vector<uint8_t>> data,
-                              bool close_stream)
-    {
-        if (stream == nullptr) {
-            throw ProtocolViolationException("Control stream not created");
-        }
-
-        auto result = quic_transport_->Enqueue(
-          current_connection_, stream, std::move(data), 0, 2000, { true, close_stream, false, false });
-
-        if (result != TransportError::kNone) {
-            throw TransportException(result);
-        }
-    }
-
     void Session::SendSetup()
     try {
         QUICR_LOGGER_DEBUG(logger_, "Sending SETUP to conn_id: {}", current_connection_->GetID());
@@ -420,11 +404,12 @@ namespace quicr {
                            static_cast<int>(error),
                            reason);
 
-        messages::Message msg = messages::Message{}.PrependType(ControlMessageType::kRequestError).ReserveLength();
-        msg.Append(error);
-        msg.Append(UintVar(retry_interval.count()));
-        msg.Append(AsOwnedBytes(reason));
-        SendCtrlMsg(stream, msg.ToBytes(), close_stream);
+        SendCtrlMsg(stream,
+                    close_stream,
+                    ControlMessageType::kRequestError,
+                    error,
+                    UintVar(retry_interval.count()),
+                    AsOwnedBytes(reason));
     } catch (const std::exception& e) {
         QUICR_LOGGER_ERROR(logger_, "Caught exception sending REQUEST_ERROR (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
