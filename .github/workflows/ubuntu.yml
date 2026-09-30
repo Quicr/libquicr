@@ -68,7 +68,7 @@ jobs:
         working-directory: ${{github.workspace}}/build
         run: |
           chmod -R +rx ${{github.workspace}}/build
-          ctest -C ${{env.BUILD_TYPE}} --output-on-failure --parallel -E "benchmark"
+          ctest -C ${{env.BUILD_TYPE}} --output-on-failure --parallel
 
   benchmark:
     needs: build
@@ -92,4 +92,4 @@ jobs:
         working-directory: ${{github.workspace}}/build
         run: |
           chmod -R +rx ${{github.workspace}}/build
-          ctest -C ${{env.BUILD_TYPE}} -R "benchmark" --verbose
+          ./benchmark/quicr_benchmark

@@ -8,7 +8,7 @@
 #include "quicr/log.h"
 #include "quicr/messages/ctrl_message_types.h"
 #include "quicr/messages/message.h"
-#include "quicr/messages/messages.h"
+#include "quicr/messages/message_serialisation.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session_callbacks.h"
 #include "stream.h"
@@ -2757,12 +2757,6 @@ namespace quicr {
                 const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto track_namespace_prefix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
 
-                if (msg_type == messages::ControlMessageType::kSubscribeNamespace) {
-                    // TODO: Figure out what we should do with these in the case of Subscribe Namespace.
-                    [[maybe_unused]] const auto subscribe_options =
-                      messages::Message::ParseField<messages::SubscribeOptions>(msg_bytes);
-                }
-
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 messages::Filter filter;
@@ -2799,20 +2793,47 @@ namespace quicr {
 
                         self->SendSubscribeNamespaceOk(stream);
 
-                        // Fan out PUBLISH_NAMESPACE for matching namespaces.
+                        // TODO: Could argue that this should be left to a relay implementation?
+                        const bool subscribe_namespace = msg_type == messages::ControlMessageType::kSubscribeNamespace;
                         for (const auto& name_space : result.value()) {
                             const auto match = track_namespace_prefix.IsPrefixOf(name_space);
-                            if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
+                            if (match == std::partial_ordering::unordered || match == std::partial_ordering::greater) {
                                 QUICR_LOGGER_WARN(self->logger_, "Dropping non prefix match");
                                 continue;
                             }
 
-                            auto pub_ns_request_id = self->GetNextRequestID();
-                            self->SendPublishNamespace(stream, pub_ns_request_id, name_space);
+                            if (subscribe_namespace) {
+                                const auto suffix_size =
+                                  name_space.GetEntries().size() - track_namespace_prefix.GetEntries().size();
+                                const auto suffix = name_space.GetSuffix(suffix_size);
+                                self->SendCtrlMsg(stream, messages::ControlMessageType::kNamespace, suffix);
+                            } else {
+                                self->SendPublishNamespace(stream, self->GetNextRequestID(), name_space);
+                            }
                         }
                     });
                 }
 
+                return true;
+            }
+            case messages::ControlMessageType::kNamespace: {
+                const auto suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+                const auto request_it = request_by_stream.find(stream->GetStreamId());
+                if (request_it == request_by_stream.end()) {
+                    throw ProtocolViolationException("NAMESPACE on an unknown request stream");
+                }
+
+                const auto handler_it = request_handlers.find(request_it->second.request_id);
+                if (handler_it == request_handlers.end()) {
+                    throw ProtocolViolationException("NAMESPACE on an unknown request");
+                }
+
+                const auto handler = handler_it->second->Get<SubscribeNamespaceHandler>();
+                if (!handler || handler->GetMode() != SubscribeNamespaceHandler::Mode::kNamespaces) {
+                    throw ProtocolViolationException("NAMESPACE on a non-namespace request");
+                }
+
+                handler->NamespaceReceived(suffix);
                 return true;
             }
             case messages::ControlMessageType::kNamespaceDone: {

@@ -18,7 +18,7 @@
 
 #ifdef _WIN32
 #define defer(n)                                                                                                       \
-    quicr::ScopeGuard DEFER_CONCAT(defer_, __LINE__)([&]() {                                                           \
+    quicr::ScopeGuard DEFER_CONCAT(defer_, __LINE__)([&]() [[msv::forceinline]] {                                      \
         DEFER_PUSH n;                                                                                                  \
         DEFER_POP                                                                                                      \
     })

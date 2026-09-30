@@ -1,5 +1,5 @@
 #include "quicr/containers/stream_buffer.h"
-#include "quicr/messages/messages.h"
+#include "quicr/messages/message_serialisation.h"
 
 #include <benchmark/benchmark.h>
 

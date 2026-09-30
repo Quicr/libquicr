@@ -4,7 +4,7 @@
 #pragma once
 
 #include "quicr/handlers/track_handler.h"
-#include "quicr/messages/messages.h"
+#include "quicr/messages/message_serialisation.h"
 #include "quicr/messages/object.h"
 #include "quicr/metrics.h"
 

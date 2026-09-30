@@ -258,6 +258,10 @@ namespace quicr {
         uint64_t size = 0;
         buffer = buffer >> size;
 
+        if (size > 32) {
+            throw std::invalid_argument("TrackNamespace requires a number of entries in the range of [0, 32]");
+        }
+
         std::vector<Bytes> entries(size);
         for (auto& entry : entries) {
 
