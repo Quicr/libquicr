@@ -70,6 +70,9 @@ jobs:
           -DANDROID_ABI=${{ matrix.abi }}
           -DANDROID_PLATFORM=android-${{ env.ANDROID_API }}
           -DOPENSSL_ROOT_DIR=${{ github.workspace }}/dependencies/boringssl-install
+          -DOPENSSL_INCLUDE_DIR=${{ github.workspace }}/dependencies/boringssl-install/include
+          -DOPENSSL_CRYPTO_LIBRARY=${{ github.workspace }}/dependencies/boringssl-install/lib/libcrypto.a
+          -DOPENSSL_SSL_LIBRARY=${{ github.workspace }}/dependencies/boringssl-install/lib/libssl.a
           -DOPENSSL_USE_STATIC_LIBS=TRUE
           -DWITH_MBEDTLS=OFF
           -DBUILD_TESTING=OFF
