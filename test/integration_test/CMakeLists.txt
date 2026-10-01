@@ -1,6 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
+if (TARGET fmt::fmt)
+    set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "Use external fmt with libquicr" FORCE)
+endif()
+
+CPMAddPackage("gh:gabime/spdlog@1.17.0")
+
 # Add the integration test executable
 add_executable(quicr_integration_test
     integration_test.cpp
@@ -28,6 +34,7 @@ target_include_directories(quicr_integration_test PRIVATE
 target_link_libraries(quicr_integration_test PRIVATE
     quicr
     doctest::doctest
+    spdlog::spdlog
     picoquic-core
     picoquic-log
     picohttp-core)

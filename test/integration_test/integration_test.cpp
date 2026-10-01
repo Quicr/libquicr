@@ -9,6 +9,7 @@
 #include "quicr/handlers/publish_namespace_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/log.h"
 #include "quicr/session.h"
 #include "quicr/session_manager.h"
 #include "quicr/utilities/defer.h"
@@ -17,6 +18,9 @@
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
+
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <cstdlib>
@@ -38,6 +42,57 @@ constexpr uint16_t kDefaultPort = 12345;
 const std::string kServerId = "test-server";
 constexpr std::uint64_t kMetricsTestIntervalMs = 250;
 constexpr auto kMetricsTestTimeout = std::chrono::seconds(2);
+
+class TestLogger final : public Logger
+{
+  public:
+    TestLogger()
+      : logger_(spdlog::stderr_color_mt("libquicr-integration"))
+    {
+    }
+
+    void SetLevel(Level level) override { logger_->set_level(ToSpdlogLevel(level)); }
+
+    bool ShouldLog(Level level) const noexcept override { return logger_->should_log(ToSpdlogLevel(level)); }
+
+    void Log(Level level, std::string_view message, std::source_location location) override
+    {
+        logger_->log(spdlog::source_loc(location.file_name(), location.line(), location.function_name()),
+                     ToSpdlogLevel(level),
+                     message);
+    }
+
+  private:
+    static spdlog::level::level_enum ToSpdlogLevel(Level level) noexcept
+    {
+        switch (level) {
+            case Level::Trace:
+                return spdlog::level::trace;
+            case Level::Debug:
+                return spdlog::level::debug;
+            case Level::Info:
+                return spdlog::level::info;
+            case Level::Warn:
+                return spdlog::level::warn;
+            case Level::Error:
+                return spdlog::level::err;
+            case Level::Critical:
+                return spdlog::level::critical;
+            case Level::Off:
+                return spdlog::level::off;
+        }
+        return spdlog::level::off;
+    }
+
+    std::shared_ptr<spdlog::logger> logger_;
+};
+
+static SessionManager
+MakeTestSessionManager()
+{
+    static auto logger = std::make_shared<TestLogger>();
+    return SessionManager(logger);
+}
 
 static uint16_t
 GetTestPort()
@@ -632,7 +687,7 @@ DecodeForwardedObjects(const TestForwardingSubscribeHandler::Subgroup& subgroup)
 
 TEST_CASE("Integration - Connection")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_connection = [&](const std::string& protocol_scheme) {
@@ -663,7 +718,7 @@ TEST_CASE("Integration - Connection")
 
 TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     std::promise<ServerSetupAttributes> recv_attributes;
@@ -704,7 +759,7 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
 
 TEST_CASE("Integration - Subscribe")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_subscribe = [&](const std::string& protocol_scheme) {
@@ -766,7 +821,7 @@ TEST_CASE("Integration - Subscribe")
 
 TEST_CASE("Integration - Subscribe metrics report received payload")
 {
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto test_metrics = [&](const std::string& protocol_scheme) {
@@ -840,7 +895,7 @@ TEST_CASE("Integration - Subscribe metrics report received payload")
 
 TEST_CASE("Integration - Connection metrics reach the server callbacks")
 {
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, kMetricsTestIntervalMs);
 
     std::promise<TestServer::ConnectionMetricsDetails> metrics_promise;
@@ -868,7 +923,7 @@ TEST_CASE("Integration - Connection metrics reach the server callbacks")
 
 TEST_CASE("Integration - Publish metrics report transmitted objects")
 {
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_metrics = [&](const std::string& protocol_scheme) {
@@ -938,7 +993,7 @@ TEST_CASE("Integration - Publish metrics report transmitted objects")
 
 TEST_CASE("Integration - Publish metrics include a stream that closed during the period")
 {
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, "moq", kMetricsTestIntervalMs);
@@ -989,7 +1044,7 @@ TEST_CASE("Integration - Publish metrics include a stream that closed during the
 
 TEST_CASE("Integration - Track metrics do not recount a stream's bytes each sample")
 {
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, "moq", kMetricsTestIntervalMs);
@@ -1048,7 +1103,7 @@ TEST_CASE("Integration - Track metrics do not recount a stream's bytes each samp
 
 TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_unsubscribe = [&](const std::string& protocol_scheme) {
@@ -1108,7 +1163,7 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 
 TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client UnsubscribeTrack")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_unsubscribe_received = [&](const std::string& protocol_scheme) {
@@ -1162,7 +1217,7 @@ TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client Uns
 TEST_CASE("Integration - Rejected request closes both stream directions")
 {
     auto test_rejection = [](const std::string& protocol_scheme) {
-        quicr::SessionManager session_mgr;
+        auto session_mgr = MakeTestSessionManager();
         auto server = MakeTestServer(session_mgr);
 
         // Setup to blanket reject the request.
@@ -1205,7 +1260,7 @@ TEST_CASE("Integration - Rejected request closes both stream directions")
 TEST_CASE("Integration - Cancelling a subgroup")
 {
     auto test_subgroup_cancel = [&](const std::string& protocol_scheme) {
-        quicr::SessionManager session_mgr;
+        auto session_mgr = MakeTestSessionManager();
         auto server = MakeTestServer(session_mgr, std::nullopt, 2);
         auto [subscriber_client, subscriber_callbacks] =
           MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -1287,7 +1342,7 @@ TEST_CASE("Integration - Cancelling a subgroup")
 
 TEST_CASE("Integration - Publish namespace done resets the request stream")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_publish_namespace_done = [&](const std::string& protocol_scheme) {
@@ -1340,7 +1395,7 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
 
 TEST_CASE("Integration - Fetch")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_fetch = [&](const std::string& protocol_scheme) {
@@ -1370,7 +1425,7 @@ TEST_CASE("Integration - Fetch")
 
 TEST_CASE("Integration - Joining Fetch")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr);
 
@@ -1444,7 +1499,7 @@ TEST_CASE("Integration - Joining Fetch")
 
 TEST_CASE("Integration - Handlers with no transport")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     // Subscribe.
     {
         const auto handler = SubscribeTrackHandler::Create(FullTrackName(), 0, std::nullopt);
@@ -1480,7 +1535,7 @@ TEST_CASE("Integration - Handlers with no transport")
 
 TEST_CASE("Group ID Gap")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_group_id_gap = [&](const std::string& protocol_scheme) {
@@ -1566,7 +1621,7 @@ TEST_CASE("Qlog Generation")
         std::filesystem::create_directories(temp_dir);
         defer(std::filesystem::remove_all(temp_dir));
 
-        quicr::SessionManager session_mgr;
+        auto session_mgr = MakeTestSessionManager();
 
         // Enable qlog.
         auto server = MakeTestServer(session_mgr, temp_dir.string());
@@ -1598,7 +1653,7 @@ TEST_CASE("Qlog Generation")
 
 TEST_CASE("Integration - Raw Subscribe Tracks")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_subscribe_namespace = [&](const std::string& protocol_scheme) {
@@ -1665,7 +1720,7 @@ TEST_CASE("Integration - Subscribe Namespace notifications")
                                        const TrackNamespace& prefix,
                                        const std::optional<TrackNamespace>& published_namespace,
                                        bool expect_notification) {
-        quicr::SessionManager session_mgr;
+        auto session_mgr = MakeTestSessionManager();
         auto server = MakeTestServer(session_mgr);
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
@@ -1711,7 +1766,7 @@ TEST_CASE("Integration - Subscribe Namespace notifications")
 
 TEST_CASE("Integration - Subscribe Tracks with matching namespace")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_matching_namespace = [&](const std::string& protocol_scheme) {
@@ -1755,7 +1810,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
 {
 
     auto test_matching_track = [&](const std::string& protocol_scheme) {
-        quicr::SessionManager session_mgr;
+        auto session_mgr = MakeTestSessionManager();
 
         auto server = MakeTestServer(session_mgr);
 
@@ -1815,7 +1870,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
 
 TEST_CASE("Integration - Subscribe Tracks with ongoing match")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_ongoing_match = [&](const std::string& protocol_scheme) {
@@ -1881,7 +1936,7 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
 
 TEST_CASE("Integration - Subscribe Tracks with non-matching namespace")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_non_matching = [&](const std::string& protocol_scheme) {
@@ -1921,7 +1976,7 @@ TEST_CASE("Integration - Subscribe Tracks with non-matching namespace")
 
 TEST_CASE("Integration - Announce Flow")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_announce = [&](const std::string& protocol_scheme) {
@@ -2037,7 +2092,7 @@ class TestFetchTrackHandler final : public FetchTrackHandler
 
 TEST_CASE("Integration - Fetch object roundtrip")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr);
     auto test_fetch_roundtrip = [&](const std::string& protocol_scheme) {
@@ -2137,7 +2192,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
 
 TEST_CASE("Integration - Subgroup and Stream Testing")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     // Server needs to support 2 connections (subscriber + publisher)
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
@@ -2380,7 +2435,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
 
 TEST_CASE("Integration - Small data callbacks assemble")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     // Create with 1 byte window.
     auto server = MakeTestServer(session_mgr, std::nullopt, 2, 1);
@@ -2418,7 +2473,7 @@ TEST_CASE("Integration - Small data callbacks assemble")
 
 TEST_CASE("Integration - A forwarding subscriber is given subgroup bytes rather than objects")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr);
@@ -2495,7 +2550,7 @@ TEST_CASE("Integration - A forwarding subscriber is given subgroup bytes rather 
 
 TEST_CASE("Integration - A forwarded subgroup framed from its first object is still named")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr);
@@ -2546,7 +2601,7 @@ TEST_CASE("Integration - A forwarded subgroup framed from its first object is st
 
 TEST_CASE("Integration - A stream header type meaning nothing takes the session down with it")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr);
@@ -2608,7 +2663,7 @@ TEST_CASE("Integration - A stream header type meaning nothing takes the session 
 
 TEST_CASE("Integration - Failed publish does not create subgroup state")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     // Setup a subscriber and publisher.
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
@@ -2692,7 +2747,7 @@ TEST_CASE("Integration - Failed publish does not create subgroup state")
 
 TEST_CASE("Integration - New subgroup preserves object IDs")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto test_subgroup_roll = [&](const std::string& protocol_scheme) {
@@ -2805,7 +2860,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
 
 TEST_CASE("Integration - Dynamic groups support roundtrip")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_dynamic_groups = [&](const std::string& protocol_scheme, bool dynamic_groups) {
@@ -2934,7 +2989,7 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
 
 TEST_CASE("Integration - Dedicated bidirectional request streams")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_dedicated_request_streams = [&](const std::string& protocol_scheme) {
@@ -3013,7 +3068,7 @@ TEST_CASE("Integration - Dedicated bidirectional request streams")
 
 TEST_CASE("Integration - Unbound publish track cannot create streams")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto test_unbound_publish = [&](const std::string& protocol_scheme) {
@@ -3080,7 +3135,7 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
 
 TEST_CASE("Integration - Request updates reuse the handler's request stream")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_request_update_stream = [&](const std::string& protocol_scheme) {
@@ -3136,7 +3191,7 @@ TEST_CASE("Integration - Request updates reuse the handler's request stream")
 TEST_CASE("Integration - Stream data is delivered before its FIN callback")
 {
     constexpr std::size_t object_count = 150;
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, "moq", 50);
