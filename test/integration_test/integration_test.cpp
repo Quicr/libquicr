@@ -718,7 +718,7 @@ TEST_CASE("Integration - Connection")
 
 TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     std::promise<ServerSetupAttributes> recv_attributes;
@@ -1720,7 +1720,7 @@ TEST_CASE("Integration - Subscribe Namespace notifications")
                                        const TrackNamespace& prefix,
                                        const std::optional<TrackNamespace>& published_namespace,
                                        bool expect_notification) {
-        quicr::SessionManager session_mgr;
+        auto session_mgr = MakeTestSessionManager();
         auto server = MakeTestServer(session_mgr);
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
@@ -2473,7 +2473,7 @@ TEST_CASE("Integration - Small data callbacks assemble")
 
 TEST_CASE("Integration - A forwarding subscriber is given subgroup bytes rather than objects")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr);
@@ -2550,7 +2550,7 @@ TEST_CASE("Integration - A forwarding subscriber is given subgroup bytes rather 
 
 TEST_CASE("Integration - A forwarded subgroup framed from its first object is still named")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr);
@@ -2601,7 +2601,7 @@ TEST_CASE("Integration - A forwarded subgroup framed from its first object is st
 
 TEST_CASE("Integration - A stream header type meaning nothing takes the session down with it")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr);
