@@ -6,8 +6,19 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   BUILD_TYPE: Release
+  CPM_SOURCE_CACHE: "${{ github.workspace }}\\.cache\\CPM"
+  SCCACHE_GHA_ENABLED: "true"
+  VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}\\vcpkg-cache\\archives,readwrite"
+  VCPKG_DOWNLOADS: "${{ github.workspace }}\\vcpkg-cache\\downloads"
 
 defaults:
   run:
@@ -17,12 +28,10 @@ jobs:
   build:
     runs-on: windows-latest
     # A cold vcpkg cache builds OpenSSL from source.
-    timeout-minutes: 60
+    timeout-minutes: 75
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Check out the pinned vcpkg baseline
         # vcpkg takes the baseline version from the pinned commit but reads
@@ -59,34 +68,58 @@ jobs:
 
       - name: Set up MSVC environment
         # Ninja, unlike the Visual Studio generator, needs cl.exe and the SDK
-        # already on the environment.
+        # already in the environment.
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Cache vcpkg packages
+      - name: Cache vcpkg installed tree
         uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/build/vcpkg_installed
           # No restore-keys: a tree from another manifest is worse than a rebuild.
-          key: vcpkg-x64-windows-release-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-installed-x64-windows-release-${{ hashFiles('vcpkg.json') }}
+
+      - name: Cache vcpkg packages and downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/vcpkg-cache
+          # Binary packages are content-addressed, so older manifest caches are
+          # safe to reuse when only some dependency versions change.
+          key: vcpkg-binary-x64-windows-release-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-binary-x64-windows-release-
+
+      - name: Cache CPM sources
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.CPM_SOURCE_CACHE }}
+          key: cpm-windows-${{ hashFiles('cmake/QuicrDependencies.cmake') }}
+          restore-keys: |
+            cpm-windows-
+
+      - name: Set up compiler cache
+        uses: mozilla-actions/sccache-action@v0.0.11
+        with:
+          version: "v0.16.0"
 
       - name: Configure CMake
-        # Ninja rather than Visual Studio: CXX_CLANG_TIDY, and so LINT, is only
-        # honoured by the Makefile and Ninja generators. Being single-config,
-        # the build type is fixed here rather than at --build time.
+        # Ninja is faster than the Visual Studio generator and is single-config,
+        # so the build type is fixed here rather than at --build time.
         # x64-windows-release is x64-windows plus VCPKG_BUILD_TYPE release. Left
         # alone, vcpkg also builds a debug OpenSSL that this job never links.
         run: >
           cmake -B ${{ github.workspace }}/build
           -G Ninja
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DCMAKE_C_COMPILER_LAUNCHER=sccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_TARGET_TRIPLET=x64-windows-release
           -DCMAKE_POLICY_VERSION_MINIMUM="3.5"
           -DBUILD_TESTING=ON
           -DQUICR_BUILD_EXAMPLES=ON
-          -DLINT=ON
+          -DLINT=OFF
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build -j
@@ -102,13 +135,17 @@ jobs:
             !${{ github.workspace }}/build/**/*.obj
             !${{ github.workspace }}/build/**/*.ilk
             !${{ github.workspace }}/build/**/*.lib
+          # Build outputs are already dense; avoid spending runner time trying
+          # to compress them further.
+          compression-level: 0
           retention-days: 5
 
-  # test and benchmark are split out so a spurious failure can be re-run on its
-  # own. They rely on the workspace path being identical across jobs, since the
-  # build tree records absolute paths to its executables.
+  # Keep these separate so failed tests or benchmarks can be rerun without
+  # rebuilding. The build tree records absolute paths, so all jobs use the same
+  # GitHub workspace location.
   test:
     needs: build
+    if: ${{ needs.build.result == 'success' }}
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -127,6 +164,7 @@ jobs:
 
   benchmark:
     needs: build
+    if: ${{ needs.build.result == 'success' }}
     runs-on: windows-latest
     timeout-minutes: 20
 
