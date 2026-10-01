@@ -2,11 +2,14 @@
 #define _CRT_SECURE_NO_WARNINGS // NOLINT
 #endif
 
+#include "picoquic_connection.h"
 #include "quicr/config.h"
 #include "quicr/handlers/fetch_track_handler.h"
+#include "quicr/handlers/forwarding_subscribe_track_handler.h"
 #include "quicr/handlers/publish_namespace_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/log.h"
 #include "quicr/session.h"
 #include "quicr/session_manager.h"
 #include "quicr/utilities/defer.h"
@@ -15,6 +18,9 @@
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
+
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <cstdlib>
@@ -36,6 +42,57 @@ constexpr uint16_t kDefaultPort = 12345;
 const std::string kServerId = "test-server";
 constexpr std::uint64_t kMetricsTestIntervalMs = 250;
 constexpr auto kMetricsTestTimeout = std::chrono::seconds(2);
+
+class TestLogger final : public Logger
+{
+  public:
+    TestLogger()
+      : logger_(spdlog::stderr_color_mt("libquicr-integration"))
+    {
+    }
+
+    void SetLevel(Level level) override { logger_->set_level(ToSpdlogLevel(level)); }
+
+    bool ShouldLog(Level level) const noexcept override { return logger_->should_log(ToSpdlogLevel(level)); }
+
+    void Log(Level level, std::string_view message, std::source_location location) override
+    {
+        logger_->log(spdlog::source_loc(location.file_name(), location.line(), location.function_name()),
+                     ToSpdlogLevel(level),
+                     message);
+    }
+
+  private:
+    static spdlog::level::level_enum ToSpdlogLevel(Level level) noexcept
+    {
+        switch (level) {
+            case Level::Trace:
+                return spdlog::level::trace;
+            case Level::Debug:
+                return spdlog::level::debug;
+            case Level::Info:
+                return spdlog::level::info;
+            case Level::Warn:
+                return spdlog::level::warn;
+            case Level::Error:
+                return spdlog::level::err;
+            case Level::Critical:
+                return spdlog::level::critical;
+            case Level::Off:
+                return spdlog::level::off;
+        }
+        return spdlog::level::off;
+    }
+
+    std::shared_ptr<spdlog::logger> logger_;
+};
+
+static SessionManager
+MakeTestSessionManager()
+{
+    static auto logger = std::make_shared<TestLogger>();
+    return SessionManager(logger);
+}
 
 static uint16_t
 GetTestPort()
@@ -166,6 +223,59 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
     std::optional<std::promise<PublishTrackMetrics>> metrics_promise_;
 };
 
+class SetupBeforeReadyDelegate final : public Connection::Delegate
+{
+  public:
+    explicit SetupBeforeReadyDelegate(std::shared_ptr<Connection::Delegate> delegate)
+      : delegate_(std::move(delegate))
+    {
+    }
+
+    void OnConnectionStatus(Connection::Status status) override
+    {
+        if (status == Connection::Status::kReady && !first_stream_received_) {
+            ready_pending_ = true;
+            return;
+        }
+        delegate_->OnConnectionStatus(status);
+    }
+
+    void OnRecvDgram() override { delegate_->OnRecvDgram(); }
+
+    bool OnRecvStream(const std::shared_ptr<Stream>& stream) override
+    {
+        first_stream_received_ = true;
+        const bool more_data = delegate_->OnRecvStream(stream);
+        if (std::exchange(ready_pending_, false)) {
+            delegate_->OnConnectionStatus(Connection::Status::kReady);
+        }
+        return more_data;
+    }
+
+    void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override
+    {
+        delegate_->OnStreamClosed(stream, flag);
+    }
+
+    void OnConnectionMetricsSampled(const MetricsTimeStamp sample_time, const QuicConnectionMetrics& metrics) override
+    {
+        delegate_->OnConnectionMetricsSampled(sample_time, metrics);
+    }
+
+    void OnStreamMetricsStampled(const MetricsTimeStamp sample_time,
+                                 std::uint64_t stream_id,
+                                 const QuicStreamMetrics& metrics,
+                                 bool is_final) override
+    {
+        delegate_->OnStreamMetricsStampled(sample_time, stream_id, metrics, is_final);
+    }
+
+  private:
+    std::shared_ptr<Connection::Delegate> delegate_;
+    bool first_stream_received_{ false };
+    bool ready_pending_{ false };
+};
+
 class TestPublishNamespaceHandler : public PublishNamespaceHandler
 {
   public:
@@ -266,10 +376,8 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     }
 
     auto w_session = session_mgr.AddTransport(client_config, callbacks);
-
-    CHECK_NE(w_session.lock(), nullptr);
-
     auto session = w_session.lock();
+    REQUIRE(session != nullptr);
     if (connect) {
         // Wait for client to be connected instead of fixed sleep
         const bool connected = WaitFor([&session]() {
@@ -322,8 +430,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         return received_objects_.size();
     }
 
-    /// @brief Get number of active streams observed through callbacks
-    std::size_t GetActiveStreamCount() const noexcept { return active_stream_count_; }
+    /// @brief Get number of subgroups started but not yet ended, observed through callbacks
+    std::size_t GetActiveSubgroupCount() const noexcept { return active_subgroup_count_; }
 
     // Did we get a REQUEST_ERROR?
     bool RequestErrorReceived() const
@@ -362,6 +470,11 @@ class TestSubscribeHandler : public SubscribeTrackHandler
                         BytesSpan data,
                         std::optional<messages::StreamHeaderProperties> stream_mode) override
     {
+        // Only the object a subgroup starts with reports how the subgroup is framed.
+        if (stream_mode.has_value()) {
+            ++active_subgroup_count_;
+        }
+
         std::lock_guard lock(mutex_);
         if (!data.empty()) {
             received_objects_.push_back({ .group_id = object_headers.group_id,
@@ -395,16 +508,10 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         request_error_ = error_code;
     }
 
-    void StreamDataRecv(uint64_t stream_id, InitialStreamData&& initial_buffer) override
+    void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
     {
-        SubscribeTrackHandler::StreamDataRecv(stream_id, std::move(initial_buffer));
-        ++active_stream_count_;
-    }
-
-    void StreamClosed(std::uint64_t stream_id, bool reset) override
-    {
-        SubscribeTrackHandler::StreamClosed(stream_id, reset);
-        --active_stream_count_;
+        SubscribeTrackHandler::SubgroupEnded(group_id, subgroup_id, reset);
+        --active_subgroup_count_;
     }
 
     void RequestOkReceived(const messages::Parameters& params) override
@@ -421,7 +528,7 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     std::optional<std::promise<void>> object_count_promise_;
     std::optional<std::promise<SubscribeTrackMetrics>> metrics_promise_;
     std::atomic<std::uint64_t> request_update_oks_{ 0 };
-    std::atomic<std::size_t> active_stream_count_{ 0 };
+    std::atomic<std::size_t> active_subgroup_count_{ 0 };
 };
 
 class CloseOrderingSubscribeHandler final : public TestSubscribeHandler
@@ -452,10 +559,10 @@ class CloseOrderingSubscribeHandler final : public TestSubscribeHandler
         TestSubscribeHandler::ObjectReceived(object_headers, data, stream_mode);
     }
 
-    void StreamClosed(std::uint64_t stream_id, bool reset) override
+    void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
     {
         received_count_at_close_ = GetReceivedCount();
-        SubscribeTrackHandler::StreamClosed(stream_id, reset);
+        TestSubscribeHandler::SubgroupEnded(group_id, subgroup_id, reset);
     }
 
   private:
@@ -463,9 +570,122 @@ class CloseOrderingSubscribeHandler final : public TestSubscribeHandler
     std::atomic<std::size_t> received_count_at_close_{ kNotClosed };
 };
 
+/// @brief Subscribe handler taking its track's streams as bytes, the way a relay passing them on does
+class TestForwardingSubscribeHandler final : public ForwardingSubscribeTrackHandler
+{
+  public:
+    /// @brief A subgroup as it was handed over, start to end
+    struct Subgroup
+    {
+        std::uint64_t group_id;
+        std::uint64_t subgroup_id;
+        std::optional<std::uint8_t> priority;
+        messages::StreamHeaderProperties properties;
+        std::vector<std::uint8_t> bytes;
+        bool ended;
+        bool reset;
+    };
+
+    static std::shared_ptr<TestForwardingSubscribeHandler> Create(const FullTrackName& full_track_name,
+                                                                  std::uint8_t priority)
+    {
+        return std::shared_ptr<TestForwardingSubscribeHandler>(
+          new TestForwardingSubscribeHandler(full_track_name, priority));
+    }
+
+    std::vector<Subgroup> GetSubgroups() const
+    {
+        std::lock_guard lock(mutex_);
+        return subgroups_;
+    }
+
+    std::size_t GetSubgroupCount() const
+    {
+        std::lock_guard lock(mutex_);
+        return subgroups_.size();
+    }
+
+    /// @returns Times an object was handed over, which must never happen for a forwarding handler
+    std::size_t GetObjectCount() const noexcept { return object_count_; }
+
+  protected:
+    TestForwardingSubscribeHandler(const FullTrackName& full_track_name, std::uint8_t priority)
+      : ForwardingSubscribeTrackHandler(full_track_name, priority, messages::GroupOrder::kAscending)
+    {
+    }
+
+    void SubgroupStarted(std::uint64_t group_id,
+                         std::uint64_t subgroup_id,
+                         std::optional<std::uint8_t> priority,
+                         messages::StreamHeaderProperties properties) override
+    {
+        std::lock_guard lock(mutex_);
+        subgroups_.push_back(Subgroup{ group_id, subgroup_id, priority, properties, {}, false, false });
+    }
+
+    void StreamBytesForwarded(std::uint64_t group_id, std::uint64_t subgroup_id, Bytes&& data) override
+    {
+        std::lock_guard lock(mutex_);
+        if (auto* subgroup = Find(group_id, subgroup_id)) {
+            subgroup->bytes.insert(subgroup->bytes.end(), data.begin(), data.end());
+        }
+    }
+
+    void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
+    {
+        std::lock_guard lock(mutex_);
+        if (auto* subgroup = Find(group_id, subgroup_id)) {
+            subgroup->ended = true;
+            subgroup->reset = reset;
+        }
+    }
+
+    void ObjectReceived(const ObjectHeaders&, BytesSpan, std::optional<messages::StreamHeaderProperties>) override
+    {
+        ++object_count_;
+    }
+
+  private:
+    Subgroup* Find(std::uint64_t group_id, std::uint64_t subgroup_id)
+    {
+        for (auto& subgroup : subgroups_) {
+            if (subgroup.group_id == group_id && subgroup.subgroup_id == subgroup_id) {
+                return &subgroup;
+            }
+        }
+
+        return nullptr;
+    }
+
+    mutable std::mutex mutex_;
+    std::vector<Subgroup> subgroups_;
+    std::atomic<std::size_t> object_count_{ 0 };
+};
+
+/// @brief Read the objects back out of a subgroup's forwarded bytes, as whatever they are passed to would
+static std::vector<std::vector<std::uint8_t>>
+DecodeForwardedObjects(const TestForwardingSubscribeHandler::Subgroup& subgroup)
+{
+    StreamBuffer<std::uint8_t> buffer;
+    buffer.Push(std::span<const std::uint8_t>{ subgroup.bytes });
+
+    std::vector<std::vector<std::uint8_t>> payloads;
+    while (!buffer.Empty()) {
+        messages::StreamSubGroupObject object;
+        object.properties.emplace(subgroup.properties);
+        if (!(buffer >> object)) {
+            break;
+        }
+
+        payloads.push_back(std::move(object.payload));
+    }
+
+    return payloads;
+}
+
 TEST_CASE("Integration - Connection")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_connection = [&](const std::string& protocol_scheme) {
@@ -494,9 +714,50 @@ TEST_CASE("Integration - Connection")
     }
 }
 
+TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
+{
+    auto session_mgr = MakeTestSessionManager();
+    auto server = MakeTestServer(session_mgr);
+
+    std::promise<ServerSetupAttributes> recv_attributes;
+    auto setup_received = recv_attributes.get_future();
+    auto callbacks = std::make_shared<TestClient>();
+    callbacks->SetConnectedPromise(std::move(recv_attributes));
+
+    ClientConfig config;
+    config.endpoint_id = "client";
+    config.connect_uri = "moq://" + kIp + ":" + std::to_string(GetTestPort()) + "/relay";
+    auto tick_service = std::make_shared<timeq::threaded_tick_service>(config.tick_service_sleep_delay_us);
+    auto transport = Transport::MakeClientTransport(
+      { kIp, GetTestPort(), TransportProtocol::kQuic, "/relay" }, config.transport_config, tick_service, nullptr);
+
+    using ClientSession = std::pair<std::shared_ptr<Session>, std::shared_ptr<SetupBeforeReadyDelegate>>;
+    std::promise<ClientSession> session_created;
+    auto session_future = session_created.get_future();
+    transport->OnNewConnection = [&, transport](const std::shared_ptr<Connection>& connection) {
+        auto session = Session::Create(config, transport, connection, callbacks, tick_service);
+        auto ordered_delegate = std::make_shared<SetupBeforeReadyDelegate>(session);
+        connection->SetDelegate(ordered_delegate);
+        session_created.set_value({ std::move(session), std::move(ordered_delegate) });
+    };
+
+    REQUIRE(transport->Start() != nullptr);
+    REQUIRE(session_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+    auto session_and_delegate = session_future.get();
+    const auto& session = session_and_delegate.first;
+    transport->OnNewConnection = nullptr;
+
+    REQUIRE(setup_received.wait_for(kDefaultTimeout) == std::future_status::ready);
+    CHECK_EQ(callbacks->GetStatusAtServerSetup(), Session::Status::kConnecting);
+    REQUIRE(WaitFor([&session]() { return session->GetStatus() == Session::Status::kReady; }));
+
+    session->Disconnect();
+    transport->Shutdown();
+}
+
 TEST_CASE("Integration - Subscribe")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_subscribe = [&](const std::string& protocol_scheme) {
@@ -558,7 +819,7 @@ TEST_CASE("Integration - Subscribe")
 
 TEST_CASE("Integration - Subscribe metrics report received payload")
 {
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto test_metrics = [&](const std::string& protocol_scheme) {
@@ -632,7 +893,7 @@ TEST_CASE("Integration - Subscribe metrics report received payload")
 
 TEST_CASE("Integration - Connection metrics reach the server callbacks")
 {
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, kMetricsTestIntervalMs);
 
     std::promise<TestServer::ConnectionMetricsDetails> metrics_promise;
@@ -660,7 +921,7 @@ TEST_CASE("Integration - Connection metrics reach the server callbacks")
 
 TEST_CASE("Integration - Publish metrics report transmitted objects")
 {
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_metrics = [&](const std::string& protocol_scheme) {
@@ -730,7 +991,7 @@ TEST_CASE("Integration - Publish metrics report transmitted objects")
 
 TEST_CASE("Integration - Publish metrics include a stream that closed during the period")
 {
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, "moq", kMetricsTestIntervalMs);
@@ -781,7 +1042,7 @@ TEST_CASE("Integration - Publish metrics include a stream that closed during the
 
 TEST_CASE("Integration - Track metrics do not recount a stream's bytes each sample")
 {
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, "moq", kMetricsTestIntervalMs);
@@ -840,7 +1101,7 @@ TEST_CASE("Integration - Track metrics do not recount a stream's bytes each samp
 
 TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_unsubscribe = [&](const std::string& protocol_scheme) {
@@ -900,7 +1161,7 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 
 TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client UnsubscribeTrack")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_unsubscribe_received = [&](const std::string& protocol_scheme) {
@@ -954,7 +1215,7 @@ TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client Uns
 TEST_CASE("Integration - Rejected request closes both stream directions")
 {
     auto test_rejection = [](const std::string& protocol_scheme) {
-        quicr::SessionManager session_mgr;
+        auto session_mgr = MakeTestSessionManager();
         auto server = MakeTestServer(session_mgr);
 
         // Setup to blanket reject the request.
@@ -997,7 +1258,7 @@ TEST_CASE("Integration - Rejected request closes both stream directions")
 TEST_CASE("Integration - Cancelling a subgroup")
 {
     auto test_subgroup_cancel = [&](const std::string& protocol_scheme) {
-        quicr::SessionManager session_mgr;
+        auto session_mgr = MakeTestSessionManager();
         auto server = MakeTestServer(session_mgr, std::nullopt, 2);
         auto [subscriber_client, subscriber_callbacks] =
           MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -1050,12 +1311,12 @@ TEST_CASE("Integration - Cancelling a subgroup")
         REQUIRE(WaitFor([&] { return sub_handler->GetReceivedCount() >= 1; }));
         const auto server_pub_handler = server->GetSubscriberPublishHandler(track_alias);
         REQUIRE(server_pub_handler != nullptr);
-        const auto subgroup_stream_id = server_pub_handler->GetSubgroupStreamId(0, 0);
-        REQUIRE(subgroup_stream_id.has_value());
+        const auto subgroup_stream = server_pub_handler->GetSubgroupStream(0, 0);
+        REQUIRE(subgroup_stream != nullptr);
 
         // If the subscriber cancels the subgroup, everything else should work.
         // TODO: Replace with subgroup cancel API if it exists.
-        server->MockStreamClosed(track_alias, *subgroup_stream_id, StreamClosedFlag::kStopSending);
+        server->MockStreamClosed(track_alias, subgroup_stream, StreamClosedFlag::kStopSending);
 
         // Everything else should continue as normal: request + publishing.
         CHECK(server_pub_handler->CanPublish());
@@ -1079,7 +1340,7 @@ TEST_CASE("Integration - Cancelling a subgroup")
 
 TEST_CASE("Integration - Publish namespace done resets the request stream")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_publish_namespace_done = [&](const std::string& protocol_scheme) {
@@ -1132,7 +1393,7 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
 
 TEST_CASE("Integration - Fetch")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_fetch = [&](const std::string& protocol_scheme) {
@@ -1162,7 +1423,7 @@ TEST_CASE("Integration - Fetch")
 
 TEST_CASE("Integration - Joining Fetch")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr);
 
@@ -1236,7 +1497,7 @@ TEST_CASE("Integration - Joining Fetch")
 
 TEST_CASE("Integration - Handlers with no transport")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     // Subscribe.
     {
         const auto handler = SubscribeTrackHandler::Create(FullTrackName(), 0, std::nullopt);
@@ -1272,7 +1533,7 @@ TEST_CASE("Integration - Handlers with no transport")
 
 TEST_CASE("Group ID Gap")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_group_id_gap = [&](const std::string& protocol_scheme) {
@@ -1358,7 +1619,7 @@ TEST_CASE("Qlog Generation")
         std::filesystem::create_directories(temp_dir);
         defer(std::filesystem::remove_all(temp_dir));
 
-        quicr::SessionManager session_mgr;
+        auto session_mgr = MakeTestSessionManager();
 
         // Enable qlog.
         auto server = MakeTestServer(session_mgr, temp_dir.string());
@@ -1390,7 +1651,7 @@ TEST_CASE("Qlog Generation")
 
 TEST_CASE("Integration - Raw Subscribe Tracks")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_subscribe_namespace = [&](const std::string& protocol_scheme) {
@@ -1457,7 +1718,7 @@ TEST_CASE("Integration - Subscribe Namespace notifications")
                                        const TrackNamespace& prefix,
                                        const std::optional<TrackNamespace>& published_namespace,
                                        bool expect_notification) {
-        quicr::SessionManager session_mgr;
+        auto session_mgr = MakeTestSessionManager();
         auto server = MakeTestServer(session_mgr);
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
@@ -1503,7 +1764,7 @@ TEST_CASE("Integration - Subscribe Namespace notifications")
 
 TEST_CASE("Integration - Subscribe Tracks with matching namespace")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_matching_namespace = [&](const std::string& protocol_scheme) {
@@ -1547,7 +1808,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
 {
 
     auto test_matching_track = [&](const std::string& protocol_scheme) {
-        quicr::SessionManager session_mgr;
+        auto session_mgr = MakeTestSessionManager();
 
         auto server = MakeTestServer(session_mgr);
 
@@ -1607,7 +1868,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
 
 TEST_CASE("Integration - Subscribe Tracks with ongoing match")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_ongoing_match = [&](const std::string& protocol_scheme) {
@@ -1673,7 +1934,7 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
 
 TEST_CASE("Integration - Subscribe Tracks with non-matching namespace")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_non_matching = [&](const std::string& protocol_scheme) {
@@ -1713,7 +1974,7 @@ TEST_CASE("Integration - Subscribe Tracks with non-matching namespace")
 
 TEST_CASE("Integration - Announce Flow")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
     auto test_announce = [&](const std::string& protocol_scheme) {
@@ -1829,7 +2090,7 @@ class TestFetchTrackHandler final : public FetchTrackHandler
 
 TEST_CASE("Integration - Fetch object roundtrip")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr);
     auto test_fetch_roundtrip = [&](const std::string& protocol_scheme) {
@@ -1929,7 +2190,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
 
 TEST_CASE("Integration - Subgroup and Stream Testing")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     // Server needs to support 2 connections (subscriber + publisher)
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
@@ -2043,16 +2304,16 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
             }
         }
 
-        // Wait for all 6 streams to be created (2 groups × 3 subgroups)
-        const bool streams_created = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() >= 4; },
-                                             std::chrono::milliseconds(1000));
-        INFO("Active streams after publishing phase 1: ", sub_handler->GetActiveStreamCount());
-        CHECK(streams_created);
+        // Wait for all 6 subgroups to be started (2 groups × 3 subgroups)
+        const bool subgroups_started = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() >= 4; },
+                                               std::chrono::milliseconds(1000));
+        INFO("Active subgroups after publishing phase 1: ", sub_handler->GetActiveSubgroupCount());
+        CHECK(subgroups_started);
 
-        // Verify subgroup 0 is closed (4 streams remain)
-        const bool subgroup0_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() <= 4; },
+        // Verify subgroup 0 is closed (4 subgroups remain)
+        const bool subgroup0_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() <= 4; },
                                               std::chrono::milliseconds(1000));
-        INFO("Active streams after phase 1 (subgroup 0 closed): ", sub_handler->GetActiveStreamCount());
+        INFO("Active subgroups after phase 1 (subgroup 0 closed): ", sub_handler->GetActiveSubgroupCount());
         CHECK(subgroup0_closed);
 
         // ================================================================================
@@ -2077,10 +2338,10 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
             }
         }
 
-        // Verify subgroup 1 is closed (2 streams remain - subgroup 2 in both groups)
-        const bool subgroup1_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() <= 2; },
+        // Verify subgroup 1 is closed (2 subgroups remain - subgroup 2 in both groups)
+        const bool subgroup1_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() <= 2; },
                                               std::chrono::milliseconds(1000));
-        INFO("Active streams after phase 2 (subgroup 1 closed): ", sub_handler->GetActiveStreamCount());
+        INFO("Active subgroups after phase 2 (subgroup 1 closed): ", sub_handler->GetActiveSubgroupCount());
         CHECK(subgroup1_closed);
 
         // ================================================================================
@@ -2105,11 +2366,11 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
             }
         }
 
-        // Wait for all streams to be closed
-        const bool all_streams_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveStreamCount() == 0; },
-                                                std::chrono::milliseconds(1000));
-        INFO("Active streams after phase 3 (all closed): ", sub_handler->GetActiveStreamCount());
-        CHECK(all_streams_closed);
+        // Wait for all subgroups to be closed
+        const bool all_closed = WaitFor([&sub_handler]() { return sub_handler->GetActiveSubgroupCount() == 0; },
+                                        std::chrono::milliseconds(1000));
+        INFO("Active subgroups after phase 3 (all closed): ", sub_handler->GetActiveSubgroupCount());
+        CHECK(all_closed);
 
         // Wait for all messages to be received
         auto receive_status = all_received_future.wait_for(std::chrono::milliseconds(3000));
@@ -2172,7 +2433,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
 
 TEST_CASE("Integration - Small data callbacks assemble")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     // Create with 1 byte window.
     auto server = MakeTestServer(session_mgr, std::nullopt, 2, 1);
@@ -2208,9 +2469,193 @@ TEST_CASE("Integration - Small data callbacks assemble")
     CHECK(received_future.wait_for(kDefaultTimeout) == std::future_status::ready);
 }
 
+TEST_CASE("Integration - A forwarding subscriber is given subgroup bytes rather than objects")
+{
+    auto session_mgr = MakeTestSessionManager();
+
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto [subscriber, _] = MakeTestClient(session_mgr);
+    auto [publisher, __] = MakeTestClient(session_mgr);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "forward", "bytes" }), { 1 } };
+
+    auto subscribe_handler = TestForwardingSubscribeHandler::Create(ftn, 3);
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(
+      WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+    const auto publish = [&publish_handler](std::uint64_t object_id, messages::SubgroupIdType mode) {
+        const std::vector<std::uint8_t> payload(16, static_cast<std::uint8_t>(object_id));
+        const ObjectHeaders headers{ .group_id = 0,
+                                     .object_id = object_id,
+                                     .subgroup_id = 4,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 10'000,
+                                     .track_mode = TrackMode::kStream };
+        std::optional<messages::StreamHeaderProperties> stream_mode;
+        stream_mode.emplace(true, mode, false, false, object_id == 0);
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload, stream_mode),
+                   PublishTrackHandler::PublishObjectStatus::kOk);
+    };
+
+    for (std::uint64_t object_id = 0; object_id < 3; ++object_id) {
+        publish(object_id, messages::SubgroupIdType::kExplicit);
+    }
+
+    REQUIRE(WaitFor([&subscribe_handler] { return subscribe_handler->GetSubgroupCount() == 1; }));
+
+    // The bytes handed over are the objects as they were sent, so what they are passed to reads
+    // the same objects back out of them using only the framing reported alongside.
+    REQUIRE(WaitFor([&subscribe_handler] {
+        const auto subgroups = subscribe_handler->GetSubgroups();
+        return !subgroups.empty() && DecodeForwardedObjects(subgroups.front()).size() == 3;
+    }));
+
+    {
+        const auto subgroups = subscribe_handler->GetSubgroups();
+        REQUIRE_EQ(subgroups.size(), 1);
+
+        const auto& subgroup = subgroups.front();
+        CHECK_EQ(subgroup.group_id, 0);
+        CHECK_EQ(subgroup.subgroup_id, 4);
+        CHECK_EQ(subgroup.priority, 3);
+        CHECK_EQ(subgroup.properties.subgroup_id_mode, messages::SubgroupIdType::kExplicit);
+
+        const auto payloads = DecodeForwardedObjects(subgroup);
+        REQUIRE_EQ(payloads.size(), 3);
+        for (std::size_t i = 0; i < payloads.size(); ++i) {
+            CHECK_EQ(payloads[i], std::vector<std::uint8_t>(16, static_cast<std::uint8_t>(i)));
+        }
+    }
+
+    // Nothing decodes objects on this handler's behalf, which is the point of it.
+    CHECK_EQ(subscribe_handler->GetObjectCount(), 0);
+
+    // Closing the subgroup ends it, so a relay knows to close the one it is publishing.
+    publish_handler->EndSubgroup(0, 4, true);
+    CHECK(WaitFor([&subscribe_handler] {
+        const auto subgroups = subscribe_handler->GetSubgroups();
+        return !subgroups.empty() && subgroups.front().ended;
+    }));
+    CHECK_FALSE(subscribe_handler->GetSubgroups().front().reset);
+}
+
+TEST_CASE("Integration - A forwarded subgroup framed from its first object is still named")
+{
+    auto session_mgr = MakeTestSessionManager();
+
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto [subscriber, _] = MakeTestClient(session_mgr);
+    auto [publisher, __] = MakeTestClient(session_mgr);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "forward", "first-object" }), { 1 } };
+
+    auto subscribe_handler = TestForwardingSubscribeHandler::Create(ftn, 3);
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(
+      WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+    // Framing that leaves the subgroup ID out of the header, to be taken from the first object.
+    constexpr std::uint64_t first_object_id = 7;
+    const std::vector<std::uint8_t> payload(8, 0x2b);
+    const ObjectHeaders headers{ .group_id = 0,
+                                 .object_id = first_object_id,
+                                 .subgroup_id = first_object_id,
+                                 .payload_length = payload.size(),
+                                 .status = ObjectStatus::kAvailable,
+                                 .priority = 3,
+                                 .ttl = 10'000,
+                                 .track_mode = TrackMode::kStream };
+    std::optional<messages::StreamHeaderProperties> stream_mode;
+    stream_mode.emplace(true, messages::SubgroupIdType::kSetFromFirstObject, false, false, true);
+    REQUIRE_EQ(publish_handler->PublishObject(headers, payload, stream_mode),
+               PublishTrackHandler::PublishObjectStatus::kOk);
+
+    // The header cannot say which subgroup this is, so it is read from the object that follows.
+    REQUIRE(WaitFor([&subscribe_handler] { return subscribe_handler->GetSubgroupCount() == 1; }));
+
+    const auto subgroups = subscribe_handler->GetSubgroups();
+    REQUIRE_EQ(subgroups.size(), 1);
+    CHECK_EQ(subgroups.front().subgroup_id, first_object_id);
+    CHECK_EQ(subgroups.front().properties.subgroup_id_mode, messages::SubgroupIdType::kSetFromFirstObject);
+
+    // That object is left where it is, so it is passed on along with the rest.
+    CHECK(WaitFor([&subscribe_handler] {
+        const auto current = subscribe_handler->GetSubgroups();
+        return !current.empty() && DecodeForwardedObjects(current.front()).size() == 1;
+    }));
+    CHECK_EQ(DecodeForwardedObjects(subscribe_handler->GetSubgroups().front()).front(), payload);
+}
+
+TEST_CASE("Integration - Invalid stream type is a PROTOCOL_VIOLATION")
+{
+    auto session_mgr = MakeTestSessionManager();
+
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto [subscriber, _] = MakeTestClient(session_mgr);
+    auto [publisher, __] = MakeTestClient(session_mgr);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "invalid", "stream-type" }), { 1 } };
+
+    auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+    subscriber->SubscribeTrack(subscribe_handler);
+    REQUIRE(
+      WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    publisher->PublishTrack(publish_handler);
+    REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+    const auto connection = subscriber->GetConnection();
+    const auto pq_connection = std::dynamic_pointer_cast<PicoQuicConnection>(connection);
+    REQUIRE(pq_connection != nullptr);
+
+    constexpr std::uint64_t peer_unidirectional_stream_id = 203;
+    const auto stream = pq_connection->AddStream(peer_unidirectional_stream_id, nullptr);
+    REQUIRE(stream != nullptr);
+    REQUIRE_FALSE(stream->IsBidirectional());
+
+    const std::vector<std::uint8_t> no_such_type{ 0x00, 0x00 };
+    {
+        std::lock_guard _(stream->rx_mutex);
+        stream->rx_data.Push(std::span<const std::uint8_t>{ no_such_type });
+    }
+
+    // Should be rejected and the originating (subscriber's in this case) connection closed.
+    CHECK_FALSE(connection->OnRecvStream(stream));
+    CHECK_EQ(connection->metrics.rx_stream_invalid_type, 1);
+    CHECK(WaitFor([&connection] { return connection->GetStatus() == Connection::Status::kRemoteRequestClose; }));
+
+    // Any other (publisher's in this case) session should stay up.
+    CHECK_EQ(publisher->GetConnection()->GetStatus(), Connection::Status::kReady);
+
+    // Which leaves the track with nothing to arrive on, the subscription having gone with it.
+    const std::vector<std::uint8_t> payload(8, 0x5c);
+    const ObjectHeaders headers{ .group_id = 0,
+                                 .object_id = 0,
+                                 .subgroup_id = 0,
+                                 .payload_length = payload.size(),
+                                 .status = ObjectStatus::kAvailable,
+                                 .priority = 3,
+                                 .ttl = 10'000,
+                                 .track_mode = TrackMode::kStream };
+    publish_handler->PublishObject(headers, payload);
+    CHECK_FALSE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() >= 1; }, kNegativeTimeout));
+}
+
 TEST_CASE("Integration - Failed publish does not create subgroup state")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     // Setup a subscriber and publisher.
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
@@ -2294,7 +2739,7 @@ TEST_CASE("Integration - Failed publish does not create subgroup state")
 
 TEST_CASE("Integration - New subgroup preserves object IDs")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto test_subgroup_roll = [&](const std::string& protocol_scheme) {
@@ -2407,7 +2852,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
 
 TEST_CASE("Integration - Dynamic groups support roundtrip")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_dynamic_groups = [&](const std::string& protocol_scheme, bool dynamic_groups) {
@@ -2536,7 +2981,7 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
 
 TEST_CASE("Integration - Dedicated bidirectional request streams")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_dedicated_request_streams = [&](const std::string& protocol_scheme) {
@@ -2615,7 +3060,7 @@ TEST_CASE("Integration - Dedicated bidirectional request streams")
 
 TEST_CASE("Integration - Unbound publish track cannot create streams")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
 
     auto test_unbound_publish = [&](const std::string& protocol_scheme) {
@@ -2682,7 +3127,7 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
 
 TEST_CASE("Integration - Request updates reuse the handler's request stream")
 {
-    quicr::SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_request_update_stream = [&](const std::string& protocol_scheme) {
@@ -2738,7 +3183,7 @@ TEST_CASE("Integration - Request updates reuse the handler's request stream")
 TEST_CASE("Integration - Stream data is delivered before its FIN callback")
 {
     constexpr std::size_t object_count = 150;
-    SessionManager session_mgr;
+    auto session_mgr = MakeTestSessionManager();
 
     auto server = MakeTestServer(session_mgr, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, "moq", 50);

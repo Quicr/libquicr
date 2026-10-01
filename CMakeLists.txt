@@ -69,34 +69,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(CPM)
 
-include(CheckIncludeFileCXX)
-check_include_file_cxx(format HAVE_STD_FORMAT)
-if (HAVE_STD_FORMAT)
-    unset(HAS_STD_VFORMAT CACHE)
-    set(CMAKE_REQUIRED_FLAGS "-std=c++20")
-
-    include(CheckCXXSourceCompiles)
-    check_cxx_source_compiles("
-        #include <format>
-        #include <string>
-        int main() {
-            std::string fmt = \"Hello {}\";
-            std::string result = std::vformat(fmt, std::make_format_args(\"World\"));
-            return result.empty() ? 1 : 0;
-        }
-    " HAS_STD_VFORMAT)
-
-    unset(CMAKE_REQUIRED_FLAGS)
-endif()
-
-if (NOT HAS_STD_VFORMAT)
-    message(STATUS "Using fmt::format")
-    CPMAddPackage("gh:fmtlib/fmt#12.2.0")
-else()
-    add_compile_definitions(QUICR_HAVE_STD_FORMAT)
-    message(STATUS "Using std::format")
-endif()
-
+include(QuicrFormat)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/QuicrDependencies.cmake)
 
 #=============================================================================#

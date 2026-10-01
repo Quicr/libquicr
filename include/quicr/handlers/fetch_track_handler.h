@@ -34,9 +34,7 @@ namespace quicr {
                                   })
           , start_location_(start_location)
           , end_location_(end_location)
-          , serialization_state_(group_order)
         {
-            is_fetch_handler_ = true;
         }
 
       public:
@@ -74,13 +72,9 @@ namespace quicr {
          */
         constexpr const messages::FetchEndLocation& GetEndLocation() const noexcept { return end_location_; }
 
-      protected:
-        void TryParseStreamBufferData(StreamContext& stream) override;
-
       private:
         messages::Location start_location_;
         messages::FetchEndLocation end_location_;
-        messages::FetchObjectSerializationState serialization_state_;
 
         friend class Session;
     };

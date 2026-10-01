@@ -29,7 +29,6 @@ endif()
 
 target_sources(quicr PRIVATE
     ctrl_message_types.cpp
-    fetch_track_handler.cpp
     joining_fetch_handler.cpp
     log.cpp
     message_serialisation.cpp
@@ -64,7 +63,7 @@ if (WIN32)
 else()
 endif()
 
-if (NOT HAS_STD_VFORMAT)
+if (NOT QUICR_HAS_STD_FORMAT)
     target_link_libraries(quicr PUBLIC fmt::fmt)
 endif()
 
