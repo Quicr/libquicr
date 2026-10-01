@@ -2597,7 +2597,7 @@ TEST_CASE("Integration - A forwarded subgroup framed from its first object is st
     CHECK_EQ(DecodeForwardedObjects(subscribe_handler->GetSubgroups().front()).front(), payload);
 }
 
-TEST_CASE("Integration - A stream header type meaning nothing takes the session down with it")
+TEST_CASE("Integration - Invalid stream type is a PROTOCOL_VIOLATION")
 {
     auto session_mgr = MakeTestSessionManager();
 
@@ -2616,11 +2616,6 @@ TEST_CASE("Integration - A stream header type meaning nothing takes the session 
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
-    /*
-     * A peer opening a data stream that claims to carry something there is no reading of. Nothing
-     * in this library sends such a stream, so it is put together here: an ID of the kind a peer
-     * opens a one-way stream with, and a first byte naming no stream type there is.
-     */
     const auto connection = subscriber->GetConnection();
     const auto pq_connection = std::dynamic_pointer_cast<PicoQuicConnection>(connection);
     REQUIRE(pq_connection != nullptr);
@@ -2636,13 +2631,12 @@ TEST_CASE("Integration - A stream header type meaning nothing takes the session 
         stream->rx_data.Push(std::span<const std::uint8_t>{ no_such_type });
     }
 
-    // Nothing is read from it, it is counted against the connection, and the violation is answered
-    // for by the session rather than the one stream: the connection it arrived on is closed.
+    // Should be rejected and the originating (subscriber's in this case) connection closed.
     CHECK_FALSE(connection->OnRecvStream(stream));
     CHECK_EQ(connection->metrics.rx_stream_invalid_type, 1);
-    CHECK_EQ(connection->GetStatus(), Connection::Status::kRemoteRequestClose);
+    CHECK(WaitFor([&connection] { return connection->GetStatus() == Connection::Status::kRemoteRequestClose; }));
 
-    // Only the session that violated, the publisher's being a separate one on the same server.
+    // Any other (publisher's in this case) session should stay up.
     CHECK_EQ(publisher->GetConnection()->GetStatus(), Connection::Status::kReady);
 
     // Which leaves the track with nothing to arrive on, the subscription having gone with it.

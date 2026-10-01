@@ -23,14 +23,12 @@ namespace quicr {
 
     void Connection::SetStatus(Status new_status)
     {
-        if (new_status == status_) {
+        if (new_status == status_.exchange(new_status, std::memory_order_acq_rel)) {
             return;
         }
 
-        status_ = new_status;
-
         // TODO: Do something here
-        switch (status_) {
+        switch (new_status) {
             case Status::kReady:
                 break;
             case Status::kConnecting:
@@ -47,7 +45,7 @@ namespace quicr {
                 break;
         }
 
-        OnStatusChanged(status_);
+        OnStatusChanged(new_status);
     }
 
     void Connection::SetDelegate(const std::shared_ptr<Delegate>& delegate)
@@ -57,10 +55,11 @@ namespace quicr {
             delegate_ = delegate;
         }
 
-        if (delegate && status_ != Status::kConnecting) {
+        const auto status = GetStatus();
+        if (delegate && status != Status::kConnecting) {
             // Replay the current status in case transport notifications were delivered
             // before the application delegate was attached.
-            OnStatusChanged(status_);
+            OnStatusChanged(status);
         }
     }
 

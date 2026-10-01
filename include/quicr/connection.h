@@ -140,7 +140,7 @@ namespace quicr {
 
         void SetStatus(Status new_status);
 
-        Status GetStatus() const noexcept { return status_; }
+        Status GetStatus() const noexcept { return status_.load(std::memory_order_acquire); }
 
         void SetDelegate(const std::shared_ptr<Delegate>& session);
 
@@ -206,7 +206,7 @@ namespace quicr {
         /// The API the connection uses. Default is Native Quic.
         API api_{ API::kNativeQuic };
 
-        Status status_;
+        std::atomic<Status> status_;
 
         mutable std::mutex delegate_mutex_;
         std::weak_ptr<Delegate> delegate_ QUICR_GUARDED_BY(delegate_mutex_);
