@@ -1269,8 +1269,6 @@ namespace quicr {
                                          .delivery_timeout = track_handler->GetDefaultTTL(),
                                          .track_properties = {} };
 
-        SendPublish(ctrl_stream, *track_handler->GetRequestId(), publish);
-
         track_handler->connection_id_ = current_connection_->GetID();
         QUICR_LOGGER_INFO(logger_,
                           "Publish track connId {}, track namespace hash: {}, name hash: {}",
@@ -1285,6 +1283,8 @@ namespace quicr {
         pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         pub_tracks_by_track_alias[th.track_fullname_hash][current_connection_->GetID()] = track_handler;
         request_handlers[*track_handler->GetRequestId()] = track_handler;
+
+        SendPublish(ctrl_stream, *track_handler->GetRequestId(), publish);
     }
 
     void Session::PublishNamespace(std::shared_ptr<PublishNamespaceHandler> ns_handler, bool passive)
