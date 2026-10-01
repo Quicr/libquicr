@@ -5,6 +5,9 @@
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
 
+#include <span>
+#include <vector>
+
 quicr::SubscribeNamespaceHandler::SubscribeNamespaceHandler(const TrackNamespace& prefix,
                                                             const Mode mode,
                                                             const messages::Filter& filter)
@@ -49,4 +52,14 @@ quicr::Reply<quicr::messages::Parameters, quicr::ErrorCode>
 quicr::SubscribeNamespaceHandler::RequestUpdateReceived([[maybe_unused]] const messages::Parameters& params)
 {
     throw messages::ProtocolViolationException("Unexpected REQUEST_UPDATE");
+}
+
+quicr::TrackNamespace
+quicr::SubscribeNamespaceHandler::ExpandSuffix(const TrackNamespace& suffix) const
+{
+    std::vector<std::span<const std::uint8_t>> entries = prefix_.GetEntries();
+    const auto& suffix_entries = suffix.GetEntries();
+    entries.reserve(entries.size() + suffix_entries.size());
+    entries.insert(entries.end(), suffix_entries.begin(), suffix_entries.end());
+    return TrackNamespace{ std::span{ entries } };
 }

@@ -88,7 +88,7 @@ TestServer::PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
     return {};
 }
 
-quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode>
+quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode>
 TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
                               std::uint64_t request_id,
                               const FullTrackName& track_full_name,
@@ -140,7 +140,9 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
         }
     }
 
-    return RequestResponse{ subscribe_attributes.is_publisher_initiated };
+    SubscribeResponse response;
+    response.is_publisher_initiated = subscribe_attributes.is_publisher_initiated;
+    return response;
 }
 
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
@@ -178,11 +180,14 @@ TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& sessi
 
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
 TestServer::SubscribeNamespaceReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-                                       [[maybe_unused]] const TrackNamespace& prefix_namespace,
-                                       [[maybe_unused]] const SubscribeNamespaceAttributes& attributes)
+                                       const TrackNamespace& prefix_namespace,
+                                       const SubscribeNamespaceAttributes& attributes)
 {
-    // TODO: Implement.
-    return std::vector<quicr::TrackNamespace>{};
+    std::lock_guard lock(state_mutex_);
+    if (subscribe_namespace_promise_.has_value()) {
+        subscribe_namespace_promise_->set_value({ prefix_namespace, attributes });
+    }
+    return known_published_namespaces_;
 }
 
 void

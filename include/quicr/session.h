@@ -9,6 +9,7 @@
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/errors.h"
 #include "quicr/handlers/fetch_track_handler.h"
+#include "quicr/handlers/forwarding_subscribe_track_handler.h"
 #include "quicr/handlers/publish_fetch_handler.h"
 #include "quicr/handlers/publish_namespace_handler.h"
 #include "quicr/handlers/publish_track_handler.h"
@@ -24,6 +25,7 @@
 #include <atomic>
 #include <chrono>
 #include <map>
+#include <mutex>
 #include <span>
 #include <string>
 #include <string_view>
@@ -33,13 +35,21 @@ namespace quicr {
     class Logger;
 
     /**
-     * @brief Response to a received subscribe or track status request
+     * @brief Response to a received TRACK_STATUS.
      */
-    struct RequestResponse
+    struct TrackStatusResponse
+    {
+        std::optional<messages::Location> largest_location{};
+        messages::TrackExtensions track_properties{};
+    };
+
+    /**
+     * @brief Response to a received SUBSCRIBE.
+     */
+    struct SubscribeResponse : TrackStatusResponse
     {
         bool is_publisher_initiated = false;
-        std::optional<messages::Location> largest_location = std::nullopt;
-        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+        std::optional<std::chrono::milliseconds> expires{};
     };
 
     /**
@@ -80,7 +90,7 @@ namespace quicr {
             kDisconnecting,
             kNotConnected,
             kFailedToConnect,
-            kPendingServerSetup,
+            kPendingPeerSetup,
         };
 
         /**
@@ -190,7 +200,7 @@ namespace quicr {
 
         const std::shared_ptr<Logger>& GetLogger() const noexcept { return logger_; }
 
-        Status GetStatus() const noexcept { return status_; }
+        Status GetStatus() const noexcept { return status_.load(std::memory_order_acquire); }
 
         /**
          * @brief Close the underlying transport connection and detach this session as delegate.
@@ -411,9 +421,7 @@ namespace quicr {
                 std::shared_ptr<timeq::tick_service> tick_service,
                 std::shared_ptr<Logger> logger);
 
-        void OnStreamClosed(std::uint64_t stream_id,
-                            std::shared_ptr<StreamRxContext> rx_ctx,
-                            StreamClosedFlag flag) override;
+        void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override;
 
       private:
         /*===================================================================*/
@@ -422,10 +430,7 @@ namespace quicr {
 
         void OnConnectionStatus(Connection::Status status) override;
 
-        void OnRecvStream(uint64_t stream_id,
-                          const std::shared_ptr<StreamRxContext>& rx_ctx,
-                          const std::shared_ptr<Stream>& stream,
-                          const bool is_bidir = false) override;
+        bool OnRecvStream(const std::shared_ptr<Stream>& stream) override;
 
         void OnRecvDgram() override;
 
@@ -444,6 +449,8 @@ namespace quicr {
 
         void Init();
 
+        void CheckReady();
+
         std::shared_ptr<Session> GetSharedPtr();
 
         bool ProcessRequestMessage(const std::shared_ptr<Stream>& stream,
@@ -454,18 +461,32 @@ namespace quicr {
 
         void SetStatus(Status status);
 
-        void SendCtrlMsg(const std::shared_ptr<Stream>& stream,
-                         std::shared_ptr<const std::vector<uint8_t>> data,
-                         bool close_stream = false);
+        template<typename... Fields>
+        void SendCtrlMsg(const std::shared_ptr<Stream>& stream, messages::ControlMessageType msg_type, Fields&&... args)
+        {
+            SendCtrlMsg(stream, false, msg_type, std::forward<Fields>(args)...);
+        }
 
         template<typename... Fields>
-        void SendCtrlMsg(const std::shared_ptr<Stream>& stream, messages::ControlMessageType type, Fields&&... args)
+        void SendCtrlMsg(const std::shared_ptr<Stream>& stream,
+                         bool close_stream,
+                         messages::ControlMessageType type,
+                         Fields&&... args)
         {
             messages::Message msg = messages::Message{}.PrependType(type).ReserveLength();
 
             (msg.Append(args), ...);
 
-            SendCtrlMsg(stream, msg.ToBytes());
+            if (stream == nullptr) {
+                throw std::logic_error("Stream cannot be null");
+            }
+
+            auto result = quic_transport_->Enqueue(
+              current_connection_, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
+
+            if (result != TransportError::kNone) {
+                throw TransportException(result);
+            }
         }
 
         void SendSetup();
@@ -474,9 +495,7 @@ namespace quicr {
         // Requests
         /*===================================================================*/
 
-        void SendTrackStatusOk(const std::shared_ptr<Stream>& stream,
-                               const std::optional<messages::Location>& largest_object,
-                               const messages::TrackExtensions& track_properties);
+        void SendTrackStatusOk(const std::shared_ptr<Stream>& stream, const TrackStatusResponse& response);
 
         void SendSubscribeNamespaceOk(const std::shared_ptr<Stream>& stream);
 
@@ -542,9 +561,7 @@ namespace quicr {
         void SendSubscribeOk(const std::shared_ptr<Stream>& stream,
                              std::uint64_t request_id,
                              uint64_t track_alias,
-                             uint64_t expires,
-                             const std::optional<messages::Location>& largest_location,
-                             messages::GroupOrder publisher_default_group_order);
+                             const SubscribeResponse& response);
 
         /*===================================================================*/
         // Publish
@@ -620,9 +637,52 @@ namespace quicr {
 
         [[nodiscard]] uint64_t GetNextRequestID();
 
-        bool OnRecvSubgroup(std::uint64_t track_alias, StreamRxContext& rx_ctx, std::uint64_t stream_id);
+        /**
+         * @brief Work out what a newly opened unidirectional stream carries and bind it to that
+         *
+         * @details Only peeks at the stream header, so it is still there to be parsed properly by
+         *      whoever the stream turns out to belong to.
+         *
+         * @returns False if too few bytes have arrived to tell yet, or if nothing is waiting for
+         *      what the stream carries, in which case it is left buffered
+         */
+        bool BindRecvStream(Stream& stream);
 
-        bool OnRecvFetch(std::uint64_t request_id, StreamRxContext& rx_ctx, std::uint64_t stream_id);
+        /**
+         * @name Reading a stream
+         *
+         * @details Each reads one message, leaving how many a stream is given in one turn to the
+         *      caller, which is the only place that has to weigh it against the other streams.
+         *
+         * @returns True once a message has been read and the stream can be read on, false when
+         *      nothing is left of it or the rest of the next message has yet to arrive
+         */
+        ///@{
+
+        /// Dispatch one control message buffered on a control or request stream
+        bool RecvCtrlMessage(const std::shared_ptr<Stream>& stream, bool is_request_stream);
+
+        bool RecvSubgroupObject(Stream& stream, SubscribeTrackHandler& handler);
+
+        bool RecvFetchObject(Stream& stream, SubscribeTrackHandler& handler);
+
+        ///@}
+
+        /**
+         * @brief Hand a subgroup stream's bytes to a handler that passes them on rather than
+         *      reading the objects in them
+         *
+         * @details Takes everything that has arrived, since where the objects in it begin and end
+         *      does not matter to such a handler and finding out is the cost it is avoiding. Only
+         *      the header is read, once, so that the handler can write an equivalent one.
+         *
+         * @returns False always, the stream having been taken whole
+         */
+        bool ForwardSubgroupBytes(Stream& stream, ForwardingSubscribeTrackHandler& handler);
+
+        bool OnRecvSubgroup(std::uint64_t track_alias, Stream& stream);
+
+        bool OnRecvFetch(std::uint64_t request_id, Stream& stream);
 
         /**
          * @brief Create a data stream for a track.
@@ -652,9 +712,6 @@ namespace quicr {
         std::optional<std::uint64_t> rx_ctrl_stream_id_;
 
         std::shared_ptr<Stream> tx_ctrl_stream_;
-
-        ///< Control message buffers for streams.
-        std::map<std::uint64_t, InitialStreamData> stream_buffers;
 
         /**
          * Next Connection request Id. This value is shifted left when setting Request Id.
@@ -718,7 +775,10 @@ namespace quicr {
 
         const ClientConfig client_config_;
 
-        Status status_{ Status::kNotReady };
+        std::atomic<Status> status_{ Status::kConnecting };
+
+        bool local_setup_sent_{ false };
+        bool peer_setup_received_{ false };
 
         std::shared_ptr<timeq::tick_service> tick_service_;
 

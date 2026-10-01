@@ -84,22 +84,19 @@ namespace quicr {
         }
     }
 
-    void Connection::OnRecvStream(std::uint64_t stream_id,
-                                  const std::shared_ptr<StreamRxContext>& rx_ctx,
-                                  const std::shared_ptr<Stream>& stream,
-                                  bool is_bidir)
+    bool Connection::OnRecvStream(const std::shared_ptr<Stream>& stream)
     {
         if (auto delegate = GetDelegate()) {
-            delegate->OnRecvStream(stream_id, rx_ctx, stream, is_bidir);
+            return delegate->OnRecvStream(stream);
         }
+
+        return false;
     }
 
-    void Connection::OnStreamClosed(std::uint64_t stream_id,
-                                    std::shared_ptr<StreamRxContext> rx_ctx,
-                                    StreamClosedFlag flag)
+    void Connection::OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag)
     {
         if (auto delegate = GetDelegate()) {
-            delegate->OnStreamClosed(stream_id, std::move(rx_ctx), flag);
+            delegate->OnStreamClosed(stream, flag);
         }
     }
 }

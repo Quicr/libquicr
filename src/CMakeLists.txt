@@ -29,7 +29,6 @@ endif()
 
 target_sources(quicr PRIVATE
     ctrl_message_types.cpp
-    fetch_track_handler.cpp
     joining_fetch_handler.cpp
     log.cpp
     message_serialisation.cpp
