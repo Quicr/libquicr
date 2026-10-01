@@ -2497,6 +2497,11 @@ PicoQuicTransport::StartClient()
             QUICR_LOGGER_INFO(logger, "No priority bypass");
         }
 
+        // The OnNewConnection event has to be first, so we enqueue before notifying.
+        if (OnNewConnection) {
+            cbNotifyQueue_.Push([this, connection = state->connection] { OnNewConnection(connection); });
+        }
+
         notify_caller(reinterpret_cast<uint64_t>(cnx));
 
         return 0;
@@ -2511,10 +2516,6 @@ PicoQuicTransport::StartClient()
         QUICR_LOGGER_DEBUG(logger, "Client connection to {}:{} failed", serverInfo_.host_or_ip, serverInfo_.port);
         SetStatus(TransportStatus::kDisconnected);
         return nullptr;
-    }
-
-    if (OnNewConnection) {
-        cbNotifyQueue_.Push([this, connection = state->connection] { OnNewConnection(connection); });
     }
 
     return state->connection;
