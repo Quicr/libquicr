@@ -4,6 +4,7 @@ libquicr
 [![Ubuntu](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml)
 [![macOS](https://github.com/Quicr/libquicr/actions/workflows/macos.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/macos.yml)
 [![Windows](https://github.com/Quicr/libquicr/actions/workflows/windows.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/windows.yml)
+[![Android](https://github.com/Quicr/libquicr/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/android.yml)
 
 An API library that implements publish/subscribe protocol [draft-ietf-moq-transport-16](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-16). The API supports both client and server. Server is intended to be implemented as a relay.
 
@@ -93,6 +94,10 @@ commit:
 
 ### TLS providers
 
+[![TLS Backends](https://github.com/Quicr/libquicr/actions/workflows/tls-backends.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/tls-backends.yml)
+[![Mbed TLS baseline](https://img.shields.io/badge/Mbed_TLS-3.6.7-blue)](https://github.com/Mbed-TLS/mbedtls/releases/tag/mbedtls-3.6.7)
+[![BoringSSL baseline](https://img.shields.io/badge/BoringSSL-0.20260929.0-blue)](https://github.com/google/boringssl/tree/0.20260929.0)
+
 The default build uses OpenSSL. Install a supported OpenSSL release through the platform package
 manager and configure normally. For a non-standard installation, pass its prefix explicitly:
 
@@ -120,10 +125,17 @@ compatibility workaround for the pinned dependency combination, not a recommenda
 BoringSSL's legacy APIs directly, and should be re-evaluated when picotls is updated.
 
 To use Mbed TLS, provide an installed or in-tree Mbed TLS build and configure with
-`-DWITH_MBEDTLS=ON`. Its location can be supplied through the `MBEDTLS_ROOT_DIR` and
-`MBEDTLS_PREFIX` CMake variables when it is not in a standard search path. In-tree providers can
-instead set `MBEDTLS_INCLUDE_DIR`, `MBEDTLS_INCLUDE_DIRS`, `MBEDTLS_LIBRARY`, `MBEDTLS_X509`, and
-`MBEDTLS_CRYPTO`.
+`-DWITH_MBEDTLS=ON`. For a non-standard installation, pass its include directory and
+libraries explicitly:
+
+```
+cmake -B build -DWITH_MBEDTLS=ON \
+    -DMBEDTLS_INCLUDE_DIR=/path/to/mbedtls-install/include \
+    -DMBEDTLS_INCLUDE_DIRS=/path/to/mbedtls-install/include \
+    -DMBEDTLS_LIBRARY=/path/to/mbedtls-install/lib/libmbedtls.a \
+    -DMBEDTLS_X509=/path/to/mbedtls-install/lib/libmbedx509.a \
+    -DMBEDTLS_CRYPTO=/path/to/mbedtls-install/lib/libmbedcrypto.a
+```
 
 For every provider, use a currently supported release, apply security updates promptly, and avoid
 mixing headers and libraries from different installations. Use a fresh build directory when
