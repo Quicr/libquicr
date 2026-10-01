@@ -376,10 +376,8 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     }
 
     auto w_session = session_mgr.AddTransport(client_config, callbacks);
-
-    CHECK_NE(w_session.lock(), nullptr);
-
     auto session = w_session.lock();
+    REQUIRE(session != nullptr);
     if (connect) {
         // Wait for client to be connected instead of fixed sleep
         const bool connected = WaitFor([&session]() {
