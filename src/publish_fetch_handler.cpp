@@ -94,9 +94,6 @@ namespace quicr {
             return;
         }
         closed_ = true;
-        if (stream_ == nullptr) {
-            return;
-        }
 
         auto session = GetSession().lock();
         if (!session) {
@@ -108,7 +105,24 @@ namespace quicr {
         eflags.close_stream = true;
         eflags.use_reset = false;
 
-        session->Enqueue(stream_, {}, GetPublishObjectPriority(), default_ttl_, eflags);
+        std::shared_ptr<const std::vector<uint8_t>> bytes;
+        if (stream_ == nullptr) {
+            const auto request_id = GetRequestId();
+            if (!request_id) {
+                return;
+            }
+
+            stream_ = session->CreateStream(*request_id, GetPublishObjectPriority());
+            messages::FetchHeader header;
+            header.request_id = *request_id;
+            Bytes buffer;
+            buffer << header;
+            bytes = std::make_shared<Bytes>(std::move(buffer));
+            eflags.clear_tx_queue = true;
+            sent_first_header_ = true;
+        }
+
+        session->Enqueue(stream_, std::move(bytes), GetPublishObjectPriority(), default_ttl_, eflags);
 
         stream_.reset();
     }

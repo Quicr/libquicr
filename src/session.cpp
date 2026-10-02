@@ -2554,7 +2554,7 @@ namespace quicr {
 
     void Session::UnbindFetchTrack(const std::shared_ptr<PublishFetchHandler>& track_handler)
     {
-        std::lock_guard lock(state_mutex_);
+        std::unique_lock lock(state_mutex_);
 
         auto request_id = *track_handler->GetRequestId();
         QUICR_LOGGER_DEBUG(logger_,
@@ -2563,6 +2563,7 @@ namespace quicr {
                            request_id);
 
         pub_fetch_tracks_by_request_id.erase(request_id);
+        lock.unlock();
 
         // Drain before closing: the fetch's objects are queued on its stream, and unbinding is the
         // normal end of a completed fetch rather than an abort.
