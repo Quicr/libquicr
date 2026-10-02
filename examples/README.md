@@ -2,8 +2,7 @@
 # Examples
 
 Building with examples requires `-DQUICR_BUILD_EXAMPLES=ON` to be added to the
-cmake configuration. If building the repo as the top-level project, this is
-`ON` by default.
+cmake configuration.
 
 ## Server
 
