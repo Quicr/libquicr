@@ -459,9 +459,9 @@ namespace quicr {
                          const std::shared_ptr<PicoQuicStream>& stream,
                          StreamOperation operation);
 
-        /*
-         * Variables
-         */
+        void QueueDeferredReply(std::function<void()>&& reply_handler) override;
+
+      private:
         picoquic_quic_config_t config_;
         picoquic_tp_t local_tp_options_;
         SafeQueue<std::function<void()>> cbNotifyQueue_;
@@ -473,6 +473,14 @@ namespace quicr {
         std::mutex state_mutex_; /// Used for stream/context/state updates
         std::atomic<TransportStatus> transportStatus_;
         std::thread cbNotifyThread_;
+
+        struct
+        {
+            std::jthread handler_thread;
+            SafeQueue<std::function<void()>> handlers;
+            std::mutex mutex;
+            std::condition_variable notifier;
+        } deferred_reply_handler_;
 
         TransportRemote serverInfo_;
         TransportConfig tconfig_;
