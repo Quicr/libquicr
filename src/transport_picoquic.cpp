@@ -1364,8 +1364,8 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
         if (stream->tx_data) {
             std::lock_guard __(stream->tx_mutex);
             stream->tx_data->clear();
+            stream->tx_object = nullptr;
         }
-        stream->tx_object = nullptr;
     }
 
     // Clear datagram RX and TX queues

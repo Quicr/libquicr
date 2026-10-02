@@ -10,6 +10,7 @@
 #define QUICR_REQUIRES(...) __attribute__((requires_capability(__VA_ARGS__)))
 #define QUICR_TRY_ACQUIRE(...) __attribute__((try_acquire_capability(__VA_ARGS__)))
 #define QUICR_GUARDED_BY(...) __attribute__((guarded_by(__VA_ARGS__)))
+#define QUICR_PT_GUARDED_BY(...) __attribute__((pt_guarded_by(__VA_ARGS__)))
 #else
 #define QUICR_CAPABILITY(name)
 #define QUICR_ACQUIRE(...)
@@ -17,4 +18,5 @@
 #define QUICR_REQUIRES(...)
 #define QUICR_TRY_ACQUIRE(...)
 #define QUICR_GUARDED_BY(...)
+#define QUICR_PT_GUARDED_BY(...)
 #endif
