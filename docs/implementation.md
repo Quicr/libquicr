@@ -228,7 +228,7 @@ sequenceDiagram
     PubSession->>PeerSession: PUBLISH on request stream
     PeerSession->>PeerApp: PublishReceived(...)
     PeerApp-->>PeerSession: Reply with PublishResponse
-    PeerSession-->>PubSession: PUBLISH_OK
+    PeerSession-->>PubSession: REQUEST_OK
     PubSession-->>App: handler StatusChanged
     App->>PubSession: PublishObject(...)
     PubSession->>PeerSession: object datagram or subgroup stream
