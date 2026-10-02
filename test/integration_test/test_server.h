@@ -268,6 +268,7 @@ namespace quicr_test {
 
         // Set up data to respond with when a fetch is received
         void SetFetchResponseData(std::vector<FetchResponseData> data) { fetch_response_data_ = std::move(data); }
+        void SetEmptyFetchResponse(quicr::messages::Location end_location) { empty_fetch_end_location_ = end_location; }
         void SetFetchResponseTrackProperties(quicr::messages::TrackExtensions properties)
         {
             fetch_response_track_properties_ = std::move(properties);
@@ -399,6 +400,7 @@ namespace quicr_test {
         std::map<std::uint64_t, bool> closed_streams_;
         std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;
         std::vector<FetchResponseData> fetch_response_data_;
+        std::optional<quicr::messages::Location> empty_fetch_end_location_;
         quicr::messages::TrackExtensions fetch_response_track_properties_;
 
         std::vector<quicr::TrackNamespace> known_published_namespaces_;

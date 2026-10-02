@@ -87,7 +87,7 @@ namespace quicr {
 
     void PublishFetchHandler::EndFetch()
     {
-        if (stream_ == nullptr) {
+        if (stream_ == nullptr && sent_first_header_) {
             return;
         }
 
@@ -101,7 +101,27 @@ namespace quicr {
         eflags.close_stream = true;
         eflags.use_reset = false;
 
-        session->Enqueue(stream_, {}, default_priority_, default_ttl_, eflags);
+        std::shared_ptr<const std::vector<uint8_t>> bytes;
+        if (stream_ == nullptr) {
+            const auto request_id = GetRequestId();
+            if (!request_id) {
+                return;
+            }
+
+            stream_ = session->CreateStream(*request_id, default_priority_);
+            messages::FetchHeader header;
+            header.request_id = *request_id;
+            Bytes buffer;
+            buffer << header;
+            bytes = std::make_shared<Bytes>(std::move(buffer));
+            eflags.clear_tx_queue = true;
+            sent_first_header_ = true;
+        }
+
+        const auto result = session->Enqueue(stream_, std::move(bytes), default_priority_, default_ttl_, eflags);
+        if (result != TransportError::kNone) {
+            throw TransportException(result);
+        }
 
         stream_.reset();
     }

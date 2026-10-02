@@ -2083,10 +2083,55 @@ class TestFetchTrackHandler final : public FetchTrackHandler
         return received_objects_.size();
     }
 
+    void StreamClosed(std::uint64_t stream_id, bool reset) override
+    {
+        FetchTrackHandler::StreamClosed(stream_id, reset);
+        std::lock_guard lock(mutex_);
+        stream_closed_ = reset;
+    }
+
+    std::optional<bool> GetStreamClosed()
+    {
+        std::lock_guard lock(mutex_);
+        return stream_closed_;
+    }
+
   private:
     std::mutex mutex_;
     std::vector<ReceivedObject> received_objects_;
+    std::optional<bool> stream_closed_;
 };
+
+TEST_CASE("Integration - Empty fetch completes with FIN")
+{
+    quicr::SessionManager session_mgr;
+    auto server = MakeTestServer(session_mgr);
+    server->SetEmptyFetchResponse({ 10, 11 });
+
+    auto test_empty_fetch = [&](const std::string& protocol_scheme) {
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const FullTrackName ftn{ TrackNamespace({ "empty-fetch" }), { 1 } };
+        auto handler = TestFetchTrackHandler::Create(ftn, 0, { 10, 5 }, { 10, 10 });
+        session_mgr.AddHandler(session, handler);
+
+        REQUIRE(WaitFor([&]() {
+            return handler->GetStreamClosed().has_value() &&
+                   handler->GetLatestLocation() == messages::Location{ 10, 11 };
+        }));
+        CHECK_FALSE(*handler->GetStreamClosed());
+        CHECK_EQ(handler->GetReceivedCount(), 0);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_empty_fetch("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        test_empty_fetch("https");
+    }
+}
 
 TEST_CASE("Integration - Fetch object roundtrip")
 {

@@ -262,6 +262,17 @@ TestServer::StandaloneFetchReceived(const std::shared_ptr<quicr::Session>& sessi
                                     const FullTrackName& track_full_name,
                                     const StandaloneFetchAttributes& attrs)
 {
+    if (empty_fetch_end_location_) {
+        auto handler = PublishFetchHandler::Create(track_full_name,
+                                                   attrs.priority,
+                                                   request_id,
+                                                   attrs.group_order.value_or(attrs.publisher_default_group_order),
+                                                   500);
+        session->BindFetchTrack(handler);
+        session->UnbindFetchTrack(handler);
+        return FetchResponse{ .end_location = *empty_fetch_end_location_ };
+    }
+
     if (fetch_response_data_.empty()) {
         // No response data configured
         return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(FetchErrorCode::kInternalError,

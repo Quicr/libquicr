@@ -723,8 +723,7 @@ class MyClient : public quicr::Session::ClientCallbacks
 
         auto cache_entry_it = qclient_vars::cache.find(th.track_fullname_hash);
         if (cache_entry_it == qclient_vars::cache.end()) {
-            // TODO: This changes to send an empty object instead of REQUEST_ERROR
-            return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(quicr::FetchErrorCode::kNoObjects,
+            return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(quicr::FetchErrorCode::kInvalidRange,
                                                                           "No objects available for fetch");
         }
 
@@ -737,7 +736,7 @@ class MyClient : public quicr::Session::ClientCallbacks
         }
 
         if (!largest_location.has_value()) {
-            return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(quicr::FetchErrorCode::kNoObjects,
+            return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(quicr::FetchErrorCode::kInvalidRange,
                                                                           "No objects available for fetch");
         }
 
@@ -747,31 +746,13 @@ class MyClient : public quicr::Session::ClientCallbacks
                           largest_location->group,
                           largest_location->object);
 
-        if (start.group > end.group || largest_location->group < start.group) {
+        if (start.group > end.group || start > *largest_location ||
+            (start.group == end.group && end.object && start.object > *end.object)) {
             return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(quicr::FetchErrorCode::kInvalidRange,
                                                                           "Requested fetch range is invalid");
         }
 
         auto cache_entries = cache.Get(start.group, end.group);
-        if (cache_entries.empty()) {
-            return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(quicr::FetchErrorCode::kInvalidRange,
-                                                                          "No cached objects in requested range");
-        }
-
-        std::optional<quicr::messages::Location> response_last_location;
-        for (const auto& entry : cache_entries) {
-            for (const auto& object : *entry) {
-                const quicr::messages::Location location{ object.headers.group_id, object.headers.object_id };
-                if (location < start || (end.object && location.group == end.group && location.object > *end.object)) {
-                    continue;
-                }
-                response_last_location = std::max(response_last_location.value_or(location), location);
-            }
-        }
-        if (!response_last_location) {
-            return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(quicr::FetchErrorCode::kInvalidRange,
-                                                                          "No cached objects in requested range");
-        }
 
         const auto resolved_group_order = group_order.value_or(quicr::messages::GroupOrder::kAscending);
 
@@ -785,15 +766,13 @@ class MyClient : public quicr::Session::ClientCallbacks
 
             for (const auto& entry : cache_entries) {
                 for (const auto& object : *entry) {
-                    // When intra-group, skip any objects prior to start.
-                    if (start.group == end.group && object.headers.group_id == start.group &&
-                        object.headers.object_id < start.object) {
+                    if (quicr::messages::Location{ object.headers.group_id, object.headers.object_id } < start) {
                         continue;
                     }
 
                     // Are we done?
-                    if (end.object.has_value() && object.headers.group_id == end.group &&
-                        object.headers.object_id > *end.object) {
+                    if (object.headers.group_id > end.group || (end.object && object.headers.group_id == end.group &&
+                                                                object.headers.object_id > *end.object)) {
                         return;
                     }
 
@@ -809,8 +788,13 @@ class MyClient : public quicr::Session::ClientCallbacks
 
         retrieve_cache_thread.detach();
 
-        return quicr::FetchResponse{ .end_location = { response_last_location->group,
-                                                       response_last_location->object + 1 } };
+        quicr::messages::Location response_end_location{ end.group, end.object ? *end.object + 1 : 0 };
+        if (end.group > largest_location->group ||
+            (end.group == largest_location->group && (!end.object || *end.object > largest_location->object))) {
+            response_end_location = { largest_location->group, largest_location->object + 1 };
+        }
+
+        return quicr::FetchResponse{ .end_location = response_end_location };
     }
 };
 
