@@ -37,6 +37,10 @@ target_compile_options(quicr_test PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
 )
 
+if (WIN32)
+    target_compile_definitions(quicr_test PRIVATE NOMINMAX)
+endif()
+
 if (doctest_SOURCE_DIR)
     list(APPEND CMAKE_MODULE_PATH "${doctest_SOURCE_DIR}/scripts/cmake")
 else()

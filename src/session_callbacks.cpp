@@ -51,17 +51,16 @@ namespace quicr {
         return {};
     }
 
-    Reply<RequestResponse, RequestErrorCode> Session::Callbacks::TrackStatusReceived(const std::shared_ptr<Session>&,
-                                                                                     std::uint64_t,
-                                                                                     const FullTrackName&)
+    Reply<TrackStatusResponse, RequestErrorCode>
+    Session::Callbacks::TrackStatusReceived(const std::shared_ptr<Session>&, std::uint64_t, const FullTrackName&)
     {
-        return RequestResponse{};
+        return TrackStatusResponse{};
     }
 
     // -- Session::ClientCallbacks ---------------------------------------------------------------
 
-    Reply<void, ErrorCode> Session::ClientCallbacks::ServerSetupReceived(const std::shared_ptr<Session>&,
-                                                                         const ServerSetupAttributes&)
+    Expected<void, Error<ErrorCode>> Session::ClientCallbacks::ServerSetupReceived(const std::shared_ptr<Session>&,
+                                                                                   const ServerSetupAttributes&)
     {
         return {};
     }
@@ -76,8 +75,8 @@ namespace quicr {
     // -- Session::ServerCallbacks ---------------------------------------------------------------
 
     void Session::ServerCallbacks::OnStreamClosed(std::uint64_t, StreamClosedFlag) {}
-    Reply<void, ErrorCode> Session::ServerCallbacks::ClientSetupReceived(const std::shared_ptr<Session>&,
-                                                                         const ClientSetupAttributes&)
+    Expected<void, Error<ErrorCode>> Session::ServerCallbacks::ClientSetupReceived(const std::shared_ptr<Session>&,
+                                                                                   const ClientSetupAttributes&)
     {
         return {};
     }
@@ -111,13 +110,13 @@ namespace quicr {
         return std::vector<TrackNamespace>{};
     }
 
-    Reply<RequestResponse, RequestErrorCode> Session::ServerCallbacks::SubscribeReceived(
+    Reply<SubscribeResponse, RequestErrorCode> Session::ServerCallbacks::SubscribeReceived(
       const std::shared_ptr<Session>&,
       std::uint64_t,
       const FullTrackName&,
       const SubscribeAttributes&)
     {
-        return RequestResponse{};
+        return SubscribeResponse{};
     }
 
     Reply<void, ErrorCode> Session::ServerCallbacks::UnsubscribeReceived(const std::shared_ptr<Session>&, std::uint64_t)

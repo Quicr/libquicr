@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/messages/messages.h"
+#include "quicr/messages/message_serialisation.h"
 
 #include <cassert>
 #include <limits>
@@ -802,7 +802,7 @@ namespace quicr::messages {
                 if (!ParseUintVField(buffer, type)) {
                     return false;
                 }
-                msg.properties.emplace(type);
+                msg.properties.emplace(static_cast<uint8_t>(type));
                 assert(!msg.properties->status); // Internal invariant.
                 msg.end_of_group = msg.properties->end_of_group;
                 msg.current_pos += 1;
@@ -926,7 +926,7 @@ namespace quicr::messages {
                 if (!ParseUintVField(buffer, type)) {
                     return false;
                 }
-                msg.properties.emplace(type);
+                msg.properties.emplace(static_cast<uint8_t>(type));
                 msg.current_pos += 1;
                 [[fallthrough]];
             }

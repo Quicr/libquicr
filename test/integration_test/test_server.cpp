@@ -50,7 +50,7 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
     // Is anyone interested in this prefix?
     for (const auto& [_, ns_handler] : namespace_subscribers_) {
         if (ns_handler->GetFullTrackName().name_space.HasSamePrefix(publish_attributes.track_full_name.name_space)) {
-            const auto delivery_timeout = publish_attributes.delivery_timeout.value_or(0);
+            const auto delivery_timeout = publish_attributes.delivery_timeout.value_or(0ull);
             auto handler = std::make_shared<TestPublishTrackHandler>(publish_attributes.track_full_name,
                                                                      quicr::TrackMode::kStream,
                                                                      publish_attributes.default_publisher_priority,
@@ -88,7 +88,7 @@ TestServer::PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
     return {};
 }
 
-quicr::Reply<quicr::RequestResponse, quicr::RequestErrorCode>
+quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode>
 TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
                               std::uint64_t request_id,
                               const FullTrackName& track_full_name,
@@ -140,7 +140,9 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
         }
     }
 
-    return RequestResponse{ subscribe_attributes.is_publisher_initiated };
+    SubscribeResponse response;
+    response.is_publisher_initiated = subscribe_attributes.is_publisher_initiated;
+    return response;
 }
 
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
@@ -162,7 +164,7 @@ TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& sessi
           std::make_shared<TestPublishTrackHandler>(track.full_track_name,
                                                     quicr::TrackMode::kStream,
                                                     track.attributes.default_publisher_priority,
-                                                    track.attributes.delivery_timeout.value_or(0),
+                                                    track.attributes.delivery_timeout.value_or(0ull),
                                                     std::static_pointer_cast<TestServer>(shared_from_this()));
         ns_handler->PublishTrack(handler);
     }
@@ -178,11 +180,14 @@ TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& sessi
 
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
 TestServer::SubscribeNamespaceReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-                                       [[maybe_unused]] const TrackNamespace& prefix_namespace,
-                                       [[maybe_unused]] const SubscribeNamespaceAttributes& attributes)
+                                       const TrackNamespace& prefix_namespace,
+                                       const SubscribeNamespaceAttributes& attributes)
 {
-    // TODO: Implement.
-    return std::vector<quicr::TrackNamespace>{};
+    std::lock_guard lock(state_mutex_);
+    if (subscribe_namespace_promise_.has_value()) {
+        subscribe_namespace_promise_->set_value({ prefix_namespace, attributes });
+    }
+    return known_published_namespaces_;
 }
 
 void

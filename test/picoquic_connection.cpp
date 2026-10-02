@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include <doctest/doctest.h>
-#include <timeq/tick_service.h>
 
 #include "picoquic_connection.h"
+
+#include <timeq/tick_service.h>
+#include <timeq/time_queue.h>
 
 using namespace quicr;
 
@@ -13,6 +15,17 @@ namespace {
     std::shared_ptr<PicoQuicConnection> MakeConnection()
     {
         return std::make_shared<PicoQuicConnection>(reinterpret_cast<picoquic_cnx_t*>(0x5000));
+    }
+
+    class TestTickService : public timeq::tick_service
+    {
+      public:
+        std::chrono::microseconds get() const override { return {}; }
+    };
+
+    std::unique_ptr<timeq::time_queue<ConnData>> MakeTxQueue()
+    {
+        return std::make_unique<timeq::time_queue<ConnData>>(1000, 1, std::make_shared<TestTickService>());
     }
 }
 
@@ -65,11 +78,29 @@ TEST_CASE("A bidirectional stream is one object carrying both directions")
 
     const auto stream = connection->AddStream(0, nullptr);
 
-    // Receive state is attached lazily by the receive path, on the same object that sends.
-    REQUIRE(stream->rx_ctx == nullptr);
-    stream->rx_ctx = std::make_shared<StreamRxContext>();
+    // Receive state is adopted by the receive path, on the same object that sends.
+    REQUIRE_FALSE(stream->rx_active);
+    stream->rx_active = true;
+    {
+        const std::vector<std::uint8_t> bytes(1, 0x0f);
+        std::lock_guard _(stream->rx_mutex);
+        stream->rx_data.Push(bytes);
+    }
 
-    CHECK(connection->GetStream(0)->rx_ctx == stream->rx_ctx);
+    const auto same = connection->GetStream(0);
+    CHECK(same->rx_active);
+    {
+        std::lock_guard _(same->rx_mutex);
+        CHECK(same->rx_data.Size() == 1);
+    }
+
+    // Draining a closed stream gives the data back without forgetting which handler it fed.
+    stream->ReleaseRxData();
+    CHECK_FALSE(same->rx_active);
+    {
+        std::lock_guard _(same->rx_mutex);
+        CHECK(same->rx_data.Empty());
+    }
 }
 
 TEST_CASE("A stream is fully closed when every available direction is closed")
@@ -78,7 +109,7 @@ TEST_CASE("A stream is fully closed when every available direction is closed")
 
     SUBCASE("Bidirectional")
     {
-        auto queue = std::make_unique<SafeTimeQueue<ConnData>>(std::make_shared<timeq::threaded_tick_service>());
+        auto queue = MakeTxQueue();
         const auto stream = connection->AddStream(0, std::move(queue));
 
         CHECK_FALSE(stream->IsFullyClosed());
@@ -99,7 +130,7 @@ TEST_CASE("A stream is fully closed when every available direction is closed")
 
     SUBCASE("Send-only")
     {
-        auto queue = std::make_unique<SafeTimeQueue<ConnData>>(std::make_shared<timeq::threaded_tick_service>());
+        auto queue = MakeTxQueue();
         const auto stream = connection->AddStream(2, std::move(queue));
 
         CHECK_FALSE(stream->IsFullyClosed());

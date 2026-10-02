@@ -4,7 +4,7 @@
 #pragma once
 
 #include "quicr/handlers/subscribe_track_handler.h"
-#include "quicr/messages/messages.h"
+#include "quicr/messages/message_serialisation.h"
 
 namespace quicr {
     /**
@@ -20,16 +20,15 @@ namespace quicr {
                                   joining_subscribe->GetPriority(),
                                   group_order,
                                   joining_subscribe->GetFilter())
-          , serialization_state_(group_order)
           , joining_subscribe_(std::move(joining_subscribe))
         {
         }
 
-      protected:
-        void TryParseStreamBufferData(StreamContext& stream) override;
+        void ObjectReceived(const ObjectHeaders& object_headers,
+                            BytesSpan data,
+                            std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt) override;
 
       private:
-        messages::FetchObjectSerializationState serialization_state_;
         std::shared_ptr<SubscribeTrackHandler> joining_subscribe_;
     };
 

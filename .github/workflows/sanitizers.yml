@@ -41,6 +41,7 @@ jobs:
           -DQUICR_BUILD_EXAMPLES=OFF
           -DQUICR_BUILD_C_BRIDGE=OFF
           -DQUICR_ENABLE_SANITIZERS=ON
+          -DCMAKE_CXX_FLAGS=-DQUICR_ACTIVE_LOG_LEVEL=QUICR_LOG_DEBUG
 
       - name: Build integration tests
         run: >
@@ -54,6 +55,7 @@ jobs:
           ctest --test-dir ${{ github.workspace }}/build/test/integration_test
           -C ${{ env.BUILD_TYPE }}
           --output-on-failure
+          --parallel
 
   thread-sanitizer-integration-tests:
     name: TSan
@@ -98,3 +100,4 @@ jobs:
           -C Debug
           -j 1
           --output-on-failure
+          --parallel

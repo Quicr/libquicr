@@ -6,7 +6,6 @@
 #include "picoquic_connection.h"
 #include "quicr/containers/priority_queue.h"
 #include "quicr/containers/safe_queue.h"
-#include "quicr/containers/safe_time_queue.h"
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/log.h"
 #include "quicr/metrics.h"
@@ -28,18 +27,20 @@
 #include <map>
 #include <memory>
 #include <mutex>
-#include <netinet/in.h>
-#include <queue>
 #include <span>
 #include <string>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <thread>
 #include <vector>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <netinet/in.h>
+#include <sys/types.h>
+#endif
+
 namespace quicr {
 
-    constexpr int kPqLoopMaxDelayUs = 5000;           /// The max microseconds that pq_loop will be ran again
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
     constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
 
@@ -178,7 +179,8 @@ namespace quicr {
         /// Get pq config to use.
         static picoquic_packet_loop_param_t MakeThreadConfig(uint16_t listen_port,
                                                              std::size_t socket_buffer_size,
-                                                             std::size_t shard_count);
+                                                             std::size_t shard_count,
+                                                             bool use_af_xdp);
 
         /**
          * @brief Accept an incoming WebTransport connection
@@ -195,8 +197,8 @@ namespace quicr {
                                          size_t path_length,
                                          h3zero_stream_ctx_t* stream_ctx);
 
-        /// @returns A TX queue configured from the transport's time-queue settings.
-        std::unique_ptr<SafeTimeQueue<ConnData>> MakeStreamTxQueue() const;
+        /// @returns A TX queue for a send-capable stream.
+        std::unique_ptr<timeq::time_queue<ConnData>> MakeStreamTxQueue() const;
 
         const std::shared_ptr<PicoQuicConnection>& CreateConnection(picoquic_cnx_t* pq_cnx,
                                                                     Connection::API api = Connection::API::kNativeQuic);
@@ -224,17 +226,13 @@ namespace quicr {
                                int is_fin,
                                std::span<const uint8_t> bytes);
 
-        void OnStreamClosed(const std::shared_ptr<PicoQuicConnection>& connection,
-                            uint64_t stream_id,
-                            std::shared_ptr<StreamRxContext> rx_ctx,
+        void OnStreamClosed(std::shared_ptr<PicoQuicConnection> connection,
+                            std::shared_ptr<PicoQuicStream> stream,
                             StreamClosedFlag flag);
 
         // Notify new stream data arrived.
         void NotifyStreamRecv(const std::shared_ptr<PicoQuicConnection>& connection,
-                              uint64_t stream_id,
-                              std::shared_ptr<StreamRxContext> rx_ctx,
-                              std::shared_ptr<Stream> reply_stream,
-                              bool is_bidir);
+                              std::shared_ptr<PicoQuicStream> stream);
 
         // Notify new datagram arrived.
         void NotifyDgramRecv(const std::shared_ptr<PicoQuicConnection>& connection);
@@ -245,10 +243,6 @@ namespace quicr {
 
         void CloseStream(const std::shared_ptr<Connection>& connection,
                          const std::shared_ptr<Stream>& stream,
-                         StreamOperation operation) override;
-
-        void CloseStream(const std::shared_ptr<Connection>& connection,
-                         uint64_t stream_id,
                          StreamOperation operation) override;
 
         /**
@@ -317,8 +311,11 @@ namespace quicr {
          *      handles and marking is skipped for a stream that is no longer open, so stream
          *      teardown does not have to flush the queue first. Closing a connection still does,
          *      because a queued datagram mark has no equivalent guard.
+         *
+         * @return true if at least one stream or datagram was marked, so the packet loop should
+         *      skip poll and send immediately.
          */
-        void ProcessMarkActive(Shard& shard);
+        bool ProcessMarkActive(Shard& shard);
 
       public:
         std::shared_ptr<Logger> logger;
@@ -355,6 +352,25 @@ namespace quicr {
          * @details This method MUST only be called within the picoquic thread.
          */
         void MarkDgramReady(const std::shared_ptr<PicoQuicConnection>& connection);
+
+        /**
+         * @brief Ask the picoquic thread to mark a stream active.
+         *
+         * @details Picoquic only re-wakes a stream on the inactive→active transition. Call this after
+         *      enqueueing when the stream had no TX in flight; skip it when picoquic is already
+         *      pulling from the queue. Same-thread callers mark immediately; others queue and wake
+         *      the loop once if the mark queue was empty.
+         */
+        void QueueStreamMarkActive(const std::shared_ptr<PicoQuicConnection>& connection,
+                                   const std::shared_ptr<PicoQuicStream>& stream);
+
+        /**
+         * @brief Ask the picoquic thread to mark datagrams ready.
+         *
+         * @details Same inactive→active rule as streams. Picoquic ignores repeated
+         *      `picoquic_mark_datagram_ready` once the connection is already ready.
+         */
+        void QueueDatagramMarkReady(const std::shared_ptr<PicoQuicConnection>& connection);
 
         /**
          * @brief Initialize WebTransport context
@@ -436,11 +452,11 @@ namespace quicr {
          * @warning This method must be called within the picoquic thread
          *
          * @param conn_ctx      Connection context for the stream
-         * @param stream_id     ID of the stream to close.
+         * @param stream        Stream to close; no-op if the transport has already torn it down
          * @param send_reset    Indicates if the stream should be closed by RESET, otherwise FIN
          */
         void CloseStream(const std::shared_ptr<PicoQuicConnection>& connection,
-                         std::uint64_t stream_id,
+                         const std::shared_ptr<PicoQuicStream>& stream,
                          StreamOperation operation);
 
         /*

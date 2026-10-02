@@ -32,7 +32,7 @@ BM_SafeTimeQueue_Push(benchmark::State& state)
 
         {
             std::lock_guard __(tq);
-            tq.Push(items_count, 20);
+            tq.Push(static_cast<int>(items_count), 20);
         }
     }
 
@@ -44,7 +44,7 @@ BM_SafeTimeQueue_Pop(benchmark::State& state)
 {
     quicr::SafeTimeQueue<int> tq(state.range(0), 1, service, kIterations);
     for (size_t i = 0; i < kIterations; ++i) {
-        tq.Push(i, 10);
+        tq.Push(static_cast<int>(i), 10);
     }
 
     int64_t items_count = 0;
@@ -65,7 +65,7 @@ BM_SafeTimeQueue_Front(benchmark::State& state)
 {
     quicr::SafeTimeQueue<int> tq(state.range(0), 1, service, kIterations);
     for (size_t i = 0; i < kIterations; ++i) {
-        tq.Push(i, 15);
+        tq.Push(static_cast<int>(i), 15);
     }
 
     int64_t items_count = 0;
@@ -88,7 +88,7 @@ BM_SafeTimeQueue_PopFront(benchmark::State& state)
 {
     quicr::SafeTimeQueue<int> tq(state.range(0), 1, service, kIterations);
     for (size_t i = 0; i < kIterations; ++i) {
-        tq.Push(i, 15);
+        tq.Push(static_cast<int>(i), 15);
     }
 
     int64_t items_count = 0;
@@ -111,7 +111,7 @@ BM_SafeTimeQueue_Size(benchmark::State& state)
 {
     quicr::SafeTimeQueue<int> tq(300, 1, service, kIterations);
     for (size_t i = 0; i < kIterations; ++i) {
-        tq.Push(i, 10);
+        tq.Push(static_cast<int>(i), 10);
     }
 
     for (auto _ : state) {
@@ -130,7 +130,7 @@ BM_SafeTimeQueue_Empty(benchmark::State& state)
 {
     quicr::SafeTimeQueue<int> tq(300, 1, service, kIterations);
     for (size_t i = 0; i < kIterations; ++i) {
-        tq.Push(i, 10);
+        tq.Push(static_cast<int>(i), 10);
     }
 
     for (auto _ : state) {
@@ -153,7 +153,7 @@ BM_SafeTimeQueue_PushAndPopLoaded(benchmark::State& state)
 
     for (auto _ : state) {
         ++items_count;
-        tq.Push(items_count, 1000);
+        tq.Push(static_cast<int>(items_count), 1000);
 
         // Simulate load by not popping all items
         if (items_count % 100 == 0) {
@@ -184,7 +184,7 @@ BM_SafeTimeQueue_PushAndPop_Interval_1ms(benchmark::State& state)
         {
             std::lock_guard __(tq);
 
-            tq.Push(items_count, 1000);
+            tq.Push(static_cast<int>(items_count), 1000);
 
             auto elem = tq.Front();
             tq.Pop();
@@ -210,7 +210,7 @@ BM_SafeTimeQueue_PushAndPop_Interval_125ms(benchmark::State& state)
         {
             std::lock_guard __(tq);
 
-            tq.Push(items_count, 1000);
+            tq.Push(static_cast<int>(items_count), 1000);
 
             auto elem = tq.Front();
             tq.Pop();

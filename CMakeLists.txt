@@ -20,21 +20,6 @@ endif()
 configure_file(cmake/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h)
 
 #=============================================================================#
-# Check System Requirements
-#=============================================================================#
-
-if(NOT UNIX AND NOT APPLE AND NOT DEFINED ENV{IDF_PATH})
-    message(FATAL_ERROR "Unsupported platform; Linux, Apple, and ESP-IDF are the only supported platforms")
-endif ()
-
-set(supported_archs arm64 x86_64 aarch64 i686 armv7-a arm64-v8a)
-if (NOT ${CMAKE_SYSTEM_PROCESSOR} IN_LIST supported_archs)
-    message(FATAL_ERROR "Unsupported system architecture '${CMAKE_SYSTEM_PROCESSOR}'. Supported is arm64 and x86_64")
-endif()
-
-message(STATUS "Building for ${CMAKE_SYSTEM_PROCESSOR}")
-
-#=============================================================================#
 # Options
 #=============================================================================#
 
@@ -54,8 +39,9 @@ option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 option(QUICR_ENABLE_THREAD_SANITIZER "Build with TSAN" OFF)
 
-option(USE_MBEDTLS OFF)
+option(WITH_MBEDTLS "Build against MbedTLS rather than OpenSSL" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
+option(QUICR_USE_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
 
 if(QUICR_ENABLE_SANITIZERS AND QUICR_ENABLE_THREAD_SANITIZER)
     message(FATAL_ERROR "ASAN/UBSAN and TSAN cannot be enabled together")
@@ -88,49 +74,19 @@ if (NOT DEFINED ENV{IDF_PATH})
   find_package(Threads REQUIRED)
   find_package(PkgConfig REQUIRED)
 else()
-  set(USE_MBEDTLS ON)
+  set(WITH_MBEDTLS ON CACHE BOOL "Build against MbedTLS rather than OpenSSL" FORCE)
 endif()
 
 #=============================================================================#
 # Dependencies
 #=============================================================================#
 
-if (NOT DEFINED ENV{IDF_PATH})
-    set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-endif()
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(CPM)
 
-include(CheckIncludeFileCXX)
-check_include_file_cxx(format HAVE_STD_FORMAT)
-if (HAVE_STD_FORMAT)
-    unset(HAS_STD_VFORMAT CACHE)
-    set(CMAKE_REQUIRED_FLAGS "-std=c++20")
-
-    include(CheckCXXSourceCompiles)
-    check_cxx_source_compiles("
-        #include <format>
-        #include <string>
-        int main() {
-            std::string fmt = \"Hello {}\";
-            std::string result = std::vformat(fmt, std::make_format_args(\"World\"));
-            return result.empty() ? 1 : 0;
-        }
-    " HAS_STD_VFORMAT)
-
-    unset(CMAKE_REQUIRED_FLAGS)
-endif()
-
-if (NOT HAS_STD_VFORMAT)
-    message(STATUS "Using fmt::format")
-    CPMAddPackage("gh:fmtlib/fmt#12.2.0")
-else()
-    add_compile_definitions(QUICR_HAVE_STD_FORMAT)
-    message(STATUS "Using std::format")
-endif()
-
-add_subdirectory(dependencies)
-
+include(QuicrFormat)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/QuicrDependencies.cmake)
 
 #=============================================================================#
 # Build the library

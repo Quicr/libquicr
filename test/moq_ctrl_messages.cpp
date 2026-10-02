@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/messages/message.h"
-#include "quicr/messages/messages.h"
+#include "quicr/messages/message_serialisation.h"
 #include "quicr/messages/parameters.h"
 
 #include <doctest/doctest.h>
@@ -12,7 +12,6 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <sys/socket.h>
 
 using namespace quicr;
 using namespace quicr::messages;

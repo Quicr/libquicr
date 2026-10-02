@@ -4,11 +4,11 @@
 #pragma once
 
 #include "quicr/track_name.h"
+#include "quicr/utilities/format.h"
 
 #include <chrono>
-#include <iomanip>
-#include <ostream>
 #include <string>
+#include <vector>
 
 namespace quicr::example {
 
@@ -19,17 +19,8 @@ namespace quicr::example {
      */
     static std::string GetTimeStr() noexcept
     {
-        std::ostringstream oss;
-
-        auto now = std::chrono::system_clock::now();
-        auto now_us = std::chrono::time_point_cast<std::chrono::microseconds>(now);
-        std::time_t t = std::chrono::system_clock::to_time_t(now);
-        struct tm tm_result;
-        localtime_r(&t, &tm_result);
-        oss << std::put_time(&tm_result, "%F %T") << "." << std::setfill('0') << std::setw(6)
-            << (now_us.time_since_epoch().count()) % 1'000'000;
-
-        return oss.str();
+        const auto now = std::chrono::floor<std::chrono::microseconds>(std::chrono::system_clock::now());
+        return quicr::format("{:%F %T}", now);
     }
 
     static const TrackNamespace MakeTrackNamespace(const std::string& ns)

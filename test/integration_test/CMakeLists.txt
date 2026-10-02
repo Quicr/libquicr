@@ -1,6 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
+if (TARGET fmt::fmt)
+    set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "Use external fmt with libquicr" FORCE)
+endif()
+
+CPMAddPackage("gh:gabime/spdlog@1.17.0")
+
 # Add the integration test executable
 add_executable(quicr_integration_test
     integration_test.cpp
@@ -22,10 +28,16 @@ target_include_directories(quicr_integration_test PRIVATE
     ${PROJECT_SOURCE_DIR}/src
 )
 
-# Link against the quicr library and test framework
+# Link against the quicr library and test framework. quicr links picoquic privately, so its include
+# paths do not reach this target. They are needed here because tests of internal classes include
+# private headers that pull in picoquic.
 target_link_libraries(quicr_integration_test PRIVATE
     quicr
-    doctest::doctest)
+    doctest::doctest
+    spdlog::spdlog
+    picoquic-core
+    picoquic-log
+    picohttp-core)
 
 # Compiler options
 target_compile_options(quicr_integration_test
@@ -42,6 +54,10 @@ set_target_properties(quicr_integration_test
         CXX_EXTENSIONS OFF
 )
 
+if (WIN32)
+    target_compile_definitions(quicr_integration_test PRIVATE NOMINMAX)
+endif()
+
 set(TEST_KEY ${CMAKE_CURRENT_BINARY_DIR}/server-key.pem)
 set(TEST_CERT ${CMAKE_CURRENT_BINARY_DIR}/server-cert.pem)
 add_custom_command(
@@ -54,11 +70,19 @@ add_custom_command(
 
 add_custom_target(generate_test_certs ALL DEPENDS ${TEST_KEY} ${TEST_CERT})
 
-# Enable test discovery with doctest - can't run in parallel.
-doctest_discover_tests(quicr_integration_test
-    PROPERTIES
-        RESOURCE_LOCK integration_lock
-)
+if (CMAKE_CONFIGURATION_TYPES)
+    add_dependencies(quicr_integration_test generate_test_certs)
+    add_custom_command(TARGET quicr_integration_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${TEST_KEY} ${TEST_CERT} $<TARGET_FILE_DIR:quicr_integration_test>
+        COMMENT "Copying test certificates next to quicr_integration_test"
+    )
+endif()
+
+# Each test process gets its own server port.
+doctest_discover_tests(quicr_integration_test)
+set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/ctest_integration_test_properties.cmake")
 
 # Linting configuration
 if(LINT)

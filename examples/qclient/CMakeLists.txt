@@ -4,7 +4,7 @@
 CPMAddPackage("gh:nlohmann/json@3.11.3")
 CPMAddPackage("gh:cisco/sframe#8ef171cb10b960989fff9e26e8fb0b8329d60b6f")
 
-if (NOT HAS_STD_VFORMAT)
+if(TARGET fmt::fmt)
     set(SPDLOG_FMT_EXTERNAL ON)
 endif()
 
@@ -17,7 +17,11 @@ target_include_directories(qclient PRIVATE ../dependencies )
 target_compile_options(qclient
         PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
-        $<$<CXX_COMPILER_ID:MSVC>: >)
+        $<$<CXX_COMPILER_ID:MSVC>:>)
+
+if (MSVC)
+        target_compile_options(sframe PRIVATE $<$<CXX_COMPILER_ID:MSVC>: /WX->)
+endif()
 
 set_target_properties(qclient
         PROPERTIES

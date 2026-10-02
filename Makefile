@@ -19,7 +19,7 @@ all: ${BUILD_DIR}
 
 # Standard development CMake generation.
 ${BUILD_DIR}: CMakeLists.txt
-	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_C_BRIDGE=ON -DQUICR_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_MBEDTLS=OFF -DLINT=OFF .
+	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_C_BRIDGE=ON -DQUICR_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_MBEDTLS=OFF -DLINT=OFF .
 
 # Run fuzzing tests.
 fuzz:
@@ -28,9 +28,9 @@ fuzz:
 	./${BUILD_DIR}/fuzz/ctrl_messages_fuzzer -max_total_time=10
 
 # Run the tests.
-test: ci
+test: ${BUILD_DIR}
 	cmake --build ${BUILD_DIR}
-	ctest --test-dir ${BUILD_DIR} --output-on-failure
+	ctest --test-dir ${BUILD_DIR} --output-on-failure --parallel
 
 # Clean all built targets.
 clean:
@@ -50,7 +50,7 @@ doc:
 
 # Build C Bridge only.
 c-bridge-only: CMakeLists.txt c-bridge/CMakeLists.txt
-	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=FALSE -DQUICR_BUILD_TESTS=OFF -DQUICR_BUILD_C_API=OFF -DQUICR_BUILD_C_BRIDGE=ON -DCMAKE_BUILD_TYPE=Release -DUSE_MBEDTLS=OFF -DLINT=OFF .
+	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=FALSE -DQUICR_BUILD_TESTS=OFF -DQUICR_BUILD_C_API=OFF -DQUICR_BUILD_C_BRIDGE=ON -DCMAKE_BUILD_TYPE=Release -DWITH_MBEDTLS=OFF -DLINT=OFF .
 	cmake --build ${BUILD_DIR} --target quicr-bridge bridge_examples --parallel 8
 
 # Build with C Bridge enabled.
@@ -74,4 +74,3 @@ lint:
 
 sbom:
 	reuse spdx -o libquicr.spdx
-

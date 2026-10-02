@@ -23,14 +23,12 @@ namespace quicr {
 
     void Connection::SetStatus(Status new_status)
     {
-        if (new_status == status_) {
+        if (new_status == status_.exchange(new_status, std::memory_order_acq_rel)) {
             return;
         }
 
-        status_ = new_status;
-
         // TODO: Do something here
-        switch (status_) {
+        switch (new_status) {
             case Status::kReady:
                 break;
             case Status::kConnecting:
@@ -47,7 +45,7 @@ namespace quicr {
                 break;
         }
 
-        OnStatusChanged(status_);
+        OnStatusChanged(new_status);
     }
 
     void Connection::SetDelegate(const std::shared_ptr<Delegate>& delegate)
@@ -57,10 +55,11 @@ namespace quicr {
             delegate_ = delegate;
         }
 
-        if (delegate && status_ != Status::kConnecting) {
+        const auto status = GetStatus();
+        if (delegate && status != Status::kConnecting) {
             // Replay the current status in case transport notifications were delivered
             // before the application delegate was attached.
-            OnStatusChanged(status_);
+            OnStatusChanged(status);
         }
     }
 
@@ -84,22 +83,19 @@ namespace quicr {
         }
     }
 
-    void Connection::OnRecvStream(std::uint64_t stream_id,
-                                  const std::shared_ptr<StreamRxContext>& rx_ctx,
-                                  const std::shared_ptr<Stream>& stream,
-                                  bool is_bidir)
+    bool Connection::OnRecvStream(const std::shared_ptr<Stream>& stream)
     {
         if (auto delegate = GetDelegate()) {
-            delegate->OnRecvStream(stream_id, rx_ctx, stream, is_bidir);
+            return delegate->OnRecvStream(stream);
         }
+
+        return false;
     }
 
-    void Connection::OnStreamClosed(std::uint64_t stream_id,
-                                    std::shared_ptr<StreamRxContext> rx_ctx,
-                                    StreamClosedFlag flag)
+    void Connection::OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag)
     {
         if (auto delegate = GetDelegate()) {
-            delegate->OnStreamClosed(stream_id, std::move(rx_ctx), flag);
+            delegate->OnStreamClosed(stream, flag);
         }
     }
 }

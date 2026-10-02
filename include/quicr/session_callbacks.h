@@ -217,9 +217,10 @@ namespace quicr {
          * @param request_id            Request ID received
          * @param track_full_name       Track full name
          */
-        virtual Reply<RequestResponse, RequestErrorCode> TrackStatusReceived(const std::shared_ptr<Session>& session,
-                                                                             std::uint64_t request_id,
-                                                                             const FullTrackName& track_full_name);
+        virtual Reply<TrackStatusResponse, RequestErrorCode> TrackStatusReceived(
+          const std::shared_ptr<Session>& session,
+          std::uint64_t request_id,
+          const FullTrackName& track_full_name);
     };
 
     /**
@@ -232,13 +233,13 @@ namespace quicr {
         /**
          * @brief Callback on server setup message
          *
-         * @details Server will send server setup in response to client setup message sent. This callback is
-         *      called when a server setup has been received. Client mode only.
+         * @details Called when the peer's setup has been received. Client mode only.
          *
          * @param server_setup_attributes Server setup attributes received
          */
-        virtual Reply<void, ErrorCode> ServerSetupReceived(const std::shared_ptr<Session>& session,
-                                                           const ServerSetupAttributes& server_setup_attributes);
+        virtual Expected<void, Error<ErrorCode>> ServerSetupReceived(
+          const std::shared_ptr<Session>& session,
+          const ServerSetupAttributes& server_setup_attributes);
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -268,13 +269,13 @@ namespace quicr {
         /**
          * @brief Callback on client setup message
          *
-         * @details Server mode only. Client will send a setup message on new connection. Server responds with
-         *      server setup.
+         * @details Called when the peer's setup has been received. Server mode only.
          *
          * @param client_setup_attributes Decoded client setup message
          */
-        virtual Reply<void, ErrorCode> ClientSetupReceived(const std::shared_ptr<Session>& session,
-                                                           const ClientSetupAttributes& client_setup_attributes);
+        virtual Expected<void, Error<ErrorCode>> ClientSetupReceived(
+          const std::shared_ptr<Session>& session,
+          const ClientSetupAttributes& client_setup_attributes);
 
         /**
          * @brief Callback notification for publish namespace done received
@@ -336,7 +337,7 @@ namespace quicr {
          * @param track_full_name      Track full name
          * @param subscribe_attributes Subscribe attributes received
          */
-        virtual Reply<RequestResponse, RequestErrorCode> SubscribeReceived(
+        virtual Reply<SubscribeResponse, RequestErrorCode> SubscribeReceived(
           const std::shared_ptr<Session>& session,
           std::uint64_t request_id,
           const FullTrackName& track_full_name,

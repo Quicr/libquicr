@@ -15,6 +15,10 @@ set_target_properties(quicr PROPERTIES
 
 target_compile_options(quicr PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wall -pedantic -Wextra -Wmissing-declarations -Werror=switch>
+    $<$<CXX_COMPILER_ID:MSVC>:/MP>
+)
+
+target_compile_options(quicr PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>
 )
 
 if(NOT QUICR_BUILD_FUZZ)
@@ -25,10 +29,9 @@ endif()
 
 target_sources(quicr PRIVATE
     ctrl_message_types.cpp
-    fetch_track_handler.cpp
     joining_fetch_handler.cpp
     log.cpp
-    messages.cpp
+    message_serialisation.cpp
     publish_fetch_handler.cpp
     publish_namespace_handler.cpp
     publish_track_handler.cpp
@@ -54,7 +57,13 @@ target_link_libraries(quicr PRIVATE
     picohttp-core
 )
 
-if (NOT HAS_STD_VFORMAT)
+if (WIN32)
+    target_compile_definitions(quicr PRIVATE NOMINMAX)
+    target_link_libraries(quicr PRIVATE ws2_32)
+else()
+endif()
+
+if (NOT QUICR_HAS_STD_FORMAT)
     target_link_libraries(quicr PUBLIC fmt::fmt)
 endif()
 

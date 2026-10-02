@@ -14,7 +14,11 @@
 #include <vector>
 
 namespace quicr {
+#ifdef _MSC_VER
+#define FORCE_INLINE inline __forceinline
+#else
 #define FORCE_INLINE inline __attribute__((always_inline))
+#endif
 
     template<typename T, class Allocator = std::allocator<T>>
     class StreamBuffer
@@ -164,6 +168,31 @@ namespace quicr {
             }
 
             return { buffer_.data() + read_offset_, buffer_.size() - read_offset_ };
+        }
+
+        /**
+         * @brief Surrender everything not yet read, leaving the buffer empty
+         *
+         * @details For a caller that takes the whole of what has arrived rather than reading
+         *      messages out of it one at a time, which costs nothing once it has read what came
+         *      before. What has been parsed so far is left alone, since that is what says how the
+         *      stream is being read rather than what is left to read.
+         *
+         * @returns The bytes not yet read
+         */
+        BufferT TakeAll()
+        {
+            BufferT taken;
+            if (read_offset_ == 0) {
+                taken = std::move(buffer_);
+            } else {
+                taken.assign(buffer_.begin() + static_cast<std::ptrdiff_t>(read_offset_), buffer_.end());
+            }
+
+            buffer_.clear();
+            read_offset_ = 0;
+
+            return taken;
         }
 
         void Pop()
