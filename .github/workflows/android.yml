@@ -1,0 +1,85 @@
+name: Android
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+env:
+  BUILD_TYPE: Release
+  ANDROID_API: 24
+  NDK_VERSION: 27.2.12479018
+
+jobs:
+  build:
+    name: Android (${{ matrix.abi }})
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [ arm64-v8a, x86_64 ]
+
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Android NDK
+        run: ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "ndk;${{ env.NDK_VERSION }}"
+
+      - name: Check out BoringSSL
+        uses: actions/checkout@v6
+        with:
+          repository: google/boringssl
+          ref: 427ec40cc8edc545253289232e885708c409e5ea
+          path: dependencies/boringssl
+
+      # picotls requires libdecrepit, but BoringSSL does not install that target.
+      - name: Build BoringSSL for Android
+        run: >
+          cmake -S ${{ github.workspace }}/dependencies/boringssl
+          -B ${{ github.workspace }}/dependencies/boringssl-build
+          -G Ninja
+          -DCMAKE_TOOLCHAIN_FILE=${ANDROID_SDK_ROOT}/ndk/${{ env.NDK_VERSION }}/build/cmake/android.toolchain.cmake
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/dependencies/boringssl-install
+          -DANDROID_ABI=${{ matrix.abi }}
+          -DANDROID_PLATFORM=android-${{ env.ANDROID_API }}
+          -DBUILD_TESTING=OFF
+          &&
+          cmake --build ${{ github.workspace }}/dependencies/boringssl-build
+          --target crypto ssl decrepit bssl -j
+          &&
+          cmake --install ${{ github.workspace }}/dependencies/boringssl-build
+          &&
+          cmake -E copy
+          ${{ github.workspace }}/dependencies/boringssl-build/libdecrepit.a
+          ${{ github.workspace }}/dependencies/boringssl-install/lib/libdecrepit.a
+
+      - name: Configure CMake
+        run: >
+          cmake -S ${{ github.workspace }}
+          -B ${{ github.workspace }}/build
+          -G Ninja
+          -DCMAKE_TOOLCHAIN_FILE=${ANDROID_SDK_ROOT}/ndk/${{ env.NDK_VERSION }}/build/cmake/android.toolchain.cmake
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          -DANDROID_ABI=${{ matrix.abi }}
+          -DANDROID_PLATFORM=android-${{ env.ANDROID_API }}
+          -DOPENSSL_ROOT_DIR=${{ github.workspace }}/dependencies/boringssl-install
+          -DOPENSSL_INCLUDE_DIR=${{ github.workspace }}/dependencies/boringssl-install/include
+          -DOPENSSL_CRYPTO_LIBRARY=${{ github.workspace }}/dependencies/boringssl-install/lib/libcrypto.a
+          -DOPENSSL_SSL_LIBRARY=${{ github.workspace }}/dependencies/boringssl-install/lib/libssl.a
+          -DOPENSSL_USE_STATIC_LIBS=TRUE
+          -DWITH_MBEDTLS=OFF
+          -DBUILD_TESTING=OFF
+          -DQUICR_BUILD_TESTS=OFF
+          -DQUICR_BUILD_EXAMPLES=OFF
+          -DQUICR_BUILD_BENCHMARKS=OFF
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build -j
