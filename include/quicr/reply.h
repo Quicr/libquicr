@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/errors.h"
+#include "quicr/transport.h"
 #include "quicr/utilities/expected.h"
 
 #include <concepts>
@@ -73,15 +74,16 @@ namespace quicr {
          * @note Consumes the reply; it must not be resolved more than once.
          */
         template<typename F>
-        void Resolve(F&& f)
+        void Resolve(const std::shared_ptr<Transport>& transport, F&& f)
         {
             if (IsDeferred()) {
-                std::thread([action = std::move(std::get<DeferType>(result_)), f = std::forward<F>(f)]() mutable {
-                    try {
-                        f(action());
-                    } catch (...) {
-                    }
-                }).detach();
+                transport->QueueDeferredReply(
+                  [action = std::move(std::get<DeferType>(result_)), f = std::forward<F>(f)]() mutable {
+                      try {
+                          f(action());
+                      } catch (...) {
+                      }
+                  });
                 return;
             }
 

@@ -2878,6 +2878,38 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
 }
 
 void
+quicr::PicoQuicTransport::QueueDeferredReply(std::function<void()>&& reply_handler)
+{
+    std::lock_guard _(deferred_reply_handler_.mutex);
+    deferred_reply_handler_.handlers.Push(std::forward<decltype(reply_handler)>(reply_handler));
+    deferred_reply_handler_.notifier.notify_all();
+
+    if (!deferred_reply_handler_.handler_thread.joinable()) {
+        return;
+    }
+
+    deferred_reply_handler_.handler_thread = std::jthread([this](std::stop_token token) {
+        while (!token.stop_requested()) {
+            {
+                std::unique_lock lock(deferred_reply_handler_.mutex);
+                deferred_reply_handler_.notifier.wait(
+                  lock, [&] { return token.stop_requested() || !deferred_reply_handler_.handlers.Empty(); });
+            }
+
+            if (token.stop_requested()) {
+                return;
+            }
+
+            while (!deferred_reply_handler_.handlers.Empty()) {
+                if (auto handler = deferred_reply_handler_.handlers.Pop(); handler.has_value()) {
+                    (*handler)();
+                }
+            }
+        }
+    });
+}
+
+void
 PicoQuicTransport::EraseStreamState(const std::shared_ptr<PicoQuicConnection>& connection,
                                     const std::uint64_t stream_id)
 {

@@ -437,6 +437,8 @@ namespace quicr {
          */
         virtual void Shutdown() {}
 
+        virtual void QueueDeferredReply(std::function<void()>&& reply_handler) = 0;
+
       public:
         std::function<void(const std::shared_ptr<Connection>&)> OnNewConnection;
         std::function<void(const std::shared_ptr<Connection>&)> OnConnectionClosed;
