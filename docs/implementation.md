@@ -1,293 +1,445 @@
-MOQT Implementation
-===================
+# MOQT implementation
 
-Supported implementation uses [MOQT draft-ietf-moq-transport-04](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-04)
+This document describes the current libquicr architecture and protocol flow.
+The runtime advertises the `moqt-18` ALPN for native QUIC and uses draft-18
+message encodings. Some optional messages and filters remain incomplete, so this
+is an implementation target rather than a claim of full draft conformance.
 
-MOQT is a publish/subscribe protocol that defines control flows to establish, maintain and teardown tracks. MOQT 
-defines **tracks** as a flow of data from a publisher to one or more subscribers. Track is synonymous with channel and
-data flow.  
+Application-facing usage is covered in [the API guide](api-guide.md).
 
-Objects are a set of data that as a whole is published and received by subscribes as a complete object. For example,
-sending data array of 2500 bytes (aka object) is published to a track and delivered to all subscribers as a complete
-object. The subscriber will receive the complete 2500 bytes as an object. 
+## Terminology
 
-## Datagram vs Stream
+- **Track namespace**: an ordered tuple of binary entries.
+- **Full Track Name**: a track namespace plus a binary track name.
+- **Request ID**: a session-scoped identifier for a track, namespace, status, or
+  fetch request. The low bit identifies the initiating endpoint role.
+- **Track alias**: a session-scoped 64-bit identifier used to route object data.
+- **Object**: application payload and metadata identified by group, subgroup,
+  and object IDs.
+- **Control stream**: the long-lived stream carrying session-level control
+  messages such as SETUP.
+- **Request stream**: a dedicated bidirectional stream carrying one request,
+  its response, later updates, and teardown.
+- **Data stream**: a unidirectional subgroup or fetch stream carrying objects.
 
-Objects can be of any size, but when using datagram they are restricted to 1280 bytes in size in MOQT. 
+Track aliases default to a hash of the Full Track Name. They are not guaranteed
+globally unique and must not be used as durable identities outside their
+session.
 
-## Track Fullname
-Publishing objects are sent using a track fullname that subscribers subscribe to. Relay (aka server) will forward received
-objects matching the track fullname to one or more subscribers. 
-
-There can be a bit of confusion when discussing track name as the component name is also identified as name. For this reason,
-when referring to a track name that publishers and subscribers use, the name **track fullname** is used.
-
-A track fullname is broken into two components:
-
-### (1) Track Namespace
-Unbounded size of binary bytes that the application defines. The namespace normally identifies the source client
-endpoint entity. It needs to identify the source endpoint because MOQT defines that all subscribes to track fullnames are
-sent to the namespace, regardless of the name portion. 
-
-### (2) Track Name
-Unbounded size of binary bytes that the application defines. Considering that MOQT defines that all subscribes will
-be routed to the publisher based only on the namespace component of the track fullname, it makes sense that the
-name component be used more of a filter of content from a publisher.  For example, high bandwidth video feed vs
-low bandwidth video feed. 
-
-### Track Alias
-Track alias is a generated hash value of `namespace` and `name` in this implementation. It's a consistent hash that
-is globally unique.  The track alias is a `uint64_t` value
-that represents the track fullname. Track alias is used when encoding object and other MOQT messages instead of
-having to duplicate the large binary array of bytes for namespace and name.
-
-## API
-
-### High Level Flow
-
-At a high level, this API provides a very simplistic track (aka channel, aka virtual connection) between publisher
-and any given number of subscribers. The below topology represents the high level forwarding-plane that the
-API provides. 
+## Architecture
 
 ```mermaid
 flowchart TD
-    P[Publisher Track ABC] --> S1[Subcriber 1]
-    P --> S2[Subscriber 2]
-    P --> S3[Subscriber 3]
-    P --> SN[Subscriber n]
+    App[Application]
+    Manager[SessionManager]
+    Transport[Transport]
+    Connection[Connection]
+    Session[Session]
+    SessionCallbacks[Session callbacks]
+    Handlers[Track and namespace handlers]
+    Streams[Control request and data streams]
+
+    App --> Manager
+    Manager --> Transport
+    Transport --> Connection
+    Manager --> Session
+    Connection --> Session
+    Session --> SessionCallbacks
+    Session --> Handlers
+    Session --> Streams
 ```
 
-#### As Client 
+### SessionManager
 
-As a client, the flow is quite simple. Below illustrates a Client using the API. 
+`SessionManager` is the top-level lifetime owner:
 
-```mermaid
-flowchart TD
-    A([Client App Code])-->MOQI[New MoQInstance]
-    MOQI-->B((MoQ Instance Request))
-    B-->ST[[Subscribe Track Handler]]
-    B-->PT[[Publish Track Handler]]
-    ST-->S_RO(Receive Object)
-    S_RO-->ST
-    PT-->P_SO(Send Object)
-    P_SO-->PT
-```
+- it creates and starts client or server transports;
+- it retains active transports and sessions;
+- it creates one client session for an outbound connection;
+- it creates one server session for each accepted connection;
+- it exposes accepted/removed sessions through `SessionManager::Callbacks`;
+- its destructor shuts down all managed transports.
 
-#### As Server/Relay
+Client `AddTransport()` returns a weak session reference because the manager
+retains the strong reference.
 
-As a server/Relay; Below illustrates at a high level the server API.
+### Transport and Connection
 
-> [!NOTE]
-> The below does not include the decision tree and flow interaction for sending subscribe to
-> announcer.  That's an extra flow that is shown later. 
+`Transport` abstracts PicoQUIC and supports:
 
-```mermaid
-flowchart TD
-    A([Server App Code])-->MOQI[New MoQInstance]
-    MOQI-->B((Accept New\nConnections))
-    B-->AC[Per Connection]
-    B-->WA[Wait for Announce]
-    
-    WA-->AV[Validate]
-    AV-->AS[Updated State]
-    AS-->WA
-    
-    AC-->WS[Wait for Subscribe]
-    WS-->SV[Validate]
-    SV-->SS[Update State]
-    SS-->FA[Find Announce]
-    FA-->BS[Bind Subscribe]
-    BS-->SA[Add to Announce State]
-    SA-->WS
-```
+- native MOQT over QUIC, selected by `moq://` or `moqt://`;
+- WebTransport, selected by `https://`;
+- bidirectional and unidirectional streams;
+- QUIC DATAGRAM;
+- queued writes, stream closure/reset, metrics, and connection lifecycle.
 
-### Threading Model
+A server transport can accept native MOQT and WebTransport connections. Each
+accepted `Connection` has one `Session` delegate. PicoQUIC operations are
+marshalled to the network shard that owns the connection.
 
-### Threads Created
-Three threads are used by libquicr. 
+TLS certificate and private-key values in `TransportConfig` are filenames, not
+embedded credential material. Deployments must validate certificate expiration,
+validity start, hostname/SAN, key strength, signature algorithm, and whether
+self-signing is intentional.
 
-1. Libqucir creates a thread for the transport, which is the Picoquic event loop thread.
-2. The transport creates a thread for notifications of received data or connection level events.
-   Libquicr uses this thread to process data received from the transport. All processed data is
-   handled in this thread. 
-3. Transport creates a Tick service thread that is used by all time queues and metrics. Tick 
-   service is a fast chrono tick counter. 
+### Session
 
-> [!NOTE] 
-> Write data is performed in the caller/application thread. 
+`Session` is a unified client/server MOQT endpoint for one connection. It owns:
 
-The API methods and callbacks are thread safe. 
+- SETUP and connection status;
+- the transmit control stream and received control-stream identity;
+- request-ID allocation;
+- request stream and handler maps;
+- proposed and received track-alias maps;
+- publish, subscribe, namespace, and fetch request state;
+- protocol parsing, serialization, and connection metrics.
 
-### MOQ Track Handler
+The mode is fixed when the session is constructed. Applications normally obtain
+sessions through `SessionManager`, although lower-level `Session::Create()`
+factories exist.
 
-Publish and subscribe handlers implement callbacks and related operational methods. The caller creates the handler
-for subscribe/publish track. The caller is the owner of the handler instantiation, which will be used by the
-MoQClient or MoQServer. The MoQClient/MoQServer handler instance will have a shared reference to the track
-handler.  The track handler is used for sending and receiving data to/from a track. 
+### Callbacks and handlers
 
-### MOQ Client/Server Delegate
+`Session::ClientCallbacks` and `Session::ServerCallbacks` provide connection and
+peer-request callbacks. Both inherit common callbacks from
+`Session::Callbacks`.
 
-The caller implements and owns the `MoQClientDelegate` and `MoQServerDelgate`. The delegate is passed to the `MOQTCore` 
-constructor. The `MOQTCore` creates a thread-safe reference to the delegate. Callbacks are implemented by 
-the caller to be notified on various MOQT control flow events. Various control flow events include status of the
-instance, connection status, new connections, announces, subscribes, etc.
+Track and namespace handlers represent active requests:
 
-### MOQ Client/Server Instance
+- `SubscribeTrackHandler`;
+- `PublishTrackHandler`;
+- `FetchTrackHandler`;
+- `PublishFetchHandler`;
+- `SubscribeNamespaceHandler`;
+- `PublishNamespaceHandler`;
+- `ForwardingSubscribeTrackHandler`.
 
-The `MoQClient` and `MoQServer` instance handlers represent a QUIC transport IP connection or server listening IP/PORT.
+The session retains active handlers with shared ownership. `TrackHandler` keeps
+a weak reference to the session, avoiding a reference cycle. A publish namespace
+handler additionally owns the publish-track handlers registered beneath it.
+Passive publish namespace handlers are the exception: the session initializes
+but does not retain them, so the application owns their lifetime.
 
-## Control Message Flows
+## Threading model
 
-### Create Publish Track Flow
-
-API call to `publishTrack(connection_id, track_handler)` will establish a new publish track fullname. If the track
-**namespace** is new and has not been processed before, a **MOQT announce** flow will be implemented. Below shows
-the flow. 
-
-```mermaid
-sequenceDiagram
-    actor P as Publisher
-    participant PI as PUB_MoQInstance
-    
-    participant R as Relay
-    
-    P->>PI: publishTrack('conf/100/tim/video', '1080p')
-    Note right of PI: Namespace is New
-    PI->>R: ANNOUNCE (namespace)
-    Note right of R: Authorize
-    R-->>PI: ANNOUNCE OK
-    PI-->>P: callback['conf/100/tim/video', '1080p'] send is authorized
-    
-    P->>PI: publishTrack('conf/100/tim/audio', 'opus')
-    Note right of PI: Namespace is already announced
-    PI-->>P: callback[''conf/100/tim/audio', 'opus'] send is authorized
-```
-
-In the above diagram, it shows the flow of creating new publishing tracks. In this state it will not be able to
-send any objecs yet. 
-
->[!NOTE]
-> Notice that the result is only
-> that **"send is authorized"**. If the caller published objects in this state, the objects would be dropped
-> because per MOQT design, send cannot send anything till it has a matching track fullname subscribe. The reason
-> we cannot send is due to a restriction in MOQT that requires a **subscribe_id** to be encoded on sent objects. The
-> publisher cannot send objects till MOQT subscribe happens first, which provides a **subscribe_id** that is then used
-> by the publish track to send objects. 
-
-
-### Create Subscribe Track Flow
-
-API call to `subscribeTrack(connection_id, track_handler)` will establish a new subscribe track fullname. A MOQT
-subscribe will be sent when calling this method. 
-
-Below shows the flow of what happens with an initial subscribe. 
-
-
-```mermaid
-sequenceDiagram
-    actor S as Subscriber
-    participant SI as SUB_MoQInstance
-    participant R as Relay
-    
-    S->>SI: subscribeTrack('conf/100/tim/video', '1080p')
-    SI->>R: SUBSCRIBE (namespace, track_name)
-    Note right of R: Authorize
-    R-->>SI: SUBSCRIBE OK
-    
-    SI-->>S: callback['conf/100/tim/video', '1080p'] read is ready
-```
-
->[!NOTE]
-> Notice in the above diagram, the subscribe is successful and data could be read, but it does not
-> yet result in objects being received.  
-
-### Subscribe and Publish Announce Flows
-
-Before data can be sent to the subscribe, the relay **MUST** associate publish announcements by issuing a subscribe
-to the publisher. The publisher will then acknowledge the track fullname and will start to send data using the
-`subscribe_id` for the track fullname (track alias). 
-
-Depending on if subscribe or announce comes first, the flow is different.
-
-#### Subscribe handling when publisher announcement comes before subscribe
-
-Below illustrates the flow of when subscribe arrives after announcer is already known.
+Thread count is configuration-dependent rather than fixed at three.
 
 ```mermaid
 flowchart LR
-    D((Done))
-    aS[[Append subscribe to forwarding state]]
-    
-    
-    S>"Subscribe [ns,n]"] --> asQ{"ns == announce ns?"}
-    asQ -- Yes --> asQy(("iterate"))
-    subgraph "forEach connection of announce == [n]" 
-        asQy --> sQ{Have existing\nsubscribes?}
-        sQ -- No --> sQn["Send subscribe to announcer [ns,n]"]
-        sQn --> aS
-        sQ -- Yes --> aS
-    end
-    aS --> D
-    asQ -- No --> D
+    AppThread[Application threads]
+    NetworkThread[QUIC network shard threads]
+    NotifyThread[Transport notification thread]
+    CallbackCode[Application callback code]
+    TickThread[Tick service]
+    DeferredThread[Deferred Reply threads]
+
+    AppThread -->|API calls and enqueue| NetworkThread
+    NetworkThread -->|connection stream and datagram events| NotifyThread
+    NotifyThread -->|invokes directly| CallbackCode
+    TickThread -->|timeouts and metrics schedule| NetworkThread
+    NotifyThread -->|Reply Defer| DeferredThread
 ```
 
-> [!NOTE]
-> In the multiple publisher use-case, the connection ID is taken into account when processing the above flow. Forwarding
-> state is updated for each matching namespace publisher. What is not shown, but is pretty complicated, is that
-> not all publishers will subscribe OK to `[ns,n]`, resulting in some being added to the forwarding state and others not.
+- A transport has one PicoQUIC network thread per configured shard.
+- A transport notification thread serializes connection, stream, datagram, and
+  metrics notifications.
+- The default threaded tick service adds a thread, but a shared or custom tick
+  service can be injected.
+- Application threads call session and handler APIs. Transport writes are
+  queued to the owning network shard.
+- Each `Reply::Defer()` action runs on its own detached thread.
 
-#### Subscribe handling when publisher announcement comes after subscribe
-Below illustrates the flow of when subscribe arrives before announcer.
+Session internals protect shared maps and selected statuses are atomic, but this
+is not a blanket thread-safety guarantee for handler state. Calls that mutate a
+single handler should be serialized. Callback implementations must return
+promptly because they run on the notification thread. Under callback backlog,
+metrics notifications can be skipped.
+
+## Session lifecycle
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant Manager as SessionManager
+    participant Transport as Transport
+    participant Session as Session
+    participant Peer as Peer
+
+    App->>Manager: AddTransport(config callbacks)
+    Manager->>Transport: create and start
+    Transport->>Session: connection ready
+    Session->>Peer: SETUP
+    Peer->>Session: SETUP
+    Session-->>App: StatusChanged(kReady)
+```
+
+1. `SessionManager` creates and starts a transport.
+2. A connection is associated with a new `Session`.
+3. When QUIC is ready, the session opens its control stream and sends SETUP.
+4. The peer's SETUP is validated by `ServerSetupReceived()` or
+   `ClientSetupReceived()`.
+5. The session reaches `kReady` only after local SETUP has been sent and peer
+   SETUP has been accepted.
+6. `Disconnect()` detaches the session delegate and asks the transport to close
+   the connection. Applications should perform request teardown first when
+   handler status transitions or peer-visible completion matter.
+
+Transport connection creation and MOQT readiness are distinct. A client can
+receive a session from `AddTransport()` while SETUP is still pending.
+
+## Control and request streams
+
+Session-level messages use the control stream. Track, namespace, and fetch
+operations use dedicated bidirectional request streams. `RequestTrackStatus()`
+is an exception: it sends TRACK_STATUS on the control stream.
+
+```mermaid
+stateDiagram-v2
+    [*] --> OpenRequest
+    OpenRequest --> AwaitResponse: send request
+    AwaitResponse --> Active: receive OK
+    AwaitResponse --> Closed: receive error
+    Active --> Active: request update
+    Active --> Closed: FIN or RESET
+    Closed --> [*]
+```
+
+The session allocates request IDs with client/server parity, opens a request
+stream, and maps the stream to the request and handler. Stream FIN or RESET is a
+protocol lifecycle event: it closes the request and removes associated state.
+
+Request callbacks return `Reply` objects. The session converts the reply to the
+appropriate OK or ERROR message on the same request stream. There is no separate
+public resolve step.
+
+## Publishing a track
+
+`Session::PublishTrack()` implements publisher-initiated PUBLISH. It is
+independent of namespace publication.
+
+```mermaid
+sequenceDiagram
+    participant App as Publisher application
+    participant PubSession as Publisher session
+    participant PeerSession as Peer session
+    participant PeerApp as Peer application
+
+    App->>PubSession: PublishTrack(handler)
+    PubSession->>PeerSession: PUBLISH on request stream
+    PeerSession->>PeerApp: PublishReceived(...)
+    PeerApp-->>PeerSession: Reply with PublishResponse
+    PeerSession-->>PubSession: PUBLISH_OK
+    PubSession-->>App: handler StatusChanged
+    App->>PubSession: PublishObject(...)
+    PubSession->>PeerSession: object datagram or subgroup stream
+```
+
+The PUBLISH request carries the Full Track Name, proposed alias, parameters, and
+track extensions. Acceptance returns a `PublishResponse` and a
+`SubscribeTrackHandler` that receives the publisher's objects.
+
+The local publish handler starts in a pending state. `CanPublish()` becomes true
+for `kOk`, `kNewGroupRequested`, and `kSubscriptionUpdated`.
+
+For stream mode, each group/subgroup has an owned stream. The application calls
+`EndSubgroup()` when the subgroup is complete. Unbinding ends any subgroup
+streams that remain open.
+
+`UnpublishTrack()` removes local publication state and can send PUBLISH_DONE,
+but it does not currently close the request stream. Server/relay code uses
+`UnbindPublisherTrack()` for handlers created from an incoming subscription.
+
+## Subscribing to a track
+
+```mermaid
+sequenceDiagram
+    participant App as Subscriber application
+    participant SubSession as Subscriber session
+    participant PeerSession as Peer session
+    participant PeerApp as Peer application
+
+    App->>SubSession: SubscribeTrack(handler)
+    SubSession->>PeerSession: SUBSCRIBE on request stream
+    PeerSession->>PeerApp: SubscribeReceived(...)
+    PeerApp->>PeerSession: BindPublisherTrack(request_id handler)
+    PeerApp-->>PeerSession: Reply with SubscribeResponse
+    PeerSession-->>SubSession: SUBSCRIBE_OK with alias
+    SubSession-->>App: handler StatusChanged(kOk)
+    PeerSession->>SubSession: objects routed by alias
+    SubSession-->>App: ObjectReceived(...)
+```
+
+`SubscribeTrack()` allocates a request ID and request stream, sends priority,
+group order, filter, delivery timeout, and optional joining-fetch parameters,
+and waits for SUBSCRIBE_OK. The returned track alias is installed in the
+subscribe handler and used to route incoming data.
+
+The original request stream remains active for updates. Pause, resume, and
+new-group operations send request updates. `UnsubscribeTrack()` cancels the
+request stream and removes alias and handler state; peer cleanup is driven by
+request-stream closure.
+
+## Object data plane
 
 ```mermaid
 flowchart LR
-    D((Done))
-    
-    A>"Announce [n]"] --> aC{"Is [n] new?"}
-    aC -- Yes --> aCy[Create state for new announce]
-    aCy --> sQ{"Have subscribes\nmatching [n]?"}
-    sQ -- Yes --> sQy(("`iterate`"))
-    subgraph "forEach subscribe[ns,n]"
-    sQy --> sQy_a[[Get Track full name]]
-    sQy_a --> sQy_b[Send subscribe]
-    sQy_b --> sQy
-    end
-    sQy --> D
-    sQ -- No --> D
-    aC -- No --> D
-    
-    
+    Publisher[PublishTrackHandler]
+    Datagram[QUIC DATAGRAM]
+    Subgroup[Unidirectional subgroup stream]
+    FetchStream[Unidirectional fetch stream]
+    Session[Receiving Session]
+    Subscriber[SubscribeTrackHandler]
+    Forwarder[ForwardingSubscribeTrackHandler]
+
+    Publisher --> Datagram
+    Publisher --> Subgroup
+    Publisher --> FetchStream
+    Datagram --> Session
+    Subgroup --> Session
+    FetchStream --> Session
+    Session --> Subscriber
+    Session --> Forwarder
 ```
 
-> [!NOTE]
-> Noticed that the above flow is not so complicated with having to update each announcer, but it is more complicated
-> in identifying each distinct subscribe `[ns,n]`.
+Datagrams are parsed and routed by track alias. They must fit in one negotiated
+QUIC DATAGRAM after all framing.
 
-### Unsubscribe Flow
-Unsubscribe flow gets pretty complicated as the state requires notifying the publisher (announcer) using an unsubscribe
-to indicate there are no subscribers. If there is at lest one subscriber, then the announcer is not unsubscribed.
-If there are zero subscribers left, then an unsubscribe is sent to each of the announcers that
-matches `[ns,n] = track_alias = track fullname`
+Subgroup streams carry a stream header and a sequence of object records. Normal
+subscribe handlers receive parsed objects. A `ForwardingSubscribeTrackHandler`
+instead receives the subgroup header and raw stream chunks so a relay can
+forward bytes without decoding each object. Datagrams still follow parsed
+object callbacks.
 
-TODO: add flow diagram
+Fetch objects use a dedicated fetch data stream and are routed by request ID.
 
-### Unannounce Flow
-Unannounce flow is complicated in that SUBSCRIBE_DONE should be sent first to indicate that publishing is over. 
-When the relay receives a SUBSCRIBE_DONE, it updates the state of the subscription to the publisher to indicate it's over.
-The relay could propagate the SUBSCRIBE_DONE, but then that would cause excessive churn over thousands of subscribers,
-especially when considering that in MOQT the only way to come back from SUBSCRIBE_DONE is to unsubscribe and subscribe again...
-more churn. 
+## Namespace discovery
 
-For this reason, the relay does not propagate this right now. 
+Namespace publication and track publication are separate.
 
-For the same reasoning as mentioned above, the relay will process an UNANNOUNCE and remove the announcer
-and associated forwarding table entries, but will not cause excessive churn with subscribers to notify them yet that
-the publisher is gone. The existing subscribes will linger until the clients decide to unsubscribe. 
+`PublishNamespace(handler)` sends PUBLISH_NAMESPACE and tracks the request
+stream. Passive mode marks the handler ready without sending a request or
+retaining it in the session; the application must retain a passive handler.
+`PublishNamespaceDone()` cancels a non-passive namespace request. It cannot end
+a passive handler because that handler has no request stream.
 
-The MOQT draft-04 has TRACK_STATUS, which should be used to convey per subscriber and publisher on 
-status if there are any subscribers and/or publishers. 
+`SubscribeNamespaceHandler` has two modes:
 
-Excessive churn can be seen more often with race conditions, which would benefit from some level of dampening. 
-The current example/relay implementations takes this into account. 
+- `kNamespaces` sends SUBSCRIBE_NAMESPACE and receives matching namespace
+  suffix notifications through `NamespaceReceived()`;
+- `kTracks` sends SUBSCRIBE_TRACKS and receives matching PUBLISH activity
+  through session callbacks.
 
+Prefix matching and suffix expansion use the tuple entries in
+`TrackNamespace`, not a slash-delimited text path.
 
+## Fetch
+
+Standalone fetch:
+
+1. `FetchTrack()` sends FETCH with inclusive start and end locations.
+2. The peer invokes `StandaloneFetchReceived()`.
+3. The serving application creates `PublishFetchHandler` with the incoming
+   request ID and calls `BindFetchTrack()`.
+4. Fetch objects are published on a fetch data stream.
+5. The serving application calls `UnbindFetchTrack()` to drain queued objects,
+   finish the fetch stream, and remove its publisher binding.
+
+A joining fetch is attached to a subscription and combines a historical range
+with live delivery. The peer answers `JoiningFetchReceived()`. Internally, a
+joining-fetch adapter forwards fetched objects into the subscription handler.
+
+Local `CancelFetchTrack()` removes fetch state. QUIC-level cancellation still
+has incomplete behavior in the current implementation.
+
+## Relay integration
+
+libquicr provides endpoint protocol mechanics, not a global relay routing
+policy. A relay application owns the registry that links handlers across
+different sessions.
+
+```mermaid
+flowchart LR
+    Publisher[Publisher session]
+    Inbound[Inbound SubscribeTrackHandler]
+    Registry[Relay application routing registry]
+    Outbound[Outbound PublishTrackHandler]
+    Subscriber[Subscriber session]
+
+    Publisher --> Inbound
+    Inbound --> Registry
+    Registry --> Outbound
+    Outbound --> Subscriber
+```
+
+A typical subscriber-initiated relay flow is:
+
+1. A subscriber session invokes `SubscribeReceived()`.
+2. The relay authorizes the request and locates the publishing session.
+3. The relay creates an outbound `PublishTrackHandler`.
+4. It calls `BindPublisherTrack(source_id, request_id, handler)` on the
+   subscriber session.
+5. It records the relationship between the publisher's inbound subscribe
+   handler and the subscriber's outbound publish handler.
+6. Received objects or raw subgroup bytes are forwarded to every bound
+   subscriber.
+7. Request-stream closure removes the binding.
+
+For publisher-initiated operation, `PublishReceived()` returns a
+`PublishResponse` containing the inbound `SubscribeTrackHandler`. Namespace
+subscriptions can help an application discover publishers and tracks, but they
+do not replace the relay's application-owned routing registry.
+
+## Metrics and backpressure
+
+The transport samples connection and stream metrics at
+`TransportConfig::metrics_sample_ms`.
+
+- Connection metrics are delivered first through
+  `Session::Callbacks::MetricsSampled()`.
+- Publish and subscribe metrics follow through their handlers.
+- Period counters reset after the sample.
+- Queue depth and drop/latency fields expose transport backpressure.
+
+Notification processing is serialized. Slow callbacks increase queue latency;
+some metrics notifications can be skipped when the callback queue is backed up.
+
+## Teardown
+
+Request-stream FIN and RESET are the common teardown mechanism.
+
+- `UnsubscribeTrack()` cancels the subscription request.
+- `UnpublishTrack()` removes local publication state and may send PUBLISH_DONE;
+  it does not currently close its request stream.
+- `UnbindPublisherTrack()` removes a server/relay publication binding.
+- `PublishNamespaceDone()` closes non-passive namespace publication state.
+- `UnsubscribeNamespace()` cancels namespace or track-prefix subscription.
+- `CancelFetchTrack()` removes local fetch state.
+- `UnbindFetchTrack()` drains and completes a serving fetch.
+- `Disconnect()` detaches the session and closes the connection; it does not
+  itself run normal session cleanup callbacks.
+- Destroying `SessionManager` shuts down its transports.
+
+Application code should explicitly end subgroups and requests when peer-visible
+teardown matters.
+
+## Known limitations
+
+The current source contains incomplete or provisional behavior in these areas:
+
+- SETUP exposes no meaningful negotiated MOQT version; setup attributes
+  currently report zero.
+- Default track aliases are hashes with no documented collision-resolution
+  policy.
+- There is no stable API-level maximum datagram payload after all framing.
+- Some declared message types and complex filters are not fully processed.
+- FETCH_CANCEL send and receive handling is not currently wired;
+  `CancelFetchTrack()` only removes local state.
+- TRACK_STATUS request attributes are ignored, and responses are not surfaced
+  to the requesting application.
+- PUBLISH_NAMESPACE rejection handling contains an unfinished error path.
+- Some PUBLISH_DONE and request-error teardown cases remain TODOs.
+- Publish handler status names retain some legacy announce terminology.
+
+Use integration tests under `test/integration_test/` as executable examples of
+the currently supported request, namespace, fetch, forwarding, and teardown
+flows.
