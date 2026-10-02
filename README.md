@@ -17,7 +17,6 @@ API documentation can be found under https://quicr.github.io/libquicr
 * Clang/llvm version 17 or higher
 * AppleClang/llvm version 17 or higher
 * Clang-tidy version 15 or higher
-* Golang 1.19 or higher
 * Cmake 3.13 or higher
 
 ### Ubuntu 22.04 Jammy
@@ -73,7 +72,6 @@ Install via https://brew.sh instructions.
 ```
 brew install cmake clang-format
 ```
----
 
 ## Dependencies
 
@@ -86,7 +84,7 @@ its own tag or commit:
 | Dependency | Declared in |
 | --- | --- |
 | picoquic, picotls, timeq, Mbed TLS | `cmake/QuicrDependencies.cmake` |
-| fmt | `CMakeLists.txt` |
+| fmt | `cmake/QuicrFormat.txt` |
 | doctest | `test/CMakeLists.txt` |
 | Google Benchmark | `benchmark/CMakeLists.txt` |
 | nlohmann/json, sframe, spdlog | `examples/qclient/CMakeLists.txt` |
@@ -118,62 +116,7 @@ Entries are keyed by package name and version, so separate build directories, `W
 The cache also holds the bootstrapped CPM release itself, so the download in `cmake/CPM.cmake` is
 skipped as well.
 
----
-
-## Examples
-[examples/qclient](https://github.com/Quicr/libquicr/tree/main/examples/qclient) has an example client implementation showing chat and clock
-applications.
-
-Running `make` will build the examples.
-
-### Server
-
-For an example on a simple server, look at the integration tests. For a more complicated example, [LAPS](https://github.com/Quicr/laps) is more a more fleshed out server.
-
-### qClient
-qClient is an example client. It implements the client API to make a connetion to the relay and to act as subscriber, publisher, or both.
-The client program will read from `stdin` when in publisher mode to publish data. Alternatively, the client can be configured to publish
-a timestamp using the option `--clock`.
-
-Use `qclient -h` to get help.
-
-> [!NOTE]
-> The **namespace** and **name** for both publish and subscribe can be any string value. The only requirement is
-> to publish and subscribe to the same values.
-
-#### As chat subscriber
-
-```
-./qclient --sub_namespace chat --sub_name general
-```
-
-#### As chat publisher
-
-```
-./qclient --pub_namespace chat --pub_name general
-```
-
-#### As both chat subscriber and publisher
-
-```
-./qclient --sub_namespace chat --sub_name general --pub_namespace chat --pub_name general
-```
-
-#### As clock publisher
-
-```
-./qclient --pub_namespace clock --pub_name second --clock
-```
-
-#### As clock subscriber
-
-```
-./qclient --sub_namespace clock --sub_name second
-```
-
----
-
-### Make
+## Make
 
 Use `make` to build libquicr.
 
@@ -183,11 +126,11 @@ Use `make cclean` to clean build files.
 
 Use `make fuzz` to run the fuzzer tests.
 
-### C Bridge Target
+## C Bridge Target
 
 libquicr includes C Bridge interfaces for C applications:
 
-#### Building C Bridge
+### Building C Bridge
 The C Bridge provides a C wrapper around the C++ libquicr library.
 
 See [c-bridge/README.md](c-bridge/README.md) for details.
@@ -232,13 +175,15 @@ API documentation can be generated using `make doc`
 
 Below programs need to be installed.
 
-Example on MacOS:
+### Example on MacOS:
 
-* `brew install doxygen`
-* `brew install npm`
-* `brew install pandoc`
-* `npm install --global @mermaid-js/mermaid-cli`
-* `npm install --global mermaid-filter`
+```bash
+brew install doxygen
+brew install npm
+brew install pandoc
+npm install --global @mermaid-js/mermaid-cli
+npm install --global mermaid-filter
+```
 
 > [!NOTE]
 > https://github.com/raghur/mermaid-filter adds mermaid support to pandoc
