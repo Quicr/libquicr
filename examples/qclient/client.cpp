@@ -918,8 +918,10 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
 
             if (qclient_vars::publish_clock) {
                 QUICR_LOGGER_INFO(qclient_vars::logger, " Publishing clock timestamp every second");
-            } else {
+            } else if (!qclient_vars::playback && !qclient_vars::watch_path.has_value()) {
                 QUICR_LOGGER_INFO(qclient_vars::logger, " Type message and press enter to send");
+                QUICR_LOGGER_INFO(qclient_vars::logger,
+                                  " Send EOF to stop input (Ctrl+D on macOS/Linux; Ctrl+Z then Enter on Windows)");
             }
 
             QUICR_LOGGER_INFO(qclient_vars::logger,
@@ -1702,8 +1704,10 @@ main(int argc, char* argv[])
         return EXIT_SUCCESS;
     }
 
-    // Install a signal handlers to catch operating system signals
-    installSignalHandlers();
+    // Install signal handlers to catch operating system termination signals.
+    if (!moq_example::InstallSignalHandlers()) {
+        std::cerr << "Failed to install signal handlers" << std::endl;
+    }
 
     // Lock the mutex so that main can then wait on it
     std::unique_lock lock(moq_example::main_mutex);
@@ -1812,8 +1816,15 @@ main(int argc, char* argv[])
               std::thread(DoFetch, fetch_track_name, start_location, end_location, session, std::ref(stop_threads));
         }
 
-        // Wait until told to terminate
-        moq_example::cv.wait(lock, [&]() { return moq_example::terminate; });
+        // Wait until told to terminate, periodically checking the signal-safe flag.
+        while (!moq_example::terminate) {
+            moq_example::cv.wait_for(lock, std::chrono::milliseconds(100));
+
+            if (const int signal = moq_example::ConsumePendingSignal()) {
+                moq_example::termination_reason = moq_example::SignalReason(signal);
+                moq_example::terminate = true;
+            }
+        }
 
         stop_threads = true;
         QUICR_LOGGER_INFO(qclient_vars::logger, "Stopping threads...");

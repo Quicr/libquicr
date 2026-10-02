@@ -55,7 +55,7 @@ set_target_properties(quicr_integration_test
 )
 
 if (WIN32)
-    target_compile_definitions(quicr_integration_test PRIVATE NOMINMAX)
+    target_compile_definitions(quicr_integration_test PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS)
 endif()
 
 set(TEST_KEY ${CMAKE_CURRENT_BINARY_DIR}/server-key.pem)
