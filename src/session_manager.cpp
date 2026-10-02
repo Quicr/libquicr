@@ -174,6 +174,7 @@ namespace quicr {
 
         std::unique_lock lock(mutex_);
         std::condition_variable cv;
+        bool cancelled = false;
 
         transport->OnNewConnection = [&, tick_service = std::move(tick_service)](const auto& connection) {
             auto session = Session::Create(config, transport, connection, std::move(callbacks), tick_service, logger_);
@@ -181,23 +182,25 @@ namespace quicr {
 
             {
                 std::lock_guard _(mutex_);
+                if (cancelled) {
+                    connection->SetDelegate(nullptr);
+                    return;
+                }
                 transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
                 sessions_[connection->GetID()] = std::move(session);
+                cv.notify_all();
             }
-
-            cv.notify_all();
         };
 
         auto connection = transport->Start();
-        if (!connection) {
+        if (!connection || !cv.wait_for(lock,
+                                        std::chrono::milliseconds(config.transport_config.idle_timeout_ms),
+                                        [this, id = connection->GetID()] { return sessions_.contains(id); })) {
+            cancelled = true;
+            lock.unlock();
             transport->Shutdown();
-            return {};
-        }
-
-        if (!cv.wait_for(lock,
-                         std::chrono::milliseconds(config.transport_config.idle_timeout_ms),
-                         [this, id = connection->GetID()] { return sessions_.contains(id); })) {
-            transport->Shutdown();
+            lock.lock();
+            transports_.erase(reinterpret_cast<std::uintptr_t>(transport.get()));
             return {};
         }
 

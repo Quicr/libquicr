@@ -2349,14 +2349,24 @@ PicoQuicTransport::StartClient()
         std::condition_variable cv;
         std::mutex mtx;
         std::uint64_t conn_id{ 0 };
+        bool cancelled{ false };
         std::shared_ptr<PicoQuicConnection> connection;
     };
     auto state = std::make_shared<SharedState>();
     std::unique_lock lock(state->mtx);
 
     RunPqFunction(0, [this, state]() {
-        auto notify_caller = [state](uint64_t id) {
+        auto notify_caller = [this, state](uint64_t id) {
             std::lock_guard _(state->mtx);
+            if (state->cancelled) {
+                return;
+            }
+
+            // On success, notify OnNewConnection before any further network thread work.
+            if (id > 1 && OnNewConnection) {
+                cbNotifyQueue_.Push(
+                  [callback = OnNewConnection, connection = state->connection] { callback(connection); });
+            }
             state->conn_id = id;
 
             // Notify calling thread of connection Id
@@ -2497,11 +2507,6 @@ PicoQuicTransport::StartClient()
             QUICR_LOGGER_INFO(logger, "No priority bypass");
         }
 
-        // The OnNewConnection event has to be first, so we enqueue before notifying.
-        if (OnNewConnection) {
-            cbNotifyQueue_.Push([this, connection = state->connection] { OnNewConnection(connection); });
-        }
-
         notify_caller(reinterpret_cast<uint64_t>(cnx));
 
         return 0;
@@ -2509,7 +2514,9 @@ PicoQuicTransport::StartClient()
 
     QUICR_LOGGER_DEBUG(logger, "Waiting for client connection context");
 
-    state->cv.wait_for(lock, std::chrono::milliseconds(3000), [&state]() { return state->conn_id > 0; });
+    if (!state->cv.wait_for(lock, std::chrono::milliseconds(3000), [&state]() { return state->conn_id > 0; })) {
+        state->cancelled = true;
+    }
 
     QUICR_LOGGER_DEBUG(logger, "Got client connection context conn_id: {}", state->conn_id);
     if (state->conn_id <= 1) {
