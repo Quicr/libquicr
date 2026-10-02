@@ -16,8 +16,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v6
-      with:
-        submodules: recursive
 
     - name: Install Packages
       # Builds against Homebrew's clang rather than the Xcode one. LINT=ON also
