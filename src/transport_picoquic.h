@@ -474,14 +474,6 @@ namespace quicr {
         std::atomic<TransportStatus> transportStatus_;
         std::thread cbNotifyThread_;
 
-        struct
-        {
-            std::jthread handler_thread;
-            SafeQueue<std::function<void()>> handlers;
-            std::mutex mutex;
-            std::condition_variable notifier;
-        } deferred_reply_handler_;
-
         TransportRemote serverInfo_;
         TransportConfig tconfig_;
 

@@ -77,13 +77,8 @@ namespace quicr {
         void Resolve(const std::shared_ptr<Transport>& transport, F&& f)
         {
             if (IsDeferred()) {
-                transport->QueueDeferredReply(
-                  [action = std::move(std::get<DeferType>(result_)), f = std::forward<F>(f)]() mutable {
-                      try {
-                          f(action());
-                      } catch (...) {
-                      }
-                  });
+                transport->QueueDeferredReply([action = std::move(std::get<DeferType>(result_)),
+                                               f = std::forward<F>(f)]() mutable { f(action()); });
                 return;
             }
 
