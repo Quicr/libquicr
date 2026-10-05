@@ -1297,12 +1297,6 @@ namespace quicr {
         ns_handler->SetTransport(GetSharedPtr());
 
         if (!passive) {
-            std::uint64_t request_id;
-            {
-                std::lock_guard lock(state_mutex_);
-                request_id = GetNextRequestID();
-                ns_handler->SetRequestId(request_id);
-            }
 
             QUICR_LOGGER_INFO(logger_, "Publishing to namespace hash: {0} sending ANNOUNCE message", prefix_hash);
 
@@ -1311,10 +1305,17 @@ namespace quicr {
             const auto request_stream = quic_transport_->CreateRequestStream(current_connection_);
             ns_handler->SetRequestStream(request_stream);
 
+            std::uint64_t request_id;
             {
                 std::lock_guard lock(state_mutex_);
-                request_by_stream[request_stream->GetStreamId()] = { .request_id = request_id,
-                                                                     .is_request_stream = true };
+
+                request_id = GetNextRequestID();
+                ns_handler->SetRequestId(request_id);
+
+                request_by_stream[request_stream->GetStreamId()] = {
+                    .request_id = request_id,
+                    .is_request_stream = true,
+                };
                 request_handlers[request_id] = ns_handler;
             }
 
