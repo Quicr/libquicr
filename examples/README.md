@@ -6,7 +6,7 @@ cmake configuration.
 
 ## Server
 
-For an example on a simple server, look at the [integration tests](https://github.com/Quicr/libquicr/tree/main/test/integration_test). For a more complicated example, [LAPS](https://github.com/Quicr/laps) is more a more fleshed out server.
+For an example on a simple server, look at the [integration tests](https://github.com/Quicr/libquicr/tree/main/test/integration_test). For a more complicated example, [LAPS](https://github.com/Quicr/laps) is a more fleshed out server.
 
 ## qClient
 
