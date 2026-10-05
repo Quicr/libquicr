@@ -39,6 +39,9 @@ option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 
 option(WITH_MBEDTLS "Build against MbedTLS rather than OpenSSL" OFF)
+option(QUICR_FETCH_MBEDTLS "Have Quicr fetch a known tested version of MbedTLS" OFF)
+option(QUICR_FETCH_BORINGSSL "Have Quicr fetch a known tested version of BoringSSL" OFF)
+
 option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_USE_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
 
