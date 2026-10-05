@@ -1293,34 +1293,35 @@ namespace quicr {
         QUICR_LOGGER_INFO(
           logger_, "Publish namespace conn_id: {0} hash: {1}", current_connection_->GetID(), prefix_hash);
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+        ns_handler->SetConnectionId(current_connection_->GetID());
+        ns_handler->SetTransport(GetSharedPtr());
 
         if (!passive) {
-            ns_handler->SetRequestId(GetNextRequestID());
+            std::uint64_t request_id;
+            {
+                std::lock_guard lock(state_mutex_);
+                request_id = GetNextRequestID();
+                ns_handler->SetRequestId(request_id);
+            }
 
             QUICR_LOGGER_INFO(logger_, "Publishing to namespace hash: {0} sending ANNOUNCE message", prefix_hash);
-
-            lock.unlock();
 
             ns_handler->SetStatus(PublishNamespaceHandler::Status::kPendingResponse);
 
             const auto request_stream = quic_transport_->CreateRequestStream(current_connection_);
             ns_handler->SetRequestStream(request_stream);
 
-            lock.lock();
+            {
+                std::lock_guard lock(state_mutex_);
+                request_by_stream[request_stream->GetStreamId()] = { .request_id = request_id,
+                                                                     .is_request_stream = true };
+                request_handlers[request_id] = ns_handler;
+            }
 
-            request_by_stream[request_stream->GetStreamId()] = { .request_id = ns_handler->GetRequestId().value(),
-                                                                 .is_request_stream = true };
-
-            request_handlers[*ns_handler->GetRequestId()] = ns_handler;
-            SendPublishNamespace(request_stream, *ns_handler->GetRequestId(), ns_handler->GetPrefix());
-
+            SendPublishNamespace(request_stream, request_id, ns_handler->GetPrefix());
         } else {
             ns_handler->SetStatus(PublishNamespaceHandler::Status::kOk);
         }
-
-        ns_handler->SetConnectionId(current_connection_->GetID());
-        ns_handler->SetTransport(GetSharedPtr());
     }
 
     void Session::PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& track_handler)
