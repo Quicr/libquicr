@@ -2884,7 +2884,7 @@ quicr::PicoQuicTransport::QueueDeferredReply(std::function<void()>&& reply_handl
     deferred_reply_handler_.handlers.Push(std::forward<decltype(reply_handler)>(reply_handler));
     deferred_reply_handler_.notifier.notify_all();
 
-    if (!deferred_reply_handler_.handler_thread.joinable()) {
+    if (deferred_reply_handler_.handler_thread.joinable()) {
         return;
     }
 
