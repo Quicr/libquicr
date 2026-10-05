@@ -31,7 +31,8 @@ namespace quicr {
     {
       public:
         using ResultType = Expected<T, Error<E>>;
-        using DeferType = std::function<ResultType()>;
+        using CompletionType = std::function<void(ResultType)>;
+        using DeferType = std::function<void(CompletionType&&)>;
 
       private:
         Reply(DeferType&& action)
@@ -77,8 +78,11 @@ namespace quicr {
         void Resolve(const std::shared_ptr<Transport>& transport, F&& f)
         {
             if (IsDeferred()) {
-                transport->QueueDeferredReply([action = std::move(std::get<DeferType>(result_)),
-                                               f = std::forward<F>(f)]() mutable { f(action()); });
+                auto action = std::move(std::get<DeferType>(result_));
+                action([transport, f = std::forward<F>(f)](ResultType reply) mutable {
+                    transport->QueueDeferredReply(
+                      [result = std::move(reply), f = std::forward<F>(f)]() mutable { f(result); });
+                });
                 return;
             }
 

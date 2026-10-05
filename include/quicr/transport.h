@@ -437,7 +437,11 @@ namespace quicr {
          */
         virtual void Shutdown() {}
 
+      private:
         virtual void QueueDeferredReply(std::function<void()>&& reply_handler) = 0;
+
+        template<typename T, typename E>
+        friend class Reply;
 
       public:
         std::function<void(const std::shared_ptr<Connection>&)> OnNewConnection;
