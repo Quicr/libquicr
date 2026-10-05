@@ -1312,8 +1312,8 @@ namespace quicr {
             request_by_stream[request_stream->GetStreamId()] = { .request_id = ns_handler->GetRequestId().value(),
                                                                  .is_request_stream = true };
 
-            SendPublishNamespace(request_stream, *ns_handler->GetRequestId(), ns_handler->GetPrefix());
             request_handlers[*ns_handler->GetRequestId()] = ns_handler;
+            SendPublishNamespace(request_stream, *ns_handler->GetRequestId(), ns_handler->GetPrefix());
 
         } else {
             ns_handler->SetStatus(PublishNamespaceHandler::Status::kOk);
