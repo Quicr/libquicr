@@ -24,7 +24,7 @@ namespace quicr {
      */
     struct SetupAttributes
     {
-        const std::string endpoint_id;
+        std::string endpoint_id;
     };
 
     // TODO: Maybe split base attributes out from SUBSCRIBE / PUBLISH?
