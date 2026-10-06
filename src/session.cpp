@@ -1938,29 +1938,41 @@ namespace quicr {
         }
 
         try {
-            std::unique_lock lock(state_mutex_);
+            std::uint64_t request_id = 0;
+            bool is_request_stream = false;
+            bool is_track_status = false;
+            std::shared_ptr<PublishTrackHandler> publish_handler;
+            {
+                std::lock_guard _(state_mutex_);
 
-            const auto req_it = request_by_stream.find(stream_id);
-            if (req_it != request_by_stream.end()) {
-                if (req_it->second.is_request_stream) {
-                    if (flag == StreamClosedFlag::kStopSending) {
-                        return;
+                const auto req_it = request_by_stream.find(stream_id);
+                if (req_it != request_by_stream.end()) {
+                    if (req_it->second.is_request_stream) {
+                        if (flag == StreamClosedFlag::kStopSending) {
+                            return;
+                        }
+                        request_id = req_it->second.request_id;
+                        request_by_stream.erase(req_it);
+                        is_track_status = outbound_track_status.erase(request_id) != 0;
+                        is_request_stream = true;
+                    } else {
+                        const auto handler_it = request_handlers.find(req_it->second.request_id);
+                        if (handler_it != request_handlers.end()) {
+                            publish_handler = handler_it->second->Get<PublishTrackHandler>();
+                        }
                     }
-                    const auto request_id = req_it->second.request_id;
-                    request_by_stream.erase(req_it);
+                }
+            }
 
-                    lock.unlock();
+            if (is_request_stream) {
+                if (!is_track_status) {
                     CloseRequestHandler(request_id, stream_id, flag);
-                    return;
                 }
-                const auto handler_it = request_handlers.find(req_it->second.request_id);
-                if (handler_it != request_handlers.end()) {
-                    if (const auto handler = handler_it->second->Get<PublishTrackHandler>()) {
-                        lock.unlock();
-                        handler->StreamClosed(stream_id, flag != StreamClosedFlag::kFin);
-                        return;
-                    }
-                }
+                return;
+            }
+            if (publish_handler != nullptr) {
+                publish_handler->StreamClosed(stream_id, flag != StreamClosedFlag::kFin);
+                return;
             }
 
         } catch (const std::exception& e) {
