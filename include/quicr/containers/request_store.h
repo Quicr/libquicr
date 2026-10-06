@@ -37,7 +37,7 @@ namespace quicr {
         void Register(std::uint64_t request_id, std::uint64_t stream_id, std::shared_ptr<TrackHandler> handler);
 
         /**
-         * Remove a request and all of its stream mappings. Missing requests are ignored.
+         * Remove a stored request.
          * @throws std::invalid_argument The given request does not exist.
          */
         void Unregister(std::uint64_t request_id);
