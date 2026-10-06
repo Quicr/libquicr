@@ -1030,7 +1030,7 @@ namespace quicr {
 
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->PublishNamespaceDoneReceived(GetSharedPtr(), request_id)
-                  .Resolve([request_id, self = GetSharedPtr()](const auto& result) {
+                  .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
                       if (result) {
                           return;
                       }
@@ -1086,7 +1086,7 @@ namespace quicr {
             lock.unlock();
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->UnsubscribeReceived(GetSharedPtr(), request_id)
-                  .Resolve([request_id, self = GetSharedPtr()](const auto& result) {
+                  .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
                       if (result) {
                           return;
                       }
@@ -1113,7 +1113,7 @@ namespace quicr {
             lock.unlock();
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->UnsubscribeReceived(GetSharedPtr(), request_id)
-                  .Resolve([request_id, self = GetSharedPtr()](const auto& result) {
+                  .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
                       if (result) {
                           return;
                       }
@@ -2594,7 +2594,7 @@ namespace quicr {
                                             .is_publisher_initiated = false,
                                             .start_location = {},
                                           })
-                      .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                      .Resolve(quic_transport_, [=, this, self = GetSharedPtr()](const auto& result) {
                           if (!result) {
                               const auto& [_, reason] = result.error();
 
@@ -2653,7 +2653,7 @@ namespace quicr {
                           }
 
                           callbacks->NewGroupRequested(tfn, *new_group_request_id)
-                            .Resolve([=](const auto& new_group_result) {
+                            .Resolve(quic_transport_, [=](const auto& new_group_result) {
                                 if (new_group_result) {
                                     return;
                                 }
@@ -2802,7 +2802,7 @@ namespace quicr {
 
                 if (callbacks_) {
                     callbacks_->TrackStatusReceived(GetSharedPtr(), request_id, tfn)
-                      .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                      .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                           if (!result) {
                               const auto& [code, reason] = result.error();
 
@@ -2852,7 +2852,7 @@ namespace quicr {
 
                 if (callbacks_) {
                     callbacks_->PublishNamespaceReceived(GetSharedPtr(), track_namespace, { .request_id = request_id })
-                      .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                      .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                           if (!result) {
                               // TODO: Send announce error.
 
@@ -2920,7 +2920,7 @@ namespace quicr {
                         ? callbacks->SubscribeTracksReceived(GetSharedPtr(), track_namespace_prefix, attributes)
                         : callbacks->SubscribeNamespaceReceived(GetSharedPtr(), track_namespace_prefix, attributes);
 
-                    reply.Resolve([=, self = GetSharedPtr()](const auto& result) {
+                    reply.Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                         if (!result) {
                             const auto& [code, reason] = result.error();
                             self->SendRequestError(
@@ -2984,7 +2984,7 @@ namespace quicr {
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
                     callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), track_namespace_suffix)
-                      .Resolve([self = GetSharedPtr()](const auto& result) {
+                      .Resolve(quic_transport_, [self = GetSharedPtr()](const auto& result) {
                           if (result) {
                               return;
                           }
@@ -3038,7 +3038,7 @@ namespace quicr {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                         callbacks->PublishDoneReceived(GetSharedPtr(), request_id)
-                          .Resolve([request_id, self = GetSharedPtr()](const auto& result) {
+                          .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
                               if (result) {
                                   return;
                               }
@@ -3148,7 +3148,7 @@ namespace quicr {
                             };
 
                             callbacks_->StandaloneFetchReceived(GetSharedPtr(), request_id, tfn, attrs)
-                              .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                              .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                                   if (!result) {
                                       const auto& [code, reason] = result.error();
 
@@ -3219,7 +3219,7 @@ namespace quicr {
                             };
 
                             callbacks_->JoiningFetchReceived(GetSharedPtr(), request_id, tfn, attrs)
-                              .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                              .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                                   if (!result) {
                                       const auto& [code, reason] = result.error();
 
@@ -3302,7 +3302,7 @@ namespace quicr {
 
                 if (callbacks_) {
                     callbacks_->PublishReceived(GetSharedPtr(), request_id, publish, sub_ns_handler)
-                      .Resolve([=, self = GetSharedPtr()](const auto& result) {
+                      .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                           if (!result) {
                               const auto& [code, reason] = result.error();
 
@@ -3384,7 +3384,7 @@ namespace quicr {
                     }
 
                     track_it->second->RequestUpdateReceived(parameters)
-                      .Resolve([request_id, self = GetSharedPtr()](const auto& result) {
+                      .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
                           std::lock_guard lock(self->state_mutex_);
 
                           const auto handler_it = self->request_handlers.find(request_id);
@@ -3441,6 +3441,7 @@ namespace quicr {
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                         callbacks->NewGroupRequested(sub_ctx_it->second.track_full_name, new_group_request_id.value())
                           .Resolve(
+                            quic_transport_,
                             [request_id, group_id = *new_group_request_id, self = GetSharedPtr()](const auto& result) {
                                 if (result) {
                                     return;

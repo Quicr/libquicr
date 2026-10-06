@@ -2878,6 +2878,12 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
 }
 
 void
+quicr::PicoQuicTransport::QueueDeferredReply(std::function<void()>&& reply_handler)
+{
+    cbNotifyQueue_.Push(std::move(reply_handler));
+}
+
+void
 PicoQuicTransport::EraseStreamState(const std::shared_ptr<PicoQuicConnection>& connection,
                                     const std::uint64_t stream_id)
 {

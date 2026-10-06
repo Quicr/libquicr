@@ -11,6 +11,7 @@ add_executable(quicr_test
     moq_data_messages.cpp
     picoquic_connection.cpp
     priority_queue.cpp
+    reply.cpp
     track_handlers.cpp
     track_namespace.cpp
     metrics.cpp
