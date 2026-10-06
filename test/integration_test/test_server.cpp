@@ -146,9 +146,9 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
 }
 
 Reply<TrackStatusResponse, RequestErrorCode>
-TestServer::TrackStatusRequestReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
-                                       [[maybe_unused]] std::uint64_t request_id,
-                                       [[maybe_unused]] const FullTrackName& track_full_name)
+TestServer::TrackStatusReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
+                                [[maybe_unused]] std::uint64_t request_id,
+                                [[maybe_unused]] const FullTrackName& track_full_name)
 {
     std::lock_guard _(state_mutex_);
     if (track_status_error_) {

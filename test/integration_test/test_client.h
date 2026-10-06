@@ -79,7 +79,7 @@ namespace quicr_test {
             track_status_response_received_ = std::move(promise);
         }
 
-        void TrackStatusResponseReceived(
+        void TrackStatusOkReceived(
           const std::shared_ptr<quicr::Session>& session,
           std::uint64_t request_id,
           const quicr::Expected<quicr::TrackStatusResponse, quicr::Error<quicr::ErrorCode>>& response) override;

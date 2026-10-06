@@ -2770,7 +2770,7 @@ namespace quicr {
                                                      .track_properties =
                                                        Message::ParseField<messages::TrackExtensions>(msg_bytes) };
                     if (callbacks_) {
-                        callbacks_->TrackStatusResponseReceived(GetSharedPtr(), request_id, response);
+                        callbacks_->TrackStatusOkReceived(GetSharedPtr(), request_id, response);
                     }
                     return true;
                 }
@@ -2816,7 +2816,7 @@ namespace quicr {
                 // TRACK_STATUS_ERROR is a special case because it's not handler based.
                 if (is_track_status) {
                     if (callbacks_) {
-                        callbacks_->TrackStatusResponseReceived(
+                        callbacks_->TrackStatusOkReceived(
                           GetSharedPtr(), request_id, Error<ErrorCode>{ error_code, reason_str });
                     }
                     return true;
@@ -2860,7 +2860,7 @@ namespace quicr {
                 request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
 
                 if (callbacks_) {
-                    callbacks_->TrackStatusRequestReceived(GetSharedPtr(), request_id, tfn)
+                    callbacks_->TrackStatusReceived(GetSharedPtr(), request_id, tfn)
                       .Resolve([=, self = GetSharedPtr()](const auto& result) {
                           if (!result) {
                               const auto& [code, reason] = result.error();

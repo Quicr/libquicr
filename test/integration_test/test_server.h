@@ -359,7 +359,7 @@ namespace quicr_test {
           const quicr::FullTrackName& track_full_name,
           const quicr::SubscribeAttributes& subscribe_attributes) override;
 
-        quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusRequestReceived(
+        quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusReceived(
           const std::shared_ptr<quicr::Session>& session,
           std::uint64_t request_id,
           const quicr::FullTrackName& track_full_name) override;
