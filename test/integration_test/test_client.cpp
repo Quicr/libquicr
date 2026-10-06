@@ -7,8 +7,8 @@ using namespace quicr;
 using namespace quicr_test;
 
 quicr::Expected<void, quicr::Error<quicr::ErrorCode>>
-TestClient::ServerSetupReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
-                                const ServerSetupAttributes& server_setup_attributes)
+TestClient::SetupReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
+                          const SetupAttributes& setup_attributes)
 {
     {
         std::lock_guard lock(status_mutex_);
@@ -16,7 +16,7 @@ TestClient::ServerSetupReceived([[maybe_unused]] const std::shared_ptr<Session>&
     }
 
     if (client_connected_) {
-        client_connected_->set_value(server_setup_attributes);
+        client_connected_->set_value(setup_attributes);
     }
 
     return {};

@@ -107,6 +107,16 @@ namespace quicr_test {
       , public std::enable_shared_from_this<TestServer>
     {
       public:
+        void SetSetupReceivedPromise(std::promise<quicr::SetupAttributes> promise)
+        {
+            std::lock_guard lock(state_mutex_);
+            setup_received_ = std::move(promise);
+        }
+
+        quicr::Expected<void, quicr::Error<quicr::ErrorCode>> SetupReceived(
+          const std::shared_ptr<quicr::Session>& session,
+          const quicr::SetupAttributes& setup_attributes) override;
+
         struct AvailableTrack
         {
             quicr::FullTrackName full_track_name;
@@ -381,6 +391,7 @@ namespace quicr_test {
 
       private:
         mutable std::mutex state_mutex_;
+        std::optional<std::promise<quicr::SetupAttributes>> setup_received_;
 
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<quicr::Error<quicr::RequestErrorCode>> subscribe_error_;

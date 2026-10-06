@@ -573,14 +573,11 @@ class MyClient : public quicr::Session::ClientCallbacks
 
     // -- quicr::Session::ClientCallbacks -------------------------------------------------------
 
-    quicr::Expected<void, quicr::Error<quicr::ErrorCode>> ServerSetupReceived(
+    quicr::Expected<void, quicr::Error<quicr::ErrorCode>> SetupReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-      const quicr::ServerSetupAttributes& server_setup_attributes) override
+      const quicr::SetupAttributes& setup_attributes) override
     {
-        QUICR_LOGGER_INFO(qclient_vars::logger,
-                          "Server setup received from '{}' (MOQT version: {})",
-                          server_setup_attributes.server_id,
-                          server_setup_attributes.moqt_version);
+        QUICR_LOGGER_INFO(qclient_vars::logger, "Setup received from '{}'", setup_attributes.endpoint_id);
         return {};
     }
 

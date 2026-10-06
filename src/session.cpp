@@ -2454,35 +2454,18 @@ namespace quicr {
                     endpoint_id = *endpoint;
                 }
 
-                if (client_mode_) {
-                    if (auto callbacks = std::dynamic_pointer_cast<ClientCallbacks>(callbacks_)) {
-                        const auto result = callbacks->ServerSetupReceived(GetSharedPtr(), { 0, endpoint_id });
-                        if (!result) {
-                            const auto& [code, reason] = result.error();
-                            QUICR_LOGGER_ERROR(logger_,
-                                               "Server setup rejected conn_id: {} code: {} reason: {}",
-                                               current_connection_->GetID(),
-                                               static_cast<std::uint64_t>(code),
-                                               reason.value_or("unknown"));
-                            SetStatus(Status::kInternalError);
-                            Disconnect();
-                            return true;
-                        }
-                    }
-                } else {
-                    if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                        const auto result = callbacks->ClientSetupReceived(GetSharedPtr(), { endpoint_id });
-                        if (!result) {
-                            const auto& [code, reason] = result.error();
-                            QUICR_LOGGER_ERROR(logger_,
-                                               "Client setup rejected conn_id: {} code: {} reason: {}",
-                                               current_connection_->GetID(),
-                                               static_cast<std::uint64_t>(code),
-                                               reason.value_or("unknown"));
-                            SetStatus(Status::kInternalError);
-                            Disconnect();
-                            return true;
-                        }
+                if (callbacks_) {
+                    const auto result = callbacks_->SetupReceived(GetSharedPtr(), { endpoint_id });
+                    if (!result) {
+                        const auto& [code, reason] = result.error();
+                        QUICR_LOGGER_ERROR(logger_,
+                                           "Setup rejected conn_id: {} code: {} reason: {}",
+                                           current_connection_->GetID(),
+                                           static_cast<std::uint64_t>(code),
+                                           reason.value_or("unknown"));
+                        SetStatus(Status::kInternalError);
+                        Disconnect();
+                        return true;
                     }
                 }
 

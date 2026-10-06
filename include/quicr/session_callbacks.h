@@ -115,6 +115,17 @@ namespace quicr {
     {
         virtual ~Callbacks() = default;
 
+        /**
+         * @brief Callback on receipt of the peer's SETUP message
+         *
+         * @details Returning an error disconnects the session.
+         *
+         * @param session          The session receiving SETUP
+         * @param setup_attributes Peer setup attributes received
+         */
+        virtual Expected<void, Error<ErrorCode>> SetupReceived(const std::shared_ptr<Session>& session,
+                                                               const SetupAttributes& setup_attributes);
+
         virtual void OnStreamClosed(std::uint64_t stream_id, StreamClosedFlag flag);
         /**
          * @brief Callback notification for status/state change
@@ -231,17 +242,6 @@ namespace quicr {
         virtual ~ClientCallbacks() = default;
 
         /**
-         * @brief Callback on server setup message
-         *
-         * @details Called when the peer's setup has been received. Client mode only.
-         *
-         * @param server_setup_attributes Server setup attributes received
-         */
-        virtual Expected<void, Error<ErrorCode>> ServerSetupReceived(
-          const std::shared_ptr<Session>& session,
-          const ServerSetupAttributes& server_setup_attributes);
-
-        /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
          *
          * @details Client mode only. When a new subscribe is received that doesn't match any existing publish
@@ -266,17 +266,6 @@ namespace quicr {
         virtual ~ServerCallbacks() = default;
 
         virtual void OnStreamClosed(std::uint64_t stream_id, StreamClosedFlag flag);
-        /**
-         * @brief Callback on client setup message
-         *
-         * @details Called when the peer's setup has been received. Server mode only.
-         *
-         * @param client_setup_attributes Decoded client setup message
-         */
-        virtual Expected<void, Error<ErrorCode>> ClientSetupReceived(
-          const std::shared_ptr<Session>& session,
-          const ClientSetupAttributes& client_setup_attributes);
-
         /**
          * @brief Callback notification for publish namespace done received
          *
