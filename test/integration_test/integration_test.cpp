@@ -3244,7 +3244,7 @@ TEST_CASE("Integration - Track Status")
 
     auto test_track_status = [&](const std::string& protocol_scheme) {
         auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-        auto [subscriber, subscriberClient] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber, subscriber_client] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         FullTrackName ftn;
         ftn.name_space = TrackNamespace(std::vector<std::string>{ "ctrl", "update" });
@@ -3252,10 +3252,11 @@ TEST_CASE("Integration - Track Status")
 
         // Rejected track status is delivered as REQUEST_ERROR.
         {
-            server->SetTrackStatusError(Error{ RequestErrorCode::kDoesNotExist, "Track does not exist" });
+            server->SetTrackStatusError(
+              Error<RequestErrorCode>{ RequestErrorCode::kDoesNotExist, "Track does not exist" });
             std::promise<Expected<TrackStatusResponse, Error<ErrorCode>>> promise;
             auto future = promise.get_future();
-            subscriberClient->SetTrackStatusResponsePromise(std::move(promise));
+            subscriber_client->SetTrackStatusResponsePromise(std::move(promise));
             subscriber->RequestTrackStatus(ftn);
             const auto result = future.wait_for(kDefaultTimeout);
             REQUIRE_EQ(result, std::future_status::ready);
@@ -3275,7 +3276,7 @@ TEST_CASE("Integration - Track Status")
             server->SetTrackStatusResponse(expected);
             std::promise<Expected<TrackStatusResponse, Error<ErrorCode>>> promise;
             auto future = promise.get_future();
-            subscriberClient->SetTrackStatusResponsePromise(std::move(promise));
+            subscriber_client->SetTrackStatusResponsePromise(std::move(promise));
             subscriber->RequestTrackStatus(ftn);
             REQUIRE_EQ(future.wait_for(kDefaultTimeout), std::future_status::ready);
             const auto response = future.get();

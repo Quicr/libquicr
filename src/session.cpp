@@ -2805,7 +2805,7 @@ namespace quicr {
                 if (is_track_status) {
                     if (callbacks_) {
                         callbacks_->TrackStatusResponseReceived(
-                          GetSharedPtr(), request_id, Error{ error_code, reason_str });
+                          GetSharedPtr(), request_id, Error<ErrorCode>{ error_code, reason_str });
                     }
                     return true;
                 }
