@@ -75,6 +75,60 @@ if (WITH_MBEDTLS)
     set(PICOQUIC_ADDITIONAL_CXX_FLAGS -Wno-error=format)
 else ()
     set(WITH_OPENSSL ON)
+
+    if (WITH_BORINGSSL)
+        message(STATUS "Transport building with BoringSSL")
+
+        # Android's NDK ships no linkable system OpenSSL, so pull BoringSSL and use
+        # it as the OpenSSL provider for picotls/picoquic. Pinned to release
+        # 0.20260813.0. EXCLUDE_FROM_ALL keeps its test/tool targets out of the
+        # build; only crypto/ssl/decrepit get pulled in as link dependencies.
+        CPMAddPackage(
+            URI "gh:google/boringssl#7c1efd8d6ffb36a57feba44e8c73cf674801f3cb"
+            EXCLUDE_FROM_ALL YES)
+
+        # picotls' BORINGSSL_ADJUST() and picoquic consume the backend via these names.
+        add_library(BoringSSL::crypto ALIAS crypto)
+        add_library(BoringSSL::ssl ALIAS ssl)
+        add_library(BoringSSL::decrepit ALIAS decrepit)
+
+        # libquicr may be built SHARED, so the static crypto it embeds must be PIC.
+        set_property(TARGET crypto ssl decrepit PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+        # picotls and picoquic each call find_package(OpenSSL); intercept it and
+        # resolve OpenSSL to the in-tree BoringSSL. Mirrors the install() override
+        # at the top of this file. picotls' BORINGSSL_ADJUST() keys off
+        # openssl/base.h in OPENSSL_INCLUDE_DIR and the "BoringSSL::ssl" entry in
+        # OPENSSL_LIBRARIES to wire in the decrepit library it needs.
+        set(QUICR_BORINGSSL_INCLUDE_DIR ${boringssl_SOURCE_DIR}/include)
+        macro(find_package)
+            if ("${ARGV0}" STREQUAL "OpenSSL")
+                set(OPENSSL_FOUND TRUE)
+                set(OPENSSL_VERSION "1.1.1")
+                set(OPENSSL_INCLUDE_DIR ${QUICR_BORINGSSL_INCLUDE_DIR})
+                set(OPENSSL_CRYPTO_LIBRARY BoringSSL::crypto)
+                set(OPENSSL_CRYPTO_LIBRARIES BoringSSL::crypto)
+                set(OPENSSL_SSL_LIBRARY BoringSSL::ssl)
+                set(OPENSSL_LIBRARIES BoringSSL::ssl BoringSSL::crypto)
+            else ()
+                _find_package(${ARGV})
+            endif ()
+        endmacro()
+
+        # picoquic unconditionally exports its targets, and that export pulls in
+        # picotls-openssl -> BoringSSL::decrepit, an in-tree static lib that isn't
+        # part of any export set (generate-time error). libquicr never installs
+        # picoquic, so drop that specific export instead of fighting the export
+        # graph. Composes with the framework install() override above.
+        macro(install)
+            set(_quicr_install_args "${ARGN}")
+            if ("EXPORT" IN_LIST _quicr_install_args AND "picoquic-targets" IN_LIST _quicr_install_args)
+                message(STATUS "Skipping install(EXPORT picoquic-targets) for BoringSSL build")
+            else ()
+                _install(${ARGN})
+            endif ()
+        endmacro()
+    endif()
 endif ()
 
 set(WITH_FUSION OFF)
@@ -113,6 +167,11 @@ set(picoquic_BUILD_TESTS OFF)
 set(PICOQUIC_FETCH_PTLS ON)
 CPMAddPackage("gh:private-octopus/picoquic#poll-recvmmsg")
 add_dependencies(picoquic-core picotls-core)
+
+if (WITH_BORINGSSL)
+    add_dependencies(picotls-openssl crypto ssl decrepit)
+    add_dependencies(picoquic-core crypto ssl)
+endif()
 
 if (WITH_MBEDTLS)
     unset(OPENSSL_INCLUDE_DIR)

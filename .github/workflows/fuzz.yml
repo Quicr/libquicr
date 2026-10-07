@@ -13,7 +13,5 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: recursive
     - name: Fuzz
       run: make fuzz

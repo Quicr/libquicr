@@ -1,0 +1,74 @@
+name: Android
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Release
+  # Minimum Android API level to target.
+  ANDROID_API: 24
+
+jobs:
+  # Android is cross-compiled on a Linux host with the NDK. The resulting
+  # binaries are Android/ARM(+x86_64) and cannot execute on the runner, so this
+  # workflow is build-only. On-device tests would need an emulator, which only
+  # covers the x86/x86_64 ABIs (see the note at the bottom of this file).
+  build:
+    strategy:
+      # One ABI failing shouldn't cancel the others.
+      fail-fast: false
+      matrix:
+        abi: [ arm64-v8a, x86_64 ]
+
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        # BoringSSL generates sources with Go during its build.
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Configure CMake
+        # The NDK toolchain sets CMAKE_SYSTEM_NAME=Android, which makes the root
+        # CMakeLists.txt default WITH_BORINGSSL=ON and pull BoringSSL via CPM
+        # (cmake/QuicrDependencies.cmake) as the OpenSSL provider — the NDK ships
+        # no system OpenSSL. Tests are disabled because the cross-compiled
+        # binaries can't run on the runner.
+        # ANDROID_NDK_LATEST_HOME is provided by the GitHub runner image.
+        run: >
+          cmake -B ${{ github.workspace }}/build
+          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake
+          -DANDROID_ABI=${{ matrix.abi }}
+          -DANDROID_PLATFORM=android-${{ env.ANDROID_API }}
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          -DBUILD_TESTING=OFF
+          -DQUICR_BUILD_TESTS=OFF
+          -DQUICR_BUILD_C_BRIDGE=ON
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} -j
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-${{ matrix.abi }}-build-output
+          # Only the shippable outputs; the full build tree is large and Android
+          # binaries aren't rerun anywhere.
+          path: |
+            ${{ github.workspace }}/build/src/libquicr.a
+            ${{ github.workspace }}/build/c-bridge/libquicr-bridge.a
+            ${{ github.workspace }}/build/**/*.so
+          if-no-files-found: warn
+          retention-days: 5
+
+# On-device testing is intentionally omitted. To add it, run an emulator job
+# (e.g. reactivecircus/android-emulator-runner) on the x86_64 ABI, push the
+# quicr_test binary with `adb push`, and run it via `adb shell`.
