@@ -705,9 +705,9 @@ namespace quicr {
       private:
         void ResetSubgroup(const std::shared_ptr<Stream>& stream);
 
-        std::shared_ptr<Connection> current_connection_;
+        const std::shared_ptr<Connection> current_connection_;
 
-        std::shared_ptr<Callbacks> callbacks_;
+        const std::shared_ptr<Callbacks> callbacks_;
 
         std::optional<std::uint64_t> rx_ctrl_stream_id_;
 
@@ -767,7 +767,7 @@ namespace quicr {
 
         const bool client_mode_;
 
-        std::shared_ptr<Logger> logger_;
+        const std::shared_ptr<Logger> logger_;
 
         bool stop_{ false };
 
@@ -780,9 +780,9 @@ namespace quicr {
         bool local_setup_sent_{ false };
         bool peer_setup_received_{ false };
 
-        std::shared_ptr<timeq::tick_service> tick_service_;
+        const std::shared_ptr<timeq::tick_service> tick_service_;
 
-        std::shared_ptr<Transport> quic_transport_; // **MUST** be last for proper order of destruction
+        const std::shared_ptr<Transport> quic_transport_; // **MUST** be last for proper order of destruction
 
         friend class PublishTrackHandler;
         friend class PublishFetchHandler;
