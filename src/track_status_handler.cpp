@@ -68,8 +68,7 @@ namespace quicr {
 
     void TrackStatusHandler::RequestOkReceived(const messages::Parameters& params)
     {
-        ResponseReceived(
-          { .largest_location = params.GetOptional<messages::Location>(messages::ParameterType::kLargestObject) });
+        throw std::logic_error("TrackStatusHandler should not receive RequestOkReceived");
     }
 
     Reply<messages::Parameters, ErrorCode> TrackStatusHandler::RequestUpdateReceived(const messages::Parameters&)
