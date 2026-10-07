@@ -2467,7 +2467,7 @@ PicoQuicTransport::StartClient()
                                  wt_config_->path.c_str(),
                                  DefaultWebTransportCallback,
                                  this,
-                                 kMoqtAlpn);
+                                 quicr::format("\"{}\"", kMoqtAlpn).c_str());
             if (ret != 0) {
                 QUICR_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
                 notify_caller(1);
@@ -3126,7 +3126,7 @@ PicoQuicTransport::SetupWebTransportConnection(picoquic_cnx_t* cnx)
                              wt_config_->path.c_str(),
                              DefaultWebTransportCallback,
                              this,
-                             kMoqtAlpn);
+                             quicr::format("\"{}\"", kMoqtAlpn).c_str());
         if (ret != 0) {
             QUICR_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
             return ret;
@@ -3206,6 +3206,11 @@ PicoQuicTransport::AcceptWebTransportConnection(picoquic_cnx_t* cnx,
         }
     } else {
         QUICR_LOGGER_INFO(logger, "AcceptWebTransportConnection: no path provided");
+    }
+
+    if (!stream_ctx || picowt_select_wt_protocol(stream_ctx, kMoqtAlpn) != 0) {
+        QUICR_LOGGER_ERROR(logger, "WebTransport connection {} did not offer a supported MoQ protocol", conn_id);
+        return -1;
     }
 
     auto& connection = CreateConnection(cnx);
