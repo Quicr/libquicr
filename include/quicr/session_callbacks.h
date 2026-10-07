@@ -148,13 +148,12 @@ namespace quicr {
          *
          * @details Return the publish response to accept. Defaults to rejecting with `kNotSupported`.
          *
-         * @param request_id         Incoming publish request ID
+         * @param session            The session the callback relates to.
          * @param publish_attributes Attributes of the publish
          * @param sub_ns_handler     Matching subscribe namespace handler, if any
          */
         virtual Reply<const PublishResponse, PublishErrorCode> PublishReceived(
           const std::shared_ptr<Session>& session,
-          std::uint64_t request_id,
           const PublishAttributes& publish_attributes,
           std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler);
 
@@ -163,6 +162,7 @@ namespace quicr {
          *
          * @details Client mode only. Called when a PUBLISH_NAMESPACE is received for a subscribed prefix.
          *
+         * @param session            The session the callback relates to.
          * @param track_namespace                Track namespace
          * @param publish_namespace_attributes   Publish announce attributes received
          */
@@ -174,52 +174,50 @@ namespace quicr {
         /**
          * @brief Event to run on receiving a Standalone Fetch request.
          *
-         * @details Defaults to rejecting with `kInternalError`, since fetch is not served unless implemented.
+         * @details Return fetch metadata and a `PublishFetchHandler` to accept. The session binds the handler to
+         *      the incoming request before marking it ready. Defaults to rejecting with `kInternalError`.
          *
-         * @param request_id        Request ID received.
+         * @param session            The session the callback relates to.
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
          */
         virtual Reply<const FetchResponse, FetchErrorCode> StandaloneFetchReceived(
           const std::shared_ptr<Session>& session,
-          std::uint64_t request_id,
           const FullTrackName& track_full_name,
           const StandaloneFetchAttributes& attributes);
 
         /**
          * @brief Event to run on receiving a Joining Fetch request.
          *
-         * @details Defaults to rejecting with `kInternalError`, since fetch is not served unless implemented.
+         * @details Return fetch metadata and a `PublishFetchHandler` to accept. The session binds the handler to
+         *      the incoming request before marking it ready. Defaults to rejecting with `kInternalError`.
          *
-         * @param request_id        Request ID received.
+         * @param session            The session the callback relates to.
          * @param track_full_name   Track full name
          * @param attributes        Fetch attributes received.
          */
         virtual Reply<const FetchResponse, FetchErrorCode> JoiningFetchReceived(
           const std::shared_ptr<Session>& session,
-          std::uint64_t request_id,
           const FullTrackName& track_full_name,
           const JoiningFetchAttributes& attributes);
 
         /**
          * @brief Callback notification on receiving a FetchCancel message.
          *
-         * @param request_id        Request ID received.
+         * @param session The session the callback relates to.
          */
-        virtual Reply<void, FetchErrorCode> FetchCancelReceived(const std::shared_ptr<Session>& session,
-                                                                std::uint64_t request_id);
+        virtual Reply<void, FetchErrorCode> FetchCancelReceived(const std::shared_ptr<Session>& session);
 
         /**
          * @brief Callback notification for track status message received
          *
          * @details Defaults to accepting with an empty `RequestResponse`.
          *
-         * @param request_id            Request ID received
+         * @param session            The session the callback relates to.
          * @param track_full_name       Track full name
          */
         virtual Reply<TrackStatusResponse, RequestErrorCode> TrackStatusReceived(
           const std::shared_ptr<Session>& session,
-          std::uint64_t request_id,
           const FullTrackName& track_full_name);
     };
 
@@ -235,6 +233,7 @@ namespace quicr {
          *
          * @details Called when the peer's setup has been received. Client mode only.
          *
+         * @param session            The session the callback relates to.
          * @param server_setup_attributes Server setup attributes received
          */
         virtual Expected<void, Error<ErrorCode>> ServerSetupReceived(
@@ -250,6 +249,7 @@ namespace quicr {
          *
          *      Defaults to accepting.
          *
+         * @param session            The session the callback relates to.
          * @param track_full_name      Track full name
          * @param subscribe_attributes Subscribe attributes received
          */
@@ -271,6 +271,7 @@ namespace quicr {
          *
          * @details Called when the peer's setup has been received. Server mode only.
          *
+         * @param session            The session the callback relates to.
          * @param client_setup_attributes Decoded client setup message
          */
         virtual Expected<void, Error<ErrorCode>> ClientSetupReceived(
@@ -284,17 +285,17 @@ namespace quicr {
          *      The app is responsible for forwarding a copy of the publish namespace done message to the
          *      subscribe namespace connections whose prefix matches.
          *
-         * @param request_id        Request ID for the namespace that is done
+         * @param session            The session the callback relates to.
          */
         virtual Reply<void, quicr::PublishNamespaceErrorCode> PublishNamespaceDoneReceived(
-          const std::shared_ptr<Session>& session,
-          std::uint64_t request_id);
+          const std::shared_ptr<Session>& session);
 
         /**
          * @brief Callback notification for unsubscribe namespace received
          *
          * @details Server mode only.
          *
+         * @param session            The session the callback relates to.
          * @param prefix_namespace  Prefix namespace
          */
         virtual Reply<void, ErrorCode> UnsubscribeNamespaceReceived(const std::shared_ptr<Session>& session,
@@ -306,6 +307,7 @@ namespace quicr {
          * @details Server mode only. Accept by returning the namespaces already published under the prefix,
          *      which the session sends with the OK. Defaults to accepting with none.
          *
+         * @param session            The session the callback relates to.
          * @param prefix_namespace   Track namespace prefix
          * @param attributes         Attributes received
          */
@@ -320,6 +322,7 @@ namespace quicr {
          * @details Server mode only. Accept by returning the namespaces already published under the prefix,
          *      which the session sends with the OK. Defaults to accepting with none.
          *
+         * @param session            The session the callback relates to.
          * @param prefix_namespace   Track namespace prefix
          * @param attributes         Attributes received
          */
@@ -331,15 +334,15 @@ namespace quicr {
         /**
          * @brief Callback notification for new subscribe received
          *
-         * @details Server mode only. Defaults to accepting with an empty `RequestResponse`.
+         * @details Server mode only. Return the response and a `PublishTrackHandler` to accept. The session binds
+         *      the handler to the incoming request before marking it ready. Defaults to accepting without a handler.
          *
-         * @param request_id           Request ID received
+         * @param session            The session the callback relates to.
          * @param track_full_name      Track full name
          * @param subscribe_attributes Subscribe attributes received
          */
         virtual Reply<SubscribeResponse, RequestErrorCode> SubscribeReceived(
           const std::shared_ptr<Session>& session,
-          std::uint64_t request_id,
           const FullTrackName& track_full_name,
           const SubscribeAttributes& subscribe_attributes);
 
@@ -348,20 +351,18 @@ namespace quicr {
          *
          * @details Server mode only.
          *
-         * @param request_id        Request ID received
+         * @param session            The session the callback relates to.
          */
-        virtual Reply<void, ErrorCode> UnsubscribeReceived(const std::shared_ptr<Session>& session,
-                                                           std::uint64_t request_id);
+        virtual Reply<void, ErrorCode> UnsubscribeReceived(const std::shared_ptr<Session>& session);
 
         /**
          * @brief Callback notification on publish done received
          *
          * @details Server mode only.
          *
-         * @param request_id        Request ID received
+         * @param session            The session the callback relates to.
          */
-        virtual Reply<void, ErrorCode> PublishDoneReceived(const std::shared_ptr<Session>& session,
-                                                           std::uint64_t request_id);
+        virtual Reply<void, ErrorCode> PublishDoneReceived(const std::shared_ptr<Session>& session);
 
         /**
          * @brief New group requested received by a subscription

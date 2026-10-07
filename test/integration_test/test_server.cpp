@@ -6,9 +6,30 @@
 #include "quicr/session.h"
 
 #include <ranges>
+#include <thread>
 
 using namespace quicr;
 using namespace quicr_test;
+
+namespace {
+    void PublishWhenReady(const std::shared_ptr<PublishFetchHandler>& handler,
+                          std::vector<TestServer::FetchResponseData> responses)
+    {
+        std::thread([handler, responses = std::move(responses)] {
+            const auto ready_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (!handler->CanPublish()) {
+                if (std::chrono::steady_clock::now() >= ready_deadline) {
+                    return;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+
+            for (const auto& response : responses) {
+                handler->PublishObject(response.headers, response.payload);
+            }
+        }).detach();
+    }
+}
 
 void
 TestPublishTrackHandler::StatusChanged(Status status)
@@ -17,7 +38,7 @@ TestPublishTrackHandler::StatusChanged(Status status)
         case Status::kOk: {
             if (auto svr = server_.lock()) {
                 if (svr->publish_accepted_promise_.has_value()) {
-                    svr->publish_accepted_promise_->set_value({ GetRequestId().value(), GetFullTrackName(), {} });
+                    svr->publish_accepted_promise_->set_value({ GetFullTrackName(), {} });
                 }
             }
             break;
@@ -25,7 +46,7 @@ TestPublishTrackHandler::StatusChanged(Status status)
         case Status::kUnsubscribed: {
             if (const auto svr = server_.lock()) {
                 if (svr->unsubscribe_promise_.has_value()) {
-                    svr->unsubscribe_promise_->set_value(GetRequestId().value());
+                    svr->unsubscribe_promise_->set_value(true);
                     svr->unsubscribe_promise_.reset();
                 }
             }
@@ -38,7 +59,6 @@ TestPublishTrackHandler::StatusChanged(Status status)
 
 quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode>
 TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
-                            std::uint64_t request_id,
                             const PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler)
 {
@@ -81,22 +101,33 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
 }
 
 quicr::Reply<void, quicr::ErrorCode>
-TestServer::PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
-                                [[maybe_unused]] std::uint64_t request_id)
+TestServer::PublishDoneReceived(const std::shared_ptr<quicr::Session>& session)
 {
     std::lock_guard lock(state_mutex_);
     return {};
 }
 
+quicr::Reply<void, quicr::ErrorCode>
+quicr_test::TestServer::UnsubscribeNamespaceReceived(const std::shared_ptr<quicr::Session>&,
+                                                     const quicr::TrackNamespace&)
+{
+    return quicr::Reply<void, quicr::ErrorCode>();
+}
+
+quicr::Reply<void, quicr::FetchErrorCode>
+quicr_test::TestServer::FetchCancelReceived(const std::shared_ptr<quicr::Session>&)
+{
+    return quicr::Reply<void, quicr::FetchErrorCode>();
+}
+
 quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode>
 TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
-                              std::uint64_t request_id,
                               const FullTrackName& track_full_name,
                               const SubscribeAttributes& subscribe_attributes)
 {
     std::lock_guard lock(state_mutex_);
 
-    const SubscribeDetails details = { request_id, track_full_name, subscribe_attributes };
+    const SubscribeDetails details = { track_full_name, subscribe_attributes };
     if (subscribe_promise_.has_value()) {
         subscribe_promise_->set_value(details);
     }
@@ -126,9 +157,6 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
     subscribes_[track_alias] = pub_track_handler;
     subscribe_sessions_[track_alias] = session;
 
-    // Bind the publish track handler to send data to the subscriber
-    session->BindPublisherTrack(session->GetConnection()->GetID(), request_id, pub_track_handler, false);
-
     // Link any existing publisher subscribe handlers (possibly from a different
     // connection/session) to forward to this subscriber.
     auto pub_sub_it = pub_subscribes_.find(track_alias);
@@ -142,6 +170,7 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
 
     SubscribeResponse response;
     response.is_publisher_initiated = subscribe_attributes.is_publisher_initiated;
+    response.handler = pub_track_handler;
     return response;
 }
 
@@ -258,7 +287,6 @@ TestServer::PublishNamespaceReceived(const std::shared_ptr<quicr::Session>& sess
 
 quicr::Reply<const quicr::FetchResponse, quicr::FetchErrorCode>
 TestServer::StandaloneFetchReceived(const std::shared_ptr<quicr::Session>& session,
-                                    const std::uint64_t request_id,
                                     const FullTrackName& track_full_name,
                                     const StandaloneFetchAttributes& attrs)
 {
@@ -273,29 +301,20 @@ TestServer::StandaloneFetchReceived(const std::shared_ptr<quicr::Session>& sessi
                                                   .object = fetch_response_data_.back().headers.object_id };
 
     // Publish the response
-    auto pub_fetch_handler =
-      PublishFetchHandler::Create(track_full_name,
-                                  attrs.priority,
-                                  request_id,
-                                  attrs.group_order.value_or(attrs.publisher_default_group_order),
-                                  500);
+    auto pub_fetch_handler = PublishFetchHandler::Create(
+      track_full_name, attrs.priority, attrs.group_order.value_or(attrs.publisher_default_group_order), 500);
+    PublishWhenReady(pub_fetch_handler, fetch_response_data_);
 
-    session->BindFetchTrack(pub_fetch_handler);
-    for (size_t i = 0; i < fetch_response_data_.size(); ++i) {
-        pub_fetch_handler->PublishObject(fetch_response_data_[i].headers, fetch_response_data_[i].payload);
-    }
-
-    return FetchResponse{ largest_location };
+    return FetchResponse{ .largest_location = largest_location, .handler = std::move(pub_fetch_handler) };
 }
 
 quicr::Reply<const quicr::FetchResponse, quicr::FetchErrorCode>
 TestServer::JoiningFetchReceived(const std::shared_ptr<quicr::Session>& session,
-                                 const uint64_t request_id,
                                  const FullTrackName& track_full_name,
                                  const JoiningFetchAttributes& attrs)
 {
     if (joining_fetch_promise_.has_value()) {
-        joining_fetch_promise_->set_value({ session->GetConnection()->GetID(), request_id, track_full_name, attrs });
+        joining_fetch_promise_->set_value({ session->GetConnection()->GetID(), track_full_name, attrs });
         joining_fetch_promise_.reset();
     }
 
@@ -306,18 +325,11 @@ TestServer::JoiningFetchReceived(const std::shared_ptr<quicr::Session>& session,
               std::max(largest_location, messages::Location{ response.headers.group_id, response.headers.object_id });
         }
 
-        auto pub_fetch_handler =
-          PublishFetchHandler::Create(track_full_name,
-                                      attrs.priority,
-                                      request_id,
-                                      attrs.group_order.value_or(attrs.publisher_default_group_order),
-                                      500);
-        session->BindFetchTrack(pub_fetch_handler);
-        for (const auto& response : fetch_response_data_) {
-            pub_fetch_handler->PublishObject(response.headers, response.payload);
-        }
+        auto pub_fetch_handler = PublishFetchHandler::Create(
+          track_full_name, attrs.priority, attrs.group_order.value_or(attrs.publisher_default_group_order), 500);
+        PublishWhenReady(pub_fetch_handler, fetch_response_data_);
 
-        return FetchResponse{ .largest_location = largest_location };
+        return FetchResponse{ .largest_location = largest_location, .handler = std::move(pub_fetch_handler) };
     }
 
     return quicr::Unexpected<quicr::Error<quicr::FetchErrorCode>>(FetchErrorCode::kInternalError,
@@ -325,13 +337,13 @@ TestServer::JoiningFetchReceived(const std::shared_ptr<quicr::Session>& session,
 }
 
 quicr::Reply<void, quicr::ErrorCode>
-TestServer::UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session, const uint64_t request_id)
+TestServer::UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session)
 {
     std::lock_guard lock(state_mutex_);
     if (unsubscribe_received_promise_.has_value()) {
         const auto handler_type =
           expected_unsubscribe_handler_type_.value_or(UnsubscribeReceivedDetails::HandlerType::kSubscribeTrack);
-        unsubscribe_received_promise_->set_value({ .request_id = request_id, .handler_type = handler_type });
+        unsubscribe_received_promise_->set_value({ .handler_type = handler_type });
         unsubscribe_received_promise_.reset();
         expected_unsubscribe_handler_type_.reset();
     }

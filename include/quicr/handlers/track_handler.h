@@ -37,6 +37,8 @@ namespace quicr {
         /// Sends its own request updates, so it reaches the request stream directly. Friendship does not
         /// reach an application's subclass of it, which is the point.
         friend class SubscribeTrackHandler;
+        friend class PublishTrackHandler;
+        friend class PublishFetchHandler;
 
         virtual ~TrackHandler() = default;
 
@@ -74,22 +76,6 @@ namespace quicr {
         {
             return std::dynamic_pointer_cast<T>(shared_from_this());
         }
-
-        /**
-         * @brief Sets the reqeust ID
-         * @details MoQ instance sets the request id based on subscribe track method call. Request
-         *      id is specific to the connection, so it must be set by the moq instance/connection.
-         *
-         * @param request_id          64bit request ID
-         */
-        void SetRequestId(std::optional<uint64_t> request_id) { request_id_ = request_id; }
-
-        /**
-         * @brief Get the request ID
-         *
-         * @return nullopt if not subscribed, otherwise the request ID
-         */
-        std::optional<uint64_t> GetRequestId() const noexcept { return request_id_; }
 
         /**
          * @brief Get the stream ID of the request control stream.
@@ -142,6 +128,10 @@ namespace quicr {
         // Internal
         // --------------------------------------------------------------------------
       private:
+        void SetRequestId(std::optional<uint64_t> request_id) { request_id_ = request_id; }
+
+        std::optional<uint64_t> GetRequestId() const noexcept { return request_id_; }
+
         /**
          * @brief Set the connection ID
          *

@@ -36,7 +36,6 @@ TestClient::PublishNamespaceReceived([[maybe_unused]] const std::shared_ptr<Sess
 
 quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode>
 TestClient::PublishReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
-                            [[maybe_unused]] std::uint64_t request_id,
                             const quicr::PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> ns_handler)
 {

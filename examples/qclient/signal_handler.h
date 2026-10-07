@@ -18,7 +18,7 @@
 
 namespace moq_example {
     std::mutex main_mutex;                     // Main's mutex
-    bool terminate{ false };                   // Termination flag
+    std::atomic<bool> terminate{ false };      // Termination flag
     std::atomic<bool> connected{ false };      // Set once the session reports it's ready
     std::condition_variable cv;                // Main thread waits on this
     const char* termination_reason{ nullptr }; // Termination reason
