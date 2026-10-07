@@ -361,7 +361,6 @@ namespace quicr_test {
 
         quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusReceived(
           const std::shared_ptr<quicr::Session>& session,
-          std::uint64_t request_id,
           const quicr::FullTrackName& track_full_name) override;
 
         quicr::Reply<void, quicr::ErrorCode> PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,

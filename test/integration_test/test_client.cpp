@@ -50,13 +50,3 @@ TestClient::PublishReceived([[maybe_unused]] const std::shared_ptr<Session>& ses
 
     return quicr::PublishResponse{ {}, sub_handler };
 }
-
-void
-TestClient::TrackStatusOkReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
-                                  std::uint64_t request_id,
-                                  const Expected<TrackStatusResponse, Error<ErrorCode>>& response)
-{
-    if (track_status_response_received_) {
-        track_status_response_received_->set_value(response);
-    }
-}

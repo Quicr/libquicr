@@ -214,24 +214,11 @@ namespace quicr {
          *
          * @details Defaults to accepting with an empty `TrackStatusResponse`.
          *
-         * @param request_id            Request ID received
          * @param track_full_name       Track full name
          */
         virtual Reply<TrackStatusResponse, RequestErrorCode> TrackStatusReceived(
           const std::shared_ptr<Session>& session,
-          std::uint64_t request_id,
           const FullTrackName& track_full_name);
-
-        /**
-         * @brief Callback notification for track status repsonse received
-         *
-         * @param session               The session that requested the track status.
-         * @param request_id            ID of the request.
-         * @param response              The response, or error.
-         */
-        virtual void TrackStatusOkReceived(const std::shared_ptr<Session>& session,
-                                           std::uint64_t request_id,
-                                           const Expected<TrackStatusResponse, Error<ErrorCode>>& response);
     };
 
     /**

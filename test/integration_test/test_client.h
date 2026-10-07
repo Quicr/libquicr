@@ -73,17 +73,6 @@ namespace quicr_test {
             return it->second;
         }
 
-        void SetTrackStatusResponsePromise(
-          std::promise<quicr::Expected<quicr::TrackStatusResponse, quicr::Error<quicr::ErrorCode>>> promise)
-        {
-            track_status_response_received_ = std::move(promise);
-        }
-
-        void TrackStatusOkReceived(
-          const std::shared_ptr<quicr::Session>& session,
-          std::uint64_t request_id,
-          const quicr::Expected<quicr::TrackStatusResponse, quicr::Error<quicr::ErrorCode>>& response) override;
-
       protected:
         void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override
         {
@@ -103,7 +92,5 @@ namespace quicr_test {
         std::optional<std::promise<quicr::FullTrackName>> publish_received_;
         std::optional<std::promise<std::uint64_t>> publish_namespace_status_changed_;
         std::shared_ptr<quicr::SubscribeTrackHandler> last_publish_received_sub_handler_;
-        std::optional<std::promise<quicr::Expected<quicr::TrackStatusResponse, quicr::Error<quicr::ErrorCode>>>>
-          track_status_response_received_;
     };
 }

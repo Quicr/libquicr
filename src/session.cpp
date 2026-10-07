@@ -291,22 +291,6 @@ namespace quicr {
         }
     }
 
-    std::uint64_t Session::RequestTrackStatus(const FullTrackName& track_full_name)
-    {
-        // TOOD: Add auth token support.
-
-        std::lock_guard<std::mutex> _(state_mutex_);
-
-        const auto request_id = GetNextRequestID();
-        const auto request_stream = quic_transport_->CreateRequestStream(current_connection_);
-        request_by_stream[request_stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
-        outbound_track_status[request_id] = request_stream;
-
-        SendTrackStatus(request_stream, request_id, track_full_name);
-
-        return request_id;
-    }
-
     void Session::SendSetup()
     try {
         QUICR_LOGGER_DEBUG(logger_, "Sending SETUP to conn_id: {}", current_connection_->GetID());
@@ -789,6 +773,38 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
+    void Session::RequestTrackStatus(std::shared_ptr<TrackStatusHandler> handler)
+    {
+        if (handler == nullptr) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+        if (handler->GetStatus() == TrackStatusHandler::Status::kPendingResponse) {
+            throw std::logic_error("Track status handler already has a pending request");
+        }
+
+        const auto ftn = handler->GetFullTrackName();
+        QUICR_LOGGER_INFO(logger_,
+                          "Requesting track status conn_id: {} tfn: {} ({})",
+                          current_connection_->GetID(),
+                          ftn.NamespaceStr(),
+                          ftn.NameStr());
+        handler->SetStatus(TrackStatusHandler::Status::kPendingResponse);
+
+        std::lock_guard _(state_mutex_);
+
+        const auto request_id = GetNextRequestID();
+        handler->SetRequestId(request_id);
+        handler->SetConnectionId(current_connection_->GetID());
+        handler->SetTransport(GetSharedPtr());
+
+        const auto request_stream = quic_transport_->CreateRequestStream(current_connection_);
+        handler->SetRequestStream(request_stream);
+        request_by_stream[request_stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+        request_handlers[request_id] = std::move(handler);
+
+        SendTrackStatus(request_stream, request_id, ftn);
+    }
+
     void Session::SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
@@ -1069,6 +1085,16 @@ namespace quicr {
         }
 
         const bool is_reset = flag == StreamClosedFlag::kReset;
+
+        if (const auto status_handler = handler_it->second->Get<TrackStatusHandler>()) {
+            request_handlers.erase(handler_it);
+            request_by_stream.erase(stream_id);
+            status_handler->SetRequestStream(nullptr);
+            lock.unlock();
+            status_handler->SetStatus(is_reset ? TrackStatusHandler::Status::kDoneByReset
+                                               : TrackStatusHandler::Status::kDoneByFin);
+            return;
+        }
 
         if (const auto request_stream_id = handler_it->second->GetRequestStreamId()) {
             request_by_stream.erase(*request_stream_id);
@@ -1445,6 +1471,9 @@ namespace quicr {
             } else if (auto h = req->Get<PublishTrackHandler>()) {
                 h->SetStatus(PublishTrackHandler::Status::kNotConnected);
                 h->SetRequestId(std::nullopt);
+            } else if (auto h = req->Get<TrackStatusHandler>()) {
+                h->SetRequestStream(nullptr);
+                h->SetStatus(TrackStatusHandler::Status::kNotConnected);
             }
         }
 
@@ -1940,7 +1969,6 @@ namespace quicr {
         try {
             std::uint64_t request_id = 0;
             bool is_request_stream = false;
-            bool is_track_status = false;
             std::shared_ptr<PublishTrackHandler> publish_handler;
             {
                 std::lock_guard _(state_mutex_);
@@ -1953,7 +1981,6 @@ namespace quicr {
                         }
                         request_id = req_it->second.request_id;
                         request_by_stream.erase(req_it);
-                        is_track_status = outbound_track_status.erase(request_id) != 0;
                         is_request_stream = true;
                     } else {
                         const auto handler_it = request_handlers.find(req_it->second.request_id);
@@ -1965,9 +1992,7 @@ namespace quicr {
             }
 
             if (is_request_stream) {
-                if (!is_track_status) {
-                    CloseRequestHandler(request_id, stream_id, flag);
-                }
+                CloseRequestHandler(request_id, stream_id, flag);
                 return;
             }
             if (publish_handler != nullptr) {
@@ -2743,7 +2768,6 @@ namespace quicr {
             }
             case messages::ControlMessageType::kRequestOk: {
                 std::uint64_t request_id;
-                bool is_track_status;
                 {
                     std::lock_guard lock(state_mutex_);
                     const auto req_it = request_by_stream.find(stream->GetStreamId());
@@ -2755,26 +2779,9 @@ namespace quicr {
                         return true;
                     }
                     request_id = req_it->second.request_id;
-                    is_track_status = outbound_track_status.erase(request_id) != 0;
-                    if (is_track_status) {
-                        request_by_stream.erase(req_it);
-                    }
                 }
 
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
-
-                // TRACK_STATUS_OK is a special case because it's not handler based.
-                if (is_track_status) {
-                    TrackStatusResponse response = { .largest_location = parameters.GetOptional<messages::Location>(
-                                                       messages::ParameterType::kLargestObject),
-                                                     .track_properties =
-                                                       Message::ParseField<messages::TrackExtensions>(msg_bytes) };
-                    if (callbacks_) {
-                        callbacks_->TrackStatusOkReceived(GetSharedPtr(), request_id, response);
-                    }
-                    return true;
-                }
-
                 auto track_it = request_handlers.find(request_id);
                 if (track_it == request_handlers.end()) {
                     QUICR_LOGGER_WARN(logger_,
@@ -2784,12 +2791,27 @@ namespace quicr {
                     return true;
                 }
 
+                if (auto status_handler = track_it->second->Get<TrackStatusHandler>()) {
+                    TrackStatusResponse response = {
+                        .largest_location =
+                          parameters.GetOptional<messages::Location>(messages::ParameterType::kLargestObject),
+                        .track_properties = Message::ParseField<messages::TrackExtensions>(msg_bytes),
+                    };
+                    {
+                        std::lock_guard lock(state_mutex_);
+                        request_by_stream.erase(stream->GetStreamId());
+                        request_handlers.erase(request_id);
+                        status_handler->SetRequestStream(nullptr);
+                    }
+                    status_handler->ResponseReceived(std::move(response));
+                    return true;
+                }
+
                 track_it->second->RequestOkReceived(parameters);
                 return true;
             }
             case messages::ControlMessageType::kRequestError: {
                 std::uint64_t request_id;
-                bool is_track_status;
                 {
                     std::lock_guard lock(state_mutex_);
                     const auto request_it = request_by_stream.find(stream->GetStreamId());
@@ -2802,10 +2824,6 @@ namespace quicr {
                         return true;
                     }
                     request_id = request_it->second.request_id;
-                    is_track_status = outbound_track_status.erase(request_id) != 0;
-                    if (is_track_status) {
-                        request_by_stream.erase(request_it);
-                    }
                 }
                 const auto error_code = messages::Message::ParseField<ErrorCode>(msg_bytes);
                 [[maybe_unused]] const auto retry_interval = messages::Message::ParseField<std::uint64_t>(msg_bytes);
@@ -2813,17 +2831,20 @@ namespace quicr {
 
                 std::string reason_str(error_reason.begin(), error_reason.end());
 
-                // TRACK_STATUS_ERROR is a special case because it's not handler based.
-                if (is_track_status) {
-                    if (callbacks_) {
-                        callbacks_->TrackStatusOkReceived(
-                          GetSharedPtr(), request_id, Error<ErrorCode>{ error_code, reason_str });
+                auto track_it = request_handlers.find(request_id);
+                if (auto status_handler =
+                      track_it == request_handlers.end() ? nullptr : track_it->second->Get<TrackStatusHandler>()) {
+                    {
+                        std::lock_guard lock(state_mutex_);
+                        request_by_stream.erase(stream->GetStreamId());
+                        request_handlers.erase(request_id);
+                        status_handler->SetRequestStream(nullptr);
                     }
+                    status_handler->RequestError(error_code, reason_str);
                     return true;
                 }
 
                 if (client_mode_) {
-                    auto track_it = request_handlers.find(request_id);
                     if (track_it == request_handlers.end()) {
                         QUICR_LOGGER_WARN(logger_,
                                           "Received REQUEST_ERROR to unknown track conn_id: {} request_id: {}, ignored",
@@ -2860,7 +2881,7 @@ namespace quicr {
                 request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
 
                 if (callbacks_) {
-                    callbacks_->TrackStatusReceived(GetSharedPtr(), request_id, tfn)
+                    callbacks_->TrackStatusReceived(GetSharedPtr(), tfn)
                       .Resolve([=, self = GetSharedPtr()](const auto& result) {
                           if (!result) {
                               const auto& [code, reason] = result.error();

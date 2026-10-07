@@ -51,16 +51,11 @@ namespace quicr {
         return {};
     }
 
-    Reply<TrackStatusResponse, RequestErrorCode>
-    Session::Callbacks::TrackStatusReceived(const std::shared_ptr<Session>&, std::uint64_t, const FullTrackName&)
+    Reply<TrackStatusResponse, RequestErrorCode> Session::Callbacks::TrackStatusReceived(
+      const std::shared_ptr<Session>&,
+      const FullTrackName&)
     {
         return TrackStatusResponse{};
-    }
-
-    void Session::Callbacks::TrackStatusOkReceived(const std::shared_ptr<Session>& session,
-                                                   std::uint64_t request_id,
-                                                   const Expected<TrackStatusResponse, Error<ErrorCode>>& response)
-    {
     }
 
     // -- Session::ClientCallbacks ---------------------------------------------------------------

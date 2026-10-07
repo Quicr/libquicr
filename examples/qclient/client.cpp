@@ -678,14 +678,10 @@ class MyClient : public quicr::Session::ClientCallbacks
 
     quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-      std::uint64_t request_id,
       const quicr::FullTrackName& track_full_name) override
     {
         const auto largest_location = GetLargestAvailable(track_full_name);
-        QUICR_LOGGER_INFO(qclient_vars::logger,
-                          "Track status requested request_id: {} track: {}",
-                          request_id,
-                          track_full_name.NameStr());
+        QUICR_LOGGER_INFO(qclient_vars::logger, "Track status requested track: {}", track_full_name.NameStr());
 
         return quicr::TrackStatusResponse{
             .largest_location = largest_location,
@@ -1790,7 +1786,7 @@ main(int argc, char* argv[])
                                                                            result["sub_name"].as<std::string>());
 
             if (qclient_vars::req_track_status) {
-                session->RequestTrackStatus(sub_track_name);
+                session->RequestTrackStatus(quicr::TrackStatusHandler::Create(sub_track_name));
             }
 
             sub_thread =

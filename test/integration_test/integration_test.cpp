@@ -3240,55 +3240,35 @@ namespace quicr {
 TEST_CASE("Integration - Track Status")
 {
     SessionManager session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 4);
+    const auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_track_status = [&](const std::string& protocol_scheme) {
-        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
         auto [subscriber, subscriber_client] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const FullTrackName track{ TrackNamespace(std::vector<std::string>{ "ctrl", "update" }), { 4, 5, 6 } };
+        const TrackStatusResponse expected{
+            .largest_location = messages::Location{ 1, 2 },
+            .track_properties =
+              messages::TrackExtensions{}
+                .Add(messages::ExtensionType::kDynamicGroups, true)
+                .AddImmutable(messages::ExtensionType::kDefaultPublisherGroupOrder, messages::GroupOrder::kAscending),
+        };
+        server->SetTrackStatusResponse(expected);
+        auto handler = TrackStatusHandler::Create(track);
+        CHECK_EQ(handler->GetStatus(), TrackStatusHandler::Status::kNotRequested);
+        CHECK_FALSE(handler->GetResponse().has_value());
+        CHECK_FALSE(handler->GetError().has_value());
 
-        FullTrackName ftn;
-        ftn.name_space = TrackNamespace(std::vector<std::string>{ "ctrl", "update" });
-        ftn.name = { 4, 5, 6 };
-
-        // Rejected track status is delivered as REQUEST_ERROR.
-        {
-            server->SetTrackStatusError(
-              Error<RequestErrorCode>{ RequestErrorCode::kDoesNotExist, "Track does not exist" });
-            std::promise<Expected<TrackStatusResponse, Error<ErrorCode>>> promise;
-            auto future = promise.get_future();
-            subscriber_client->SetTrackStatusResponsePromise(std::move(promise));
-            subscriber->RequestTrackStatus(ftn);
-            const auto result = future.wait_for(kDefaultTimeout);
-            REQUIRE_EQ(result, std::future_status::ready);
-            const auto resolved = future.get();
-            CHECK_EQ(resolved.error().reason_code, ErrorCode::kDoesNotExist);
-        }
-
-        // Accepted track status goes through with expected result.
-        {
-            server->SetTrackStatusError(std::nullopt);
-            const TrackStatusResponse expected{ .largest_location = messages::Location{ 1, 2 },
-                                                .track_properties =
-                                                  messages::TrackExtensions{}
-                                                    .Add(messages::ExtensionType::kDynamicGroups, true)
-                                                    .AddImmutable(messages::ExtensionType::kDefaultPublisherGroupOrder,
-                                                                  messages::GroupOrder::kAscending) };
-            server->SetTrackStatusResponse(expected);
-            std::promise<Expected<TrackStatusResponse, Error<ErrorCode>>> promise;
-            auto future = promise.get_future();
-            subscriber_client->SetTrackStatusResponsePromise(std::move(promise));
-            subscriber->RequestTrackStatus(ftn);
-            REQUIRE_EQ(future.wait_for(kDefaultTimeout), std::future_status::ready);
-            const auto response = future.get();
-            CHECK_EQ(response.value(), expected);
-        }
+        subscriber->RequestTrackStatus(handler);
+        REQUIRE(WaitFor([&] { return handler->GetStatus() == TrackStatusHandler::Status::kOk; }));
+        REQUIRE(handler->GetResponse().has_value());
+        CHECK(handler->GetResponse().value() == expected);
+        CHECK_FALSE(handler->GetError().has_value());
     };
 
     SUBCASE("Raw QUIC")
     {
         test_track_status("moq");
     }
-
     SUBCASE("WebTransport")
     {
         test_track_status("https");
