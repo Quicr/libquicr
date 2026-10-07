@@ -2759,19 +2759,16 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kRequestOk: {
-                std::uint64_t request_id;
-                {
-                    std::lock_guard lock(state_mutex_);
-                    const auto req_it = request_by_stream.find(stream->GetStreamId());
-                    if (req_it == request_by_stream.end()) {
-                        QUICR_LOGGER_WARN(logger_,
-                                          "Received REQUEST_OK for unknown request conn_id: {} stream_id: {}, ignored",
-                                          current_connection_->GetID(),
-                                          stream->GetStreamId());
-                        return true;
-                    }
-                    request_id = req_it->second.request_id;
+                // What request is this for?
+                const auto req_it = request_by_stream.find(stream->GetStreamId());
+                if (req_it == request_by_stream.end()) {
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received REQUEST_OK for unknown request conn_id: {} stream_id: {}, ignored",
+                                      current_connection_->GetID(),
+                                      stream->GetStreamId());
+                    return true;
                 }
+                const auto request_id = req_it->second.request_id;
 
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 auto track_it = request_handlers.find(request_id);
@@ -2803,20 +2800,15 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kRequestError: {
-                std::uint64_t request_id;
-                {
-                    std::lock_guard lock(state_mutex_);
-                    const auto request_it = request_by_stream.find(stream->GetStreamId());
-                    if (request_it == request_by_stream.end()) {
-                        QUICR_LOGGER_WARN(
-                          logger_,
-                          "Received REQUEST_ERROR for unknown request conn_id: {} stream_id: {}, ignored",
-                          current_connection_->GetID(),
-                          stream->GetStreamId());
-                        return true;
-                    }
-                    request_id = request_it->second.request_id;
+                const auto request_it = request_by_stream.find(stream->GetStreamId());
+                if (request_it == request_by_stream.end()) {
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received REQUEST_ERROR for unknown request conn_id: {} stream_id: {}, ignored",
+                                      current_connection_->GetID(),
+                                      stream->GetStreamId());
+                    return true;
                 }
+                const auto request_id = request_it->second.request_id;
                 const auto error_code = messages::Message::ParseField<ErrorCode>(msg_bytes);
                 [[maybe_unused]] const auto retry_interval = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
