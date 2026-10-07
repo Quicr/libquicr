@@ -1928,31 +1928,36 @@ namespace quicr {
         }
 
         try {
-            std::unique_lock lock(state_mutex_);
-
-            const auto req_it = request_by_stream.find(stream_id);
-            if (req_it != request_by_stream.end()) {
-                if (req_it->second.is_request_stream) {
-                    if (flag == StreamClosedFlag::kStopSending) {
-                        return;
-                    }
-                    const auto request_id = req_it->second.request_id;
-                    request_by_stream.erase(req_it);
-
-                    lock.unlock();
-                    CloseRequestHandler(request_id, stream_id, flag);
-                    return;
-                }
-                const auto handler_it = request_handlers.find(req_it->second.request_id);
-                if (handler_it != request_handlers.end()) {
-                    if (const auto handler = handler_it->second->Get<PublishTrackHandler>()) {
-                        lock.unlock();
-                        handler->StreamClosed(stream_id, flag != StreamClosedFlag::kFin);
-                        return;
+            std::optional<std::uint64_t> request_id;
+            std::shared_ptr<PublishTrackHandler> publish_handler;
+            {
+                std::lock_guard _(state_mutex_);
+                const auto req_it = request_by_stream.find(stream_id);
+                if (req_it != request_by_stream.end()) {
+                    if (req_it->second.is_request_stream) {
+                        if (flag == StreamClosedFlag::kStopSending) {
+                            return;
+                        }
+                        request_id = req_it->second.request_id;
+                        request_by_stream.erase(req_it);
+                    } else {
+                        const auto handler_it = request_handlers.find(req_it->second.request_id);
+                        if (handler_it != request_handlers.end()) {
+                            publish_handler = handler_it->second->Get<PublishTrackHandler>();
+                        }
                     }
                 }
             }
-
+            // If this was a request stream, the request is over.
+            if (request_id.has_value()) {
+                CloseRequestHandler(*request_id, stream_id, flag);
+                return;
+            }
+            // If this was a data stream, notify the handler.
+            if (publish_handler) {
+                publish_handler->StreamClosed(stream_id, flag != StreamClosedFlag::kFin);
+                return;
+            }
         } catch (const std::exception& e) {
             QUICR_LOGGER_ERROR(logger_, "Caught exception on stream closed: {}", e.what());
             return;

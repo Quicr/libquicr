@@ -421,8 +421,7 @@ namespace quicr {
                 std::shared_ptr<timeq::tick_service> tick_service,
                 std::shared_ptr<Logger> logger);
 
-        void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override
-          QUICR_NO_THREAD_SAFETY_ANALYSIS; // TODO: Make provably safe and remove.
+        void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override;
 
       private:
         /*===================================================================*/
