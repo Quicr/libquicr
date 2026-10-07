@@ -50,6 +50,7 @@ namespace quicr {
     {
         bool is_publisher_initiated = false;
         std::optional<std::chrono::milliseconds> expires{};
+        std::shared_ptr<PublishTrackHandler> handler;
     };
 
     /**
@@ -59,6 +60,7 @@ namespace quicr {
     {
         std::optional<messages::Location> largest_location = std::nullopt;
         messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+        std::shared_ptr<PublishFetchHandler> handler;
     };
 
     /**
@@ -296,33 +298,14 @@ namespace quicr {
          *
          * @param track_full_name           Track full name
          * @param subscribe_attributes      Subscribe attributes for track status
-         *
-         * @returns Request ID that is used for the track status request
          */
-        std::uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
-                                         const SubscribeAttributes& subscribe_attributes);
+        void RequestTrackStatus(const FullTrackName& track_full_name, const SubscribeAttributes& subscribe_attributes);
 
         // --BEGIN SERVER RELAY METHODS ----------------------------------------------------------------------
         /** @name Server Relay Methods
          *      Methods for relaying published content to subscribers. Server mode only.
          */
         ///@{
-
-        /**
-         * @brief Bind a server publish track handler based on a subscribe
-         *
-         * @details The server will create a server publish track handler based on a received subscribe. It will
-         *      use this handler to send objects to the subscriber.
-         *
-         * @param src_id            Connection or peering ID for publisher origin
-         * @param request_id        Request ID from the received subscribe
-         * @param track_handler     Server publish track handler
-         * @param ephemeral         Indicates if persistent state tracking is needed
-         */
-        void BindPublisherTrack(std::uint64_t src_id,
-                                uint64_t request_id,
-                                const std::shared_ptr<PublishTrackHandler>& track_handler,
-                                bool ephemeral = false);
 
         /**
          * @brief Unbind a server publish track handler
@@ -336,13 +319,6 @@ namespace quicr {
         void UnbindPublisherTrack(std::uint64_t src_id,
                                   const std::shared_ptr<PublishTrackHandler>& track_handler,
                                   bool send_publish_done = false);
-
-        /**
-         * @brief Bind a server fetch publisher track handler
-         *
-         * @param track_handler The fetch publisher
-         */
-        void BindFetchTrack(std::shared_ptr<PublishFetchHandler> track_handler);
 
         /**
          * @brief Unbind a server fetch publisher track handler
@@ -703,6 +679,13 @@ namespace quicr {
                                const Transport::EnqueueFlags flags);
 
       private:
+        void BindPublisherTrack(std::uint64_t src_id,
+                                std::uint64_t request_id,
+                                const std::shared_ptr<PublishTrackHandler>& track_handler,
+                                bool ephemeral);
+
+        void BindFetchTrack(std::uint64_t request_id, const std::shared_ptr<PublishFetchHandler>& track_handler);
+
         void ResetSubgroup(const std::shared_ptr<Stream>& stream);
 
         std::shared_ptr<Connection> current_connection_;

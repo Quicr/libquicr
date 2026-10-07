@@ -15,9 +15,7 @@ namespace quicr {
      * @details Various attributes relative to the publish namespace
      */
     struct PublishNamespaceAttributes
-    {
-        std::uint64_t request_id{ 0 };
-    };
+    {};
 
     /**
      * @brief Client Setup Attributes
@@ -103,14 +101,12 @@ namespace quicr {
         messages::GroupOrder publisher_default_group_order{
             messages::GroupOrder::kAscending
         }; ///< Publisher track default group order
-        std::uint64_t joining_request_id{ 0 }; ///< Fetch joining request_id
-        bool relative{ false };                ///< True indicates relative to largest, False indicates absolute
-        std::uint64_t joining_start{ 0 };      ///< Fetch joining start
+        bool relative{ false };           ///< True indicates relative to largest, False indicates absolute
+        std::uint64_t joining_start{ 0 }; ///< Fetch joining start
     };
 
     struct SubscribeNamespaceAttributes
     {
-        uint64_t request_id{ 0 };
         messages::FilterType filter_type{ messages::FilterType::kTrackFilter };
         messages::Filter filter{ std::monostate{} };
     };

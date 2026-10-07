@@ -12,26 +12,24 @@ namespace quicr {
       protected:
         PublishFetchHandler(const FullTrackName& full_track_name,
                             uint8_t priority,
-                            uint64_t subscribe_id,
                             messages::GroupOrder group_order,
                             uint32_t ttl)
           : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, ttl)
           , group_order_(group_order)
           , serialization_state_(group_order)
         {
-            SetRequestId(subscribe_id);
         }
 
       public:
         static std::shared_ptr<PublishFetchHandler> Create(const FullTrackName& full_track_name,
                                                            uint8_t priority,
-                                                           uint64_t subscribe_id,
                                                            messages::GroupOrder group_order,
                                                            uint32_t ttl)
         {
             return std::shared_ptr<PublishFetchHandler>(
-              new PublishFetchHandler(full_track_name, priority, subscribe_id, group_order, ttl));
+              new PublishFetchHandler(full_track_name, priority, group_order, ttl));
         }
+
         PublishObjectStatus PublishObject(
           const ObjectHeaders& object_headers,
           BytesSpan data,

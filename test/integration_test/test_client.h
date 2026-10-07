@@ -55,9 +55,9 @@ namespace quicr_test {
 
         quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> PublishReceived(
           const std::shared_ptr<quicr::Session>& session,
-          uint64_t request_id,
           const quicr::PublishAttributes& publish_attributes,
           std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;
+
         /**
          * Check the state of a stream.
          * @param stream_id The stream to query.

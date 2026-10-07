@@ -291,15 +291,13 @@ namespace quicr {
         }
     }
 
-    std::uint64_t Session::RequestTrackStatus(const FullTrackName& track_full_name, const SubscribeAttributes&)
+    void Session::RequestTrackStatus(const FullTrackName& track_full_name, const SubscribeAttributes&)
     {
         std::lock_guard<std::mutex> _(state_mutex_);
 
         auto request_id = GetNextRequestID();
 
         SendTrackStatus(request_id, track_full_name);
-
-        return request_id;
     }
 
     void Session::SendSetup()
@@ -1029,7 +1027,7 @@ namespace quicr {
             lock.unlock();
 
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                callbacks->PublishNamespaceDoneReceived(GetSharedPtr(), request_id)
+                callbacks->PublishNamespaceDoneReceived(GetSharedPtr())
                   .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
                       if (result) {
                           return;
@@ -1085,7 +1083,7 @@ namespace quicr {
 
             lock.unlock();
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id)
+                callbacks->UnsubscribeReceived(GetSharedPtr())
                   .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
                       if (result) {
                           return;
@@ -1112,7 +1110,7 @@ namespace quicr {
 
             lock.unlock();
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id)
+                callbacks->UnsubscribeReceived(GetSharedPtr())
                   .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
                       if (result) {
                           return;
@@ -2326,7 +2324,7 @@ namespace quicr {
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+        std::lock_guard _(state_mutex_);
 
         if (!track_handler->GetTrackAlias().has_value()) {
             track_handler->SetTrackAlias(th.track_fullname_hash);
@@ -2350,9 +2348,6 @@ namespace quicr {
             pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
             pub_tracks_by_track_alias[th.track_fullname_hash][src_id] = track_handler;
         }
-
-        lock.unlock();
-        track_handler->SetStatus(PublishTrackHandler::Status::kOk);
     }
 
     void Session::UnbindPublisherTrack(std::uint64_t src_id,
@@ -2405,20 +2400,17 @@ namespace quicr {
         track_handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
     }
 
-    void Session::BindFetchTrack(std::shared_ptr<PublishFetchHandler> track_handler)
+    void Session::BindFetchTrack(std::uint64_t request_id, const std::shared_ptr<PublishFetchHandler>& track_handler)
     {
-        const std::uint64_t request_id = *track_handler->GetRequestId();
         QUICR_LOGGER_INFO(
-          logger_, "Publish fetch track conn_id: {} subscribe: {}", current_connection_->GetID(), request_id);
+          logger_, "Publish fetch track conn_id: {} request_id: {}", current_connection_->GetID(), request_id);
 
         std::lock_guard lock(state_mutex_);
 
-        track_handler->SetStatus(PublishFetchHandler::Status::kOk);
+        track_handler->SetRequestId(request_id);
         track_handler->connection_id_ = current_connection_->GetID();
 
         track_handler->SetTransport(GetSharedPtr());
-
-        // Hold ref to track handler
         pub_fetch_tracks_by_request_id[request_id] = track_handler;
     }
 
@@ -2426,13 +2418,15 @@ namespace quicr {
     {
         std::lock_guard lock(state_mutex_);
 
-        auto request_id = *track_handler->GetRequestId();
+        const auto request_id = track_handler->GetRequestId();
         QUICR_LOGGER_DEBUG(logger_,
-                           "Server publish fetch track conn_id: {} subscribe id: {} unbind",
+                           "Server publish fetch track conn_id: {} request_id: {} unbind",
                            current_connection_->GetID(),
-                           request_id);
+                           request_id.value_or(0));
 
-        pub_fetch_tracks_by_request_id.erase(request_id);
+        if (request_id) {
+            pub_fetch_tracks_by_request_id.erase(*request_id);
+        }
 
         // Drain before closing: the fetch's objects are queued on its stream, and unbinding is the
         // normal end of a completed fetch rather than an abort.
@@ -2580,7 +2574,6 @@ namespace quicr {
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     callbacks
                       ->SubscribeReceived(GetSharedPtr(),
-                                          request_id,
                                           tfn,
                                           {
                                             .priority = priority,
@@ -2623,6 +2616,11 @@ namespace quicr {
                               response.track_properties.Add(ExtensionType::kDynamicGroups, true);
                           }
 
+                          if (response.handler) {
+                              self->BindPublisherTrack(
+                                self->current_connection_->GetID(), request_id, response.handler, false);
+                          }
+
                           if (self->client_mode_) {
                               self->SendSubscribeOk(
                                 self->ResponseStream(request_id), request_id, th.track_fullname_hash, response);
@@ -2646,6 +2644,10 @@ namespace quicr {
                                   self->SendSubscribeOk(
                                     self->ResponseStream(request_id), request_id, th.track_fullname_hash, response);
                               }
+                          }
+
+                          if (response.handler) {
+                              response.handler->SetStatus(PublishTrackHandler::Status::kOk);
                           }
 
                           if (!new_group_request_id.has_value()) {
@@ -2801,7 +2803,7 @@ namespace quicr {
                 request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
 
                 if (callbacks_) {
-                    callbacks_->TrackStatusReceived(GetSharedPtr(), request_id, tfn)
+                    callbacks_->TrackStatusReceived(GetSharedPtr(), tfn)
                       .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                           if (!result) {
                               const auto& [code, reason] = result.error();
@@ -2851,7 +2853,7 @@ namespace quicr {
                 request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
 
                 if (callbacks_) {
-                    callbacks_->PublishNamespaceReceived(GetSharedPtr(), track_namespace, { .request_id = request_id })
+                    callbacks_->PublishNamespaceReceived(GetSharedPtr(), track_namespace, {})
                       .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                           if (!result) {
                               // TODO: Send announce error.
@@ -2908,7 +2910,6 @@ namespace quicr {
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     const SubscribeNamespaceAttributes attributes{
-                        .request_id = request_id,
                         .filter_type = messages::FilterType::kTrackFilter,
                         .filter = filter,
                     };
@@ -3037,7 +3038,7 @@ namespace quicr {
                 if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                        callbacks->PublishDoneReceived(GetSharedPtr(), request_id)
+                        callbacks->PublishDoneReceived(GetSharedPtr())
                           .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
                               if (result) {
                                   return;
@@ -3147,7 +3148,7 @@ namespace quicr {
                                 .end_location = end_location,
                             };
 
-                            callbacks_->StandaloneFetchReceived(GetSharedPtr(), request_id, tfn, attrs)
+                            callbacks_->StandaloneFetchReceived(GetSharedPtr(), tfn, attrs)
                               .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                                   if (!result) {
                                       const auto& [code, reason] = result.error();
@@ -3168,7 +3169,15 @@ namespace quicr {
                                       return;
                                   }
 
+                                  if (result->handler) {
+                                      self->BindFetchTrack(request_id, result->handler);
+                                  }
+
                                   self->ResolveFetch(request_id, group_order, result.value());
+
+                                  if (result->handler) {
+                                      result->handler->SetStatus(PublishFetchHandler::Status::kOk);
+                                  }
                               });
                         }
 
@@ -3213,12 +3222,11 @@ namespace quicr {
                                 .priority = priority,
                                 .group_order = group_order,
                                 .publisher_default_group_order = messages::GroupOrder::kAscending,
-                                .joining_request_id = joining_request_id,
                                 .relative = relative_joining,
                                 .joining_start = joining_start,
                             };
 
-                            callbacks_->JoiningFetchReceived(GetSharedPtr(), request_id, tfn, attrs)
+                            callbacks_->JoiningFetchReceived(GetSharedPtr(), tfn, attrs)
                               .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                                   if (!result) {
                                       const auto& [code, reason] = result.error();
@@ -3239,7 +3247,15 @@ namespace quicr {
                                       return;
                                   }
 
+                                  if (result->handler) {
+                                      self->BindFetchTrack(request_id, result->handler);
+                                  }
+
                                   self->ResolveFetch(request_id, group_order, result.value());
+
+                                  if (result->handler) {
+                                      result->handler->SetStatus(PublishFetchHandler::Status::kOk);
+                                  }
                               });
                         }
                         return true;
@@ -3301,7 +3317,7 @@ namespace quicr {
                 }
 
                 if (callbacks_) {
-                    callbacks_->PublishReceived(GetSharedPtr(), request_id, publish, sub_ns_handler)
+                    callbacks_->PublishReceived(GetSharedPtr(), publish, sub_ns_handler)
                       .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                           if (!result) {
                               const auto& [code, reason] = result.error();

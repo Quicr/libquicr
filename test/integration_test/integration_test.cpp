@@ -1118,14 +1118,14 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
         std::future<TestServer::SubscribeDetails> sub_future = sub_promise.get_future();
         server->SetSubscribePromise(std::move(sub_promise));
 
-        std::promise<uint64_t> unsub_promise;
-        std::future<uint64_t> unsub_future = unsub_promise.get_future();
+        std::promise<bool> unsub_promise;
+        std::future<bool> unsub_future = unsub_promise.get_future();
         server->SetUnsubscribePromise(std::move(unsub_promise));
 
         // Subscribe and wait for the track to go live.
         CHECK_NOTHROW(session->SubscribeTrack(handler));
         REQUIRE(sub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
-        const auto request_id = sub_future.get().request_id;
+        sub_future.get();
         REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
         REQUIRE(handler->GetRequestStreamId().has_value());
         const auto request_stream_id = handler->GetRequestStreamId().value();
@@ -1143,7 +1143,7 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 
         // Callback should fire.
         REQUIRE(unsub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
-        CHECK_EQ(unsub_future.get(), request_id);
+        CHECK(unsub_future.get());
     };
 
     SUBCASE("Raw QUIC")
@@ -1183,7 +1183,7 @@ TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client Uns
 
         CHECK_NOTHROW(session->SubscribeTrack(handler));
         REQUIRE(sub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
-        const auto request_id = sub_future.get().request_id;
+        sub_future.get();
         REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
         REQUIRE(handler->GetRequestStreamId().has_value());
         const auto request_stream_id = handler->GetRequestStreamId().value();
@@ -1195,7 +1195,6 @@ TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client Uns
 
         REQUIRE(unsub_received_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         const auto& details = unsub_received_future.get();
-        CHECK_EQ(details.request_id, request_id);
         CHECK(details.handler_type == TestServer::UnsubscribeReceivedDetails::HandlerType::kSubscribeTrack);
     };
 
@@ -1352,8 +1351,8 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
         std::future<TestServer::PublishNamespaceDetails> recv_future = recv_promise.get_future();
         server->SetPublishNamespacePromise(std::move(recv_promise));
 
-        std::promise<uint64_t> done_promise;
-        std::future<uint64_t> done_future = done_promise.get_future();
+        std::promise<bool> done_promise;
+        std::future<bool> done_future = done_promise.get_future();
         server->SetPublishNamespaceDonePromise(std::move(done_promise));
 
         // Publish a namespace and wait for it to be accepted.
@@ -1363,9 +1362,6 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
         REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == PublishNamespaceHandler::Status::kOk; }));
         REQUIRE(handler->GetRequestStreamId().has_value());
         const auto request_stream_id = handler->GetRequestStreamId().value();
-        REQUIRE(handler->GetRequestId().has_value());
-        const auto request_id = handler->GetRequestId().value();
-
         // Done.
         CHECK_NOTHROW(session->PublishNamespaceDone(handler));
 
@@ -1375,7 +1371,7 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
 
         // Callback fires.
         REQUIRE(done_future.wait_for(kDefaultTimeout) == std::future_status::ready);
-        CHECK_EQ(done_future.get(), request_id);
+        CHECK(done_future.get());
     };
 
     SUBCASE("Raw QUIC")
@@ -1405,7 +1401,6 @@ TEST_CASE("Integration - Fetch")
         session->FetchTrack(handler);
 
         REQUIRE(handler->GetRequestStreamId().has_value());
-        REQUIRE(handler->GetRequestId().has_value());
     };
 
     SUBCASE("Raw QUIC")
@@ -1469,7 +1464,6 @@ TEST_CASE("Integration - Joining Fetch")
 
         CHECK_EQ(fetch.track_full_name.name_space, ftn.name_space);
         CHECK_EQ(fetch.track_full_name.name, ftn.name);
-        CHECK_EQ(fetch.attributes.joining_request_id, subscribe.request_id);
         CHECK_EQ(fetch.attributes.priority, joining_fetch.priority);
         CHECK_EQ(fetch.attributes.group_order, joining_fetch.group_order);
         CHECK_EQ(fetch.attributes.joining_start, joining_fetch.joining_start);
@@ -2172,7 +2166,6 @@ TEST_CASE("Integration - Fetch object roundtrip")
         }
 
         session_mgr.RemoveHandler(session, fetch_handler);
-        CHECK_FALSE(fetch_handler->GetRequestId().has_value());
     };
 
     SUBCASE("Raw QUIC")

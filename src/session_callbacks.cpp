@@ -14,7 +14,6 @@ namespace quicr {
     void Session::Callbacks::OnStreamClosed(std::uint64_t, StreamClosedFlag) {}
     Reply<const PublishResponse, PublishErrorCode> Session::Callbacks::PublishReceived(
       const std::shared_ptr<Session>&,
-      std::uint64_t,
       const PublishAttributes&,
       std::weak_ptr<SubscribeNamespaceHandler>)
     {
@@ -31,7 +30,6 @@ namespace quicr {
 
     Reply<const FetchResponse, FetchErrorCode> Session::Callbacks::StandaloneFetchReceived(
       const std::shared_ptr<Session>&,
-      std::uint64_t,
       const FullTrackName&,
       const StandaloneFetchAttributes&)
     {
@@ -39,20 +37,20 @@ namespace quicr {
     }
 
     Reply<const FetchResponse, FetchErrorCode> Session::Callbacks::JoiningFetchReceived(const std::shared_ptr<Session>&,
-                                                                                        std::uint64_t,
                                                                                         const FullTrackName&,
                                                                                         const JoiningFetchAttributes&)
     {
         return Unexpected<Error<FetchErrorCode>>(FetchErrorCode::kInternalError, "Fetch is not supported");
     }
 
-    Reply<void, FetchErrorCode> Session::Callbacks::FetchCancelReceived(const std::shared_ptr<Session>&, std::uint64_t)
+    Reply<void, FetchErrorCode> Session::Callbacks::FetchCancelReceived(const std::shared_ptr<Session>&)
     {
         return {};
     }
 
-    Reply<TrackStatusResponse, RequestErrorCode>
-    Session::Callbacks::TrackStatusReceived(const std::shared_ptr<Session>&, std::uint64_t, const FullTrackName&)
+    Reply<TrackStatusResponse, RequestErrorCode> Session::Callbacks::TrackStatusReceived(
+      const std::shared_ptr<Session>&,
+      const FullTrackName&)
     {
         return TrackStatusResponse{};
     }
@@ -82,8 +80,7 @@ namespace quicr {
     }
 
     Reply<void, PublishNamespaceErrorCode> Session::ServerCallbacks::PublishNamespaceDoneReceived(
-      const std::shared_ptr<Session>&,
-      std::uint64_t)
+      const std::shared_ptr<Session>&)
     {
         return {};
     }
@@ -112,19 +109,18 @@ namespace quicr {
 
     Reply<SubscribeResponse, RequestErrorCode> Session::ServerCallbacks::SubscribeReceived(
       const std::shared_ptr<Session>&,
-      std::uint64_t,
       const FullTrackName&,
       const SubscribeAttributes&)
     {
         return SubscribeResponse{};
     }
 
-    Reply<void, ErrorCode> Session::ServerCallbacks::UnsubscribeReceived(const std::shared_ptr<Session>&, std::uint64_t)
+    Reply<void, ErrorCode> Session::ServerCallbacks::UnsubscribeReceived(const std::shared_ptr<Session>&)
     {
         return {};
     }
 
-    Reply<void, ErrorCode> Session::ServerCallbacks::PublishDoneReceived(const std::shared_ptr<Session>&, std::uint64_t)
+    Reply<void, ErrorCode> Session::ServerCallbacks::PublishDoneReceived(const std::shared_ptr<Session>&)
     {
         return {};
     }

@@ -88,7 +88,6 @@ nothing to call afterwards.
 ```cpp
 quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode> SubscribeReceived(
   const std::shared_ptr<quicr::Session>& session,
-  std::uint64_t request_id,
   const quicr::FullTrackName& track_full_name,
   const quicr::SubscribeAttributes& attributes) override
 {
@@ -99,6 +98,7 @@ quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode> SubscribeReceive
 
     quicr::SubscribeResponse response;
     response.largest_location = LargestFor(track_full_name);
+    response.handler = MakePublishHandler(track_full_name);
     return response;
 }
 ```
@@ -136,7 +136,9 @@ Reply SubscribeReceived(..., const quicr::FullTrackName& track_full_name, ...) o
               quicr::RequestErrorCode::kUnauthorized, "rejected by authorization service");
         }
 
-        return quicr::SubscribeResponse{};
+        quicr::SubscribeResponse response;
+        response.handler = MakePublishHandler(track_full_name);
+        return response;
     });
 }
 ```
@@ -148,8 +150,8 @@ goes unanswered, so a deferred action should return a rejection rather than thro
 
 Earlier versions required the application to keep the `request_id` from a callback and pass it back to a
 matching `Resolve*()` method. Those methods are gone: the session correlates the reply with the request
-itself. The `request_id` parameters that remain on the callback signatures are informational, and are
-intended to be removed once nothing needs them.
+itself. For subscriptions and fetches, return the publisher handler in the response; the session binds it
+to the private request context before marking it ready.
 
 Track handlers follow the same pattern. `TrackHandler::RequestUpdateReceived()` returns a
 `Reply<messages::Parameters, ErrorCode>`, and the session sends REQUEST_UPDATE_OK with those parameters or

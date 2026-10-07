@@ -607,18 +607,16 @@ class MyClient : public quicr::Session::ClientCallbacks
 
     quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> PublishReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-      std::uint64_t request_id,
       const quicr::PublishAttributes& publish_attributes,
       std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override
     {
         auto th = quicr::TrackHash(publish_attributes.track_full_name);
         QUICR_LOGGER_INFO(
           qclient_vars::logger,
-          "Received PUBLISH from relay for track namespace_hash: {} name_hash: {} track_hash: {} request_id: {} ns: {}",
+          "Received PUBLISH from relay for track namespace_hash: {} name_hash: {} track_hash: {} ns: {}",
           th.track_namespace_hash,
           th.track_name_hash,
           th.track_fullname_hash,
-          request_id,
           ns_handler.lock() ? true : false);
 
         // Accept the PUBLISH.
@@ -629,12 +627,10 @@ class MyClient : public quicr::Session::ClientCallbacks
 
     quicr::Reply<const quicr::FetchResponse, quicr::FetchErrorCode> StandaloneFetchReceived(
       const std::shared_ptr<quicr::Session>& session,
-      std::uint64_t request_id,
       const quicr::FullTrackName& track_full_name,
       const quicr::StandaloneFetchAttributes& attributes) override
     {
         return FetchReceived(session,
-                             request_id,
                              track_full_name,
                              attributes.priority,
                              attributes.group_order,
@@ -644,7 +640,6 @@ class MyClient : public quicr::Session::ClientCallbacks
 
     quicr::Reply<const quicr::FetchResponse, quicr::FetchErrorCode> JoiningFetchReceived(
       const std::shared_ptr<quicr::Session>& session,
-      std::uint64_t request_id,
       const quicr::FullTrackName& track_full_name,
       const quicr::JoiningFetchAttributes& attributes) override
     {
@@ -660,7 +655,6 @@ class MyClient : public quicr::Session::ClientCallbacks
         }
 
         return FetchReceived(session,
-                             request_id,
                              track_full_name,
                              attributes.priority,
                              attributes.group_order,
@@ -669,23 +663,18 @@ class MyClient : public quicr::Session::ClientCallbacks
     }
 
     quicr::Reply<void, quicr::FetchErrorCode> FetchCancelReceived(
-      [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-      std::uint64_t request_id) override
+      [[maybe_unused]] const std::shared_ptr<quicr::Session>& session) override
     {
-        QUICR_LOGGER_INFO(qclient_vars::logger, "Fetch cancelled for request_id: {}", request_id);
+        QUICR_LOGGER_INFO(qclient_vars::logger, "Fetch cancelled");
         return {};
     }
 
     quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-      std::uint64_t request_id,
       const quicr::FullTrackName& track_full_name) override
     {
         const auto largest_location = GetLargestAvailable(track_full_name);
-        QUICR_LOGGER_INFO(qclient_vars::logger,
-                          "Track status requested request_id: {} track: {}",
-                          request_id,
-                          track_full_name.NameStr());
+        QUICR_LOGGER_INFO(qclient_vars::logger, "Track status requested track: {}", track_full_name.NameStr());
 
         return quicr::TrackStatusResponse{
             .largest_location = largest_location,
@@ -712,7 +701,6 @@ class MyClient : public quicr::Session::ClientCallbacks
 
     quicr::Expected<const quicr::FetchResponse, quicr::Error<quicr::FetchErrorCode>> FetchReceived(
       const std::shared_ptr<quicr::Session>& session,
-      uint64_t request_id,
       const quicr::FullTrackName& track_full_name,
       std::uint8_t priority,
       std::optional<quicr::messages::GroupOrder> group_order,
@@ -742,8 +730,7 @@ class MyClient : public quicr::Session::ClientCallbacks
         }
 
         QUICR_LOGGER_INFO(qclient_vars::logger,
-                          "Fetch received request id: {} largest group: {} object: {}",
-                          request_id,
+                          "Fetch received largest group: {} object: {}",
                           largest_location->group,
                           largest_location->object);
 
@@ -761,15 +748,31 @@ class MyClient : public quicr::Session::ClientCallbacks
         const auto resolved_group_order = group_order.value_or(quicr::messages::GroupOrder::kAscending);
 
         // TODO: Adjust the TTL
-        auto pub_fetch_h =
-          quicr::PublishFetchHandler::Create(track_full_name, priority, request_id, resolved_group_order, 50000);
-        session->BindFetchTrack(pub_fetch_h);
+        auto pub_fetch_h = quicr::PublishFetchHandler::Create(
+          track_full_name, priority, resolved_group_order, 50000);
 
         std::thread retrieve_cache_thread([session, pub_fetch_h, cache_entries = std::move(cache_entries), start, end] {
+            const auto ready_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+            while (!pub_fetch_h->CanPublish()) {
+                std::unique_lock lock(moq_example::main_mutex);
+                if (moq_example::cv.wait_for(
+                      lock, std::chrono::milliseconds(10), [] { return moq_example::terminate.load(); })) {
+                    return;
+                }
+                if (std::chrono::steady_clock::now() >= ready_deadline) {
+                    QUICR_LOGGER_WARN(qclient_vars::logger, "Timed out waiting for fetch publisher to become ready");
+                    return;
+                }
+            }
+
             defer(session->UnbindFetchTrack(pub_fetch_h));
 
             for (const auto& entry : cache_entries) {
                 for (const auto& object : *entry) {
+                    if (moq_example::terminate) {
+                        return;
+                    }
+
                     // When intra-group, skip any objects prior to start.
                     if (start.group == end.group && object.headers.group_id == start.group &&
                         object.headers.object_id < start.object) {
@@ -794,7 +797,11 @@ class MyClient : public quicr::Session::ClientCallbacks
 
         retrieve_cache_thread.detach();
 
-        return quicr::FetchResponse{ largest_location, resolved_group_order };
+        return quicr::FetchResponse{
+            .largest_location = largest_location,
+            .publisher_default_group_order = resolved_group_order,
+            .handler = std::move(pub_fetch_h),
+        };
     }
 };
 
@@ -1813,7 +1820,7 @@ main(int argc, char* argv[])
         }
 
         // Wait until told to terminate
-        moq_example::cv.wait(lock, [&]() { return moq_example::terminate; });
+        moq_example::cv.wait(lock, [&]() { return moq_example::terminate.load(); });
 
         stop_threads = true;
         QUICR_LOGGER_INFO(qclient_vars::logger, "Stopping threads...");
