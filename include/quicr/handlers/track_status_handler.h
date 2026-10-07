@@ -15,13 +15,13 @@ namespace quicr {
       public:
         enum class Status : std::uint8_t
         {
-            kNotRequested,
-            kPendingResponse,
-            kOk,
-            kError,       ///< The peer rejected the query; GetError() contains its reason.
-            kDoneByFin,   ///< The peer closed the stream without a response.
-            kDoneByReset, ///< The peer reset the stream without a response.
-            kNotConnected,
+            kNotRequested,    ///< Ready to be passed to Session.
+            kPendingResponse, ///< Waiting for response from the peer.
+            kOk,              ///< Response received.
+            kError,           ///< The peer rejected the query; GetError() contains its reason.
+            kDoneByFin,       ///< The peer closed the stream without a response.
+            kDoneByReset,     ///< The peer reset the stream without a response.
+            kNotConnected,    ///< Transport disconnected.
         };
 
         static std::shared_ptr<TrackStatusHandler> Create(const FullTrackName& full_track_name)
@@ -33,11 +33,6 @@ namespace quicr {
         std::optional<TrackStatusResponse> GetResponse() const;
         std::optional<Error<ErrorCode>> GetError() const;
 
-        /**
-         * @brief Query status changed; the response or error is available before notification.
-         * @details A query has exactly one terminal notification. Later stream/connection closure
-         *      preserves its result. Callbacks run without session or handler state locks held.
-         */
         virtual void StatusChanged(Status status);
 
       protected:
