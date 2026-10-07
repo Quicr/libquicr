@@ -1236,7 +1236,7 @@ namespace quicr {
                           tfn.NamespaceStr(),
                           tfn.NameStr());
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+        std::lock_guard _(state_mutex_);
 
         track_handler->SetRequestId(GetNextRequestID());
 
@@ -2305,6 +2305,17 @@ namespace quicr {
         return nullptr;
     }
 
+    std::optional<std::uint64_t> Session::FindRequestIdByStream(std::uint64_t stream_id)
+    {
+        std::lock_guard _(state_mutex_);
+        const auto request_it = request_by_stream.find(stream_id);
+        if (request_it == request_by_stream.end()) {
+            return std::nullopt;
+        }
+
+        return request_it->second.request_id;
+    }
+
     std::shared_ptr<Stream> Session::ResponseStream(const std::uint64_t request_id) const
     {
         const auto recv_it = recv_req_id.find(request_id);
@@ -2524,8 +2535,11 @@ namespace quicr {
 
                 auto tfn = FullTrackName{ track_namespace, track_name };
                 auto th = TrackHash(tfn);
-                recv_req_id[request_id] = { .track_full_name = tfn, .track_hash = th, .stream = stream };
-                request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+                {
+                    std::lock_guard _(state_mutex_);
+                    recv_req_id[request_id] = { .track_full_name = tfn, .track_hash = th, .stream = stream };
+                    request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+                }
 
                 if (client_mode_) {
                     auto ptd = GetPubTrackHandler(th);
@@ -2673,15 +2687,15 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kSubscribeOk: {
-                const auto request_it = request_by_stream.find(stream->GetStreamId());
-                if (request_it == request_by_stream.end()) {
+                const auto stream_request_id = FindRequestIdByStream(stream->GetStreamId());
+                if (!stream_request_id.has_value()) {
                     QUICR_LOGGER_WARN(logger_,
                                       "Received SUBSCRIBE_OK for unknown request conn_id: {} stream_id: {}, ignored",
                                       current_connection_->GetID(),
                                       stream->GetStreamId());
                     return true;
                 }
-                const auto request_id = request_it->second.request_id;
+                const auto request_id = *stream_request_id;
 
                 const auto track_alias = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
@@ -2721,15 +2735,15 @@ namespace quicr {
             }
             case messages::ControlMessageType::kRequestOk: {
                 // What request is this for?
-                const auto req_it = request_by_stream.find(stream->GetStreamId());
-                if (req_it == request_by_stream.end()) {
+                const auto stream_request_id = FindRequestIdByStream(stream->GetStreamId());
+                if (!stream_request_id.has_value()) {
                     QUICR_LOGGER_WARN(logger_,
                                       "Received REQUEST_OK for unknown request conn_id: {} stream_id: {}, ignored",
                                       current_connection_->GetID(),
                                       stream->GetStreamId());
                     return true;
                 }
-                const auto request_id = req_it->second.request_id;
+                const auto request_id = *stream_request_id;
 
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_properties = Message::ParseField<messages::TrackExtensions>(msg_bytes);
@@ -2749,15 +2763,15 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kRequestError: {
-                const auto request_it = request_by_stream.find(stream->GetStreamId());
-                if (request_it == request_by_stream.end()) {
+                const auto stream_request_id = FindRequestIdByStream(stream->GetStreamId());
+                if (!stream_request_id.has_value()) {
                     QUICR_LOGGER_WARN(logger_,
                                       "Received REQUEST_ERROR for unknown request conn_id: {} stream_id: {}, ignored",
                                       current_connection_->GetID(),
                                       stream->GetStreamId());
                     return true;
                 }
-                const auto request_id = request_it->second.request_id;
+                const auto request_id = *stream_request_id;
                 const auto error_code = messages::Message::ParseField<ErrorCode>(msg_bytes);
                 [[maybe_unused]] const auto retry_interval = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
@@ -2798,7 +2812,10 @@ namespace quicr {
                                    request_id,
                                    th.track_fullname_hash);
 
-                request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+                {
+                    std::lock_guard _(state_mutex_);
+                    request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+                }
 
                 if (callbacks_) {
                     callbacks_->TrackStatusReceived(GetSharedPtr(), request_id, tfn)
@@ -2844,11 +2861,14 @@ namespace quicr {
                 const auto track_namespace = messages::Message::ParseField<TrackNamespace>(msg_bytes);
                 [[maybe_unused]] const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
-                recv_req_id[request_id] = { .track_full_name = { track_namespace, {} },
-                                            .track_hash = TrackHash({ track_namespace, {} }),
-                                            .stream = stream };
-                recv_publish_namespaces.push_back(request_id);
-                request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+                {
+                    std::lock_guard _(state_mutex_);
+                    recv_req_id[request_id] = { .track_full_name = { track_namespace, {} },
+                                                .track_hash = TrackHash({ track_namespace, {} }),
+                                                .stream = stream };
+                    recv_publish_namespaces.push_back(request_id);
+                    request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+                }
 
                 if (callbacks_) {
                     callbacks_->PublishNamespaceReceived(GetSharedPtr(), track_namespace, { .request_id = request_id })
@@ -2904,7 +2924,10 @@ namespace quicr {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
 
-                request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+                {
+                    std::lock_guard _(state_mutex_);
+                    request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+                }
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     const SubscribeNamespaceAttributes attributes{
@@ -2956,12 +2979,12 @@ namespace quicr {
             }
             case messages::ControlMessageType::kNamespace: {
                 const auto suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
-                const auto request_it = request_by_stream.find(stream->GetStreamId());
-                if (request_it == request_by_stream.end()) {
+                const auto stream_request_id = FindRequestIdByStream(stream->GetStreamId());
+                if (!stream_request_id.has_value()) {
                     throw ProtocolViolationException("NAMESPACE on an unknown request stream");
                 }
 
-                const auto handler_it = request_handlers.find(request_it->second.request_id);
+                const auto handler_it = request_handlers.find(*stream_request_id);
                 if (handler_it == request_handlers.end()) {
                     throw ProtocolViolationException("NAMESPACE on an unknown request");
                 }
@@ -3070,15 +3093,15 @@ namespace quicr {
                 [[maybe_unused]] const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
                 const auto track_extensions = messages::Message::ParseField<messages::TrackExtensions>(msg_bytes);
 
-                const auto request_it = request_by_stream.find(stream->GetStreamId());
-                if (request_it == request_by_stream.end()) {
+                const auto stream_request_id = FindRequestIdByStream(stream->GetStreamId());
+                if (!stream_request_id.has_value()) {
                     QUICR_LOGGER_WARN(logger_,
                                       "Received FETCH_OK for unknown request conn_id: {} stream_id: {}, ignored",
                                       current_connection_->GetID(),
                                       stream->GetStreamId());
                     return true;
                 }
-                const auto request_id = request_it->second.request_id;
+                const auto request_id = *stream_request_id;
 
                 auto fetch_it = request_handlers.find(request_id);
                 if (fetch_it == request_handlers.end()) {
@@ -3118,13 +3141,16 @@ namespace quicr {
                         FullTrackName tfn{ track_namespace, track_name };
                         const auto th = TrackHash(tfn);
 
-                        recv_req_id[request_id] = {
-                            .track_full_name = tfn,
-                            .track_hash = th,
-                            .stream = stream,
-                        };
-                        request_by_stream[stream->GetStreamId()] = { .request_id = request_id,
-                                                                     .is_request_stream = true };
+                        {
+                            std::lock_guard _(state_mutex_);
+                            recv_req_id[request_id] = {
+                                .track_full_name = tfn,
+                                .track_hash = th,
+                                .stream = stream,
+                            };
+                            request_by_stream[stream->GetStreamId()] = { .request_id = request_id,
+                                                                         .is_request_stream = true };
+                        }
 
                         messages::FetchEndLocation end_location;
                         end_location.group = end.group;
@@ -3196,13 +3222,16 @@ namespace quicr {
                         FullTrackName tfn = subscribe_state->second.track_full_name;
                         const auto th = TrackHash(tfn);
 
-                        recv_req_id[request_id] = {
-                            .track_full_name = tfn,
-                            .track_hash = th,
-                            .stream = stream,
-                        };
-                        request_by_stream[stream->GetStreamId()] = { .request_id = request_id,
-                                                                     .is_request_stream = true };
+                        {
+                            std::lock_guard _(state_mutex_);
+                            recv_req_id[request_id] = {
+                                .track_full_name = tfn,
+                                .track_hash = th,
+                                .stream = stream,
+                            };
+                            request_by_stream[stream->GetStreamId()] = { .request_id = request_id,
+                                                                         .is_request_stream = true };
+                        }
 
                         auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                         auto group_order =
@@ -3283,10 +3312,13 @@ namespace quicr {
                                                  .track_properties = std::move(track_extensions) };
 
                 auto th = TrackHash(publish.track_full_name);
-                recv_req_id[request_id] = { .track_full_name = publish.track_full_name,
-                                            .track_hash = th,
-                                            .stream = stream };
-                request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+                {
+                    std::lock_guard _(state_mutex_);
+                    recv_req_id[request_id] = { .track_full_name = publish.track_full_name,
+                                                .track_hash = th,
+                                                .stream = stream };
+                    request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+                }
 
                 std::weak_ptr<SubscribeNamespaceHandler> sub_ns_handler;
                 if (client_mode_) {
@@ -3359,8 +3391,8 @@ namespace quicr {
             }
             case messages::ControlMessageType::kRequestUpdate: {
                 const auto update_request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
-                const auto request_it = request_by_stream.find(stream->GetStreamId());
-                if (request_it == request_by_stream.end()) {
+                const auto stream_request_id = FindRequestIdByStream(stream->GetStreamId());
+                if (!stream_request_id.has_value()) {
                     QUICR_LOGGER_WARN(logger_,
                                       "Received REQUEST_UPDATE on unknown request stream conn_id: {} stream_id: {} "
                                       "update_request_id: {}, ignored",
@@ -3369,7 +3401,7 @@ namespace quicr {
                                       update_request_id);
                     return true;
                 }
-                const auto request_id = request_it->second.request_id;
+                const auto request_id = *stream_request_id;
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
 
                 if (client_mode_) {

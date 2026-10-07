@@ -421,7 +421,8 @@ namespace quicr {
                 std::shared_ptr<timeq::tick_service> tick_service,
                 std::shared_ptr<Logger> logger);
 
-        void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override;
+        void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override
+          QUICR_NO_THREAD_SAFETY_ANALYSIS; // TODO: Make provably safe and remove.
 
       private:
         /*===================================================================*/
@@ -580,6 +581,8 @@ namespace quicr {
 
         std::shared_ptr<Stream> FindSubscribeNamespaceStream(const TrackNamespace& track_namespace) const;
 
+        std::optional<std::uint64_t> FindRequestIdByStream(std::uint64_t stream_id) QUICR_EXCLUDES(state_mutex_);
+
         std::shared_ptr<Stream> ResponseStream(const std::uint64_t request_id) const;
 
         /*===================================================================*/
@@ -627,7 +630,8 @@ namespace quicr {
                                       bool remove_handler = true,
                                       bool send_unsubscribe = true);
 
-        void CloseRequestHandler(std::uint64_t request_id, std::uint64_t stream_id, StreamClosedFlag flag);
+        void CloseRequestHandler(std::uint64_t request_id, std::uint64_t stream_id, StreamClosedFlag flag)
+          QUICR_NO_THREAD_SAFETY_ANALYSIS; // TODO: Make provably safe and remove.
 
         void ClosePublishTrackLocal(PublishTrackHandler& handler, std::uint64_t stream_id, bool is_reset);
 
@@ -735,7 +739,7 @@ namespace quicr {
         };
 
         /// Lookup the request each stream carries, by stream ID.
-        std::map<std::uint64_t, StreamRequest> request_by_stream;
+        std::map<std::uint64_t, StreamRequest> request_by_stream QUICR_GUARDED_BY(state_mutex_);
 
         /// Active inbound publish namespace notifications (not handler based).
         std::vector<std::uint64_t> recv_publish_namespaces;
