@@ -91,7 +91,6 @@ endif()
 set(WARN_SUPPRESS_TARGET_LIST picoquic-core picoquic-log picohttp-core picotls-core picotls-openssl picotls-minicrypto)
 
 if (WITH_MBEDTLS)
-    add_dependencies(picoquic-core ${MBEDTLS_LIBRARIES})
     list(APPEND WARN_SUPPRESS_TARGET_LIST picotls-mbedtls)
 endif()
 
