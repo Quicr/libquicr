@@ -10,6 +10,15 @@
 
 namespace quicr {
     /**
+     * @brief Response to a received TRACK_STATUS.
+     */
+    struct TrackStatusResponse
+    {
+        std::optional<messages::Location> largest_location{};
+        messages::TrackExtensions track_properties{};
+    };
+
+    /**
      * @brief Publish namespace attributes
      *
      * @details Various attributes relative to the publish namespace

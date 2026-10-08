@@ -3219,3 +3219,58 @@ TEST_CASE("Integration - Stream data is delivered before its FIN callback")
     }));
     CHECK_EQ(subscribe_handler->GetReceivedCountAtClose(), object_count);
 }
+
+namespace quicr {
+    static bool operator==(const messages::TrackExtensions& lhs, const messages::TrackExtensions& rhs)
+    {
+        auto lhs_map = lhs.extensions;
+        auto rhs_map = rhs.extensions;
+        constexpr auto immutable_key = static_cast<std::uint64_t>(messages::ExtensionType::kImmutable);
+        lhs_map.erase(immutable_key);
+        rhs_map.erase(immutable_key);
+        return lhs_map == rhs_map && lhs.immutable_extensions == rhs.immutable_extensions;
+    }
+
+    static bool operator==(const TrackStatusResponse& lhs, const TrackStatusResponse& rhs)
+    {
+        return lhs.largest_location == rhs.largest_location && lhs.track_properties == rhs.track_properties;
+    }
+}
+
+TEST_CASE("Integration - Track Status")
+{
+    SessionManager session_mgr = MakeTestSessionManager();
+    const auto server = MakeTestServer(session_mgr, std::nullopt, 4);
+
+    auto test_track_status = [&](const std::string& protocol_scheme) {
+        auto [subscriber, subscriber_client] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const FullTrackName track{ TrackNamespace(std::vector<std::string>{ "ctrl", "update" }), { 4, 5, 6 } };
+        const TrackStatusResponse expected{
+            .largest_location = messages::Location{ 1, 2 },
+            .track_properties =
+              messages::TrackExtensions{}
+                .Add(messages::ExtensionType::kDynamicGroups, true)
+                .AddImmutable(messages::ExtensionType::kDefaultPublisherGroupOrder, messages::GroupOrder::kAscending),
+        };
+        server->SetTrackStatusResponse(expected);
+        auto handler = TrackStatusHandler::Create(track);
+        CHECK_EQ(handler->GetStatus(), TrackStatusHandler::Status::kNotRequested);
+        CHECK_FALSE(handler->GetResponse().has_value());
+        CHECK_FALSE(handler->GetError().has_value());
+
+        subscriber->RequestTrackStatus(handler);
+        REQUIRE(WaitFor([&] { return handler->GetStatus() == TrackStatusHandler::Status::kOk; }));
+        REQUIRE(handler->GetResponse().has_value());
+        CHECK(handler->GetResponse().value() == expected);
+        CHECK_FALSE(handler->GetError().has_value());
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_track_status("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_track_status("https");
+    }
+}

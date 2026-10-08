@@ -145,6 +145,18 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
     return response;
 }
 
+Reply<TrackStatusResponse, RequestErrorCode>
+TestServer::TrackStatusReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
+                                [[maybe_unused]] const FullTrackName& track_full_name)
+{
+    std::lock_guard _(state_mutex_);
+    if (track_status_error_) {
+        return quicr::Unexpected<Error<RequestErrorCode>>(*track_status_error_);
+    }
+
+    return { track_status_state_.value() };
+}
+
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
 TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& session,
                                     const TrackNamespace& prefix_namespace,

@@ -189,6 +189,14 @@ namespace quicr_test {
             subscribe_error_ = quicr::Error<quicr::RequestErrorCode>{ reason_code, std::move(error_reason) };
         }
 
+        void SetTrackStatusError(std::optional<quicr::Error<quicr::RequestErrorCode>> error)
+        {
+            std::lock_guard _(state_mutex_);
+            track_status_error_ = std::move(error);
+        }
+
+        void SetTrackStatusResponse(quicr::TrackStatusResponse response) { track_status_state_ = std::move(response); }
+
         // Set up promise for subscribe namespace event
         void SetSubscribeNamespacePromise(std::promise<SubscribeNamespaceDetails> promise)
         {
@@ -351,6 +359,10 @@ namespace quicr_test {
           const quicr::FullTrackName& track_full_name,
           const quicr::SubscribeAttributes& subscribe_attributes) override;
 
+        quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusReceived(
+          const std::shared_ptr<quicr::Session>& session,
+          const quicr::FullTrackName& track_full_name) override;
+
         quicr::Reply<void, quicr::ErrorCode> PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
                                                                  uint64_t request_id) override;
 
@@ -384,6 +396,8 @@ namespace quicr_test {
 
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<quicr::Error<quicr::RequestErrorCode>> subscribe_error_;
+        std::optional<quicr::Error<quicr::RequestErrorCode>> track_status_error_;
+        std::optional<quicr::TrackStatusResponse> track_status_state_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
         std::optional<std::promise<PublishNamespaceDetails>> publish_namespace_promise_;
         std::optional<std::promise<JoiningFetchDetails>> joining_fetch_promise_;

@@ -15,6 +15,7 @@
 #include "quicr/handlers/publish_track_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/handlers/track_status_handler.h"
 #include "quicr/messages/message.h"
 #include "quicr/messages/message_serialisation.h"
 #include "quicr/metrics.h"
@@ -33,15 +34,6 @@
 namespace quicr {
 
     class Logger;
-
-    /**
-     * @brief Response to a received TRACK_STATUS.
-     */
-    struct TrackStatusResponse
-    {
-        std::optional<messages::Location> largest_location{};
-        messages::TrackExtensions track_properties{};
-    };
 
     /**
      * @brief Response to a received SUBSCRIBE.
@@ -294,13 +286,11 @@ namespace quicr {
         /**
          * @brief Request track status
          *
-         * @param track_full_name           Track full name
-         * @param subscribe_attributes      Subscribe attributes for track status
-         *
-         * @returns Request ID that is used for the track status request
+         * @param handler           Handler for this query's status and response.
+         * @throws std::invalid_argument if handler is null.
+         * @throws std::logic_error if the handler has a pending request.
          */
-        std::uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
-                                         const SubscribeAttributes& subscribe_attributes);
+        void RequestTrackStatus(std::shared_ptr<TrackStatusHandler> handler);
 
         // --BEGIN SERVER RELAY METHODS ----------------------------------------------------------------------
         /** @name Server Relay Methods
@@ -511,7 +501,8 @@ namespace quicr {
         // Prefer the above typed overloads.
         void SendRequestOk(const std::shared_ptr<Stream>& stream,
                            const messages::Parameters& params,
-                           const messages::TrackExtensions& track_properties = {});
+                           const messages::TrackExtensions& track_properties = {},
+                           bool close_stream = false);
 
         void SendRequestUpdate(const std::shared_ptr<Stream>& stream,
                                TrackHash th,
@@ -589,7 +580,7 @@ namespace quicr {
         // Track Status
         /*===================================================================*/
 
-        void SendTrackStatus(std::uint64_t request_id, const FullTrackName& tfn);
+        void SendTrackStatus(const std::shared_ptr<Stream>& stream, std::uint64_t request_id, const FullTrackName& tfn);
 
         /*===================================================================*/
         // Fetch
