@@ -1055,21 +1055,7 @@ namespace quicr {
             lock.unlock();
 
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                callbacks->PublishNamespaceDoneReceived(GetSharedPtr(), request_id)
-                  .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
-                      if (result) {
-                          return;
-                      }
-
-                      const auto& [code, reason] = result.error();
-                      QUICR_LOGGER_ERROR(self->logger_,
-                                         "Publish namespace done failed conn_id: {} request_id: {} code: {} "
-                                         "reason: {}",
-                                         self->current_connection_->GetID(),
-                                         request_id,
-                                         static_cast<std::uint64_t>(code),
-                                         reason.value_or("unknown"));
-                  });
+                callbacks->PublishNamespaceDoneReceived(GetSharedPtr(), request_id);
             }
             return;
         }
@@ -1121,21 +1107,7 @@ namespace quicr {
 
             lock.unlock();
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id)
-                  .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
-                      if (result) {
-                          return;
-                      }
-
-                      const auto& [code, reason] = result.error();
-                      QUICR_LOGGER_ERROR(self->logger_,
-                                         "Unsubscribe of subscribe track failed conn_id: {} request_id: {} code: {} "
-                                         "reason: {}",
-                                         self->current_connection_->GetID(),
-                                         request_id,
-                                         static_cast<std::uint64_t>(code),
-                                         reason.value_or("unknown"));
-                  });
+                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
             }
 
             return;
@@ -1148,21 +1120,7 @@ namespace quicr {
 
             lock.unlock();
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id)
-                  .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
-                      if (result) {
-                          return;
-                      }
-
-                      const auto& [code, reason] = result.error();
-                      QUICR_LOGGER_ERROR(self->logger_,
-                                         "Unsubscribe of publish track failed conn_id: {} request_id: {} code: {} "
-                                         "reason: {}",
-                                         self->current_connection_->GetID(),
-                                         request_id,
-                                         static_cast<std::uint64_t>(code),
-                                         reason.value_or("unknown"));
-                  });
+                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
             }
 
             return;
@@ -3128,20 +3086,7 @@ namespace quicr {
                 if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                        callbacks->PublishDoneReceived(GetSharedPtr(), request_id)
-                          .Resolve(quic_transport_, [request_id, self = GetSharedPtr()](const auto& result) {
-                              if (result) {
-                                  return;
-                              }
-
-                              const auto& [code, reason] = result.error();
-                              QUICR_LOGGER_ERROR(self->logger_,
-                                                 "Publish done failed conn_id: {} request_id: {} code: {} reason: {}",
-                                                 self->current_connection_->GetID(),
-                                                 request_id,
-                                                 static_cast<std::uint64_t>(code),
-                                                 reason.value_or("unknown"));
-                          });
+                        callbacks->PublishDoneReceived(GetSharedPtr(), request_id);
                     }
                 }
 

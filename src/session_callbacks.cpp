@@ -82,12 +82,7 @@ namespace quicr {
         return {};
     }
 
-    Reply<void, PublishNamespaceErrorCode> Session::ServerCallbacks::PublishNamespaceDoneReceived(
-      const std::shared_ptr<Session>&,
-      std::uint64_t)
-    {
-        return {};
-    }
+    void Session::ServerCallbacks::PublishNamespaceDoneReceived(const std::shared_ptr<Session>&, std::uint64_t) {}
 
     Reply<void, ErrorCode> Session::ServerCallbacks::UnsubscribeNamespaceReceived(const std::shared_ptr<Session>&,
                                                                                   const TrackNamespace&)
@@ -120,15 +115,9 @@ namespace quicr {
         return SubscribeResponse{};
     }
 
-    Reply<void, ErrorCode> Session::ServerCallbacks::UnsubscribeReceived(const std::shared_ptr<Session>&, std::uint64_t)
-    {
-        return {};
-    }
+    void Session::ServerCallbacks::UnsubscribeReceived(const std::shared_ptr<Session>&, std::uint64_t) {}
 
-    Reply<void, ErrorCode> Session::ServerCallbacks::PublishDoneReceived(const std::shared_ptr<Session>&, std::uint64_t)
-    {
-        return {};
-    }
+    void Session::ServerCallbacks::PublishDoneReceived(const std::shared_ptr<Session>&, std::uint64_t) {}
 
     Reply<void, ErrorCode> Session::ServerCallbacks::NewGroupRequested(const FullTrackName&, std::uint64_t)
     {

@@ -284,9 +284,7 @@ namespace quicr {
          *
          * @param request_id        Request ID for the namespace that is done
          */
-        virtual Reply<void, quicr::PublishNamespaceErrorCode> PublishNamespaceDoneReceived(
-          const std::shared_ptr<Session>& session,
-          std::uint64_t request_id);
+        virtual void PublishNamespaceDoneReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
 
         /**
          * @brief Callback notification for unsubscribe namespace received
@@ -348,8 +346,7 @@ namespace quicr {
          *
          * @param request_id        Request ID received
          */
-        virtual Reply<void, ErrorCode> UnsubscribeReceived(const std::shared_ptr<Session>& session,
-                                                           std::uint64_t request_id);
+        virtual void UnsubscribeReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
 
         /**
          * @brief Callback notification on publish done received
@@ -358,8 +355,7 @@ namespace quicr {
          *
          * @param request_id        Request ID received
          */
-        virtual Reply<void, ErrorCode> PublishDoneReceived(const std::shared_ptr<Session>& session,
-                                                           std::uint64_t request_id);
+        virtual void PublishDoneReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
 
         /**
          * @brief New group requested received by a subscription
