@@ -5,19 +5,37 @@ libquicr
 [![macOS](https://github.com/Quicr/libquicr/actions/workflows/macos.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/macos.yml)
 [![Windows](https://github.com/Quicr/libquicr/actions/workflows/windows.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/windows.yml)
 
-An API library that implements publish/subscribe protocol [draft-ietf-moq-transport-16](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-16). The API supports both client and server. Server is intended to be implemented as a relay.
+libquicr is a C++ implementation of Media over QUIC Transport (MOQT), currently targeting
+[draft-ietf-moq-transport-18](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18).
+It provides APIs for client and server endpoints, including publishers, subscribers, and relays.
 
-API documentation can be found under https://quicr.github.io/libquicr
+[API documentation](https://www.quicr.org/html/)
+
+## Navigation
+
+* [Requirements](#requirements)
+  * [Tools](#tools)
+  * [Ubuntu](#ubuntu-2204-jammy)
+  * [Debian](#debian-bookworm)
+  * [Apple/Mac](#applemac)
+* [Dependencies](#dependencies)
+  * [Caching dependency sources](#caching-dependency-sources)
+* [Make](#make)
+* [C Bridge Target](#c-bridge-target)
+* [Self-signed Certificate](#self-signed-certificate)
+* [Generate documentation](#generate-documentation)
 
 ## Requirements
 
 ### Tools
 
-* GCC/G++ version 12 or higher
-* Clang/llvm version 17 or higher
-* AppleClang/llvm version 17 or higher
-* Clang-tidy version 15 or higher
-* Cmake 3.13 or higher
+* CMake 3.16 or newer
+* A C++20 compiler:
+    * GCC 12 or newer
+    * Clang 17 or newer
+    * Apple Clang 17 or newer
+    * or MSVC
+* Clang-Tidy 15 or newer when configuring with `-DLINT=ON`
 
 ### Ubuntu 22.04 Jammy
 
@@ -28,11 +46,9 @@ sudo apt-get install -y cmake make gcc-12 g++-12 clang-tidy-15 openssl golang wg
 
 > [!IMPORTANT]
 > If default gcc/g++ is installed, then you will need to set the default
-> compiler to gcc-12/g++-12.  You can do that using:
+> compiler to at least gcc-12/g++-12.  You can do that using:
 > `export CC=/usr/bin/gcc-12`
 > and `export CXX=/usr/bin/g++-12`
-
-
 
 ### Debian Bookworm
 
@@ -47,30 +63,12 @@ sudo apt-get install -y make wget git cmake openssl golang libssl-dev clang-tidy
 
 ### Apple/Mac
 
-Both Apple Intel and Silicon are supported.
-
-
-#### (1) Install Xcode
-
-> [!NOTE]
-> You **MUST** install xcode from Apple in order to get the base development programs.
-
-
-Open the **App Store** and search for **Xcode** and install.
-
-#### (2) Install Xcode Command Line Tools
-
-You can install them via xcode UI or you can install them using `xcode-select --install` from a shell/terminal.
-
-
-#### (3) Install Homebrew
-
-Install via https://brew.sh instructions.
-
-#### (4) Install packages via brew
+Framework builds support both Intel and Apple Silicon. Install
+[Xcode](https://apps.apple.com/app/xcode/id497799835) and [Homebrew](https://brew.sh), then run:
 
 ```
-brew install cmake clang-format
+xcode-select --install
+brew install cmake
 ```
 
 ## Dependencies
