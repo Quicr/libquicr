@@ -91,6 +91,12 @@ its own tag or commit:
 
 ### TLS providers
 
+> [!WARNING]
+> For every provider, use a currently supported release, apply security updates promptly, and avoid
+> mixing headers and libraries from different installations. Use a fresh build directory when
+> switching providers so cached discovery results cannot select the previous TLS stack. Do not
+> weaken the provider's TLS 1.3, certificate-validation, or secure-random configuration.
+
 #### OpenSSL
 
 The default build uses OpenSSL. Install a supported OpenSSL release through the platform package
@@ -126,15 +132,11 @@ For convenience, libquicr can fetch and build a pinned, tested Mbed TLS version:
 cmake -B build -DWITH_MBEDTLS=ON -DQUICR_FETCH_MBEDTLS=ON
 ```
 
-This fetch option is useful for local development and CI, but is not recommended for packaged or
-production builds: configuration requires network access, and the application cannot independently
-select and update Mbed TLS. Prefer a separately managed installation or in-tree target there so
-security updates and build provenance remain under the application's control.
-
-For every provider, use a currently supported release, apply security updates promptly, and avoid
-mixing headers and libraries from different installations. Use a fresh build directory when
-switching providers so cached discovery results cannot select the previous TLS stack. Do not weaken
-the provider's TLS 1.3, certificate-validation, or secure-random configuration.
+> [!IMPORTANT]
+> The fetch option is intended for local development and CI, not packaged or production builds.
+> Configuration requires network access, and the application cannot independently select and update
+> Mbed TLS. Prefer a separately managed installation or in-tree target so security updates and build
+> provenance remain under the application's control.
 
 ### Caching dependency sources
 
