@@ -89,8 +89,52 @@ its own tag or commit:
 | Google Benchmark | `benchmark/CMakeLists.txt` |
 | nlohmann/json, sframe, spdlog | `examples/qclient/CMakeLists.txt` |
 
-Mbed TLS is only fetched when configuring with `-DWITH_MBEDTLS=ON`. The default build links the
-system OpenSSL instead, which is why OpenSSL is the one TLS dependency you still install yourself.
+### TLS providers
+
+#### OpenSSL
+
+The default build uses OpenSSL. Install a supported OpenSSL release through the platform package
+manager and configure normally. For a non-standard installation, pass its prefix explicitly:
+
+```
+cmake -B build -DOPENSSL_ROOT_DIR=/path/to/openssl
+```
+
+#### Mbed TLS
+
+To use Mbed TLS instead of OpenSSL, provide an installed or in-tree Mbed TLS build and enable the
+provider:
+
+```
+cmake -B build -DWITH_MBEDTLS=ON
+```
+
+CMake searches standard installation paths automatically. The following variables must resolve to
+valid Mbed TLS include directories and libraries; provide them explicitly for in-tree or
+non-standard installations:
+
+- `MBEDTLS_INCLUDE_DIR=<path>` — the primary include directory.
+- `MBEDTLS_INCLUDE_DIRS=<paths>` — all required include directories. This is normally the same path
+  as `MBEDTLS_INCLUDE_DIR`.
+- `MBEDTLS_LIBRARY=<target-or-path>` — the `mbedtls` library.
+- `MBEDTLS_X509=<target-or-path>` — the `mbedx509` library.
+- `MBEDTLS_CRYPTO=<target-or-path>` — the `mbedcrypto` library.
+
+For convenience, libquicr can fetch and build a pinned, tested Mbed TLS version:
+
+```
+cmake -B build -DWITH_MBEDTLS=ON -DQUICR_FETCH_MBEDTLS=ON
+```
+
+This fetch option is useful for local development and CI, but is not recommended for packaged or
+production builds: configuration requires network access, and the application cannot independently
+select and update Mbed TLS. Prefer a separately managed installation or in-tree target there so
+security updates and build provenance remain under the application's control.
+
+For every provider, use a currently supported release, apply security updates promptly, and avoid
+mixing headers and libraries from different installations. Use a fresh build directory when
+switching providers so cached discovery results cannot select the previous TLS stack. Do not weaken
+the provider's TLS 1.3, certificate-validation, or secure-random configuration.
 
 ### Caching dependency sources
 
