@@ -689,7 +689,10 @@ TEST_CASE("Integration - Connection")
     auto server = MakeTestServer(session_mgr);
 
     auto test_connection = [&](const std::string& protocol_scheme) {
-        std::promise<ServerSetupAttributes> recv_attributes;
+        std::promise<SetupAttributes> client_attributes;
+        auto client_setup = client_attributes.get_future();
+        server->SetSetupReceivedPromise(std::move(client_attributes));
+        std::promise<SetupAttributes> recv_attributes;
         auto future = recv_attributes.get_future();
         auto callbacks = std::make_shared<TestClient>();
         callbacks->SetConnectedPromise(std::move(recv_attributes));
@@ -697,8 +700,10 @@ TEST_CASE("Integration - Connection")
           MakeTestClient(session_mgr, false, std::nullopt, protocol_scheme, std::nullopt, std::move(callbacks));
         auto status = future.wait_for(kDefaultTimeout);
         REQUIRE(status == std::future_status::ready);
-        const auto& [moqt_version, server_id] = future.get();
-        CHECK_EQ(server_id, kServerId);
+        const auto attributes = future.get();
+        CHECK_EQ(attributes.endpoint_id, kServerId);
+        REQUIRE(client_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(client_setup.get().endpoint_id, "client");
     };
 
     SUBCASE("Raw QUIC")
@@ -719,7 +724,7 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
     auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
-    std::promise<ServerSetupAttributes> recv_attributes;
+    std::promise<SetupAttributes> recv_attributes;
     auto setup_received = recv_attributes.get_future();
     auto callbacks = std::make_shared<TestClient>();
     callbacks->SetConnectedPromise(std::move(recv_attributes));

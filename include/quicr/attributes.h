@@ -29,20 +29,11 @@ namespace quicr {
     };
 
     /**
-     * @brief Client Setup Attributes
+     * @brief Peer setup attributes
      */
-    struct ClientSetupAttributes
+    struct SetupAttributes
     {
-        const std::string endpoint_id;
-    };
-
-    /**
-     * @brief Server Setup Attributes
-     */
-    struct ServerSetupAttributes
-    {
-        const uint64_t moqt_version;
-        const std::string server_id;
+        std::string endpoint_id;
     };
 
     // TODO: Maybe split base attributes out from SUBSCRIBE / PUBLISH?
