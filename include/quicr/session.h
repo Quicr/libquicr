@@ -622,9 +622,7 @@ namespace quicr {
                                       bool send_unsubscribe = true);
 
         void CloseRequestHandler(std::uint64_t request_id, std::uint64_t stream_id, StreamClosedFlag flag)
-          QUICR_NO_THREAD_SAFETY_ANALYSIS; // TODO: Make provably safe and remove.
-
-        void ClosePublishTrackLocal(PublishTrackHandler& handler, std::uint64_t stream_id, bool is_reset);
+          QUICR_EXCLUDES(state_mutex_);
 
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th);
 
