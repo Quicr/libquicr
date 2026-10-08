@@ -319,11 +319,8 @@ namespace quicr_test {
             }
         }
 
-        quicr::Reply<void, quicr::ErrorCode> UnsubscribeNamespaceReceived(
-          const std::shared_ptr<quicr::Session>& session,
-          [[maybe_unused]] const quicr::TrackNamespace& prefix_namespace) override
+        void UnsubscribeNamespaceReceived(const std::shared_ptr<quicr::Session>&, const quicr::TrackNamespace&) override
         {
-            return {};
         }
 
         quicr::Reply<void, quicr::FetchErrorCode> FetchCancelReceived(

@@ -84,10 +84,8 @@ namespace quicr {
 
     void Session::ServerCallbacks::PublishNamespaceDoneReceived(const std::shared_ptr<Session>&, std::uint64_t) {}
 
-    Reply<void, ErrorCode> Session::ServerCallbacks::UnsubscribeNamespaceReceived(const std::shared_ptr<Session>&,
-                                                                                  const TrackNamespace&)
+    void Session::ServerCallbacks::UnsubscribeNamespaceReceived(const std::shared_ptr<Session>&, const TrackNamespace&)
     {
-        return {};
     }
 
     Reply<std::vector<TrackNamespace>, RequestErrorCode> Session::ServerCallbacks::SubscribeNamespaceReceived(

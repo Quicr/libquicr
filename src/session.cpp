@@ -3032,19 +3032,7 @@ namespace quicr {
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
-                    callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), track_namespace_suffix)
-                      .Resolve(quic_transport_, [self = GetSharedPtr()](const auto& result) {
-                          if (result) {
-                              return;
-                          }
-
-                          const auto& [code, reason] = result.error();
-                          QUICR_LOGGER_ERROR(self->logger_,
-                                             "Unsubscribe namespace failed conn_id: {} code: {} reason: {}",
-                                             self->current_connection_->GetID(),
-                                             static_cast<std::uint64_t>(code),
-                                             reason.value_or("unknown"));
-                      });
+                    callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), track_namespace_suffix);
                 }
                 return true;
             }
