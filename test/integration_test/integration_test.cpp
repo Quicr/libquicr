@@ -22,6 +22,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
@@ -401,6 +402,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         uint64_t subgroup_id;
         uint64_t object_id;
         ObjectStatus status;
+        std::optional<std::uint8_t> priority;
+        std::optional<TrackMode> track_mode;
         std::vector<uint8_t> data;
         std::optional<Extensions> extensions;
         std::optional<messages::StreamHeaderProperties> stream_mode;
@@ -481,6 +484,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
                                           .subgroup_id = object_headers.subgroup_id,
                                           .object_id = object_headers.object_id,
                                           .status = object_headers.status,
+                                          .priority = object_headers.priority,
+                                          .track_mode = object_headers.track_mode,
                                           .data = std::vector<uint8_t>(data.begin(), data.end()),
                                           .extensions = object_headers.extensions,
                                           .stream_mode = stream_mode });
@@ -814,6 +819,68 @@ TEST_CASE("Integration - Subscribe")
     {
         CAPTURE("WebTransport");
         test_subscribe("https");
+    }
+}
+
+TEST_CASE("Integration - Datagram object roundtrip")
+{
+    auto test_datagrams = [](const std::string& protocol_scheme) {
+        auto session_mgr = MakeTestSessionManager();
+        auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+        auto [publisher, publisher_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber, subscriber_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "datagram", "roundtrip" }), { 1 } };
+        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kDatagram, 3, 5000, { 0, 0 });
+        publisher->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
+
+        auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+        subscriber->SubscribeTrack(subscribe_handler);
+        REQUIRE(WaitFor(
+          [&subscribe_handler]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        constexpr std::uint64_t object_count = 5;
+        const Extensions extensions{ { 1, { { 0xAA, 0xBB } } } };
+        for (std::uint64_t i = 0; i < object_count; ++i) {
+            const Bytes payload{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 };
+            const ObjectHeaders headers{ .group_id = 10 + i,
+                                         .object_id = 20 + i,
+                                         .payload_length = payload.size(),
+                                         .status = ObjectStatus::kAvailable,
+                                         .priority = 7,
+                                         .ttl = 5000,
+                                         .track_mode = TrackMode::kDatagram,
+                                         .extensions = extensions };
+            REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        }
+
+        REQUIRE(WaitFor([&subscribe_handler]() { return subscribe_handler->GetReceivedCount() == object_count; }));
+        const auto objects = subscribe_handler->GetReceivedObjects();
+        REQUIRE_EQ(objects.size(), object_count);
+        for (std::size_t i = 0; i < objects.size(); ++i) {
+            // Datagram arrival order is not guaranteed.
+            const auto it = std::find_if(
+              objects.begin(), objects.end(), [i](const auto& object) { return object.object_id == 20 + i; });
+            REQUIRE(it != objects.end());
+            const auto& object = *it;
+            CHECK_EQ(object.group_id, 10 + i);
+            CHECK_EQ(object.object_id, 20 + i);
+            CHECK_EQ(object.status, ObjectStatus::kAvailable);
+            CHECK_EQ(object.priority, 7);
+            CHECK_EQ(object.track_mode, TrackMode::kDatagram);
+            CHECK_EQ(object.extensions, extensions);
+            CHECK_EQ(object.data, (Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 }));
+        }
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_datagrams("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_datagrams("https");
     }
 }
 
