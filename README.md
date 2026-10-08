@@ -20,9 +20,9 @@ It provides APIs for client and server endpoints, including publishers, subscrib
   * [Apple/Mac](#applemac)
 * [Dependencies](#dependencies)
   * [Caching dependency sources](#caching-dependency-sources)
+* [CMake options](#cmake-options)
 * [Make](#make)
 * [C Bridge Target](#c-bridge-target)
-* [Self-signed Certificate](#self-signed-certificate)
 * [Generate documentation](#generate-documentation)
 
 ## Requirements
@@ -114,6 +114,37 @@ Entries are keyed by package name and version, so separate build directories, `W
 The cache also holds the bootstrapped CPM release itself, so the download in `cmake/CPM.cmake` is
 skipped as well.
 
+## CMake options
+
+libquicr provides CMake options for selecting build targets and optional features. For example,
+configure a build with examples enabled:
+
+```
+cmake -B build -DQUICR_BUILD_EXAMPLES=ON
+```
+
+Build targets:
+
+* `QUICR_BUILD_C_BRIDGE` — build the C API bridge.
+* `QUICR_BUILD_EXAMPLES` — build examples.
+* `QUICR_BUILD_TESTS` — build the test suite.
+* `QUICR_BUILD_BENCHMARKS` — build benchmarks.
+* `QUICR_BUILD_FUZZ` — build Clang fuzzing targets.
+
+Tests, benchmarks, and the C Bridge default to `ON` for a standalone build and `OFF` when libquicr
+is included by another CMake project. Examples and fuzzers default to `OFF`. When both the C Bridge
+and examples are enabled, the C Bridge examples are built automatically. `BUILD_TESTING=ON` is
+also required for the test suite, benchmarks, fuzzers, and C++ examples.
+
+Library configuration:
+
+* `QUICR_BUILD_SHARED` — build libquicr as a shared library; defaults to `OFF`.
+* `WITH_MBEDTLS` — use Mbed TLS instead of OpenSSL; defaults to `OFF`.
+* `QUICR_USE_BROTLI` — enable Brotli TLS certificate compression; defaults to `OFF`.
+* `QUICR_ENABLE_SANITIZERS` — enable AddressSanitizer and UndefinedBehaviorSanitizer with Clang or
+  GCC; defaults to `OFF`.
+* `LINT` — run Clang-Tidy while compiling; defaults to `OFF`.
+
 ## Make
 
 Use `make` to build libquicr.
@@ -133,60 +164,25 @@ The C Bridge provides a C wrapper around the C++ libquicr library.
 
 See [c-bridge/README.md](c-bridge/README.md) for details.
 
-
-## Self-signed Certificate
-
-Server requires a TLS certificate and key file. For development and testing, use a self-signed certificate. Below
-are the steps to create a self-signed certificate and private ey.
-
-### OpenSSL/BorningSSL
-
-```
-cd build/examples/qclient
-openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
-    -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
-    -keyout server-key.pem -out server-cert.pem
-```
-
-### MbedTLS
-
-```
-openssl req -nodes -x509 -newkey ec:<(openssl ecparam -name prime256v1) -days 365 \
-    -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
-    -keyout server-key.pem -out server-cert.pem
-```
-
-OR
-
-```
-    openssl ecparam -name prime256v1 -genkey -noout -out server-key-ec.pem
-    openssl req -nodes -x509 -key server-key-ec.pem -days 365 \
-        -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
-        -keyout server-key.pem -out server-cert.pem
-
-```
-
----
-
 ## Generate documentation
-API documentation can be generated using `make doc`
 
-Below programs need to be installed.
+Run `make doc` from the repository root to generate the Doxygen API reference and
+render the API guide. The output is written to `docs/html/`; open
+`docs/html/index.html` in a browser to view it.
 
-### Example on MacOS:
+### Prerequisites on macOS
 
 ```bash
-brew install doxygen
-brew install npm
-brew install pandoc
+brew install doxygen node pandoc
 npm install --global @mermaid-js/mermaid-cli
 npm install --global mermaid-filter
 ```
 
 > [!NOTE]
-> https://github.com/raghur/mermaid-filter adds mermaid support to pandoc
->
+> [`mermaid-filter`](https://github.com/raghur/mermaid-filter) allows Pandoc to
+> render the Mermaid diagrams used by the API guide.
 
-### MOQ Implementation Documentation
+### Additional documentation
 
-See [MOQ Implementation](docs/implementation)
+* [API guide](docs/api-guide.md)
+* [MOQT implementation notes](docs/implementation.md)
