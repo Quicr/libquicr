@@ -29,15 +29,39 @@ jobs:
           echo "CC=/usr/bin/gcc-12" >> $GITHUB_ENV
           echo "CXX=/usr/bin/g++-12" >> $GITHUB_ENV
 
+      - name: Check out Mbed TLS
+        uses: actions/checkout@v6
+        with:
+          repository: Mbed-TLS/mbedtls
+          ref: mbedtls-3.6.7
+          path: dependencies/mbedtls
+          submodules: recursive
+
+      - name: Build Mbed TLS
+        run: >
+          cmake -S ${{ github.workspace }}/dependencies/mbedtls
+          -B ${{ github.workspace }}/dependencies/mbedtls-build
+          -DENABLE_TESTING=OFF
+          -DENABLE_PROGRAMS=OFF
+          -DDISABLE_PACKAGE_CONFIG_AND_INSTALL=ON
+          &&
+          cmake --build ${{ github.workspace }}/dependencies/mbedtls-build
+          --config ${{ env.BUILD_TYPE }} -j
+
       - name: Configure CMake
         run: >
           cmake -B ${{ github.workspace }}/build
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DBUILD_TESTING=ON
-          -DQUICR_BUILD_EXAMPLES=ON
+          -DQUICR_BUILD_EXAMPLES=OFF
           -DQUICR_BUILD_BENCHMARKS=OFF
           -DWITH_MBEDTLS=ON
+          -DMBEDTLS_INCLUDE_DIR=${{ github.workspace }}/dependencies/mbedtls/include
+          -DMBEDTLS_INCLUDE_DIRS=${{ github.workspace }}/dependencies/mbedtls/include
+          -DMBEDTLS_LIBRARY=${{ github.workspace }}/dependencies/mbedtls-build/library/libmbedtls.a
+          -DMBEDTLS_X509=${{ github.workspace }}/dependencies/mbedtls-build/library/libmbedx509.a
+          -DMBEDTLS_CRYPTO=${{ github.workspace }}/dependencies/mbedtls-build/library/libmbedcrypto.a
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} -j

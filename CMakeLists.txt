@@ -39,6 +39,8 @@ option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 
 option(WITH_MBEDTLS "Build against MbedTLS rather than OpenSSL" OFF)
+option(QUICR_FETCH_MBEDTLS "Have Quicr fetch a known tested version of MbedTLS" OFF)
+
 option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_USE_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
 
@@ -54,13 +56,6 @@ if(QUICR_ENABLE_SANITIZERS)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
-if (NOT DEFINED ENV{IDF_PATH})
-  find_package(Threads REQUIRED)
-  find_package(PkgConfig REQUIRED)
-else()
-  set(WITH_MBEDTLS ON CACHE BOOL "Build against MbedTLS rather than OpenSSL" FORCE)
-endif()
-
 #=============================================================================#
 # Dependencies
 #=============================================================================#
@@ -70,7 +65,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(CPM)
 
 include(QuicrFormat)
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/QuicrDependencies.cmake)
+include(QuicrDependencies)
 
 #=============================================================================#
 # Build the library
