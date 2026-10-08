@@ -91,6 +91,8 @@ its own tag or commit:
 
 ### TLS providers
 
+[![Mbed TLS v3.6.7](https://img.shields.io/github/actions/workflow/status/Quicr/libquicr/mbedtls.yml?branch=main&label=Mbed%20TLS%20v3.6.7)](https://github.com/Quicr/libquicr/actions/workflows/mbedtls.yml)
+
 > [!WARNING]
 > For every provider, use a currently supported release, apply security updates promptly, and avoid
 > mixing headers and libraries from different installations. Use a fresh build directory when
