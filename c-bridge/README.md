@@ -22,11 +22,12 @@ QuicR C++ Library
 
 ### Using CMake
 
-To build the C Bridge:
+Enable the C Bridge with `-DQUICR_BUILD_C_BRIDGE=ON`. This option is required when
+libquicr is included as a dependency because the C Bridge is disabled for non-top-level builds.
 
 ```bash
 # Build everything including C Bridge
-cmake -DQUICR_BUILD_C_BRIDGE=ON -B build .
+cmake -B build -DQUICR_BUILD_C_BRIDGE=ON
 cmake --build build
 
 # Build only C Bridge
