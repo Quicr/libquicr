@@ -27,8 +27,7 @@ defaults:
 jobs:
   build:
     runs-on: windows-latest
-    # A cold vcpkg cache builds OpenSSL from source.
-    timeout-minutes: 75
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v6
@@ -49,8 +48,7 @@ jobs:
             "name": "quicr-windows-ci",
             "version-string": "0",
             "dependencies": [
-              "pkgconf",
-              "openssl"
+              "pkgconf"
             ],
             "builtin-baseline": "3d33b7f7a8121da6e4fa80b35618fc8e960be686"
           }

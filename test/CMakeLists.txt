@@ -52,7 +52,11 @@ include(doctest)
 
 doctest_discover_tests(quicr_test)
 
-add_subdirectory(integration_test)
+if(WITH_OPENSSL OR WITH_MBEDTLS)
+    add_subdirectory(integration_test)
+else()
+    message(STATUS "Skipping certificate-backed integration tests without an external TLS backend")
+endif()
 
 if (LINT)
     include(Lint)
