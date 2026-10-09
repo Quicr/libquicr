@@ -271,7 +271,13 @@ namespace quicr_test {
             if (it == closed_streams_.end()) {
                 return std::nullopt;
             }
-            return it->second;
+            if (it->second.contains(quicr::StreamClosedFlag::kReset)) {
+                return true;
+            }
+            if (it->second.contains(quicr::StreamClosedFlag::kFin)) {
+                return false;
+            }
+            return std::nullopt;
         }
 
         // Set up data to respond with when a fetch is received
@@ -291,11 +297,12 @@ namespace quicr_test {
       protected:
         void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override
         {
-            if (flag == quicr::StreamClosedFlag::kStopSending) {
-                return;
-            }
             std::lock_guard lock(state_mutex_);
-            closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
+            if (flag != quicr::StreamClosedFlag::kStopSending && closed_streams_.contains(stream_id) &&
+                closed_streams_[stream_id].size() > 1) {
+                throw std::logic_error("Can't have more than one close type");
+            }
+            closed_streams_[stream_id].insert(flag);
         }
 
         void MetricsSampled(const std::shared_ptr<quicr::Session>& session,
@@ -399,7 +406,7 @@ namespace quicr_test {
         std::set<const quicr::Session*> metrics_reporting_sessions_;
         std::optional<std::promise<UnsubscribeReceivedDetails>> unsubscribe_received_promise_;
         std::optional<UnsubscribeReceivedDetails::HandlerType> expected_unsubscribe_handler_type_;
-        std::map<std::uint64_t, bool> closed_streams_;
+        std::map<std::uint64_t, std::set<quicr::StreamClosedFlag>> closed_streams_;
         std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;
         std::vector<FetchResponseData> fetch_response_data_;
 
