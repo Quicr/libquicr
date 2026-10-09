@@ -52,10 +52,11 @@ include(doctest)
 
 doctest_discover_tests(quicr_test)
 
-if(WITH_OPENSSL OR WITH_MBEDTLS)
+find_program(QUICR_OPENSSL_EXECUTABLE openssl)
+if(QUICR_OPENSSL_EXECUTABLE)
     add_subdirectory(integration_test)
 else()
-    message(STATUS "Skipping certificate-backed integration tests without an external TLS backend")
+    message(WARNING "Skipping certificate-backed integration tests because the openssl command was not found")
 endif()
 
 if (LINT)
