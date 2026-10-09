@@ -3322,7 +3322,7 @@ TEST_CASE("Integration - Subscription subgroup close")
         REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
         publish_handler->EndSubgroup(0, 0, true);
 
-        REQUIRE(WaitFor([&] { return !callbacks->GetClosedStreamIds().empty(); }));
+        REQUIRE(WaitFor([callbacks = callbacks] { return !callbacks->GetClosedStreamIds().empty(); }));
         const auto closed_stream_ids = callbacks->GetClosedStreamIds();
         REQUIRE_EQ(closed_stream_ids.size(), 1);
         const auto stream_id = closed_stream_ids.front();
@@ -3387,7 +3387,8 @@ TEST_CASE("Integration - Track Status")
         CHECK(handler->GetResponse().value() == expected);
         CHECK_FALSE(handler->GetError().has_value());
 
-        REQUIRE(WaitFor([&] { return !subscriber_client->GetClosedStreamIds().empty(); }));
+        REQUIRE(WaitFor(
+          [subscriber_client = subscriber_client] { return !subscriber_client->GetClosedStreamIds().empty(); }));
         const auto closed_stream_ids = subscriber_client->GetClosedStreamIds();
         REQUIRE_EQ(closed_stream_ids.size(), 1);
         const auto stream_id = closed_stream_ids.front();
