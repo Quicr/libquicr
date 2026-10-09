@@ -5,6 +5,7 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <vector>
 
 namespace quicr {
@@ -59,12 +60,13 @@ namespace quicr_test {
           uint64_t request_id,
           const quicr::PublishAttributes& publish_attributes,
           std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler) override;
+
         /**
          * Check the state of a stream.
          * @param stream_id The stream to query.
-         * @return True for closed with RESET, false for cloesd with FIN, nullopt for not closed.
+         * @return Stream closure, or std::nullopt if not closed.
          */
-        std::optional<bool> CheckStreamState(std::uint64_t stream_id)
+        std::optional<std::set<quicr::StreamClosedFlag>> CheckStreamState(std::uint64_t stream_id)
         {
             std::lock_guard _(stream_state_mutex_);
             const auto it = closed_streams_.find(stream_id);
@@ -72,6 +74,12 @@ namespace quicr_test {
                 return std::nullopt;
             }
             return it->second;
+        }
+
+        std::map<std::uint64_t, std::set<quicr::StreamClosedFlag>> GetStreamClosures()
+        {
+            std::lock_guard lock(stream_state_mutex_);
+            return closed_streams_;
         }
 
         std::vector<std::uint64_t> GetClosedStreamIds()
@@ -87,17 +95,19 @@ namespace quicr_test {
       protected:
         void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override
         {
-            if (flag != quicr::StreamClosedFlag::kStopSending) {
-                std::lock_guard lock(stream_state_mutex_);
-                closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
+            std::lock_guard lock(stream_state_mutex_);
+            if (flag != quicr::StreamClosedFlag::kStopSending && closed_streams_.contains(stream_id) &&
+                closed_streams_[stream_id].size() > 1) {
+                throw std::logic_error("Can't have more than one close type");
             }
+            closed_streams_[stream_id].insert(flag);
         }
 
       private:
         mutable std::mutex status_mutex_;
         std::optional<quicr::Session::Status> status_at_server_setup_;
         std::mutex stream_state_mutex_;
-        std::map<std::uint64_t, bool> closed_streams_;
+        std::map<std::uint64_t, std::set<quicr::StreamClosedFlag>> closed_streams_;
         std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;
         std::optional<std::promise<quicr::TrackNamespace>> publish_namespace_received_;
         std::optional<std::promise<quicr::FullTrackName>> publish_received_;

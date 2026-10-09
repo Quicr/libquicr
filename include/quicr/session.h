@@ -620,7 +620,7 @@ namespace quicr {
                                       bool remove_handler = true,
                                       bool send_unsubscribe = true);
 
-        void CloseRequestHandler(std::uint64_t request_id, std::uint64_t stream_id, StreamClosedFlag flag)
+        void CloseRequestHandler(std::uint64_t request_id, const std::shared_ptr<Stream>& stream, StreamClosedFlag flag)
           QUICR_EXCLUDES(state_mutex_);
 
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th);
