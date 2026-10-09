@@ -149,6 +149,8 @@ GetTestNegativeTimeout()
 static const std::chrono::milliseconds kDefaultTimeout = GetTestTimeout();
 // Missing message timeout.
 static const std::chrono::milliseconds kNegativeTimeout(GetTestNegativeTimeout());
+// Use this to intentionally supress periodic cleanup.
+static constexpr std::uint64_t kStreamSweepDisabledMs = 60'000;
 
 /// @brief Wait for a condition to become true with polling
 /// @param predicate Function returning true when condition is met
@@ -3287,6 +3289,59 @@ TEST_CASE("Integration - Stream data is delivered before its FIN callback")
     CHECK_EQ(subscribe_handler->GetReceivedCountAtClose(), object_count);
 }
 
+TEST_CASE("Integration - Subscription subgroup close")
+{
+    const auto test_subgroup_release = [](const std::string& protocol_scheme) {
+        auto session_mgr = MakeTestSessionManager();
+
+        auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+        auto [subscriber, callbacks] =
+          MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kStreamSweepDisabledMs);
+        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "stream", "release" }), { 1 } };
+
+        auto subscribe_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        subscriber->SubscribeTrack(subscribe_handler);
+        REQUIRE(WaitFor(
+          [&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+        publisher->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+        const std::vector<std::uint8_t> payload(16, 0xa5);
+        const ObjectHeaders headers{ .group_id = 0,
+                                     .object_id = 0,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 10'000,
+                                     .track_mode = TrackMode::kStream };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        publish_handler->EndSubgroup(0, 0, true);
+
+        REQUIRE(WaitFor([callbacks = callbacks] { return !callbacks->GetClosedStreamIds().empty(); }));
+        const auto closed_stream_ids = callbacks->GetClosedStreamIds();
+        REQUIRE_EQ(closed_stream_ids.size(), 1);
+        const auto stream_id = closed_stream_ids.front();
+        CHECK(callbacks->CheckStreamState(stream_id) == false);
+        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetConnection());
+        CHECK(WaitFor([&] { return connection->GetStream(stream_id) == nullptr; }));
+        CHECK_EQ(subscribe_handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_subgroup_release("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_subgroup_release("https");
+    }
+}
+
 namespace quicr {
     static bool operator==(const messages::TrackExtensions& lhs, const messages::TrackExtensions& rhs)
     {
@@ -3310,7 +3365,8 @@ TEST_CASE("Integration - Track Status")
     const auto server = MakeTestServer(session_mgr, std::nullopt, 4);
 
     auto test_track_status = [&](const std::string& protocol_scheme) {
-        auto [subscriber, subscriber_client] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber, subscriber_client] =
+          MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kStreamSweepDisabledMs);
         const FullTrackName track{ TrackNamespace(std::vector<std::string>{ "ctrl", "update" }), { 4, 5, 6 } };
         const TrackStatusResponse expected{
             .largest_location = messages::Location{ 1, 2 },
@@ -3330,6 +3386,17 @@ TEST_CASE("Integration - Track Status")
         REQUIRE(handler->GetResponse().has_value());
         CHECK(handler->GetResponse().value() == expected);
         CHECK_FALSE(handler->GetError().has_value());
+
+        REQUIRE(WaitFor(
+          [subscriber_client = subscriber_client] { return !subscriber_client->GetClosedStreamIds().empty(); }));
+        const auto closed_stream_ids = subscriber_client->GetClosedStreamIds();
+        REQUIRE_EQ(closed_stream_ids.size(), 1);
+        const auto stream_id = closed_stream_ids.front();
+        CHECK(subscriber_client->CheckStreamState(stream_id) == false);
+        REQUIRE(WaitFor([&] { return server->WasStreamReset(stream_id).has_value(); }));
+        CHECK(server->WasStreamReset(stream_id) == false);
+        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetConnection());
+        CHECK(WaitFor([&] { return connection->GetStream(stream_id) == nullptr; }));
     };
 
     SUBCASE("Raw QUIC")
