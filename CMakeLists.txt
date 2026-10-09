@@ -39,7 +39,8 @@ option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 option(QUICR_GENERATE_THIRD_PARTY_LICENSES "Generate notices for distributed CPM dependencies" OFF)
 
-option(WITH_MBEDTLS "Build against MbedTLS rather than OpenSSL" OFF)
+option(WITH_OPENSSL "Build with an OpenSSL-compatible crypto backend" OFF)
+option(WITH_MBEDTLS "Build with the MbedTLS crypto backend" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_USE_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
 
@@ -55,11 +56,8 @@ if(QUICR_ENABLE_SANITIZERS)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
-if (NOT DEFINED ENV{IDF_PATH})
-  find_package(Threads REQUIRED)
-  find_package(PkgConfig REQUIRED)
-else()
-  set(WITH_MBEDTLS ON CACHE BOOL "Build against MbedTLS rather than OpenSSL" FORCE)
+if(WITH_OPENSSL AND WITH_MBEDTLS)
+  message(FATAL_ERROR "WITH_OPENSSL and WITH_MBEDTLS cannot both be enabled")
 endif()
 
 #=============================================================================#
@@ -73,7 +71,7 @@ include(CPM)
 CPMUsePackageLock(package-lock.cmake)
 
 include(QuicrFormat)
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/QuicrDependencies.cmake)
+include(QuicrDependencies)
 
 #=============================================================================#
 # Build the library
