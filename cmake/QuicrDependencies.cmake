@@ -41,6 +41,10 @@ if (NOT WITH_MBEDTLS)
         set(WITH_OPENSSL ON)
     else()
         set(WITH_OPENSSL OFF)
+        message(WARNING
+            "No external TLS provider was found; using picotls-minicrypto. "
+            "This backend does not verify peer certificates in the current picoquic integration. "
+            "Use it only for controlled local testing, or provide OpenSSL-compatible or Mbed TLS libraries.")
     endif()
 endif()
 

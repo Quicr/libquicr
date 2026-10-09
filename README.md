@@ -23,6 +23,7 @@ It provides APIs for client and server endpoints, including publishers, subscrib
   * [TLS providers](#tls-providers)
     * [No external TLS backend](#no-external-tls-backend)
     * [OpenSSL-compatible providers](#openssl-compatible-providers)
+    * [BoringSSL](#boringssl)
     * [Mbed TLS](#mbed-tls)
 * [CMake options](#cmake-options)
 * [Make](#make)
@@ -153,6 +154,11 @@ To test this path on a system where OpenSSL is installed, disable its package di
 ```
 cmake -B build -DWITH_OPENSSL=OFF -DCMAKE_DISABLE_FIND_PACKAGE_OpenSSL=TRUE
 ```
+
+> [!WARNING]
+> The current picoquic minicrypto integration does not verify peer certificates. Clients therefore
+> do not authenticate the server in this mode. Use it only for controlled local testing; use an
+> OpenSSL-compatible provider or Mbed TLS when peer authentication is required.
 
 #### OpenSSL-compatible providers
 
