@@ -195,6 +195,9 @@ try {
                 if (const auto rx_stream = stream ? stream : connection->GetStream(stream_id)) {
                     rx_stream->rx_closed = true;
                     transport->OnStreamClosed(connection, rx_stream, StreamClosedFlag::kFin);
+                    if (rx_stream->IsFullyClosed()) {
+                        transport->EraseStreamState(connection, stream_id);
+                    }
                 }
             }
 
@@ -740,6 +743,9 @@ try {
 
                 stream->rx_closed = true;
                 transport->OnStreamClosed(connection, stream, StreamClosedFlag::kFin);
+                if (stream->IsFullyClosed()) {
+                    ClearStreamForWT(connection, stream_id);
+                }
             }
 
             break;
