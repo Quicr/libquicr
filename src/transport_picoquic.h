@@ -32,13 +32,6 @@
 #include <thread>
 #include <vector>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <netinet/in.h>
-#include <sys/types.h>
-#endif
-
 namespace quicr {
 
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
@@ -144,8 +137,6 @@ namespace quicr {
 
         void CloseInternal(const std::shared_ptr<Connection>& connection,
                            AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose);
-
-        virtual bool GetPeerAddrInfo(const std::shared_ptr<Connection>& connection, sockaddr_storage* addr) override;
 
         TransportError EnqueueDatagram(const std::shared_ptr<Connection>& connection,
                                        std::shared_ptr<const std::vector<uint8_t>> bytes,

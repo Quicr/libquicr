@@ -5,131 +5,18 @@
 
 #include <atomic>
 #include <condition_variable>
-#include <csignal>
-#include <cstdio>
-#include <iostream>
 #include <mutex>
 
-#ifdef _WIN32
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
-
 namespace moq_example {
-    std::mutex main_mutex;                     // Main's mutex
-    bool terminate{ false };                   // Termination flag
-    std::atomic<bool> connected{ false };      // Set once the session reports it's ready
-    std::condition_variable cv;                // Main thread waits on this
-    const char* termination_reason{ nullptr }; // Termination reason
-};
+    extern std::mutex main_mutex;
+    extern std::atomic<bool> terminate;
+    extern std::atomic<bool> connected;
+    extern std::condition_variable cv;
+    extern std::atomic<const char*> termination_reason;
 
-/*
- *  signalHandler
- *
- *  Description:
- *      This function will handle operating system signals related to
- *      termination and then instruct the main thread to terminate.
- *
- *  Parameters:
- *      signal_number [in]
- *          The signal caught.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      None.
- */
-void
-signalHandler(int signal_number)
-{
-    const auto lock = std::lock_guard<std::mutex>(moq_example::main_mutex);
+    bool InstallSignalHandlers();
 
-    // If termination is in process, just return
-    if (moq_example::terminate) {
-        return;
-    }
+    int ConsumePendingSignal() noexcept;
 
-    // Indicate that the process should terminate
-    moq_example::terminate = true;
-
-    // Set the termination reason string
-    switch (signal_number) {
-        case SIGINT:
-            moq_example::termination_reason = "Interrupt signal received";
-            break;
-
-#ifndef _WIN32
-        case SIGHUP:
-            moq_example::termination_reason = "Hangup signal received";
-            break;
-
-        case SIGQUIT:
-            moq_example::termination_reason = "Quit signal received";
-            break;
-#endif
-
-        default:
-            moq_example::termination_reason = "Unknown signal received";
-            break;
-    };
-
-    // Unblock any getline() waiting on stdin.
-#ifdef _WIN32
-    _close(_fileno(stdin));
-#else
-    close(STDIN_FILENO);
-#endif
-
-    // Notify the main execution thread to terminate
-    moq_example::cv.notify_all();
-}
-
-/*
- *  installSignalHandlers
- *
- *  Description:
- *      This function will install the signal handlers for SIGINT, SIGQUIT,
- *      etc. so that the process can be terminated in a controlled fashion.
- *
- *  Parameters:
- *      None.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *      None.
- */
-void
-installSignalHandlers()
-{
-#ifdef _WIN32
-    if (signal(SIGINT, signalHandler) == SIG_ERR) {
-        std::cerr << "Failed to install SIGINT handler" << std::endl;
-    }
-#else
-    struct sigaction sa = {};
-
-    // Configure the sigaction struct
-    sa.sa_handler = signalHandler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-
-    // Catch SIGHUP (signal 1)
-    if (sigaction(SIGHUP, &sa, nullptr) == -1) {
-        std::cerr << "Failed to install SIGHUP handler" << std::endl;
-    }
-
-    // Catch SIGINT (signal 2)
-    if (sigaction(SIGINT, &sa, nullptr) == -1) {
-        std::cerr << "Failed to install SIGINT handler" << std::endl;
-    }
-
-    // Catch SIGQUIT (signal 3)
-    if (sigaction(SIGQUIT, &sa, nullptr) == -1) {
-        std::cerr << "Failed to install SIGQUIT handler" << std::endl;
-    }
-#endif
+    const char* SignalReason(int signal) noexcept;
 }

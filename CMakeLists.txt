@@ -70,7 +70,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(CPM)
 
 include(QuicrFormat)
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/QuicrDependencies.cmake)
+include(QuicrDependencies)
 
 #=============================================================================#
 # Build the library
