@@ -21,6 +21,14 @@ target_compile_options(quicr PRIVATE
 target_compile_options(quicr PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>
 )
 
+# Request, and check support for, clang's thread safety analysis.
+include(CheckThreadSafetyAnnotations)
+if(QUICR_HAS_THREAD_SAFETY_ANNOTATIONS)
+    target_compile_definitions(quicr PUBLIC
+        QUICR_HAS_THREAD_SAFETY_ANNOTATIONS
+        _LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS)
+endif()
+
 if(NOT QUICR_BUILD_FUZZ)
     target_compile_options(quicr PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>: -Wthread-safety -Werror=thread-safety>
