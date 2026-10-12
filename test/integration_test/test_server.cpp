@@ -80,12 +80,9 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
     return quicr::PublishResponse{ {}, sub_track_handler };
 }
 
-quicr::Reply<void, quicr::ErrorCode>
-TestServer::PublishDoneReceived(const std::shared_ptr<quicr::Session>& session,
-                                [[maybe_unused]] std::uint64_t request_id)
+void
+TestServer::PublishDoneReceived(const std::shared_ptr<quicr::Session>&, std::uint64_t)
 {
-    std::lock_guard lock(state_mutex_);
-    return {};
 }
 
 quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode>
@@ -143,6 +140,18 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
     SubscribeResponse response;
     response.is_publisher_initiated = subscribe_attributes.is_publisher_initiated;
     return response;
+}
+
+Reply<TrackStatusResponse, RequestErrorCode>
+TestServer::TrackStatusReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
+                                [[maybe_unused]] const FullTrackName& track_full_name)
+{
+    std::lock_guard _(state_mutex_);
+    if (track_status_error_) {
+        return quicr::Unexpected<Error<RequestErrorCode>>(*track_status_error_);
+    }
+
+    return { track_status_state_.value() };
 }
 
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
@@ -324,7 +333,7 @@ TestServer::JoiningFetchReceived(const std::shared_ptr<quicr::Session>& session,
                                                                   "No joining fetch test response configured");
 }
 
-quicr::Reply<void, quicr::ErrorCode>
+void
 TestServer::UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session, const uint64_t request_id)
 {
     std::lock_guard lock(state_mutex_);
@@ -335,8 +344,6 @@ TestServer::UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session, 
         unsubscribe_received_promise_.reset();
         expected_unsubscribe_handler_type_.reset();
     }
-
-    return {};
 }
 
 quicr::Reply<void, quicr::ErrorCode>

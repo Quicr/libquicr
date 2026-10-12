@@ -41,6 +41,7 @@ target_sources(quicr PRIVATE
     subscribe_namespace_handler.cpp
     subscribe_track_handler.cpp
     track_handler.cpp
+    track_status_handler.cpp
     transport_picoquic.cpp
     transport.cpp
     connection.cpp

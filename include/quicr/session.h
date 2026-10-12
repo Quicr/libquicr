@@ -15,6 +15,7 @@
 #include "quicr/handlers/publish_track_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/handlers/track_status_handler.h"
 #include "quicr/messages/message.h"
 #include "quicr/messages/message_serialisation.h"
 #include "quicr/metrics.h"
@@ -33,15 +34,6 @@
 namespace quicr {
 
     class Logger;
-
-    /**
-     * @brief Response to a received TRACK_STATUS.
-     */
-    struct TrackStatusResponse
-    {
-        std::optional<messages::Location> largest_location{};
-        messages::TrackExtensions track_properties{};
-    };
 
     /**
      * @brief Response to a received SUBSCRIBE.
@@ -294,13 +286,11 @@ namespace quicr {
         /**
          * @brief Request track status
          *
-         * @param track_full_name           Track full name
-         * @param subscribe_attributes      Subscribe attributes for track status
-         *
-         * @returns Request ID that is used for the track status request
+         * @param handler           Handler for this query's status and response.
+         * @throws std::invalid_argument if handler is null.
+         * @throws std::logic_error if the handler has a pending request.
          */
-        std::uint64_t RequestTrackStatus(const FullTrackName& track_full_name,
-                                         const SubscribeAttributes& subscribe_attributes);
+        void RequestTrackStatus(std::shared_ptr<TrackStatusHandler> handler);
 
         // --BEGIN SERVER RELAY METHODS ----------------------------------------------------------------------
         /** @name Server Relay Methods
@@ -510,7 +500,8 @@ namespace quicr {
         // Prefer the above typed overloads.
         void SendRequestOk(const std::shared_ptr<Stream>& stream,
                            const messages::Parameters& params,
-                           const messages::TrackExtensions& track_properties = {});
+                           const messages::TrackExtensions& track_properties = {},
+                           bool close_stream = false);
 
         void SendRequestUpdate(const std::shared_ptr<Stream>& stream,
                                TrackHash th,
@@ -580,13 +571,15 @@ namespace quicr {
 
         std::shared_ptr<Stream> FindSubscribeNamespaceStream(const TrackNamespace& track_namespace) const;
 
+        std::optional<std::uint64_t> FindRequestIdByStream(std::uint64_t stream_id) QUICR_EXCLUDES(state_mutex_);
+
         std::shared_ptr<Stream> ResponseStream(const std::uint64_t request_id) const;
 
         /*===================================================================*/
         // Track Status
         /*===================================================================*/
 
-        void SendTrackStatus(std::uint64_t request_id, const FullTrackName& tfn);
+        void SendTrackStatus(const std::shared_ptr<Stream>& stream, std::uint64_t request_id, const FullTrackName& tfn);
 
         /*===================================================================*/
         // Fetch
@@ -627,9 +620,8 @@ namespace quicr {
                                       bool remove_handler = true,
                                       bool send_unsubscribe = true);
 
-        void CloseRequestHandler(std::uint64_t request_id, std::uint64_t stream_id, StreamClosedFlag flag);
-
-        void ClosePublishTrackLocal(PublishTrackHandler& handler, std::uint64_t stream_id, bool is_reset);
+        void CloseRequestHandler(std::uint64_t request_id, std::uint64_t stream_id, StreamClosedFlag flag)
+          QUICR_EXCLUDES(state_mutex_);
 
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th);
 
@@ -705,9 +697,9 @@ namespace quicr {
       private:
         void ResetSubgroup(const std::shared_ptr<Stream>& stream);
 
-        std::shared_ptr<Connection> current_connection_;
+        const std::shared_ptr<Connection> current_connection_;
 
-        std::shared_ptr<Callbacks> callbacks_;
+        const std::shared_ptr<Callbacks> callbacks_;
 
         std::optional<std::uint64_t> rx_ctrl_stream_id_;
 
@@ -735,7 +727,7 @@ namespace quicr {
         };
 
         /// Lookup the request each stream carries, by stream ID.
-        std::map<std::uint64_t, StreamRequest> request_by_stream;
+        std::map<std::uint64_t, StreamRequest> request_by_stream QUICR_GUARDED_BY(state_mutex_);
 
         /// Active inbound publish namespace notifications (not handler based).
         std::vector<std::uint64_t> recv_publish_namespaces;
@@ -767,7 +759,7 @@ namespace quicr {
 
         const bool client_mode_;
 
-        std::shared_ptr<Logger> logger_;
+        const std::shared_ptr<Logger> logger_;
 
         bool stop_{ false };
 
@@ -780,9 +772,9 @@ namespace quicr {
         bool local_setup_sent_{ false };
         bool peer_setup_received_{ false };
 
-        std::shared_ptr<timeq::tick_service> tick_service_;
+        const std::shared_ptr<timeq::tick_service> tick_service_;
 
-        std::shared_ptr<Transport> quic_transport_; // **MUST** be last for proper order of destruction
+        const std::shared_ptr<Transport> quic_transport_; // **MUST** be last for proper order of destruction
 
         friend class PublishTrackHandler;
         friend class PublishFetchHandler;
