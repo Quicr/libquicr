@@ -459,9 +459,9 @@ namespace quicr {
                          const std::shared_ptr<PicoQuicStream>& stream,
                          StreamOperation operation);
 
-        /*
-         * Variables
-         */
+        void QueueDeferredReply(std::function<void()>&& reply_handler) override;
+
+      private:
         picoquic_quic_config_t config_;
         picoquic_tp_t local_tp_options_;
         SafeQueue<std::function<void()>> cbNotifyQueue_;

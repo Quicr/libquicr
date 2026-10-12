@@ -5,20 +5,37 @@ libquicr
 [![macOS](https://github.com/Quicr/libquicr/actions/workflows/macos.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/macos.yml)
 [![Windows](https://github.com/Quicr/libquicr/actions/workflows/windows.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/windows.yml)
 
-An API library that implements publish/subscribe protocol [draft-ietf-moq-transport-16](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-16). The API supports both client and server. Server is intended to be implemented as a relay.
+libquicr is a C++ implementation of Media over QUIC Transport (MOQT), currently targeting
+[draft-ietf-moq-transport-18](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18).
+It provides APIs for client and server endpoints, including publishers, subscribers, and relays.
 
-API documentation can be found under https://quicr.github.io/libquicr
+[API documentation](https://www.quicr.org/html/)
+
+## Navigation
+
+* [Requirements](#requirements)
+  * [Tools](#tools)
+  * [Ubuntu](#ubuntu-2204-jammy)
+  * [Debian](#debian-bookworm)
+  * [Apple/Mac](#applemac)
+* [Dependencies](#dependencies)
+  * [Caching dependency sources](#caching-dependency-sources)
+* [CMake options](#cmake-options)
+* [Make](#make)
+* [C Bridge Target](#c-bridge-target)
+* [Generate documentation](#generate-documentation)
 
 ## Requirements
 
 ### Tools
 
-* GCC/G++ version 12 or higher
-* Clang/llvm version 17 or higher
-* AppleClang/llvm version 17 or higher
-* Clang-tidy version 15 or higher
-* Golang 1.19 or higher
-* Cmake 3.13 or higher
+* CMake 3.16 or newer
+* A C++20 compiler:
+    * GCC 12 or newer
+    * Clang 17 or newer
+    * Apple Clang 17 or newer
+    * or MSVC
+* Clang-Tidy 15 or newer when configuring with `-DLINT=ON`
 
 ### Ubuntu 22.04 Jammy
 
@@ -29,11 +46,9 @@ sudo apt-get install -y cmake make gcc-12 g++-12 clang-tidy-15 openssl golang wg
 
 > [!IMPORTANT]
 > If default gcc/g++ is installed, then you will need to set the default
-> compiler to gcc-12/g++-12.  You can do that using:
+> compiler to at least gcc-12/g++-12.  You can do that using:
 > `export CC=/usr/bin/gcc-12`
 > and `export CXX=/usr/bin/g++-12`
-
-
 
 ### Debian Bookworm
 
@@ -48,32 +63,13 @@ sudo apt-get install -y make wget git cmake openssl golang libssl-dev clang-tidy
 
 ### Apple/Mac
 
-Both Apple Intel and Silicon are supported.
-
-
-#### (1) Install Xcode
-
-> [!NOTE]
-> You **MUST** install xcode from Apple in order to get the base development programs.
-
-
-Open the **App Store** and search for **Xcode** and install.
-
-#### (2) Install Xcode Command Line Tools
-
-You can install them via xcode UI or you can install them using `xcode-select --install` from a shell/terminal.
-
-
-#### (3) Install Homebrew
-
-Install via https://brew.sh instructions.
-
-#### (4) Install packages via brew
+Framework builds support both Intel and Apple Silicon. Install
+[Xcode](https://apps.apple.com/app/xcode/id497799835) and [Homebrew](https://brew.sh), then run:
 
 ```
-brew install cmake clang-format
+xcode-select --install
+brew install cmake
 ```
----
 
 ## Dependencies
 
@@ -86,7 +82,7 @@ its own tag or commit:
 | Dependency | Declared in |
 | --- | --- |
 | picoquic, picotls, timeq, Mbed TLS | `cmake/QuicrDependencies.cmake` |
-| fmt | `CMakeLists.txt` |
+| fmt | `cmake/QuicrFormat.txt` |
 | doctest | `test/CMakeLists.txt` |
 | Google Benchmark | `benchmark/CMakeLists.txt` |
 | nlohmann/json, sframe, spdlog | `examples/qclient/CMakeLists.txt` |
@@ -118,62 +114,38 @@ Entries are keyed by package name and version, so separate build directories, `W
 The cache also holds the bootstrapped CPM release itself, so the download in `cmake/CPM.cmake` is
 skipped as well.
 
----
+## CMake options
 
-## Examples
-[examples/qclient](https://github.com/Quicr/libquicr/tree/main/examples/qclient) has an example client implementation showing chat and clock
-applications.
-
-Running `make` will build the examples.
-
-### Server
-
-For an example on a simple server, look at the integration tests. For a more complicated example, [LAPS](https://github.com/Quicr/laps) is more a more fleshed out server.
-
-### qClient
-qClient is an example client. It implements the client API to make a connetion to the relay and to act as subscriber, publisher, or both.
-The client program will read from `stdin` when in publisher mode to publish data. Alternatively, the client can be configured to publish
-a timestamp using the option `--clock`.
-
-Use `qclient -h` to get help.
-
-> [!NOTE]
-> The **namespace** and **name** for both publish and subscribe can be any string value. The only requirement is
-> to publish and subscribe to the same values.
-
-#### As chat subscriber
+libquicr provides CMake options for selecting build targets and optional features. For example,
+configure a build with examples enabled:
 
 ```
-./qclient --sub_namespace chat --sub_name general
+cmake -B build -DQUICR_BUILD_EXAMPLES=ON
 ```
 
-#### As chat publisher
+Build targets:
 
-```
-./qclient --pub_namespace chat --pub_name general
-```
+* `QUICR_BUILD_C_BRIDGE` — build the C API bridge.
+* `QUICR_BUILD_EXAMPLES` — build examples.
+* `QUICR_BUILD_TESTS` — build the test suite.
+* `QUICR_BUILD_BENCHMARKS` — build benchmarks.
+* `QUICR_BUILD_FUZZ` — build Clang fuzzing targets.
 
-#### As both chat subscriber and publisher
+Tests, benchmarks, and the C Bridge default to `ON` for a standalone build and `OFF` when libquicr
+is included by another CMake project. Examples and fuzzers default to `OFF`. When both the C Bridge
+and examples are enabled, the C Bridge examples are built automatically. `BUILD_TESTING=ON` is
+also required for the test suite, benchmarks, fuzzers, and C++ examples.
 
-```
-./qclient --sub_namespace chat --sub_name general --pub_namespace chat --pub_name general
-```
+Library configuration:
 
-#### As clock publisher
+* `QUICR_BUILD_SHARED` — build libquicr as a shared library; defaults to `OFF`.
+* `WITH_MBEDTLS` — use Mbed TLS instead of OpenSSL; defaults to `OFF`.
+* `QUICR_USE_BROTLI` — enable Brotli TLS certificate compression; defaults to `OFF`.
+* `QUICR_ENABLE_SANITIZERS` — enable AddressSanitizer and UndefinedBehaviorSanitizer with Clang or
+  GCC; defaults to `OFF`.
+* `LINT` — run Clang-Tidy while compiling; defaults to `OFF`.
 
-```
-./qclient --pub_namespace clock --pub_name second --clock
-```
-
-#### As clock subscriber
-
-```
-./qclient --sub_namespace clock --sub_name second
-```
-
----
-
-### Make
+## Make
 
 Use `make` to build libquicr.
 
@@ -183,67 +155,34 @@ Use `make cclean` to clean build files.
 
 Use `make fuzz` to run the fuzzer tests.
 
-### C Bridge Target
+## C Bridge Target
 
 libquicr includes C Bridge interfaces for C applications:
 
-#### Building C Bridge
+### Building C Bridge
 The C Bridge provides a C wrapper around the C++ libquicr library.
 
 See [c-bridge/README.md](c-bridge/README.md) for details.
 
-
-## Self-signed Certificate
-
-Server requires a TLS certificate and key file. For development and testing, use a self-signed certificate. Below
-are the steps to create a self-signed certificate and private ey.
-
-### OpenSSL/BorningSSL
-
-```
-cd build/examples/qclient
-openssl req -nodes -x509 -newkey rsa:2048 -days 365 \
-    -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
-    -keyout server-key.pem -out server-cert.pem
-```
-
-### MbedTLS
-
-```
-openssl req -nodes -x509 -newkey ec:<(openssl ecparam -name prime256v1) -days 365 \
-    -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
-    -keyout server-key.pem -out server-cert.pem
-```
-
-OR
-
-```
-    openssl ecparam -name prime256v1 -genkey -noout -out server-key-ec.pem
-    openssl req -nodes -x509 -key server-key-ec.pem -days 365 \
-        -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org" \
-        -keyout server-key.pem -out server-cert.pem
-
-```
-
----
-
 ## Generate documentation
-API documentation can be generated using `make doc`
 
-Below programs need to be installed.
+Run `make doc` from the repository root to generate the Doxygen API reference and
+render the API guide. The output is written to `docs/html/`; open
+`docs/html/index.html` in a browser to view it.
 
-Example on MacOS:
+### Prerequisites on macOS
 
-* `brew install doxygen`
-* `brew install npm`
-* `brew install pandoc`
-* `npm install --global @mermaid-js/mermaid-cli`
-* `npm install --global mermaid-filter`
+```bash
+brew install doxygen node pandoc
+npm install --global @mermaid-js/mermaid-cli
+npm install --global mermaid-filter
+```
 
 > [!NOTE]
-> https://github.com/raghur/mermaid-filter adds mermaid support to pandoc
->
+> [`mermaid-filter`](https://github.com/raghur/mermaid-filter) allows Pandoc to
+> render the Mermaid diagrams used by the API guide.
 
-### MOQ Implementation Documentation
+### Additional documentation
 
-See [MOQ Implementation](docs/implementation)
+* [API guide](docs/api-guide.md)
+* [MOQT implementation notes](docs/implementation.md)

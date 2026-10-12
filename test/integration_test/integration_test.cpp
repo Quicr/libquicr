@@ -22,6 +22,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
@@ -148,6 +149,8 @@ GetTestNegativeTimeout()
 static const std::chrono::milliseconds kDefaultTimeout = GetTestTimeout();
 // Missing message timeout.
 static const std::chrono::milliseconds kNegativeTimeout(GetTestNegativeTimeout());
+// Use this to intentionally supress periodic cleanup.
+static constexpr std::uint64_t kStreamSweepDisabledMs = 60'000;
 
 /// @brief Wait for a condition to become true with polling
 /// @param predicate Function returning true when condition is met
@@ -401,6 +404,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         uint64_t subgroup_id;
         uint64_t object_id;
         ObjectStatus status;
+        std::optional<std::uint8_t> priority;
+        std::optional<TrackMode> track_mode;
         std::vector<uint8_t> data;
         std::optional<Extensions> extensions;
         std::optional<messages::StreamHeaderProperties> stream_mode;
@@ -481,6 +486,8 @@ class TestSubscribeHandler : public SubscribeTrackHandler
                                           .subgroup_id = object_headers.subgroup_id,
                                           .object_id = object_headers.object_id,
                                           .status = object_headers.status,
+                                          .priority = object_headers.priority,
+                                          .track_mode = object_headers.track_mode,
                                           .data = std::vector<uint8_t>(data.begin(), data.end()),
                                           .extensions = object_headers.extensions,
                                           .stream_mode = stream_mode });
@@ -819,6 +826,68 @@ TEST_CASE("Integration - Subscribe")
     {
         CAPTURE("WebTransport");
         test_subscribe("https");
+    }
+}
+
+TEST_CASE("Integration - Datagram object roundtrip")
+{
+    auto test_datagrams = [](const std::string& protocol_scheme) {
+        auto session_mgr = MakeTestSessionManager();
+        auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+        auto [publisher, publisher_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber, subscriber_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "datagram", "roundtrip" }), { 1 } };
+        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kDatagram, 3, 5000, { 0, 0 });
+        publisher->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
+
+        auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+        subscriber->SubscribeTrack(subscribe_handler);
+        REQUIRE(WaitFor(
+          [&subscribe_handler]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        constexpr std::uint64_t object_count = 5;
+        const Extensions extensions{ { 1, { { 0xAA, 0xBB } } } };
+        for (std::uint64_t i = 0; i < object_count; ++i) {
+            const Bytes payload{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 };
+            const ObjectHeaders headers{ .group_id = 10 + i,
+                                         .object_id = 20 + i,
+                                         .payload_length = payload.size(),
+                                         .status = ObjectStatus::kAvailable,
+                                         .priority = 7,
+                                         .ttl = 5000,
+                                         .track_mode = TrackMode::kDatagram,
+                                         .extensions = extensions };
+            REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        }
+
+        REQUIRE(WaitFor([&subscribe_handler]() { return subscribe_handler->GetReceivedCount() == object_count; }));
+        const auto objects = subscribe_handler->GetReceivedObjects();
+        REQUIRE_EQ(objects.size(), object_count);
+        for (std::size_t i = 0; i < objects.size(); ++i) {
+            // Datagram arrival order is not guaranteed.
+            const auto it = std::find_if(
+              objects.begin(), objects.end(), [i](const auto& object) { return object.object_id == 20 + i; });
+            REQUIRE(it != objects.end());
+            const auto& object = *it;
+            CHECK_EQ(object.group_id, 10 + i);
+            CHECK_EQ(object.object_id, 20 + i);
+            CHECK_EQ(object.status, ObjectStatus::kAvailable);
+            CHECK_EQ(object.priority, 7);
+            CHECK_EQ(object.track_mode, TrackMode::kDatagram);
+            CHECK_EQ(object.extensions, extensions);
+            CHECK_EQ(object.data, (Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 }));
+        }
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_datagrams("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_datagrams("https");
     }
 }
 
@@ -3223,4 +3292,124 @@ TEST_CASE("Integration - Stream data is delivered before its FIN callback")
         return subscribe_handler->GetReceivedCountAtClose() != CloseOrderingSubscribeHandler::kNotClosed;
     }));
     CHECK_EQ(subscribe_handler->GetReceivedCountAtClose(), object_count);
+}
+
+TEST_CASE("Integration - Subscription subgroup close")
+{
+    const auto test_subgroup_release = [](const std::string& protocol_scheme) {
+        auto session_mgr = MakeTestSessionManager();
+
+        auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+        auto [subscriber, callbacks] =
+          MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kStreamSweepDisabledMs);
+        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "stream", "release" }), { 1 } };
+
+        auto subscribe_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        subscriber->SubscribeTrack(subscribe_handler);
+        REQUIRE(WaitFor(
+          [&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+        publisher->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+
+        const std::vector<std::uint8_t> payload(16, 0xa5);
+        const ObjectHeaders headers{ .group_id = 0,
+                                     .object_id = 0,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable,
+                                     .priority = 3,
+                                     .ttl = 10'000,
+                                     .track_mode = TrackMode::kStream };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        publish_handler->EndSubgroup(0, 0, true);
+
+        REQUIRE(WaitFor([callbacks = callbacks] { return !callbacks->GetClosedStreamIds().empty(); }));
+        const auto closed_stream_ids = callbacks->GetClosedStreamIds();
+        REQUIRE_EQ(closed_stream_ids.size(), 1);
+        const auto stream_id = closed_stream_ids.front();
+        CHECK(callbacks->CheckStreamState(stream_id) == false);
+        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetConnection());
+        CHECK(WaitFor([&] { return connection->GetStream(stream_id) == nullptr; }));
+        CHECK_EQ(subscribe_handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_subgroup_release("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_subgroup_release("https");
+    }
+}
+
+namespace quicr {
+    static bool operator==(const messages::TrackExtensions& lhs, const messages::TrackExtensions& rhs)
+    {
+        auto lhs_map = lhs.extensions;
+        auto rhs_map = rhs.extensions;
+        constexpr auto immutable_key = static_cast<std::uint64_t>(messages::ExtensionType::kImmutable);
+        lhs_map.erase(immutable_key);
+        rhs_map.erase(immutable_key);
+        return lhs_map == rhs_map && lhs.immutable_extensions == rhs.immutable_extensions;
+    }
+
+    static bool operator==(const TrackStatusResponse& lhs, const TrackStatusResponse& rhs)
+    {
+        return lhs.largest_location == rhs.largest_location && lhs.track_properties == rhs.track_properties;
+    }
+}
+
+TEST_CASE("Integration - Track Status")
+{
+    SessionManager session_mgr = MakeTestSessionManager();
+    const auto server = MakeTestServer(session_mgr, std::nullopt, 4);
+
+    auto test_track_status = [&](const std::string& protocol_scheme) {
+        auto [subscriber, subscriber_client] =
+          MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kStreamSweepDisabledMs);
+        const FullTrackName track{ TrackNamespace(std::vector<std::string>{ "ctrl", "update" }), { 4, 5, 6 } };
+        const TrackStatusResponse expected{
+            .largest_location = messages::Location{ 1, 2 },
+            .track_properties =
+              messages::TrackExtensions{}
+                .Add(messages::ExtensionType::kDynamicGroups, true)
+                .AddImmutable(messages::ExtensionType::kDefaultPublisherGroupOrder, messages::GroupOrder::kAscending),
+        };
+        server->SetTrackStatusResponse(expected);
+        auto handler = TrackStatusHandler::Create(track);
+        CHECK_EQ(handler->GetStatus(), TrackStatusHandler::Status::kNotRequested);
+        CHECK_FALSE(handler->GetResponse().has_value());
+        CHECK_FALSE(handler->GetError().has_value());
+
+        subscriber->RequestTrackStatus(handler);
+        REQUIRE(WaitFor([&] { return handler->GetStatus() == TrackStatusHandler::Status::kOk; }));
+        REQUIRE(handler->GetResponse().has_value());
+        CHECK(handler->GetResponse().value() == expected);
+        CHECK_FALSE(handler->GetError().has_value());
+
+        REQUIRE(WaitFor(
+          [subscriber_client = subscriber_client] { return !subscriber_client->GetClosedStreamIds().empty(); }));
+        const auto closed_stream_ids = subscriber_client->GetClosedStreamIds();
+        REQUIRE_EQ(closed_stream_ids.size(), 1);
+        const auto stream_id = closed_stream_ids.front();
+        CHECK(subscriber_client->CheckStreamState(stream_id) == false);
+        REQUIRE(WaitFor([&] { return server->WasStreamReset(stream_id).has_value(); }));
+        CHECK(server->WasStreamReset(stream_id) == false);
+        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetConnection());
+        CHECK(WaitFor([&] { return connection->GetStream(stream_id) == nullptr; }));
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_track_status("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_track_status("https");
+    }
 }

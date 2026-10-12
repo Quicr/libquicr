@@ -5,6 +5,7 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <vector>
 
 namespace quicr {
     class Session;
@@ -71,6 +72,16 @@ namespace quicr_test {
                 return std::nullopt;
             }
             return it->second;
+        }
+
+        std::vector<std::uint64_t> GetClosedStreamIds()
+        {
+            std::lock_guard _(stream_state_mutex_);
+            std::vector<std::uint64_t> stream_ids;
+            for (const auto& [stream_id, reset] : closed_streams_) {
+                stream_ids.push_back(stream_id);
+            }
+            return stream_ids;
         }
 
       protected:
