@@ -103,18 +103,23 @@ quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode> SubscribeReceive
 }
 ```
 
-SETUP callbacks return `Expected<void, Error<ErrorCode>>` synchronously. Accept by returning `{}`:
+`Session::Callbacks::SetupReceived()` receives the peer's SETUP message.
+
+SETUP is accepted by default. An override returns `Expected<void, Error<ErrorCode>>` synchronously:
+return `{}` to accept, or an `Unexpected<Error<ErrorCode>>` to reject and disconnect the session.
+
+The session becomes ready after the local SETUP has been sent and this peer message has been
+accepted.
 
 ```cpp
-quicr::Expected<void, quicr::Error<quicr::ErrorCode>> ClientSetupReceived(
+quicr::Expected<void, quicr::Error<quicr::ErrorCode>> SetupReceived(
   const std::shared_ptr<quicr::Session>& session,
-  const quicr::ClientSetupAttributes& attributes) override
+  const quicr::SetupAttributes& attributes) override
 {
+    peer_endpoint_id_ = attributes.endpoint_id;
     return {};
 }
 ```
-
-SETUP callbacks cannot defer their result.
 
 #### Deferring an answer
 

@@ -10,6 +10,18 @@
 using namespace quicr;
 using namespace quicr_test;
 
+quicr::Expected<void, quicr::Error<quicr::ErrorCode>>
+TestServer::SetupReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
+                          const quicr::SetupAttributes& setup_attributes)
+{
+    std::lock_guard _(state_mutex_);
+    if (setup_received_) {
+        setup_received_->set_value(setup_attributes);
+        setup_received_.reset();
+    }
+    return {};
+}
+
 void
 TestPublishTrackHandler::StatusChanged(Status status)
 {
