@@ -183,7 +183,7 @@ QUIC still uses TLS 1.3 through picotls; this configuration only removes the ext
 To test this path on a system where OpenSSL is installed, disable its package discovery explicitly:
 
 ```
-cmake -B build -DWITH_OPENSSL=OFF -DCMAKE_DISABLE_FIND_PACKAGE_OpenSSL=TRUE
+cmake -B build -DCMAKE_DISABLE_FIND_PACKAGE_OpenSSL=TRUE
 ```
 
 > [!WARNING]

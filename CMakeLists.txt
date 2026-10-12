@@ -39,7 +39,6 @@ option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 option(QUICR_GENERATE_THIRD_PARTY_LICENSES "Generate notices for distributed CPM dependencies" OFF)
 
-option(WITH_OPENSSL "Build with an OpenSSL-compatible crypto backend" OFF)
 option(WITH_MBEDTLS "Build with the MbedTLS crypto backend" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_USE_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
@@ -54,10 +53,6 @@ if(QUICR_ENABLE_SANITIZERS)
         -fno-sanitize-recover=undefined
     )
     add_link_options(-fsanitize=address,undefined)
-endif()
-
-if(WITH_OPENSSL AND WITH_MBEDTLS)
-  message(FATAL_ERROR "WITH_OPENSSL and WITH_MBEDTLS cannot both be enabled")
 endif()
 
 #=============================================================================#
