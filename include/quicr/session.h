@@ -750,7 +750,8 @@ namespace quicr {
         std::map<std::uint64_t, std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_name;
 
         /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
-        std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias;
+        std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias
+          QUICR_GUARDED_BY(state_mutex_);
 
         /// Fetch Publishers by request ID.
         std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;

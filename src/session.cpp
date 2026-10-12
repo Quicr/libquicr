@@ -2330,36 +2330,37 @@ namespace quicr {
                                      const std::shared_ptr<PublishTrackHandler>& track_handler,
                                      bool ephemeral)
     {
-        // Generate track alias
-        const auto& tfn = track_handler->GetFullTrackName();
-        auto th = TrackHash(tfn);
+        {
+            std::lock_guard _(state_mutex_);
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+            // Generate track alias
+            const auto& tfn = track_handler->GetFullTrackName();
+            auto th = TrackHash(tfn);
 
-        if (!track_handler->GetTrackAlias().has_value()) {
-            track_handler->SetTrackAlias(th.track_fullname_hash);
+            if (!track_handler->GetTrackAlias().has_value()) {
+                track_handler->SetTrackAlias(th.track_fullname_hash);
+            }
+
+            track_handler->SetRequestId(request_id);
+
+            request_handlers[request_id] = track_handler;
+
+            track_handler->connection_id_ = current_connection_->GetID();
+
+            const auto req_it = recv_req_id.find(request_id);
+            if (req_it != recv_req_id.end() && req_it->second.stream) {
+                track_handler->SetRequestStream(req_it->second.stream);
+            }
+
+            // Set this transport as the one for the publisher to use.
+            track_handler->SetTransport(GetSharedPtr());
+
+            if (!ephemeral) {
+                // Hold onto track handler
+                pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
+                pub_tracks_by_track_alias[th.track_fullname_hash][src_id] = track_handler;
+            }
         }
-
-        track_handler->SetRequestId(request_id);
-        request_handlers[request_id] = track_handler;
-
-        track_handler->connection_id_ = current_connection_->GetID();
-
-        const auto req_it = recv_req_id.find(request_id);
-        if (req_it != recv_req_id.end() && req_it->second.stream) {
-            track_handler->SetRequestStream(req_it->second.stream);
-        }
-
-        // Set this transport as the one for the publisher to use.
-        track_handler->SetTransport(GetSharedPtr());
-
-        if (!ephemeral) {
-            // Hold onto track handler
-            pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
-            pub_tracks_by_track_alias[th.track_fullname_hash][src_id] = track_handler;
-        }
-
-        lock.unlock();
         track_handler->SetStatus(PublishTrackHandler::Status::kOk);
     }
 
@@ -2367,46 +2368,46 @@ namespace quicr {
                                        const std::shared_ptr<PublishTrackHandler>& track_handler,
                                        bool send_publish_done)
     {
-        std::unique_lock lock(state_mutex_);
+        {
+            std::lock_guard _(state_mutex_);
 
-        auto th = TrackHash(track_handler->GetFullTrackName());
-        QUICR_LOGGER_DEBUG(
-          logger_,
-          "Server publish track conn_id: {} full_name_hash: {} namespace_hash: {} name_hash: {} unbind",
-          current_connection_->GetID(),
-          th.track_fullname_hash,
-          th.track_namespace_hash,
-          th.track_name_hash);
+            auto th = TrackHash(track_handler->GetFullTrackName());
+            QUICR_LOGGER_DEBUG(
+              logger_,
+              "Server publish track conn_id: {} full_name_hash: {} namespace_hash: {} name_hash: {} unbind",
+              current_connection_->GetID(),
+              th.track_fullname_hash,
+              th.track_namespace_hash,
+              th.track_name_hash);
 
-        request_handlers.erase(*track_handler->GetRequestId());
-        pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
+            request_handlers.erase(*track_handler->GetRequestId());
+            pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
 
-        pub_tracks_by_track_alias[th.track_fullname_hash].erase(src_id);
-        if (pub_tracks_by_track_alias[th.track_fullname_hash].empty()) {
-            pub_tracks_by_track_alias.erase(th.track_fullname_hash);
+            pub_tracks_by_track_alias[th.track_fullname_hash].erase(src_id);
+            if (pub_tracks_by_track_alias[th.track_fullname_hash].empty()) {
+                pub_tracks_by_track_alias.erase(th.track_fullname_hash);
+            }
+
+            if (pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
+                QUICR_LOGGER_DEBUG(logger_,
+                                   "Server publish track conn_id: {} full_name_hash: {} namespace_hash: {} unbind",
+                                   current_connection_->GetID(),
+                                   th.track_fullname_hash,
+                                   th.track_namespace_hash);
+
+                pub_tracks_by_name.erase(th.track_namespace_hash);
+            }
+
+            track_handler->EndAllSubgroups();
+
+            const auto request_stream = track_handler->GetRequestStream();
+            if (send_publish_done && request_stream != nullptr) {
+                SendPublishDone(request_stream,
+                                track_handler->GetRequestId().value(),
+                                messages::PublishDoneStatusCode::kSubscribtionEnded,
+                                "No publishers");
+            }
         }
-
-        if (pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
-            QUICR_LOGGER_DEBUG(logger_,
-                               "Server publish track conn_id: {} full_name_hash: {} namespace_hash: {} unbind",
-                               current_connection_->GetID(),
-                               th.track_fullname_hash,
-                               th.track_namespace_hash);
-
-            pub_tracks_by_name.erase(th.track_namespace_hash);
-        }
-
-        track_handler->EndAllSubgroups();
-
-        const auto request_stream = track_handler->GetRequestStream();
-        if (send_publish_done && request_stream != nullptr) {
-            SendPublishDone(request_stream,
-                            track_handler->GetRequestId().value(),
-                            messages::PublishDoneStatusCode::kSubscribtionEnded,
-                            "No publishers");
-        }
-
-        lock.unlock();
 
         // The subscriber this handler served is gone, so further publishes must be refused rather
         // than opening streams on a track the session no longer routes.
@@ -3476,11 +3477,21 @@ namespace quicr {
                                    forward,
                                    new_group_request_id.has_value());
 
-                for (const auto& pub : pub_tracks_by_track_alias[sub_ctx_it->second.track_hash.track_fullname_hash]) {
+                std::vector<std::shared_ptr<PublishTrackHandler>> handlers;
+                {
+                    std::lock_guard _(state_mutex_);
+                    const auto it = pub_tracks_by_track_alias.find(sub_ctx_it->second.track_hash.track_fullname_hash);
+                    if (it != pub_tracks_by_track_alias.end()) {
+                        for (const auto& [_, handler] : it->second) {
+                            handlers.push_back(handler);
+                        }
+                    }
+                }
+                for (const auto& handler : handlers) {
                     if (not forward) {
-                        pub.second->SetStatus(PublishTrackHandler::Status::kPaused);
+                        handler->SetStatus(PublishTrackHandler::Status::kPaused);
                     } else {
-                        pub.second->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
+                        handler->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
                     }
                 }
 
