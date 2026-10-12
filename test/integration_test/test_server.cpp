@@ -44,6 +44,10 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
 {
     std::lock_guard lock(state_mutex_);
 
+    if (publish_error_.has_value()) {
+        return quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(*publish_error_);
+    }
+
     const auto th = TrackHash(publish_attributes.track_full_name);
     const auto track_alias = th.track_fullname_hash;
 

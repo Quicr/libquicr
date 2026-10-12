@@ -393,8 +393,8 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     return std::make_pair(session, callbacks);
 }
 
-// Check the request stream (assuming the first bidir stream) gets closed and cleaned.
-static void
+// Check the request stream (assuming the first bidir stream) gets closed and cleaned, returning its ID.
+static std::uint64_t
 RequireRequestStreamClosed(const std::shared_ptr<Session>& session,
                            const std::shared_ptr<TestClient>& callbacks,
                            const std::shared_ptr<TestServer>& server)
@@ -414,6 +414,7 @@ RequireRequestStreamClosed(const std::shared_ptr<Session>& session,
     REQUIRE(WaitFor([&] { return server->WasStreamReset(*request_stream_id).has_value(); }));
     const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetConnection());
     CHECK(WaitFor([&] { return connection->GetStream(*request_stream_id) == nullptr; }));
+    return *request_stream_id;
 }
 
 /// @brief Test subscribe handler that tracks received objects and exposes stream state
@@ -1356,18 +1357,51 @@ TEST_CASE("Integration - Rejected request closes both stream directions")
         const FullTrackName ftn{ TrackNamespace({ "missing" }), { 1 } };
         auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
         CHECK_NOTHROW(session->SubscribeTrack(handler));
-        REQUIRE(handler->GetRequestStreamId().has_value());
-        const auto request_stream_id = *handler->GetRequestStreamId();
 
         // Ensure we get REQUEST_ERROR from the peer before any stream closure.
         REQUIRE(WaitFor([&handler] { return handler->RequestErrorReceived(); }));
 
-        // The peer should now have FIN'd their side.
-        REQUIRE(WaitFor([&] { return callbacks->CheckStreamState(request_stream_id).has_value(); }));
+        // The peer FINs their side, our remaining direction must close too, and the request must
+        // leave the transport.
+        const auto request_stream_id = RequireRequestStreamClosed(session, callbacks, server);
+        CHECK(callbacks->CheckStreamState(request_stream_id)->contains(StreamClosedFlag::kFin));
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_rejection("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_rejection("https");
+    }
+}
+
+TEST_CASE("Integration - Rejected publish ends the publish handler")
+{
+    auto test_rejection = [](const std::string& protocol_scheme) {
+        auto session_mgr = MakeTestSessionManager();
+        auto server = MakeTestServer(session_mgr);
+
+        // Setup to blanket reject the request.
+        server->SetPublishError(PublishErrorCode::kRejected, "Publish rejected");
+        const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto& session = client.first;
+        const auto& callbacks = client.second;
+
+        const FullTrackName ftn{ TrackNamespace({ "rejected" }), { 1 } };
+        const auto handler = TestPublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 5000, { 0, 0 });
+        CHECK_NOTHROW(session->PublishTrack(handler));
+
+        // The peer FINs their side after REQUEST_ERROR, and ours must close too.
+        const auto request_stream_id = RequireRequestStreamClosed(session, callbacks, server);
         CHECK(callbacks->CheckStreamState(request_stream_id)->contains(StreamClosedFlag::kFin));
 
-        // Our remaining direction must close too, and the request must leave the transport.
-        RequireRequestStreamClosed(session, callbacks, server);
+        // The rejected publish must not be left pending.
+        CHECK(WaitFor([&] { return handler->GetStatus() == PublishTrackHandler::Status::kDoneByFin; }));
     };
 
     SUBCASE("Raw QUIC")

@@ -1143,16 +1143,8 @@ namespace quicr {
 
         if (auto pub_handler = handler->Get<PublishTrackHandler>()) {
             // The subscriber has closed the request stream.
-            if (flag == StreamClosedFlag::kFin) {
-                // This is not strictly cancellation, but it's undefined.
-                QUICR_LOGGER_WARN(logger_,
-                                  "Subscriber FIN'd request stream conn_id: {} request_id: {}",
-                                  current_connection_->GetID(),
-                                  request_id);
-                return;
-            }
-
-            pub_handler->SetStatus(PublishTrackHandler::Status::kUnsubscribed);
+            pub_handler->SetStatus(is_reset ? PublishTrackHandler::Status::kUnsubscribed
+                                            : PublishTrackHandler::Status::kDoneByFin);
             // TODO: This should RESET all open subgroups.
             pub_handler->EndAllSubgroups();
             quic_transport_->CloseStream(current_connection_, stream, operation);
