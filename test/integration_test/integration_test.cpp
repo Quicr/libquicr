@@ -1472,7 +1472,9 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
     auto server = MakeTestServer(session_mgr);
 
     auto test_publish_namespace_done = [&](const std::string& protocol_scheme) {
-        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto& session = client.first;
+        const auto& callbacks = client.second;
 
         TrackNamespace ns(std::vector<std::string>{ "ns", "done" });
 
