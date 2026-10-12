@@ -96,10 +96,6 @@ namespace quicr_test {
         void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override
         {
             std::lock_guard lock(stream_state_mutex_);
-            if (flag != quicr::StreamClosedFlag::kStopSending && closed_streams_.contains(stream_id) &&
-                closed_streams_[stream_id].size() > 1) {
-                throw std::logic_error("Can't have more than one close type");
-            }
             closed_streams_[stream_id].insert(flag);
         }
 

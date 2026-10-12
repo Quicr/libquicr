@@ -414,6 +414,13 @@ RequireRequestStreamClosed(const std::shared_ptr<Session>& session,
     REQUIRE(WaitFor([&] { return server->WasStreamReset(*request_stream_id).has_value(); }));
     const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetConnection());
     CHECK(WaitFor([&] { return connection->GetStream(*request_stream_id) == nullptr; }));
+
+    // Each direction ends exactly one way.
+    const auto ended_both_ways = [](const std::set<StreamClosedFlag>& flags) {
+        return flags.contains(StreamClosedFlag::kFin) && flags.contains(StreamClosedFlag::kReset);
+    };
+    CHECK_FALSE(ended_both_ways(*callbacks->CheckStreamState(*request_stream_id)));
+    CHECK_FALSE(ended_both_ways(*server->CheckStreamState(*request_stream_id)));
     return *request_stream_id;
 }
 

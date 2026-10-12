@@ -269,6 +269,21 @@ namespace quicr_test {
          */
         bool UnbindSubscriberPublishTrack(std::uint64_t track_alias);
 
+        /**
+         * Check the state of a stream.
+         * @param stream_id The stream to query.
+         * @return Stream closure, or std::nullopt if not closed.
+         */
+        std::optional<std::set<quicr::StreamClosedFlag>> CheckStreamState(std::uint64_t stream_id) const
+        {
+            std::lock_guard lock(state_mutex_);
+            const auto it = closed_streams_.find(stream_id);
+            if (it == closed_streams_.end()) {
+                return std::nullopt;
+            }
+            return it->second;
+        }
+
         // True = reset, false = FIN, nullopt = not closed.
         std::optional<bool> WasStreamReset(std::uint64_t stream_id) const
         {
@@ -304,10 +319,6 @@ namespace quicr_test {
         void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override
         {
             std::lock_guard lock(state_mutex_);
-            if (flag != quicr::StreamClosedFlag::kStopSending && closed_streams_.contains(stream_id) &&
-                closed_streams_[stream_id].size() > 1) {
-                throw std::logic_error("Can't have more than one close type");
-            }
             closed_streams_[stream_id].insert(flag);
         }
 

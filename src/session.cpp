@@ -1070,20 +1070,8 @@ namespace quicr {
                           stream->GetStreamId(),
                           static_cast<int>(flag));
 
-        // Standard bidir response.
-        StreamOperation operation;
-        switch (flag) {
-            case StreamClosedFlag::kFin:
-                operation = StreamOperation::kFin;
-                break;
-            case StreamClosedFlag::kReset:
-                [[fallthrough]];
-            case StreamClosedFlag::kStopSending:
-                operation = StreamOperation::kCancel;
-                break;
-            default:
-                throw std::invalid_argument("Invalid StreamClosedFlag flag");
-        }
+        // Standard bidir response: FIN answers FIN, and any abrupt closure is cancellation.
+        const auto operation = flag == StreamClosedFlag::kFin ? StreamOperation::kFin : StreamOperation::kCancel;
         const bool is_reset = operation == StreamOperation::kCancel;
 
         if (is_pub_ns) {
@@ -1095,8 +1083,8 @@ namespace quicr {
             return;
         }
 
-        /// The peer we requested TRACK_STATUS from has closed the stream. Either they responded,
-        /// or errored, which has already occurred by now. Close our side, and notify.
+        // The peer we requested TRACK_STATUS from has closed the stream. Either they responded,
+        // or errored, which has already occurred by now. Close our side, and notify.
         // TODO: Does setting this status mean anything. A better one might have already been set.
         if (const auto status_handler = handler->Get<TrackStatusHandler>()) {
             quic_transport_->CloseStream(current_connection_, stream, operation);
