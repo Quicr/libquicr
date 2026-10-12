@@ -1152,30 +1152,38 @@ namespace quicr {
         QUICR_LOGGER_INFO(
           logger_, "Unpublish track conn_id: {} hash: {}", current_connection_->GetID(), th.track_fullname_hash);
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+        std::shared_ptr<PublishTrackHandler> removed;
+        {
+            std::lock_guard _(state_mutex_);
 
-        pub_tracks_by_track_alias.erase(th.track_fullname_hash);
+            pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
-        if (!track_handler->GetRequestId().has_value()) {
-            return;
-        }
+            if (!track_handler->GetRequestId().has_value()) {
+                return;
+            }
 
-        request_handlers.erase(track_handler->GetRequestId().value());
+            request_handlers.erase(track_handler->GetRequestId().value());
 
-        /*
-         * This is a round about way to send subscribe done because of the announce flow. This
-         * will go away if we stop using the announce flow. For now, it works for both announce
-         * and publish flows.
-         */
-        auto pub_ns_it = pub_tracks_by_name.find(th.track_namespace_hash);
-        if (pub_ns_it != pub_tracks_by_name.end()) {
+            /*
+             * This is a round about way to send subscribe done because of the announce flow. This
+             * will go away if we stop using the announce flow. For now, it works for both announce
+             * and publish flows.
+             */
+            auto pub_ns_it = pub_tracks_by_name.find(th.track_namespace_hash);
+            if (pub_ns_it == pub_tracks_by_name.end()) {
+                return;
+            }
+
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
             if (pub_n_it != pub_ns_it->second.end()) {
-                const auto ctrl_stream = pub_n_it->second->GetRequestStream();
+                removed = std::move(pub_n_it->second);
+                pub_ns_it->second.erase(pub_n_it);
+
+                const auto ctrl_stream = removed->GetRequestStream();
 
                 // Send subscribe done if track has subscriber and is sending
-                if (pub_n_it->second->GetStatus() == PublishTrackHandler::Status::kOk &&
-                    pub_n_it->second->GetRequestId().has_value() && ctrl_stream != nullptr) {
+                if (removed->GetStatus() == PublishTrackHandler::Status::kOk && removed->GetRequestId().has_value() &&
+                    ctrl_stream != nullptr) {
                     QUICR_LOGGER_INFO(logger_,
                                       "Unpublish track namespace hash: {} track_name_hash: {} track_alias: {}, sending "
                                       "publish_done",
@@ -1183,7 +1191,7 @@ namespace quicr {
                                       th.track_name_hash,
                                       th.track_fullname_hash);
                     SendPublishDone(ctrl_stream,
-                                    *pub_n_it->second->GetRequestId(),
+                                    *removed->GetRequestId(),
                                     PublishDoneStatusCode::kSubscribtionEnded,
                                     "Unpublish track");
                 } else {
@@ -1193,21 +1201,17 @@ namespace quicr {
                                       th.track_name_hash,
                                       th.track_fullname_hash);
                 }
-
-                lock.unlock();
-
-                // We continue to use the kNotAnnounced state when removing. Might make sense to use kDestroyed instead
-                pub_n_it->second->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
-
-                lock.lock();
-
-                pub_ns_it->second.erase(pub_n_it);
             }
-
-            // Close whatever the application left open, so its objects drain rather than the streams
-            // lingering for the life of the connection.
-            track_handler->EndAllSubgroups();
         }
+
+        if (removed) {
+            // We continue to use the kNotAnnounced state when removing. Might make sense to use kDestroyed instead
+            removed->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
+        }
+
+        // Close whatever the application left open, so its objects drain rather than the streams
+        // lingering for the life of the connection.
+        track_handler->EndAllSubgroups();
     }
 
     void Session::PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
