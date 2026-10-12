@@ -636,6 +636,53 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
+    void Session::SendNamespace(const TrackNamespace& track_namespace)
+    {
+        SendNamespaceMessage(ControlMessageType::kNamespace, track_namespace);
+    }
+
+    void Session::SendNamespaceDone(const TrackNamespace& track_namespace)
+    {
+        SendNamespaceMessage(ControlMessageType::kNamespaceDone, track_namespace);
+    }
+
+    void Session::SendNamespaceMessage(ControlMessageType type, const TrackNamespace& track_namespace)
+    {
+        std::vector<std::pair<std::shared_ptr<Stream>, TrackNamespace>> outgoing;
+        {
+            std::lock_guard _(state_mutex_);
+            for (const auto request_id : recv_subscribe_namespaces) {
+                const auto it = recv_req_id.find(request_id);
+                if (it == recv_req_id.end() || it->second.stream == nullptr) {
+                    continue;
+                }
+
+                const auto& prefix = it->second.track_full_name.name_space;
+                const auto match = prefix.IsPrefixOf(track_namespace);
+                if (match == std::partial_ordering::unordered || match == std::partial_ordering::greater) {
+                    continue;
+                }
+
+                const auto suffix_size = track_namespace.GetEntries().size() - prefix.GetEntries().size();
+                outgoing.emplace_back(it->second.stream, track_namespace.GetSuffix(suffix_size));
+            }
+        }
+
+        const char* log_name = type == ControlMessageType::kNamespace ? "NAMESPACE" : "NAMESPACE_DONE";
+        for (const auto& [stream, suffix] : outgoing) {
+            try {
+                QUICR_LOGGER_DEBUG(logger_,
+                                   "Sending {} to conn_id: {} suffix: {}",
+                                   log_name,
+                                   current_connection_->GetID(),
+                                   suffix.Str());
+                SendCtrlMsg(stream, type, suffix);
+            } catch (const std::exception& e) {
+                QUICR_LOGGER_ERROR(logger_, "Caught exception sending {} (error={})", log_name, e.what());
+            }
+        }
+    }
+
     void Session::SubscribeNamespace(std::shared_ptr<SubscribeNamespaceHandler> handler)
     {
         const auto& prefix = handler->GetPrefix();
@@ -1014,11 +1061,20 @@ namespace quicr {
     {
         std::shared_ptr<TrackHandler> handler;
         bool is_pub_ns = false;
+        bool is_sub_ns = false;
+        TrackNamespace sub_ns_prefix;
         {
             std::lock_guard _(state_mutex_);
 
-            // Incoming PUBNS requests are not handler based.
-            if (std::erase(recv_publish_namespaces, request_id) > 0) {
+            // Incoming SUBSCRIBE_NAMESPACE and PUBLISH_NAMESPACE requests are not handler based.
+            // Closing the bidirectional request stream ends the subscription.
+            if (std::erase(recv_subscribe_namespaces, request_id) > 0) {
+                if (const auto it = recv_req_id.find(request_id); it != recv_req_id.end()) {
+                    sub_ns_prefix = it->second.track_full_name.name_space;
+                }
+                recv_req_id.erase(request_id);
+                is_sub_ns = true;
+            } else if (std::erase(recv_publish_namespaces, request_id) > 0) {
                 recv_req_id.erase(request_id);
                 is_pub_ns = true;
             } else {
@@ -1064,6 +1120,13 @@ namespace quicr {
         }
 
         // Notifications / callbacks.
+
+        if (is_sub_ns) {
+            if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
+                callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), sub_ns_prefix);
+            }
+            return;
+        }
 
         if (is_pub_ns) {
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
@@ -1433,6 +1496,7 @@ namespace quicr {
         pub_tracks_by_name.clear();
         recv_req_id.clear();
         recv_publish_namespaces.clear();
+        recv_subscribe_namespaces.clear();
         request_handlers.clear();
         sub_by_recv_track_alias.clear();
     }
@@ -2956,10 +3020,18 @@ namespace quicr {
                             return;
                         }
 
+                        const bool subscribe_namespace = msg_type == messages::ControlMessageType::kSubscribeNamespace;
+                        if (subscribe_namespace) {
+                            std::lock_guard _(self->state_mutex_);
+                            self->recv_req_id[request_id] = { .track_full_name = { track_namespace_prefix, {} },
+                                                              .track_hash = TrackHash({ track_namespace_prefix, {} }),
+                                                              .stream = stream };
+                            self->recv_subscribe_namespaces.push_back(request_id);
+                        }
+
                         self->SendSubscribeNamespaceOk(stream);
 
                         // TODO: Could argue that this should be left to a relay implementation?
-                        const bool subscribe_namespace = msg_type == messages::ControlMessageType::kSubscribeNamespace;
                         for (const auto& name_space : result.value()) {
                             const auto match = track_namespace_prefix.IsPrefixOf(name_space);
                             if (match == std::partial_ordering::unordered || match == std::partial_ordering::greater) {
