@@ -6,7 +6,7 @@ libquicr
 [![Windows](https://github.com/Quicr/libquicr/actions/workflows/windows.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/windows.yml)
 
 [![REUSE status](https://api.reuse.software/badge/github.com/fsfe/reuse-action)](https://api.reuse.software/info/github.com/fsfe/reuse-action)
-[![REUSE Compliance](https://github.com/Quicr/libquicr/actions/workflows/resuse.yaml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/resuse.yaml)
+[![REUSE Compliance](https://github.com/Quicr/libquicr/actions/workflows/reuse.yaml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/reuse.yaml)
 
 libquicr is a C++ implementation of Media over QUIC Transport (MOQT), currently targeting
 [draft-ietf-moq-transport-18](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18).
