@@ -305,7 +305,7 @@ namespace quicr {
                 messages::ObjectDatagram object;
                 object.group_id = object_headers.group_id;
                 object.object_id = object_headers.object_id;
-                object.priority = priority;
+                object.priority =  GetDefaultPriority(); //priority;
                 object.track_alias = GetTrackAlias().value();
                 object.extensions = object_headers.extensions;
                 object.immutable_extensions = object_headers.immutable_extensions;

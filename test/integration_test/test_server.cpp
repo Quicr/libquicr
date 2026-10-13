@@ -65,7 +65,7 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
             const auto delivery_timeout = publish_attributes.delivery_timeout.value_or(0ull);
             auto handler = std::make_shared<TestPublishTrackHandler>(publish_attributes.track_full_name,
                                                                      quicr::TrackMode::kStream,
-                                                                     publish_attributes.default_publisher_priority,
+                                                                     publish_attributes.publisher_priority,
                                                                      delivery_timeout,
                                                                      shared_from_this());
             ns_handler->PublishTrack(handler);
@@ -184,7 +184,7 @@ TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& sessi
         auto handler =
           std::make_shared<TestPublishTrackHandler>(track.full_track_name,
                                                     quicr::TrackMode::kStream,
-                                                    track.attributes.default_publisher_priority,
+                                                    track.attributes.publisher_priority,
                                                     track.attributes.delivery_timeout.value_or(0ull),
                                                     std::static_pointer_cast<TestServer>(shared_from_this()));
         ns_handler->PublishTrack(handler);

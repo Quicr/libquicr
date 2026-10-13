@@ -502,7 +502,7 @@ namespace quicr {
                             .AddOptional(ExtensionType::kDeliveryTimeout, publish.delivery_timeout)
                             .AddOptional(ExtensionType::kMaxCacheDuration, publish.max_cache_duration)
                             .Add(ExtensionType::kDefaultPublisherGroupOrder, publish.default_publisher_group_order)
-                            .Add(ExtensionType::kDefaultPublisherPriority, publish.default_publisher_priority)
+                            .Add(ExtensionType::kDefaultPublisherPriority, publish.publisher_priority)
                             .Add(ExtensionType::kDynamicGroups, publish.dynamic_groups);
 
         QUICR_LOGGER_DEBUG(logger_,
@@ -1316,7 +1316,7 @@ namespace quicr {
                                          .forward = true,
                                          .default_publisher_group_order = GroupOrder::kAscending,
                                          .dynamic_groups = track_handler->support_new_group_request_,
-                                         .default_publisher_priority = track_handler->GetDefaultPriority(),
+                                         .publisher_priority = track_handler->GetDefaultPriority(),
                                          .max_cache_duration = std::nullopt,
                                          .delivery_timeout = track_handler->GetDefaultTTL(),
                                          .track_properties = {} };
@@ -3357,7 +3357,7 @@ namespace quicr {
                                                  .forward = ResolveForward(parameters, true),
                                                  .default_publisher_group_order = default_publisher_group_order,
                                                  .dynamic_groups = dynamic_groups,
-                                                 .default_publisher_priority = default_publisher_priority,
+                                                 .publisher_priority = default_publisher_priority,
                                                  .max_cache_duration = max_cache_duration,
                                                  .delivery_timeout = delivery_timeout,
                                                  .track_properties = std::move(track_extensions) };
@@ -3424,7 +3424,7 @@ namespace quicr {
                               result->handler->SetConnectionId(self->current_connection_->GetID());
                               result->handler->SetRequestId(request_id);
                               result->handler->SetReceivedTrackAlias(publish.track_alias);
-                              result->handler->SetPriority(publish.default_publisher_priority);
+                              result->handler->SetPriority(publish.publisher_priority);
                               // TODO: Optional delivery timeout?
                               const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
                               result->handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));

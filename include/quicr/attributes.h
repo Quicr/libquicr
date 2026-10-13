@@ -79,7 +79,7 @@ namespace quicr {
         const bool forward;
         const messages::GroupOrder default_publisher_group_order;
         const bool dynamic_groups;
-        const std::uint8_t default_publisher_priority;
+        const std::uint8_t publisher_priority;
         const std::optional<std::uint64_t> max_cache_duration;
         const std::optional<std::uint64_t> delivery_timeout;
         const messages::TrackExtensions track_properties;
