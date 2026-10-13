@@ -585,8 +585,7 @@ namespace quicr {
                            request_id,
                            static_cast<uint64_t>(status));
 
-        SendCtrlMsg(
-          stream, ControlMessageType::kPublishDone, UintVar(request_id), status, UintVar(0), AsOwnedBytes(reason));
+        SendCtrlMsg(stream, ControlMessageType::kPublishDone, status, UintVar(0), AsOwnedBytes(reason));
     } catch (const std::exception& e) {
         QUICR_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_DONE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -1316,7 +1315,7 @@ namespace quicr {
                                          .forward = true,
                                          .default_publisher_group_order = GroupOrder::kAscending,
                                          .dynamic_groups = track_handler->support_new_group_request_,
-                                         .publisher_priority = track_handler->GetDefaultPriority(),
+                                         .publisher_priority = track_handler->GetPublisherPriority(),
                                          .max_cache_duration = std::nullopt,
                                          .delivery_timeout = track_handler->GetDefaultTTL(),
                                          .track_properties = {} };
@@ -3087,18 +3086,26 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {
-                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto request_id = FindRequestIdByStream(stream->GetStreamId());
+
+                if (!request_id.has_value()) {
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received publish done to unknown stream to request_id conn_id: {}",
+                                      current_connection_->GetID());
+                    break;
+                }
+
                 [[maybe_unused]] const auto status_code =
                   messages::Message::ParseField<messages::PublishDoneStatusCode>(msg_bytes);
                 [[maybe_unused]] const auto stream_count = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 [[maybe_unused]] const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
 
-                auto sub_it = request_handlers.find(request_id);
+                auto sub_it = request_handlers.find(*request_id);
                 if (sub_it == request_handlers.end()) {
                     QUICR_LOGGER_WARN(logger_,
                                       "Received publish done to unknown request_id conn_id: {} request_id: {}",
                                       current_connection_->GetID(),
-                                      request_id);
+                                      *request_id);
                     return true;
                 }
 
@@ -3116,7 +3123,7 @@ namespace quicr {
                                   "Received publish done conn_id: {} request_id: {} track namespace hash: {} "
                                   "name hash: {} track alias: {}",
                                   current_connection_->GetID(),
-                                  request_id,
+                                  *request_id,
                                   th.track_namespace_hash,
                                   th.track_name_hash,
                                   th.track_fullname_hash);
@@ -3124,11 +3131,11 @@ namespace quicr {
                 if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                        callbacks->PublishDoneReceived(GetSharedPtr(), request_id);
+                        callbacks->PublishDoneReceived(GetSharedPtr(), *request_id);
                     }
                 }
 
-                recv_req_id.erase(request_id);
+                recv_req_id.erase(*request_id);
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {

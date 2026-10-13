@@ -208,7 +208,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                             bool publisher_initiated = false,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
       : SubscribeTrackHandler(full_track_name,
-                              128,
+                              129,
                               quicr::messages::GroupOrder::kAscending,
                               std::monostate{},
                               joining_fetch,
@@ -292,7 +292,8 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         std::string msg(data.begin(), data.end());
 
         QUICR_LOGGER_INFO(qclient_vars::logger,
-                          "Received message: {} Group:{}, Subgroup: {} Object:{} - {}",
+                          "Received pri: {} message: {} Group:{}, Subgroup: {} Object:{} - {}",
+                          hdr.priority.value_or(0),
                           ext.str(),
                           hdr.group_id,
                           hdr.subgroup_id,
@@ -379,7 +380,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                           quicr::TrackMode track_mode,
                           uint8_t default_priority,
                           uint32_t default_ttl)
-      : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
+      : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_priority, default_ttl)
     {
     }
 
@@ -975,7 +976,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
 
                 quicr::ObjectHeaders obj_headers = {
                     group_id,         object_id,      subgroup_id,  data.size(),  quicr::ObjectStatus::kAvailable,
-                    128 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
+                    track_handler->GetPublisherPriority() /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
                 };
 
                 try {
@@ -1041,7 +1042,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = quicr::example::GetTimeStr();
-            QUICR_LOGGER_INFO(qclient_vars::logger, "Group:{0} Object:{1}, Msg:{2}", group_id, object_id, msg);
+            QUICR_LOGGER_INFO(qclient_vars::logger, "Pri: {0} Group:{1} Object:{2}, Msg:{3}", track_handler->GetPublishObjectPriority(), group_id, object_id, msg);
         } else { // stdin
             if (!getline(std::cin, msg)) {
                 break;
@@ -1051,7 +1052,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
 
         quicr::ObjectHeaders obj_headers = {
             group_id,         object_id++,    subgroup_id,  msg.size(),   quicr::ObjectStatus::kAvailable,
-            128 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
+            track_handler->GetPublisherPriority() /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
         };
 
         try {
@@ -1092,7 +1093,7 @@ DoPublisher(const std::string prefix_str,
 
     if (!use_announce) {
         quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, names.front());
-        auto track_handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 128, 3000);
+        auto track_handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 200, 3000);
 
         if (qclient_vars::track_alias.has_value()) {
             track_handler->SetTrackAlias(*qclient_vars::track_alias);
@@ -1362,7 +1363,7 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
                                  ? Fetch{ 128, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
                                  : std::optional<Fetch>(std::nullopt);
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, joining_fetch);
-    track_handler->SetPriority(128);
+    track_handler->SetPriority(129);
 
     QUICR_LOGGER_INFO(qclient_vars::logger, "Started subscriber");
 

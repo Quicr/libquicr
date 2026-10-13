@@ -11,13 +11,15 @@
 namespace quicr {
     PublishTrackHandler::PublishTrackHandler(const FullTrackName& full_track_name,
                                              TrackMode track_mode,
-                                             uint8_t default_priority,
+                                             uint8_t publisher_priority,
+                                             uint8_t publish_object_priority,
                                              uint32_t default_ttl,
                                              std::optional<messages::StreamHeaderProperties> stream_mode,
                                              messages::Location largest_location)
       : TrackHandler(full_track_name)
       , default_track_mode_(track_mode)
-      , default_priority_(default_priority)
+      , publisher_priority_(publisher_priority)
+      , publish_object_priority_(publish_object_priority)
       , default_ttl_(default_ttl)
       , largest_location_(largest_location)
     {
@@ -126,7 +128,7 @@ namespace quicr {
                     // Disable creating stream and doing pipeline on new stream considering delta and subgroups needs
                     // first object parsed
 #if 0
-                    auto stream = session->CreateStream(*GetRequestId(), GetDefaultPriority());
+                    auto stream = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
                     stream_info_by_group_[group_id][subgroup_id] = { stream, group_id, subgroup_id };
 #endif
 
@@ -148,7 +150,7 @@ namespace quicr {
             }
         }
 
-        auto result = session->Enqueue(stream, data, default_priority_, default_ttl_, eflags);
+        auto result = session->Enqueue(stream, data, publisher_priority_, default_ttl_, eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -224,7 +226,6 @@ namespace quicr {
         }
 
         std::uint16_t ttl = object_headers.ttl.value_or(default_ttl_);
-        std::uint8_t priority = object_headers.priority.value_or(default_priority_);
 
         if (object_headers.group_id > largest_location_.group) {
             largest_location_.group = object_headers.group_id;
@@ -253,7 +254,7 @@ namespace quicr {
             subgroup_it = group_it->second.find(object_headers.subgroup_id);
             if (subgroup_it == group_it->second.end()) {
                 is_stream_header_needed = true;
-                stream = session->CreateStream(*GetRequestId(), priority);
+                stream = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =
@@ -305,7 +306,7 @@ namespace quicr {
                 messages::ObjectDatagram object;
                 object.group_id = object_headers.group_id;
                 object.object_id = object_headers.object_id;
-                object.priority =  GetDefaultPriority(); //priority;
+                object.priority = GetPublisherPriority(); // priority;
                 object.track_alias = GetTrackAlias().value();
                 object.extensions = object_headers.extensions;
                 object.immutable_extensions = object_headers.immutable_extensions;
@@ -325,9 +326,8 @@ namespace quicr {
                     if (properties.subgroup_id_mode == messages::SubgroupIdType::kExplicit) {
                         subgroup_hdr.subgroup_id = object_headers.subgroup_id;
                     }
-                    if (!properties.default_priority) {
-                        subgroup_hdr.priority = priority;
-                    }
+
+                    subgroup_hdr.priority = GetPublisherPriority();
                     subgroup_hdr.track_alias = GetTrackAlias().value();
                     object_msg_buffer_ << subgroup_hdr;
                 }
@@ -347,7 +347,7 @@ namespace quicr {
         auto result =
           session->Enqueue(stream,
                            std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-                           priority,
+                           GetPublishObjectPriority(),
                            ttl,
                            eflags);
 
@@ -383,7 +383,7 @@ namespace quicr {
             eflags.use_reliable = true;
             eflags.close_stream = true;
 
-            session->Enqueue(subgroup_it->second.stream, {}, default_priority_, default_ttl_, eflags);
+            session->Enqueue(subgroup_it->second.stream, {}, publisher_priority_, default_ttl_, eflags);
         } else {
             session->ResetSubgroup(subgroup_it->second.stream);
         }

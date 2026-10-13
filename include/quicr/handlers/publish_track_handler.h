@@ -88,14 +88,15 @@ namespace quicr {
          *
          * @param full_track_name       Full track name
          * @param track_mode            The track mode to operate using
-         * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
-         * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
+         * @param publisher_priority    Publisher priority of origin publisher
+         * @param publish_object_priority Publish object priority for objects being sent
          * @param stream_mode           Stream to use when track mode is kStream.
          * @param largest_location      Largest location to start the handler
          */
         PublishTrackHandler(const FullTrackName& full_track_name,
                             TrackMode track_mode,
-                            uint8_t default_priority,
+                            uint8_t publisher_priority,
+                            uint8_t publish_object_priority,
                             uint32_t default_ttl,
                             std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt,
                             messages::Location largest_location = { 0, 0 });
@@ -106,18 +107,25 @@ namespace quicr {
          *
          * @param full_track_name       Full track name
          * @param track_mode            The track mode to operate using
-         * @param default_priority      Default priority for objects if not specified in ObjectHeaderss
+         * @param publisher_priority    Publisher priority of origin publisher
+         * @param publish_object_priority Publish object priority for objects being sent
          * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
          * @param largest_location      Largest location to start handler at
          */
         static std::shared_ptr<PublishTrackHandler> Create(const FullTrackName& full_track_name,
                                                            TrackMode track_mode,
-                                                           uint8_t default_priority,
+                                                           uint8_t publisher_priority,
+                                                           uint8_t publish_object_priority,
                                                            uint32_t default_ttl,
                                                            messages::Location largest_location)
         {
-            return std::shared_ptr<PublishTrackHandler>(new PublishTrackHandler(
-              full_track_name, track_mode, default_priority, default_ttl, std::nullopt, largest_location));
+            return std::shared_ptr<PublishTrackHandler>(new PublishTrackHandler(full_track_name,
+                                                                                track_mode,
+                                                                                publisher_priority,
+                                                                                publish_object_priority,
+                                                                                default_ttl,
+                                                                                std::nullopt,
+                                                                                largest_location));
         }
 
         // TODO: Is this all the info needed for an alias calculation?
@@ -159,13 +167,19 @@ namespace quicr {
         /**
          * @brief set/update the default priority for published objects
          */
-        void SetDefaultPriority(const uint8_t priority) noexcept { default_priority_ = priority; }
+        void SetDefaultPriority(const uint8_t priority) noexcept { publisher_priority_ = priority; }
 
         /**
-         * @brief Get the default priority for published objects.
-         * @return The default priority.
+         * @brief Get the publisher priority
+         * @return publisher priority
          */
-        constexpr uint8_t GetDefaultPriority() const noexcept { return default_priority_; }
+        constexpr uint8_t GetPublisherPriority() const noexcept { return publisher_priority_; }
+
+        /**
+         * @brief Get the publish object priority
+         * @return publisher priority
+         */
+        constexpr uint8_t GetPublishObjectPriority() const noexcept { return publish_object_priority_; }
 
         /**
          * @brief set/update the default TTL expiry for published objects
@@ -361,8 +375,9 @@ namespace quicr {
         std::atomic<Status> publish_status_{ Status::kNotAnnounced };
         TrackMode default_track_mode_;
         std::optional<messages::StreamHeaderProperties> stream_mode_;
-        uint8_t default_priority_; // Set by caller and is used when priority is not specified
-        uint32_t default_ttl_;     // Set by caller and is used when TTL is not specified
+        uint8_t publisher_priority_;      // Publisher (original publisher priority)
+        uint8_t publish_object_priority_; // Set using Subscriber priority
+        uint32_t default_ttl_;            // Set by caller and is used when TTL is not specified
 
         struct StreamInfo
         {
