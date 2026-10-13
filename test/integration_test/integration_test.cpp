@@ -845,7 +845,9 @@ TEST_CASE("Integration - Subscribe rejection preserves rendezvous error codes")
             { RequestErrorCode::kDoesNotExist, ErrorCode::kDoesNotExist },
             { RequestErrorCode::kTimeout, ErrorCode::kTimeout }
         };
-        for (const auto& [callback_error, wire_error] : errors) {
+        for (const auto& error : errors) {
+            const auto callback_error = error.first;
+            const auto wire_error = error.second;
             CAPTURE(callback_error);
             auto session_mgr = MakeTestSessionManager();
             auto server = MakeTestServer(session_mgr);
