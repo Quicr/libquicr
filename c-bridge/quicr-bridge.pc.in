@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
 prefix=@CMAKE_INSTALL_PREFIX@
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
@@ -6,6 +9,6 @@ includedir=${prefix}/include
 Name: quicr-bridge
 Description: @PROJECT_DESCRIPTION@
 Version: @PROJECT_VERSION@
-Requires: 
+Requires:
 Libs: -L${libdir} -lquicr-bridge
 Cflags: -I${includedir}
