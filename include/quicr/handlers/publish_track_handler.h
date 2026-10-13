@@ -330,11 +330,9 @@ namespace quicr {
          */
         void SetStatus(Status status) noexcept
         {
-            const auto previous = publish_status_.exchange(status, std::memory_order_acq_rel);
-            if (previous == status) {
-                return;
+            if (UpdateStatus(status)) {
+                StatusChanged(status);
             }
-            StatusChanged(status);
         }
 
         // --------------------------------------------------------------------------
@@ -389,6 +387,13 @@ namespace quicr {
 
         bool support_new_group_request_{ true }; /// TODO: For now, always support dynamic groups
         std::optional<uint64_t> pending_new_group_request_id_;
+
+      private:
+        // Update status without firing the callback.
+        bool UpdateStatus(Status status) noexcept
+        {
+            return publish_status_.exchange(status, std::memory_order_acq_rel) != status;
+        }
 
         friend class Session;
     };

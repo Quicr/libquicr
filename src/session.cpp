@@ -2330,6 +2330,7 @@ namespace quicr {
                                      const std::shared_ptr<PublishTrackHandler>& track_handler,
                                      bool ephemeral)
     {
+        bool status_changed;
         {
             std::lock_guard _(state_mutex_);
 
@@ -2360,14 +2361,18 @@ namespace quicr {
                 pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
                 pub_tracks_by_track_alias[th.track_fullname_hash][src_id] = track_handler;
             }
+            status_changed = track_handler->UpdateStatus(PublishTrackHandler::Status::kOk);
         }
-        track_handler->SetStatus(PublishTrackHandler::Status::kOk);
+        if (status_changed) {
+            track_handler->StatusChanged(PublishTrackHandler::Status::kOk);
+        }
     }
 
     void Session::UnbindPublisherTrack(std::uint64_t src_id,
                                        const std::shared_ptr<PublishTrackHandler>& track_handler,
                                        bool send_publish_done)
     {
+        bool status_changed;
         {
             std::lock_guard _(state_mutex_);
 
@@ -2387,6 +2392,8 @@ namespace quicr {
             if (pub_tracks_by_track_alias[th.track_fullname_hash].empty()) {
                 pub_tracks_by_track_alias.erase(th.track_fullname_hash);
             }
+
+            status_changed = track_handler->UpdateStatus(PublishTrackHandler::Status::kNoSubscribers);
 
             if (pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
                 QUICR_LOGGER_DEBUG(logger_,
@@ -2409,9 +2416,9 @@ namespace quicr {
             }
         }
 
-        // The subscriber this handler served is gone, so further publishes must be refused rather
-        // than opening streams on a track the session no longer routes.
-        track_handler->SetStatus(PublishTrackHandler::Status::kNoSubscribers);
+        if (status_changed) {
+            track_handler->StatusChanged(PublishTrackHandler::Status::kNoSubscribers);
+        }
     }
 
     void Session::BindFetchTrack(std::shared_ptr<PublishFetchHandler> track_handler)
@@ -3477,22 +3484,22 @@ namespace quicr {
                                    forward,
                                    new_group_request_id.has_value());
 
+                const auto status =
+                  forward ? PublishTrackHandler::Status::kNewGroupRequested : PublishTrackHandler::Status::kPaused;
                 std::vector<std::shared_ptr<PublishTrackHandler>> handlers;
                 {
                     std::lock_guard _(state_mutex_);
                     const auto it = pub_tracks_by_track_alias.find(sub_ctx_it->second.track_hash.track_fullname_hash);
                     if (it != pub_tracks_by_track_alias.end()) {
                         for (const auto& [_, handler] : it->second) {
-                            handlers.push_back(handler);
+                            if (handler->UpdateStatus(status)) {
+                                handlers.push_back(handler);
+                            }
                         }
                     }
                 }
                 for (const auto& handler : handlers) {
-                    if (not forward) {
-                        handler->SetStatus(PublishTrackHandler::Status::kPaused);
-                    } else {
-                        handler->SetStatus(PublishTrackHandler::Status::kNewGroupRequested);
-                    }
+                    handler->StatusChanged(status);
                 }
 
                 SendRequestUpdateOk(stream, std::nullopt, std::nullopt);
