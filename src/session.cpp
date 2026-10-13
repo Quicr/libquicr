@@ -1430,6 +1430,7 @@ namespace quicr {
             }
         }
 
+        std::lock_guard _(state_mutex_);
         pub_tracks_by_name.clear();
         recv_req_id.clear();
         recv_publish_namespaces.clear();
@@ -2523,14 +2524,17 @@ namespace quicr {
 
                 auto tfn = FullTrackName{ track_namespace, track_name };
                 auto th = TrackHash(tfn);
+                std::shared_ptr<PublishTrackHandler> ptd;
                 {
                     std::lock_guard _(state_mutex_);
                     recv_req_id[request_id] = { .track_full_name = tfn, .track_hash = th, .stream = stream };
                     request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
+                    if (client_mode_) {
+                        ptd = GetPubTrackHandler(th);
+                    }
                 }
 
                 if (client_mode_) {
-                    auto ptd = GetPubTrackHandler(th);
                     if (ptd == nullptr) {
                         QUICR_LOGGER_WARN(logger_,
                                           "Received subscribe unknown publish track conn_id: {} namespace hash: {} "

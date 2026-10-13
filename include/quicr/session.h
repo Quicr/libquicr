@@ -623,7 +623,7 @@ namespace quicr {
         void CloseRequestHandler(std::uint64_t request_id, std::uint64_t stream_id, StreamClosedFlag flag)
           QUICR_EXCLUDES(state_mutex_);
 
-        std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th);
+        std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th) QUICR_REQUIRES(state_mutex_);
 
         void RemoveAllTracksForConnectionClose();
 
@@ -747,7 +747,7 @@ namespace quicr {
          * Publish tracks by namespace and name. map[track namespace][track name] = track handler
          * Used mainly in client mode only
          */
-        std::map<std::uint64_t, std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_name;
+        std::map<std::uint64_t, std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_name QUICR_GUARDED_BY(state_mutex_);
 
         /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
         std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias
