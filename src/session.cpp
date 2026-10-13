@@ -447,11 +447,13 @@ namespace quicr {
                                 std::uint8_t priority,
                                 std::optional<GroupOrder> group_order,
                                 const Filter& filter,
-                                std::optional<std::chrono::milliseconds> delivery_timeout)
+                                std::optional<std::chrono::milliseconds> delivery_timeout,
+                                std::chrono::milliseconds rendezvous_timeout)
     try {
         /* Available parameters:
          * - AUTHORIZATION TOKEN (0x03): Conveys information to authorize the subscription.
          * - DELIVERY TIMEOUT (0x02): Duration the relay should attempt forwarding objects.
+         * - RENDEZVOUS TIMEOUT (0x04): Duration to wait for a publisher to become available.
          * - SUBSCRIBER PRIORITY (0x20): Priority of the subscription relative to others.
          * - GROUP ORDER (0x22): Preference for group delivery order (Ascending/Descending).
          * - SUBSCRIPTION FILTER (0x21): Specifies which objects the publisher should send.
@@ -465,6 +467,10 @@ namespace quicr {
             .Add(ParameterType::kForward, 1)
             .AddOptional(ParameterType::kDeliveryTimeout,
                          delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt);
+
+        if (rendezvous_timeout > std::chrono::milliseconds::zero()) {
+            params.Add(ParameterType::kRendezvousTimeout, rendezvous_timeout.count());
+        }
 
         if (auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
             params.Add(filter_type, filter);
@@ -850,6 +856,7 @@ namespace quicr {
         auto group_order = track_handler->GetGroupOrder();
         const auto& filter = track_handler->GetFilter();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
+        auto rendezvous_timeout = track_handler->GetRendezvousTimeout();
 
         track_handler->SetTransport(GetSharedPtr());
 
@@ -868,8 +875,15 @@ namespace quicr {
             request_by_stream[request_stream->GetStreamId()] = { .request_id = track_handler->GetRequestId().value(),
                                                                  .is_request_stream = true };
 
-            SendSubscribe(
-              request_stream, *track_handler->GetRequestId(), tfn, th, priority, group_order, filter, delivery_timeout);
+            SendSubscribe(request_stream,
+                          *track_handler->GetRequestId(),
+                          tfn,
+                          th,
+                          priority,
+                          group_order,
+                          filter,
+                          delivery_timeout,
+                          rendezvous_timeout);
 
             // Handle joining fetch, if requested.
             auto joining_fetch = track_handler->GetJoiningFetch();
@@ -2557,6 +2571,14 @@ namespace quicr {
                 }
 
                 auto delivery_timeout = parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
+                const auto rendezvous_timeout_ms =
+                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kRendezvousTimeout).value_or(0);
+                if (rendezvous_timeout_ms > std::chrono::milliseconds::max().count()) {
+                    SendRequestError(
+                      stream, request_id, ErrorCode::kNotSupported, 0ms, "Rendezvous timeout too large", true);
+                    return true;
+                }
+                const auto rendezvous_timeout = std::chrono::milliseconds{ rendezvous_timeout_ms };
                 auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                 auto group_order = parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 const auto publisher_default_group_order = messages::GroupOrder::kAscending;
@@ -2587,15 +2609,16 @@ namespace quicr {
                                             .new_group_request_id = new_group_request_id,
                                             .is_publisher_initiated = false,
                                             .start_location = {},
+                                            .rendezvous_timeout = rendezvous_timeout,
                                           })
                       .Resolve(quic_transport_, [=, this, self = GetSharedPtr()](const auto& result) {
                           if (!result) {
-                              const auto& [_, reason] = result.error();
+                              const auto& [code, reason] = result.error();
 
                               // TODO: Should server not send if publisher initiated?
                               self->SendRequestError(self->ResponseStream(request_id),
                                                      request_id,
-                                                     ErrorCode::kInternalError,
+                                                     ToErrorCode(code),
                                                      0ms,
                                                      reason.value_or("Internal error"));
 
