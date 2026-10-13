@@ -9,6 +9,8 @@
 #include "quicr/messages/message_serialisation.h"
 #include "quicr/metrics.h"
 
+#include <stdexcept>
+
 namespace quicr {
 
     /**
@@ -266,6 +268,25 @@ namespace quicr {
 
         void SetDeliveryTimeout(std::chrono::milliseconds timeout) noexcept { delivery_timeout_ = timeout; }
 
+        /**
+         * @brief Get the requested rendezvous timeout.
+         */
+        constexpr std::chrono::milliseconds GetRendezvousTimeout() const noexcept { return rendezvous_timeout_; }
+
+        /**
+         * @brief Set the subscription's rendezvous timeout.
+         * @details This requests that the peer holds this subscribe pending for up to this amount of time if a
+         * publisher is not yet present for this track.
+         * @throws std::invalid_argument if the timeout is negative.
+         */
+        void SetRendezvousTimeout(std::chrono::milliseconds timeout)
+        {
+            if (timeout < std::chrono::milliseconds::zero()) {
+                throw std::invalid_argument("Rendezvous timeout must >=0");
+            }
+            rendezvous_timeout_ = timeout;
+        }
+
         // --------------------------------------------------------------------------
         // Public Virtual API callback event methods
         // --------------------------------------------------------------------------
@@ -417,6 +438,7 @@ namespace quicr {
         std::optional<uint64_t> track_alias_;
         std::optional<uint64_t> received_track_alias_; ///< Received track alias from publisher client or relay
         std::optional<std::chrono::milliseconds> delivery_timeout_ = std::nullopt;
+        std::chrono::milliseconds rendezvous_timeout_{ 0 };
 
         bool publisher_initiated_{ false };
         bool support_new_group_request_{ false };

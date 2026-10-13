@@ -34,6 +34,18 @@ TEST_CASE("Publish Track Handler CanPublish")
     CHECK_FALSE(handler->CanPublish());
 }
 
+TEST_CASE("Subscribe rendezvous timeout rejects negative durations")
+{
+    using namespace std::chrono_literals;
+    auto handler = quicr::SubscribeTrackHandler::Create({ {}, {} }, 0);
+    CHECK(handler->GetRendezvousTimeout() == 0ms);
+    handler->SetRendezvousTimeout(30s);
+    CHECK_THROWS_AS(handler->SetRendezvousTimeout(-1ms), std::invalid_argument);
+    CHECK(handler->GetRendezvousTimeout() == 30s);
+    handler->SetRendezvousTimeout(0ms);
+    CHECK(handler->GetRendezvousTimeout() == 0ms);
+}
+
 class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
   public:
