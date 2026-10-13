@@ -16,20 +16,17 @@ SPDX-FileCopyrightText = "Copyright (c) 2024 Cisco"
 SPDX-License-Identifier = "CC-BY-4.0"
 
 [[annotations]]
-path = "certs/**"
-precedence = "aggregate"
-SPDX-FileCopyrightText = "Copyright (c) 2024 Cisco"
-SPDX-License-Identifier = "CC-BY-4.0"
-
-[[annotations]]
 path = [
   ".clang-format",
   ".clang-tidy",
   ".github/workflows/**",
   ".gitignore",
+  ".git-blame-ignore-revs",
   ".gitmodules",
+  ".pre-commit-config.yaml",
   "AUTHORS.md",
-  "README.md"
+  "README.md",
+  "package-lock.cmake",
 ]
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "BSD-2-Clause"

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS // NOLINT
 #endif

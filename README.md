@@ -5,6 +5,9 @@ libquicr
 [![macOS](https://github.com/Quicr/libquicr/actions/workflows/macos.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/macos.yml)
 [![Windows](https://github.com/Quicr/libquicr/actions/workflows/windows.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/windows.yml)
 
+[![REUSE status](https://api.reuse.software/badge/github.com/fsfe/reuse-action)](https://api.reuse.software/info/github.com/fsfe/reuse-action)
+[![REUSE Compliance](https://github.com/Quicr/libquicr/actions/workflows/resuse.yaml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/resuse.yaml)
+
 libquicr is a C++ implementation of Media over QUIC Transport (MOQT), currently targeting
 [draft-ietf-moq-transport-18](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18).
 It provides APIs for client and server endpoints, including publishers, subscribers, and relays.
@@ -20,6 +23,7 @@ It provides APIs for client and server endpoints, including publishers, subscrib
   * [Apple/Mac](#applemac)
 * [Dependencies](#dependencies)
   * [Caching dependency sources](#caching-dependency-sources)
+  * [Third-party license notices](#third-party-license-notices)
 * [CMake options](#cmake-options)
 * [Make](#make)
 * [C Bridge Target](#c-bridge-target)
@@ -114,6 +118,33 @@ Entries are keyed by package name and version, so separate build directories, `W
 The cache also holds the bootstrapped CPM release itself, so the download in `cmake/CPM.cmake` is
 skipped as well.
 
+### Third-party license notices
+
+[CPMLicenses.cmake](https://github.com/cpm-cmake/CPMLicenses.cmake) can collect license and
+copyright files from CPM dependencies distributed with libquicr. Enable its target with
+`QUICR_GENERATE_THIRD_PARTY_LICENSES`:
+
+```bash
+cmake -B build -DQUICR_GENERATE_THIRD_PARTY_LICENSES=ON
+cmake --build build --target third-party-licenses
+```
+
+Alternatively, run:
+
+```bash
+make licenses
+```
+
+Both commands write `build/THIRD_PARTY_LICENSES.txt`. The target intentionally includes only
+`timeq`, `picotls`, `picoquic`, and conditional `fmt`; test, benchmark, example, and build-tool
+dependencies are excluded.
+
+CPMLicenses searches dependency roots for files beginning with `LICENSE`, `LICENCE`, `COPYING`, or
+`Copyright` and uses only the first match. Review its warnings and generated output: dependencies
+without a matching root file, or repositories containing multiple license files, require manual
+review. This notice file complements rather than replaces the product SBOM and license-policy
+checks.
+
 ## CMake options
 
 libquicr provides CMake options for selecting build targets and optional features. For example,
@@ -143,6 +174,8 @@ Library configuration:
 * `QUICR_USE_BROTLI` — enable Brotli TLS certificate compression; defaults to `OFF`.
 * `QUICR_ENABLE_SANITIZERS` — enable AddressSanitizer and UndefinedBehaviorSanitizer with Clang or
   GCC; defaults to `OFF`.
+* `QUICR_GENERATE_THIRD_PARTY_LICENSES` — add the `third-party-licenses` target for distributed CPM
+  dependencies; defaults to `OFF`.
 * `LINT` — run Clang-Tidy while compiling; defaults to `OFF`.
 
 ## Make
@@ -154,6 +187,8 @@ Use `make test` to run tests.
 Use `make cclean` to clean build files.
 
 Use `make fuzz` to run the fuzzer tests.
+
+Use `make licenses` to generate `build/THIRD_PARTY_LICENSES.txt`.
 
 ## C Bridge Target
 

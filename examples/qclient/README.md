@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 Cisco
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # qClient
 
 qClient is an example client. It implements the client API to make a connection
