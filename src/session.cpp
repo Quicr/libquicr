@@ -2571,9 +2571,14 @@ namespace quicr {
                 }
 
                 auto delivery_timeout = parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
-                const auto rendezvous_timeout = std::chrono::milliseconds{ std::min<std::uint64_t>(
-                  parameters.Get<std::uint64_t>(messages::ParameterType::kRendezvousTimeout),
-                  std::chrono::milliseconds::max().count()) };
+                const auto rendezvous_timeout_ms =
+                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kRendezvousTimeout).value_or(0);
+                if (rendezvous_timeout_ms > std::chrono::milliseconds::max().count()) {
+                    SendRequestError(
+                      stream, request_id, ErrorCode::kNotSupported, 0ms, "Rendezvous timeout too large", true);
+                    return true;
+                }
+                const auto rendezvous_timeout = std::chrono::milliseconds{ rendezvous_timeout_ms };
                 auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                 auto group_order = parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 const auto publisher_default_group_order = messages::GroupOrder::kAscending;
