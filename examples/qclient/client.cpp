@@ -974,10 +974,16 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
                                   data.size(),
                                   group_id);
 
-                quicr::ObjectHeaders obj_headers = {
-                    group_id,         object_id,      subgroup_id,  data.size(),  quicr::ObjectStatus::kAvailable,
-                    track_handler->GetPublisherPriority() /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
-                };
+                quicr::ObjectHeaders obj_headers = { group_id,
+                                                     object_id,
+                                                     subgroup_id,
+                                                     data.size(),
+                                                     quicr::ObjectStatus::kAvailable,
+                                                     track_handler->GetPublisherPriority() /*priority*/,
+                                                     3000 /* ttl */,
+                                                     std::nullopt,
+                                                     std::nullopt,
+                                                     std::nullopt };
 
                 try {
                     if (track_handler->CanPublish()) {
@@ -1042,7 +1048,12 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = quicr::example::GetTimeStr();
-            QUICR_LOGGER_INFO(qclient_vars::logger, "Pri: {0} Group:{1} Object:{2}, Msg:{3}", track_handler->GetPublishObjectPriority(), group_id, object_id, msg);
+            QUICR_LOGGER_INFO(qclient_vars::logger,
+                              "Pri: {0} Group:{1} Object:{2}, Msg:{3}",
+                              track_handler->GetPublishObjectPriority(),
+                              group_id,
+                              object_id,
+                              msg);
         } else { // stdin
             if (!getline(std::cin, msg)) {
                 break;
@@ -1050,10 +1061,16 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
             QUICR_LOGGER_INFO(qclient_vars::logger, "Send message: {0}", msg);
         }
 
-        quicr::ObjectHeaders obj_headers = {
-            group_id,         object_id++,    subgroup_id,  msg.size(),   quicr::ObjectStatus::kAvailable,
-            track_handler->GetPublisherPriority() /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
-        };
+        quicr::ObjectHeaders obj_headers = { group_id,
+                                             object_id++,
+                                             subgroup_id,
+                                             msg.size(),
+                                             quicr::ObjectStatus::kAvailable,
+                                             track_handler->GetPublisherPriority() /*priority*/,
+                                             3000 /* ttl */,
+                                             std::nullopt,
+                                             std::nullopt,
+                                             std::nullopt };
 
         try {
             if (track_handler->CanPublish()) {
