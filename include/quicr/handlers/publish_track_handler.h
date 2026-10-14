@@ -89,7 +89,7 @@ namespace quicr {
          * @param full_track_name       Full track name
          * @param track_mode            The track mode to operate using
          * @param publisher_priority    Publisher priority of origin publisher
-         * @param publish_object_priority Publish object priority for objects being sent
+         * @param publish_object_priority Publish object priority for objects being sent (set by Subscriber priority)
          * @param stream_mode           Stream to use when track mode is kStream.
          * @param largest_location      Largest location to start the handler
          */
@@ -165,9 +165,17 @@ namespace quicr {
         // Various getter/setters
         // --------------------------------------------------------------------------
         /**
-         * @brief set/update the default priority for published objects
+         * @brief set/update the publisher priority used for datagram headers and subgroup headers
          */
-        void SetDefaultPriority(const uint8_t priority) noexcept { publisher_priority_ = priority; }
+        void SetPublisherPriority(const uint8_t priority) noexcept { publisher_priority_ = priority; }
+
+        /**
+         * @brief set/update the publish object priority
+         * @details Publish object priority is set by subscriber priority, but the client app can
+         *      update this as needed at any time. The setting will take effect on next datagram
+         *      object and on next start of group/subgroup
+         */
+        void SetPublishObjectPriority(const uint8_t priority) noexcept { publish_object_priority_ = priority; }
 
         /**
          * @brief Get the publisher priority

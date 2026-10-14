@@ -53,7 +53,7 @@ namespace quicr_test {
                 // The received priority is the origin publisher priority. Sending uses the
                 // subscriber priority already stored as the publish object priority.
                 if (object_headers.priority.has_value()) {
-                    pub_handler_->SetDefaultPriority(*object_headers.priority);
+                    pub_handler_->SetPublisherPriority(*object_headers.priority);
                 }
                 pub_handler_->PublishObject(object_headers, data, stream_mode);
             }

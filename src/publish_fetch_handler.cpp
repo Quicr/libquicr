@@ -31,9 +31,6 @@ namespace quicr {
         Transport::EnqueueFlags eflags;
 
         std::uint16_t ttl = object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_;
-        std::uint8_t priority =
-          object_headers.priority.has_value() ? object_headers.priority.value() : publisher_priority_;
-
         object_msg_buffer_.clear();
 
         eflags.use_reliable = true;
@@ -43,7 +40,7 @@ namespace quicr {
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
 
-            stream_ = session->CreateStream(*GetRequestId(), priority);
+            stream_ = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
 
             messages::FetchHeader fetch_hdr;
             fetch_hdr.request_id = *request_id;
@@ -52,7 +49,7 @@ namespace quicr {
             auto result = session->Enqueue(
               stream_,
               std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-              priority,
+              GetPublishObjectPriority(),
               ttl,
               eflags);
 
@@ -67,13 +64,13 @@ namespace quicr {
         }
 
         auto next_serialization_state = serialization_state_;
-        auto object = next_serialization_state.Encode(object_headers, priority, data);
+        auto object = next_serialization_state.Encode(object_headers, GetPublisherPriority(), data);
         object_msg_buffer_ << object;
 
         auto result =
           session->Enqueue(stream_,
                            std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-                           priority,
+                           GetPublishObjectPriority(),
                            ttl,
                            eflags);
 

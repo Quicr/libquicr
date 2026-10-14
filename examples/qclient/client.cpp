@@ -111,6 +111,8 @@ namespace qclient_vars {
     std::optional<sframe::MLSContext> mls_ctx = sframe::MLSContext(sframe::CipherSuite::AES_GCM_128_SHA256, 1);
     std::optional<std::filesystem::path> watch_path;
     std::chrono::milliseconds watch_interval_ms(5000);
+    std::uint8_t publisher_priority{ 200 };
+    std::uint8_t subscriber_priority{ 129 };
     std::shared_ptr<quicr::Logger> logger = std::make_shared<SpdlogLogger>("QCLIENT");
 
 }
@@ -1111,6 +1113,7 @@ DoPublisher(const std::string prefix_str,
     if (!use_announce) {
         quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, names.front());
         auto track_handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 200, 3000);
+        track_handler->SetPublisherPriority(qclient_vars::publisher_priority);
 
         if (qclient_vars::track_alias.has_value()) {
             track_handler->SetTrackAlias(*qclient_vars::track_alias);
@@ -1139,6 +1142,7 @@ DoPublisher(const std::string prefix_str,
     for (const auto& name : names) {
         quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, name);
         auto handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 200, 3000);
+        handler->SetPublisherPriority(qclient_vars::publisher_priority);
         handlers.push_back(handler);
         ns_handler->PublishTrack(handler);
     }
@@ -1172,6 +1176,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
 {
     auto track_handler = MyPublishTrackHandler::Create(
       full_track_name, quicr::TrackMode::kStream /*mode*/, 200 /*priority*/, 3000 /*ttl*/);
+    track_handler->SetPublisherPriority(qclient_vars::publisher_priority);
 
     if (qclient_vars::track_alias.has_value()) {
         track_handler->SetTrackAlias(*qclient_vars::track_alias);
@@ -1232,7 +1237,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                                          .subgroup_id = subgroup_id,
                                          .payload_length = msg.size(),
                                          .status = quicr::ObjectStatus::kAvailable,
-                                         .priority = 200,
+                                         .priority = qclient_vars::publisher_priority,
                                          .ttl = 3000,
                                          .track_mode = quicr::TrackMode::kStream,
                                          .extensions = std::nullopt,
@@ -1380,7 +1385,7 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
                                  ? Fetch{ 128, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
                                  : std::optional<Fetch>(std::nullopt);
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, joining_fetch);
-    track_handler->SetPriority(129);
+    track_handler->SetPriority(qclient_vars::subscriber_priority);
 
     QUICR_LOGGER_INFO(qclient_vars::logger, "Started subscriber");
 
@@ -1520,6 +1525,26 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
 
     if (cli_opts.count("track_alias")) {
         qclient_vars::track_alias = cli_opts["track_alias"].as<uint64_t>();
+    }
+
+    if (cli_opts.count("pub_priority")) {
+        const auto priority = cli_opts["pub_priority"].as<std::uint64_t>();
+        if (priority > 255) {
+            QUICR_LOGGER_ERROR(qclient_vars::logger, "Publisher priority must be in the range 0-255");
+            exit(EXIT_FAILURE);
+        }
+        qclient_vars::publisher_priority = static_cast<std::uint8_t>(priority);
+        QUICR_LOGGER_INFO(qclient_vars::logger, "Publisher priority: {}", qclient_vars::publisher_priority);
+    }
+
+    if (cli_opts.count("sub_priority")) {
+        const auto priority = cli_opts["sub_priority"].as<std::uint64_t>();
+        if (priority > 255) {
+            QUICR_LOGGER_ERROR(qclient_vars::logger, "Subscriber priority must be in the range 0-255");
+            exit(EXIT_FAILURE);
+        }
+        qclient_vars::subscriber_priority = static_cast<std::uint8_t>(priority);
+        QUICR_LOGGER_INFO(qclient_vars::logger, "Subscriber priority: {}", qclient_vars::subscriber_priority);
     }
 
     if (cli_opts.count("record")) {
@@ -1672,6 +1697,7 @@ main(int argc, char* argv[])
         ("track_alias", "Track alias to use", cxxopts::value<uint64_t>())
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("pub_name", "Track name", cxxopts::value<std::vector<std::string>>())
+        ("pub_priority", "Publisher priority (0-255)", cxxopts::value<std::uint64_t>()->default_value("200"))
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")
         ("playback", "Playback recorded data from moq and dat files", cxxopts::value<bool>())
         ("playback_speed_ms", "Playback speed in ms", cxxopts::value<std::uint64_t>())
@@ -1688,6 +1714,7 @@ main(int argc, char* argv[])
     options.add_options("Subscriber")
         ("sub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("sub_name", "Track name", cxxopts::value<std::string>())
+        ("sub_priority", "Subscriber priority (0-255)", cxxopts::value<std::uint64_t>()->default_value("129"))
         ("start_point", "Start point for Subscription - 0 for from the beginning, 1 from the latest object", cxxopts::value<uint64_t>())
         ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
         ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())

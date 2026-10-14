@@ -2224,7 +2224,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
                               .object_id = 0,
                               .subgroup_id = 0,
                               .payload_length = 1,
-                              .priority = 5,
+                              .priority = 4,
                               .track_mode = TrackMode::kStream };
         cached[0].payload = { 0 };
         cached[1].headers = cached[0].headers;
@@ -2234,13 +2234,13 @@ TEST_CASE("Integration - Fetch object roundtrip")
                               .object_id = 3,
                               .subgroup_id = 1,
                               .payload_length = 0,
-                              .priority = 7,
+                              .priority = 4,
                               .track_mode = TrackMode::kStream };
         cached[3].headers = { .group_id = 102,
                               .object_id = 0,
                               .subgroup_id = 1,
                               .payload_length = 1,
-                              .priority = 7,
+                              .priority = 4,
                               .track_mode = TrackMode::kStream };
         cached[3].payload = { 2 };
         cached[4].headers = { .group_id = 102,
@@ -2261,7 +2261,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
 
         server->SetFetchResponseData(cached);
 
-        auto fetch_handler = TestFetchTrackHandler::Create(ftn, 0, { 100, 0 }, { 103, std::nullopt });
+        auto fetch_handler = TestFetchTrackHandler::Create(ftn, 4, { 100, 0 }, { 103, std::nullopt });
 
         session_mgr.AddHandler(session, fetch_handler);
 
