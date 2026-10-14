@@ -883,7 +883,7 @@ TEST_CASE("Integration - Datagram object roundtrip")
         auto [subscriber, subscriber_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "datagram", "roundtrip" }), { 1 } };
-        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kDatagram, 7, 3, 5000, { 0, 0 });
+        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kDatagram, 3, 1, 5000, { 0, 0 });
         publisher->PublishTrack(publish_handler);
         REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
 
@@ -900,7 +900,7 @@ TEST_CASE("Integration - Datagram object roundtrip")
                                          .object_id = 20 + i,
                                          .payload_length = payload.size(),
                                          .status = ObjectStatus::kAvailable,
-                                         .priority = 1,
+                                         .priority = 7,
                                          .ttl = 5000,
                                          .track_mode = TrackMode::kDatagram,
                                          .extensions = extensions };
@@ -919,7 +919,7 @@ TEST_CASE("Integration - Datagram object roundtrip")
             CHECK_EQ(object.group_id, 10 + i);
             CHECK_EQ(object.object_id, 20 + i);
             CHECK_EQ(object.status, ObjectStatus::kAvailable);
-            CHECK_EQ(object.priority, publish_handler->GetPublisherPriority());
+            CHECK_EQ(object.priority, std::optional<std::uint8_t>{ 7 });
             CHECK_EQ(object.track_mode, TrackMode::kDatagram);
             CHECK_EQ(object.extensions, extensions);
             CHECK_EQ(object.data, (Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 }));

@@ -15,6 +15,7 @@
 #include "track_properties.h"
 #include "transport_picoquic.h"
 
+#include <algorithm>
 #include <iomanip>
 #include <memory>
 #include <sstream>
@@ -3014,12 +3015,24 @@ namespace quicr {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
 
+                const bool subscribe_namespace = msg_type == messages::ControlMessageType::kSubscribeNamespace;
                 {
                     std::lock_guard _(state_mutex_);
                     request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
                 }
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
+                    // Record the subscription before the application callback. A deferred reply can
+                    // outlive the request stream, and CloseRequestHandler can only clean it up if it
+                    // is already registered.
+                    if (subscribe_namespace) {
+                        std::lock_guard _(state_mutex_);
+                        recv_req_id[request_id] = { .track_full_name = { track_namespace_prefix, {} },
+                                                    .track_hash = TrackHash({ track_namespace_prefix, {} }),
+                                                    .stream = stream };
+                        recv_subscribe_namespaces.push_back(request_id);
+                    }
+
                     const SubscribeNamespaceAttributes attributes{
                         .request_id = request_id,
                         .filter_type = messages::FilterType::kTrackFilter,
@@ -3035,6 +3048,11 @@ namespace quicr {
 
                     reply.Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                         if (!result) {
+                            if (subscribe_namespace) {
+                                std::lock_guard _(self->state_mutex_);
+                                std::erase(self->recv_subscribe_namespaces, request_id);
+                                self->recv_req_id.erase(request_id);
+                            }
                             const auto& [code, reason] = result.error();
                             self->SendRequestError(
                               stream, request_id, ToErrorCode(code), 0ms, reason.value_or("Internal error"));
@@ -3042,13 +3060,15 @@ namespace quicr {
                             return;
                         }
 
-                        const bool subscribe_namespace = msg_type == messages::ControlMessageType::kSubscribeNamespace;
                         if (subscribe_namespace) {
                             std::lock_guard _(self->state_mutex_);
-                            self->recv_req_id[request_id] = { .track_full_name = { track_namespace_prefix, {} },
-                                                              .track_hash = TrackHash({ track_namespace_prefix, {} }),
-                                                              .stream = stream };
-                            self->recv_subscribe_namespaces.push_back(request_id);
+                            const auto still_subscribed =
+                              std::find(self->recv_subscribe_namespaces.begin(),
+                                        self->recv_subscribe_namespaces.end(),
+                                        request_id) != self->recv_subscribe_namespaces.end();
+                            if (!still_subscribed) {
+                                return;
+                            }
                         }
 
                         self->SendSubscribeNamespaceOk(stream);
@@ -3096,15 +3116,38 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kNamespaceDone: {
+                const auto track_namespace = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+
                 if (client_mode_) {
-                    QUICR_LOGGER_ERROR(
-                      logger_, "Unsupported MOQT message type: {}, bad stream", static_cast<uint64_t>(msg_type));
-                    return false;
+                    const auto stream_request_id = FindRequestIdByStream(stream->GetStreamId());
+                    if (!stream_request_id.has_value()) {
+                        throw ProtocolViolationException("NAMESPACE_DONE on an unknown request stream");
+                    }
+
+                    const auto handler_it = request_handlers.find(*stream_request_id);
+                    if (handler_it == request_handlers.end()) {
+                        throw ProtocolViolationException("NAMESPACE_DONE on an unknown request");
+                    }
+
+                    const auto handler = handler_it->second->Get<SubscribeNamespaceHandler>();
+                    if (!handler || handler->GetMode() != SubscribeNamespaceHandler::Mode::kNamespaces) {
+                        throw ProtocolViolationException("NAMESPACE_DONE on a non-namespace request");
+                    }
+
+                    handler->NamespaceDoneReceived(track_namespace);
+                    return true;
+                }
+
+                // Client unsubscribe. Drop the subscription so later NAMESPACE notifications are
+                // not sent on a request the subscriber has already removed.
+                if (const auto request_id = FindRequestIdByStream(stream->GetStreamId())) {
+                    std::lock_guard _(state_mutex_);
+                    std::erase(recv_subscribe_namespaces, *request_id);
+                    recv_req_id.erase(*request_id);
                 }
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                    const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
-                    callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), track_namespace_suffix);
+                    callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), track_namespace);
                 }
                 return true;
             }
