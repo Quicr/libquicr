@@ -22,7 +22,7 @@ namespace {
                          quicr::StreamOperation) override
         {
         }
-        bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
+
         quicr::TransportError Enqueue(const std::shared_ptr<quicr::Connection>&,
                                       const std::shared_ptr<quicr::Stream>&,
                                       std::shared_ptr<const std::vector<uint8_t>>,
@@ -32,6 +32,7 @@ namespace {
         {
             return quicr::TransportError::kNone;
         }
+
         quicr::TransportError EnqueueDatagram(const std::shared_ptr<quicr::Connection>&,
                                               std::shared_ptr<const std::vector<uint8_t>>,
                                               uint8_t,
@@ -39,23 +40,28 @@ namespace {
         {
             return quicr::TransportError::kNone;
         }
+
         std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<quicr::Connection>&) override
         {
             return nullptr;
         }
+
         int CloseWebTransportSession(const std::shared_ptr<quicr::Connection>&, uint32_t, const char*) override
         {
             return 0;
         }
+
         int DrainWebTransportSession(const std::shared_ptr<quicr::Connection>&) override { return 0; }
         std::shared_ptr<quicr::Stream> CreateDataStream(const std::shared_ptr<quicr::Connection>&, uint8_t) override
         {
             return nullptr;
         }
+
         std::shared_ptr<quicr::Stream> CreateControlStream(const std::shared_ptr<quicr::Connection>&) override
         {
             return nullptr;
         }
+
         std::shared_ptr<quicr::Stream> CreateRequestStream(const std::shared_ptr<quicr::Connection>&) override
         {
             return nullptr;
