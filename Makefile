@@ -26,7 +26,7 @@ ${BUILD_DIR}: CMakeLists.txt
 fuzz:
 	cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DQUICR_BUILD_FUZZ=ON .
 	cmake --build ${BUILD_DIR} --parallel 8
-	./${BUILD_DIR}/fuzz/ctrl_messages_fuzzer -max_total_time=10
+	./${BUILD_DIR}/test/fuzz/ctrl_messages_fuzzer -max_total_time=10
 
 # Run the tests.
 test: ${BUILD_DIR}
