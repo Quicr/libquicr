@@ -444,7 +444,7 @@ namespace quicr {
             // REQUEST_UPDATE_OK.
             // TODO: In theory largest_object here?
             // TODO: Handle unsolicited REQUEST_UPDATE_OK?
-            messages::ValidateParameters(params, { messages::ParameterType::kExpires });
+            // TODO: Add when stable - messages::ValidateParameters(params, { messages::ParameterType::kExpires });
             // TODO: EXPIRES.
         }
     }

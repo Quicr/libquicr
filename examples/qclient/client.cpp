@@ -1728,7 +1728,7 @@ main(int argc, char* argv[])
     try {
         bool stop_threads{ false };
 
-        quicr::SessionManager session_mgr(qclient_vars::tick_service);
+        quicr::SessionManager session_mgr(qclient_vars::tick_service, qclient_vars::logger);
 
         auto callbacks = MyClient::Create();
         auto w_session = session_mgr.AddTransport(config, callbacks);

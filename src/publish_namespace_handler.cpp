@@ -76,9 +76,9 @@ quicr::PublishNamespaceHandler::PublishObject(uint64_t track_alias,
 }
 
 void
-quicr::PublishNamespaceHandler::RequestOkReceived(const messages::Parameters& params)
+quicr::PublishNamespaceHandler::RequestOkReceived([[maybe_unused]] const messages::Parameters& params)
 {
-    messages::ValidateParameters(params, {});
+    // TODO: should we messages::ValidateParameters(params, {});
     SetStatus(Status::kOk);
 }
 
