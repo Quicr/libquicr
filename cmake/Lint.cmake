@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
 function(lint target)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     find_program(CLANG_TIDY_EXE NAMES clang-tidy-15 clang-tidy REQUIRED)

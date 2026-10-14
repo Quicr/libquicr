@@ -37,6 +37,7 @@ option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
+option(QUICR_GENERATE_THIRD_PARTY_LICENSES "Generate notices for distributed CPM dependencies" OFF)
 
 option(WITH_MBEDTLS "Build against MbedTLS rather than OpenSSL" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
@@ -65,9 +66,11 @@ endif()
 # Dependencies
 #=============================================================================#
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(CPM)
+
+CPMUsePackageLock(package-lock.cmake)
 
 include(QuicrFormat)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/QuicrDependencies.cmake)
@@ -110,4 +113,30 @@ endif()
 
 if(QUICR_BUILD_C_BRIDGE)
    add_subdirectory(c-bridge)
+endif()
+
+#=============================================================================#
+# Licences
+#=============================================================================#
+
+if(QUICR_GENERATE_THIRD_PARTY_LICENSES)
+    # CPMLicenses.cmake v0.0.7, pinned to the release commit.
+    CPMAddPackage(
+        NAME CPMLicenses
+        GITHUB_REPOSITORY cpm-cmake/CPMLicenses.cmake
+        VERSION 0.0.7
+        GIT_TAG ca42334d561b83e499b11cf55fe05d97a0767fb9
+        EXCLUDE_FROM_ALL YES
+    )
+
+    set(QUICR_DISTRIBUTED_CPM_PACKAGES timeq picotls picoquic)
+    if(TARGET fmt)
+        list(APPEND QUICR_DISTRIBUTED_CPM_PACKAGES fmt)
+    endif()
+
+    cpm_licenses_create_disclaimer_target(
+        third-party-licenses
+        "${CMAKE_BINARY_DIR}/THIRD_PARTY_LICENSES.txt"
+        "${QUICR_DISTRIBUTED_CPM_PACKAGES}"
+    )
 endif()
