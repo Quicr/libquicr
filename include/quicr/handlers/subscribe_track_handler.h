@@ -59,7 +59,7 @@ namespace quicr {
          */
         struct JoiningFetch
         {
-            const std::uint8_t priority;
+            const std::uint8_t priority{ 0 };
             const std::optional<messages::GroupOrder> group_order;
             const messages::Parameters parameters;
             const std::uint64_t joining_start;

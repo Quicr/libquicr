@@ -208,7 +208,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                             bool publisher_initiated = false,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
       : SubscribeTrackHandler(full_track_name,
-                              129,
+                              0,
                               quicr::messages::GroupOrder::kAscending,
                               std::monostate{},
                               joining_fetch,
