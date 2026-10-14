@@ -447,11 +447,13 @@ namespace quicr {
                                 std::uint8_t priority,
                                 std::optional<GroupOrder> group_order,
                                 const Filter& filter,
-                                std::optional<std::chrono::milliseconds> delivery_timeout)
+                                std::optional<std::chrono::milliseconds> delivery_timeout,
+                                std::chrono::milliseconds rendezvous_timeout)
     try {
         /* Available parameters:
          * - AUTHORIZATION TOKEN (0x03): Conveys information to authorize the subscription.
          * - DELIVERY TIMEOUT (0x02): Duration the relay should attempt forwarding objects.
+         * - RENDEZVOUS TIMEOUT (0x04): Duration to wait for a publisher to become available.
          * - SUBSCRIBER PRIORITY (0x20): Priority of the subscription relative to others.
          * - GROUP ORDER (0x22): Preference for group delivery order (Ascending/Descending).
          * - SUBSCRIPTION FILTER (0x21): Specifies which objects the publisher should send.
@@ -465,6 +467,10 @@ namespace quicr {
             .Add(ParameterType::kForward, 1)
             .AddOptional(ParameterType::kDeliveryTimeout,
                          delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt);
+
+        if (rendezvous_timeout > std::chrono::milliseconds::zero()) {
+            params.Add(ParameterType::kRendezvousTimeout, rendezvous_timeout.count());
+        }
 
         if (auto filter_type = GetFilterParameterType(filter); filter_type != ParameterType::kInvalid) {
             params.Add(filter_type, filter);
@@ -850,6 +856,7 @@ namespace quicr {
         auto group_order = track_handler->GetGroupOrder();
         const auto& filter = track_handler->GetFilter();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
+        auto rendezvous_timeout = track_handler->GetRendezvousTimeout();
 
         track_handler->SetTransport(GetSharedPtr());
 
@@ -868,8 +875,15 @@ namespace quicr {
             request_by_stream[request_stream->GetStreamId()] = { .request_id = track_handler->GetRequestId().value(),
                                                                  .is_request_stream = true };
 
-            SendSubscribe(
-              request_stream, *track_handler->GetRequestId(), tfn, th, priority, group_order, filter, delivery_timeout);
+            SendSubscribe(request_stream,
+                          *track_handler->GetRequestId(),
+                          tfn,
+                          th,
+                          priority,
+                          group_order,
+                          filter,
+                          delivery_timeout,
+                          rendezvous_timeout);
 
             // Handle joining fetch, if requested.
             auto joining_fetch = track_handler->GetJoiningFetch();
@@ -1174,30 +1188,38 @@ namespace quicr {
         QUICR_LOGGER_INFO(
           logger_, "Unpublish track conn_id: {} hash: {}", current_connection_->GetID(), th.track_fullname_hash);
 
-        std::unique_lock<std::mutex> lock(state_mutex_);
+        std::shared_ptr<PublishTrackHandler> removed;
+        {
+            std::lock_guard _(state_mutex_);
 
-        pub_tracks_by_track_alias.erase(th.track_fullname_hash);
+            pub_tracks_by_track_alias.erase(th.track_fullname_hash);
 
-        if (!track_handler->GetRequestId().has_value()) {
-            return;
-        }
+            if (!track_handler->GetRequestId().has_value()) {
+                return;
+            }
 
-        request_handlers.erase(track_handler->GetRequestId().value());
+            request_handlers.erase(track_handler->GetRequestId().value());
 
-        /*
-         * This is a round about way to send subscribe done because of the announce flow. This
-         * will go away if we stop using the announce flow. For now, it works for both announce
-         * and publish flows.
-         */
-        auto pub_ns_it = pub_tracks_by_name.find(th.track_namespace_hash);
-        if (pub_ns_it != pub_tracks_by_name.end()) {
+            /*
+             * This is a round about way to send subscribe done because of the announce flow. This
+             * will go away if we stop using the announce flow. For now, it works for both announce
+             * and publish flows.
+             */
+            auto pub_ns_it = pub_tracks_by_name.find(th.track_namespace_hash);
+            if (pub_ns_it == pub_tracks_by_name.end()) {
+                return;
+            }
+
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
             if (pub_n_it != pub_ns_it->second.end()) {
-                const auto ctrl_stream = pub_n_it->second->GetRequestStream();
+                removed = std::move(pub_n_it->second);
+                pub_ns_it->second.erase(pub_n_it);
+
+                const auto ctrl_stream = removed->GetRequestStream();
 
                 // Send subscribe done if track has subscriber and is sending
-                if (pub_n_it->second->GetStatus() == PublishTrackHandler::Status::kOk &&
-                    pub_n_it->second->GetRequestId().has_value() && ctrl_stream != nullptr) {
+                if (removed->GetStatus() == PublishTrackHandler::Status::kOk && removed->GetRequestId().has_value() &&
+                    ctrl_stream != nullptr) {
                     QUICR_LOGGER_INFO(logger_,
                                       "Unpublish track namespace hash: {} track_name_hash: {} track_alias: {}, sending "
                                       "publish_done",
@@ -1205,7 +1227,7 @@ namespace quicr {
                                       th.track_name_hash,
                                       th.track_fullname_hash);
                     SendPublishDone(ctrl_stream,
-                                    *pub_n_it->second->GetRequestId(),
+                                    *removed->GetRequestId(),
                                     PublishDoneStatusCode::kSubscribtionEnded,
                                     "Unpublish track");
                 } else {
@@ -1215,21 +1237,17 @@ namespace quicr {
                                       th.track_name_hash,
                                       th.track_fullname_hash);
                 }
-
-                lock.unlock();
-
-                // We continue to use the kNotAnnounced state when removing. Might make sense to use kDestroyed instead
-                pub_n_it->second->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
-
-                lock.lock();
-
-                pub_ns_it->second.erase(pub_n_it);
             }
-
-            // Close whatever the application left open, so its objects drain rather than the streams
-            // lingering for the life of the connection.
-            track_handler->EndAllSubgroups();
         }
+
+        if (removed) {
+            // We continue to use the kNotAnnounced state when removing. Might make sense to use kDestroyed instead
+            removed->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
+        }
+
+        // Close whatever the application left open, so its objects drain rather than the streams
+        // lingering for the life of the connection.
+        track_handler->EndAllSubgroups();
     }
 
     void Session::PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
@@ -2479,35 +2497,18 @@ namespace quicr {
                     endpoint_id = *endpoint;
                 }
 
-                if (client_mode_) {
-                    if (auto callbacks = std::dynamic_pointer_cast<ClientCallbacks>(callbacks_)) {
-                        const auto result = callbacks->ServerSetupReceived(GetSharedPtr(), { 0, endpoint_id });
-                        if (!result) {
-                            const auto& [code, reason] = result.error();
-                            QUICR_LOGGER_ERROR(logger_,
-                                               "Server setup rejected conn_id: {} code: {} reason: {}",
-                                               current_connection_->GetID(),
-                                               static_cast<std::uint64_t>(code),
-                                               reason.value_or("unknown"));
-                            SetStatus(Status::kInternalError);
-                            Disconnect();
-                            return true;
-                        }
-                    }
-                } else {
-                    if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                        const auto result = callbacks->ClientSetupReceived(GetSharedPtr(), { endpoint_id });
-                        if (!result) {
-                            const auto& [code, reason] = result.error();
-                            QUICR_LOGGER_ERROR(logger_,
-                                               "Client setup rejected conn_id: {} code: {} reason: {}",
-                                               current_connection_->GetID(),
-                                               static_cast<std::uint64_t>(code),
-                                               reason.value_or("unknown"));
-                            SetStatus(Status::kInternalError);
-                            Disconnect();
-                            return true;
-                        }
+                if (callbacks_) {
+                    const auto result = callbacks_->SetupReceived(GetSharedPtr(), { endpoint_id });
+                    if (!result) {
+                        const auto& [code, reason] = result.error();
+                        QUICR_LOGGER_ERROR(logger_,
+                                           "Setup rejected conn_id: {} code: {} reason: {}",
+                                           current_connection_->GetID(),
+                                           static_cast<std::uint64_t>(code),
+                                           reason.value_or("unknown"));
+                        SetStatus(Status::kInternalError);
+                        Disconnect();
+                        return true;
                     }
                 }
 
@@ -2589,6 +2590,14 @@ namespace quicr {
                 }
 
                 auto delivery_timeout = parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
+                const auto rendezvous_timeout_ms =
+                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kRendezvousTimeout).value_or(0);
+                if (rendezvous_timeout_ms > std::chrono::milliseconds::max().count()) {
+                    SendRequestError(
+                      stream, request_id, ErrorCode::kNotSupported, 0ms, "Rendezvous timeout too large", true);
+                    return true;
+                }
+                const auto rendezvous_timeout = std::chrono::milliseconds{ rendezvous_timeout_ms };
                 auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                 auto group_order = parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 const auto publisher_default_group_order = messages::GroupOrder::kAscending;
@@ -2619,15 +2628,16 @@ namespace quicr {
                                             .new_group_request_id = new_group_request_id,
                                             .is_publisher_initiated = false,
                                             .start_location = {},
+                                            .rendezvous_timeout = rendezvous_timeout,
                                           })
                       .Resolve(quic_transport_, [=, this, self = GetSharedPtr()](const auto& result) {
                           if (!result) {
-                              const auto& [_, reason] = result.error();
+                              const auto& [code, reason] = result.error();
 
                               // TODO: Should server not send if publisher initiated?
                               self->SendRequestError(self->ResponseStream(request_id),
                                                      request_id,
-                                                     ErrorCode::kInternalError,
+                                                     ToErrorCode(code),
                                                      0ms,
                                                      reason.value_or("Internal error"));
 

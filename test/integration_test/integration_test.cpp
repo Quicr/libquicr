@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS // NOLINT
 #endif
@@ -476,6 +479,12 @@ class TestSubscribeHandler : public SubscribeTrackHandler
         return request_error_.has_value();
     }
 
+    std::optional<ErrorCode> GetRequestError() const
+    {
+        std::lock_guard lock(mutex_);
+        return request_error_;
+    }
+
     std::uint64_t RequestUpdateOks() const noexcept { return request_update_oks_; }
 
     /// @brief Set a promise to be fulfilled when a specific object count is reached
@@ -727,7 +736,10 @@ TEST_CASE("Integration - Connection")
     auto server = MakeTestServer(session_mgr);
 
     auto test_connection = [&](const std::string& protocol_scheme) {
-        std::promise<ServerSetupAttributes> recv_attributes;
+        std::promise<SetupAttributes> client_attributes;
+        auto client_setup = client_attributes.get_future();
+        server->SetSetupReceivedPromise(std::move(client_attributes));
+        std::promise<SetupAttributes> recv_attributes;
         auto future = recv_attributes.get_future();
         auto callbacks = std::make_shared<TestClient>();
         callbacks->SetConnectedPromise(std::move(recv_attributes));
@@ -735,8 +747,10 @@ TEST_CASE("Integration - Connection")
           MakeTestClient(session_mgr, false, std::nullopt, protocol_scheme, std::nullopt, std::move(callbacks));
         auto status = future.wait_for(kDefaultTimeout);
         REQUIRE(status == std::future_status::ready);
-        const auto& [moqt_version, server_id] = future.get();
-        CHECK_EQ(server_id, kServerId);
+        const auto attributes = future.get();
+        CHECK_EQ(attributes.endpoint_id, kServerId);
+        REQUIRE(client_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(client_setup.get().endpoint_id, "client");
     };
 
     SUBCASE("Raw QUIC")
@@ -757,7 +771,7 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
     auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
-    std::promise<ServerSetupAttributes> recv_attributes;
+    std::promise<SetupAttributes> recv_attributes;
     auto setup_received = recv_attributes.get_future();
     auto callbacks = std::make_shared<TestClient>();
     callbacks->SetConnectedPromise(std::move(recv_attributes));
@@ -807,6 +821,8 @@ TEST_CASE("Integration - Subscribe")
         ftn.name = { 1, 2, 3 };
         const messages::Filter filter = messages::TrackFilter{ 1, 2, 3 };
         const auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt, filter);
+        const auto rendezvous_timeout = std::chrono::seconds{ 30 };
+        handler->SetRendezvousTimeout(rendezvous_timeout);
 
         // When we subscribe, server should receive a subscribe.
         std::promise<TestServer::SubscribeDetails> promise;
@@ -823,6 +839,7 @@ TEST_CASE("Integration - Subscribe")
         CHECK_EQ(details.track_full_name.name, ftn.name);
         CHECK_EQ(details.track_full_name.name_space, ftn.name_space);
         CHECK_EQ(details.subscribe_attributes.filter, filter);
+        CHECK_EQ(details.subscribe_attributes.rendezvous_timeout, rendezvous_timeout);
 
         // Server should respond, track should go live.
         const bool track_live =
@@ -852,6 +869,39 @@ TEST_CASE("Integration - Subscribe")
     {
         CAPTURE("WebTransport");
         test_subscribe("https");
+    }
+}
+
+TEST_CASE("Integration - Subscribe rejection preserves rendezvous error codes")
+{
+    auto test_error = [](const std::string& protocol_scheme) {
+        const std::vector<std::pair<RequestErrorCode, ErrorCode>> errors{
+            { RequestErrorCode::kDoesNotExist, ErrorCode::kDoesNotExist },
+            { RequestErrorCode::kTimeout, ErrorCode::kTimeout }
+        };
+        for (const auto& error : errors) {
+            const auto callback_error = error.first;
+            const auto wire_error = error.second;
+            CAPTURE(callback_error);
+            auto session_mgr = MakeTestSessionManager();
+            auto server = MakeTestServer(session_mgr);
+            server->SetSubscribeError(callback_error, "Publisher unavailable");
+            auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+            const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "rendezvous", "missing" }), { 1 } };
+            auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
+            session->SubscribeTrack(handler);
+            REQUIRE(WaitFor([&handler] { return handler->RequestErrorReceived(); }));
+            CHECK(handler->GetRequestError() == wire_error);
+        }
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_error("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_error("https");
     }
 }
 

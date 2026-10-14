@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #include "quicr/handlers/publish_namespace_handler.h"
 #include "quicr/log.h"
 #include "quicr/messages/parameters.h"

@@ -1,3 +1,7 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 Cisco
+SPDX-License-Identifier: CC-BY-4.0
+-->
 
 # Examples
 

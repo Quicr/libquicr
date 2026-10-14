@@ -20,6 +20,7 @@
 #include <quicr/track_name.h>
 
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -215,9 +216,9 @@ class BridgeClient : public quicr::Session::ClientCallbacks
         }
     }
 
-    quicr::Expected<void, quicr::Error<quicr::ErrorCode>> ServerSetupReceived(
+    quicr::Expected<void, quicr::Error<quicr::ErrorCode>> SetupReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-      [[maybe_unused]] const quicr::ServerSetupAttributes& server_setup_attributes) override
+      [[maybe_unused]] const quicr::SetupAttributes& setup_attributes) override
     {
         return {};
     }
@@ -491,6 +492,11 @@ struct qbridge_subscribe_track_handler
                                                               cpp_group_order_from_c(config->group_order),
                                                               callback,
                                                               data);
+            if (config->rendezvous_timeout_ms >
+                static_cast<std::uint64_t>(std::numeric_limits<std::chrono::milliseconds::rep>::max())) {
+                throw std::invalid_argument("Rendezvous timeout exceeds supported duration");
+            }
+            cpp_handler->SetRendezvousTimeout(std::chrono::milliseconds{ config->rendezvous_timeout_ms });
         }
     }
 };

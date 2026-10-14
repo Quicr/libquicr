@@ -29,20 +29,11 @@ namespace quicr {
     };
 
     /**
-     * @brief Client Setup Attributes
+     * @brief Peer setup attributes
      */
-    struct ClientSetupAttributes
+    struct SetupAttributes
     {
-        const std::string endpoint_id;
-    };
-
-    /**
-     * @brief Server Setup Attributes
-     */
-    struct ServerSetupAttributes
-    {
-        const uint64_t moqt_version;
-        const std::string server_id;
+        std::string endpoint_id;
     };
 
     // TODO: Maybe split base attributes out from SUBSCRIBE / PUBLISH?
@@ -69,13 +60,14 @@ namespace quicr {
         messages::GroupOrder publisher_default_group_order{
             messages::GroupOrder::kAscending
         }; ///< Publisher track default group order
-        std::chrono::milliseconds delivery_timeout{ 0 }; ///< Subscriber delivery timeout
-        std::chrono::milliseconds expires{ 0 };          ///< Subscriber expiry in ms
-        messages::Filter filter{ std::monostate{} };     /// Subscriber filter
-        std::uint8_t forward{ 0 };                       ///< True to Resume/forward data, False to pause/stop data
-        std::optional<uint64_t> new_group_request_id;    ///< Indicates new group id is requested
-        bool is_publisher_initiated{ false };            ///< True will not send SUBSCRIBE_OK.
-        messages::Location start_location{};             ///< Start location of group and object
+        std::chrono::milliseconds delivery_timeout{ 0 };   ///< Subscriber delivery timeout
+        std::chrono::milliseconds expires{ 0 };            ///< Subscriber expiry in ms
+        messages::Filter filter{ std::monostate{} };       /// Subscriber filter
+        std::uint8_t forward{ 0 };                         ///< True to Resume/forward data, False to pause/stop data
+        std::optional<uint64_t> new_group_request_id;      ///< Indicates new group id is requested
+        bool is_publisher_initiated{ false };              ///< True will not send SUBSCRIBE_OK.
+        messages::Location start_location{};               ///< Start location of group and object
+        std::chrono::milliseconds rendezvous_timeout{ 0 }; ///< Wait for a publisher; absent defaults to zero.
     };
 
     struct PublishAttributes

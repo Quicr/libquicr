@@ -547,7 +547,8 @@ namespace quicr {
                            std::uint8_t priority,
                            std::optional<messages::GroupOrder> group_order,
                            const messages::Filter& filter,
-                           std::optional<std::chrono::milliseconds> delivery_timeout);
+                           std::optional<std::chrono::milliseconds> delivery_timeout,
+                           std::chrono::milliseconds rendezvous_timeout);
 
         void SendSubscribeOk(const std::shared_ptr<Stream>& stream,
                              std::uint64_t request_id,

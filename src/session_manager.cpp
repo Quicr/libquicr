@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #include "quicr/session_manager.h"
 
 #include "quicr/handlers/fetch_track_handler.h"
