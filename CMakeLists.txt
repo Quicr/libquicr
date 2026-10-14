@@ -92,6 +92,10 @@ if(BUILD_TESTING)
         add_subdirectory(benchmark)
     endif()
 
+    if(QUICR_BUILD_FUZZ)
+       add_subdirectory(test/fuzz)
+    endif()
+
     if(QUICR_BUILD_TOOLS)
        add_subdirectory(tools)
     endif()
