@@ -16,29 +16,24 @@ if(CMAKE_FRAMEWORK)
     endmacro()
 endif()
 
-
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
 CPMAddPackage("gh:quicr/timeq#898d45c")
 
+CPMAddPackage(
+    URI "gh:quicr/picotls#sync-092226"
+    OPTIONS
+        "WITH_FUSION OFF"
+        "picotls_BUILD_TESTS OFF"
+)
+
 if (WITH_MBEDTLS)
-    message(STATUS "Transport building with MbedTLS")
-
     set(WITH_OPENSSL OFF)
-endif ()
-
-set(WITH_FUSION OFF)
-set(BUILD_DEMO OFF)
-set(BUILD_PQBENCH OFF)
-set(BUILD_LOGREADER OFF)
-set(picotls_BUILD_TESTS OFF)
-
-CPMAddPackage("gh:quicr/picotls#sync-092226")
-
-if (NOT WITH_MBEDTLS)
+else()
     if (TARGET picotls-openssl)
         set(WITH_OPENSSL ON)
+        set(PTLS_INCLUDE_DIR ${picotls_SOURCE_DIR}/include)
     else()
         set(WITH_OPENSSL OFF)
         message(WARNING
@@ -48,9 +43,7 @@ if (NOT WITH_MBEDTLS)
     endif()
 endif()
 
-set(PTLS_INCLUDE_DIR ${picotls_SOURCE_DIR}/include)
-
-if (WIN32 AND NOT WITH_MBEDTLS)
+if (WIN32)
     target_compile_definitions(picotls-core PUBLIC _WINDOWS)
     target_include_directories(picotls-core PUBLIC
         "$<BUILD_INTERFACE:${picotls_SOURCE_DIR}/picotlsvs/picotls>")
@@ -66,10 +59,15 @@ if (WIN32 AND NOT WITH_MBEDTLS)
     endforeach()
 endif()
 
-set(picoquic_BUILD_TESTS OFF)
-set(PICOQUIC_FETCH_PTLS ON)
-CPMAddPackage("gh:private-octopus/picoquic#poll-recvmmsg")
-add_dependencies(picoquic-core picotls-core)
+CPMAddPackage(
+    URI "gh:private-octopus/picoquic#poll-recvmmsg"
+    OPTIONS
+        "BUILD_DEMO OFF"
+        "BUILD_PQBENCH OFF"
+        "BUILD_LOGREADER OFF"
+        "picoquic_BUILD_TESTS OFF"
+        "PICOQUIC_FETCH_PTLS ON"
+)
 
 set(WARN_SUPPRESS_TARGET_LIST picoquic-core picoquic-log picohttp-core picotls-core picotls-openssl picotls-minicrypto)
 

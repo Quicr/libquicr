@@ -59,6 +59,10 @@ else()
     message(WARNING "Skipping certificate-backed integration tests because the openssl command was not found")
 endif()
 
+if(QUICR_BUILD_FUZZ)
+   add_subdirectory(fuzz)
+endif()
+
 if (LINT)
     include(Lint)
     Lint(quicr_test)
