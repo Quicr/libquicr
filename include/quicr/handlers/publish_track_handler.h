@@ -390,10 +390,7 @@ namespace quicr {
 
       private:
         // Update status without firing the callback.
-        bool UpdateStatus(Status status) noexcept
-        {
-            return publish_status_.exchange(status, std::memory_order_acq_rel) != status;
-        }
+        std::optional<Status> UpdateStatus(Status status) noexcept;
 
         friend class Session;
     };

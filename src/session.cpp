@@ -2330,7 +2330,7 @@ namespace quicr {
                                      const std::shared_ptr<PublishTrackHandler>& track_handler,
                                      bool ephemeral)
     {
-        bool status_changed;
+        std::optional<PublishTrackHandler::Status> changed_status;
         {
             std::lock_guard _(state_mutex_);
 
@@ -2361,10 +2361,10 @@ namespace quicr {
                 pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
                 pub_tracks_by_track_alias[th.track_fullname_hash][src_id] = track_handler;
             }
-            status_changed = track_handler->UpdateStatus(PublishTrackHandler::Status::kOk);
+            changed_status = track_handler->UpdateStatus(PublishTrackHandler::Status::kOk);
         }
-        if (status_changed) {
-            track_handler->StatusChanged(PublishTrackHandler::Status::kOk);
+        if (changed_status) {
+            track_handler->StatusChanged(*changed_status);
         }
     }
 
@@ -2372,7 +2372,7 @@ namespace quicr {
                                        const std::shared_ptr<PublishTrackHandler>& track_handler,
                                        bool send_publish_done)
     {
-        bool status_changed;
+        std::optional<PublishTrackHandler::Status> changed_status;
         {
             std::lock_guard _(state_mutex_);
 
@@ -2393,7 +2393,7 @@ namespace quicr {
                 pub_tracks_by_track_alias.erase(th.track_fullname_hash);
             }
 
-            status_changed = track_handler->UpdateStatus(PublishTrackHandler::Status::kNoSubscribers);
+            changed_status = track_handler->UpdateStatus(PublishTrackHandler::Status::kNoSubscribers);
 
             if (pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
                 QUICR_LOGGER_DEBUG(logger_,
@@ -2416,8 +2416,8 @@ namespace quicr {
             }
         }
 
-        if (status_changed) {
-            track_handler->StatusChanged(PublishTrackHandler::Status::kNoSubscribers);
+        if (changed_status) {
+            track_handler->StatusChanged(*changed_status);
         }
     }
 

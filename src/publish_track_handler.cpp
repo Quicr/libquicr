@@ -39,6 +39,14 @@ namespace quicr {
 
     void PublishTrackHandler::StatusChanged(Status) {}
 
+    std::optional<PublishTrackHandler::Status> PublishTrackHandler::UpdateStatus(Status status) noexcept
+    {
+        if (publish_status_.exchange(status, std::memory_order_acq_rel) == status) {
+            return std::nullopt;
+        }
+        return status;
+    }
+
     void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&) {}
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::ForwardPublishedData(
