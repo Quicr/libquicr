@@ -306,7 +306,7 @@ namespace quicr {
                 messages::ObjectDatagram object;
                 object.group_id = object_headers.group_id;
                 object.object_id = object_headers.object_id;
-                object.priority = object_headers.priority.value_or(GetPublisherPriority());
+                object.priority = GetPublisherPriority();
                 object.track_alias = GetTrackAlias().value();
                 object.extensions = object_headers.extensions;
                 object.immutable_extensions = object_headers.immutable_extensions;
@@ -327,7 +327,7 @@ namespace quicr {
                         subgroup_hdr.subgroup_id = object_headers.subgroup_id;
                     }
 
-                    subgroup_hdr.priority = object_headers.priority.value_or(GetPublisherPriority());
+                    subgroup_hdr.priority = GetPublisherPriority();
                     subgroup_hdr.track_alias = GetTrackAlias().value();
                     object_msg_buffer_ << subgroup_hdr;
                 }

@@ -1138,7 +1138,7 @@ DoPublisher(const std::string prefix_str,
     std::vector<std::weak_ptr<quicr::PublishTrackHandler>> handlers;
     for (const auto& name : names) {
         quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, name);
-        auto handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 128, 3000);
+        auto handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 200, 3000);
         handlers.push_back(handler);
         ns_handler->PublishTrack(handler);
     }
@@ -1171,7 +1171,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                bool& stop)
 {
     auto track_handler = MyPublishTrackHandler::Create(
-      full_track_name, quicr::TrackMode::kStream /*mode*/, 128 /*priority*/, 3000 /*ttl*/);
+      full_track_name, quicr::TrackMode::kStream /*mode*/, 200 /*priority*/, 3000 /*ttl*/);
 
     if (qclient_vars::track_alias.has_value()) {
         track_handler->SetTrackAlias(*qclient_vars::track_alias);
@@ -1232,7 +1232,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                                          .subgroup_id = subgroup_id,
                                          .payload_length = msg.size(),
                                          .status = quicr::ObjectStatus::kAvailable,
-                                         .priority = 128,
+                                         .priority = 200,
                                          .ttl = 3000,
                                          .track_mode = quicr::TrackMode::kStream,
                                          .extensions = std::nullopt,
