@@ -30,10 +30,10 @@ CPMAddPackage(
 
 if (WITH_MBEDTLS)
     set(WITH_OPENSSL OFF)
+    set(PTLS_INCLUDE_DIR ${picotls_SOURCE_DIR}/include)
 else()
     if (TARGET picotls-openssl)
         set(WITH_OPENSSL ON)
-        set(PTLS_INCLUDE_DIR ${picotls_SOURCE_DIR}/include)
     else()
         set(WITH_OPENSSL OFF)
         message(WARNING
