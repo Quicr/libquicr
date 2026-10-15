@@ -902,7 +902,7 @@ namespace quicr {
             sub_by_recv_track_alias[*track_handler->GetReceivedTrackAlias()] = track_handler;
         }
 
-        auto priority = track_handler->GetPriority();
+        auto priority = track_handler->GetSubscriberPriority();
         auto group_order = track_handler->GetGroupOrder();
         const auto& filter = track_handler->GetFilter();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
@@ -999,7 +999,7 @@ namespace quicr {
             return;
         }
 
-        auto priority = track_handler->GetPriority();
+        auto priority = track_handler->GetSubscriberPriority();
         const auto request_stream = track_handler->GetRequestStream();
         if (request_stream == nullptr) {
             QUICR_LOGGER_ERROR(
@@ -1435,7 +1435,7 @@ namespace quicr {
 
         QUICR_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {}", *track_handler->GetRequestId());
 
-        auto priority = track_handler->GetPriority();
+        auto priority = track_handler->GetSubscriberPriority();
         auto group_order = track_handler->GetGroupOrder();
         auto start_location = track_handler->GetStartLocation();
         auto end_location = track_handler->GetEndLocation();
@@ -1816,7 +1816,7 @@ namespace quicr {
 
             // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
             if (s_hdr.publisher_priority.has_value()) {
-                handler.SetPriority(*s_hdr.publisher_priority);
+                handler.SetSubscriberPriority(*s_hdr.publisher_priority);
             }
 
             if (buffer.Empty()) {
@@ -1918,7 +1918,7 @@ namespace quicr {
 
                 // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
                 if (s_hdr.publisher_priority.has_value()) {
-                    handler.SetPriority(*s_hdr.publisher_priority);
+                    handler.SetSubscriberPriority(*s_hdr.publisher_priority);
                 }
             }
 
@@ -3508,7 +3508,7 @@ namespace quicr {
                               result->handler->SetConnectionId(self->current_connection_->GetID());
                               result->handler->SetRequestId(request_id);
                               result->handler->SetReceivedTrackAlias(publish.track_alias);
-                              result->handler->SetPriority(publish.publisher_priority);
+                              result->handler->SetSubscriberPriority(publish.publisher_priority);
                               // TODO: Optional delivery timeout?
                               const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
                               result->handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));

@@ -1388,7 +1388,7 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
                                  ? Fetch{ 128, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
                                  : std::optional<Fetch>(std::nullopt);
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, joining_fetch);
-    track_handler->SetPriority(qclient_vars::subscriber_priority);
+    track_handler->SetSubscriberPriority(qclient_vars::subscriber_priority);
 
     QUICR_LOGGER_INFO(qclient_vars::logger, "Started subscriber");
 

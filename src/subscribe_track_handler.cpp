@@ -35,13 +35,13 @@ namespace quicr {
             if (dgram_buffer_ >> status_msg) {
                 subscribe_track_metrics_.objects_received++;
 
-                ObjectStatusReceived(
-                  status_msg.group_id,
-                  status_msg.object_id,
-                  status_msg.publisher_priority.value_or(priority_), // TODO: This should be publisher priority.
-                  status_msg.status,
-                  std::move(status_msg.extensions),
-                  std::move(status_msg.immutable_extensions));
+                ObjectStatusReceived(status_msg.group_id,
+                                     status_msg.object_id,
+                                     status_msg.publisher_priority.value_or(
+                                       subscriber_priority_), // TODO: This should be publisher priority.
+                                     status_msg.status,
+                                     std::move(status_msg.extensions),
+                                     std::move(status_msg.immutable_extensions));
             }
             return;
         }
@@ -79,7 +79,8 @@ namespace quicr {
         }
 
         status_ = Status::kPaused;
-        session->SendRequestUpdate(request_stream, TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), false);
+        session->SendRequestUpdate(
+          request_stream, TrackHash(GetFullTrackName()), std::nullopt, GetSubscriberPriority(), false);
     }
 
     void SubscribeTrackHandler::Resume() noexcept
@@ -95,7 +96,8 @@ namespace quicr {
         }
 
         status_ = Status::kOk;
-        session->SendRequestUpdate(request_stream, TrackHash(GetFullTrackName()), std::nullopt, GetPriority(), true);
+        session->SendRequestUpdate(
+          request_stream, TrackHash(GetFullTrackName()), std::nullopt, GetSubscriberPriority(), true);
     }
 
     void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
@@ -106,7 +108,8 @@ namespace quicr {
             return;
         }
 
-        session->SendRequestUpdate(request_stream, TrackHash(GetFullTrackName()), group_id, GetPriority(), true);
+        session->SendRequestUpdate(
+          request_stream, TrackHash(GetFullTrackName()), group_id, GetSubscriberPriority(), true);
     }
 
     void SubscribeTrackHandler::RequestOkReceived(const messages::Parameters& params)
