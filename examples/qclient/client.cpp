@@ -1565,7 +1565,7 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
 
 std::atomic_bool stop_threads{ false };
 void
-handle_signal(int)
+HandleSignal(int)
 {
     stop_threads.store(true, std::memory_order_release);
 }
@@ -1638,11 +1638,11 @@ main(int argc, char* argv[])
         return EXIT_SUCCESS;
     }
 
-    std::signal(SIGINT, handle_signal);
+    std::signal(SIGINT, HandleSignal);
 
 #ifndef _WIN32
-    std::signal(SIGHUP, handle_signal);
-    std::signal(SIGQUIT, handle_signal);
+    std::signal(SIGHUP, HandleSignal);
+    std::signal(SIGQUIT, HandleSignal);
 #endif
 
     bool enable_pub{ false };
@@ -1663,8 +1663,7 @@ main(int argc, char* argv[])
         }
 
         const auto is_terminal_status = [](quicr::Session::Status status) {
-            return status == quicr::Session::Status::kNotReady ||
-                   status == quicr::Session::Status::kInternalError ||
+            return status == quicr::Session::Status::kNotReady || status == quicr::Session::Status::kInternalError ||
                    status == quicr::Session::Status::kInvalidParams ||
                    status == quicr::Session::Status::kNotConnected ||
                    status == quicr::Session::Status::kFailedToConnect;
