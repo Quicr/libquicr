@@ -929,8 +929,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
             auto last_publish = std::chrono::steady_clock::time_point{};
 
             while (not stop) {
-                if (track_handler->GetStatus() != MyPublishTrackHandler::Status::kOk &&
-                    track_handler->GetStatus() != MyPublishTrackHandler::Status::kNoSubscribers) {
+                if (!track_handler->CanPublish()) {
                     std::this_thread::sleep_for(poll_tick);
                     continue;
                 }
