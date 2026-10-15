@@ -98,7 +98,7 @@ namespace quicr {
         eflags.close_stream = true;
         eflags.use_reset = false;
 
-        session->Enqueue(stream_, {}, publisher_priority_, default_ttl_, eflags);
+        session->Enqueue(stream_, {}, GetPublishObjectPriority(), default_ttl_, eflags);
 
         stream_.reset();
     }

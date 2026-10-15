@@ -1815,8 +1815,8 @@ namespace quicr {
             }
 
             // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
-            if (s_hdr.priority.has_value()) {
-                handler.SetPriority(*s_hdr.priority);
+            if (s_hdr.publisher_priority.has_value()) {
+                handler.SetPriority(*s_hdr.publisher_priority);
             }
 
             if (buffer.Empty()) {
@@ -1860,7 +1860,7 @@ namespace quicr {
                         *s_hdr.subgroup_id,
                         payload.size(),
                         partial.object_status,
-                        s_hdr.priority,
+                        s_hdr.publisher_priority,
                         std::nullopt,
                         TrackMode::kStream,
                         std::move(partial.extensions),
@@ -1914,11 +1914,11 @@ namespace quicr {
 
                 stream.rx_parse.subgroup = { s_hdr.group_id, *subgroup_id };
                 start_properties.emplace(*s_hdr.properties);
-                start_priority = s_hdr.priority;
+                start_priority = s_hdr.publisher_priority;
 
                 // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
-                if (s_hdr.priority.has_value()) {
-                    handler.SetPriority(*s_hdr.priority);
+                if (s_hdr.publisher_priority.has_value()) {
+                    handler.SetPriority(*s_hdr.publisher_priority);
                 }
             }
 

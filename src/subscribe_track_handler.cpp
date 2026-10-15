@@ -38,7 +38,7 @@ namespace quicr {
                 ObjectStatusReceived(
                   status_msg.group_id,
                   status_msg.object_id,
-                  status_msg.priority.value_or(priority_), // TODO: This should be publisher priority.
+                  status_msg.publisher_priority.value_or(priority_), // TODO: This should be publisher priority.
                   status_msg.status,
                   std::move(status_msg.extensions),
                   std::move(status_msg.immutable_extensions));

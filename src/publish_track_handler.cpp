@@ -335,7 +335,7 @@ namespace quicr {
                         subgroup_hdr.subgroup_id = object_headers.subgroup_id;
                     }
 
-                    subgroup_hdr.priority = GetPublisherPriority();
+                    subgroup_hdr.publisher_priority = GetPublisherPriority();
                     subgroup_hdr.track_alias = GetTrackAlias().value();
                     object_msg_buffer_ << subgroup_hdr;
                 }
