@@ -1662,6 +1662,14 @@ main(int argc, char* argv[])
             return EXIT_FAILURE;
         }
 
+        const auto is_terminal_status = [](quicr::Session::Status status) {
+            return status == quicr::Session::Status::kNotReady ||
+                   status == quicr::Session::Status::kInternalError ||
+                   status == quicr::Session::Status::kInvalidParams ||
+                   status == quicr::Session::Status::kNotConnected ||
+                   status == quicr::Session::Status::kFailedToConnect;
+        };
+
         while (not stop_threads.load(std::memory_order_acquire)) {
             const auto status = session->GetStatus();
             if (status == quicr::Session::Status::kReady) {
@@ -1669,8 +1677,7 @@ main(int argc, char* argv[])
                 break;
             }
 
-            if (status == quicr::Session::Status::kFailedToConnect || status == quicr::Session::Status::kNotConnected ||
-                status == quicr::Session::Status::kInternalError || status == quicr::Session::Status::kInvalidParams) {
+            if (is_terminal_status(status)) {
                 QUICR_LOGGER_ERROR(qclient_vars::logger, "Connection failed with status {}", static_cast<int>(status));
                 stop_threads.store(true, std::memory_order_release);
                 break;
@@ -1745,6 +1752,13 @@ main(int argc, char* argv[])
         }
 
         while (not stop_threads.load(std::memory_order_acquire)) {
+            const auto status = session->GetStatus();
+            if (is_terminal_status(status)) {
+                QUICR_LOGGER_ERROR(qclient_vars::logger, "Connection lost with status {}", static_cast<int>(status));
+                stop_threads.store(true, std::memory_order_release);
+                break;
+            }
+
             std::this_thread::sleep_for(20ms);
         }
 
