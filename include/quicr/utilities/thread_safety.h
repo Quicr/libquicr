@@ -3,7 +3,7 @@
 
 #pragma once
 
-#if defined(__clang__) && __clang_major__ >= 21
+#if defined(QUICR_HAS_THREAD_SAFETY_ANNOTATIONS)
 #define QUICR_CAPABILITY(name) __attribute__((capability(name)))
 #define QUICR_ACQUIRE(...) __attribute__((acquire_capability(__VA_ARGS__)))
 #define QUICR_RELEASE(...) __attribute__((release_capability(__VA_ARGS__)))
