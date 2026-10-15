@@ -12,7 +12,7 @@ permissions:
 env:
   BUILD_TYPE: Release
   ANDROID_API: 24
-  NDK_VERSION: 27.2.12479018
+  NDK_VERSION: 30.0.16248370 # r30 LTS
 
 jobs:
   build:
