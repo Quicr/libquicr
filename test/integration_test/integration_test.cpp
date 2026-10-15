@@ -1,10 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#ifdef _WIN32
-#define _CRT_SECURE_NO_WARNINGS // NOLINT
-#endif
-
 #include "picoquic_connection.h"
 #include "quicr/config.h"
 #include "quicr/handlers/fetch_track_handler.h"
