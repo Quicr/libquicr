@@ -1114,6 +1114,7 @@ DoPublisher(const std::string prefix_str,
         quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, names.front());
         auto track_handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 200, 3000);
         track_handler->SetPublisherPriority(qclient_vars::publisher_priority);
+        track_handler->SetPublishObjectPriority(qclient_vars::publisher_priority);
 
         if (qclient_vars::track_alias.has_value()) {
             track_handler->SetTrackAlias(*qclient_vars::track_alias);
@@ -1177,6 +1178,8 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
     auto track_handler = MyPublishTrackHandler::Create(
       full_track_name, quicr::TrackMode::kStream /*mode*/, 200 /*priority*/, 3000 /*ttl*/);
     track_handler->SetPublisherPriority(qclient_vars::publisher_priority);
+    track_handler->SetPublishObjectPriority(qclient_vars::publisher_priority);
+
 
     if (qclient_vars::track_alias.has_value()) {
         track_handler->SetTrackAlias(*qclient_vars::track_alias);
