@@ -10,7 +10,7 @@
 class TestPublishTrackHandler : public quicr::PublishTrackHandler
 {
     TestPublishTrackHandler()
-      : PublishTrackHandler({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0)
+      : PublishTrackHandler({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0, 0)
     {
     }
 
@@ -23,13 +23,13 @@ class TestPublishTrackHandler : public quicr::PublishTrackHandler
 
 TEST_CASE("Create Track Handler")
 {
-    CHECK_NOTHROW(quicr::PublishTrackHandler::Create({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0, { 0, 0 }));
+    CHECK_NOTHROW(quicr::PublishTrackHandler::Create({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0, 0, { 0, 0 }));
     CHECK_NOTHROW(TestPublishTrackHandler::Create());
 }
 
 TEST_CASE("Publish Track Handler CanPublish")
 {
-    auto handler = quicr::PublishTrackHandler::Create({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0, { 0, 0 });
+    auto handler = quicr::PublishTrackHandler::Create({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0, 0, { 0, 0 });
 
     CHECK_FALSE(handler->CanPublish());
 }
@@ -112,7 +112,7 @@ TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kDoesNotExist")
     status_msg.track_alias = 0x1234;
     status_msg.group_id = 100;
     status_msg.object_id = 50;
-    status_msg.priority = 5;
+    status_msg.publisher_priority = 5;
     status_msg.status = quicr::ObjectStatus::kDoesNotExist;
 
     // Serialize the message
@@ -139,7 +139,7 @@ TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kEndOfGroup")
     status_msg.track_alias = 0x5678;
     status_msg.group_id = 200;
     status_msg.object_id = 10;
-    status_msg.priority = 3;
+    status_msg.publisher_priority = 3;
     status_msg.status = quicr::ObjectStatus::kEndOfGroup;
 
     quicr::Bytes buffer;
@@ -162,7 +162,7 @@ TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kEndOfTrack")
     status_msg.track_alias = 0xABCD;
     status_msg.group_id = 999;
     status_msg.object_id = 0;
-    status_msg.priority = 1;
+    status_msg.publisher_priority = 1;
     status_msg.status = quicr::ObjectStatus::kEndOfTrack;
 
     quicr::Bytes buffer;
@@ -185,7 +185,7 @@ TEST_CASE("Subscribe Track Handler ObjectStatusReceived with extensions")
     status_msg.track_alias = 0x1111;
     status_msg.group_id = 42;
     status_msg.object_id = 7;
-    status_msg.priority = 2;
+    status_msg.publisher_priority = 2;
     status_msg.status = quicr::ObjectStatus::kDoesNotExist;
     // Add extensions to trigger type 0x05 instead of 0x04
     status_msg.extensions = quicr::Extensions{ { 0x1, { { 0xAA, 0xBB } } } };

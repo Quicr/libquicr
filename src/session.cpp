@@ -15,6 +15,7 @@
 #include "track_properties.h"
 #include "transport_picoquic.h"
 
+#include <algorithm>
 #include <iomanip>
 #include <memory>
 #include <sstream>
@@ -462,11 +463,14 @@ namespace quicr {
          */
         auto params =
           Parameters{}
-            .Add(ParameterType::kSubscriberPriority, priority)
             .AddOptional(ParameterType::kGroupOrder, group_order)
             .Add(ParameterType::kForward, 1)
             .AddOptional(ParameterType::kDeliveryTimeout,
                          delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt);
+
+        if (priority) {
+            params.Add(ParameterType::kSubscriberPriority, priority);
+        }
 
         if (rendezvous_timeout > std::chrono::milliseconds::zero()) {
             params.Add(ParameterType::kRendezvousTimeout, rendezvous_timeout.count());
@@ -508,7 +512,7 @@ namespace quicr {
                             .AddOptional(ExtensionType::kDeliveryTimeout, publish.delivery_timeout)
                             .AddOptional(ExtensionType::kMaxCacheDuration, publish.max_cache_duration)
                             .Add(ExtensionType::kDefaultPublisherGroupOrder, publish.default_publisher_group_order)
-                            .Add(ExtensionType::kDefaultPublisherPriority, publish.default_publisher_priority)
+                            .Add(ExtensionType::kDefaultPublisherPriority, publish.publisher_priority)
                             .Add(ExtensionType::kDynamicGroups, publish.dynamic_groups);
 
         QUICR_LOGGER_DEBUG(logger_,
@@ -591,8 +595,7 @@ namespace quicr {
                            request_id,
                            static_cast<uint64_t>(status));
 
-        SendCtrlMsg(
-          stream, ControlMessageType::kPublishDone, UintVar(request_id), status, UintVar(0), AsOwnedBytes(reason));
+        SendCtrlMsg(stream, ControlMessageType::kPublishDone, status, UintVar(0), AsOwnedBytes(reason));
     } catch (const std::exception& e) {
         QUICR_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_DONE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -640,6 +643,53 @@ namespace quicr {
     } catch (const std::exception& e) {
         QUICR_LOGGER_ERROR(logger_, "Caught exception sending UNSUBSCRIBE_NAMESPACE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
+    }
+
+    void Session::SendNamespace(const TrackNamespace& track_namespace)
+    {
+        SendNamespaceMessage(ControlMessageType::kNamespace, track_namespace);
+    }
+
+    void Session::SendNamespaceDone(const TrackNamespace& track_namespace)
+    {
+        SendNamespaceMessage(ControlMessageType::kNamespaceDone, track_namespace);
+    }
+
+    void Session::SendNamespaceMessage(ControlMessageType type, const TrackNamespace& track_namespace)
+    {
+        std::vector<std::pair<std::shared_ptr<Stream>, TrackNamespace>> outgoing;
+        {
+            std::lock_guard _(state_mutex_);
+            for (const auto request_id : recv_subscribe_namespaces) {
+                const auto it = recv_req_id.find(request_id);
+                if (it == recv_req_id.end() || it->second.stream == nullptr) {
+                    continue;
+                }
+
+                const auto& prefix = it->second.track_full_name.name_space;
+                const auto match = prefix.IsPrefixOf(track_namespace);
+                if (match == std::partial_ordering::unordered || match == std::partial_ordering::greater) {
+                    continue;
+                }
+
+                const auto suffix_size = track_namespace.GetEntries().size() - prefix.GetEntries().size();
+                outgoing.emplace_back(it->second.stream, track_namespace.GetSuffix(suffix_size));
+            }
+        }
+
+        const char* log_name = type == ControlMessageType::kNamespace ? "NAMESPACE" : "NAMESPACE_DONE";
+        for (const auto& [stream, suffix] : outgoing) {
+            try {
+                QUICR_LOGGER_DEBUG(logger_,
+                                   "Sending {} to conn_id: {} suffix: {}",
+                                   log_name,
+                                   current_connection_->GetID(),
+                                   suffix.Str());
+                SendCtrlMsg(stream, type, suffix);
+            } catch (const std::exception& e) {
+                QUICR_LOGGER_ERROR(logger_, "Caught exception sending {} (error={})", log_name, e.what());
+            }
+        }
     }
 
     void Session::SubscribeNamespace(std::shared_ptr<SubscribeNamespaceHandler> handler)
@@ -852,7 +902,7 @@ namespace quicr {
             sub_by_recv_track_alias[*track_handler->GetReceivedTrackAlias()] = track_handler;
         }
 
-        auto priority = track_handler->GetPriority();
+        auto priority = track_handler->GetSubscriberPriority();
         auto group_order = track_handler->GetGroupOrder();
         const auto& filter = track_handler->GetFilter();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
@@ -949,7 +999,7 @@ namespace quicr {
             return;
         }
 
-        auto priority = track_handler->GetPriority();
+        auto priority = track_handler->GetSubscriberPriority();
         const auto request_stream = track_handler->GetRequestStream();
         if (request_stream == nullptr) {
             QUICR_LOGGER_ERROR(
@@ -1028,11 +1078,20 @@ namespace quicr {
     {
         std::shared_ptr<TrackHandler> handler;
         bool is_pub_ns = false;
+        bool is_sub_ns = false;
+        TrackNamespace sub_ns_prefix;
         {
             std::lock_guard _(state_mutex_);
 
-            // Incoming PUBNS requests are not handler based.
-            if (std::erase(recv_publish_namespaces, request_id) > 0) {
+            // Incoming SUBSCRIBE_NAMESPACE and PUBLISH_NAMESPACE requests are not handler based.
+            // Closing the bidirectional request stream ends the subscription.
+            if (std::erase(recv_subscribe_namespaces, request_id) > 0) {
+                if (const auto it = recv_req_id.find(request_id); it != recv_req_id.end()) {
+                    sub_ns_prefix = it->second.track_full_name.name_space;
+                }
+                recv_req_id.erase(request_id);
+                is_sub_ns = true;
+            } else if (std::erase(recv_publish_namespaces, request_id) > 0) {
                 recv_req_id.erase(request_id);
                 is_pub_ns = true;
             } else {
@@ -1078,6 +1137,13 @@ namespace quicr {
         }
 
         // Notifications / callbacks.
+
+        if (is_sub_ns) {
+            if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
+                callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), sub_ns_prefix);
+            }
+            return;
+        }
 
         if (is_pub_ns) {
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
@@ -1267,7 +1333,7 @@ namespace quicr {
                                          .forward = true,
                                          .default_publisher_group_order = GroupOrder::kAscending,
                                          .dynamic_groups = track_handler->support_new_group_request_,
-                                         .default_publisher_priority = track_handler->GetDefaultPriority(),
+                                         .publisher_priority = track_handler->GetPublisherPriority(),
                                          .max_cache_duration = std::nullopt,
                                          .delivery_timeout = track_handler->GetDefaultTTL(),
                                          .track_properties = {} };
@@ -1369,7 +1435,7 @@ namespace quicr {
 
         QUICR_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {}", *track_handler->GetRequestId());
 
-        auto priority = track_handler->GetPriority();
+        auto priority = track_handler->GetSubscriberPriority();
         auto group_order = track_handler->GetGroupOrder();
         auto start_location = track_handler->GetStartLocation();
         auto end_location = track_handler->GetEndLocation();
@@ -1447,6 +1513,7 @@ namespace quicr {
         pub_tracks_by_name.clear();
         recv_req_id.clear();
         recv_publish_namespaces.clear();
+        recv_subscribe_namespaces.clear();
         request_handlers.clear();
         sub_by_recv_track_alias.clear();
     }
@@ -1748,8 +1815,8 @@ namespace quicr {
             }
 
             // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
-            if (s_hdr.priority.has_value()) {
-                handler.SetPriority(*s_hdr.priority);
+            if (s_hdr.publisher_priority.has_value()) {
+                handler.SetSubscriberPriority(*s_hdr.publisher_priority);
             }
 
             if (buffer.Empty()) {
@@ -1793,7 +1860,7 @@ namespace quicr {
                         *s_hdr.subgroup_id,
                         payload.size(),
                         partial.object_status,
-                        s_hdr.priority,
+                        s_hdr.publisher_priority,
                         std::nullopt,
                         TrackMode::kStream,
                         std::move(partial.extensions),
@@ -1847,11 +1914,11 @@ namespace quicr {
 
                 stream.rx_parse.subgroup = { s_hdr.group_id, *subgroup_id };
                 start_properties.emplace(*s_hdr.properties);
-                start_priority = s_hdr.priority;
+                start_priority = s_hdr.publisher_priority;
 
                 // TODO: This shouldn't override subscriber priority, but keeping existing behaviour.
-                if (s_hdr.priority.has_value()) {
-                    handler.SetPriority(*s_hdr.priority);
+                if (s_hdr.publisher_priority.has_value()) {
+                    handler.SetSubscriberPriority(*s_hdr.publisher_priority);
                 }
             }
 
@@ -2959,12 +3026,24 @@ namespace quicr {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
 
+                const bool subscribe_namespace = msg_type == messages::ControlMessageType::kSubscribeNamespace;
                 {
                     std::lock_guard _(state_mutex_);
                     request_by_stream[stream->GetStreamId()] = { .request_id = request_id, .is_request_stream = true };
                 }
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
+                    // Record the subscription before the application callback. A deferred reply can
+                    // outlive the request stream, and CloseRequestHandler can only clean it up if it
+                    // is already registered.
+                    if (subscribe_namespace) {
+                        std::lock_guard _(state_mutex_);
+                        recv_req_id[request_id] = { .track_full_name = { track_namespace_prefix, {} },
+                                                    .track_hash = TrackHash({ track_namespace_prefix, {} }),
+                                                    .stream = stream };
+                        recv_subscribe_namespaces.push_back(request_id);
+                    }
+
                     const SubscribeNamespaceAttributes attributes{
                         .request_id = request_id,
                         .filter_type = messages::FilterType::kTrackFilter,
@@ -2980,6 +3059,11 @@ namespace quicr {
 
                     reply.Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
                         if (!result) {
+                            if (subscribe_namespace) {
+                                std::lock_guard _(self->state_mutex_);
+                                std::erase(self->recv_subscribe_namespaces, request_id);
+                                self->recv_req_id.erase(request_id);
+                            }
                             const auto& [code, reason] = result.error();
                             self->SendRequestError(
                               stream, request_id, ToErrorCode(code), 0ms, reason.value_or("Internal error"));
@@ -2987,10 +3071,20 @@ namespace quicr {
                             return;
                         }
 
+                        if (subscribe_namespace) {
+                            std::lock_guard _(self->state_mutex_);
+                            const auto still_subscribed =
+                              std::find(self->recv_subscribe_namespaces.begin(),
+                                        self->recv_subscribe_namespaces.end(),
+                                        request_id) != self->recv_subscribe_namespaces.end();
+                            if (!still_subscribed) {
+                                return;
+                            }
+                        }
+
                         self->SendSubscribeNamespaceOk(stream);
 
                         // TODO: Could argue that this should be left to a relay implementation?
-                        const bool subscribe_namespace = msg_type == messages::ControlMessageType::kSubscribeNamespace;
                         for (const auto& name_space : result.value()) {
                             const auto match = track_namespace_prefix.IsPrefixOf(name_space);
                             if (match == std::partial_ordering::unordered || match == std::partial_ordering::greater) {
@@ -3033,31 +3127,62 @@ namespace quicr {
                 return true;
             }
             case messages::ControlMessageType::kNamespaceDone: {
+                const auto track_namespace = messages::Message::ParseField<TrackNamespace>(msg_bytes);
+
                 if (client_mode_) {
-                    QUICR_LOGGER_ERROR(
-                      logger_, "Unsupported MOQT message type: {}, bad stream", static_cast<uint64_t>(msg_type));
-                    return false;
+                    const auto stream_request_id = FindRequestIdByStream(stream->GetStreamId());
+                    if (!stream_request_id.has_value()) {
+                        throw ProtocolViolationException("NAMESPACE_DONE on an unknown request stream");
+                    }
+
+                    const auto handler_it = request_handlers.find(*stream_request_id);
+                    if (handler_it == request_handlers.end()) {
+                        throw ProtocolViolationException("NAMESPACE_DONE on an unknown request");
+                    }
+
+                    const auto handler = handler_it->second->Get<SubscribeNamespaceHandler>();
+                    if (!handler || handler->GetMode() != SubscribeNamespaceHandler::Mode::kNamespaces) {
+                        throw ProtocolViolationException("NAMESPACE_DONE on a non-namespace request");
+                    }
+
+                    handler->NamespaceDoneReceived(track_namespace);
+                    return true;
+                }
+
+                // Client unsubscribe. Drop the subscription so later NAMESPACE notifications are
+                // not sent on a request the subscriber has already removed.
+                if (const auto request_id = FindRequestIdByStream(stream->GetStreamId())) {
+                    std::lock_guard _(state_mutex_);
+                    std::erase(recv_subscribe_namespaces, *request_id);
+                    recv_req_id.erase(*request_id);
                 }
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                    const auto track_namespace_suffix = messages::Message::ParseField<TrackNamespace>(msg_bytes);
-                    callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), track_namespace_suffix);
+                    callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), track_namespace);
                 }
                 return true;
             }
             case messages::ControlMessageType::kPublishDone: {
-                const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto request_id = FindRequestIdByStream(stream->GetStreamId());
+
+                if (!request_id.has_value()) {
+                    QUICR_LOGGER_WARN(logger_,
+                                      "Received publish done to unknown stream to request_id conn_id: {}",
+                                      current_connection_->GetID());
+                    break;
+                }
+
                 [[maybe_unused]] const auto status_code =
                   messages::Message::ParseField<messages::PublishDoneStatusCode>(msg_bytes);
                 [[maybe_unused]] const auto stream_count = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 [[maybe_unused]] const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
 
-                auto sub_it = request_handlers.find(request_id);
+                auto sub_it = request_handlers.find(*request_id);
                 if (sub_it == request_handlers.end()) {
                     QUICR_LOGGER_WARN(logger_,
                                       "Received publish done to unknown request_id conn_id: {} request_id: {}",
                                       current_connection_->GetID(),
-                                      request_id);
+                                      *request_id);
                     return true;
                 }
 
@@ -3075,7 +3200,7 @@ namespace quicr {
                                   "Received publish done conn_id: {} request_id: {} track namespace hash: {} "
                                   "name hash: {} track alias: {}",
                                   current_connection_->GetID(),
-                                  request_id,
+                                  *request_id,
                                   th.track_namespace_hash,
                                   th.track_name_hash,
                                   th.track_fullname_hash);
@@ -3083,11 +3208,11 @@ namespace quicr {
                 if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                        callbacks->PublishDoneReceived(GetSharedPtr(), request_id);
+                        callbacks->PublishDoneReceived(GetSharedPtr(), *request_id);
                     }
                 }
 
-                recv_req_id.erase(request_id);
+                recv_req_id.erase(*request_id);
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {
@@ -3316,7 +3441,7 @@ namespace quicr {
                                                  .forward = ResolveForward(parameters, true),
                                                  .default_publisher_group_order = default_publisher_group_order,
                                                  .dynamic_groups = dynamic_groups,
-                                                 .default_publisher_priority = default_publisher_priority,
+                                                 .publisher_priority = default_publisher_priority,
                                                  .max_cache_duration = max_cache_duration,
                                                  .delivery_timeout = delivery_timeout,
                                                  .track_properties = std::move(track_extensions) };
@@ -3383,7 +3508,7 @@ namespace quicr {
                               result->handler->SetConnectionId(self->current_connection_->GetID());
                               result->handler->SetRequestId(request_id);
                               result->handler->SetReceivedTrackAlias(publish.track_alias);
-                              result->handler->SetPriority(publish.default_publisher_priority);
+                              result->handler->SetSubscriberPriority(publish.publisher_priority);
                               // TODO: Optional delivery timeout?
                               const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
                               result->handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));

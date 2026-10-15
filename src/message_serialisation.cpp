@@ -897,7 +897,7 @@ namespace quicr::messages {
           DatagramHeaderProperties(msg.extensions.has_value() || msg.immutable_extensions.has_value(),
                                    false,
                                    msg.object_id == 0,
-                                   !msg.priority.has_value(),
+                                   !msg.publisher_priority.has_value(),
                                    true);
         buffer << UintVar(properties.GetType());
         buffer << UintVar(msg.track_alias);
@@ -906,8 +906,8 @@ namespace quicr::messages {
             buffer << UintVar(msg.object_id);
         }
         if (!properties.default_priority) {
-            assert(msg.priority.has_value()); // Internal invariant.
-            buffer.push_back(*msg.priority);
+            assert(msg.publisher_priority.has_value()); // Internal invariant.
+            buffer.push_back(*msg.publisher_priority);
         }
         if (properties.extensions) {
             SerializeExtensions(buffer, msg.extensions, msg.immutable_extensions);
@@ -961,10 +961,10 @@ namespace quicr::messages {
                     if (val.empty()) {
                         return false;
                     }
-                    msg.priority = val[0];
+                    msg.publisher_priority = val[0];
                     buffer.Pop();
                 } else {
-                    msg.priority = std::nullopt;
+                    msg.publisher_priority = std::nullopt;
                 }
                 msg.current_pos += 1;
                 [[fallthrough]];
@@ -1035,8 +1035,8 @@ namespace quicr::messages {
             }
         }
         if (!msg.properties->default_priority) {
-            assert(msg.priority.has_value());
-            buffer.push_back(*msg.priority);
+            assert(msg.publisher_priority.has_value());
+            buffer.push_back(*msg.publisher_priority);
         }
         return buffer;
     }
@@ -1095,10 +1095,10 @@ namespace quicr::messages {
                     if (val.empty()) {
                         return false;
                     }
-                    msg.priority = val[0];
+                    msg.publisher_priority = val[0];
                     buffer.Pop();
                 } else {
-                    msg.priority = std::nullopt;
+                    msg.publisher_priority = std::nullopt;
                 }
                 msg.current_pos += 1;
                 msg.parse_completed = true;

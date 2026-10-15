@@ -15,7 +15,7 @@ namespace quicr {
                             uint64_t subscribe_id,
                             messages::GroupOrder group_order,
                             uint32_t ttl)
-          : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, ttl)
+          : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, priority, ttl)
           , group_order_(group_order)
           , serialization_state_(group_order)
         {
