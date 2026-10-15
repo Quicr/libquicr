@@ -26,7 +26,7 @@ ${BUILD_DIR}: CMakeLists.txt
 fuzz:
 	cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DQUICR_BUILD_FUZZ=ON .
 	cmake --build ${BUILD_DIR} --parallel 8
-	./${BUILD_DIR}/fuzz/ctrl_messages_fuzzer -max_total_time=10
+	./${BUILD_DIR}/test/fuzz/ctrl_messages_fuzzer -max_total_time=10
 
 # Run the tests.
 test: ${BUILD_DIR}
@@ -66,7 +66,7 @@ licenses:
 
 # Update the CPM package lock with all non-fuzz build configurations enabled.
 package-lock:
-	cmake -S . -B "${PACKAGE_LOCK_BUILD_DIR}" -DBUILD_TESTING=ON -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_BENCHMARKS=ON -DQUICR_BUILD_C_BRIDGE=ON -DQUICR_BUILD_EXAMPLES=ON -DQUICR_GENERATE_THIRD_PARTY_LICENSES=ON -DQUICR_BUILD_FUZZ=OFF -DLINT=OFF
+	cmake -S . -B "${PACKAGE_LOCK_BUILD_DIR}" -DBUILD_TESTING=ON -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_BENCHMARKS=ON -DQUICR_BUILD_C_BRIDGE=ON -DQUICR_BUILD_EXAMPLES=ON -DQUICR_GENERATE_THIRD_PARTY_LICENSES=ON -DQUICR_BUILD_FUZZ=OFF -DQUICR_HAS_STD_FORMAT=OFF -DLINT=OFF
 	cmake --build "${PACKAGE_LOCK_BUILD_DIR}" --target cpm-update-package-lock
 	@echo "Updated package-lock.cmake"
 

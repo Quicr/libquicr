@@ -92,7 +92,7 @@ if(BUILD_TESTING)
     endif()
 
     if(QUICR_BUILD_FUZZ)
-       add_subdirectory(fuzz)
+       add_subdirectory(test/fuzz)
     endif()
 
     if(QUICR_BUILD_EXAMPLES)
