@@ -1180,7 +1180,6 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
     track_handler->SetPublisherPriority(qclient_vars::publisher_priority);
     track_handler->SetPublishObjectPriority(qclient_vars::publisher_priority);
 
-
     if (qclient_vars::track_alias.has_value()) {
         track_handler->SetTrackAlias(*qclient_vars::track_alias);
     }
