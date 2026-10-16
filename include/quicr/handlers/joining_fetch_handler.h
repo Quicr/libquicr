@@ -17,7 +17,7 @@ namespace quicr {
         explicit JoiningFetchHandler(std::shared_ptr<SubscribeTrackHandler> joining_subscribe,
                                      messages::GroupOrder group_order = messages::GroupOrder::kAscending)
           : SubscribeTrackHandler(joining_subscribe->GetFullTrackName(),
-                                  joining_subscribe->GetPriority(),
+                                  joining_subscribe->GetSubscriberPriority(),
                                   group_order,
                                   joining_subscribe->GetFilter())
           , joining_subscribe_(std::move(joining_subscribe))

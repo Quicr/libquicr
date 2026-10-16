@@ -50,6 +50,11 @@ namespace quicr_test {
             std::lock_guard lock(mutex_);
             // Forward to subscriber if we have a publish handler bound
             if (pub_handler_) {
+                // The received priority is the origin publisher priority. Sending uses the
+                // subscriber priority already stored as the publish object priority.
+                if (object_headers.priority.has_value()) {
+                    pub_handler_->SetPublisherPriority(*object_headers.priority);
+                }
                 pub_handler_->PublishObject(object_headers, data, stream_mode);
             }
         }
@@ -77,10 +82,15 @@ namespace quicr_test {
       public:
         TestPublishTrackHandler(const quicr::FullTrackName& full_track_name,
                                 quicr::TrackMode track_mode,
-                                uint8_t default_priority,
+                                uint8_t publisher_priority,
+                                uint8_t publish_object_priority,
                                 uint32_t default_ttl,
                                 const std::weak_ptr<TestServer> server = {})
-          : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
+          : quicr::PublishTrackHandler(full_track_name,
+                                       track_mode,
+                                       publisher_priority,
+                                       publish_object_priority,
+                                       default_ttl)
           , server_(server)
         {
         }

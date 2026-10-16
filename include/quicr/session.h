@@ -270,6 +270,23 @@ namespace quicr {
         void UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler);
 
         /**
+         * @brief Tell subscribe-namespace subscribers on this connection that a namespace is active
+         *
+         * @details Sends NAMESPACE on each SUBSCRIBE_NAMESPACE request stream whose prefix matches.
+         *      The value on the wire is the namespace suffix relative to that prefix.
+         *
+         * @param track_namespace Fully qualified namespace that became active
+         */
+        void SendNamespace(const TrackNamespace& track_namespace);
+
+        /**
+         * @brief Tell subscribe-namespace subscribers on this connection that a namespace is no longer active
+         *
+         * @param track_namespace Fully qualified namespace that ended
+         */
+        void SendNamespaceDone(const TrackNamespace& track_namespace);
+
+        /**
          * @brief Fetch track
          *
          * @param track_handler         Track handler used for fetching
@@ -536,6 +553,8 @@ namespace quicr {
 
         void SendUnsubscribeNamespace(const std::shared_ptr<Stream>& stream, const TrackNamespace& prefix);
 
+        void SendNamespaceMessage(messages::ControlMessageType type, const TrackNamespace& track_namespace);
+
         /*===================================================================*/
         // Subscribe
         /*===================================================================*/
@@ -732,6 +751,9 @@ namespace quicr {
 
         /// Active inbound publish namespace notifications (not handler based).
         std::vector<std::uint64_t> recv_publish_namespaces;
+
+        /// Inbound SUBSCRIBE_NAMESPACE request IDs. The prefix and request stream live in recv_req_id.
+        std::vector<std::uint64_t> recv_subscribe_namespaces;
 
         /// Handlers by request ID
         std::map<std::uint64_t, std::shared_ptr<TrackHandler>> request_handlers;
