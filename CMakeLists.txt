@@ -35,6 +35,7 @@ cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON qu
 
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
+option(QUICR_BUILD_TOOLS "Build tools" OFF)
 option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 option(QUICR_GENERATE_THIRD_PARTY_LICENSES "Generate notices for distributed CPM dependencies" OFF)
@@ -93,6 +94,10 @@ if(BUILD_TESTING)
 
     if(QUICR_BUILD_FUZZ)
        add_subdirectory(fuzz)
+    endif()
+
+    if(QUICR_BUILD_TOOLS)
+       add_subdirectory(tools)
     endif()
 
     if(QUICR_BUILD_EXAMPLES)
