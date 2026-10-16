@@ -36,10 +36,14 @@ if(NOT QUICR_BUILD_FUZZ)
 endif()
 
 target_sources(quicr PRIVATE
+    clock.cpp
+    connection.cpp
     ctrl_message_types.cpp
     joining_fetch_handler.cpp
     log.cpp
     message_serialisation.cpp
+    picoquic_connection.cpp
+    containers/priority_queue.h
     publish_fetch_handler.cpp
     publish_namespace_handler.cpp
     publish_track_handler.cpp
@@ -52,15 +56,10 @@ target_sources(quicr PRIVATE
     track_status_handler.cpp
     transport_picoquic.cpp
     transport.cpp
-    connection.cpp
-    picoquic_connection.cpp
-)
-
-target_link_libraries(quicr PUBLIC
-    timeq
 )
 
 target_link_libraries(quicr PRIVATE
+    timeq
     picoquic-core
     picoquic-log
     picohttp-core

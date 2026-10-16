@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "containers/priority_queue.h"
 #include "quicr/connection.h"
-#include "quicr/containers/priority_queue.h"
 #include "quicr/containers/safe_queue.h"
 #include "quicr/metrics.h"
 #include "quicr/transport.h"

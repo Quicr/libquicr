@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/utilities/thread_safety.h"
+#include <quicr/clock.h>
 
 #include <timeq/time_queue.h>
 

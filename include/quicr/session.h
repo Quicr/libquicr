@@ -21,8 +21,6 @@
 #include "quicr/metrics.h"
 #include "quicr/transport.h"
 
-#include <timeq/tick_service.h>
-
 #include <atomic>
 #include <chrono>
 #include <map>
@@ -153,14 +151,14 @@ namespace quicr {
                                                std::shared_ptr<Transport> transport,
                                                std::shared_ptr<Connection> connection,
                                                std::shared_ptr<ClientCallbacks> callbacks,
-                                               std::shared_ptr<timeq::tick_service> tick_service,
+                                               std::shared_ptr<Clock> clock,
                                                std::shared_ptr<Logger> logger = nullptr)
         {
             return std::shared_ptr<Session>(new Session(cfg,
                                                         std::move(transport),
                                                         std::move(connection),
                                                         std::move(callbacks),
-                                                        std::move(tick_service),
+                                                        std::move(clock),
                                                         std::move(logger)));
         }
 
@@ -173,14 +171,14 @@ namespace quicr {
                                                std::shared_ptr<Transport> transport,
                                                std::shared_ptr<Connection> connection,
                                                std::shared_ptr<ServerCallbacks> callbacks,
-                                               std::shared_ptr<timeq::tick_service> tick_service,
+                                               std::shared_ptr<Clock> clock,
                                                std::shared_ptr<Logger> logger = nullptr)
         {
             return std::shared_ptr<Session>(new Session(cfg,
                                                         std::move(transport),
                                                         std::move(connection),
                                                         std::move(callbacks),
-                                                        std::move(tick_service),
+                                                        std::move(clock),
                                                         std::move(logger)));
         }
 
@@ -188,7 +186,7 @@ namespace quicr {
 
         const std::shared_ptr<Connection>& GetConnection() const noexcept { return current_connection_; }
 
-        const std::shared_ptr<timeq::tick_service>& GetTickService() const noexcept { return tick_service_; }
+        const std::shared_ptr<Clock>& GetTickService() const noexcept { return clock_; }
 
         const std::shared_ptr<Logger>& GetLogger() const noexcept { return logger_; }
 
@@ -373,15 +371,7 @@ namespace quicr {
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ClientCallbacks> callbacks,
-                std::shared_ptr<Logger> logger)
-          : Session(cfg,
-                    std::move(transport),
-                    std::move(connection),
-                    std::move(callbacks),
-                    std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us),
-                    std::move(logger))
-        {
-        }
+                std::shared_ptr<Logger> logger);
 
         /**
          * @brief Server mode constructor
@@ -392,40 +382,32 @@ namespace quicr {
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ServerCallbacks> callbacks,
-                std::shared_ptr<Logger> logger)
-          : Session(cfg,
-                    std::move(transport),
-                    std::move(connection),
-                    std::move(callbacks),
-                    std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us),
-                    std::move(logger))
-        {
-        }
+                std::shared_ptr<Logger> logger);
 
         /**
          * @brief Client mode constructor with explicit tick service
          *
          * @param cfg            MoQ Instance Client Configuration
-         * @param tick_service   Shared pointer to the tick service to use
+         * @param clock   Shared pointer to the tick service to use
          */
         Session(const ClientConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ClientCallbacks> callbacks,
-                std::shared_ptr<timeq::tick_service> tick_service,
+                std::shared_ptr<Clock> clock,
                 std::shared_ptr<Logger> logger);
 
         /**
          * @brief Server mode constructor with explicit tick service
          *
          * @param cfg            MoQ Server Configuration
-         * @param tick_service   Shared pointer to the tick service to use
+         * @param clock   Shared pointer to the tick service to use
          */
         Session(const ServerConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ServerCallbacks> callbacks,
-                std::shared_ptr<timeq::tick_service> tick_service,
+                std::shared_ptr<Clock> clock,
                 std::shared_ptr<Logger> logger);
 
         void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override;
@@ -796,7 +778,7 @@ namespace quicr {
         bool local_setup_sent_{ false };
         bool peer_setup_received_{ false };
 
-        const std::shared_ptr<timeq::tick_service> tick_service_;
+        const std::shared_ptr<Clock> clock_;
 
         const std::shared_ptr<Transport> quic_transport_; // **MUST** be last for proper order of destruction
 
