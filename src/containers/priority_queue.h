@@ -132,7 +132,7 @@ namespace quicr {
 
             while (!(queues_.empty() || front.value.has_value())) {
                 auto& [_, groups] = *queues_.begin();
-                auto& [__, queue] = *groups.begin();
+                auto& queue = groups.begin()->second;
 
                 front = queue->front();
                 if (front.value.has_value()) {
@@ -165,7 +165,7 @@ namespace quicr {
 
             while (!(queues_.empty() || front.value.has_value())) {
                 auto& [_, groups] = *queues_.begin();
-                auto& [__, queue] = *groups.begin();
+                auto& queue = groups.begin()->second;
 
                 front = queue->pop_front();
 
@@ -198,7 +198,7 @@ namespace quicr {
             }
 
             auto& [_, groups] = *queues_.begin();
-            auto& [__, queue] = *groups.begin();
+            auto& queue = groups.begin()->second;
 
             queue->pop();
             if (queue->empty()) {
