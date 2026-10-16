@@ -7,8 +7,6 @@
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/metrics.h"
 
-#include <timeq/tick_service.h>
-
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -38,6 +36,7 @@
 
 namespace quicr {
 
+    class Clock;
     class Connection;
     class Logger;
     class Stream;
@@ -204,14 +203,14 @@ namespace quicr {
          *
          * @param[in] server        Transport remote server information
          * @param[in] tcfg          Transport configuration
-         * @param[in] tick_service  Shared pointer to the tick service to use
+         * @param[in] clock         Shared pointer to the tick service to use
          * @param[in] logger        Shared pointer to logger
          *
          * @return shared_ptr for the under lining transport.
          */
         static std::shared_ptr<Transport> MakeClientTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
-                                                              std::shared_ptr<timeq::tick_service> tick_service,
+                                                              std::shared_ptr<Clock> clock,
                                                               std::shared_ptr<Logger> logger);
 
         /**
@@ -224,14 +223,14 @@ namespace quicr {
          *
          * @param[in] server      Transport remote server information (server.proto is ignored)
          * @param[in] tcfg        Transport configuration
-         * @param[in] tick_service Shared pointer to tick service
+         * @param[in] clock       Shared pointer to tick service
          * @param[in] logger      Shared pointer to logger
          *
          * @return shared_ptr for the underlying transport
          */
         static std::shared_ptr<Transport> MakeServerTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
-                                                              std::shared_ptr<timeq::tick_service> tick_service,
+                                                              std::shared_ptr<Clock> clock,
                                                               std::shared_ptr<Logger> logger);
 
       public:

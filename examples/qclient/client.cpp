@@ -4,6 +4,11 @@
 #include "helper_functions.h"
 #include "spdlog_logger.h"
 
+#include <atomic>
+#include <csignal>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <nlohmann/json.hpp>
 #include <oss/cxxopts.hpp>
 #include <quicr/containers/cache.h>
@@ -14,16 +19,9 @@
 #include <quicr/session_callbacks.h>
 #include <quicr/session_manager.h>
 #include <quicr/utilities/defer.h>
-#include <sframe/sframe.h>
-#include <timeq/tick_service.h>
-
-#include <atomic>
-#include <csignal>
-#include <filesystem>
-#include <fstream>
-#include <iomanip>
 #include <regex>
 #include <set>
+#include <sframe/sframe.h>
 #include <thread>
 
 using json = nlohmann::json; // NOLINT
@@ -56,7 +54,7 @@ namespace qclient_vars {
     std::chrono::milliseconds playback_speed_ms(20);
     std::chrono::milliseconds cache_duration_ms(180000);
     std::unordered_map<std::uint64_t, quicr::Cache<std::uint64_t, std::set<CacheObject>>> cache;
-    std::shared_ptr<timeq::threaded_tick_service> tick_service = std::make_shared<timeq::threaded_tick_service>();
+    std::shared_ptr<quicr::Clock> tick_service = quicr::Clock::Create();
     std::optional<sframe::MLSContext> mls_ctx = sframe::MLSContext(sframe::CipherSuite::AES_GCM_128_SHA256, 1);
     std::optional<std::filesystem::path> watch_path;
     std::chrono::milliseconds watch_interval_ms(5000);
