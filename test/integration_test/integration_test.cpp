@@ -748,7 +748,7 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
     ClientConfig config;
     config.endpoint_id = "client";
     config.connect_uri = "moq://" + kIp + ":" + std::to_string(GetTestPort()) + "/relay";
-    auto tick_service = std::make_shared<timeq::threaded_tick_service>(config.tick_service_sleep_delay_us);
+    auto tick_service = quicr::Clock::Create(config.tick_service_sleep_delay_us);
     auto transport = Transport::MakeClientTransport(
       { kIp, GetTestPort(), TransportProtocol::kQuic, "/relay" }, config.transport_config, tick_service, nullptr);
 

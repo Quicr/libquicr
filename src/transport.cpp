@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/transport.h"
+#include "quicr/clock.h"
 #include "quicr/log.h"
 #include "transport_picoquic.h"
 
@@ -15,16 +16,16 @@ namespace quicr {
 
     std::shared_ptr<Transport> Transport::MakeClientTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
-                                                              std::shared_ptr<timeq::tick_service> tick_service,
+                                                              std::shared_ptr<Clock> clock,
                                                               std::shared_ptr<Logger> logger)
     {
         switch (server.proto) {
             case TransportProtocol::kQuic:
                 return std::make_shared<PicoQuicTransport>(
-                  server, tcfg, false, std::move(tick_service), std::move(logger), Connection::API::kNativeQuic);
+                  server, tcfg, false, std::move(clock), std::move(logger), Connection::API::kNativeQuic);
             case TransportProtocol::kWebTransport:
                 return std::make_shared<PicoQuicTransport>(
-                  server, tcfg, false, std::move(tick_service), std::move(logger), Connection::API::kWebTransport);
+                  server, tcfg, false, std::move(clock), std::move(logger), Connection::API::kWebTransport);
             default:
                 throw std::runtime_error("make_client_transport: Protocol not implemented");
                 break;
@@ -35,7 +36,7 @@ namespace quicr {
 
     std::shared_ptr<Transport> Transport::MakeServerTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
-                                                              std::shared_ptr<timeq::tick_service> tick_service,
+                                                              std::shared_ptr<Clock> clock,
                                                               std::shared_ptr<Logger> logger)
     {
         // Server mode supports BOTH raw QUIC (moq-00) and WebTransport (h3) simultaneously.
@@ -51,7 +52,7 @@ namespace quicr {
         // The Connection::API parameter passed to PicoQuicTransport constructor is only used as
         // a default/fallback and is overridden for each connection based on ALPN.
         return std::make_shared<PicoQuicTransport>(
-          server, tcfg, true, std::move(tick_service), std::move(logger), Connection::API::kNativeQuic);
+          server, tcfg, true, std::move(clock), std::move(logger), Connection::API::kNativeQuic);
     }
 
 } // namespace quicr

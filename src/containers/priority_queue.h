@@ -4,6 +4,7 @@
 #pragma once
 
 #include "quicr/utilities/thread_safety.h"
+#include <quicr/clock.h>
 
 #include <timeq/time_queue.h>
 
@@ -47,9 +48,11 @@ namespace quicr {
         };
 
       public:
+        // NOLINTBEGIN(readability-identifier-naming)
         constexpr void lock() QUICR_ACQUIRE() { mutex_.lock(); }
         constexpr void unlock() QUICR_RELEASE() { mutex_.unlock(); }
         constexpr bool try_lock() QUICR_TRY_ACQUIRE(true) { return mutex_.try_lock(); }
+        // NOLINTEND(readability-identifier-naming)
 
         /**
          * Construct a priority queue
@@ -129,7 +132,7 @@ namespace quicr {
 
             while (!(queues_.empty() || front.value.has_value())) {
                 auto& [_, groups] = *queues_.begin();
-                auto& [__, queue] = *groups.begin();
+                auto& queue = groups.begin()->second;
 
                 front = queue->front();
                 if (front.value.has_value()) {
@@ -162,7 +165,7 @@ namespace quicr {
 
             while (!(queues_.empty() || front.value.has_value())) {
                 auto& [_, groups] = *queues_.begin();
-                auto& [__, queue] = *groups.begin();
+                auto& queue = groups.begin()->second;
 
                 front = queue->pop_front();
 
@@ -195,7 +198,7 @@ namespace quicr {
             }
 
             auto& [_, groups] = *queues_.begin();
-            auto& [__, queue] = *groups.begin();
+            auto& queue = groups.begin()->second;
 
             queue->pop();
             if (queue->empty()) {
