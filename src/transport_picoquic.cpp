@@ -12,7 +12,6 @@
 #include "quicr/metrics.h"
 #include "quicr/session.h"
 #include "quicr/utilities/defer.h"
-#include "timeq_clock.h"
 
 #include <autoqlog.h>
 #include <democlient.h>
@@ -28,6 +27,7 @@
 #include <picoquic_packet_loop.h>
 #include <picoquic_utils.h>
 #include <picosocks.h>
+#include <timeq/tick_service.h>
 #include <timeq/time_queue.h>
 #include <tls_api.h>
 
@@ -67,6 +67,21 @@
 using namespace quicr;
 
 constexpr const char* kMoqtAlpn = "moqt-18";
+
+class TickServiceAdaptor : public timeq::tick_service
+{
+  public:
+    TickServiceAdaptor(std::shared_ptr<Clock> clock)
+      : clock_(std::move(clock))
+    {
+    }
+
+    std::chrono::microseconds get() const override { return clock_->Get(); }
+
+  private:
+    std::shared_ptr<Clock> clock_;
+};
+
 /* ============================================================================
  * PicoQuic Callbacks
  * ============================================================================
@@ -1538,7 +1553,7 @@ PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::API api)
         connection->dgram_tx_data =
           std::make_shared<PriorityQueue<ConnData>>(tconfig_.time_queue_max_duration,
                                                     tconfig_.time_queue_bucket_interval,
-                                                    std::static_pointer_cast<TimeqClock>(clock_),
+                                                    std::make_shared<TickServiceAdaptor>(clock_),
                                                     tconfig_.time_queue_init_queue_size);
     }
 
@@ -1602,7 +1617,7 @@ PicoQuicTransport::MakeStreamTxQueue() const
 {
     return std::make_unique<timeq::time_queue<ConnData>>(tconfig_.time_queue_max_duration,
                                                          tconfig_.time_queue_bucket_interval,
-                                                         std::static_pointer_cast<TimeqClock>(clock_),
+                                                         std::make_shared<TickServiceAdaptor>(clock_),
                                                          tconfig_.time_queue_init_queue_size);
 }
 
