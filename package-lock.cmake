@@ -43,6 +43,20 @@ CPMDeclarePackage(benchmark
   SYSTEM YES
   EXCLUDE_FROM_ALL YES
 )
+# cxxopts
+CPMDeclarePackage(cxxopts
+  VERSION 3.3.1
+  GITHUB_REPOSITORY jarro2783/cxxopts
+  SYSTEM YES
+  EXCLUDE_FROM_ALL YES
+)
+# json
+CPMDeclarePackage(json
+  VERSION 3.11.3
+  GITHUB_REPOSITORY nlohmann/json
+  SYSTEM YES
+  EXCLUDE_FROM_ALL YES
+)
 # CPMLicenses
 CPMDeclarePackage(CPMLicenses
   NAME CPMLicenses
