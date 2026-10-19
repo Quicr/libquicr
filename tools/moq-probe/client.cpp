@@ -5,7 +5,6 @@
 #include "spdlog_logger.h"
 
 #include <cxxopts.hpp>
-#include <nlohmann/json.hpp>
 #include <quicr/containers/cache.h>
 #include <quicr/handlers/publish_fetch_handler.h>
 #include <quicr/log.h>
@@ -25,7 +24,6 @@
 #include <set>
 #include <thread>
 
-using json = nlohmann::json; // NOLINT
 using namespace std::chrono_literals;
 
 /**
@@ -42,8 +40,6 @@ struct CacheObject
 namespace qclient_vars {
     bool publish_clock{ false };
     std::optional<uint64_t> track_alias; /// Track alias to use for subscribe
-    bool record = false;
-    bool playback = false;
     std::optional<uint64_t> new_group_request_id;
     bool add_gaps = false;
     bool req_track_status = false;
@@ -52,7 +48,6 @@ namespace qclient_vars {
     std::size_t subgroup_test_num_subgroups{ 3 };
     std::size_t subgroup_test_messages_per_phase{ 10 };
     std::chrono::milliseconds subgroup_test_interval_ms(100);
-    std::chrono::milliseconds playback_speed_ms(20);
     std::chrono::milliseconds cache_duration_ms(180000);
     std::unordered_map<std::uint64_t, quicr::Cache<std::uint64_t, std::set<CacheObject>>> cache;
     std::shared_ptr<timeq::threaded_tick_service> tick_service = std::make_shared<timeq::threaded_tick_service>();
@@ -60,89 +55,8 @@ namespace qclient_vars {
     std::chrono::milliseconds watch_interval_ms(5000);
     std::uint8_t publisher_priority{ 200 };
     std::uint8_t subscriber_priority{ 129 };
-    std::shared_ptr<quicr::Logger> logger = std::make_shared<SpdlogLogger>("QCLIENT");
+    std::shared_ptr<quicr::Logger> logger = std::make_shared<SpdlogLogger>("MOQ-PROBE");
 
-}
-
-namespace qclient_consts {
-    const std::filesystem::path kMoqDataDir = std::filesystem::current_path() / "moq_data";
-}
-
-namespace {
-    std::string ToString(const quicr::FullTrackName& ftn)
-    {
-        std::string str;
-        const std::regex pattern("[<>:\"/\\|?*]+");
-        const auto& entries = ftn.name_space.GetEntries();
-        for (const auto& entry : entries) {
-            str += std::regex_replace(std::string(entry.begin(), entry.end()), pattern, "_") + '_';
-        }
-
-        str += std::string(ftn.name.begin(), ftn.name.end());
-
-        return str;
-    }
-}
-
-namespace base64 {
-    // From https://gist.github.com/williamdes/308b95ac9ef1ee89ae0143529c361d37;
-
-    constexpr std::string_view kValues = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"; //=
-    static std::string Encode(const std::string& in)
-    {
-        std::string out;
-
-        int val = 0;
-        int valb = -6;
-
-        for (std::uint8_t c : in) {
-            val = (val << 8) + c;
-            valb += 8;
-            while (valb >= 0) {
-                out += kValues[(val >> valb) & 0x3F];
-                valb -= 6;
-            }
-        }
-
-        if (valb > -6) {
-            out += kValues[((val << 8) >> (valb + 8)) & 0x3F];
-        }
-
-        while (out.size() % 4) {
-            out += '=';
-        }
-
-        return out;
-    }
-
-    [[maybe_unused]] static std::string Decode(const std::string& in)
-    {
-        std::string out;
-
-        std::vector<int> values(256, -1);
-        for (int i = 0; i < 64; i++) {
-            values[kValues[i]] = i;
-        }
-
-        int val = 0;
-        int valb = -8;
-
-        for (std::uint8_t c : in) {
-            if (values[c] == -1) {
-                break;
-            }
-
-            val = (val << 6) + values[c];
-            valb += 6;
-
-            if (valb >= 0) {
-                out += char((val >> valb) & 0xFF);
-                valb -= 8;
-            }
-        }
-
-        return out;
-    }
 }
 
 /**
@@ -154,8 +68,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
   public:
     MySubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                             const std::optional<JoiningFetch>& joining_fetch,
-                            bool publisher_initiated = false,
-                            const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
+                            bool publisher_initiated = false)
       : SubscribeTrackHandler(full_track_name,
                               0,
                               quicr::messages::GroupOrder::kAscending,
@@ -163,43 +76,14 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                               joining_fetch,
                               publisher_initiated)
     {
-        if (qclient_vars::record) {
-            std::filesystem::create_directory(dir);
-
-            std::string name_str = ToString(full_track_name);
-
-            data_fs_.open(dir / (name_str + ".dat"), std::ios::in | std::ios::out | std::ios::trunc);
-            if (!data_fs_.is_open()) {
-                throw std::runtime_error("Failed to open/create data file");
-            }
-
-            moq_fs_.open(dir / (name_str + ".moq"), std::ios::in | std::ios::out | std::ios::trunc);
-            moq_fs_ << json::array();
-
-            QUICR_LOGGER_INFO(qclient_vars::logger,
-                              "Creating recording files for track name {} in directory {}",
-                              name_str,
-                              dir.string());
-        }
     }
 
-    virtual ~MySubscribeTrackHandler()
-    {
-        data_fs_ << std::endl;
-        data_fs_.close();
-
-        moq_fs_ << std::endl;
-        moq_fs_.close();
-    }
+    virtual ~MySubscribeTrackHandler() = default;
 
     void ObjectReceived(const quicr::ObjectHeaders& hdr,
                         quicr::BytesSpan data,
                         std::optional<quicr::messages::StreamHeaderProperties>) override
     {
-        if (qclient_vars::record && !data.empty()) {
-            RecordObject(GetFullTrackName(), hdr, data);
-        }
-
         std::stringstream ext;
 
         if (hdr.extensions) {
@@ -260,48 +144,6 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
     }
 
   private:
-    void RecordObject(const quicr::FullTrackName& ftn, const quicr::ObjectHeaders& hdr, quicr::BytesSpan data)
-    {
-        const std::size_t data_offset = data_fs_.tellp();
-        data_fs_ << std::string(data.begin(), data.end());
-
-        std::vector<std::string> ns_entries;
-        for (const auto& entry : ftn.name_space.GetEntries()) {
-            ns_entries.push_back(base64::Encode({ entry.begin(), entry.end() }));
-        }
-
-        const std::string name_str = ToString(GetFullTrackName());
-        const std::string data_filename = name_str + ".dat";
-
-        json j;
-        j["nameSpace"] = ns_entries;
-        j["trackName"] = base64::Encode(std::string(ftn.name.begin(), ftn.name.end()));
-        j["objectID"] = hdr.object_id;
-        j["groupID"] = hdr.group_id;
-        j["subGroup"] = hdr.subgroup_id;
-        j["publisherPriority"] = hdr.priority.value();
-        j["maxCacheDuration"] = 0;
-        j["publisherDeliveryTimeout"] = 0;
-        j["receiveTime"] = std::chrono::duration_cast<std::chrono::milliseconds>(
-                             std::chrono::high_resolution_clock::now().time_since_epoch())
-                             .count();
-        j["dataFile"] = data_filename;
-        j["dataOffset"] = data_offset;
-        j["dataLength"] = data.size();
-
-        moq_fs_.clear();
-        moq_fs_.seekg(0);
-        json moq_j = json::parse(moq_fs_);
-        moq_j.push_back(j);
-
-        moq_fs_.clear();
-        moq_fs_.seekg(0);
-        moq_fs_ << moq_j.dump();
-    }
-
-  private:
-    std::ofstream data_fs_;
-    std::fstream moq_fs_;
     bool new_group_requested_ = false;
 };
 
@@ -749,42 +591,6 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
     uint64_t object_id{ 0 };
     uint64_t subgroup_id{ 0 };
 
-    std::ifstream moq_fs;
-    std::ifstream data_fs;
-
-    std::deque<std::pair<quicr::ObjectHeaders, quicr::Bytes>> messages;
-    if (qclient_vars::playback) {
-        const std::string name_str = ToString(full_track_name);
-        moq_fs.open(qclient_consts::kMoqDataDir / (name_str + ".moq"), std::ios::in);
-        data_fs.open(qclient_consts::kMoqDataDir / (name_str + ".dat"), std::ios::in);
-
-        std::string data;
-        std::getline(data_fs, data);
-
-        json moq_arr_j = json::parse(moq_fs);
-
-        for (const auto& moq_j : moq_arr_j) {
-            quicr::ObjectHeaders hdr{
-                .group_id = moq_j["groupID"],
-                .object_id = moq_j["objectID"],
-                .subgroup_id = moq_j["subGroup"],
-                .payload_length = moq_j["dataLength"],
-                .status = quicr::ObjectStatus::kAvailable,
-                .priority = moq_j["publisherPriority"],
-                .ttl = std::nullopt,
-                .track_mode = std::nullopt,
-                .extensions = std::nullopt,
-                .immutable_extensions = std::nullopt,
-            };
-
-            std::size_t data_offset = moq_j["dataOffset"];
-
-            auto& msg = messages.emplace_back(std::make_pair(hdr, quicr::Bytes{}));
-            msg.second.assign(std::next(data.begin(), data_offset),
-                              std::next(data.begin(), data_offset + hdr.payload_length));
-        }
-    }
-
     while (not stop.load(std::memory_order_acquire)) {
         if ((!published_track) && (session->GetStatus() == quicr::Session::Status::kReady)) {
             QUICR_LOGGER_INFO(qclient_vars::logger, "Publish track ");
@@ -917,31 +723,6 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
             }
 
             break;
-        }
-
-        if (qclient_vars::playback) {
-            const auto [hdr, msg] = messages.front();
-            messages.pop_front();
-
-            QUICR_LOGGER_INFO(qclient_vars::logger, "Send message: {0}", std::string(msg.begin(), msg.end()));
-
-            try {
-                auto status = track_handler->PublishObject(hdr, msg);
-                if (status != decltype(status)::kOk) {
-                    throw std::runtime_error("PublishObject returned status=" +
-                                             std::to_string(static_cast<int>(status)));
-                }
-            } catch (const std::exception& e) {
-                QUICR_LOGGER_ERROR(qclient_vars::logger, "Caught exception trying to publish. (error={})", e.what());
-            }
-
-            std::this_thread::sleep_for(qclient_vars::playback_speed_ms);
-
-            if (messages.empty()) {
-                break;
-            }
-
-            continue;
         }
 
         if (object_id && object_id % 15 == 0) { // Set new group
@@ -1455,15 +1236,6 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         QUICR_LOGGER_INFO(qclient_vars::logger, "Subscriber priority: {}", qclient_vars::subscriber_priority);
     }
 
-    if (cli_opts.count("record")) {
-        QUICR_LOGGER_WARN(qclient_vars::logger, "!!! RECORDING !!!");
-        qclient_vars::record = true;
-    }
-
-    if (cli_opts.count("playback")) {
-        qclient_vars::playback = true;
-    }
-
     if (cli_opts.count("gaps") && cli_opts["gaps"].as<bool>() == true) {
         QUICR_LOGGER_INFO(qclient_vars::logger, "Adding gaps to group and objects");
         qclient_vars::add_gaps = true;
@@ -1498,10 +1270,6 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     if (cli_opts.count("subgroup_interval_ms")) {
         qclient_vars::subgroup_test_interval_ms =
           std::chrono::milliseconds(cli_opts["subgroup_interval_ms"].as<uint64_t>());
-    }
-
-    if (cli_opts.count("playback_speed_ms")) {
-        qclient_vars::playback_speed_ms = std::chrono::milliseconds(cli_opts["playback_speed_ms"].as<uint64_t>());
     }
 
     if (cli_opts.count("cache_duration_ms")) {
@@ -1574,8 +1342,8 @@ main(int argc, char* argv[])
 {
     int result_code = EXIT_SUCCESS;
 
-    cxxopts::Options options("qclient",
-                             std::string("MOQ Example Client using QuicR Version: ") + std::string(QUICR_VERSION));
+    cxxopts::Options options(
+      "moq-probe", std::string("MOQ testing and debugging client using QuicR Version: ") + std::string(QUICR_VERSION));
 
     // clang-format off
     options.set_width(75)
@@ -1585,7 +1353,7 @@ main(int argc, char* argv[])
         ("d,debug", "Enable debugging") // a bool parameter
         ("v,version", "QuicR Version")                                        // a bool parameter
         ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
-        ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
+        ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-probe"))
         ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
         ("s,ssl_keylog", "Enable SSL Keylog for transport debugging")
         ("t,transport", "Session protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"));
@@ -1597,8 +1365,6 @@ main(int argc, char* argv[])
         ("pub_name", "Track name", cxxopts::value<std::vector<std::string>>())
         ("pub_priority", "Publisher priority (0-255)", cxxopts::value<std::uint64_t>()->default_value("200"))
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")
-        ("playback", "Playback recorded data from moq and dat files", cxxopts::value<bool>())
-        ("playback_speed_ms", "Playback speed in ms", cxxopts::value<std::uint64_t>())
         ("cache_duration_ms", "TTL of objects in the cache", cxxopts::value<std::uint64_t>()->default_value("50000"))
         ("gaps", "Add gaps to groups and objects")
         ("subgroup_test", "Run subgroup/stream test mode with multiple groups and subgroups")
@@ -1615,7 +1381,6 @@ main(int argc, char* argv[])
         ("sub_priority", "Subscriber priority (0-255)", cxxopts::value<std::uint64_t>()->default_value("129"))
         ("start_point", "Start point for Subscription - 0 for from the beginning, 1 from the latest object", cxxopts::value<uint64_t>())
         ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
-        ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())
         ("new_group", "Request new group on subscribe", cxxopts::value<uint64_t>()->default_value("0"))
         ("joining_fetch", "Subscribe with a joining fetch using this joining start", cxxopts::value<std::uint64_t>())
         ("absolute", "Joining fetch will be absolute not relative", cxxopts::value<bool>())

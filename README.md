@@ -252,19 +252,23 @@ and supplying it.
 ## Command-line tools
 
 The [`tools`](tools/README.md) directory contains utilities for testing and debugging
-libquicr. It is separate from [`examples`](examples/README.md), which contains small programs
+MoQ networking. It is separate from [`examples`](examples/README.md), which contains small programs
 focused on demonstrating individual APIs.
 
-The current tool is `qclient`, an interactive MOQT client that supports publishing, subscribing,
-fetching, and protocol test scenarios. Configure and build it with:
+The available tools are:
+
+- `moq-probe`, an interactive client for publishing, subscribing, fetching, and protocol test
+  scenarios.
+- `moq-capture`, a client for recording track objects and replaying recorded data.
+
+Configure and build the tools with:
 
 ```bash
 cmake -B build -DBUILD_TESTING=ON -DQUICR_BUILD_TOOLS=ON
-cmake --build build --target qclient
+cmake --build build
 ```
 
-The executable is written to `build/tools/qclient/qclient`. See the
-[`qclient` documentation](tools/qclient/README.md) for usage.
+See the [`tools` documentation](tools/README.md) for usage.
 
 ## CMake options
 
