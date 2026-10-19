@@ -63,7 +63,7 @@ class SimpleSubscribeTrackHandler : public quicr::SubscribeTrackHandler
   private:
 };
 
-std::sig_atomic_t stop = 0;
+volatile std::sig_atomic_t stop = 0;
 
 void
 HandleSignal(int)

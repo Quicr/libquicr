@@ -94,7 +94,20 @@ try {
 
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
+    while (!handler->CanPublish()) {
+        const auto status = handler->GetStatus();
+        if (status != quicr::PublishTrackHandler::Status::kPendingPublishOk &&
+            status != quicr::PublishTrackHandler::Status::kPaused &&
+            status != quicr::PublishTrackHandler::Status::kNoSubscribers) {
+            std::cerr << "Publisher failed to become ready" << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+
     std::string text;
+    quicr::ObjectHeaders headers{};
     for (;;) {
         std::cerr << "Enter text (/quit to exit): ";
 
@@ -103,8 +116,14 @@ try {
             break;
         }
 
-        quicr::ObjectHeaders headers;
-        handler->PublishObject(headers, quicr::AsBytes(text));
+        auto data = quicr::AsBytes(text);
+
+        headers.payload_length = data.size();
+        headers.priority = 127;
+        headers.status = quicr::ObjectStatus::kAvailable;
+
+        handler->PublishObject(headers, data);
+        headers.group_id++;
     }
 
     std::cerr << "Done publishing! Goodbye" << std::endl;
