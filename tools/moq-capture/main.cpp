@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 
 using json = nlohmann::json; // NOLINT
 using namespace std::chrono_literals;
@@ -139,21 +140,22 @@ class RecordingTrackHandler : public quicr::SubscribeTrackHandler
 
         const std::string name_str = ::ToString(full_track_name);
 
-        data_file_.open(dir / (name_str + ".dat"), std::ios::in | std::ios::out | std::ios::trunc);
+        data_file_.open(dir / (name_str + ".dat"), std::ios::binary | std::ios::trunc);
         if (!data_file_.is_open()) {
             throw std::runtime_error("Failed to open/create data file");
         }
 
-        moq_file_.open(dir / (name_str + ".moq"), std::ios::in | std::ios::out | std::ios::trunc);
-        moq_file_ << json::array();
+        moq_file_.open(dir / (name_str + ".moq"), std::ios::trunc);
+        if (!moq_file_.is_open()) {
+            throw std::runtime_error("Failed to open/create metadata file");
+        }
     }
 
     virtual ~RecordingTrackHandler()
     {
-        data_file_ << std::endl;
         data_file_.close();
 
-        moq_file_ << std::endl;
+        moq_file_ << metadata_.dump() << std::endl;
         moq_file_.close();
     }
 
@@ -167,6 +169,34 @@ class RecordingTrackHandler : public quicr::SubscribeTrackHandler
     void ObjectReceived(const quicr::ObjectHeaders& hdr,
                         std::span<const std::uint8_t> data,
                         std::optional<quicr::messages::StreamHeaderProperties>) override
+    {
+        RecordObject(hdr, data);
+    }
+
+    void ObjectStatusReceived(std::uint64_t group_id,
+                              std::uint64_t object_id,
+                              std::uint8_t priority,
+                              quicr::ObjectStatus status,
+                              std::optional<quicr::Extensions> extensions,
+                              std::optional<quicr::Extensions> immutable_extensions) override
+    {
+        const quicr::ObjectHeaders headers{
+            .group_id = group_id,
+            .object_id = object_id,
+            .subgroup_id = 0,
+            .payload_length = 0,
+            .status = status,
+            .priority = priority,
+            .ttl = std::nullopt,
+            .track_mode = quicr::TrackMode::kDatagram,
+            .extensions = std::move(extensions),
+            .immutable_extensions = std::move(immutable_extensions),
+        };
+        RecordObject(headers, {});
+    }
+
+  private:
+    void RecordObject(const quicr::ObjectHeaders& hdr, std::span<const std::uint8_t> data)
     {
         const quicr::FullTrackName& ftn = GetFullTrackName();
 
@@ -187,7 +217,8 @@ class RecordingTrackHandler : public quicr::SubscribeTrackHandler
         j["objectID"] = hdr.object_id;
         j["groupID"] = hdr.group_id;
         j["subGroupID"] = hdr.subgroup_id;
-        j["publisherPriority"] = hdr.priority.value();
+        j["publisherPriority"] = hdr.priority.value_or(GetSubscriberPriority());
+        j["status"] = static_cast<std::uint8_t>(hdr.status);
         j["maxCacheDuration"] = 0;
         j["publisherDeliveryTimeout"] = 0;
         j["receiveTime"] = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -197,42 +228,65 @@ class RecordingTrackHandler : public quicr::SubscribeTrackHandler
         j["dataOffset"] = data_offset;
         j["dataLength"] = data.size();
 
-        moq_file_.clear();
-        moq_file_.seekg(0);
-        json moq_j = json::parse(moq_file_);
-        moq_j.push_back(j);
-
-        moq_file_.clear();
-        moq_file_.seekg(0);
-        moq_file_ << moq_j.dump();
+        metadata_.push_back(std::move(j));
     }
 
-  private:
-    std::fstream moq_file_;
+    std::ofstream moq_file_;
     std::ofstream data_file_;
+    json metadata_ = json::array();
 };
 
-std::deque<std::pair<quicr::ObjectHeaders, quicr::Bytes>>
-BuildReplayMessages(const std::shared_ptr<quicr::PublishTrackHandler>& handler,
-                    std::ifstream& moq_file,
-                    std::ifstream& data_file)
+struct ReplayCapture
+{
+    std::uint8_t publisher_priority{ 127 };
+    std::deque<std::pair<quicr::ObjectHeaders, quicr::Bytes>> messages;
+};
+
+ReplayCapture
+BuildReplayMessages(std::ifstream& moq_file, std::ifstream& data_file)
 {
     const json moq_arr_j = json::parse(moq_file);
+    if (!moq_arr_j.is_array()) {
+        throw std::runtime_error("Capture metadata must be a JSON array");
+    }
+
     const std::string data = [](auto& file) {
         std::stringstream buffer;
         buffer << file.rdbuf();
         return buffer.str();
     }(data_file);
 
-    std::deque<std::pair<quicr::ObjectHeaders, quicr::Bytes>> messages;
+    ReplayCapture capture;
     for (const auto& moq_j : moq_arr_j) {
+        const auto priority_value = moq_j["publisherPriority"].get<std::uint64_t>();
+        if (priority_value > std::numeric_limits<std::uint8_t>::max()) {
+            throw std::runtime_error("Capture contains an invalid publisher priority");
+        }
+        const auto publisher_priority = static_cast<std::uint8_t>(priority_value);
+
+        const auto status_value = moq_j.value("status", static_cast<std::uint64_t>(quicr::ObjectStatus::kAvailable));
+        if (status_value > std::numeric_limits<std::uint8_t>::max()) {
+            throw std::runtime_error("Capture contains an invalid object status");
+        }
+        const auto status = static_cast<quicr::ObjectStatus>(status_value);
+        switch (status) {
+            case quicr::ObjectStatus::kAvailable:
+            case quicr::ObjectStatus::kDoesNotExist:
+            case quicr::ObjectStatus::kEndOfGroup:
+            case quicr::ObjectStatus::kEndOfTrack:
+            case quicr::ObjectStatus::kEndOfSubGroup:
+                break;
+            default:
+                throw std::runtime_error("Capture contains an invalid object status");
+        }
+
         quicr::ObjectHeaders hdr{
             .group_id = moq_j["groupID"],
             .object_id = moq_j["objectID"],
             .subgroup_id = moq_j["subGroupID"],
             .payload_length = moq_j["dataLength"],
-            .status = quicr::ObjectStatus::kAvailable,
-            .priority = moq_j["publisherPriority"],
+            .status = status,
+            .priority = publisher_priority,
             .ttl = std::nullopt,
             .track_mode = std::nullopt,
             .extensions = std::nullopt,
@@ -240,14 +294,22 @@ BuildReplayMessages(const std::shared_ptr<quicr::PublishTrackHandler>& handler,
         };
 
         const std::size_t data_offset = moq_j["dataOffset"];
+        if (data_offset > data.size() || hdr.payload_length > data.size() - data_offset) {
+            throw std::runtime_error("Capture payload range exceeds the data file");
+        }
+
         quicr::Bytes bytes{
             std::next(data.begin(), data_offset),
             std::next(data.begin(), data_offset + hdr.payload_length),
         };
-        messages.emplace_back(std::make_pair(hdr, std::move(bytes)));
+        capture.messages.emplace_back(std::make_pair(hdr, std::move(bytes)));
+
+        if (capture.messages.size() == 1) {
+            capture.publisher_priority = publisher_priority;
+        }
     }
 
-    return messages;
+    return capture;
 }
 
 volatile std::sig_atomic_t stop = 0;
@@ -289,8 +351,8 @@ try {
 
     std::shared_ptr<quicr::Logger> logger = std::make_shared<SpdlogLogger>("CAPTURE");
 
-    if (result.count("replay") == 0 && result.count("record") == 0) {
-        QUICR_LOGGER_ERROR(logger, "Must run with either replay or record");
+    if (result.count("replay") + result.count("record") != 1) {
+        QUICR_LOGGER_ERROR(logger, "Must run with exactly one of replay or record");
         return EXIT_FAILURE;
     }
 
@@ -300,6 +362,7 @@ try {
     }
 
     quicr::ClientConfig config;
+    config.endpoint_id = result["endpoint_id"].as<std::string>();
     config.connect_uri = result["url"].as<std::string>();
     config.transport_config.time_queue_max_duration = 5000;
     config.transport_config.tls_cert_filename = "";
@@ -335,9 +398,21 @@ try {
 
     const std::filesystem::path data_dir = result["data_dir"].as<std::string>();
     std::shared_ptr<quicr::TrackHandler> handler;
+    std::optional<ReplayCapture> replay_capture;
     if (replay) {
-        handler = quicr::PublishTrackHandler::Create(
-          track_name, quicr::TrackMode::kStream, 127, 127, 5000, quicr::messages::Location{});
+        std::ifstream moq_file(data_dir / (::ToString(track_name) + ".moq"));
+        std::ifstream data_file(data_dir / (::ToString(track_name) + ".dat"), std::ios::binary);
+        if (!moq_file.is_open() || !data_file.is_open()) {
+            throw std::runtime_error("Failed to open capture files");
+        }
+
+        replay_capture = BuildReplayMessages(moq_file, data_file);
+        handler = quicr::PublishTrackHandler::Create(track_name,
+                                                     quicr::TrackMode::kStream,
+                                                     replay_capture->publisher_priority,
+                                                     127,
+                                                     5000,
+                                                     quicr::messages::Location{});
     } else if (record) {
         handler = RecordingTrackHandler::Create(track_name, 127, data_dir);
     }
@@ -368,13 +443,13 @@ try {
 
     const std::chrono::milliseconds replay_speed_ms(result["replay_speed_ms"].as<std::uint64_t>());
 
-    std::ifstream moq_file(data_dir / (::ToString(track_name) + ".moq"));
-    std::ifstream data_file(data_dir / (::ToString(track_name) + ".dat"));
-
-    auto messages = BuildReplayMessages(pub_handler, moq_file, data_file);
+    auto messages = std::move(replay_capture->messages);
     while (!stop && pub_handler->CanPublish() && !messages.empty()) {
         try {
             const auto& [hdr, msg] = messages.front();
+            if (hdr.priority.has_value()) {
+                pub_handler->SetPublisherPriority(*hdr.priority);
+            }
             auto status = pub_handler->PublishObject(hdr, msg);
             messages.pop_front();
 
