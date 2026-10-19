@@ -273,7 +273,7 @@ try {
         ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-capture"))
         ("record", "Record track objects")
         ("replay", "Replay track objects")
-        ("d,data_dir", "Directory for data file to be recorded to and replayed from", cxxopts::value<std::string>()->default_value(std::filesystem::current_path() / "moq_data"))
+        ("d,data_dir", "Directory for data file to be recorded to and replayed from", cxxopts::value<std::string>()->default_value((std::filesystem::current_path() / "moq_data").string()))
         ("replay_speed_ms", "Replay speed in ms", cxxopts::value<std::uint64_t>()->default_value("20"))
         ("namespace", "Track namespace delimited by /", cxxopts::value<std::string>())
         ("name", "Track name", cxxopts::value<std::string>())
