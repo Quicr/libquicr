@@ -5,11 +5,14 @@ cmake configuration.
 
 ## Server
 
-For an example on a simple server, look at the [integration tests](https://github.com/Quicr/libquicr/tree/main/test/integration_test). For a more complicated example, [LAPS](https://github.com/Quicr/laps) is a more fleshed out server.
+For an example on a simple server, look at the
+[integration tests](https://github.com/Quicr/libquicr/tree/main/test/integration_test).
+For a more complicated example, [LAPS](https://github.com/Quicr/laps) is a more
+fleshed out server.
 
 ## Client
 
-Included in this repo are a few small interactive clients demonstrate basic usage API:
+Included in this repo are a few small interactive clients to demonstrate basic API usage:
 
 - `simple_publish` connects to a relay, registers a track, and publishes each
   line entered on standard input as an object.
@@ -25,5 +28,4 @@ from the build directory:
 ```
 
 Each client prompts for the relay URI, track namespace, and track name. Use the
-same values in both clients to publish and receive messages. Start
-`simple_subscribe` first so the publisher has an active subscriber.
+same values in both clients to publish and receive messages.
