@@ -10,4 +10,4 @@ endif()
 CPMAddPackage("gh:gabime/spdlog@1.17.0")
 
 add_subdirectory(moq-capture)
-add_subdirectory(moq-probe)
+add_subdirectory(moq-cli)

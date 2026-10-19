@@ -3,11 +3,11 @@
 Building with tools requires `-DQUICR_BUILD_TOOLS=ON` to be added to the
 cmake configuration.
 
-## moq-probe
+## moq-cli
 
-`moq-probe` is an interactive MOQT client for testing and debugging publishing,
+`moq-cli` is an interactive MOQT client for testing and debugging publishing,
 subscribing, fetching, and protocol scenarios. See
-[`moq-probe/README.md`](moq-probe/README.md) for usage.
+the [`moq-cli` documentation](moq-cli/README.md) for usage.
 
 ## moq-capture
 

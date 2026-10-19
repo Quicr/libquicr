@@ -257,7 +257,7 @@ focused on demonstrating individual APIs.
 
 The available tools are:
 
-- `moq-probe`, an interactive client for publishing, subscribing, fetching, and protocol test
+- `moq-cli`, an interactive client for publishing, subscribing, fetching, and protocol test
   scenarios.
 - `moq-capture`, a client for recording track objects and replaying recorded data.
 

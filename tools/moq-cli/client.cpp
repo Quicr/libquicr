@@ -55,7 +55,7 @@ namespace qclient_vars {
     std::chrono::milliseconds watch_interval_ms(5000);
     std::uint8_t publisher_priority{ 200 };
     std::uint8_t subscriber_priority{ 129 };
-    std::shared_ptr<quicr::Logger> logger = std::make_shared<SpdlogLogger>("MOQ-PROBE");
+    std::shared_ptr<quicr::Logger> logger = std::make_shared<SpdlogLogger>("MOQ-CLI");
 
 }
 
@@ -1343,7 +1343,7 @@ main(int argc, char* argv[])
     int result_code = EXIT_SUCCESS;
 
     cxxopts::Options options(
-      "moq-probe", std::string("MOQ testing and debugging client using QuicR Version: ") + std::string(QUICR_VERSION));
+      "moq-cli", std::string("MOQ testing and debugging client using QuicR Version: ") + std::string(QUICR_VERSION));
 
     // clang-format off
     options.set_width(75)
@@ -1353,7 +1353,7 @@ main(int argc, char* argv[])
         ("d,debug", "Enable debugging") // a bool parameter
         ("v,version", "QuicR Version")                                        // a bool parameter
         ("r,url", "Relay URL", cxxopts::value<std::string>()->default_value("moq://localhost:1234"))
-        ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-probe"))
+        ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-cli"))
         ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
         ("s,ssl_keylog", "Enable SSL Keylog for transport debugging")
         ("t,transport", "Session protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"));

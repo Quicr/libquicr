@@ -23,7 +23,7 @@ path = [
   "examples/README.md",
   "tools/README.md",
   "tools/moq-capture/README.md",
-  "tools/moq-probe/README.md",
+  "tools/moq-cli/README.md",
   "package-lock.cmake",
 ]
 SPDX-FileCopyrightText = "NONE"

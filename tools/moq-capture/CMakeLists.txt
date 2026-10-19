@@ -8,7 +8,6 @@ set_target_properties(moq_capture PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS OFF
-    OUTPUT_NAME "moq-capture"
 )
 
 target_link_libraries(moq_capture PRIVATE
