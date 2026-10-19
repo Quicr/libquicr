@@ -13,7 +13,6 @@
 #include <quicr/session_callbacks.h>
 #include <quicr/session_manager.h>
 #include <quicr/utilities/defer.h>
-#include <sframe/sframe.h>
 
 #include <atomic>
 #include <csignal>
