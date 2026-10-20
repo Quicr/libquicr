@@ -544,7 +544,7 @@ namespace quicr::messages {
     /// In-memory filter discriminator.
     enum struct FilterType : uint64_t
     {
-        kNone,               ///< No filter.v
+        kNone,               ///< No filter.
         kSubscriptionFilter, ///< Location/subscription filter.
         kTrackFilter,        ///< Track-selection constraints.
     };
@@ -558,55 +558,22 @@ namespace quicr::messages {
         kAbsoluteRange = 0x4,  ///< Select an absolute range.
     };
 
-    struct SubscriptionFilter
-    {
-        Range range;
-
-        constexpr auto operator<=>(const SubscriptionFilter&) const noexcept = default;
-    };
-
     /**
-     * Serializes a location filter.
-     * @param bytes Destination bytes.
-     * @param filter Filter to serialize.
-     * @return @p bytes.
-     */
-    inline Bytes& operator<<(Bytes& bytes, const SubscriptionFilter& filter)
-    {
-        bytes << UintVar(static_cast<std::uint64_t>(filter.type));
-        switch (filter.type) {
-            case SubscriptionFilterType::kNextGroupStart:
-            case SubscriptionFilterType::kLargestObject:
-                break;
-            case SubscriptionFilterType::kAbsoluteStart:
-                bytes << filter.start_location;
-                break;
-            case SubscriptionFilterType::kAbsoluteRange:
-                if (filter.end_group_delta > std::numeric_limits<std::uint64_t>::max() - filter.start_location.group) {
-                    throw ProtocolViolationException("Subscription filter end group overflow");
-                }
-                bytes << filter.start_location << UintVar(filter.end_group_delta);
-                break;
-            default:
-                throw ProtocolViolationException("Invalid subscription filter type");
-        }
-        return bytes;
-    }
-
-    /**
-     * @brief
-     *
-     * @notes: - End Object ID MAY be omitted to indicate no end within End Group.
-     *         - End Group ID and End Object ID MAY be omitted to indicate no end, for an open ended subscription or
-     *           a Joining Fetch which implicitly ends at the associated subscription start Location.
-     *         - All but Start Group ID MAY be omitted to indicate
+     * Selects where a subscription begins and, for an absolute range, its final group.
+     * Fields not used by the selected type retain their default values.
      */
     struct SubscriptionFilter
     {
+        /// Wire-format filter form.
         SubscriptionFilterType type{ SubscriptionFilterType::kNextGroupStart };
+
+        /// Absolute starting group and object for kAbsoluteStart and kAbsoluteRange.
         Location start_location{};
+
+        /// Inclusive end-group offset from start_location.group for kAbsoluteRange.
         std::uint64_t end_group_delta{ 0 };
 
+        /// @return Comparison of all fields.
         auto operator<=>(const SubscriptionFilter&) const noexcept = default;
     };
 
@@ -663,6 +630,7 @@ namespace quicr::messages {
         return bytes;
     }
 
+    /// Selects tracks by property, count, and timeout constraints.
     struct TrackFilter
     {
         std::uint64_t property_type;       ///< Property type used for selection.
@@ -758,9 +726,8 @@ namespace quicr::messages {
      * Decodes a concrete filter body.
      * @param filter_type Expected filter type.
      * @param bytes Span bounded to the filter body.
-     * @return LocationFilter or TrackFilter for supported types; monostate for
-     * none, unknown, subgroup, object, priority, and property filters.
-     * @note Vector-based and property-filter decoding is currently unsupported.
+     * @return SubscriptionFilter or TrackFilter for supported types; monostate
+     * for none or an unknown type.
      */
     inline Filter DeserializeFilter(FilterType filter_type, BytesSpan bytes)
     {
@@ -785,15 +752,15 @@ namespace quicr::messages {
         return std::monostate{};
     }
 
-    /// Legacy publish-done status codes.
+    /// Publish-done status codes.
     enum class PublishDoneStatusCode : uint64_t
     {
         kInternalError = 0x0,     ///< Internal error.
         kUnauthorized = 0x1,      ///< Authorization failed.
         kTrackEnded = 0x2,        ///< Track ended.
-        kSubscribtionEnded = 0x3, ///< Subscription ended (legacy misspelled name).
+        kSubscriptionEnded = 0x3, ///< Subscription ended.
         kGoingAway = 0x4,         ///< Endpoint is going away.
-        kTooFarBehind 0x5,        ///< Consumer fell too far behind.
+        kTooFarBehind = 0x5,      ///< Consumer fell too far behind.
         kExpired = 0x6,
         kMalformedTrack = 0x12,
         kUpdateFailed = 0x8,
@@ -930,6 +897,8 @@ namespace quicr::messages {
          * Encodes and replaces a value by key.
          * @tparam T Value type.
          * @tparam K uint64-compatible key type.
+         * @param type Key to insert or replace.
+         * @param value Value to encode.
          * @return This collection.
          */
         template<typename T, KeyType K>

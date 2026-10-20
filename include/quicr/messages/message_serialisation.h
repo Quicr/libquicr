@@ -142,6 +142,7 @@ namespace quicr::messages {
 
         /**
          * Decodes properties from a wire type.
+         * @param type Wire-format stream-header bitfield.
          * @throws ProtocolViolationException if reserved bits, the type bit, or subgroup mode are invalid.
          */
         explicit constexpr StreamHeaderProperties(const std::uint64_t type)
@@ -158,6 +159,11 @@ namespace quicr::messages {
 
         /**
          * Constructs properties from fields.
+         * @param extensions Whether an extension block is present.
+         * @param subgroup_id_mode Subgroup-ID omission/serialization mode.
+         * @param end_of_group Whether this subgroup contains the group's largest object.
+         * @param default_priority Whether publisher priority is inherited.
+         * @param first_object Whether this is the subgroup's original first object.
          * @throws ProtocolViolationException if subgroup_id_mode is kReserved.
          */
         constexpr StreamHeaderProperties(const bool extensions,
@@ -405,7 +411,11 @@ namespace quicr::messages {
         static constexpr std::uint64_t kEndOfNonExistentRange = 0x8C; ///< End-of-nonexistent-range marker value.
         static constexpr std::uint64_t kEndOfUnknownRange = 0x10C;    ///< End-of-unknown-range marker value.
 
-        /** Decodes flags. @throws ProtocolViolationException for undefined values at or above 128. */
+        /**
+         * Decodes serialization flags.
+         * @param value Wire-format serialization flags.
+         * @throws ProtocolViolationException for undefined values at or above 128.
+         */
         explicit FetchSerializationProperties(std::uint64_t value);
 
         /**

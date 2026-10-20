@@ -19,9 +19,9 @@ namespace quicr {
     /**
      * @brief The reply to a callback, which may be answered immediately or deferred.
      *
-     * @details A Reply either holds the result of the callback, or an action that will produce it. A deferred
-     *      action is run off the calling thread, which lets an application answer a callback without blocking
-     *      the session's message handling.
+     * @details A Reply either holds the callback result or a producer that receives a completion callback.
+     *      `Resolve()` invokes a deferred producer synchronously on the calling thread. The producer must start
+     *      any slow authorization, I/O, or other asynchronous work itself and invoke the completion later.
      *
      * @tparam T The value type of a successful reply.
      * @tparam E The reason code type of a failed reply.
@@ -83,7 +83,7 @@ namespace quicr {
         }
 
         /**
-         * @brief Construct a reply whose result is produced later, off the calling thread.
+         * @brief Construct a reply whose producer may complete asynchronously.
          *
          * @details The action owns the completion callback passed to it and must invoke that callback exactly
          *      once. The action itself is invoked synchronously by `Resolve`; it must arrange any desired

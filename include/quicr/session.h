@@ -156,7 +156,7 @@ namespace quicr {
          * @param transport Transport retained by the session.
          * @param connection Connection retained by the session.
          * @param callbacks Client callbacks retained by the session; may be null.
-         * @param tick_service Tick service retained by the session; must not be null.
+         * @param clock Clock retained by the session; must not be null.
          * @param logger Optional logger retained by the session.
          * @return Shared ownership of the new session.
          */
@@ -182,7 +182,7 @@ namespace quicr {
          * @param transport Transport retained by the session.
          * @param connection Connection retained by the session.
          * @param callbacks Server callbacks retained by the session; may be null.
-         * @param tick_service Tick service retained by the session; must not be null.
+         * @param clock Clock retained by the session; must not be null.
          * @param logger Optional logger retained by the session.
          * @return Shared ownership of the new session.
          */

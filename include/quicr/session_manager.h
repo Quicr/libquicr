@@ -18,7 +18,6 @@ namespace quicr {
     class Connection;
     class Logger;
     class TrackHandler;
-    class Logger;
 
     /**
      * @brief Owns transports and sessions and routes generic track handlers to a session.

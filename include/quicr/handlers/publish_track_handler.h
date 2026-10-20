@@ -56,8 +56,8 @@ namespace quicr {
             kPreviousObjectNotCompleteMustStartNewTrack,
 
             kPaused,           ///< Forwarding is paused by subscription state.
-            kPendingPublishOk  ///< A publisher-initiated PUBLISH awaits acknowledgement.,
-              kSubgroupClosed, ///< This subgroup is closed and cannot be published to.
+            kPendingPublishOk, ///< A publisher-initiated PUBLISH awaits acknowledgement.
+            kSubgroupClosed,   ///< This subgroup is closed and cannot be published to.
             kFetchClosed,      ///< This fetch request is over and cannot accept more objects.
         };
 
