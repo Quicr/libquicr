@@ -118,10 +118,10 @@ namespace quicr {
          * @brief Received an update for this handler's request.
          *
          * @details The session acknowledges the update with the returned reply: success sends
-         * REQUEST_UPDATE_OK with its parameters and failure sends REQUEST_ERROR. A deferred reply
-         * runs its producer off the calling thread; completion is queued back through the transport.
-         * The request and its stream may disappear before deferred completion, in which case no
-         * response is sent.
+         * REQUEST_UPDATE_OK with its parameters and failure sends REQUEST_ERROR. `Reply::Resolve`
+         * invokes a deferred producer synchronously, so the producer must start any slow authorization,
+         * I/O, or other asynchronous work itself. Completion is queued back through the transport. The
+         * request and its stream may disappear before deferred completion, in which case no response is sent.
          *
          * @param params Borrowed updated parameters, valid only for this callback.
          * @return Immediate or deferred acknowledgement.
