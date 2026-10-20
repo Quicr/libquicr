@@ -10,26 +10,27 @@
 #include <vector>
 
 namespace quicr {
-    /*
-     * Min/Max/Avg structure
-     */
+    /// @brief Running minimum, maximum, average, sum, and count for a sample period.
     struct MinMaxAvg
     {
-        uint64_t min{ 0 }; /// Minimum value in period
-        uint64_t max{ 0 }; /// Maximum value in period
-        uint64_t avg{ 0 }; /// Average value in period
+        uint64_t min{ 0 }; ///< Minimum value observed in the period.
+        uint64_t max{ 0 }; ///< Maximum value observed in the period.
+        uint64_t avg{ 0 }; ///< Integer arithmetic mean for the period.
 
-        uint64_t value_sum{ 0 };   /// Accumulating sum of values in period
-        uint64_t value_count{ 0 }; /// Number of values in period
+        uint64_t value_sum{ 0 };   ///< Sum of values observed in the period.
+        uint64_t value_count{ 0 }; ///< Number of values observed in the period.
 
-        constexpr auto operator<=>(const MinMaxAvg&) const = default;
+        /// @brief Compare all aggregate fields.
+        /// @param other Aggregate to compare.
+        /// @return Lexicographic comparison of the aggregate fields.
+        constexpr auto operator<=>(const MinMaxAvg& other) const = default;
 
         /**
          * @brief  Add value to period
          *
          * @details Add value will update min/max/avg based on the value being added.
          *
-         * @param value           The value to add.
+         * @param value The value to add.
          */
         void AddValue(const uint64_t value)
         {
@@ -50,6 +51,8 @@ namespace quicr {
          *
          * @details Used to report a quantity that several producers contribute to, without having
          *      them share a counter.
+         *
+         * @param other Aggregate values to add to this period.
          */
         void Merge(const MinMaxAvg& other)
         {
@@ -66,6 +69,7 @@ namespace quicr {
             avg = value_sum / value_count;
         }
 
+        /// @brief Reset every aggregate field to zero.
         void Clear()
         {
             min = 0;
@@ -76,9 +80,7 @@ namespace quicr {
         }
     };
 
-    /*
-     *  QUIC Metrics
-     */
+    /// @brief QUIC connection counters and period aggregates.
     struct QuicConnectionMetrics
     {
         uint64_t cwin_congested{ 0 };      ///< Number of times CWIN is low or zero (congested)
@@ -106,11 +108,12 @@ namespace quicr {
         uint64_t tx_dgram_lost{ 0 };     ///< count of picoquic callback for lost datagrams
         uint64_t tx_dgram_spurious{ 0 }; ///< count of picoquic callback for late/delayed dgram acks
 
-        auto operator<=>(const QuicConnectionMetrics&) const = default;
+        /// @brief Compare all metric fields.
+        /// @param other Metrics to compare.
+        /// @return Lexicographic comparison of the metric fields.
+        auto operator<=>(const QuicConnectionMetrics& other) const = default;
 
-        /**
-         * @brief Reset metrics for period
-         */
+        /// @brief Clear the rate, congestion-window, in-transit, and RTT period aggregates.
         void ResetPeriod()
         {
             tx_rate_bps.Clear();
@@ -131,31 +134,36 @@ namespace quicr {
      */
     struct QuicStreamMetrics
     {
-        uint64_t enqueued_objs{ 0 }; /// count of objects enqueued by the app to be transmitted
+        uint64_t enqueued_objs{ 0 }; ///< Number of objects enqueued by the application for transmission.
 
-        uint64_t rx_stream_cb{ 0 };    /// count of callbacks to receive data
-        uint64_t rx_stream_bytes{ 0 }; /// count of stream bytes received
+        uint64_t rx_stream_cb{ 0 };    ///< Number of receive callbacks.
+        uint64_t rx_stream_bytes{ 0 }; ///< Number of stream bytes received.
 
-        uint64_t tx_buffer_drops{ 0 };   /// Count of write buffer drops of data due to RESET request
-        uint64_t tx_queue_discards{ 0 }; /// count of objects discarded due to TTL expiry or clear
-        uint64_t tx_queue_expired{ 0 };  /// count of objects expired before pop/front
+        uint64_t tx_buffer_drops{ 0 };   ///< Write-buffer drops caused by stream reset.
+        uint64_t tx_queue_discards{ 0 }; ///< Objects discarded by queue clear or expiry.
+        uint64_t tx_queue_expired{ 0 };  ///< Objects found expired when removed from the queue.
 
-        uint64_t tx_delayed_callback{ 0 }; /// Count of times transmit callbacks were delayed
-        MinMaxAvg tx_queue_size;           /// TX queue size in period
-        MinMaxAvg tx_callback_ms;          /// Callback time in milliseconds in period
-        MinMaxAvg tx_object_duration_us;   /// TX object time in queue duration in microseconds
+        uint64_t tx_delayed_callback{ 0 }; ///< Number of delayed transmit callbacks.
+        MinMaxAvg tx_queue_size;           ///< Transmit queue size during the period.
+        MinMaxAvg tx_callback_ms;          ///< Transmit callback duration in milliseconds.
+        MinMaxAvg tx_object_duration_us;   ///< Time objects spent queued, in microseconds.
 
-        uint64_t tx_stream_cb{ 0 };      /// count of stream callbacks to send data
-        uint64_t tx_stream_objects{ 0 }; /// count of stream objects sent
-        uint64_t tx_stream_bytes{ 0 };   /// count of stream bytes sent
+        uint64_t tx_stream_cb{ 0 };      ///< Number of stream-send callbacks.
+        uint64_t tx_stream_objects{ 0 }; ///< Number of stream objects sent.
+        uint64_t tx_stream_bytes{ 0 };   ///< Number of stream bytes sent.
 
-        constexpr auto operator<=>(const QuicStreamMetrics&) const = default;
+        /// @brief Compare all metric fields.
+        /// @param other Metrics to compare.
+        /// @return Lexicographic comparison of the metric fields.
+        constexpr auto operator<=>(const QuicStreamMetrics& other) const = default;
 
         /**
          * @brief Fold another stream's metrics into this one
          *
          * @details A flow may be carried by several streams at once, so its sample is the sum over
          *      the streams carrying it.
+         *
+         * @param other Period metrics to add to this object.
          */
         void Merge(const QuicStreamMetrics& other)
         {
@@ -187,19 +195,20 @@ namespace quicr {
      */
     struct QuicDatagramMetrics
     {
-        uint64_t enqueued_objs{ 0 };     /// count of objects enqueued by the app to be transmitted
-        uint64_t tx_queue_discards{ 0 }; /// count of objects discarded due to TTL expiry or clear
-        uint64_t tx_queue_expired{ 0 };  /// count of objects expired before pop/front
-        MinMaxAvg tx_object_duration_us; /// TX object time in queue duration in microseconds
+        uint64_t enqueued_objs{ 0 };     ///< Number of objects enqueued by the application.
+        uint64_t tx_queue_discards{ 0 }; ///< Objects discarded by queue clear or expiry.
+        uint64_t tx_queue_expired{ 0 };  ///< Objects found expired when removed from the queue.
+        MinMaxAvg tx_object_duration_us; ///< Time objects spent queued, in microseconds.
 
-        uint64_t tx_dgrams{ 0 };       /// count of datagrams sent
-        uint64_t tx_dgrams_bytes{ 0 }; /// count of datagrams sent bytes
+        uint64_t tx_dgrams{ 0 };       ///< Number of datagrams sent.
+        uint64_t tx_dgrams_bytes{ 0 }; ///< Number of datagram bytes sent.
 
-        constexpr auto operator<=>(const QuicDatagramMetrics&) const = default;
+        /// @brief Compare all metric fields.
+        /// @param other Metrics to compare.
+        /// @return Lexicographic comparison of the metric fields.
+        constexpr auto operator<=>(const QuicDatagramMetrics& other) const = default;
 
-        /**
-         * @brief Reset metrics for period
-         */
+        /// @brief Clear the object queue-duration aggregate for the next period.
         void ResetPeriod() { tx_object_duration_us.Clear(); }
     };
 
@@ -215,41 +224,53 @@ namespace quicr {
         /// A single stream's part of the period
         struct Stream
         {
-            std::uint64_t stream_id;
-            QuicStreamMetrics metrics;
+            std::uint64_t stream_id; ///< QUIC stream identifier.
+
+            QuicStreamMetrics metrics; ///< Metrics removed from the stream for this period.
 
             /// The stream closed during the period; nothing further will be reported for it
             bool is_final;
         };
 
-        QuicConnectionMetrics connection;
-        std::vector<Stream> streams;
+        QuicConnectionMetrics connection; ///< Connection-level metrics for the sample period.
+
+        std::vector<Stream> streams; ///< Metrics for streams active or closed during the sample period.
     };
 
     /// @cond
 
     struct UdpConnectionMetrics
     {
-        uint64_t rx_no_context{ 0 }; /// count of times RX object data context doesn't exist
+        uint64_t rx_no_context{ 0 }; ///< Received objects for which no receive context exists.
 
-        uint64_t tx_no_context{ 0 };      /// count of times TX object data context doesn't exist
-        uint64_t tx_discard_objects{ 0 }; /// count of discard objects sent
+        uint64_t tx_no_context{ 0 };      ///< Transmit attempts for which no send context exists.
+        uint64_t tx_discard_objects{ 0 }; ///< Discard-object messages sent.
     };
 
+    /// @brief Wall-clock timestamp used by internal metrics samples.
     using MetricsTimeStamp = std::chrono::time_point<std::chrono::system_clock>;
 
+    /// @brief Internal transport metrics sample associated with a connection.
     struct MetricsConnSample
     {
-        MetricsTimeStamp sample_time; /// Sample time
-        uint64_t conn_ctx_id{ 0 };    /// Conn context ID
+        MetricsTimeStamp sample_time; ///< Time at which the sample was taken.
+        uint64_t conn_ctx_id{ 0 };    ///< Transport connection context identifier.
+
+        /// @brief UDP metrics, when sampling a UDP transport.
         std::optional<UdpConnectionMetrics> udp_sample;
+
+        /// @brief QUIC metrics, when sampling a QUIC transport.
         std::optional<QuicConnectionMetrics> quic_sample;
 
+        /// @brief Construct an empty sample timestamped with the current system time.
         MetricsConnSample()
           : sample_time(std::chrono::system_clock::now())
         {
         }
 
+        /// @brief Construct a current-time UDP sample.
+        /// @param conn_id Connection context identifier.
+        /// @param udp_sample UDP metrics to store.
         MetricsConnSample(const uint64_t conn_id, const UdpConnectionMetrics udp_sample)
           : sample_time(std::chrono::system_clock::now())
           , conn_ctx_id(conn_id)
@@ -257,6 +278,10 @@ namespace quicr {
         {
         }
 
+        /// @brief Construct a UDP sample with an explicit timestamp.
+        /// @param sample_time Time at which the metrics were sampled.
+        /// @param conn_id Connection context identifier.
+        /// @param udp_sample UDP metrics to store.
         MetricsConnSample(const MetricsTimeStamp sample_time,
                           const uint64_t conn_id,
                           const UdpConnectionMetrics udp_sample)
@@ -266,6 +291,9 @@ namespace quicr {
         {
         }
 
+        /// @brief Construct a current-time QUIC sample.
+        /// @param conn_id Connection context identifier.
+        /// @param quic_sample QUIC metrics to store.
         MetricsConnSample(const uint64_t conn_id, const QuicConnectionMetrics quic_sample)
           : sample_time(std::chrono::system_clock::now())
           , conn_ctx_id(conn_id)
@@ -273,6 +301,10 @@ namespace quicr {
         {
         }
 
+        /// @brief Construct a QUIC sample with an explicit timestamp.
+        /// @param sample_time Time at which the metrics were sampled.
+        /// @param conn_id Connection context identifier.
+        /// @param quic_sample QUIC metrics to store.
         MetricsConnSample(const MetricsTimeStamp sample_time,
                           const uint64_t conn_id,
                           const QuicConnectionMetrics quic_sample)
@@ -283,12 +315,13 @@ namespace quicr {
         }
     };
 
-    constexpr size_t kMaxMetricsSamplesQueue = 500; /// Max metric samples pending to be written
+    constexpr size_t kMaxMetricsSamplesQueue = 500; ///< Maximum number of internal metric samples pending for output.
 
     /// @endcond
 
-    using MetricsTimeStampUs = uint64_t; ///< Metrics timestamp in microseconds from epoch 1970
+    using MetricsTimeStampUs = uint64_t; ///< Microseconds since the Unix epoch.
 
+    /// @brief Application-facing metrics for one connection sample period.
     struct ConnectionMetrics
     {
         MetricsTimeStampUs last_sample_time; ///< Last sampled time in microseconds
@@ -303,9 +336,11 @@ namespace quicr {
         uint64_t rx_stream_unknown_track_alias{ 0 }; ///< Received stream header with unknown track alias
         uint64_t rx_stream_invalid_type{ 0 };        ///< Invalid message type
 
-        uint64_t invalid_ctrl_stream_msg{ 0 }; ///< Invalid control stream message received. Should always be 0.
+        /// Invalid control stream message received. Should always be 0.
+        uint64_t invalid_ctrl_stream_msg{ 0 };
     };
 
+    /// @brief Application-facing receive metrics for one subscribed track.
     struct SubscribeTrackMetrics
     {
         MetricsTimeStampUs last_sample_time; ///< Last sampled time in microseconds
@@ -314,6 +349,7 @@ namespace quicr {
         uint64_t objects_received{ 0 }; ///< count of objects received
     };
 
+    /// @brief Application-facing transmit metrics for one published track.
     struct PublishTrackMetrics
     {
         MetricsTimeStampUs last_sample_time; ///< Last sampled time in microseconds
@@ -323,6 +359,7 @@ namespace quicr {
 
         uint64_t objects_dropped_not_ok{ 0 }; ///< Objects dropped upon publish object call due to status not being OK
 
+        /// @brief QUIC-specific period metrics for the published track.
         struct Quic
         {
             uint64_t tx_buffer_drops{ 0 };   ///< count of write buffer drops of data due to RESET request
@@ -334,7 +371,7 @@ namespace quicr {
             MinMaxAvg tx_queue_size;         ///< TX queue size in period
             MinMaxAvg tx_callback_ms;        ///< Callback time in milliseconds in period
             MinMaxAvg tx_object_duration_us; ///< TX object time in queue duration in microseconds
-        } quic;
+        } quic;                              ///< QUIC-specific metrics for the sample period.
     };
 
 } // namespace moq
