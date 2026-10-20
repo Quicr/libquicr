@@ -21,7 +21,7 @@ jobs:
       # Builds against Homebrew's clang rather than the Xcode one. LINT=ON also
       # needs clang-tidy, which Homebrew's llvm keeps off PATH.
       run: |
-        HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install llvm google-benchmark
+        HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install llvm google-benchmark openssl@3
         LLVM_PREFIX="$(brew --prefix llvm)"
         echo "CC=$LLVM_PREFIX/bin/clang" >> "$GITHUB_ENV"
         echo "CXX=$LLVM_PREFIX/bin/clang++" >> "$GITHUB_ENV"
@@ -29,7 +29,8 @@ jobs:
         ln -s "$LLVM_PREFIX/bin/clang-tidy" "/usr/local/bin/clang-tidy"
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM="3.5" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON
+      # SFrame requires OpenSSL 3 until upstream supports OpenSSL 4.
+      run: cmake -B ${{github.workspace}}/build -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM="3.5" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j

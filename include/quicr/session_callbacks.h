@@ -115,6 +115,17 @@ namespace quicr {
     {
         virtual ~Callbacks() = default;
 
+        /**
+         * @brief Callback on receipt of the peer's SETUP message
+         *
+         * @details Returning an error disconnects the session.
+         *
+         * @param session          The session receiving SETUP
+         * @param setup_attributes Peer setup attributes received
+         */
+        virtual Expected<void, Error<ErrorCode>> SetupReceived(const std::shared_ptr<Session>& session,
+                                                               const SetupAttributes& setup_attributes);
+
         virtual void OnStreamClosed(std::uint64_t stream_id, StreamClosedFlag flag);
         /**
          * @brief Callback notification for status/state change
@@ -212,14 +223,12 @@ namespace quicr {
         /**
          * @brief Callback notification for track status message received
          *
-         * @details Defaults to accepting with an empty `RequestResponse`.
+         * @details Defaults to accepting with an empty `TrackStatusResponse`.
          *
-         * @param request_id            Request ID received
          * @param track_full_name       Track full name
          */
         virtual Reply<TrackStatusResponse, RequestErrorCode> TrackStatusReceived(
           const std::shared_ptr<Session>& session,
-          std::uint64_t request_id,
           const FullTrackName& track_full_name);
     };
 
@@ -229,17 +238,6 @@ namespace quicr {
     struct Session::ClientCallbacks : public Session::Callbacks
     {
         virtual ~ClientCallbacks() = default;
-
-        /**
-         * @brief Callback on server setup message
-         *
-         * @details Called when the peer's setup has been received. Client mode only.
-         *
-         * @param server_setup_attributes Server setup attributes received
-         */
-        virtual Expected<void, Error<ErrorCode>> ServerSetupReceived(
-          const std::shared_ptr<Session>& session,
-          const ServerSetupAttributes& server_setup_attributes);
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -266,39 +264,6 @@ namespace quicr {
         virtual ~ServerCallbacks() = default;
 
         virtual void OnStreamClosed(std::uint64_t stream_id, StreamClosedFlag flag);
-        /**
-         * @brief Callback on client setup message
-         *
-         * @details Called when the peer's setup has been received. Server mode only.
-         *
-         * @param client_setup_attributes Decoded client setup message
-         */
-        virtual Expected<void, Error<ErrorCode>> ClientSetupReceived(
-          const std::shared_ptr<Session>& session,
-          const ClientSetupAttributes& client_setup_attributes);
-
-        /**
-         * @brief Callback notification for publish namespace done received
-         *
-         * @details Server mode only. The callback will indicate that publish namespace done has been received.
-         *      The app is responsible for forwarding a copy of the publish namespace done message to the
-         *      subscribe namespace connections whose prefix matches.
-         *
-         * @param request_id        Request ID for the namespace that is done
-         */
-        virtual Reply<void, quicr::PublishNamespaceErrorCode> PublishNamespaceDoneReceived(
-          const std::shared_ptr<Session>& session,
-          std::uint64_t request_id);
-
-        /**
-         * @brief Callback notification for unsubscribe namespace received
-         *
-         * @details Server mode only.
-         *
-         * @param prefix_namespace  Prefix namespace
-         */
-        virtual Reply<void, ErrorCode> UnsubscribeNamespaceReceived(const std::shared_ptr<Session>& session,
-                                                                    const TrackNamespace& prefix_namespace);
 
         /**
          * @brief Callback notification for new subscribe namespace received
@@ -331,7 +296,7 @@ namespace quicr {
         /**
          * @brief Callback notification for new subscribe received
          *
-         * @details Server mode only. Defaults to accepting with an empty `RequestResponse`.
+         * @details Server mode only. Defaults to accepting with an empty `SubscribeResponse`.
          *
          * @param request_id           Request ID received
          * @param track_full_name      Track full name
@@ -344,26 +309,6 @@ namespace quicr {
           const SubscribeAttributes& subscribe_attributes);
 
         /**
-         * @brief Callback notification on unsubscribe received
-         *
-         * @details Server mode only.
-         *
-         * @param request_id        Request ID received
-         */
-        virtual Reply<void, ErrorCode> UnsubscribeReceived(const std::shared_ptr<Session>& session,
-                                                           std::uint64_t request_id);
-
-        /**
-         * @brief Callback notification on publish done received
-         *
-         * @details Server mode only.
-         *
-         * @param request_id        Request ID received
-         */
-        virtual Reply<void, ErrorCode> PublishDoneReceived(const std::shared_ptr<Session>& session,
-                                                           std::uint64_t request_id);
-
-        /**
          * @brief New group requested received by a subscription
          *
          * @details Server mode only.
@@ -372,5 +317,44 @@ namespace quicr {
          * @param group_id        Group ID requested — should be plus one of current group or zero
          */
         virtual Reply<void, ErrorCode> NewGroupRequested(const FullTrackName& track_full_name, std::uint64_t group_id);
+
+        /**
+         * @brief Callback notification for publish namespace done received
+         *
+         * @details Server mode only. The callback will indicate that publish namespace done has been received.
+         *      The app is responsible for forwarding a copy of the publish namespace done message to the
+         *      subscribe namespace connections whose prefix matches.
+         *
+         * @param request_id        Request ID for the namespace that is done
+         */
+        virtual void PublishNamespaceDoneReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
+
+        /**
+         * @brief Callback notification for unsubscribe namespace received
+         *
+         * @details Server mode only.
+         *
+         * @param prefix_namespace  Prefix namespace
+         */
+        virtual void UnsubscribeNamespaceReceived(const std::shared_ptr<Session>& session,
+                                                  const TrackNamespace& prefix_namespace);
+
+        /**
+         * @brief Callback notification on unsubscribe received
+         *
+         * @details Server mode only.
+         *
+         * @param request_id        Request ID received
+         */
+        virtual void UnsubscribeReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
+
+        /**
+         * @brief Callback notification on publish done received
+         *
+         * @details Server mode only.
+         *
+         * @param request_id        Request ID received
+         */
+        virtual void PublishDoneReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
     };
 }

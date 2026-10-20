@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #include <quicr/config.h>
 #include <quicr/session_callbacks.h>
 
@@ -5,6 +8,7 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <vector>
 
 namespace quicr {
     class Session;
@@ -16,7 +20,7 @@ namespace quicr_test {
     {
       public:
         // Connection.
-        void SetConnectedPromise(std::promise<quicr::ServerSetupAttributes> promise)
+        void SetConnectedPromise(std::promise<quicr::SetupAttributes> promise)
         {
             client_connected_ = std::move(promise);
         }
@@ -27,9 +31,9 @@ namespace quicr_test {
             return status_at_server_setup_;
         }
 
-        quicr::Expected<void, quicr::Error<quicr::ErrorCode>> ServerSetupReceived(
+        quicr::Expected<void, quicr::Error<quicr::ErrorCode>> SetupReceived(
           const std::shared_ptr<quicr::Session>& session,
-          const quicr::ServerSetupAttributes& server_setup_attributes) override;
+          const quicr::SetupAttributes& setup_attributes) override;
 
         // Publish Namespace received.
         void SetPublishNamespaceReceivedPromise(std::promise<quicr::TrackNamespace> promise)
@@ -73,6 +77,16 @@ namespace quicr_test {
             return it->second;
         }
 
+        std::vector<std::uint64_t> GetClosedStreamIds()
+        {
+            std::lock_guard _(stream_state_mutex_);
+            std::vector<std::uint64_t> stream_ids;
+            for (const auto& [stream_id, reset] : closed_streams_) {
+                stream_ids.push_back(stream_id);
+            }
+            return stream_ids;
+        }
+
       protected:
         void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override
         {
@@ -87,7 +101,7 @@ namespace quicr_test {
         std::optional<quicr::Session::Status> status_at_server_setup_;
         std::mutex stream_state_mutex_;
         std::map<std::uint64_t, bool> closed_streams_;
-        std::optional<std::promise<quicr::ServerSetupAttributes>> client_connected_;
+        std::optional<std::promise<quicr::SetupAttributes>> client_connected_;
         std::optional<std::promise<quicr::TrackNamespace>> publish_namespace_received_;
         std::optional<std::promise<quicr::FullTrackName>> publish_received_;
         std::optional<std::promise<std::uint64_t>> publish_namespace_status_changed_;

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #include "quicr/handlers/publish_namespace_handler.h"
 #include "quicr/log.h"
 #include "quicr/messages/parameters.h"
@@ -73,9 +76,9 @@ quicr::PublishNamespaceHandler::PublishObject(uint64_t track_alias,
 }
 
 void
-quicr::PublishNamespaceHandler::RequestOkReceived(const messages::Parameters& params)
+quicr::PublishNamespaceHandler::RequestOkReceived([[maybe_unused]] const messages::Parameters& params)
 {
-    messages::ValidateParameters(params, {});
+    // TODO: should we messages::ValidateParameters(params, {});
     SetStatus(Status::kOk);
 }
 

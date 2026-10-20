@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "helper_functions.h"
-#include "signal_handler.h"
+#include "spdlog_logger.h"
 
 #include <nlohmann/json.hpp>
 #include <oss/cxxopts.hpp>
@@ -15,70 +15,19 @@
 #include <quicr/session_manager.h>
 #include <quicr/utilities/defer.h>
 #include <sframe/sframe.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
 #include <timeq/tick_service.h>
 
+#include <atomic>
+#include <csignal>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <regex>
 #include <set>
+#include <thread>
 
 using json = nlohmann::json; // NOLINT
-
-class SpdlogLogger : public quicr::Logger
-{
-  public:
-    SpdlogLogger(const std::string& name)
-      : logger_(spdlog::get(name) ? spdlog::get(name) : spdlog::stderr_color_mt(name))
-    {
-    }
-
-    virtual ~SpdlogLogger() = default;
-
-    void SetLevel(Level max_level) override { logger_->set_level(ConvertLevelType(max_level)); }
-
-    bool ShouldLog(Level level) const noexcept override { return logger_->should_log(ConvertLevelType(level)); }
-
-    void Log(quicr::Logger::Level level,
-             std::string_view msg,
-             std::source_location location = std::source_location::current()) override
-    try {
-        logger_->log(spdlog::source_loc(location.file_name(), location.line(), location.function_name()),
-                     ConvertLevelType(level),
-                     msg);
-    } catch (const std::exception& e) {
-        logger_->log(spdlog::source_loc(location.file_name(), location.line(), location.function_name()),
-                     spdlog::level::err,
-                     "log failed to format (error={})",
-                     e.what());
-    }
-
-  private:
-    spdlog::level::level_enum ConvertLevelType(Logger::Level level) const noexcept
-    {
-        switch (level) {
-            case Logger::Level::Trace:
-                return spdlog::level::trace;
-            case Logger::Level::Debug:
-                return spdlog::level::debug;
-            case Logger::Level::Info:
-                return spdlog::level::info;
-            case Logger::Level::Warn:
-                return spdlog::level::warn;
-            case Logger::Level::Error:
-                return spdlog::level::err;
-            case Logger::Level::Critical:
-                return spdlog::level::critical;
-            case Logger::Level::Off:
-                return spdlog::level::off;
-        }
-    }
-
-  private:
-    std::shared_ptr<spdlog::logger> logger_;
-};
+using namespace std::chrono_literals;
 
 /**
  * @brief Defines an object received from an announcer that lives in the cache.
@@ -111,6 +60,8 @@ namespace qclient_vars {
     std::optional<sframe::MLSContext> mls_ctx = sframe::MLSContext(sframe::CipherSuite::AES_GCM_128_SHA256, 1);
     std::optional<std::filesystem::path> watch_path;
     std::chrono::milliseconds watch_interval_ms(5000);
+    std::uint8_t publisher_priority{ 200 };
+    std::uint8_t subscriber_priority{ 129 };
     std::shared_ptr<quicr::Logger> logger = std::make_shared<SpdlogLogger>("QCLIENT");
 
 }
@@ -208,7 +159,7 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                             bool publisher_initiated = false,
                             const std::filesystem::path& dir = qclient_consts::kMoqDataDir)
       : SubscribeTrackHandler(full_track_name,
-                              128,
+                              0,
                               quicr::messages::GroupOrder::kAscending,
                               std::monostate{},
                               joining_fetch,
@@ -292,7 +243,8 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
         std::string msg(data.begin(), data.end());
 
         QUICR_LOGGER_INFO(qclient_vars::logger,
-                          "Received message: {} Group:{}, Subgroup: {} Object:{} - {}",
+                          "Received pri: {} message: {} Group:{}, Subgroup: {} Object:{} - {}",
+                          hdr.priority.value_or(0),
                           ext.str(),
                           hdr.group_id,
                           hdr.subgroup_id,
@@ -379,7 +331,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
                           quicr::TrackMode track_mode,
                           uint8_t default_priority,
                           uint32_t default_ttl)
-      : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
+      : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_priority, default_ttl)
     {
     }
 
@@ -554,8 +506,6 @@ class MyClient : public quicr::Session::ClientCallbacks
         switch (status) {
             case quicr::Session::Status::kReady:
                 QUICR_LOGGER_INFO(qclient_vars::logger, "Connection ready");
-                moq_example::connected = true;
-                moq_example::cv.notify_all();
                 break;
             case quicr::Session::Status::kConnecting:
                 break;
@@ -564,23 +514,17 @@ class MyClient : public quicr::Session::ClientCallbacks
                 break;
             default:
                 QUICR_LOGGER_INFO(qclient_vars::logger, "Connection failed {0}", static_cast<int>(status));
-                moq_example::terminate = true;
-                moq_example::termination_reason = "Connection failed";
-                moq_example::cv.notify_all();
                 break;
         }
     }
 
     // -- quicr::Session::ClientCallbacks -------------------------------------------------------
 
-    quicr::Expected<void, quicr::Error<quicr::ErrorCode>> ServerSetupReceived(
+    quicr::Expected<void, quicr::Error<quicr::ErrorCode>> SetupReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-      const quicr::ServerSetupAttributes& server_setup_attributes) override
+      const quicr::SetupAttributes& setup_attributes) override
     {
-        QUICR_LOGGER_INFO(qclient_vars::logger,
-                          "Server setup received from '{}' (MOQT version: {})",
-                          server_setup_attributes.server_id,
-                          server_setup_attributes.moqt_version);
+        QUICR_LOGGER_INFO(qclient_vars::logger, "Setup received from '{}'", setup_attributes.endpoint_id);
         return {};
     }
 
@@ -678,14 +622,10 @@ class MyClient : public quicr::Session::ClientCallbacks
 
     quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusReceived(
       [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-      std::uint64_t request_id,
       const quicr::FullTrackName& track_full_name) override
     {
         const auto largest_location = GetLargestAvailable(track_full_name);
-        QUICR_LOGGER_INFO(qclient_vars::logger,
-                          "Track status requested request_id: {} track: {}",
-                          request_id,
-                          track_full_name.NameStr());
+        QUICR_LOGGER_INFO(qclient_vars::logger, "Track status requested track: {}", track_full_name.NameStr());
 
         return quicr::TrackStatusResponse{
             .largest_location = largest_location,
@@ -827,7 +767,7 @@ class MyPublisherNamespaceHandler : public quicr::PublishNamespaceHandler
 void
 PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
                    const std::shared_ptr<quicr::PublishTrackHandler> track_handler,
-                   bool& stop)
+                   std::atomic_bool& stop)
 {
     QUICR_LOGGER_INFO(qclient_vars::logger, "Started publisher track");
 
@@ -875,7 +815,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
         }
     }
 
-    while (not stop) {
+    while (not stop.load(std::memory_order_acquire)) {
         if ((!published_track) && (session->GetStatus() == quicr::Session::Status::kReady)) {
             QUICR_LOGGER_INFO(qclient_vars::logger, "Publish track ");
             session->PublishTrack(track_handler);
@@ -935,9 +875,8 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
             auto last_write = std::filesystem::last_write_time(watch_path);
             auto last_publish = std::chrono::steady_clock::time_point{};
 
-            while (not stop) {
-                if (track_handler->GetStatus() != MyPublishTrackHandler::Status::kOk &&
-                    track_handler->GetStatus() != MyPublishTrackHandler::Status::kNoSubscribers) {
+            while (not stop.load(std::memory_order_acquire)) {
+                if (!track_handler->CanPublish()) {
                     std::this_thread::sleep_for(poll_tick);
                     continue;
                 }
@@ -980,10 +919,16 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
                                   data.size(),
                                   group_id);
 
-                quicr::ObjectHeaders obj_headers = {
-                    group_id,         object_id,      subgroup_id,  data.size(),  quicr::ObjectStatus::kAvailable,
-                    128 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
-                };
+                quicr::ObjectHeaders obj_headers = { group_id,
+                                                     object_id,
+                                                     subgroup_id,
+                                                     data.size(),
+                                                     quicr::ObjectStatus::kAvailable,
+                                                     track_handler->GetPublisherPriority() /*priority*/,
+                                                     3000 /* ttl */,
+                                                     std::nullopt,
+                                                     std::nullopt,
+                                                     std::nullopt };
 
                 try {
                     if (track_handler->CanPublish()) {
@@ -1048,18 +993,30 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
         if (qclient_vars::publish_clock) {
             std::this_thread::sleep_for(std::chrono::milliseconds(999));
             msg = quicr::example::GetTimeStr();
-            QUICR_LOGGER_INFO(qclient_vars::logger, "Group:{0} Object:{1}, Msg:{2}", group_id, object_id, msg);
+            QUICR_LOGGER_INFO(qclient_vars::logger,
+                              "Pri: {0} Group:{1} Object:{2}, Msg:{3}",
+                              track_handler->GetPublishObjectPriority(),
+                              group_id,
+                              object_id,
+                              msg);
         } else { // stdin
-            if (!getline(std::cin, msg)) {
+            if (!std::getline(std::cin, msg)) {
                 break;
             }
+
             QUICR_LOGGER_INFO(qclient_vars::logger, "Send message: {0}", msg);
         }
 
-        quicr::ObjectHeaders obj_headers = {
-            group_id,         object_id++,    subgroup_id,  msg.size(),   quicr::ObjectStatus::kAvailable,
-            128 /*priority*/, 3000 /* ttl */, std::nullopt, std::nullopt, std::nullopt
-        };
+        quicr::ObjectHeaders obj_headers = { group_id,
+                                             object_id++,
+                                             subgroup_id,
+                                             msg.size(),
+                                             quicr::ObjectStatus::kAvailable,
+                                             track_handler->GetPublisherPriority() /*priority*/,
+                                             3000 /* ttl */,
+                                             std::nullopt,
+                                             std::nullopt,
+                                             std::nullopt };
 
         try {
             if (track_handler->CanPublish()) {
@@ -1088,18 +1045,17 @@ DoPublisher(const std::string prefix_str,
             const std::vector<std::string>& names,
             const std::shared_ptr<quicr::Session>& session,
             bool use_announce,
-            bool& stop)
+            std::atomic_bool& stop)
 {
     using namespace std::chrono_literals;
 
-    defer({
-        moq_example::terminate = true;
-        moq_example::cv.notify_all();
-    });
+    defer({ stop.store(true, std::memory_order_release); });
 
     if (!use_announce) {
         quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, names.front());
-        auto track_handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 128, 3000);
+        auto track_handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 200, 3000);
+        track_handler->SetPublisherPriority(qclient_vars::publisher_priority);
+        track_handler->SetPublishObjectPriority(qclient_vars::publisher_priority);
 
         if (qclient_vars::track_alias.has_value()) {
             track_handler->SetTrackAlias(*qclient_vars::track_alias);
@@ -1127,7 +1083,8 @@ DoPublisher(const std::string prefix_str,
     std::vector<std::weak_ptr<quicr::PublishTrackHandler>> handlers;
     for (const auto& name : names) {
         quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, name);
-        auto handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 128, 3000);
+        auto handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 200, 3000);
+        handler->SetPublisherPriority(qclient_vars::publisher_priority);
         handlers.push_back(handler);
         ns_handler->PublishTrack(handler);
     }
@@ -1157,10 +1114,12 @@ void
 DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                const std::shared_ptr<quicr::Session>& session,
                [[maybe_unused]] bool use_announce,
-               bool& stop)
+               std::atomic_bool& stop)
 {
     auto track_handler = MyPublishTrackHandler::Create(
-      full_track_name, quicr::TrackMode::kStream /*mode*/, 128 /*priority*/, 3000 /*ttl*/);
+      full_track_name, quicr::TrackMode::kStream /*mode*/, 200 /*priority*/, 3000 /*ttl*/);
+    track_handler->SetPublisherPriority(qclient_vars::publisher_priority);
+    track_handler->SetPublishObjectPriority(qclient_vars::publisher_priority);
 
     if (qclient_vars::track_alias.has_value()) {
         track_handler->SetTrackAlias(*qclient_vars::track_alias);
@@ -1171,7 +1130,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
     bool published_track{ false };
 
     // Wait for connection and publish track
-    while (not stop) {
+    while (not stop.load(std::memory_order_acquire)) {
         if ((!published_track) && (session->GetStatus() == quicr::Session::Status::kReady)) {
             QUICR_LOGGER_INFO(qclient_vars::logger, "Publish track for subgroup test");
             session->PublishTrack(track_handler);
@@ -1182,7 +1141,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
     }
 
     // Wait for track handler to be ready
-    while (not stop) {
+    while (not stop.load(std::memory_order_acquire)) {
         if (track_handler->GetStatus() == MyPublishTrackHandler::Status::kOk ||
             track_handler->GetStatus() == MyPublishTrackHandler::Status::kSubscriptionUpdated ||
             track_handler->GetStatus() == MyPublishTrackHandler::Status::kNewGroupRequested) {
@@ -1221,7 +1180,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                                          .subgroup_id = subgroup_id,
                                          .payload_length = msg.size(),
                                          .status = quicr::ObjectStatus::kAvailable,
-                                         .priority = 128,
+                                         .priority = qclient_vars::publisher_priority,
                                          .ttl = 3000,
                                          .track_mode = quicr::TrackMode::kStream,
                                          .extensions = std::nullopt,
@@ -1349,8 +1308,6 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     QUICR_LOGGER_INFO(qclient_vars::logger, "Subgroup test publisher done after {} iterations", iteration);
-    moq_example::terminate = true;
-    moq_example::cv.notify_all();
 }
 
 /*===========================================================================*/
@@ -1360,7 +1317,7 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
 void
 DoSubscriber(const quicr::FullTrackName& full_track_name,
              const std::shared_ptr<quicr::Session>& session,
-             const bool& stop,
+             const std::atomic_bool& stop,
              const std::optional<std::uint64_t> join_fetch,
              const bool absolute)
 {
@@ -1369,13 +1326,13 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
                                  ? Fetch{ 128, quicr::messages::GroupOrder::kAscending, {}, *join_fetch, absolute }
                                  : std::optional<Fetch>(std::nullopt);
     const auto track_handler = std::make_shared<MySubscribeTrackHandler>(full_track_name, joining_fetch);
-    track_handler->SetPriority(128);
+    track_handler->SetSubscriberPriority(qclient_vars::subscriber_priority);
 
     QUICR_LOGGER_INFO(qclient_vars::logger, "Started subscriber");
 
     bool subscribe_track{ false };
 
-    while (not stop) {
+    while (not stop.load(std::memory_order_acquire)) {
         if ((!subscribe_track) && (session->GetStatus() == quicr::Session::Status::kReady)) {
             QUICR_LOGGER_INFO(qclient_vars::logger, "Subscribing to track");
             session->SubscribeTrack(track_handler);
@@ -1390,7 +1347,6 @@ DoSubscriber(const quicr::FullTrackName& full_track_name,
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     QUICR_LOGGER_INFO(qclient_vars::logger, "Subscriber done track");
-    moq_example::terminate = true;
 }
 
 /*===========================================================================*/
@@ -1402,8 +1358,10 @@ DoFetch(const quicr::FullTrackName& full_track_name,
         const quicr::messages::Location& start_location,
         const quicr::messages::FetchEndLocation& end_location,
         const std::shared_ptr<quicr::Session>& session,
-        const bool& stop)
+        std::atomic_bool& stop)
 {
+    defer({ stop.store(true, std::memory_order_release); });
+
     auto track_handler = MyFetchTrackHandler::Create(full_track_name, start_location, end_location);
 
     QUICR_LOGGER_INFO(qclient_vars::logger,
@@ -1415,7 +1373,7 @@ DoFetch(const quicr::FullTrackName& full_track_name,
 
     bool fetch_track{ false };
 
-    while (not stop) {
+    while (not stop.load(std::memory_order_acquire)) {
         if ((!fetch_track) && (session->GetStatus() == quicr::Session::Status::kReady)) {
             QUICR_LOGGER_INFO(qclient_vars::logger, "Fetching track");
             session->FetchTrack(track_handler);
@@ -1428,8 +1386,6 @@ DoFetch(const quicr::FullTrackName& full_track_name,
             QUICR_LOGGER_DEBUG(qclient_vars::logger,
                                "GetStatus() != quicr::FetchTrackHandler::Status::kOk {}",
                                (int)track_handler->GetStatus());
-            moq_example::terminate = true;
-            moq_example::cv.notify_all();
             break;
         }
 
@@ -1439,8 +1395,6 @@ DoFetch(const quicr::FullTrackName& full_track_name,
     session->CancelFetchTrack(track_handler);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    moq_example::terminate = true;
 }
 
 /*===========================================================================*/
@@ -1509,6 +1463,26 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
 
     if (cli_opts.count("track_alias")) {
         qclient_vars::track_alias = cli_opts["track_alias"].as<uint64_t>();
+    }
+
+    if (cli_opts.count("pub_priority")) {
+        const auto priority = cli_opts["pub_priority"].as<std::uint64_t>();
+        if (priority > 255) {
+            QUICR_LOGGER_ERROR(qclient_vars::logger, "Publisher priority must be in the range 0-255");
+            exit(EXIT_FAILURE);
+        }
+        qclient_vars::publisher_priority = static_cast<std::uint8_t>(priority);
+        QUICR_LOGGER_INFO(qclient_vars::logger, "Publisher priority: {}", qclient_vars::publisher_priority);
+    }
+
+    if (cli_opts.count("sub_priority")) {
+        const auto priority = cli_opts["sub_priority"].as<std::uint64_t>();
+        if (priority > 255) {
+            QUICR_LOGGER_ERROR(qclient_vars::logger, "Subscriber priority must be in the range 0-255");
+            exit(EXIT_FAILURE);
+        }
+        qclient_vars::subscriber_priority = static_cast<std::uint8_t>(priority);
+        QUICR_LOGGER_INFO(qclient_vars::logger, "Subscriber priority: {}", qclient_vars::subscriber_priority);
     }
 
     if (cli_opts.count("record")) {
@@ -1634,6 +1608,13 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
     return config;
 }
 
+std::atomic_bool stop_threads{ false };
+void
+HandleSignal(int)
+{
+    stop_threads.store(true, std::memory_order_release);
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -1661,6 +1642,7 @@ main(int argc, char* argv[])
         ("track_alias", "Track alias to use", cxxopts::value<uint64_t>())
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("pub_name", "Track name", cxxopts::value<std::vector<std::string>>())
+        ("pub_priority", "Publisher priority (0-255)", cxxopts::value<std::uint64_t>()->default_value("200"))
         ("clock", "Publish clock timestamp every second instead of using STDIN chat")
         ("playback", "Playback recorded data from moq and dat files", cxxopts::value<bool>())
         ("playback_speed_ms", "Playback speed in ms", cxxopts::value<std::uint64_t>())
@@ -1677,6 +1659,7 @@ main(int argc, char* argv[])
     options.add_options("Subscriber")
         ("sub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("sub_name", "Track name", cxxopts::value<std::string>())
+        ("sub_priority", "Subscriber priority (0-255)", cxxopts::value<std::uint64_t>()->default_value("129"))
         ("start_point", "Start point for Subscription - 0 for from the beginning, 1 from the latest object", cxxopts::value<uint64_t>())
         ("sub_announces", "Prefix namespace to subscribe announces to", cxxopts::value<std::string>())
         ("record", "Record incoming data to moq and dat files", cxxopts::value<bool>())
@@ -1702,11 +1685,12 @@ main(int argc, char* argv[])
         return EXIT_SUCCESS;
     }
 
-    // Install a signal handlers to catch operating system signals
-    installSignalHandlers();
+    std::signal(SIGINT, HandleSignal);
 
-    // Lock the mutex so that main can then wait on it
-    std::unique_lock lock(moq_example::main_mutex);
+#ifndef _WIN32
+    std::signal(SIGHUP, HandleSignal);
+    std::signal(SIGQUIT, HandleSignal);
+#endif
 
     bool enable_pub{ false };
     bool enable_sub{ false };
@@ -1715,32 +1699,33 @@ main(int argc, char* argv[])
     quicr::ClientConfig config = InitConfig(result, enable_pub, enable_sub, enable_fetch, use_announce);
 
     try {
-        bool stop_threads{ false };
+        quicr::SessionManager session_mgr(qclient_vars::tick_service, qclient_vars::logger);
 
-        quicr::SessionManager session_mgr(qclient_vars::tick_service);
-
-        auto callbacks = MyClient::Create();
-        auto w_session = session_mgr.AddTransport(config, callbacks);
+        auto w_session = session_mgr.AddTransport(config, MyClient::Create());
 
         auto session = w_session.lock();
         if (!session) {
+            QUICR_LOGGER_ERROR(qclient_vars::logger, "Failed to connect, session is null");
             return EXIT_FAILURE;
         }
 
-        while (not stop_threads) {
+        const auto is_terminal_status = [](quicr::Session::Status status) {
+            return status == quicr::Session::Status::kNotReady || status == quicr::Session::Status::kInternalError ||
+                   status == quicr::Session::Status::kInvalidParams ||
+                   status == quicr::Session::Status::kNotConnected ||
+                   status == quicr::Session::Status::kFailedToConnect;
+        };
+
+        while (not stop_threads.load(std::memory_order_acquire)) {
             const auto status = session->GetStatus();
             if (status == quicr::Session::Status::kReady) {
                 QUICR_LOGGER_INFO(qclient_vars::logger, "Connected to server");
                 break;
             }
 
-            if (status == quicr::Session::Status::kFailedToConnect || status == quicr::Session::Status::kNotConnected ||
-                status == quicr::Session::Status::kInternalError || status == quicr::Session::Status::kInvalidParams) {
+            if (is_terminal_status(status)) {
                 QUICR_LOGGER_ERROR(qclient_vars::logger, "Connection failed with status {}", static_cast<int>(status));
-                stop_threads = true;
-                moq_example::terminate = true;
-                moq_example::termination_reason = "Connection failed";
-                moq_example::cv.notify_all();
+                stop_threads.store(true, std::memory_order_release);
                 break;
             }
 
@@ -1790,7 +1775,7 @@ main(int argc, char* argv[])
                                                                            result["sub_name"].as<std::string>());
 
             if (qclient_vars::req_track_status) {
-                session->RequestTrackStatus(sub_track_name, {});
+                session->RequestTrackStatus(quicr::TrackStatusHandler::Create(sub_track_name));
             }
 
             sub_thread =
@@ -1812,10 +1797,17 @@ main(int argc, char* argv[])
               std::thread(DoFetch, fetch_track_name, start_location, end_location, session, std::ref(stop_threads));
         }
 
-        // Wait until told to terminate
-        moq_example::cv.wait(lock, [&]() { return moq_example::terminate; });
+        while (not stop_threads.load(std::memory_order_acquire)) {
+            const auto status = session->GetStatus();
+            if (is_terminal_status(status)) {
+                QUICR_LOGGER_ERROR(qclient_vars::logger, "Connection lost with status {}", static_cast<int>(status));
+                stop_threads.store(true, std::memory_order_release);
+                break;
+            }
 
-        stop_threads = true;
+            std::this_thread::sleep_for(20ms);
+        }
+
         QUICR_LOGGER_INFO(qclient_vars::logger, "Stopping threads...");
 
         if (pub_thread.joinable()) {
@@ -1831,8 +1823,6 @@ main(int argc, char* argv[])
         }
 
         QUICR_LOGGER_INFO(qclient_vars::logger, "Client done");
-        std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-
     } catch (const std::invalid_argument& e) {
         std::cerr << "Invalid argument: " << e.what() << std::endl;
         result_code = EXIT_FAILURE;

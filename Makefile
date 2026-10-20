@@ -8,10 +8,11 @@
 #   CMAKE_GENERATOR=Ninja
 
 BUILD_DIR=build
+PACKAGE_LOCK_BUILD_DIR?=${BUILD_DIR}-package-lock
 export MERMAID_FILTER_THEME=neutral
 CLANG_FORMAT=clang-format -i
 
-.PHONY: all clean cclean format fuzz c-bridge c-bridge-only cert
+.PHONY: all clean cclean format fuzz c-bridge c-bridge-only cert licenses package-lock
 
 # Build.
 all: ${BUILD_DIR}
@@ -56,6 +57,18 @@ c-bridge-only: CMakeLists.txt c-bridge/CMakeLists.txt
 # Build with C Bridge enabled.
 c-bridge: ${BUILD_DIR}
 	cmake --build ${BUILD_DIR} --target quicr-bridge bridge_examples --parallel 8
+
+# Generate third-party license notices for distributed CPM dependencies.
+licenses:
+	cmake -B${BUILD_DIR} -DQUICR_GENERATE_THIRD_PARTY_LICENSES=ON .
+	cmake --build ${BUILD_DIR} --target third-party-licenses
+	@echo "Third-party notices: ${BUILD_DIR}/THIRD_PARTY_LICENSES.txt"
+
+# Update the CPM package lock with all non-fuzz build configurations enabled.
+package-lock:
+	cmake -S . -B "${PACKAGE_LOCK_BUILD_DIR}" -DBUILD_TESTING=ON -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_BENCHMARKS=ON -DQUICR_BUILD_C_BRIDGE=ON -DQUICR_BUILD_EXAMPLES=ON -DQUICR_GENERATE_THIRD_PARTY_LICENSES=ON -DQUICR_BUILD_FUZZ=OFF -DLINT=OFF
+	cmake --build "${PACKAGE_LOCK_BUILD_DIR}" --target cpm-update-package-lock
+	@echo "Updated package-lock.cmake"
 
 # Format code.
 format:

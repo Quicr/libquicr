@@ -16,9 +16,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-# Find required dependencies
-find_package(PkgConfig REQUIRED)
-
 # Include directories
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -78,12 +75,8 @@ set_target_properties(quicr-bridge PROPERTIES
     PUBLIC_HEADER "${BRIDGE_HEADERS}"
 )
 
-include(CMakeDependentOption)
-
 # Examples
-cmake_dependent_option(BUILD_BRIDGE_EXAMPLES "Build C bridge example applications" ON QUICR_BUILD_EXAMPLES OFF)
-
-if(BUILD_BRIDGE_EXAMPLES)
+if(QUICR_BUILD_EXAMPLES)
     # Simple Publisher Example
     add_executable(simple_publisher examples/simple_publisher.c)
     target_link_libraries(simple_publisher quicr-bridge)
@@ -135,7 +128,7 @@ install(TARGETS quicr-bridge
 )
 
 # Install examples if built
-if(BUILD_BRIDGE_EXAMPLES)
+if(QUICR_BUILD_EXAMPLES)
     install(TARGETS simple_publisher simple_subscriber
                     chat fetch file_transfer
         RUNTIME DESTINATION bin/bridge_examples
@@ -159,6 +152,6 @@ message(STATUS "QuicR C Bridge Library Configuration Summary:")
 message(STATUS "  Version: ${PROJECT_VERSION}")
 message(STATUS "  C++ Standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "  C Standard: ${CMAKE_C_STANDARD}")
-message(STATUS "  Build Examples: ${BUILD_BRIDGE_EXAMPLES}")
+message(STATUS "  Build Examples: ${QUICR_BUILD_EXAMPLES}")
 message(STATUS "  Install Prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "")

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.16)
 
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
@@ -37,8 +37,9 @@ option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
+option(QUICR_GENERATE_THIRD_PARTY_LICENSES "Generate notices for distributed CPM dependencies" OFF)
 
-option(WITH_MBEDTLS "Build against MbedTLS rather than OpenSSL" OFF)
+option(WITH_MBEDTLS "Build with the MbedTLS crypto backend" OFF)
 option(WITH_BORINGSSL "Use BoringSSL as the OpenSSL provider (required on Android)" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
 option(QUICR_USE_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
@@ -53,13 +54,6 @@ if(QUICR_ENABLE_SANITIZERS)
         -fno-sanitize-recover=undefined
     )
     add_link_options(-fsanitize=address,undefined)
-endif()
-
-if (NOT DEFINED ENV{IDF_PATH})
-  find_package(Threads REQUIRED)
-  find_package(PkgConfig REQUIRED)
-else()
-  set(WITH_MBEDTLS ON CACHE BOOL "Build against MbedTLS rather than OpenSSL" FORCE)
 endif()
 
 # Android's NDK ships no linkable system OpenSSL, so default the OpenSSL provider
@@ -77,12 +71,14 @@ endif()
 # Dependencies
 #=============================================================================#
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(CPM)
 
+CPMUsePackageLock(package-lock.cmake)
+
 include(QuicrFormat)
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/QuicrDependencies.cmake)
+include(QuicrDependencies)
 
 #=============================================================================#
 # Build the library
@@ -122,4 +118,30 @@ endif()
 
 if(QUICR_BUILD_C_BRIDGE)
    add_subdirectory(c-bridge)
+endif()
+
+#=============================================================================#
+# Licences
+#=============================================================================#
+
+if(QUICR_GENERATE_THIRD_PARTY_LICENSES)
+    # CPMLicenses.cmake v0.0.7, pinned to the release commit.
+    CPMAddPackage(
+        NAME CPMLicenses
+        GITHUB_REPOSITORY cpm-cmake/CPMLicenses.cmake
+        VERSION 0.0.7
+        GIT_TAG ca42334d561b83e499b11cf55fe05d97a0767fb9
+        EXCLUDE_FROM_ALL YES
+    )
+
+    set(QUICR_DISTRIBUTED_CPM_PACKAGES timeq picotls picoquic)
+    if(TARGET fmt)
+        list(APPEND QUICR_DISTRIBUTED_CPM_PACKAGES fmt)
+    endif()
+
+    cpm_licenses_create_disclaimer_target(
+        third-party-licenses
+        "${CMAKE_BINARY_DIR}/THIRD_PARTY_LICENSES.txt"
+        "${QUICR_DISTRIBUTED_CPM_PACKAGES}"
+    )
 endif()

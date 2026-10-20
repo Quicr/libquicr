@@ -182,7 +182,7 @@ ObjectDatagramStatusEncodeDecode(ExtensionTest extensions)
     object_datagram_status.track_alias = uint64_t(kTrackAliasAliceVideo);
     object_datagram_status.group_id = 0x1000;
     object_datagram_status.object_id = 0xFF;
-    object_datagram_status.priority = 0xA;
+    object_datagram_status.publisher_priority = 0xA;
     object_datagram_status.status = ObjectStatus::kAvailable;
     if (extensions == ExtensionTest::kBoth || extensions == ExtensionTest::kMutable) {
         object_datagram_status.extensions = kOptionalExtensions;
@@ -205,7 +205,7 @@ ObjectDatagramStatusEncodeDecode(ExtensionTest extensions)
     CHECK_EQ(object_datagram_status.track_alias, object_datagram_status_out.track_alias);
     CHECK_EQ(object_datagram_status.group_id, object_datagram_status_out.group_id);
     CHECK_EQ(object_datagram_status.object_id, object_datagram_status_out.object_id);
-    CHECK_EQ(object_datagram_status.priority, object_datagram_status_out.priority);
+    CHECK_EQ(object_datagram_status.publisher_priority, object_datagram_status_out.publisher_priority);
     CHECK_EQ(object_datagram_status.status, object_datagram_status_out.status);
     CompareExtensions(object_datagram_status.extensions,
                       object_datagram_status_out.extensions,
@@ -358,7 +358,7 @@ StreamHeaderEncodeDecode(StreamHeaderProperties type)
     if (hdr.properties->subgroup_id_mode == SubgroupIdType::kExplicit) {
         hdr.subgroup_id = 0x5000;
     }
-    hdr.priority = 0xA;
+    hdr.publisher_priority = 0xA;
     buffer << hdr;
 
     StreamHeaderSubGroup hdr_out;
@@ -431,7 +431,7 @@ StreamPerSubGroupObjectEncodeDecode(StreamHeaderProperties properties, Extension
     if (properties.subgroup_id_mode == SubgroupIdType::kExplicit) {
         hdr_grp.subgroup_id = 0x5000;
     }
-    hdr_grp.priority = 0xA;
+    hdr_grp.publisher_priority = 0xA;
 
     buffer << hdr_grp;
 

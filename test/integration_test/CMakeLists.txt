@@ -62,9 +62,11 @@ set(TEST_KEY ${CMAKE_CURRENT_BINARY_DIR}/server-key.pem)
 set(TEST_CERT ${CMAKE_CURRENT_BINARY_DIR}/server-cert.pem)
 add_custom_command(
     OUTPUT ${TEST_KEY} ${TEST_CERT}
-    COMMAND openssl req -nodes -x509 -newkey rsa:2048 -days 365
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} genpkey -algorithm EC
+        -pkeyopt ec_paramgen_curve:P-256 -out ${TEST_KEY}
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 1
         -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org"
-        -keyout ${TEST_KEY} -out ${TEST_CERT}
+        -key ${TEST_KEY} -out ${TEST_CERT}
     COMMENT "Creating certificate in ${CMAKE_CURRENT_BINARY_DIR}"
 )
 
