@@ -3,14 +3,14 @@ SPDX-FileCopyrightText: Copyright (c) 2026 Cisco
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# qClient
+# MoQ CLI
 
-qClient is an example client. It implements the client API to make a connection
-to the relay and to act as subscriber, publisher, or both. The client program
-will read from `stdin` when in publisher mode to publish data. Alternatively,
-the client can be configured to publish a timestamp using the option `--clock`.
+MoQ CLI is an interactive client for testing and debugging libquicr. It
+connects to a relay and can act as a subscriber, publisher, fetcher, or a
+combination of these roles. In publisher mode, the client can read objects
+from `stdin` or publish timestamps with the `--clock` option.
 
-Use `qclient -h` to view more options.
+Use `moq-cli -h` to view all options.
 
 > [!NOTE]
 > The **namespace** and **name** for both publish and subscribe can be any string
@@ -19,13 +19,13 @@ Use `qclient -h` to view more options.
 ### As chat subscriber
 
 ```
-./qclient --sub_namespace chat --sub_name general
+moq-cli --sub_namespace chat --sub_name general
 ```
 
 ### As chat publisher
 
 ```
-./qclient --pub_namespace chat --pub_name general
+moq-cli --pub_namespace chat --pub_name general
 ```
 
 This will start the client as a publisher in `stdin`, and will prompt the user
@@ -35,13 +35,13 @@ or `Ctrl+Z` (Windows).
 ### As both chat subscriber and publisher
 
 ```
-./qclient --sub_namespace chat --sub_name general --pub_namespace chat --pub_name general
+moq-cli --sub_namespace chat --sub_name general --pub_namespace chat --pub_name general
 ```
 
 ### As clock publisher
 
 ```
-./qclient --pub_namespace clock --pub_name second --clock
+moq-cli --pub_namespace clock --pub_name second --clock
 ```
 
 This will send a timestamp periodically on the user's behalf. To exit the client
@@ -50,5 +50,5 @@ in this mode, simply interrupt the program (`Ctrl+C`)
 ### As clock subscriber
 
 ```
-./qclient --sub_namespace clock --sub_name second
+moq-cli --sub_namespace clock --sub_name second
 ```

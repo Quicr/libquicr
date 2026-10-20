@@ -22,7 +22,8 @@ path = [
   "README.md",
   "examples/README.md",
   "tools/README.md",
-  "tools/qclient/README.md",
+  "tools/moq-capture/README.md",
+  "tools/moq-cli/README.md",
   "package-lock.cmake",
 ]
 SPDX-FileCopyrightText = "NONE"

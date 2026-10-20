@@ -1,35 +1,28 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-CPMAddPackage("gh:jarro2783/cxxopts@3.3.1")
-CPMAddPackage("gh:nlohmann/json@3.11.3")
-
-if(TARGET fmt::fmt)
-    set(SPDLOG_FMT_EXTERNAL ON)
-endif()
-
-CPMAddPackage("gh:gabime/spdlog@1.17.0")
-
-add_executable(qclient client.cpp)
-target_link_libraries(qclient PRIVATE
+add_executable(moq_cli client.cpp)
+target_link_libraries(moq_cli PRIVATE
     quicr
-    nlohmann_json::nlohmann_json
     spdlog::spdlog
     cxxopts::cxxopts
 )
 
-target_compile_options(qclient PRIVATE
+target_compile_options(moq_cli PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wpedantic -Wextra -Wall>
     $<$<CXX_COMPILER_ID:MSVC>:>
 )
 
-set_target_properties(qclient PROPERTIES
+target_include_directories(moq_cli PRIVATE "../shared/include")
+
+set_target_properties(moq_cli PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS OFF
+    OUTPUT_NAME "moq-cli"
 )
 
 if(LINT)
     include(Lint)
-    Lint(qclient)
+    Lint(moq_cli)
 endif()

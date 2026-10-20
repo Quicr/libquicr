@@ -23,22 +23,22 @@ namespace quicr::example {
         return quicr::format("{:%F %T}", now);
     }
 
-    static const TrackNamespace MakeTrackNamespace(const std::string& ns)
+    static const TrackNamespace MakeTrackNamespace(const std::string& ns, const char delimiter = ',')
     {
-        const auto split = [](std::string str, const std::string& delimiter) {
+        const auto split = [](std::string str, const char delimiter) {
             std::vector<std::string> tokens;
 
             std::size_t pos = 0;
             while ((pos = str.find(delimiter)) != std::string::npos) {
                 tokens.emplace_back(str.substr(0, pos));
-                str.erase(0, pos + delimiter.length());
+                str.erase(0, pos + 1);
             }
             tokens.emplace_back(std::move(str));
 
             return tokens;
         };
 
-        return split(ns, ",");
+        return split(ns, delimiter);
     }
 
     /**
