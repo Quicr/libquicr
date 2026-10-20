@@ -19,6 +19,13 @@ namespace quicr {
 #define FORCE_INLINE inline __attribute__((always_inline))
 #endif
 
+    /**
+     * @brief Time-bucketed ordered cache with shared ownership of stored values.
+     * @tparam K Ordered key type.
+     * @tparam T Stored value type.
+     * @details Expiration is lazy: time is advanced by insertion and lookup operations, but not by `Size()` or
+     * `Empty()`. This class is not thread-safe; externally serialize all access, including calls to const methods.
+     */
     template<typename K, typename T>
     class Cache
     {
@@ -33,6 +40,15 @@ namespace quicr {
         using CacheType = std::map<K, ValueType>;
 
       public:
+        /**
+         * @brief Constructs an empty cache.
+         * @param duration Maximum TTL and total bucket window, in tick-service milliseconds.
+         * @param interval Bucket width in milliseconds.
+         * @param tick_service Clock shared with the cache.
+         * @pre `interval` is nonzero.
+         * @throws std::invalid_argument If duration is zero, is not a multiple of interval, equals interval, or the
+         * tick service is null.
+         */
         Cache(size_t duration, size_t interval, std::shared_ptr<timeq::tick_service> tick_service)
           : duration_{ duration }
           , interval_{ interval }
@@ -48,26 +64,70 @@ namespace quicr {
             }
         }
 
+        /** @brief Default construction is unavailable because timing parameters are required. */
         Cache() = delete;
-        Cache(const Cache&) = default;
-        Cache(Cache&&) noexcept = default;
 
-        Cache& operator=(const Cache&) = default;
-        Cache& operator=(Cache&&) noexcept = default;
+        /** @brief Copies cache state and shares ownership of values and the tick service. @param other Cache to copy.
+         */
+        Cache(const Cache& other) = default;
 
+        /** @brief Moves cache state. @param other Cache to move. */
+        Cache(Cache&& other) noexcept = default;
+
+        /**
+         * @brief Copies cache state and shares ownership of values and the tick service.
+         * @param other Cache to copy.
+         * @return `*this`.
+         */
+        Cache& operator=(const Cache& other) = default;
+
+        /** @brief Moves cache state. @param other Cache to move. @return `*this`. */
+        Cache& operator=(Cache&& other) noexcept = default;
+
+        /** @return Number of currently stored map entries without advancing expiration time. */
         size_t Size() const noexcept { return cache_.size(); }
+
+        /** @return Whether the map is currently empty without advancing expiration time. */
         bool Empty() const noexcept { return cache_.empty(); }
 
+        /**
+         * @brief Copies a value into the cache.
+         * @param key Lookup key.
+         * @param value Value copied into shared storage.
+         * @param ttl Lifetime in milliseconds; zero means the configured maximum duration.
+         * @throws std::invalid_argument If `ttl` exceeds the configured duration.
+         * @warning Reinserting an existing key does not remove its earlier expiration-bucket entry; that older entry
+         * may erase the replacement before its requested TTL.
+         */
         void Insert(const K& key, const T& value, size_t ttl) { InternalInsert(key, value, ttl); }
 
+        /**
+         * @brief Inserts a value supplied as an rvalue.
+         * @copydetails Insert(const K&, const T&, size_t)
+         * @note The current implementation copies from its internal parameter into shared storage.
+         */
         void Insert(const K& key, T&& value, size_t ttl) { InternalInsert(key, std::move(value), ttl); }
 
+        /**
+         * @brief Advances expiration and tests a key.
+         * @param key Key to find.
+         * @return `true` if the key remains present.
+         * @warning Allocation failure while advancing expiration terminates the process because this function is
+         * `noexcept`.
+         */
         bool Contains(const K& key) noexcept
         {
             Advance();
             return cache_.find(key) != cache_.end();
         }
 
+        /**
+         * @brief Advances expiration and tests whether any key lies in an inclusive ordered range.
+         * @param start_key Inclusive lower bound.
+         * @param end_key Inclusive upper bound.
+         * @return `true` if at least one key lies in `[start_key, end_key]`.
+         * @throws std::invalid_argument If `start_key > end_key`.
+         */
         bool Contains(const K& start_key, const K& end_key)
         {
             if (start_key > end_key) {
@@ -82,6 +142,13 @@ namespace quicr {
             return it_lower != it_upper;
         }
 
+        /**
+         * @brief Retrieves a value by key after advancing expiration.
+         * @param key Key to find.
+         * @return Shared ownership of the value, or null if absent. The value can outlive its cache entry.
+         * @warning Allocation failure while advancing expiration terminates the process because this function is
+         * `noexcept`.
+         */
         ValueType Get(const K& key) noexcept
         {
             if (!Contains(key)) {
@@ -91,6 +158,14 @@ namespace quicr {
             return cache_.at(key);
         }
 
+        /**
+         * @brief Retrieves values beginning at an exact start key.
+         * @param start_key Required first key.
+         * @param end_key Inclusive stopping key.
+         * @return Empty if the inclusive range contains no entry or `start_key` itself is absent; otherwise values
+         * from `start_key` in key order through `end_key`. If `end_key` is absent, iteration continues to cache end.
+         * @throws std::invalid_argument If `start_key > end_key`.
+         */
         std::vector<ValueType> Get(const K& start_key, const K& end_key)
         {
             if (!Contains(start_key, end_key)) {
@@ -114,6 +189,11 @@ namespace quicr {
             return entries;
         }
 
+        /**
+         * @return Shared ownership of the lowest-key unexpired value, or null when empty.
+         * @warning Allocation failure while advancing expiration terminates the process because this function is
+         * `noexcept`.
+         */
         ValueType First() noexcept
         {
             Advance();
@@ -125,6 +205,11 @@ namespace quicr {
             return std::begin(cache_)->second;
         }
 
+        /**
+         * @return Shared ownership of the highest-key unexpired value, or null when empty.
+         * @warning Allocation failure while advancing expiration terminates the process because this function is
+         * `noexcept`.
+         */
         ValueType Last() noexcept
         {
             Advance();
@@ -136,6 +221,7 @@ namespace quicr {
             return std::prev(std::end(cache_))->second;
         }
 
+        /** @brief Removes all entries and expiration buckets and resets the current bucket index. */
         void Clear() noexcept
         {
             cache_.clear();
@@ -144,6 +230,10 @@ namespace quicr {
         }
 
       protected:
+        /**
+         * @brief Applies elapsed bucket intervals and removes keys in expired buckets.
+         * @note A jump spanning the full duration clears the cache. Derived classes must externally synchronize calls.
+         */
         FORCE_INLINE void Advance()
         {
             const TickType new_ticks = static_cast<uint64_t>(
@@ -172,6 +262,13 @@ namespace quicr {
             bucket_index_ = (bucket_index_ + delta) % total_buckets_;
         }
 
+        /**
+         * @brief Shared insertion implementation.
+         * @tparam Value Source value type.
+         * @param key Lookup key.
+         * @param value Value copied into newly allocated shared storage.
+         * @param ttl Lifetime in milliseconds; zero selects the maximum duration.
+         */
         template<typename Value>
         FORCE_INLINE void InternalInsert(const K& key, Value value, size_t ttl)
         {
@@ -191,28 +288,24 @@ namespace quicr {
         }
 
       protected:
-        /// The duration in ticks of the entire queue.
-        const size_t duration_;
+        const size_t duration_; ///< Maximum cache duration in tick-service milliseconds.
 
-        /// The interval at which buckets are cleared in ticks.
+        /// Interval at which buckets are cleared, in milliseconds.
         const size_t interval_;
 
-        /// The total amount of buckets. Value is calculated by duration / interval.
-        const size_t total_buckets_;
+        const size_t total_buckets_; ///< Number of expiration buckets, calculated as duration divided by interval.
 
-        /// The index in time of the current bucket.
-        std::uint32_t bucket_index_{ 0 };
+        std::uint32_t bucket_index_{ 0 }; ///< Index of the current expiration bucket.
 
-        /// Last calculated tick value.
+        /// Last observed tick-service time in milliseconds.
         TickType current_ticks_{ 0 };
 
-        /// The memory storage for all keys to be managed.
-        std::map<std::uint64_t, BucketType> buckets_;
+        std::map<std::uint64_t, BucketType> buckets_; ///< Expiration bucket index to keys scheduled for removal.
 
-        /// The cache of elements being stored.
+        /// Ordered map of keys to shared values.
         CacheType cache_;
 
-        /// Tick service for calculating new tick and jumps in time.
+        /// Shared clock used to calculate elapsed bucket intervals.
         std::shared_ptr<timeq::tick_service> tick_service_;
     };
 

@@ -16,10 +16,10 @@ namespace quicr {
     /**
      * @brief MOQ track handler for subscribed track
      *
-     * @details MOQ subscribe track handler defines all track related callbacks and
-     *  functions for subscribe. Track handler operates on a single track (namespace + name).
-     *
-     *  This extends the base track handler to add subscribe handling
+     * @details Receives one track's object callbacks and manages its subscription controls.
+     * Payload callbacks are synchronous on session receive processing; borrowed spans become
+     * invalid on return. State and most attributes are not synchronized, so applications should
+     * serialize calls with callbacks unless a method explicitly says otherwise.
      */
     class SubscribeTrackHandler : public TrackHandler
     {
@@ -29,10 +29,10 @@ namespace quicr {
          */
         enum class Error : uint8_t
         {
-            kOk = 0,
-            kNotAuthorized,
-            kNotSubscribed,
-            kNoData
+            kOk = 0,        ///< Receive operation succeeded.
+            kNotAuthorized, ///< Subscriber is not authorized for the track.
+            kNotSubscribed, ///< No active subscription exists.
+            kNoData         ///< No object data is available.
         };
 
         /**
@@ -40,18 +40,18 @@ namespace quicr {
          */
         enum class Status : uint8_t
         {
-            kOk = 0,
-            kNotConnected,
-            kError,
-            kNotAuthorized,
-            kNotSubscribed,
-            kPendingResponse,
+            kOk = 0,             ///< Subscription is active and may receive data.
+            kNotConnected,       ///< Transport is disconnected.
+            kError,              ///< Subscription failed for an unspecified error.
+            kNotAuthorized,      ///< Peer denied authorization.
+            kNotSubscribed,      ///< Initial/inactive state.
+            kPendingResponse,    ///< Waiting for the peer's response.
             kSendingUnsubscribe, ///< In this state, callbacks will not be called,
-            kPaused,
-            kNewGroupRequested,
-            kCancelled,
-            kDoneByFin,
-            kDoneByReset,
+            kPaused,             ///< Forwarding is locally marked paused.
+            kNewGroupRequested,  ///< A new-group transition is in progress.
+            kCancelled,          ///< Subscription was cancelled.
+            kDoneByFin,          ///< Request or data stream ended normally.
+            kDoneByReset,        ///< Request or data stream was reset.
         };
 
         /**
@@ -59,20 +59,25 @@ namespace quicr {
          */
         struct JoiningFetch
         {
-            const std::uint8_t priority{ 0 };
-            const std::optional<messages::GroupOrder> group_order;
-            const messages::Parameters parameters;
-            const std::uint64_t joining_start;
-            const bool absolute;
+            const std::uint8_t priority{ 0 };                      ///< FETCH transport priority.
+            const std::optional<messages::GroupOrder> group_order; ///< Requested order, if explicit.
+            const messages::Parameters parameters; ///< Additional FETCH parameters copied into the request.
+            const std::uint64_t joining_start;     ///< Joining offset interpreted according to `absolute`.
+            const bool absolute;                   ///< Whether `joining_start` is absolute rather than relative.
         };
 
       protected:
         /**
          * @brief Subscribe track handler constructor
          *
-         * @param full_track_name           Full track name struct
-         * @param joining_fetch             If set, subscribe with a joining fetch using these attributes.
-         * @param publisher_initiated       True if publisher initiated the subscribe, otherwise False
+         * @param full_track_name Full track name struct
+         * @param priority Subscription scheduling priority.
+         * @param group_order Requested group order, or `std::nullopt` to use the publisher default.
+         * @param filter Subscription selection filter.
+         * @param joining_fetch If set, subscribe with a joining fetch using these attributes.
+         * @param publisher_initiated True if publisher initiated the subscribe, otherwise False
+         * @details Publisher-initiated subscriptions discard `joining_fetch` and begin in `kOk`;
+         * other subscriptions begin in `kNotSubscribed`.
          */
         SubscribeTrackHandler(const FullTrackName& full_track_name,
                               std::uint8_t priority,
@@ -96,10 +101,13 @@ namespace quicr {
         /**
          * @brief Create shared Subscribe track handler
          *
-         * @param full_track_name           Full track name struct
-         * @param priority                  Subscription priority, if omitted, publisher priority
+         * @param full_track_name Full track name struct
+         * @param priority Subscription priority, if omitted, publisher priority
          *                                  is considered
-         * @param group_order               Order for group delivery
+         * @param group_order Order for group delivery, or nullopt for publisher default
+         * @param filter Subscription selection filter
+         * @param publisher_initiated Whether the peer publisher initiated the subscription
+         * @return Shared ownership of the new handler.
          */
         static std::shared_ptr<SubscribeTrackHandler> Create(
           const FullTrackName& full_track_name,
@@ -120,32 +128,33 @@ namespace quicr {
         constexpr Status GetStatus() const noexcept { return status_; }
 
         /**
-         * @brief Set the priority of received data
-         *
-         * @param priority      Priority value of received data
+         * @brief Sets the subscriber priority used in subsequent control updates.
+         * @param priority Priority value; existing streams and already-sent requests are unchanged.
          */
         void SetSubscriberPriority(uint8_t priority) noexcept { subscriber_priority_ = priority; }
 
         /**
          * @brief Get subscription priority
          *
-         * @return Priority value
+         * @return Current subscription priority.
          */
         constexpr std::uint8_t GetSubscriberPriority() const noexcept { return subscriber_priority_; }
 
         /**
          * @brief Get subscription group order
          *
-         * @return GroupOrder value
+         * @return Requested order, or `std::nullopt` when the publisher chooses.
          */
 
         constexpr std::optional<messages::GroupOrder> GetGroupOrder() const noexcept { return group_order_; }
 
+        /// @return Publisher's default group order learned for this subscription.
         constexpr messages::GroupOrder GetPublisherDefaultGroupOrder() const noexcept
         {
             return publisher_default_group_order_;
         }
 
+        /// @brief Stores the publisher's default group order. @param group_order New default.
         void SetPublisherDefaultGroupOrder(messages::GroupOrder group_order) noexcept
         {
             publisher_default_group_order_ = group_order;
@@ -154,26 +163,30 @@ namespace quicr {
         /**
          * @brief Get subscription filter type
          *
-         * @return FilterType value
+         * @return Protocol discriminator for `GetFilter()`.
          */
 
         messages::FilterType GetFilterType() const noexcept { return messages::GetFilterType(filter_); }
 
+        /// @return Borrowed immutable filter, valid for this handler's lifetime.
         constexpr const messages::Filter& GetFilter() const noexcept { return filter_; }
 
+        /// @return Most recently recorded object location, or `std::nullopt` if none is known.
         constexpr std::optional<messages::Location> GetLatestLocation() const noexcept { return latest_location_; }
 
+        /// @brief Records the latest object location. @param new_location Location to store.
         constexpr void SetLatestLocation(messages::Location new_location) noexcept { latest_location_ = new_location; }
 
         /**
-         * @brief Get joining fetch info, if any.
+         * @brief Gets joining-fetch attributes.
+         * @return A copy of the attributes, or `std::nullopt` when no joining fetch was requested.
          */
         std::optional<JoiningFetch> GetJoiningFetch() const noexcept { return joining_fetch_; }
 
         /**
          * @brief Set the track alias
          *
-         * @param track_alias       MoQ track alias for track namespace+name that
+         * @param track_alias MoQ track alias for track namespace+name that
          *                          is relative to the QUIC connection session
          */
         void SetTrackAlias(uint64_t track_alias) { track_alias_ = track_alias; }
@@ -190,7 +203,7 @@ namespace quicr {
         /**
          * @brief Set the received track alias
          *
-         * @param track_alias       MoQ track alias for track namespace+name that
+         * @param track_alias MoQ track alias for track namespace+name that
          *                          is relative to the QUIC connection session
          */
         void SetReceivedTrackAlias(uint64_t track_alias) { received_track_alias_ = track_alias; }
@@ -198,7 +211,9 @@ namespace quicr {
         /**
          * @brief Set the new group request Id
          *
-         * @param group_id              Group ID to request via new group request
+         * @param group_id Group ID to request via new group request
+         * @details Stores the larger pending ID. A non-increasing ID replaces the pending value
+         * with zero, which represents an unknown/new group request.
          */
         void SetNewGroupRequestId(uint64_t group_id)
         {
@@ -219,7 +234,9 @@ namespace quicr {
         std::optional<uint64_t> GetReceivedTrackAlias() const noexcept { return received_track_alias_; }
 
         /**
-         * @brief Set if subscribe handler is publisher initiated
+         * @brief Marks this handler publisher-initiated.
+         * @details Also changes `kNotSubscribed` to `kOk`. No callback or protocol message is sent,
+         * and any previously retained joining-fetch attributes are not cleared.
          */
         void SetPublishInitiated() noexcept
         {
@@ -231,27 +248,34 @@ namespace quicr {
 
         /**
          * @brief Pause receiving data
-         * @details Pause will send a MoQT SUBSCRIBE_UPDATE to change the forwarding state to be stopped         *
+         * @details Sends a REQUEST_UPDATE with forwarding disabled and immediately changes local
+         * state to `kPaused`. It silently does nothing without a live session/request stream, when
+         * already paused, or in `kNotConnected`. No `StatusChanged` callback is made.
          */
         void Pause() noexcept;
 
         /**
          * @brief Resume receiving data
-         * @details Rresume will send a MoQT SUBSCRIBE_UPDATE to change the forwarding state to send
+         * @details Sends a REQUEST_UPDATE with forwarding enabled and immediately changes local
+         * state to `kOk`. It silently does nothing unless currently paused and attached to a live
+         * session/request stream. No `StatusChanged` callback is made.
          */
         void Resume() noexcept;
 
         /**
          * @brief Generate a new group request for this subscription
          *
-         * @param group_id      Value of group requested or zero if unknown
+         * @param group_id Value of group requested or zero if unknown
+         * @details Silently does nothing unless status is `kOk`, new-group requests are enabled,
+         * and both the session and request stream are available. Local status is unchanged.
          */
         void RequestNewGroup(uint64_t group_id = 0) noexcept;
 
         /**
          * @brief Indicate if subscribe handler should send new group requests or not
          *
-         * @param is_supported      True to send new group requests, False to disable sending
+         * @param is_supported True to send new group requests, False to disable sending
+         * @note This changes local capability only and sends no control message.
          */
         void SupportNewGroupRequest(bool is_supported) noexcept;
 
@@ -261,15 +285,24 @@ namespace quicr {
          */
         bool IsNewGroupRequestSupported() const noexcept { return support_new_group_request_; }
 
+        /**
+         * @brief Gets the requested delivery timeout.
+         * @return Borrowed optional timeout, valid for this handler's lifetime.
+         */
         const std::optional<std::chrono::milliseconds>& GetDeliveryTimeout() const noexcept
         {
             return delivery_timeout_;
         }
 
+        /**
+         * @brief Stores a requested delivery timeout.
+         * @param timeout Timeout to store; negative values are accepted and no update is sent.
+         */
         void SetDeliveryTimeout(std::chrono::milliseconds timeout) noexcept { delivery_timeout_ = timeout; }
 
         /**
-         * @brief Get the requested rendezvous timeout.
+         * @brief Gets the requested rendezvous timeout.
+         * @return Non-negative timeout; zero requests no rendezvous wait.
          */
         constexpr std::chrono::milliseconds GetRendezvousTimeout() const noexcept { return rendezvous_timeout_; }
 
@@ -277,7 +310,9 @@ namespace quicr {
          * @brief Set the subscription's rendezvous timeout.
          * @details This requests that the peer holds this subscribe pending for up to this amount of time if a
          * publisher is not yet present for this track.
+         * @param timeout Non-negative duration to request.
          * @throws std::invalid_argument if the timeout is negative.
+         * @note Stores local request attributes only; it does not update an active subscription.
          */
         void SetRendezvousTimeout(std::chrono::milliseconds timeout)
         {
@@ -299,11 +334,13 @@ namespace quicr {
          *
          * @details Event notification to provide the caller the received full data object
          *
-         * @warning This data will be invalided after return of this method
+         * @warning `data` is borrowed and invalid after this method returns. Copy it to retain it.
          *
-         * @param object_headers    Object headers, must include group and object Ids
-         * @param data              Object payload data received, **MUST** match ObjectHeaders::payload_length.
-         * @param stream_mode       If this is the first object of a subgroup, its properties.
+         * @param object_headers Object headers, must include group and object Ids
+         * @param data Object payload data received, **MUST** match ObjectHeaders::payload_length.
+         * @param stream_mode If this is the first object of a subgroup, its properties.
+         * @note Called synchronously on the session receive path. The default implementation
+         * discards the object.
          */
         virtual void ObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
                                     [[maybe_unused]] BytesSpan data,
@@ -314,12 +351,14 @@ namespace quicr {
          *
          * @details Event notification when an ObjectDatagramStatus message is received.
          *
-         * @param group_id              Group ID of the status
-         * @param object_id             Object ID of the status
-         * @param priority              Priority of the status
-         * @param status                Status
-         * @param extensions            Mutable extensions, if any
-         * @param immutable_extensions  Immutable extensions, if any
+         * @param group_id Group ID of the status
+         * @param object_id Object ID of the status
+         * @param priority Priority of the status
+         * @param status Status
+         * @param extensions Mutable extensions, if any
+         * @param immutable_extensions Immutable extensions, if any
+         * @note Extension optionals are passed by value and may be retained or moved by an
+         * override. The default implementation does nothing.
          */
         virtual void ObjectStatusReceived([[maybe_unused]] uint64_t group_id,
                                           [[maybe_unused]] uint64_t object_id,
@@ -337,10 +376,11 @@ namespace quicr {
          *      subscriber forwarding it on can close out the subgroup it is publishing. Only
          *      reported for subgroups at least one object arrived for.
          *
-         * @param group_id      Group the subgroup belongs to
-         * @param subgroup_id   Subgroup that has ended
-         * @param reset         True if the publisher gave up on the subgroup rather than
+         * @param group_id Group the subgroup belongs to
+         * @param subgroup_id Subgroup that has ended
+         * @param reset True if the publisher gave up on the subgroup rather than
          *                      finishing it
+         * @note Called only for a subgroup that reached the handler. The default does nothing.
          */
         virtual void SubgroupEnded([[maybe_unused]] std::uint64_t group_id,
                                    [[maybe_unused]] std::uint64_t subgroup_id,
@@ -353,7 +393,12 @@ namespace quicr {
          *
          * @details Event notification to provide the caller the raw data received as a datagram
          *
-         * @param data        Shared pointer to the data received
+         * @param data Shared immutable ownership of the complete encoded datagram; an override may
+         * retain it after return.
+         * @details The default implementation decodes the datagram synchronously, updates object
+         * counters, and invokes `ObjectReceived` or `ObjectStatusReceived`. The pointer must not be
+         * null and the buffer must not be empty.
+         * @throws messages::ProtocolViolationException Propagated for malformed protocol fields.
          */
         virtual void DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data);
 
@@ -362,10 +407,12 @@ namespace quicr {
          *
          * @details Event notification to provide the caller the received data object
          *
-         * @warning This data will be invalided after return of this method
+         * @warning `data` is borrowed and invalid after this method returns. Copy it to retain it.
          *
-         * @param object_headers    Object headers, must include group and object Ids
-         * @param data              Object payload data received, can be <= ObjectHeaders::payload_length
+         * @param object_headers Object headers, must include group and object Ids
+         * @param data Object payload data received, can be <= ObjectHeaders::payload_length
+         * @note The default implementation does nothing. This callback is reserved for partial
+         * delivery paths and does not imply object completion.
          */
         virtual void PartialObjectReceived([[maybe_unused]] const ObjectHeaders& object_headers,
                                            [[maybe_unused]] BytesSpan data)
@@ -377,21 +424,32 @@ namespace quicr {
          *
          * @details Notification of the subscribe status
          *
-         * @param status        Indicates status of the subscribe
+         * @param status Indicates status of the subscribe
+         * @note The default implementation does nothing. Depending on the initiating operation,
+         * some direct local state changes (including `Pause()` and `Resume()`) do not invoke it.
          */
         virtual void StatusChanged([[maybe_unused]] Status status) {}
 
         /**
          * @brief Notification callback to provide sampled metrics
          *
-         * @details Callback will be triggered on Config::metrics_sample_ms to provide the sampled data based
-         *      on the sample period.  After this callback, the period/sample based metrics will reset and start over
-         *      for the new period.
+         * @details Called at the connection metrics cadence, including idle periods, on the
+         * session's metrics-reporting path. The structure is a cumulative live snapshot for object
+         * and byte counters; those counters are not reset after the callback.
          *
-         * @param metrics           Copy of the subscribed metrics for the sample period
+         * @param metrics Copy of the subscribed metrics for the sample period
+         * @note The reference is borrowed for the callback. Copy it to retain a stable snapshot.
          */
         virtual void MetricsSampled([[maybe_unused]] const SubscribeTrackMetrics& metrics) {}
 
+        /**
+         * @brief Handles an update received from the publisher.
+         * @param params Borrowed update parameters.
+         * @return Immediate success with empty parameters for a valid publisher-initiated
+         * authorization-token-only update.
+         * @throws messages::ProtocolViolationException for updates to subscriber-initiated
+         * subscriptions or unsupported parameters.
+         */
         Reply<messages::Parameters, ErrorCode> RequestUpdateReceived(const messages::Parameters& params) override;
 
         ///@}
@@ -405,17 +463,27 @@ namespace quicr {
         /**
          * @brief Subscribe metrics for the track
          *
-         * @details Subscribe metrics are updated real-time and transport quic metrics on metrics_sample_ms
-         *     period.
+         * @details Public live counters updated by receive/session processing. Object counters
+         * include decoded data and status datagrams; byte counters count payload bytes for decoded
+         * objects and transport stream bytes for streamed delivery. Values are cumulative and are
+         * not reset after `MetricsSampled`. Unsynchronized application writes race with session updates.
          */
         SubscribeTrackMetrics subscribe_track_metrics_;
 
       protected:
+        /**
+         * @brief Validates REQUEST_UPDATE_OK parameters.
+         * @param params Borrowed response parameters; only expiration and largest-object are accepted.
+         * @throws messages::ProtocolViolationException for unsupported parameters.
+         * @note Accepted values are currently validated but otherwise ignored.
+         */
         void RequestOkReceived(const messages::Parameters& params) override;
 
         /**
          * @brief Set the subscribe status
-         * @param status                Status of the subscribe
+         * @param status Status of the subscribe
+         * @details Assigns the status and synchronously invokes `StatusChanged`, even when the
+         * value did not change.
          */
         void SetStatus(Status status) noexcept
         {
@@ -423,8 +491,10 @@ namespace quicr {
             StatusChanged(status);
         }
 
+        /// Pending new-group request ID; zero denotes an unspecified group.
         std::optional<uint64_t> pending_new_group_request_id_;
 
+        /// Reusable internal datagram decode buffer; derived classes should not retain views into it.
         StreamBuffer<uint8_t> dgram_buffer_;
 
       private:

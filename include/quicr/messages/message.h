@@ -22,6 +22,11 @@ namespace quicr::messages {
     class Message
     {
       public:
+        /**
+         * Creates a builder over shared mutable byte storage.
+         * @param buffer Storage to mutate. The builder retains shared ownership.
+         * @throws std::invalid_argument if @p buffer is null.
+         */
         Message(std::shared_ptr<std::vector<std::uint8_t>> buffer = std::make_shared<std::vector<std::uint8_t>>())
           : _bytes(std::move(buffer))
         {
@@ -81,18 +86,34 @@ namespace quicr::messages {
             return *this;
         }
 
+        /**
+         * Appends one raw byte.
+         * @param byte Byte to append without additional encoding.
+         * @return This builder.
+         */
         inline Message& Append(std::uint8_t byte) noexcept
         {
             _bytes->push_back(byte);
             return *this;
         }
 
+        /**
+         * Appends a non-owning byte range by copying it into the message.
+         * @param bytes Bytes to copy; the span need only remain valid for this call.
+         * @return This builder.
+         */
         inline Message& Append(std::span<const std::uint8_t> bytes) noexcept
         {
             _bytes->insert(_bytes->end(), bytes.begin(), bytes.end());
             return *this;
         }
 
+        /**
+         * Appends a value using its byte-stream insertion operator.
+         * @tparam T Serializable value type.
+         * @param value Value to serialize.
+         * @return This builder.
+         */
         template<typename T>
             requires requires(std::vector<std::uint8_t>& buffer, const T& value) { buffer << value; }
         inline Message& Append(const T& value) noexcept(noexcept(*_bytes << value))
@@ -101,6 +122,14 @@ namespace quicr::messages {
             return *this;
         }
 
+        /**
+         * Finalizes the reserved two-byte big-endian payload length, if any.
+         *
+         * The returned reference exposes the same shared mutable storage passed
+         * to the constructor. Payload lengths larger than 65535 are truncated
+         * to 16 bits by the current implementation.
+         * @return Reference to the builder's shared byte-vector handle.
+         */
         inline const std::shared_ptr<std::vector<uint8_t>>& ToBytes() const noexcept
         {
             if (_length_bytes_offset.has_value()) {
@@ -112,14 +141,26 @@ namespace quicr::messages {
             return _bytes;
         }
 
+        /**
+         * Finalizes the message and returns a non-owning view of its bytes.
+         * @return Span valid while the shared vector remains alive and is not reallocated or mutated.
+         */
         inline std::span<const std::uint8_t> ToByteSpan() const noexcept { return *ToBytes(); }
 
+        /// Removes all bytes and any reserved-length state; shared storage remains owned.
         void Clear() noexcept
         {
             _bytes->clear();
             _length_bytes_offset = std::nullopt;
         }
 
+        /**
+         * Parses one field and advances the caller's span past consumed bytes.
+         * @tparam Field Default-constructible type supporting `BytesSpan >> Field`.
+         * @param buffer Mutable span view; replaced with its unconsumed suffix.
+         * @return Parsed field value.
+         * @throws std::exception Any exception raised by the field decoder.
+         */
         template<typename Field>
         [[nodiscard]] static inline Field ParseField(std::span<const std::uint8_t>& buffer)
         {

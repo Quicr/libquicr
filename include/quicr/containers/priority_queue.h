@@ -16,15 +16,14 @@
 namespace quicr {
 
     /**
-     * @brief Priority queue that uses time_queue for each priority
+     * @brief Lockable priority/group queue backed by `timeq::time_queue` instances.
      *
      * @details Order is maintained for objects pushed by priority.
-     *          During each `front()`/`pop()` the queue will always
-     *          pop the lower priority objects first. Lower priority
-     *          objects will be serviced first in the order they were
-     *          added to the queue.
+     *          During each `Front()`/`PopFront()` the numerically lowest priority is selected first, then the
+     *          numerically lowest group ID. Objects within that group retain the ordering of `timeq::time_queue`.
+     *          Queue operations do not acquire the mutex automatically; callers must hold this object's capability.
      *
-     * @tparam DataType   The element type to be stored.
+     * @tparam DataType The element type to be stored.
      */
     template<typename DataType>
     class QUICR_CAPABILITY("mutex") PriorityQueue
@@ -47,17 +46,25 @@ namespace quicr {
         };
 
       public:
+        /** @brief Acquires the queue mutex, blocking until available. */
         constexpr void lock() QUICR_ACQUIRE() { mutex_.lock(); }
+
+        /** @brief Releases the queue mutex; the calling thread must own it. */
         constexpr void unlock() QUICR_RELEASE() { mutex_.unlock(); }
+
+        /** @return `true` if the queue mutex was acquired without blocking. */
         constexpr bool try_lock() QUICR_TRY_ACQUIRE(true) { return mutex_.try_lock(); }
 
         /**
          * Construct a priority queue
          *
-         * @param duration              Max duration of time for the queue
-         * @param interval              Interval per bucket, Default is 1
-         * @param tick_service          Shared pointer to tick_service service
-         * @param initial_queue_size    Number of default fifo queue size (reserve)
+         * @param duration Max duration of time for the queue
+         * @param interval Interval per bucket, Default is 1
+         * @param tick_service Shared pointer to tick_service service
+         * @param initial_queue_size Number of default fifo queue size (reserve)
+         * @throws std::invalid_argument If `tick_service` is null.
+         * @throws Any exception thrown while constructing the underlying time queues.
+         * @note The queue shares ownership of `tick_service`.
          */
         PriorityQueue(size_t duration,
                       size_t interval,
@@ -80,21 +87,26 @@ namespace quicr {
         /**
          * Construct a priority queue
          * @param tick_service Shared pointer to tick_service service
+         * @throws std::invalid_argument If `tick_service` is null.
          */
         PriorityQueue(const std::shared_ptr<timeq::tick_service>& tick_service)
           : PriorityQueue(1000, 1, tick_service, 1000)
         {
         }
 
+        /** @brief Destroys all queues; no thread may hold or wait on its mutex. */
         ~PriorityQueue() = default;
 
         /**
          * @brief Pushes a new value onto the queue with a time to live and priority
          *
-         * @param value     The value to push onto the queue.
-         * @param ttl       The time to live of the value in milliseconds.
-         * @param priority  The priority of the value.
+         * @param group_id Group used to order values within a priority.
+         * @param value The value to push onto the queue.
+         * @param ttl The time to live of the value in milliseconds.
+         * @param priority The priority of the value.
          * @param delay_ttl Delay POP by this ttl value in milliseconds
+         * @pre The caller holds this queue's lock.
+         * @throws Any exception thrown while allocating a group queue or copying `value`.
          */
         void Push(std::uint64_t group_id, DataType& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
           QUICR_REQUIRES(this)
@@ -106,10 +118,13 @@ namespace quicr {
         /**
          * @brief Pushes a new value onto the queue with a time to live and priority
          *
-         * @param value     The value to push onto the queue.
-         * @param ttl       The time to live of the value in milliseconds.
-         * @param priority  The priority of the value.
+         * @param group_id Group used to order values within a priority.
+         * @param value The value to push onto the queue.
+         * @param ttl The time to live of the value in milliseconds.
+         * @param priority The priority of the value.
          * @param delay_ttl Delay POP by this ttl value in milliseconds
+         * @pre The caller holds this queue's lock.
+         * @throws Any exception thrown while allocating a group queue or moving `value`.
          */
         void Push(std::uint64_t group_id, DataType&& value, uint32_t ttl, uint8_t priority = 0, uint32_t delay_ttl = 0)
           QUICR_REQUIRES(this)
@@ -121,7 +136,11 @@ namespace quicr {
         /**
          * @brief Get the first object from queue
          *
-         * @return timeq::element<DataType> element
+         * @return A reference-like element from the first nonempty priority/group queue, or the underlying empty
+         * sentinel when none remains.
+         * @pre The caller holds this queue's lock.
+         * @note Empty/expired group queues encountered during the search are removed. The result follows
+         * `timeq::time_queue` invalidation rules and must not outlive the lock or a queue mutation.
          */
         TimeQueueReference Front() QUICR_REQUIRES(this)
         {
@@ -154,7 +173,8 @@ namespace quicr {
         /**
          * @brief Get and remove the first object from queue
          *
-         * @return timeq::element<DataType> element
+         * @return The removed first nonexpired element and expiration metadata, or the underlying empty sentinel.
+         * @pre The caller holds this queue's lock.
          */
         TimeQueueValueType PopFront() QUICR_REQUIRES(this)
         {
@@ -186,7 +206,9 @@ namespace quicr {
         }
 
         /**
-         * @brief Pop/remove the first object from queue
+         * @brief Removes one object from the numerically first priority/group queue.
+         * @pre The caller holds this queue's lock.
+         * @note Does nothing when no group queue exists.
          */
         void Pop() QUICR_REQUIRES(this)
         {
@@ -211,7 +233,8 @@ namespace quicr {
         }
 
         /**
-         * @brief Clear queue all
+         * @brief Removes all active queues and replenishes the reusable queue pool.
+         * @pre The caller holds this queue's lock.
          */
         void Clear() QUICR_REQUIRES(this)
         {
@@ -220,6 +243,10 @@ namespace quicr {
             InitFreeTimeQueues();
         }
 
+        /**
+         * @return Sum of sizes reported by all active group queues.
+         * @pre The caller holds this queue's lock.
+         */
         size_t Size() QUICR_REQUIRES(this)
         {
             return std::accumulate(queues_.begin(), queues_.end(), 0, [](auto total_sum, auto& group) {
@@ -231,6 +258,12 @@ namespace quicr {
             });
         }
 
+        /**
+         * @return `true` when no priority contains a registered group queue.
+         * @pre The caller holds this queue's lock.
+         * @note Expired underlying queues are removed by `Front()`, `PopFront()`, or `Pop()`, so this may remain
+         * `false` until one of those operations performs cleanup.
+         */
         bool Empty() const QUICR_REQUIRES(this)
         {
             for (auto& [_, queue] : queues_) {
@@ -257,8 +290,8 @@ namespace quicr {
         /**
          * @brief Get queue by priority
          *
-         * @param priority  The priority queue value.
-         * @param group_id  The group id for the timequeue
+         * @param priority The priority queue value.
+         * @param group_id The group id for the timequeue
          *
          * @return Unique pointer to queue for the given priority
          */
@@ -289,8 +322,8 @@ namespace quicr {
         size_t duration_ms_;
         size_t interval_ms_;
 
-        /// queues_[priority][group_id] = time queue of objects
-        std::map<uint8_t, std::map<uint64_t, std::shared_ptr<TimeQueueType>>> queues_;
+        std::map<uint8_t, std::map<uint64_t, std::shared_ptr<TimeQueueType>>>
+          queues_; ///< queues_[priority][group_id] = time queue of objects
 
         /**
          * List of unused and available time queues. Free should be removed when in use. It should

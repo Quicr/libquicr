@@ -11,46 +11,52 @@
 
 namespace quicr::messages {
 
+    /// Message-parameter type codes used as delta-encoded map keys on the wire.
     enum struct ParameterType : uint64_t
     {
         // Delivery and Timeouts
-        kDeliveryTimeout = 0x02,
-        kAuthorizationToken = 0x03,
-        kRendezvousTimeout = 0x04,
-        kSubgroupDeliveryTimeout = 0x06,
-        kFillTimeout = 0x0A,
+        kDeliveryTimeout = 0x02,         ///< Delivery timeout, encoded as an unsigned varint.
+        kAuthorizationToken = 0x03,      ///< Sensitive opaque token bytes; never log the value.
+        kRendezvousTimeout = 0x04,       ///< Rendezvous timeout, encoded as an unsigned varint.
+        kSubgroupDeliveryTimeout = 0x06, ///< Subgroup delivery timeout, encoded as an unsigned varint.
+        kFillTimeout = 0x0A,             ///< Fill timeout, encoded as an unsigned varint.
 
         // Subscription and Track State
-        kExpires = 0x08,
-        kLargestObject = 0x09,
-        kForward = 0x10,
+        kExpires = 0x08,       ///< Expiry value; zero is resolved as absent.
+        kLargestObject = 0x09, ///< Group/object location encoded as two unsigned varints.
+        kForward = 0x10,       ///< One-byte Boolean forwarding flag.
 
         // Priority and Filtering
-        kSubscriberPriority = 0x20,
-        kSubscriptionFilter = 0x21,
-        kGroupOrder = 0x22,
+        kSubscriberPriority = 0x20, ///< One-byte subscriber priority.
+        kSubscriptionFilter = 0x21, ///< Length-prefixed location-filter bytes.
+        kGroupOrder = 0x22,         ///< One-byte GroupOrder value.
 
         // Dynamic Group Management
-        kNewGroupRequest = 0x32,
-        kTrackNamespacePrefix = 0x34,
+        kNewGroupRequest = 0x32,      ///< New-group request encoded as an unsigned varint.
+        kTrackNamespacePrefix = 0x34, ///< Length-prefixed opaque namespace-prefix bytes.
 
         // Filters
-        kSubgroupFilter = 0x25,
-        kObjectFilter = 0x26,
-        kPriorityFilter = 0x27,
-        kPropertyFilter = 0x28,
-        kTrackFilter = 0x29,
+        kSubgroupFilter = 0x25, ///< Length-prefixed subgroup-range filter bytes.
+        kObjectFilter = 0x26,   ///< Length-prefixed object-range filter bytes.
+        kPriorityFilter = 0x27, ///< Length-prefixed priority-range filter bytes.
+        kPropertyFilter = 0x28, ///< Length-prefixed property filter bytes.
+        kTrackFilter = 0x29,    ///< Length-prefixed track filter bytes.
 
         /*===================================================================*/
         // Internal Use
         /*===================================================================*/
 
-        kInvalid = 0xFF,
+        kInvalid = 0xFF, ///< Internal sentinel; not a valid wire parameter.
     };
 
+    /// A message parameter key/value pair.
     using Parameter = KeyValuePair<ParameterType>;
+
+    /// A setup-option key/value pair.
     using SetupParameter = KeyValuePair<SetupOptionType>;
 
+    /// @param type Filter type to convert.
+    /// @return Parameter type corresponding to @p type, or kInvalid for kNone.
     constexpr ParameterType ToParameterFilterType(FilterType type)
     {
         switch (type) {
@@ -71,6 +77,12 @@ namespace quicr::messages {
         }
     }
 
+    /**
+     * Converts a filter parameter key to its filter discriminator.
+     * @param type Parameter key to convert.
+     * @return Corresponding filter type.
+     * @throws std::invalid_argument if @p type is not a filter parameter.
+     */
     constexpr FilterType ToFilterType(ParameterType type)
     {
         switch (type) {
@@ -92,11 +104,19 @@ namespace quicr::messages {
         }
     }
 
+    /// @param filter Filter to inspect.
+    /// @return Parameter key corresponding to the active alternative in @p filter.
     inline ParameterType GetFilterParameterType(const Filter& filter)
     {
         return ToParameterFilterType(GetFilterType(filter));
     }
 
+    /**
+     * Serializes a filter into a parameter value.
+     * @param filter_type Wire discriminator used for the parameter key.
+     * @param filter Active filter value. No validation ensures it matches @p filter_type.
+     * @return Parameter containing the serialized filter, or an empty value for monostate.
+     */
     inline Parameter SerializeFilter(FilterType filter_type, const Filter& filter)
     {
         auto param = std::visit(
@@ -115,12 +135,13 @@ namespace quicr::messages {
         return param;
     }
 
+    /// Physical value encoding selected by a parameter type.
     enum class ParameterEncoding
     {
-        kByte,
-        kVarint,
-        kLocation,
-        kBytes
+        kByte,     ///< Exactly one raw byte.
+        kVarint,   ///< One unsigned variable-length integer.
+        kLocation, ///< Two unsigned variable-length integers.
+        kBytes     ///< Unsigned-varint length followed by bytes.
     };
 
     /**
@@ -160,6 +181,10 @@ namespace quicr::messages {
         return it->second;
     }
 
+    /**
+     * Types accepted by typed parameter insertion and retrieval.
+     * @tparam T Candidate value type.
+     */
     template<typename T>
     concept ParameterValueType =
       HasByteStreamOperators<std::decay_t<T>> || ByteParameter<std::decay_t<T>> ||
@@ -167,18 +192,51 @@ namespace quicr::messages {
           { UintVar(v) };
       };
 
+    /**
+     * Sorted parameter collection with type-directed wire encoding.
+     *
+     * The map representation permits only one stored value per numeric key;
+     * adding the same type appends to that value rather than creating a second
+     * map entry. Consequently, duplicate authorization-token parameters are
+     * not represented independently by this class.
+     *
+     * @tparam Type uint64-compatible parameter-key enum or integer type.
+     */
     template<typename Type = ParameterType>
         requires std::is_convertible_v<Type, std::uint64_t> ||
                  std::is_same_v<std::underlying_type_t<Type>, std::uint64_t>
     class ParameterList
     {
       public:
+        /// Creates an empty list.
         ParameterList() = default;
-        ParameterList(const ParameterList&) = default;
-        ParameterList(ParameterList&&) = default;
-        ParameterList& operator=(const ParameterList&) = default;
-        ParameterList& operator=(ParameterList&&) = default;
 
+        /// Copies a list.
+        /// @param other List to copy.
+        ParameterList(const ParameterList& other) = default;
+
+        /// Moves a list.
+        /// @param other List to move.
+        ParameterList(ParameterList&& other) = default;
+
+        /// Copy-assigns a list.
+        /// @param other List to copy.
+        /// @return This list.
+        ParameterList& operator=(const ParameterList& other) = default;
+
+        /// Move-assigns a list.
+        /// @param other List to move.
+        /// @return This list.
+        ParameterList& operator=(ParameterList&& other) = default;
+
+        /**
+         * Encodes and appends a value under a parameter key.
+         * @tparam T Value type accepted by the selected encoding.
+         * @param type Parameter key that determines the wire encoding.
+         * @param value Value to append to the key's stored bytes.
+         * @return This list.
+         * @throws ProtocolViolationException if the key is unknown or the value type is incompatible.
+         */
         template<typename T>
             requires HasByteStreamOperators<T> || std::is_convertible_v<T, std::uint8_t> ||
                      std::is_same_v<T, Location> || requires(T v) {
@@ -219,6 +277,13 @@ namespace quicr::messages {
             return *this;
         }
 
+        /**
+         * Adds an optional value when present.
+         * @tparam T Parameter value type.
+         * @param type Parameter key.
+         * @param value Optional value.
+         * @return This list.
+         */
         template<ParameterValueType T>
         ParameterList& AddOptional(Type type, const std::optional<T>& value)
         {
@@ -229,11 +294,22 @@ namespace quicr::messages {
             return *this;
         }
 
+        /// @return Const iterator to the first numeric-key/value entry.
         auto begin() const noexcept { return parameters.begin(); }
+
+        /// @return Const iterator past the last entry.
         auto end() const noexcept { return parameters.end(); }
 
+        /// @param type Parameter key to find.
+        /// @return Whether @p type has a stored map entry.
         bool Contains(Type type) const { return parameters.contains(static_cast<std::uint64_t>(type)); }
 
+        /**
+         * Finds encoded value bytes without copying.
+         * @param type Parameter key.
+         * @return View into this list's storage, or an empty span when absent.
+         * The view is invalidated by mutation or destruction of this list.
+         */
         BytesSpan Find(Type type) const
         {
             auto it = parameters.find(static_cast<std::uint64_t>(type));
@@ -244,8 +320,17 @@ namespace quicr::messages {
             return it->second;
         }
 
+        /// @param type Parameter key to remove if present.
         void Remove(Type type) { parameters.erase(static_cast<std::uint64_t>(type)); }
 
+        /**
+         * Decodes a typed value.
+         * @tparam T Requested value type.
+         * @param type Parameter key controlling decoding.
+         * @return Decoded value, or a value-initialized T when absent or stored as empty bytes.
+         * @throws ProtocolViolationException for unknown keys or incompatible requested types.
+         * @throws UintVarInvalidArgException for malformed varints.
+         */
         template<ParameterValueType T>
         T Get(Type type) const
         {
@@ -283,6 +368,12 @@ namespace quicr::messages {
             }
         }
 
+        /**
+         * Decodes a filter parameter.
+         * @param type Filter discriminator.
+         * @return Decoded filter, or monostate when absent, unsupported, or this is not a ParameterType list.
+         * @note Subgroup, object, priority, and property filter decoding is currently unsupported.
+         */
         Filter GetFilter(FilterType type) const
         {
             if constexpr (!std::is_same_v<ParameterType, Type>) {
@@ -297,17 +388,33 @@ namespace quicr::messages {
             return DeserializeFilter(type, bytes);
         }
 
+        /// @tparam T Requested value type.
+        /// @param type Parameter key to decode.
+        /// @return Decoded @p type when present, otherwise std::nullopt.
         template<ParameterValueType T>
         std::optional<T> GetOptional(Type type) const
         {
             return Contains(type) ? std::make_optional(Get<T>(type)) : std::nullopt;
         }
 
-        auto operator<=>(const ParameterList&) const = default;
+        /// Lexicographically compares the underlying sorted maps.
+        /// @param other List to compare.
+        /// @return Lexicographic comparison of the maps.
+        auto operator<=>(const ParameterList& other) const = default;
 
-        std::map<std::uint64_t, Bytes> parameters;
+        std::map<std::uint64_t, Bytes> parameters; ///< Encoded values keyed by absolute numeric parameter type.
     };
 
+    /**
+     * Parses a counted, delta-keyed parameter list and advances the span.
+     * Existing entries are not cleared; decoded bytes append to matching keys.
+     * @tparam Type Parameter-key type.
+     * @param buffer Input span passed by value.
+     * @param msg Destination list.
+     * @return Unconsumed suffix of @p buffer.
+     * @throws ProtocolViolationException for unknown parameter types.
+     * @throws UintVarInvalidArgException or std::invalid_argument for truncated input.
+     */
     template<typename Type = ParameterType>
     BytesSpan operator>>(BytesSpan buffer, ParameterList<Type>& msg)
     {
@@ -351,6 +458,15 @@ namespace quicr::messages {
         return buffer;
     }
 
+    /**
+     * Appends a counted, sorted, delta-keyed parameter list.
+     * @tparam Type Parameter-key type.
+     * @param buffer Destination byte vector.
+     * @param msg List to serialize.
+     * @return @p buffer.
+     * @throws ProtocolViolationException for unknown parameter types.
+     * @warning A present byte-encoded parameter must contain at least one byte.
+     */
     template<typename Type = ParameterType>
     Bytes& operator<<(Bytes& buffer, const ParameterList<Type>& msg)
     {
@@ -379,9 +495,17 @@ namespace quicr::messages {
         return buffer;
     }
 
+    /// Standard message-parameter list.
     using Parameters = quicr::messages::ParameterList<quicr::messages::ParameterType>;
 
-    /// Must all be known, must not be duplicated (except auth).
+    /**
+     * Ensures every stored key is allowed.
+     * @param params Parameters to inspect.
+     * @param allowed Allowed parameter types.
+     * @throws ProtocolViolationException for a disallowed key or duplicate non-token key.
+     * @note ParameterList uses a map, so separately encoded duplicate entries have already
+     * coalesced by the time this function runs; duplicate detection is therefore limited.
+     */
     inline void ValidateParameters(const Parameters& params, std::initializer_list<ParameterType> allowed)
     {
         std::vector<ParameterType> seen;
@@ -400,6 +524,13 @@ namespace quicr::messages {
         }
     }
 
+    /**
+     * Decodes authorization-token values.
+     * @param params Source parameters.
+     * @return Decoded tokens.
+     * @throws ProtocolViolationException for an invalid token alias discriminator.
+     * @warning Token bytes are sensitive opaque data and must not be logged.
+     */
     inline std::vector<Token> CollectAuthTokens(const Parameters& params)
     {
         std::vector<Token> tokens;
@@ -415,6 +546,13 @@ namespace quicr::messages {
         return tokens;
     }
 
+    /**
+     * Resolves the optional FORWARD byte.
+     * @param params Parameters to inspect.
+     * @param default_value Value to return when FORWARD is absent.
+     * @return @p default_value when absent; otherwise the encoded Boolean.
+     * @throws ProtocolViolationException unless the encoded value is zero or one.
+     */
     inline bool ResolveForward(const Parameters& params, bool default_value)
     {
         if (!params.Contains(ParameterType::kForward)) {
@@ -427,6 +565,12 @@ namespace quicr::messages {
         return value == 1;
     }
 
+    /**
+     * Resolves and validates GROUP_ORDER.
+     * @param params Parameters to inspect.
+     * @return Valid order, or std::nullopt when absent.
+     * @throws ProtocolViolationException for any other byte value.
+     */
     inline std::optional<GroupOrder> ResolveGroupOrder(const Parameters& params)
     {
         if (!params.Contains(ParameterType::kGroupOrder)) {
@@ -440,6 +584,8 @@ namespace quicr::messages {
         return static_cast<GroupOrder>(value);
     }
 
+    /// @param params Parameters to inspect.
+    /// @return EXPIRES when present and nonzero; otherwise std::nullopt.
     inline std::optional<std::uint64_t> ResolveExpires(const Parameters& params)
     {
         const auto expires = params.GetOptional<std::uint64_t>(ParameterType::kExpires);
@@ -447,15 +593,25 @@ namespace quicr::messages {
     }
 
     // Filters.
+    /// Filter kinds searched by ContainsAnyFilter() and ResolveFilter(), in precedence order.
     inline constexpr FilterType kFilterTypes[] = {
         FilterType::kSubscriptionFilter, FilterType::kSubgroupFilter, FilterType::kObjectFilter,
         FilterType::kPriorityFilter,     FilterType::kPropertyFilter, FilterType::kTrackFilter,
     };
+
+    /// @param params Parameters to inspect.
+    /// @return Whether any known filter parameter key is present.
     inline bool ContainsAnyFilter(const Parameters& params)
     {
         return std::ranges::any_of(
           kFilterTypes, [&](const auto filter_type) { return params.Contains(ToParameterFilterType(filter_type)); });
     }
+
+    /**
+     * Resolves the first present filter according to kFilterTypes order.
+     * @param params Parameters to inspect.
+     * @return Decoded filter, or monostate when none is present or its decoder is unsupported.
+     */
     inline Filter ResolveFilter(const Parameters& params)
     {
         for (const auto filter_type : kFilterTypes) {

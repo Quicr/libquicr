@@ -1,42 +1,33 @@
 # Media over QUIC (MoQ) Publisher/Subscriber API
 
-This library provides a publisher and subscriber API using MoQ. It provides
-a class for [Client](#quicr::Client) and [Server](#quicr::Server) that
-will handle all MoQ protocol state machine functions. Both classes contain virtual methods (e.g., callbacks)
-that **SHOULD** be implemented.
+LibQuicR provides client and server APIs for publishing and subscribing to
+Media over QUIC tracks. \ref quicr::SessionManager owns transports and their
+\ref quicr::Session objects. Configure a client with \ref quicr::ClientConfig
+or a server with \ref quicr::ServerConfig, then provide the corresponding
+session callback implementation.
 
-Subscriptions and publications are handled via [Subscribe Track Handler](#quicr::SubscribeTrackHandler)
-and [Publish Track Handler](#quicr::PublishTrackHandler). Both classes contain virtual methods
-(e.g., callbacks) that **SHOULD** be implemented.
+## Sessions
 
-## Client
+Class | Description
+------|------------
+\ref quicr::SessionManager | Creates transports, owns sessions, and registers track and namespace handlers.
+\ref quicr::Session | Represents one MoQ protocol session and exposes its current status and operations.
+\ref quicr::Session::ClientCallbacks | Receives setup and protocol callbacks for a client session.
+\ref quicr::Session::ServerCallbacks | Receives setup and protocol callbacks for an accepted server session.
 
- Class                        | Description
-------------------------------|-----------------------------------------------------------
- quicr::Client       | Client handler, which is specific to a QUIC IP connection
- quicr::ClientConfig | Client configuration
+## Track handlers
 
-## Server
+Create a handler for one \ref quicr::FullTrackName and register it with
+\ref quicr::SessionManager::AddHandler. Override the handler callbacks needed
+by the application.
 
- Class                        | Description
-------------------------------|------------------------------------------------------------------------
- quicr::Server       | Server handler, which is specific to the QUIC IP listening IP and port
- quicr::ServerConfig | Server configuration
+Class | Description
+------|------------
+\ref quicr::SubscribeTrackHandler | Receives objects and subscription status for a subscribed track.
+\ref quicr::PublishTrackHandler | Publishes objects and reports publication status for a track.
 
-## Track Handlers
+See the [API Guide](api-guide.html) for more details and the
+[Examples](examples.html) for complete applications.
 
-Both client and server provide quicr::Transport::PublishTrack() and quicr::Transport::SubscribeTrack()
-methods to start a new subscription and/or publication. Use the below handler classes when calling
-the methods. Each track handler is constructed for a single full track name (e.g., namespace and name).
-
- Class                          | Description
---------------------------------|------------------------------------------------------------------------
- quicr::SubscribeTrackHandler     | Subscribe track handler for subscribe related operations and callbacks
- quicr::PublishTrackHandler       | Publish track handler for publish related operations and callbacks
-
-
-See [API Guide](api-guide.html) for more details on the API. See [Examples](examples.html) for detailed example of how to get started
-using the APIs. 
-
-@example server.cpp
-@example client.cpp
+@example simple_publish/main.cpp
+@example simple_subscribe/main.cpp
