@@ -4,6 +4,7 @@ libquicr
 [![Ubuntu](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml)
 [![macOS](https://github.com/Quicr/libquicr/actions/workflows/macos.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/macos.yml)
 [![Windows](https://github.com/Quicr/libquicr/actions/workflows/windows.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/windows.yml)
+[![Android](https://github.com/Quicr/libquicr/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/android.yml)
 
 [![REUSE status](https://api.reuse.software/badge/github.com/fsfe/reuse-action)](https://api.reuse.software/info/github.com/fsfe/reuse-action)
 [![REUSE Compliance](https://github.com/Quicr/libquicr/actions/workflows/reuse.yaml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/reuse.yaml)
