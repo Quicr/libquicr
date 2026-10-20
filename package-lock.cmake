@@ -43,6 +43,13 @@ CPMDeclarePackage(benchmark
   SYSTEM YES
   EXCLUDE_FROM_ALL YES
 )
+# cxxopts
+CPMDeclarePackage(cxxopts
+  VERSION 3.3.1
+  GITHUB_REPOSITORY jarro2783/cxxopts
+  SYSTEM YES
+  EXCLUDE_FROM_ALL YES
+)
 # json
 CPMDeclarePackage(json
   VERSION 3.11.3
@@ -50,15 +57,9 @@ CPMDeclarePackage(json
   SYSTEM YES
   EXCLUDE_FROM_ALL YES
 )
-# sframe (unversioned)
-# CPMDeclarePackage(sframe
-#  GIT_TAG 8ef171cb10b960989fff9e26e8fb0b8329d60b6f
-#  GITHUB_REPOSITORY cisco/sframe
-#  SYSTEM YES
-#  EXCLUDE_FROM_ALL YES
-#)
-# CPMLicenses.cmake
-CPMDeclarePackage(CPMLicenses.cmake
+# CPMLicenses
+CPMDeclarePackage(CPMLicenses
+  NAME CPMLicenses
   VERSION 0.0.7
   GIT_TAG ca42334d561b83e499b11cf55fe05d97a0767fb9
   GITHUB_REPOSITORY cpm-cmake/CPMLicenses.cmake

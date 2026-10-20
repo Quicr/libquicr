@@ -4,8 +4,8 @@
 #include "helper_functions.h"
 #include "spdlog_logger.h"
 
+#include <cxxopts.hpp>
 #include <nlohmann/json.hpp>
-#include <oss/cxxopts.hpp>
 #include <quicr/containers/cache.h>
 #include <quicr/handlers/publish_fetch_handler.h>
 #include <quicr/log.h>
@@ -14,7 +14,6 @@
 #include <quicr/session_callbacks.h>
 #include <quicr/session_manager.h>
 #include <quicr/utilities/defer.h>
-#include <sframe/sframe.h>
 #include <timeq/tick_service.h>
 
 #include <atomic>
@@ -57,7 +56,6 @@ namespace qclient_vars {
     std::chrono::milliseconds cache_duration_ms(180000);
     std::unordered_map<std::uint64_t, quicr::Cache<std::uint64_t, std::set<CacheObject>>> cache;
     std::shared_ptr<timeq::threaded_tick_service> tick_service = std::make_shared<timeq::threaded_tick_service>();
-    std::optional<sframe::MLSContext> mls_ctx = sframe::MLSContext(sframe::CipherSuite::AES_GCM_128_SHA256, 1);
     std::optional<std::filesystem::path> watch_path;
     std::chrono::milliseconds watch_interval_ms(5000);
     std::uint8_t publisher_priority{ 200 };
@@ -198,20 +196,6 @@ class MySubscribeTrackHandler : public quicr::SubscribeTrackHandler
                         quicr::BytesSpan data,
                         std::optional<quicr::messages::StreamHeaderProperties>) override
     {
-        quicr::Bytes pt(data.size());
-        if (qclient_vars::mls_ctx.has_value()) {
-            auto plaintext = qclient_vars::mls_ctx->unprotect(pt, data, {});
-            if (plaintext.is_err()) {
-                const auto error = plaintext.error();
-                QUICR_LOGGER_WARN(qclient_vars::logger,
-                                  "Failed to unprotect SFrame object (type={}, error={})",
-                                  static_cast<int>(error.type()),
-                                  error.message() != nullptr ? error.message() : "unspecified");
-                return;
-            }
-            data = plaintext.value();
-        }
-
         if (qclient_vars::record && !data.empty()) {
             RecordObject(GetFullTrackName(), hdr, data);
         }
@@ -411,21 +395,7 @@ class MyPublishTrackHandler : public quicr::PublishTrackHandler
               .Insert(object_headers.group_id, { std::move(object) }, qclient_vars::cache_duration_ms.count());
         }
 
-        if (qclient_vars::mls_ctx.has_value()) {
-            quicr::Bytes ct(data.size() + sframe::Context::max_overhead);
-            auto payload = qclient_vars::mls_ctx->protect(0, track_alias.value(), ct, data, {});
-            if (payload.is_err()) {
-                const auto error = payload.error();
-                QUICR_LOGGER_ERROR(qclient_vars::logger,
-                                   "Failed to protect SFrame object (type={}, error={})",
-                                   static_cast<int>(error.type()),
-                                   error.message() != nullptr ? error.message() : "unspecified");
-                return PublishObjectStatus::kInternalError;
-            }
-            return quicr::PublishTrackHandler::PublishObject(object_headers, payload.value());
-        } else {
-            return quicr::PublishTrackHandler::PublishObject(object_headers, data);
-        }
+        return quicr::PublishTrackHandler::PublishObject(object_headers, data);
     }
 };
 
@@ -1551,22 +1521,6 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         QUICR_LOGGER_INFO(qclient_vars::logger, "SSL Keylog enabled");
     }
 
-    if (cli_opts.count("mls_key")) {
-        const std::string mls_key = cli_opts["mls_key"].as<std::string>();
-        const std::vector<uint8_t> mls_key_bytes(mls_key.begin(), mls_key.end());
-        auto add_epoch = qclient_vars::mls_ctx->add_epoch(0, mls_key_bytes);
-        if (add_epoch.is_err()) {
-            const auto error = add_epoch.error();
-            QUICR_LOGGER_ERROR(qclient_vars::logger,
-                               "Failed to configure SFrame epoch (type={}, error={})",
-                               static_cast<int>(error.type()),
-                               error.message() != nullptr ? error.message() : "unspecified");
-            exit(EXIT_FAILURE);
-        }
-    } else {
-        qclient_vars::mls_ctx = std::nullopt;
-    }
-
     config.endpoint_id = cli_opts["endpoint_id"].as<std::string>();
     config.connect_uri = cli_opts["url"].as<std::string>();
     config.transport_config.debug = cli_opts["debug"].as<bool>();
@@ -1634,8 +1588,7 @@ main(int argc, char* argv[])
         ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-client"))
         ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
         ("s,ssl_keylog", "Enable SSL Keylog for transport debugging")
-        ("t,transport", "Session protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"))
-        ("k,mls_key", "Enable MLS with a key", cxxopts::value<std::string>());
+        ("t,transport", "Session protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"));
 
     options.add_options("Publisher")
         ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>())

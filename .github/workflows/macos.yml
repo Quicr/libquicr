@@ -31,8 +31,7 @@ jobs:
         ln -s "$LLVM_PREFIX/bin/clang-tidy" "/usr/local/bin/clang-tidy"
 
     - name: Configure CMake
-      # SFrame requires OpenSSL 3 until upstream supports OpenSSL 4.
-      run: cmake -B ${{github.workspace}}/build -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM="3.5" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON
+      run: cmake -B ${{github.workspace}}/build -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM="3.5" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON -DQUICR_BUILD_TOOLS=ON
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j
