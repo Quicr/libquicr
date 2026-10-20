@@ -1,6 +1,13 @@
 # CPM Package Lock
 # This file should be committed to version control
 
+# fmt
+CPMDeclarePackage(fmt
+  GIT_TAG 12.2.0
+  GITHUB_REPOSITORY fmtlib/fmt
+  SYSTEM YES
+  EXCLUDE_FROM_ALL YES
+)
 # timeq
 CPMDeclarePackage(timeq
   GIT_TAG 898d45c
@@ -14,6 +21,9 @@ CPMDeclarePackage(timeq
 #  GITHUB_REPOSITORY quicr/picotls
 #  SYSTEM YES
 #  EXCLUDE_FROM_ALL YES
+#  OPTIONS
+#    "WITH_FUSION OFF"
+#    "picotls_BUILD_TESTS OFF"
 #)
 # picoquic (unversioned)
 # CPMDeclarePackage(picoquic
@@ -21,6 +31,12 @@ CPMDeclarePackage(timeq
 #  GITHUB_REPOSITORY private-octopus/picoquic
 #  SYSTEM YES
 #  EXCLUDE_FROM_ALL YES
+#  OPTIONS
+#    "BUILD_DEMO OFF"
+#    "BUILD_PQBENCH OFF"
+#    "BUILD_LOGREADER OFF"
+#    "picoquic_BUILD_TESTS OFF"
+#    "PICOQUIC_FETCH_PTLS ON"
 #)
 # doctest
 CPMDeclarePackage(doctest
