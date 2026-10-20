@@ -40,7 +40,9 @@ namespace quicr {
      */
     struct SubscribeResponse : TrackStatusResponse
     {
-        bool is_publisher_initiated = false;
+        bool is_publisher_initiated = false; ///< Whether the accepted subscription was initiated by the publisher.
+
+        /// @brief Accepted subscription lifetime, when bounded.
         std::optional<std::chrono::milliseconds> expires{};
     };
 
@@ -49,8 +51,11 @@ namespace quicr {
      */
     struct FetchResponse
     {
+        /// @brief Largest object available to the fetch, when known.
         std::optional<messages::Location> largest_location = std::nullopt;
-        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+
+        messages::GroupOrder publisher_default_group_order =
+          messages::GroupOrder::kAscending; ///< Publisher's default group delivery order.
     };
 
     /**
@@ -71,18 +76,15 @@ namespace quicr {
          */
         enum class Status : uint8_t
         {
-            kReady = 0,
-            kNotReady,
-
-            kInternalError,
-
-            kInvalidParams,
-
-            kConnecting,
-            kDisconnecting,
-            kNotConnected,
-            kFailedToConnect,
-            kPendingPeerSetup,
+            kReady = 0,        ///< Setup is complete and the session is ready.
+            kNotReady,         ///< Session is not ready for protocol operations.
+            kInternalError,    ///< Session encountered an internal failure.
+            kInvalidParams,    ///< Session configuration or peer parameters are invalid.
+            kConnecting,       ///< Underlying connection establishment is in progress.
+            kDisconnecting,    ///< Session teardown is in progress.
+            kNotConnected,     ///< No active underlying connection exists.
+            kFailedToConnect,  ///< Underlying connection establishment failed.
+            kPendingPeerSetup, ///< Local setup was sent and peer setup is still pending.
         };
 
         /**
@@ -108,6 +110,7 @@ namespace quicr {
             kUnsupportedMessageType,   ///< Unsupported MOQT message type
         };
 
+        /// @brief Reserved status type for stream-data parsing.
         enum class StreamDataMessageStatus : uint8_t
         {
         };
@@ -117,11 +120,11 @@ namespace quicr {
          */
         enum class ConnectionStatus : uint8_t
         {
-            kNotConnected = 0,
-            kConnecting,
-            kConnected,
-            kIdleTimeout,
-            kClosedByRemote
+            kNotConnected = 0, ///< No active connection.
+            kConnecting,       ///< Connection establishment is in progress.
+            kConnected,        ///< Connection is active.
+            kIdleTimeout,      ///< Connection closed after an idle timeout.
+            kClosedByRemote    ///< Connection was closed by the peer.
         };
 
         /**
@@ -137,10 +140,14 @@ namespace quicr {
         /// Used to map published tracks to subscribes in client mode and to handle joining fetch lookups
         struct SubscribeContext
         {
-            FullTrackName track_full_name;
-            TrackHash track_hash{ 0, 0 };
+            FullTrackName track_full_name; ///< Full name of the subscribed or published track.
+
+            TrackHash track_hash{ 0, 0 }; ///< Cached hashes used to index the track.
+
+            /// @brief Largest object location advertised for the request, when present.
             std::optional<messages::Location> largest_location{ std::nullopt };
-            std::shared_ptr<Stream> stream;
+
+            std::shared_ptr<Stream> stream; ///< Bidirectional request stream associated with the context.
         };
 
       public:
@@ -148,6 +155,12 @@ namespace quicr {
          * @brief Create a client-mode endpoint
          *
          * @param cfg MoQ Client Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Client callbacks retained by the session; may be null.
+         * @param tick_service Tick service retained by the session; must not be null.
+         * @param logger Optional logger retained by the session.
+         * @return Shared ownership of the new session.
          */
         static std::shared_ptr<Session> Create(const ClientConfig& cfg,
                                                std::shared_ptr<Transport> transport,
@@ -168,6 +181,12 @@ namespace quicr {
          * @brief Create a server-mode endpoint
          *
          * @param cfg MoQ Server Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Server callbacks retained by the session; may be null.
+         * @param tick_service Tick service retained by the session; must not be null.
+         * @param logger Optional logger retained by the session.
+         * @return Shared ownership of the new session.
          */
         static std::shared_ptr<Session> Create(const ServerConfig& cfg,
                                                std::shared_ptr<Transport> transport,
@@ -184,18 +203,30 @@ namespace quicr {
                                                         std::move(logger)));
         }
 
+        /// @brief Destroy the session after detaching and releasing its owned state.
         virtual ~Session();
 
+        /// @brief Return shared ownership of the session's connection.
+        /// @return Reference to the connection handle retained for the session's lifetime.
         const std::shared_ptr<Connection>& GetConnection() const noexcept { return current_connection_; }
 
+        /// @brief Return shared ownership of the tick service used by the session.
+        /// @return Reference to the tick-service handle retained for the session's lifetime.
         const std::shared_ptr<timeq::tick_service>& GetTickService() const noexcept { return tick_service_; }
 
+        /// @brief Return the optional logger used by the session.
+        /// @return Reference to the logger handle, which may be null.
         const std::shared_ptr<Logger>& GetLogger() const noexcept { return logger_; }
 
+        /// @brief Return the current session status.
+        /// @return Atomically loaded lifecycle state.
         Status GetStatus() const noexcept { return status_.load(std::memory_order_acquire); }
 
         /**
          * @brief Close the underlying transport connection and detach this session as delegate.
+         *
+         * @note The session object and connection handle may remain alive, but no further connection callbacks
+         *      are delivered to this session.
          */
         void Disconnect();
 
@@ -206,66 +237,76 @@ namespace quicr {
         /**
          * @brief Subscribe to a track
          *
-         * @param track_handler     Track handler to use for track related functions and callbacks
-         *
+         * @param track_handler Track handler to use for track related functions and callbacks
+         * @pre @p track_handler must not be null.
+         * @throws std::runtime_error if a publisher-initiated subscription lacks required request metadata.
          */
         void SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler);
 
         /**
          * @brief Unsubscribe track
          *
-         * @param track_handler     Track handler to use for track related functions and callbacks
+         * @param track_handler Track handler to use for track related functions and callbacks
+         * @pre @p track_handler must not be null.
          */
         void UnsubscribeTrack(const std::shared_ptr<SubscribeTrackHandler>& track_handler);
 
         /**
          * @brief Update Subscription to a track
          *
-         * @param track_handler     Track handler to use for track related functions and callbacks
-         *
+         * @param track_handler Track handler to use for track related functions and callbacks
+         * @pre @p track_handler must not be null.
          */
         void UpdateTrackSubscription(std::shared_ptr<SubscribeTrackHandler> track_handler);
 
         /**
          * @brief Publish to a track
          *
-         * @param track_handler     Track handler to use for track related functions and callbacks
+         * @param track_handler Track handler to use for track related functions and callbacks
+         * @pre @p track_handler must not be null.
          */
         void PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler);
 
         /**
          * @brief Unpublish track
          *
-         * @param track_handler     Track handler used when published track
+         * @param track_handler Track handler used when published track
+         * @pre @p track_handler must not be null.
          */
         void UnpublishTrack(const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
          * @brief Publish a track namespace
          *
-         * @param ns_handler        Namespace handler to use for track related functions and callbacks
-         * @param passive           True indicates that PUBLISH_NAMESPACE will not be sent
+         * @param ns_handler Namespace handler to use for track related functions and callbacks
+         * @param passive True indicates that PUBLISH_NAMESPACE will not be sent
+         * @pre @p ns_handler must not be null.
          */
         void PublishNamespace(std::shared_ptr<PublishNamespaceHandler> ns_handler, bool passive = false);
 
         /**
          * @brief Unpublish track namespace
          *
-         * @param track_handler     Track handler used when published track
+         * @param track_handler Published namespace handler to finish.
+         * @pre @p track_handler must not be null.
+         * @pre @p track_handler must retain the request stream and request identifier assigned by
+         *      `PublishNamespace`.
          */
         void PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& track_handler);
 
         /**
          * @brief Subscribe to a prefix namespace on a specific connection
          *
-         * @param handler           Namespace handler to subscribe with
+         * @param handler Namespace handler to subscribe with
+         * @pre @p handler must not be null.
          */
         void SubscribeNamespace(std::shared_ptr<SubscribeNamespaceHandler> handler);
 
         /**
          * @brief Unsubscribe from a prefix namespace on a specific connection
          *
-         * @param handler           Namespace handler to unsubscribe
+         * @param handler Namespace handler to unsubscribe
+         * @pre @p handler must not be null.
          */
         void UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler);
 
@@ -289,21 +330,23 @@ namespace quicr {
         /**
          * @brief Fetch track
          *
-         * @param track_handler         Track handler used for fetching
+         * @param track_handler Track handler used for fetching
+         * @pre @p track_handler must not be null.
          */
         void FetchTrack(std::shared_ptr<FetchTrackHandler> track_handler);
 
         /**
          * @brief Cancel Fetch track
          *
-         * @param track_handler         Fetch Track handler to cancel.
+         * @param track_handler Fetch Track handler to cancel.
+         * @pre @p track_handler must not be null.
          */
         void CancelFetchTrack(std::shared_ptr<FetchTrackHandler> track_handler);
 
         /**
          * @brief Request track status
          *
-         * @param handler           Handler for this query's status and response.
+         * @param handler Handler for this query's status and response.
          * @throws std::invalid_argument if handler is null.
          * @throws std::logic_error if the handler has a pending request.
          */
@@ -321,10 +364,11 @@ namespace quicr {
          * @details The server will create a server publish track handler based on a received subscribe. It will
          *      use this handler to send objects to the subscriber.
          *
-         * @param src_id            Connection or peering ID for publisher origin
-         * @param request_id        Request ID from the received subscribe
-         * @param track_handler     Server publish track handler
-         * @param ephemeral         Indicates if persistent state tracking is needed
+         * @param src_id Connection or peering ID for publisher origin
+         * @param request_id Request ID from the received subscribe
+         * @param track_handler Server publish track handler
+         * @param ephemeral Indicates if persistent state tracking is needed
+         * @pre @p track_handler must not be null.
          */
         void BindPublisherTrack(std::uint64_t src_id,
                                 uint64_t request_id,
@@ -336,9 +380,11 @@ namespace quicr {
          *
          * @details Removes a server publish track handler state.
          *
-         * @param src_id            Connection or peering ID of the receiving publisher
-         * @param track_handler     Server publish track handler
+         * @param src_id Connection or peering ID of the receiving publisher
+         * @param track_handler Server publish track handler
          * @param send_publish_done Indicates to send publish done or not
+         * @pre @p track_handler must not be null.
+         * @pre @p track_handler must have a request identifier assigned by `BindPublisherTrack`.
          */
         void UnbindPublisherTrack(std::uint64_t src_id,
                                   const std::shared_ptr<PublishTrackHandler>& track_handler,
@@ -348,6 +394,8 @@ namespace quicr {
          * @brief Bind a server fetch publisher track handler
          *
          * @param track_handler The fetch publisher
+         * @pre @p track_handler must not be null.
+         * @pre @p track_handler must already carry the inbound fetch request identifier.
          */
         void BindFetchTrack(std::shared_ptr<PublishFetchHandler> track_handler);
 
@@ -355,6 +403,8 @@ namespace quicr {
          * @brief Unbind a server fetch publisher track handler
          *
          * @param track_handler The fetch publisher
+         * @pre @p track_handler must not be null.
+         * @pre @p track_handler must have a request identifier assigned by `BindFetchTrack`.
          */
         void UnbindFetchTrack(const std::shared_ptr<PublishFetchHandler>& track_handler);
 
@@ -362,12 +412,17 @@ namespace quicr {
         // --END SERVER RELAY METHODS ------------------------------------------------------------------------
 
       protected:
+        /// @brief Default construction is disabled; use a mode-specific constructor.
         Session() = delete;
 
         /**
          * @brief Client mode constructor
          *
          * @param cfg MoQ Client Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Client callbacks retained by the session; may be null.
+         * @param logger Optional logger retained by the session.
          */
         Session(const ClientConfig& cfg,
                 std::shared_ptr<Transport> transport,
@@ -387,6 +442,10 @@ namespace quicr {
          * @brief Server mode constructor
          *
          * @param cfg MoQ Server Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Server callbacks retained by the session; may be null.
+         * @param logger Optional logger retained by the session.
          */
         Session(const ServerConfig& cfg,
                 std::shared_ptr<Transport> transport,
@@ -405,8 +464,12 @@ namespace quicr {
         /**
          * @brief Client mode constructor with explicit tick service
          *
-         * @param cfg            MoQ Instance Client Configuration
-         * @param tick_service   Shared pointer to the tick service to use
+         * @param cfg MoQ Instance Client Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Client callbacks retained by the session; may be null.
+         * @param tick_service Shared pointer to the tick service to use
+         * @param logger Optional logger retained by the session.
          */
         Session(const ClientConfig& cfg,
                 std::shared_ptr<Transport> transport,
@@ -418,8 +481,12 @@ namespace quicr {
         /**
          * @brief Server mode constructor with explicit tick service
          *
-         * @param cfg            MoQ Server Configuration
-         * @param tick_service   Shared pointer to the tick service to use
+         * @param cfg MoQ Server Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Server callbacks retained by the session; may be null.
+         * @param tick_service Shared pointer to the tick service to use
+         * @param logger Optional logger retained by the session.
          */
         Session(const ServerConfig& cfg,
                 std::shared_ptr<Transport> transport,
@@ -428,6 +495,11 @@ namespace quicr {
                 std::shared_ptr<timeq::tick_service> tick_service,
                 std::shared_ptr<Logger> logger);
 
+        /**
+         * @brief Handle closure of a stream delegated by the connection.
+         * @param stream Closed stream and its associated request state.
+         * @param flag Event that closed the stream direction.
+         */
         void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override;
 
       private:
@@ -699,14 +771,21 @@ namespace quicr {
         /**
          * @brief Create a data stream for a track.
          *
-         * @param request_id  Track the stream carries, so that its metrics find the right handler.
+         * @param request_id Track the stream carries, so that its metrics find the right handler.
+         * @param priority QUIC stream priority; lower values are higher priority.
+         * @return Shared handle to the created stream.
          */
         std::shared_ptr<Stream> CreateStream(std::uint64_t request_id, uint8_t priority);
 
         /**
          * @brief Send published data.
          *
-         * @param stream  Stream to send on, ignored when the flags ask for a datagram.
+         * @param stream Stream to send on, ignored when the flags ask for a datagram.
+         * @param bytes Immutable serialized object bytes.
+         * @param priority Object priority; lower values are higher priority.
+         * @param ttl_ms Maximum queue lifetime in milliseconds.
+         * @param flags Reliability and queue-handling options.
+         * @return Transport enqueue result.
          */
         TransportError Enqueue(const std::shared_ptr<Stream>& stream,
                                std::shared_ptr<const std::vector<uint8_t>> bytes,
@@ -749,14 +828,13 @@ namespace quicr {
         /// Lookup the request each stream carries, by stream ID.
         std::map<std::uint64_t, StreamRequest> request_by_stream QUICR_GUARDED_BY(state_mutex_);
 
-        /// Active inbound publish namespace notifications (not handler based).
-        std::vector<std::uint64_t> recv_publish_namespaces;
+        std::vector<std::uint64_t>
+          recv_publish_namespaces; ///< Active inbound publish namespace notifications (not handler based).
 
         /// Inbound SUBSCRIBE_NAMESPACE request IDs. The prefix and request stream live in recv_req_id.
         std::vector<std::uint64_t> recv_subscribe_namespaces;
 
-        /// Handlers by request ID
-        std::map<std::uint64_t, std::shared_ptr<TrackHandler>> request_handlers;
+        std::map<std::uint64_t, std::shared_ptr<TrackHandler>> request_handlers; ///< Handlers by request ID
 
         /**
          * Data is received with a track alias that is set by the publisher. The map key
@@ -776,8 +854,8 @@ namespace quicr {
         std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias
           QUICR_GUARDED_BY(state_mutex_);
 
-        /// Fetch Publishers by request ID.
-        std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
+        std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>>
+          pub_fetch_tracks_by_request_id; ///< Fetch Publishers by request ID.
 
         std::mutex state_mutex_;
 

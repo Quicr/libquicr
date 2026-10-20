@@ -8,6 +8,12 @@
 #include "quicr/metrics.h"
 
 namespace quicr {
+    /**
+     * @brief Handler for receiving a bounded FETCH response.
+     *
+     * @details A fetch uses the subscription object callbacks but requests an inclusive range.
+     * Instances are heap-owned through `Create()` and are retained by the session while active.
+     */
     class FetchTrackHandler : public SubscribeTrackHandler
     {
       protected:
@@ -16,9 +22,9 @@ namespace quicr {
          *
          * @param full_track_name Full track name struct.
          * @param priority The priority of the track.
-         * @param group_order The group order to use.
          * @param start_location The starting location of the fetch's range (inclusive).
          * @param end_location The ending location of the fetch's range (inclusive).
+         * @param group_order The requested object delivery order.
          */
         FetchTrackHandler(const FullTrackName& full_track_name,
                           const std::uint8_t priority,
@@ -43,11 +49,11 @@ namespace quicr {
          *
          * @param full_track_name Full track name struct.
          * @param priority The priority of the track.
-         * @param group_order The group order to use.
          * @param start_location The starting location of the fetch's range (inclusive).
          * @param end_location The ending location of the fetch's range (inclusive).
+         * @param group_order The requested object delivery order.
          *
-         * @returns Shared pointer to a Fetch track handler.
+         * @return Shared ownership of the new handler.
          */
         static std::shared_ptr<FetchTrackHandler> Create(
           const FullTrackName& full_track_name,
@@ -62,13 +68,15 @@ namespace quicr {
 
         /**
          * @brief Get the start location of the Fetch.
-         * @returns The starting location.
+         * @return Borrowed reference to the immutable inclusive start location. The reference
+         * remains valid for the handler's lifetime.
          */
         constexpr const messages::Location& GetStartLocation() const noexcept { return start_location_; }
 
         /**
          * @brief Get the end location of the Fetch.
-         * @returns The ending location.
+         * @return Borrowed reference to the immutable inclusive end location. The reference
+         * remains valid for the handler's lifetime.
          */
         constexpr const messages::FetchEndLocation& GetEndLocation() const noexcept { return end_location_; }
 
