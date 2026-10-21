@@ -22,7 +22,7 @@ set(BUILD_STATIC_LIBS ON)
 CPMAddPackage("gh:quicr/timeq#898d45c")
 
 CPMAddPackage(
-    URI "gh:quicr/picotls#sync-092226"
+    URI "gh:quicr/picotls#057ed54"
     OPTIONS
         "WITH_FUSION OFF"
         "picotls_BUILD_TESTS OFF"
