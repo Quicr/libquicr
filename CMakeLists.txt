@@ -41,8 +41,8 @@ option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 option(QUICR_GENERATE_THIRD_PARTY_LICENSES "Generate notices for distributed CPM dependencies" OFF)
 
 option(WITH_MBEDTLS "Build with the MbedTLS crypto backend" OFF)
+option(WITH_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
-option(QUICR_USE_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
 
 if(QUICR_ENABLE_SANITIZERS)
     if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang|GNU" OR NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
