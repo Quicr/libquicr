@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/session.h"
+#include "quicr/clock.h"
 #include "quicr/connection.h"
 #include "quicr/handlers/joining_fetch_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
@@ -213,7 +214,7 @@ namespace quicr {
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
                      std::shared_ptr<ClientCallbacks> callbacks,
-                     std::shared_ptr<timeq::tick_service> tick_service,
+                     std::shared_ptr<Clock> clock,
                      std::shared_ptr<Logger> logger)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
@@ -223,7 +224,7 @@ namespace quicr {
       , logger_(std::move(logger))
       , server_config_({})
       , client_config_(cfg)
-      , tick_service_(std::move(tick_service))
+      , clock_(std::move(clock))
       , quic_transport_(std::move(transport))
     {
         QUICR_LOGGER_TRACE(logger_, "Created MoQ Session in client mode connected to {}", cfg.connect_uri);
@@ -234,7 +235,7 @@ namespace quicr {
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
                      std::shared_ptr<ServerCallbacks> callbacks,
-                     std::shared_ptr<timeq::tick_service> tick_service,
+                     std::shared_ptr<Clock> clock,
                      std::shared_ptr<Logger> logger)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
@@ -244,12 +245,40 @@ namespace quicr {
       , logger_(std::move(logger))
       , server_config_(cfg)
       , client_config_({})
-      , tick_service_(std::move(tick_service))
+      , clock_(std::move(clock))
       , quic_transport_(std::move(transport))
     {
         QUICR_LOGGER_INFO(
           logger_, "Created MoQ Session in server mode listening on {}:{}", cfg.server_bind_ip, cfg.server_port);
         Init();
+    }
+
+    Session::Session(const ClientConfig& cfg,
+                     std::shared_ptr<Transport> transport,
+                     std::shared_ptr<Connection> connection,
+                     std::shared_ptr<ClientCallbacks> callbacks,
+                     std::shared_ptr<Logger> logger)
+      : Session(cfg,
+                std::move(transport),
+                std::move(connection),
+                std::move(callbacks),
+                Clock::Create(cfg.tick_service_sleep_delay_us),
+                std::move(logger))
+    {
+    }
+
+    Session::Session(const ServerConfig& cfg,
+                     std::shared_ptr<Transport> transport,
+                     std::shared_ptr<Connection> connection,
+                     std::shared_ptr<ServerCallbacks> callbacks,
+                     std::shared_ptr<Logger> logger)
+      : Session(cfg,
+                std::move(transport),
+                std::move(connection),
+                std::move(callbacks),
+                Clock::Create(cfg.tick_service_sleep_delay_us),
+                std::move(logger))
+    {
     }
 
     Session::~Session() {}

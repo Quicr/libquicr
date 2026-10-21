@@ -3,8 +3,9 @@
 
 #include "transport_picoquic.h"
 
+#include "containers/priority_queue.h"
 #include "picoquic_connection.h"
-#include "quicr/containers/priority_queue.h"
+#include "quicr/clock.h"
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/log.h"
@@ -26,6 +27,7 @@
 #include <picoquic_packet_loop.h>
 #include <picoquic_utils.h>
 #include <picosocks.h>
+#include <timeq/tick_service.h>
 #include <timeq/time_queue.h>
 #include <tls_api.h>
 
@@ -65,6 +67,21 @@
 using namespace quicr;
 
 constexpr const char* kMoqtAlpn = "moqt-18";
+
+class TickServiceAdaptor : public timeq::tick_service
+{
+  public:
+    TickServiceAdaptor(std::shared_ptr<Clock> clock)
+      : clock_(std::move(clock))
+    {
+    }
+
+    std::chrono::microseconds get() const override { return clock_->Get(); }
+
+  private:
+    std::shared_ptr<Clock> clock_;
+};
+
 /* ============================================================================
  * PicoQuic Callbacks
  * ============================================================================
@@ -1191,7 +1208,7 @@ PicoQuicTransport::EnqueueDatagram(const std::shared_ptr<Connection>& connection
         priority,
         StreamAction::kNoAction,
         std::move(bytes),
-        static_cast<uint64_t>(tick_service_->get().count()),
+        static_cast<uint64_t>(clock_->Get().count()),
     };
 
     pq_conn->dgram_metrics.enqueued_objs++;
@@ -1290,7 +1307,7 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
             priority,
             stream_action,
             std::move(bytes),
-            static_cast<uint64_t>(tick_service_->get().count()),
+            static_cast<uint64_t>(clock_->Get().count()),
         };
 
         stream->tx_data->push(std::move(cd), ttl_ms);
@@ -1533,10 +1550,11 @@ PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::API api)
         QUICR_LOGGER_INFO(logger, "Created new connection context for conn_id: {}", connection->GetID());
 
         connection->dgram_rx_data->SetLimit(tconfig_.time_queue_rx_size);
-        connection->dgram_tx_data = std::make_shared<PriorityQueue<ConnData>>(tconfig_.time_queue_max_duration,
-                                                                              tconfig_.time_queue_bucket_interval,
-                                                                              tick_service_,
-                                                                              tconfig_.time_queue_init_queue_size);
+        connection->dgram_tx_data =
+          std::make_shared<PriorityQueue<ConnData>>(tconfig_.time_queue_max_duration,
+                                                    tconfig_.time_queue_bucket_interval,
+                                                    std::make_shared<TickServiceAdaptor>(clock_),
+                                                    tconfig_.time_queue_init_queue_size);
     }
 
     return connection;
@@ -1545,7 +1563,7 @@ PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::API api)
 PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
                                      const TransportConfig& tcfg,
                                      bool is_server_mode,
-                                     std::shared_ptr<timeq::tick_service> tick_service,
+                                     std::shared_ptr<Clock> clock,
                                      std::shared_ptr<Logger> logger,
                                      Connection::API connection_api)
   : logger(std::move(logger))
@@ -1555,7 +1573,7 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
   , transportStatus_(TransportStatus::kConnecting)
   , serverInfo_(server)
   , tconfig_(tcfg)
-  , tick_service_(std::move(tick_service))
+  , clock_(std::move(clock))
 {
     debug = tcfg.debug;
 
@@ -1599,7 +1617,7 @@ PicoQuicTransport::MakeStreamTxQueue() const
 {
     return std::make_unique<timeq::time_queue<ConnData>>(tconfig_.time_queue_max_duration,
                                                          tconfig_.time_queue_bucket_interval,
-                                                         tick_service_,
+                                                         std::make_shared<TickServiceAdaptor>(clock_),
                                                          tconfig_.time_queue_init_queue_size);
 }
 
@@ -1662,8 +1680,8 @@ PicoQuicTransport::SendNextDatagram(const std::shared_ptr<PicoQuicConnection>& c
 
         if (out_data->get().data->size() <= max_len) {
 
-            connection->dgram_metrics.tx_object_duration_us.AddValue(
-              static_cast<uint64_t>(tick_service_->get().count()) - out_data->get().tick_microseconds);
+            connection->dgram_metrics.tx_object_duration_us.AddValue(static_cast<uint64_t>(clock_->Get().count()) -
+                                                                     out_data->get().tick_microseconds);
             connection->dgram_metrics.tx_dgrams_bytes += out_data->get().data->size();
             connection->dgram_metrics.tx_dgrams++;
 
@@ -1761,7 +1779,7 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
 
             stream_ctx.tx_object_offset = 0;
             stream_ctx.metrics.tx_stream_objects++;
-            stream_ctx.metrics.tx_object_duration_us.AddValue(static_cast<uint64_t>(tick_service_->get().count()) -
+            stream_ctx.metrics.tx_object_duration_us.AddValue(static_cast<uint64_t>(clock_->Get().count()) -
                                                               conn_data.tick_microseconds);
 
             if (conn_data.stream_action != StreamAction::kNoAction) {
@@ -2628,7 +2646,7 @@ PicoQuicTransport::Shutdown()
     OnNewConnection = nullptr;
     OnConnectionClosed = nullptr;
 
-    tick_service_.reset();
+    clock_.reset();
     QUICR_LOGGER_INFO(logger, "done closing transport threads");
 
     picoquic_config_clear(&config_);
@@ -2642,7 +2660,7 @@ PicoQuicTransport::CheckCallbackDelta(const std::shared_ptr<PicoQuicStream>& str
     }
 
     const auto current_tick =
-      static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
+      static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(clock_->Get()).count());
 
     if (stream->last_tx_tick == 0) {
         stream->last_tx_tick = current_tick;
