@@ -3515,7 +3515,12 @@ namespace quicr {
                               result->handler->SetPublisherDefaultGroupOrder(publish.default_publisher_group_order);
                               result->handler->SupportNewGroupRequest(publish.dynamic_groups);
 
-                              self->SubscribeTrack(result->handler);
+                              // A relay may already have bound the session before returning, so peer
+                              // callbacks can use the handler. SubscribeTrack assigns that session;
+                              // assigning it again races the other thread.
+                              if (result->handler->GetSession().expired()) {
+                                  self->SubscribeTrack(result->handler);
+                              }
                           }
 
                           self->SendPublishOk(self->ResponseStream(request_id), result->attributes);
