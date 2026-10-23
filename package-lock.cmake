@@ -27,7 +27,7 @@ CPMDeclarePackage(timeq
 #)
 # picoquic (unversioned)
 # CPMDeclarePackage(picoquic
-#  GIT_TAG poll-recvmmsg
+#  GIT_TAG master
 #  GITHUB_REPOSITORY private-octopus/picoquic
 #  SYSTEM YES
 #  EXCLUDE_FROM_ALL YES
