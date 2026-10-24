@@ -60,7 +60,7 @@ if (WIN32)
 endif()
 
 CPMAddPackage(
-    URI "gh:private-octopus/picoquic#poll-recvmmsg"
+    URI "gh:private-octopus/picoquic#v2026.10.22.70b5fd5"
     OPTIONS
         "BUILD_DEMO OFF"
         "BUILD_PQBENCH OFF"

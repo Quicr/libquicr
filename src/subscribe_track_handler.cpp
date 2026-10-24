@@ -104,7 +104,7 @@ namespace quicr {
     {
         auto session = GetSession().lock();
         const auto request_stream = GetRequestStream();
-        if (!session || status_ != Status::kOk || !support_new_group_request_ || request_stream == nullptr) {
+        if (!session || (status_ != Status::kOk && status_ != Status::kPaused) || !support_new_group_request_ || request_stream == nullptr) {
             return;
         }
 
