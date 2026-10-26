@@ -37,7 +37,7 @@ namespace quicr {
         Cache(size_t duration, size_t interval, std::shared_ptr<timeq::tick_service> tick_service)
           : duration_{ duration }
           , interval_{ interval }
-          , total_buckets_{ duration_ / interval_ }
+          , total_buckets_{ duration_ / interval_ + 1 }
           , tick_service_(std::move(tick_service))
         {
             if (duration == 0 || duration % interval != 0 || duration == interval) {
@@ -188,10 +188,8 @@ namespace quicr {
                 ttl = duration_;
             }
 
-            ttl /= interval_;
-
             Advance();
-            const std::size_t future_index = (bucket_index_ + ttl - 1) % total_buckets_;
+            const std::size_t future_index = (bucket_index_ + (ttl + interval_ - 1) / interval_) % total_buckets_;
 
             buckets_[future_index].push_back(key);
             cache_[key] = std::make_shared<T>(value);

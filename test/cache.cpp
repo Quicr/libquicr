@@ -77,15 +77,15 @@ TEST_SUITE("Cache")
         Cache<std::uint64_t, std::uint64_t> cache(1000, 100, ticks);
         cache.Insert(0, 42, 1000);
 
-        for (int elapsed = 10; elapsed < 1000; elapsed += 10) {
+        for (int elapsed = 10; elapsed < 1100; elapsed += 10) {
             ticks->SetCurrentTime(start + std::chrono::milliseconds{ elapsed });
             CHECK(cache.Contains(0));
             cache.Insert(elapsed, 42, 1000);
         }
 
-        ticks->SetCurrentTime(start + std::chrono::milliseconds{ 1000 });
+        ticks->SetCurrentTime(start + std::chrono::milliseconds{ 1100 });
         CHECK_FALSE(cache.Contains(0));
-        CHECK(cache.Contains(990));
+        CHECK(cache.Contains(1090));
     }
 
     TEST_CASE("Cache preserves partial intervals when advancing")
@@ -97,9 +97,9 @@ TEST_SUITE("Cache")
 
         ticks->SetCurrentTime(std::chrono::milliseconds{ 151 });
         CHECK(cache.Contains(0));
-        ticks->SetCurrentTime(std::chrono::milliseconds{ 300 });
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 400 });
         CHECK(cache.Contains(0));
-        ticks->SetCurrentTime(std::chrono::milliseconds{ 301 });
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 401 });
         CHECK_FALSE(cache.Contains(0));
     }
 
@@ -113,9 +113,39 @@ TEST_SUITE("Cache")
         CHECK_FALSE(cache.Contains(0));
         cache.Insert(1, 42, 300);
 
-        ticks->SetCurrentTime(std::chrono::milliseconds{ 2299 });
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 2399 });
         CHECK(cache.Contains(1));
-        ticks->SetCurrentTime(std::chrono::milliseconds{ 2300 });
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 2400 });
         CHECK_FALSE(cache.Contains(1));
+    }
+
+    TEST_CASE("Cache rounds mid-interval TTL up")
+    {
+        auto ticks = std::make_shared<MockTickService>();
+        Cache<std::uint64_t, std::uint64_t> cache(1000, 100, ticks);
+        CHECK_FALSE(cache.Contains(0));
+
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 99 });
+        cache.Insert(0, 42, 100);
+
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 199 });
+        CHECK(cache.Contains(0));
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 200 });
+        CHECK_FALSE(cache.Contains(0));
+    }
+
+    TEST_CASE("Cache maximum TTL does not wrap")
+    {
+        auto ticks = std::make_shared<MockTickService>();
+        Cache<std::uint64_t, std::uint64_t> cache(1000, 100, ticks);
+        CHECK_FALSE(cache.Contains(0));
+
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 50 });
+        cache.Insert(0, 42, 1000);
+
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 1099 });
+        CHECK(cache.Contains(0));
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 1100 });
+        CHECK_FALSE(cache.Contains(0));
     }
 }
