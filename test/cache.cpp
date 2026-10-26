@@ -62,4 +62,60 @@ TEST_SUITE("Cache")
         CHECK(*retrieved[0] == expected);
         CHECK(*retrieved[1] == expected_second);
     }
+
+    TEST_CASE("Cache expires during frequent access")
+    {
+        auto ticks = std::make_shared<MockTickService>();
+        std::chrono::milliseconds start{ 0 };
+        SUBCASE("Clock starts at zero") {}
+        SUBCASE("Clock starts above zero")
+        {
+            start = std::chrono::milliseconds{ 37 };
+        }
+
+        ticks->SetCurrentTime(start);
+        Cache<std::uint64_t, std::uint64_t> cache(1000, 100, ticks);
+        cache.Insert(0, 42, 1000);
+
+        for (int elapsed = 10; elapsed < 1000; elapsed += 10) {
+            ticks->SetCurrentTime(start + std::chrono::milliseconds{ elapsed });
+            CHECK(cache.Contains(0));
+            cache.Insert(elapsed, 42, 1000);
+        }
+
+        ticks->SetCurrentTime(start + std::chrono::milliseconds{ 1000 });
+        CHECK_FALSE(cache.Contains(0));
+        CHECK(cache.Contains(990));
+    }
+
+    TEST_CASE("Cache preserves partial intervals when advancing")
+    {
+        auto ticks = std::make_shared<MockTickService>();
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 1 });
+        Cache<std::uint64_t, std::uint64_t> cache(1000, 100, ticks);
+        cache.Insert(0, 42, 300);
+
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 151 });
+        CHECK(cache.Contains(0));
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 300 });
+        CHECK(cache.Contains(0));
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 301 });
+        CHECK_FALSE(cache.Contains(0));
+    }
+
+    TEST_CASE("Cache expires new entries after clearing on a long time jump")
+    {
+        auto ticks = std::make_shared<MockTickService>();
+        Cache<std::uint64_t, std::uint64_t> cache(1000, 100, ticks);
+        cache.Insert(0, 42, 1000);
+
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 2000 });
+        CHECK_FALSE(cache.Contains(0));
+        cache.Insert(1, 42, 300);
+
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 2299 });
+        CHECK(cache.Contains(1));
+        ticks->SetCurrentTime(std::chrono::milliseconds{ 2300 });
+        CHECK_FALSE(cache.Contains(1));
+    }
 }

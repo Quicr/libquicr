@@ -9,6 +9,7 @@
 #include <chrono>
 #include <map>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
@@ -148,12 +149,18 @@ namespace quicr {
         {
             const TickType new_ticks = static_cast<uint64_t>(
               std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
-            const TickType delta = current_ticks_ ? (new_ticks - current_ticks_) / interval_ : 0;
-            current_ticks_ = new_ticks;
+            if (!current_ticks_.has_value()) {
+                current_ticks_ = new_ticks;
+                return;
+            }
+
+            const TickType delta = (new_ticks - *current_ticks_) / interval_;
 
             if (delta == 0) {
                 return;
             }
+
+            *current_ticks_ += delta * interval_;
 
             if (delta >= static_cast<TickType>(total_buckets_)) {
                 Clear();
@@ -203,8 +210,8 @@ namespace quicr {
         /// The index in time of the current bucket.
         std::uint32_t bucket_index_{ 0 };
 
-        /// Last calculated tick value.
-        TickType current_ticks_{ 0 };
+        /// Tick value at the start of the current bucket.
+        std::optional<TickType> current_ticks_;
 
         /// The memory storage for all keys to be managed.
         std::map<std::uint64_t, BucketType> buckets_;
