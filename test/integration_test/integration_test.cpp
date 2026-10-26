@@ -735,6 +735,100 @@ TEST_CASE("Integration - Connection")
     }
 }
 
+static void
+TestTlsTrustRoots(const std::string& scheme)
+{
+    std::string host = "127.0.0.1";
+    std::string server_cert = "server-cert.pem";
+    std::string roots = server_cert;
+    bool authenticated = false;
+    SUBCASE("Trusted IP address")
+    {
+        authenticated = true;
+    }
+    SUBCASE("Trusted DNS name")
+    {
+        host = "localhost";
+        authenticated = true;
+    }
+    SUBCASE("Untrusted issuer")
+    {
+        roots = "other-cert.pem";
+    }
+    SUBCASE("Wrong hostname")
+    {
+        server_cert = "wrong-host-cert.pem";
+        roots = server_cert;
+    }
+    SUBCASE("Missing trust file")
+    {
+        roots = "missing-roots.pem";
+    }
+    SUBCASE("Empty trust file")
+    {
+        roots = "empty-roots.pem";
+    }
+    SUBCASE("Malformed trust file")
+    {
+        roots = "malformed-roots.pem";
+    }
+
+#ifdef QUICR_TEST_NO_CERT_VERIFIER
+    // No verification MUST fail loudly even on valid certs.
+    authenticated = false;
+#endif
+
+    CAPTURE(scheme);
+    CAPTURE(host);
+    CAPTURE(roots);
+    CAPTURE(server_cert);
+    auto session_mgr = MakeTestSessionManager();
+    ServerConfig server_config;
+    server_config.server_bind_ip = kIp;
+    server_config.server_port = GetTestPort();
+    server_config.endpoint_id = kServerId;
+    server_config.transport_config.tls_cert_filename = server_cert;
+    server_config.transport_config.tls_key_filename = "server-key.pem";
+    auto server = std::make_shared<TestServer>();
+    std::promise<SetupAttributes> server_setup_promise;
+    auto server_setup = server_setup_promise.get_future();
+    server->SetSetupReceivedPromise(std::move(server_setup_promise));
+    session_mgr.AddTransport(server_config, server);
+
+    ClientConfig client_config;
+    client_config.connect_uri = scheme + "://" + host + ":" + std::to_string(GetTestPort()) + "/relay";
+    client_config.transport_config.tls_root_trust_filename = roots;
+    auto callbacks = std::make_shared<TestClient>();
+    std::promise<SetupAttributes> client_setup_promise;
+    auto client_setup = client_setup_promise.get_future();
+    callbacks->SetConnectedPromise(std::move(client_setup_promise));
+    auto session = session_mgr.AddTransport(client_config, callbacks).lock();
+    if (authenticated) {
+        REQUIRE(session != nullptr);
+        REQUIRE(client_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(client_setup.get().endpoint_id, kServerId);
+        REQUIRE(server_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK(WaitFor([&] { return session->GetStatus() == Session::Status::kReady; }));
+    } else {
+        // Neither peer may enter the MoQ session when TLS authentication fails.
+        CHECK(client_setup.wait_for(kNegativeTimeout) == std::future_status::timeout);
+        CHECK(server_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
+        if (session) {
+            CHECK_NE(session->GetStatus(), Session::Status::kReady);
+        }
+    }
+}
+
+TEST_CASE("Integration - TLS trust roots over raw QUIC")
+{
+    TestTlsTrustRoots("moq");
+}
+
+TEST_CASE("Integration - TLS trust roots over WebTransport")
+{
+    TestTlsTrustRoots("https");
+}
+
 TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
 {
     auto session_mgr = MakeTestSessionManager();

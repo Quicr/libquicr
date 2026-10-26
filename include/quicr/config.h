@@ -47,6 +47,7 @@ namespace quicr {
         bool use_af_xdp{
             true
         }; ///< Use AF_XDP TX when available; fall back to sendmsg. GSO trains become one XDP batch.
+        std::string tls_root_trust_filename; ///< PEM CA for certificate verification, empty allows unverified.
     };
 
     struct Config

@@ -64,19 +64,46 @@ add_custom_command(
     OUTPUT ${TEST_KEY} ${TEST_CERT}
     COMMAND ${QUICR_OPENSSL_EXECUTABLE} genpkey -algorithm EC
         -pkeyopt ec_paramgen_curve:P-256 -out ${TEST_KEY}
-    COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 1
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 3650
         -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org"
+        -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
         -key ${TEST_KEY} -out ${TEST_CERT}
     COMMENT "Creating certificate in ${CMAKE_CURRENT_BINARY_DIR}"
 )
 
-add_custom_target(generate_test_certs ALL DEPENDS ${TEST_KEY} ${TEST_CERT})
+set(TEST_OTHER_KEY ${CMAKE_CURRENT_BINARY_DIR}/other-key.pem)
+set(TEST_OTHER_CERT ${CMAKE_CURRENT_BINARY_DIR}/other-cert.pem)
+set(TEST_WRONG_HOST_CERT ${CMAKE_CURRENT_BINARY_DIR}/wrong-host-cert.pem)
+add_custom_command(
+    OUTPUT ${TEST_OTHER_KEY} ${TEST_OTHER_CERT} ${TEST_WRONG_HOST_CERT}
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} genpkey -algorithm EC
+        -pkeyopt ec_paramgen_curve:P-256 -out ${TEST_OTHER_KEY}
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 3650
+        -subj "/CN=other-root" -key ${TEST_OTHER_KEY} -out ${TEST_OTHER_CERT}
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 3650
+        -subj "/CN=wrong.example" -addext "subjectAltName=DNS:wrong.example"
+        -key ${TEST_KEY} -out ${TEST_WRONG_HOST_CERT}
+    DEPENDS ${TEST_KEY}
+    COMMENT "Creating TLS negative-test certificates"
+)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/empty-roots.pem "")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/malformed-roots.pem "not a PEM certificate\n")
+
+add_custom_target(generate_test_certs ALL
+    DEPENDS ${TEST_KEY} ${TEST_CERT} ${TEST_OTHER_KEY} ${TEST_OTHER_CERT} ${TEST_WRONG_HOST_CERT})
+add_dependencies(quicr_integration_test generate_test_certs)
+
+if(NOT TARGET picotls-openssl AND NOT WITH_MBEDTLS)
+    target_compile_definitions(quicr_integration_test PRIVATE QUICR_TEST_NO_CERT_VERIFIER)
+endif()
 
 if (CMAKE_CONFIGURATION_TYPES)
-    add_dependencies(quicr_integration_test generate_test_certs)
     add_custom_command(TARGET quicr_integration_test POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${TEST_KEY} ${TEST_CERT} $<TARGET_FILE_DIR:quicr_integration_test>
+            ${TEST_KEY} ${TEST_CERT} ${TEST_OTHER_CERT} ${TEST_WRONG_HOST_CERT}
+            ${CMAKE_CURRENT_BINARY_DIR}/empty-roots.pem
+            ${CMAKE_CURRENT_BINARY_DIR}/malformed-roots.pem
+            $<TARGET_FILE_DIR:quicr_integration_test>
         COMMENT "Copying test certificates next to quicr_integration_test"
     )
 endif()
