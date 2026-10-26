@@ -1374,9 +1374,9 @@ TEST_CASE("Integration - Rejected request closes both stream directions")
     }
 }
 
-TEST_CASE("Integration - Cancelling a subgroup")
+TEST_CASE("Integration - Closed subscription streams keep the publisher up")
 {
-    auto test_subgroup_cancel = [&](const std::string& protocol_scheme) {
+    auto test_closed_subscription_stream = [&](const std::string& protocol_scheme) {
         auto session_mgr = MakeTestSessionManager();
         auto server = MakeTestServer(session_mgr, std::nullopt, 2);
         auto [subscriber_client, subscriber_callbacks] =
@@ -1384,7 +1384,7 @@ TEST_CASE("Integration - Cancelling a subgroup")
         auto [publisher_client, publisher_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         FullTrackName ftn;
-        ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "subgroup", "cancel" });
+        ftn.name_space = TrackNamespace(std::vector<std::string>{ "test", "subscription", "closed" });
         ftn.name = { 0x01 };
         const auto track_alias = TrackHash(ftn).track_fullname_hash;
 
@@ -1393,7 +1393,7 @@ TEST_CASE("Integration - Cancelling a subgroup")
         auto subscribe_future = subscribe_promise.get_future();
         server->SetSubscribePromise(std::move(subscribe_promise));
 
-        // Subscription should survive subgroup cancel.
+        // Subscription should survive losing a subgroup stream.
         std::promise<TestServer::UnsubscribeReceivedDetails> unsubscribe_promise;
         auto unsubscribe_future = unsubscribe_promise.get_future();
         server->SetUnsubscribeReceivedPromise(std::move(unsubscribe_promise));
@@ -1410,10 +1410,10 @@ TEST_CASE("Integration - Cancelling a subgroup")
         publisher_client->PublishTrack(pub_handler);
         REQUIRE(WaitFor([&] { return pub_handler->CanPublish(); }));
 
-        const auto publish_object = [&pub_handler](std::uint64_t group_id) {
-            std::vector<std::uint8_t> payload(64, static_cast<std::uint8_t>(group_id));
+        const auto publish_object = [&pub_handler](std::uint64_t group_id, std::uint64_t object_id) {
+            std::vector payload(64, static_cast<std::uint8_t>(object_id));
             const ObjectHeaders headers{ .group_id = group_id,
-                                         .object_id = 0,
+                                         .object_id = object_id,
                                          .subgroup_id = 0,
                                          .payload_length = payload.size(),
                                          .status = ObjectStatus::kAvailable,
@@ -1426,34 +1426,44 @@ TEST_CASE("Integration - Cancelling a subgroup")
         };
 
         // Open subgroup stream.
-        publish_object(0);
+        publish_object(0, 0);
         REQUIRE(WaitFor([&] { return sub_handler->GetReceivedCount() >= 1; }));
         const auto server_pub_handler = server->GetSubscriberPublishHandler(track_alias);
         REQUIRE(server_pub_handler != nullptr);
         const auto subgroup_stream = server_pub_handler->GetSubgroupStream(0, 0);
         REQUIRE(subgroup_stream != nullptr);
 
-        // If the subscriber cancels the subgroup, everything else should work.
-        // TODO: Replace with subgroup cancel API if it exists.
-        server->MockStreamClosed(track_alias, subgroup_stream, StreamClosedFlag::kStopSending);
+        SUBCASE("Subscriber cancels the subgroup")
+        {
+            // TODO: Replace with subgroup cancel API if it exists.
+            server->MockStreamClosed(track_alias, subgroup_stream, StreamClosedFlag::kStopSending);
+        }
 
-        // Everything else should continue as normal: request + publishing.
+        SUBCASE("Stream torn down before the session is told")
+        {
+            // The transport closes a stream as soon as its connection goes, and tells the session afterwards.
+            subgroup_stream->MarkClosed();
+        }
+
+        // Fanning the next object out to the closed stream can fail, but everything else shouldn't.
+        publish_object(0, 1);
         CHECK(server_pub_handler->CanPublish());
         CHECK(unsubscribe_future.wait_for(kNegativeTimeout) == std::future_status::timeout);
-        publish_object(1);
+        CHECK_EQ(publisher_client->GetStatus(), Session::Status::kReady);
+        publish_object(1, 0);
         CHECK(WaitFor([&] { return sub_handler->GetReceivedCount() >= 2; }));
     };
 
     SUBCASE("Raw QUIC")
     {
         CAPTURE("Raw QUIC");
-        test_subgroup_cancel("moq");
+        test_closed_subscription_stream("moq");
     }
 
     SUBCASE("WebTransport")
     {
         CAPTURE("WebTransport");
-        test_subgroup_cancel("https");
+        test_closed_subscription_stream("https");
     }
 }
 

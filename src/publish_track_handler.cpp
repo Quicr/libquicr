@@ -161,7 +161,7 @@ namespace quicr {
         auto result = session->Enqueue(stream, data, GetPublishObjectPriority(), default_ttl_, eflags);
 
         if (result != TransportError::kNone) {
-            throw TransportException(result);
+            return PublishObjectStatus::kNoSubscribers;
         }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
@@ -360,7 +360,7 @@ namespace quicr {
                            eflags);
 
         if (result != TransportError::kNone) {
-            throw TransportException(result);
+            return PublishObjectStatus::kNoSubscribers;
         }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;

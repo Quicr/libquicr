@@ -59,7 +59,7 @@ namespace quicr {
             eflags.use_reset = false;
 
             if (result != TransportError::kNone) {
-                throw TransportException(result);
+                return PublishObjectStatus::kNoSubscribers;
             }
         }
 
@@ -75,7 +75,7 @@ namespace quicr {
                            eflags);
 
         if (result != TransportError::kNone) {
-            throw TransportException(result);
+            return PublishObjectStatus::kNoSubscribers;
         }
         serialization_state_ = std::move(next_serialization_state);
 
