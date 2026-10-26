@@ -741,7 +741,7 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
 
         std::string msg;
         if (qclient_vars::publish_clock) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(999));
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
             msg = quicr::example::GetTimeStr();
             QUICR_LOGGER_INFO(qclient_vars::logger,
                               "Pri: {0} Group:{1} Object:{2}, Msg:{3}",
@@ -1521,6 +1521,11 @@ main(int argc, char* argv[])
                 stop_threads.store(true, std::memory_order_release);
                 break;
             }
+
+            std::cerr << "Redirect: " << std::endl;
+            std::string redirect_uri;
+            std::getline(std::cin, redirect_uri);
+            session->Migrate({ .uri = redirect_uri });
 
             std::this_thread::sleep_for(20ms);
         }

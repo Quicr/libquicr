@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "quicr/connection.h"
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/messages/message_serialisation.h"
 #include "quicr/utilities/thread_safety.h"
@@ -52,6 +53,9 @@ namespace quicr {
 
         /// @returns ID of the connection this stream belongs to
         std::uint64_t GetConnectionID() const noexcept { return conn_id_; }
+
+        /// @returns The owning connection, or nullptr after it has been destroyed
+        std::shared_ptr<Connection> GetConnection() const noexcept { return connection_.lock(); }
 
         /// @returns True if the stream carries both directions, which QUIC encodes in its ID
         bool IsBidirectional() const noexcept { return (stream_id_ & 0x2) == 0; }
@@ -204,15 +208,17 @@ namespace quicr {
         ///@}
 
       protected:
-        Stream(std::uint64_t stream_id, std::uint64_t conn_id)
+        Stream(std::uint64_t stream_id, const std::shared_ptr<Connection>& connection)
           : stream_id_(stream_id)
-          , conn_id_(conn_id)
+          , conn_id_(connection ? connection->GetID() : 0)
+          , connection_(connection)
         {
         }
 
       private:
         std::uint64_t stream_id_{ 0 };
         std::uint64_t conn_id_{ 0 };
+        std::weak_ptr<Connection> connection_;
 
         /// Read from application threads while the transport thread clears it, so it must be atomic.
         std::atomic_bool open_{ true };

@@ -165,6 +165,12 @@ namespace quicr {
 
         constexpr void SetLatestLocation(messages::Location new_location) noexcept { latest_location_ = new_location; }
 
+        std::optional<messages::Location> GetLatestDeliveredLocation() const
+        {
+            std::lock_guard lock(delivered_location_mutex_);
+            return latest_delivered_location_;
+        }
+
         /**
          * @brief Get joining fetch info, if any.
          */
@@ -434,6 +440,8 @@ namespace quicr {
         messages::GroupOrder publisher_default_group_order_{ messages::GroupOrder::kAscending };
         messages::Filter filter_;
         std::optional<messages::Location> latest_location_;
+        mutable std::mutex delivered_location_mutex_;
+        std::optional<messages::Location> latest_delivered_location_ QUICR_GUARDED_BY(delivered_location_mutex_);
         std::optional<JoiningFetch> joining_fetch_;
         std::optional<uint64_t> track_alias_;
         std::optional<uint64_t> received_track_alias_; ///< Received track alias from publisher client or relay

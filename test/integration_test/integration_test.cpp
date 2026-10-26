@@ -237,23 +237,23 @@ class SetupBeforeReadyDelegate final : public Connection::Delegate
     {
     }
 
-    void OnConnectionStatus(Connection::Status status) override
+    void OnConnectionStatus(const std::shared_ptr<Connection>& connection, Connection::Status status) override
     {
         if (status == Connection::Status::kReady && !first_stream_received_) {
             ready_pending_ = true;
             return;
         }
-        delegate_->OnConnectionStatus(status);
+        delegate_->OnConnectionStatus(connection, status);
     }
 
-    void OnRecvDgram() override { delegate_->OnRecvDgram(); }
+    void OnRecvDgram(const std::shared_ptr<Connection>& connection) override { delegate_->OnRecvDgram(connection); }
 
     bool OnRecvStream(const std::shared_ptr<Stream>& stream) override
     {
         first_stream_received_ = true;
         const bool more_data = delegate_->OnRecvStream(stream);
         if (std::exchange(ready_pending_, false)) {
-            delegate_->OnConnectionStatus(Connection::Status::kReady);
+            delegate_->OnConnectionStatus(stream->GetConnection(), Connection::Status::kReady);
         }
         return more_data;
     }
@@ -263,17 +263,20 @@ class SetupBeforeReadyDelegate final : public Connection::Delegate
         delegate_->OnStreamClosed(stream, flag);
     }
 
-    void OnConnectionMetricsSampled(const MetricsTimeStamp sample_time, const QuicConnectionMetrics& metrics) override
+    void OnConnectionMetricsSampled(const std::shared_ptr<Connection>& connection,
+                                    const MetricsTimeStamp sample_time,
+                                    const QuicConnectionMetrics& metrics) override
     {
-        delegate_->OnConnectionMetricsSampled(sample_time, metrics);
+        delegate_->OnConnectionMetricsSampled(connection, sample_time, metrics);
     }
 
-    void OnStreamMetricsStampled(const MetricsTimeStamp sample_time,
+    void OnStreamMetricsStampled(const std::shared_ptr<Connection>& connection,
+                                 const MetricsTimeStamp sample_time,
                                  std::uint64_t stream_id,
                                  const QuicStreamMetrics& metrics,
                                  bool is_final) override
     {
-        delegate_->OnStreamMetricsStampled(sample_time, stream_id, metrics, is_final);
+        delegate_->OnStreamMetricsStampled(connection, sample_time, stream_id, metrics, is_final);
     }
 
   private:
@@ -750,7 +753,7 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
     config.connect_uri = "moq://" + kIp + ":" + std::to_string(GetTestPort()) + "/relay";
     auto tick_service = quicr::Clock::Create(config.tick_service_sleep_delay_us);
     auto transport = Transport::MakeClientTransport(
-      { kIp, GetTestPort(), TransportProtocol::kQuic, "/relay" }, config.transport_config, tick_service, nullptr);
+      { kIp, GetTestPort(), quicr::WebTransportOptions{ "/relay" } }, config.transport_config, tick_service, nullptr);
 
     using ClientSession = std::pair<std::shared_ptr<Session>, std::shared_ptr<SetupBeforeReadyDelegate>>;
     std::promise<ClientSession> session_created;

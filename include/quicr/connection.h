@@ -31,10 +31,10 @@ namespace quicr {
         kStopSending,
     };
 
-    class Connection
+    class Connection : public std::enable_shared_from_this<Connection>
     {
       public:
-        enum class API : std::uint8_t
+        enum class Protocol : std::uint8_t
         {
             kNativeQuic,
             kWebTransport,
@@ -51,6 +51,14 @@ namespace quicr {
             kShuttingDown,
         };
 
+        enum class SetupState
+        {
+            kNone,
+            kSent,
+            kReceived,
+            kComplete,
+        };
+
         /**
          * @brief Async Callback API on the transport
          */
@@ -64,10 +72,10 @@ namespace quicr {
              *
              * @details Called when the connection changes state/status
              *
-             * @param[in] conn_id           Transport context Id
-             * @param[in] status 	    Transport Status value
+             * @param[in] connection        Connection whose status changed
+             * @param[in] status            Transport status value
              */
-            virtual void OnConnectionStatus(Status status) = 0;
+            virtual void OnConnectionStatus(const std::shared_ptr<Connection>& connection, Status status) = 0;
 
             /**
              * @brief callback notification that datagram data has been received and should be processed
@@ -75,7 +83,7 @@ namespace quicr {
              * @details Datagrams share one queue per connection, so there is nothing to identify here
              *      beyond the connection itself.
              */
-            virtual void OnRecvDgram() = 0;
+            virtual void OnRecvDgram(const std::shared_ptr<Connection>& connection) = 0;
 
             /**
              * @brief callback notification that data has been received and should be processed
@@ -101,10 +109,12 @@ namespace quicr {
              *
              * @details This callback will be called when the connection metrics are sampled per connection
              *
+             * @param connection                     Connection whose metrics were sampled
              * @param sample_time                    Sample time in microseconds
              * @param quic_connection_metrics        Connection specific metrics for sample period
              */
-            virtual void OnConnectionMetricsSampled(const MetricsTimeStamp sample_time,
+            virtual void OnConnectionMetricsSampled(const std::shared_ptr<Connection>& connection,
+                                                    const MetricsTimeStamp sample_time,
                                                     const QuicConnectionMetrics& quic_connection_metrics) = 0;
 
             /**
@@ -118,25 +128,27 @@ namespace quicr {
              *
              * @note Every value covers the period alone, so a running total simply adds each one.
              *
+             * @param connection            Connection the stream belongs to
              * @param sample_time           Sample time in microseconds
              * @param stream_id             Stream the metrics belong to
              * @param quic_stream_metrics   Stream metrics for sample period
              * @param is_final              Last report for this stream; it no longer exists
              */
-            virtual void OnStreamMetricsStampled(const MetricsTimeStamp sample_time,
+            virtual void OnStreamMetricsStampled(const std::shared_ptr<Connection>& connection,
+                                                 const MetricsTimeStamp sample_time,
                                                  std::uint64_t stream_id,
                                                  const QuicStreamMetrics& quic_stream_metrics,
                                                  bool is_final) = 0;
         };
 
       public:
-        Connection(std::uint64_t id, API api = API::kNativeQuic);
+        Connection(std::uint64_t id, Protocol api = Protocol::kNativeQuic);
 
         virtual ~Connection() = default;
 
         std::uint64_t GetID() const noexcept;
 
-        API GetAPI() const noexcept;
+        Protocol GetProtocol() const noexcept;
 
         void SetStatus(Status new_status);
 
@@ -193,7 +205,23 @@ namespace quicr {
          */
         virtual void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag);
 
-        // TODO: Move these to be private.
+        /**
+         * @brief Record one side of the SETUP exchange.
+         *
+         * @returns False when the same side was already recorded.
+         */
+        bool UpdateSetupState(SetupState state);
+
+        SetupState GetSetupState() const;
+
+        void SetRxControlStreamId(std::uint64_t stream_id);
+
+        std::optional<std::uint64_t> GetRxControlStreamId() const;
+
+        void SetTxControlStream(std::shared_ptr<Stream> stream);
+
+        std::shared_ptr<Stream> GetTxControlStream() const;
+
       public:
         ///< Connection metrics
         ConnectionMetrics metrics{};
@@ -203,12 +231,20 @@ namespace quicr {
 
         std::uint64_t id{ 0 };
 
-        /// The API the connection uses. Default is Native Quic.
-        API api_{ API::kNativeQuic };
+        /// The protocol the connection uses. Default is Native Quic.
+        Protocol protocol_{ Protocol::kNativeQuic };
 
         std::atomic<Status> status_;
 
         mutable std::mutex delegate_mutex_;
         std::weak_ptr<Delegate> delegate_ QUICR_GUARDED_BY(delegate_mutex_);
+
+        mutable std::mutex session_state_mutex_;
+
+        SetupState setup_state_ QUICR_GUARDED_BY(session_state_mutex_){ SetupState::kNone };
+
+        std::optional<std::uint64_t> rx_ctrl_stream_id_ QUICR_GUARDED_BY(session_state_mutex_);
+
+        std::shared_ptr<Stream> tx_ctrl_stream_ QUICR_GUARDED_BY(session_state_mutex_);
     };
 }

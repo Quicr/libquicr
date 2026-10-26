@@ -136,7 +136,8 @@ namespace quicr {
                     // Disable creating stream and doing pipeline on new stream considering delta and subgroups needs
                     // first object parsed
 #if 0
-                    auto stream = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
+                    auto stream =
+                      session->CreateStream(GetConnectionId(), *GetRequestId(), GetPublishObjectPriority());
                     stream_info_by_group_[group_id][subgroup_id] = { stream, group_id, subgroup_id };
 #endif
 
@@ -158,7 +159,7 @@ namespace quicr {
             }
         }
 
-        auto result = session->Enqueue(stream, data, GetPublishObjectPriority(), default_ttl_, eflags);
+        auto result = session->Enqueue(GetConnection(), stream, data, GetPublishObjectPriority(), default_ttl_, eflags);
 
         if (result != TransportError::kNone) {
             throw TransportException(result);
@@ -262,7 +263,7 @@ namespace quicr {
             subgroup_it = group_it->second.find(object_headers.subgroup_id);
             if (subgroup_it == group_it->second.end()) {
                 is_stream_header_needed = true;
-                stream = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
+                stream = session->CreateStream(GetConnectionId(), *GetRequestId(), GetPublishObjectPriority());
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =
@@ -353,7 +354,8 @@ namespace quicr {
         }
 
         auto result =
-          session->Enqueue(stream,
+          session->Enqueue(GetConnection(),
+                           stream,
                            std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
                            GetPublishObjectPriority(),
                            ttl,
@@ -391,7 +393,8 @@ namespace quicr {
             eflags.use_reliable = true;
             eflags.close_stream = true;
 
-            session->Enqueue(subgroup_it->second.stream, {}, GetPublishObjectPriority(), default_ttl_, eflags);
+            session->Enqueue(
+              GetConnection(), subgroup_it->second.stream, {}, GetPublishObjectPriority(), default_ttl_, eflags);
         } else {
             session->ResetSubgroup(subgroup_it->second.stream);
         }

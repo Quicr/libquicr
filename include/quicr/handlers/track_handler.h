@@ -19,6 +19,7 @@
 #include <vector>
 
 namespace quicr {
+    class Connection;
     class Session;
 
     /// Defined internally to the library; handles are opaque here.
@@ -32,6 +33,13 @@ namespace quicr {
     class TrackHandler : public std::enable_shared_from_this<TrackHandler>
     {
       public:
+        struct Binding
+        {
+            std::uint64_t connection_id{ 0 };
+            std::optional<std::uint64_t> request_id;
+            std::shared_ptr<Stream> request_stream;
+        };
+
         friend class Session;
 
         /// Sends its own request updates, so it reaches the request stream directly. Friendship does not
@@ -82,14 +90,22 @@ namespace quicr {
          *
          * @param request_id          64bit request ID
          */
-        void SetRequestId(std::optional<uint64_t> request_id) { request_id_ = request_id; }
+        void SetRequestId(std::optional<uint64_t> request_id)
+        {
+            std::lock_guard lock(request_stream_mutex_);
+            request_id_ = request_id;
+        }
 
         /**
          * @brief Get the request ID
          *
          * @return nullopt if not subscribed, otherwise the request ID
          */
-        std::optional<uint64_t> GetRequestId() const noexcept { return request_id_; }
+        std::optional<uint64_t> GetRequestId() const noexcept
+        {
+            std::lock_guard lock(request_stream_mutex_);
+            return request_id_;
+        }
 
         /**
          * @brief Get the stream ID of the request control stream.
@@ -109,7 +125,19 @@ namespace quicr {
         /**
          * @brief Get the connection ID
          */
-        uint64_t GetConnectionId() const noexcept { return connection_id_; };
+        uint64_t GetConnectionId() const noexcept
+        {
+            std::lock_guard lock(request_stream_mutex_);
+            return connection_id_;
+        }
+
+        std::shared_ptr<Connection> GetConnection() const;
+
+        Binding GetBinding() const
+        {
+            std::lock_guard lock(request_stream_mutex_);
+            return { connection_id_, request_id_, request_stream_ };
+        }
 
         /**
          * @brief Received an update for this handler's request.
@@ -147,7 +175,19 @@ namespace quicr {
          *
          * @details The MOQ Handler sets the connection ID
          */
-        void SetConnectionId(uint64_t connection_id) { connection_id_ = connection_id; };
+        void SetConnectionId(uint64_t connection_id)
+        {
+            std::lock_guard lock(request_stream_mutex_);
+            connection_id_ = connection_id;
+        };
+
+        void SetBinding(Binding binding)
+        {
+            std::lock_guard lock(request_stream_mutex_);
+            connection_id_ = binding.connection_id;
+            request_id_ = binding.request_id;
+            request_stream_ = std::move(binding.request_stream);
+        }
 
         /**
          * @brief Set the bidir request control stream.
