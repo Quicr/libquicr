@@ -5,6 +5,7 @@ CPMAddPackage("gh:doctest/doctest@2.5.2")
 
 add_executable(quicr_test
     cache.cpp
+    connect_uri.cpp
     data_storage.cpp
     main.cpp
     moq_ctrl_messages.cpp
@@ -12,6 +13,7 @@ add_executable(quicr_test
     picoquic_connection.cpp
     priority_queue.cpp
     reply.cpp
+    session_migration.cpp
     track_handlers.cpp
     track_namespace.cpp
     metrics.cpp

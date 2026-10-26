@@ -59,11 +59,12 @@ namespace quicr {
         kFailedToCreateQuicInstance, ///< The underlying QUIC instance could not be created.
     };
 
-    /// @brief Wire transport selected for a client connection.
-    enum class TransportProtocol : uint8_t
+    /**
+     * @brief Options to use when protocol is set to WebTransport.
+     */
+    struct WebTransportOptions
     {
-        kQuic,        ///< Native MoQ over QUIC.
-        kWebTransport ///< MoQ over WebTransport and HTTP/3.
+        std::string path{ "relay" }; /// The path to use
     };
 
     /**
@@ -73,10 +74,9 @@ namespace quicr {
      */
     struct TransportRemote
     {
-        std::string host_or_ip;      ///< IPv4/IPv6 address or fully qualified host name.
-        uint16_t port;               ///< UDP destination or listening port.
-        TransportProtocol proto;     ///< Client protocol; ignored when creating a server transport.
-        std::string path{ "relay" }; ///< WebTransport HTTP path.
+        std::string host_or_ip;                                   ///< IPv4/IPv6 address or fully qualified host name.
+        uint16_t port;                                            ///< UDP destination or listening port.
+        std::optional<WebTransportOptions> web_transport_options; ///< Enables WT protocol with given options
     };
 
     /// Stream action that should be done by send/receive processing
@@ -240,6 +240,8 @@ namespace quicr {
          */
         virtual std::shared_ptr<Connection> Start() = 0;
 
+        virtual std::shared_ptr<Connection> Connect(const TransportRemote& remote) = 0;
+
         /**
          * @brief Close a transport context
          *
@@ -253,15 +255,12 @@ namespace quicr {
         /**
          * @brief Close a stream
          *
-         * @param connection Connection the stream belongs to
          * @param stream Stream to close; no-op if null or already closed
          * @param operation Directional stream-close operation.
-         * @pre A non-null @p stream must belong to @p connection.
+         *
          * @throws std::invalid_argument if @p operation is invalid for the stream direction.
          */
-        virtual void CloseStream(const std::shared_ptr<Connection>& connection,
-                                 const std::shared_ptr<Stream>& stream,
-                                 StreamOperation operation) = 0;
+        virtual void CloseStream(const std::shared_ptr<Stream>& stream, StreamOperation operation) = 0;
 
         /**
          * Enqueue flags

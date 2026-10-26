@@ -489,17 +489,19 @@ namespace quicr {
         // Transport Delegate/callback functions
         /*===================================================================*/
 
-        void OnConnectionStatus(Connection::Status status) override;
+        void OnConnectionStatus(const std::shared_ptr<Connection>& connection, Connection::Status status) override;
 
         bool OnRecvStream(const std::shared_ptr<Stream>& stream) override;
 
-        void OnRecvDgram() override;
+        void OnRecvDgram(const std::shared_ptr<Connection>& connection) override;
 
-        void OnConnectionMetricsSampled(MetricsTimeStamp sample_time,
+        void OnConnectionMetricsSampled(const std::shared_ptr<Connection>& connection,
+                                        MetricsTimeStamp sample_time,
 
                                         const QuicConnectionMetrics& quic_connection_metrics) override;
 
-        void OnStreamMetricsStampled(MetricsTimeStamp sample_time,
+        void OnStreamMetricsStampled(const std::shared_ptr<Connection>& connection,
+                                     MetricsTimeStamp sample_time,
                                      std::uint64_t stream_id,
                                      const QuicStreamMetrics& quic_stream_metrics,
                                      bool is_final) override;
@@ -510,15 +512,21 @@ namespace quicr {
 
         void Init();
 
-        void CheckReady();
+        void CheckReady(const std::shared_ptr<Connection>& connection);
+
+        std::shared_ptr<Connection> GetConnection(std::uint64_t connection_id) const;
+        std::shared_ptr<Connection> GetConnectionForStream(const std::shared_ptr<Stream>& stream) const;
 
         std::shared_ptr<Session> GetSharedPtr();
 
-        bool ProcessRequestMessage(const std::shared_ptr<Stream>& stream,
+        bool ProcessRequestMessage(const std::shared_ptr<Connection>& connection,
+                                   const std::shared_ptr<Stream>& stream,
                                    messages::ControlMessageType msg_type,
                                    BytesSpan msg_bytes);
 
-        bool ProcessCtrlMessage(messages::ControlMessageType msg_type, BytesSpan msg_bytes);
+        bool ProcessCtrlMessage(const std::shared_ptr<Connection>& connection,
+                                messages::ControlMessageType msg_type,
+                                BytesSpan msg_bytes);
 
         void SetStatus(Status status);
 
@@ -542,8 +550,12 @@ namespace quicr {
                 throw std::logic_error("Stream cannot be null");
             }
 
+            const auto connection = GetConnectionForStream(stream);
+            if (!connection) {
+                throw TransportException(TransportError::kInvalidConnContextId);
+            }
             auto result = quic_transport_->Enqueue(
-              current_connection_, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
+              connection, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
 
             if (!result) {
                 // TODO: Propagate better to callers and handle more specifically. Keeping the throw for now.
@@ -551,7 +563,7 @@ namespace quicr {
             }
         }
 
-        void SendSetup();
+        void SendSetup(const std::shared_ptr<Connection>& connection);
 
         /*===================================================================*/
         // Requests
@@ -644,7 +656,7 @@ namespace quicr {
 
         std::shared_ptr<Stream> FindSubscribeNamespaceStream(const TrackNamespace& track_namespace) const;
 
-        std::optional<std::uint64_t> FindRequestIdByStream(std::uint64_t stream_id) QUICR_EXCLUDES(state_mutex_);
+        std::optional<std::uint64_t> FindRequestIdByStream(const Stream& stream) QUICR_EXCLUDES(state_mutex_);
 
         std::shared_ptr<Stream> ResponseStream(const std::uint64_t request_id) const;
 
@@ -721,7 +733,9 @@ namespace quicr {
         ///@{
 
         /// Dispatch one control message buffered on a control or request stream
-        bool RecvCtrlMessage(const std::shared_ptr<Stream>& stream, bool is_request_stream);
+        bool RecvCtrlMessage(const std::shared_ptr<Connection>& connection,
+                             const std::shared_ptr<Stream>& stream,
+                             bool is_request_stream);
 
         bool RecvSubgroupObject(Stream& stream, SubscribeTrackHandler& handler);
 
@@ -752,7 +766,7 @@ namespace quicr {
          * @param priority QUIC stream priority; lower values are higher priority.
          * @return Shared handle to the created stream.
          */
-        std::shared_ptr<Stream> CreateStream(std::uint64_t request_id, uint8_t priority);
+        std::shared_ptr<Stream> CreateStream(std::uint64_t connection_id, std::uint64_t request_id, uint8_t priority);
 
         /**
          * @brief Send published data.
@@ -770,22 +784,71 @@ namespace quicr {
          * @throws std::invalid_argument If stream is nullptr when using streams.
          * @returns False if using streams and the TX direction has closed.
          */
-        bool Enqueue(const std::shared_ptr<Stream>& stream,
+        bool Enqueue(const std::shared_ptr<Connection>& connection,
+                     const std::shared_ptr<Stream>& stream,
                      std::shared_ptr<const std::vector<uint8_t>> bytes,
                      const uint8_t priority,
                      const uint32_t ttl_ms,
                      const Transport::EnqueueFlags flags);
 
+      public: // TODO: Make private
+        struct Redirect
+        {
+            std::string uri;
+            TrackNamespace prefix;
+            std::optional<Bytes> name;
+            std::optional<std::uint64_t> request_id;
+        };
+
+        void Migrate(const Redirect& redirect);
+
       private:
+        friend class SessionMigrationTestPeer;
+
+        void SetConnectionAddedCallback(
+          std::function<void(const std::shared_ptr<Connection>&, const std::shared_ptr<Session>&)> callback)
+        {
+            connection_added_callback_ = std::move(callback);
+        }
+
+        enum class MigrationRequestType : std::uint8_t
+        {
+            kSubscribe,
+            kPublish,
+            kSubscribeNamespace,
+            kPublishNamespace,
+            kFetch,
+        };
+
+        struct PendingMigration
+        {
+            std::uint64_t old_connection_id;
+            std::uint64_t new_connection_id;
+            std::uint64_t request_id;
+            MigrationRequestType type;
+            std::shared_ptr<Stream> request_stream;
+        };
+
+        void StartMigrationRequests(const std::shared_ptr<Connection>& connection);
+        void CompleteMigration(const std::shared_ptr<Connection>& connection,
+                               std::uint64_t request_id,
+                               std::optional<std::uint64_t> received_track_alias = std::nullopt);
+        bool FailMigration(const std::shared_ptr<Connection>& connection, std::uint64_t request_id);
+        bool MatchesRedirect(const TrackHandler& handler, const Redirect& redirect) const;
+
         void ResetSubgroup(const std::shared_ptr<Stream>& stream);
 
-        const std::shared_ptr<Connection> current_connection_;
+      private:
+        mutable std::mutex connections_mutex_;
+        std::map<std::uint64_t, std::shared_ptr<Connection>> connections_ QUICR_GUARDED_BY(connections_mutex_);
+        std::map<std::uint64_t, Redirect> redirects_by_connection_ QUICR_GUARDED_BY(state_mutex_);
+        std::map<std::pair<std::uint64_t, std::uint64_t>, PendingMigration> pending_migrations_
+          QUICR_GUARDED_BY(state_mutex_);
+        std::shared_ptr<Connection> current_connection_;
+        std::function<void(const std::shared_ptr<Connection>&, const std::shared_ptr<Session>&)>
+          connection_added_callback_;
 
         const std::shared_ptr<Callbacks> callbacks_;
-
-        std::optional<std::uint64_t> rx_ctrl_stream_id_;
-
-        std::shared_ptr<Stream> tx_ctrl_stream_;
 
         /**
          * Next Connection request Id. This value is shifted left when setting Request Id.
@@ -809,7 +872,8 @@ namespace quicr {
         };
 
         /// Lookup the request each stream carries, by stream ID.
-        std::map<std::uint64_t, StreamRequest> request_by_stream QUICR_GUARDED_BY(state_mutex_);
+        using StreamKey = std::pair<std::uint64_t, std::uint64_t>;
+        std::map<StreamKey, StreamRequest> request_by_stream QUICR_GUARDED_BY(state_mutex_);
 
         std::vector<std::uint64_t>
           recv_publish_namespaces; ///< Active inbound publish namespace notifications (not handler based).
@@ -825,7 +889,8 @@ namespace quicr {
          * is matched to this track alias to find the subscriber handler that matches. The
          * subscribe handler has both received track alias and generated track alias.
          */
-        std::map<std::uint64_t, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
+        std::map<std::pair<std::uint64_t, std::uint64_t>, std::shared_ptr<SubscribeTrackHandler>>
+          sub_by_recv_track_alias;
 
         /**
          * Publish tracks by namespace and name. map[track namespace][track name] = track handler
@@ -840,7 +905,7 @@ namespace quicr {
         std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>>
           pub_fetch_tracks_by_request_id; ///< Fetch Publishers by request ID.
 
-        std::mutex state_mutex_;
+        mutable std::mutex state_mutex_;
 
         const bool client_mode_;
 
@@ -854,16 +919,22 @@ namespace quicr {
 
         std::atomic<Status> status_{ Status::kConnecting };
 
-        bool local_setup_sent_{ false };
-        bool peer_setup_received_{ false };
-
         const std::shared_ptr<Clock> clock_;
+
+        enum class MigrationStatus : std::uint8_t
+        {
+            kNone,
+            kMigrating,
+            kDone,
+        };
+        std::optional<MigrationStatus> migration_status;
 
         const std::shared_ptr<Transport> quic_transport_; // **MUST** be last for proper order of destruction
 
         friend class PublishTrackHandler;
         friend class PublishFetchHandler;
         friend class SubscribeTrackHandler;
+        friend class SessionManager;
     };
 
 } // namespace quicr
