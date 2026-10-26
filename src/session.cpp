@@ -893,15 +893,12 @@ namespace quicr {
     void Session::SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
-        track_handler->connection_id_ = current_connection_->GetID();
 
         // Track hash is the track alias for now.
         auto th = TrackHash(tfn);
 
         auto proposed_track_alias = track_handler->GetTrackAlias();
-        if (not proposed_track_alias.has_value()) {
-            track_handler->SetTrackAlias(th.track_fullname_hash);
-        } else {
+        if (proposed_track_alias.has_value()) {
             th.track_fullname_hash = proposed_track_alias.value();
         }
 
@@ -910,11 +907,7 @@ namespace quicr {
 
         std::lock_guard<std::mutex> _(state_mutex_);
 
-        if (!track_handler->IsPublisherInitiated()) {
-            // increment and get the next request id if not initiated by publisher, which request Id is reused
-            track_handler->SetRequestId(GetNextRequestID());
-
-        } else {
+        if (track_handler->IsPublisherInitiated()) {
             if (!track_handler->GetReceivedTrackAlias().has_value()) {
                 throw std::runtime_error("Missing received track alias for publisher initiated subscribe");
             }
@@ -923,6 +916,24 @@ namespace quicr {
                 throw std::runtime_error("Missing request id for publisher initiated subscribe");
             }
 
+            // The relay may have adopted this handler before PublishReceived returned. A second
+            // call would SetTransport again while a peer thread is already using the session.
+            const auto existing = request_handlers.find(*track_handler->GetRequestId());
+            if (existing != request_handlers.end() && existing->second.get() == track_handler.get()) {
+                return;
+            }
+        }
+
+        track_handler->connection_id_ = current_connection_->GetID();
+        if (not proposed_track_alias.has_value()) {
+            track_handler->SetTrackAlias(th.track_fullname_hash);
+        }
+
+        if (!track_handler->IsPublisherInitiated()) {
+            // increment and get the next request id if not initiated by publisher, which request Id is reused
+            track_handler->SetRequestId(GetNextRequestID());
+
+        } else {
             const auto req_it = recv_req_id.find(*track_handler->GetRequestId());
             if (req_it != recv_req_id.end() && req_it->second.stream) {
                 track_handler->SetRequestStream(req_it->second.stream);
@@ -3530,21 +3541,34 @@ namespace quicr {
                               return;
                           }
 
-                          // Update the handler to correctly work with publisher initiated subscribe
+                          // Update the handler to correctly work with publisher initiated subscribe.
+                          // A null handler means the application already adopted the publish. A handler
+                          // already stored for this request was adopted inside the callback; writing the
+                          // fields again, or calling SubscribeTrack, races the peer thread that is using it.
                           if (result->handler) {
-                              result->handler->SetPublishInitiated();
+                              bool already_adopted = false;
+                              {
+                                  std::lock_guard lock(self->state_mutex_);
+                                  const auto existing = self->request_handlers.find(request_id);
+                                  already_adopted = existing != self->request_handlers.end() &&
+                                                    existing->second.get() == result->handler.get();
+                              }
 
-                              result->handler->SetConnectionId(self->current_connection_->GetID());
-                              result->handler->SetRequestId(request_id);
-                              result->handler->SetReceivedTrackAlias(publish.track_alias);
-                              result->handler->SetSubscriberPriority(publish.publisher_priority);
-                              // TODO: Optional delivery timeout?
-                              const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
-                              result->handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));
-                              result->handler->SetPublisherDefaultGroupOrder(publish.default_publisher_group_order);
-                              result->handler->SupportNewGroupRequest(publish.dynamic_groups);
+                              if (!already_adopted) {
+                                  result->handler->SetPublishInitiated();
 
-                              self->SubscribeTrack(result->handler);
+                                  result->handler->SetConnectionId(self->current_connection_->GetID());
+                                  result->handler->SetRequestId(request_id);
+                                  result->handler->SetReceivedTrackAlias(publish.track_alias);
+                                  result->handler->SetSubscriberPriority(publish.publisher_priority);
+                                  // TODO: Optional delivery timeout?
+                                  const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
+                                  result->handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));
+                                  result->handler->SetPublisherDefaultGroupOrder(publish.default_publisher_group_order);
+                                  result->handler->SupportNewGroupRequest(publish.dynamic_groups);
+
+                                  self->SubscribeTrack(result->handler);
+                              }
                           }
 
                           self->SendPublishOk(self->ResponseStream(request_id), result->attributes);

@@ -104,12 +104,14 @@ namespace quicr {
     {
         auto session = GetSession().lock();
         const auto request_stream = GetRequestStream();
-        if (!session || status_ != Status::kOk || !support_new_group_request_ || request_stream == nullptr) {
+        if (!session || (status_ != Status::kOk && status_ != Status::kPaused) || !support_new_group_request_ ||
+            request_stream == nullptr) {
             return;
         }
 
+        // Keep the paused forwarding state. A new-group request must not resume the publisher.
         session->SendRequestUpdate(
-          request_stream, TrackHash(GetFullTrackName()), group_id, GetSubscriberPriority(), true);
+          request_stream, TrackHash(GetFullTrackName()), group_id, GetSubscriberPriority(), status_ == Status::kOk);
     }
 
     void SubscribeTrackHandler::RequestOkReceived(const messages::Parameters& params)
