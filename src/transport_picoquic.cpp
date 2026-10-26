@@ -1088,8 +1088,16 @@ PicoQuicTransport::Start()
     if (is_server_mode) {
         QUICR_LOGGER_DEBUG(logger, "Start: As Server, configuring WebTransport Path Params");
 
-        // Store path items in the class member to ensure memory persists after Start() returns
-        wt_config_->path_items = { { serverInfo_.path.c_str(), 6, DefaultWebTransportCallback, this } };
+        // Store path items in the class member to ensure memory persists after Start() returns.
+        // Extended CONNECT is refused unless the path names the WebTransport protocol.
+        picohttp_server_path_item_t path_item{};
+        path_item.path = serverInfo_.path.c_str();
+        path_item.path_length = serverInfo_.path.size();
+        path_item.path_callback = DefaultWebTransportCallback;
+        path_item.path_app_ctx = this;
+        path_item.connect_protocol = H3ZERO_WEBTRANSPORT_H3_PROTOCOL;
+        path_item.connect_protocol_length = sizeof(H3ZERO_WEBTRANSPORT_H3_PROTOCOL) - 1;
+        wt_config_->path_items = { path_item };
 
         // Store server_params in class member so it persists for the ALPN callback
         // The ALPN callback uses path_table[0].path_app_ctx to get the transport pointer for raw QUIC

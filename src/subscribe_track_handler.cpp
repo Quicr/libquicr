@@ -109,8 +109,9 @@ namespace quicr {
             return;
         }
 
+        // Keep the paused forwarding state. A new-group request must not resume the publisher.
         session->SendRequestUpdate(
-          request_stream, TrackHash(GetFullTrackName()), group_id, GetSubscriberPriority(), true);
+          request_stream, TrackHash(GetFullTrackName()), group_id, GetSubscriberPriority(), status_ == Status::kOk);
     }
 
     void SubscribeTrackHandler::RequestOkReceived(const messages::Parameters& params)
