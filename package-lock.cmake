@@ -25,19 +25,19 @@ CPMDeclarePackage(timeq
 #    "WITH_FUSION OFF"
 #    "picotls_BUILD_TESTS OFF"
 #)
-# picoquic (unversioned)
-# CPMDeclarePackage(picoquic
-#  GIT_TAG poll-recvmmsg
-#  GITHUB_REPOSITORY private-octopus/picoquic
-#  SYSTEM YES
-#  EXCLUDE_FROM_ALL YES
-#  OPTIONS
-#    "BUILD_DEMO OFF"
-#    "BUILD_PQBENCH OFF"
-#    "BUILD_LOGREADER OFF"
-#    "picoquic_BUILD_TESTS OFF"
-#    "PICOQUIC_FETCH_PTLS ON"
-#)
+# picoquic
+CPMDeclarePackage(picoquic
+  GIT_TAG v2026.10.22.70b5fd5
+  GITHUB_REPOSITORY private-octopus/picoquic
+  SYSTEM YES
+  EXCLUDE_FROM_ALL YES
+  OPTIONS
+    "BUILD_DEMO OFF"
+    "BUILD_PQBENCH OFF"
+    "BUILD_LOGREADER OFF"
+    "picoquic_BUILD_TESTS OFF"
+    "PICOQUIC_FETCH_PTLS ON"
+)
 # doctest
 CPMDeclarePackage(doctest
   VERSION 2.5.2
