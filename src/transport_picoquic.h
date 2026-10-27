@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "containers/priority_queue.h"
 #include "picoquic_connection.h"
-#include "quicr/containers/priority_queue.h"
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/log.h"
@@ -40,6 +40,8 @@
 #endif
 
 namespace quicr {
+
+    class Clock;
 
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
     constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
@@ -127,7 +129,7 @@ namespace quicr {
         PicoQuicTransport(const TransportRemote& server,
                           const TransportConfig& tcfg,
                           bool is_server_mode,
-                          std::shared_ptr<timeq::tick_service> tick_service,
+                          std::shared_ptr<Clock> tick_service,
                           std::shared_ptr<Logger> logger,
                           Connection::API connection_api);
 
@@ -478,7 +480,7 @@ namespace quicr {
         TransportConfig tconfig_;
 
         std::map<std::uint64_t, std::shared_ptr<PicoQuicConnection>> connections_;
-        std::shared_ptr<timeq::tick_service> tick_service_;
+        std::shared_ptr<Clock> clock_;
 
         // WebTransport configuration (server-wide, not per-connection)
         struct WebTransportConfig
