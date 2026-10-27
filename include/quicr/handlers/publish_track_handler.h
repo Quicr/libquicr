@@ -228,12 +228,11 @@ namespace quicr {
         constexpr messages::Location GetLargestLocation() const noexcept { return largest_location_; }
 
         /**
-         * @brief Notification that a stream has been closed.
-         * @param stream_id The ID of the stream being closed.
-         * @param reset     True if stream closed by reset
-         *
+         * @brief Notification that a subscriber has cancelled a subgroup.
+         * @param group_id The ID of the group the cancelled subgroup belongs to.
+         * @param subgroup_id The ID of the cancelled subgroup.
          */
-        virtual void StreamClosed(std::uint64_t stream_id, bool reset = false);
+        virtual void SubgroupCancelled(std::uint64_t group_id, uint64_t subgroup_id);
 
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
@@ -414,6 +413,8 @@ namespace quicr {
       private:
         // Update status without firing the callback.
         std::optional<Status> UpdateStatus(Status status) noexcept;
+
+        void StreamClosed(std::uint64_t stream_id);
 
         friend class Session;
     };

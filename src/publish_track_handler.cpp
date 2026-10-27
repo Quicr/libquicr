@@ -477,17 +477,25 @@ namespace quicr {
         return messages::Parameters{};
     }
 
-    void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, [[maybe_unused]] bool reset)
+    void PublishTrackHandler::SubgroupCancelled([[maybe_unused]] std::uint64_t group_id,
+                                                [[maybe_unused]] uint64_t subgroup_id)
+    {
+    }
+
+    void PublishTrackHandler::StreamClosed(std::uint64_t stream_id)
     {
         for (auto group_it = stream_info_by_group_.begin(); group_it != stream_info_by_group_.end();) {
             for (auto subgroup_it = group_it->second.begin(); subgroup_it != group_it->second.end();) {
                 if (subgroup_it->second.stream != nullptr && subgroup_it->second.stream->GetStreamId() == stream_id) {
+                    const std::uint64_t group_id = group_it->first;
+                    const std::uint64_t subgroup_id = subgroup_it->first;
                     subgroup_it = group_it->second.erase(subgroup_it);
 
                     if (group_it->second.empty()) {
                         group_it = stream_info_by_group_.erase(group_it);
                     }
 
+                    SubgroupCancelled(group_id, subgroup_id);
                     return;
                 }
 

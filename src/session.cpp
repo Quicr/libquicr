@@ -2039,7 +2039,7 @@ namespace quicr {
             }
             // If this was a data stream, notify the handler.
             if (publish_handler) {
-                publish_handler->StreamClosed(stream_id, flag != StreamClosedFlag::kFin);
+                publish_handler->StreamClosed(stream_id);
                 return;
             }
         } catch (const std::exception& e) {
