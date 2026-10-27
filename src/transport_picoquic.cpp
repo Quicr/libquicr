@@ -719,6 +719,9 @@ try {
             if (stream == nullptr) {
                 const bool is_bidir = (stream_id & 0x2) == 0;
                 stream = connection->GetOrAddStream(stream_id, is_bidir ? transport->MakeStreamTxQueue() : nullptr);
+                if (is_bidir) {
+                    picoquic_set_stream_priority(cnx, stream_id, 0);
+                }
             }
             connection->wt_stream_to_stream[stream_id] = stream;
 
@@ -1049,7 +1052,7 @@ PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
 
     picoquic_set_default_idle_timeout(quic_ctx, tconfig_.idle_timeout_ms);
     picoquic_set_default_priority(quic_ctx, 2);
-    picoquic_set_default_datagram_priority(quic_ctx, 1);
+    picoquic_set_default_datagram_priority(quic_ctx, ToPicoquicDataPriority(128));
 
     if (!tconfig_.quic_qlog_path.empty()) {
         QUICR_LOGGER_INFO(logger, "Enabling qlog using '{0}' path", tconfig_.quic_qlog_path);
@@ -1191,7 +1194,7 @@ PicoQuicTransport::EnqueueDatagram(const std::shared_ptr<Connection>& connection
     // when it actually changes rather than on every send.
     if (pq_conn->dgram_priority != priority) {
         pq_conn->dgram_priority = priority;
-        picoquic_set_datagram_priority(pq_conn->pq_cnx, static_cast<uint8_t>(priority << 1));
+        picoquic_set_datagram_priority(pq_conn->pq_cnx, ToPicoquicDataPriority(priority));
     }
 
     ConnData cd{
@@ -2011,6 +2014,9 @@ try {
         // QUIC stream IDs have bit 1 set to 0 for bidirectional streams.
         const bool is_bidir = (stream_id & 2) == 0;
         stream = connection->GetOrAddStream(stream_id, is_bidir ? MakeStreamTxQueue() : nullptr);
+        if (is_bidir) {
+            picoquic_set_stream_priority(connection->pq_cnx, stream_id, 0);
+        }
 
         // Picowt owns the app stream context slot in WebTransport mode; that path looks the stream up
         // through the connection's WebTransport mapping instead.
@@ -2695,7 +2701,8 @@ PicoQuicTransport::CbNotifier()
 std::shared_ptr<Stream>
 PicoQuicTransport::CreateDataStream(const std::shared_ptr<Connection>& connection, uint8_t priority)
 {
-    const auto stream = CreateStreamOnPqThread(connection, false /* unidirectional */, priority);
+    const auto stream =
+      CreateStreamOnPqThread(connection, false /* unidirectional */, ToPicoquicDataPriority(priority));
 
     QUICR_LOGGER_DEBUG(
       logger, "Created data stream_id: {}, pri: {}", stream->GetStreamId(), static_cast<int>(priority));
@@ -2815,7 +2822,7 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
         picoquic_set_app_stream_ctx(pq_conn->pq_cnx, stream_id, stream.get());
     }
 
-    picoquic_set_stream_priority(pq_conn->pq_cnx, stream_id, (priority << 1));
+    picoquic_set_stream_priority(pq_conn->pq_cnx, stream_id, priority);
 
     return stream;
 }
