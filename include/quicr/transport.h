@@ -75,14 +75,7 @@ namespace quicr {
     enum class TransportError : uint8_t
     {
         kNone = 0,
-        kQueueFull,
-        kUnknownError,
-        kPeerDisconnected,
-        kPeerUnreachable,
-        kCannotResolveHostname,
         kInvalidConnContextId,
-        kInvalidIpv4Address,
-        kInvalidIpv6Address,
         kInvalidStreamId,
         kFailedToCreateQuicInstance
     };
