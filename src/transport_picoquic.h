@@ -20,6 +20,7 @@
 #include <timeq/time_queue.h>
 #include <tls_api.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -42,9 +43,10 @@
 namespace quicr {
 
     /// Reserve 0 for control/requests and map data to 127 even, round-robin priorities (2-254).
+    /// MoQ priorities share levels in pairs ({0,1}, {2,3}, ...), with 252-255 sharing the lowest.
     constexpr uint8_t ToPicoquicDataPriority(uint8_t priority)
     {
-        return static_cast<uint8_t>(2u * (1u + static_cast<unsigned>(priority) * 127u / 256u));
+        return static_cast<uint8_t>(2u + 2u * (std::min<unsigned>(priority, 253u) / 2u));
     }
 
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN

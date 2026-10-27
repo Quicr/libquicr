@@ -11,12 +11,13 @@ TEST_CASE("Picoquic data priority mapping at boundaries")
 {
     CHECK_EQ(ToPicoquicDataPriority(0), 2);
     CHECK_EQ(ToPicoquicDataPriority(1), 2);
-    CHECK_EQ(ToPicoquicDataPriority(64), 64);
-    CHECK_EQ(ToPicoquicDataPriority(126), 126);
+    CHECK_EQ(ToPicoquicDataPriority(2), 4);
     CHECK_EQ(ToPicoquicDataPriority(127), 128);
-    CHECK_EQ(ToPicoquicDataPriority(128), 128);
-    CHECK_EQ(ToPicoquicDataPriority(129), 128);
-    CHECK_EQ(ToPicoquicDataPriority(192), 192);
+    CHECK_EQ(ToPicoquicDataPriority(128), 130);
+    CHECK_EQ(ToPicoquicDataPriority(129), 130);
+    CHECK_EQ(ToPicoquicDataPriority(251), 252);
+    CHECK_EQ(ToPicoquicDataPriority(252), 254);
+    CHECK_EQ(ToPicoquicDataPriority(253), 254);
     CHECK_EQ(ToPicoquicDataPriority(254), 254);
     CHECK_EQ(ToPicoquicDataPriority(255), 254);
 }
