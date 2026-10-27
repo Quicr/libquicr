@@ -14,6 +14,7 @@ add_executable(quicr_test
     reply.cpp
     track_handlers.cpp
     track_namespace.cpp
+    transport_picoquic.cpp
     metrics.cpp
     uintvar.cpp
 )

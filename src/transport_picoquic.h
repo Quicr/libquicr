@@ -20,6 +20,7 @@
 #include <timeq/time_queue.h>
 #include <tls_api.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -40,6 +41,13 @@
 #endif
 
 namespace quicr {
+
+    /// Reserve 0 for control/requests and map data to 127 even, round-robin priorities (2-254).
+    /// MoQ priorities share levels in pairs ({0,1}, {2,3}, ...), with 252-255 sharing the lowest.
+    constexpr uint8_t ToPicoquicDataPriority(uint8_t priority)
+    {
+        return static_cast<uint8_t>(2u + 2u * (std::min<unsigned>(priority, 253u) / 2u));
+    }
 
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
     constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
@@ -425,6 +433,7 @@ namespace quicr {
          * @brief Create a stream on the picoquic thread and wait for it.
          *
          * @param bidir     Whether to open a bidirectional stream.
+         * @param priority  Mapped picoquic priority; 0 for control/requests.
          *
          * @throws PicoQuicException if the stream could not be created in time.
          */
