@@ -14,14 +14,21 @@ using namespace quicr;
 using namespace quicr_test;
 
 quicr::Expected<void, quicr::Error<quicr::ErrorCode>>
-TestServer::SetupReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
+TestServer::SetupReceived(const std::shared_ptr<quicr::Session>& session,
                           const quicr::SetupAttributes& setup_attributes)
 {
     std::lock_guard _(state_mutex_);
+
     if (setup_received_) {
         setup_received_->set_value(setup_attributes);
         setup_received_.reset();
     }
+
+    if (session_established_) {
+        session_established_->set_value(session);
+        session_established_.reset();
+    }
+
     return {};
 }
 
@@ -141,7 +148,7 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
     subscribe_sessions_[track_alias] = session;
 
     // Bind the publish track handler to send data to the subscriber
-    session->BindPublisherTrack(session->GetConnection()->GetID(), request_id, pub_track_handler, false);
+    session->BindPublisherTrack(session->GetDefaultConnection()->GetID(), request_id, pub_track_handler, false);
 
     // Link any existing publisher subscribe handlers (possibly from a different
     // connection/session) to forward to this subscriber.
@@ -266,7 +273,7 @@ TestServer::UnbindSubscriberPublishTrack(const std::uint64_t track_alias)
     }
 
     // Called without our lock held, since the session takes its own lock during unbind.
-    session->UnbindPublisherTrack(session->GetConnection()->GetID(), handler, false);
+    session->UnbindPublisherTrack(session->GetDefaultConnection()->GetID(), handler, false);
 
     return true;
 }
@@ -322,7 +329,8 @@ TestServer::JoiningFetchReceived(const std::shared_ptr<quicr::Session>& session,
                                  const JoiningFetchAttributes& attrs)
 {
     if (joining_fetch_promise_.has_value()) {
-        joining_fetch_promise_->set_value({ session->GetConnection()->GetID(), request_id, track_full_name, attrs });
+        joining_fetch_promise_->set_value(
+          { session->GetDefaultConnection()->GetID(), request_id, track_full_name, attrs });
         joining_fetch_promise_.reset();
     }
 

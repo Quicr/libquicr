@@ -67,6 +67,7 @@ namespace quicr {
       , public std::enable_shared_from_this<Session>
     {
         static constexpr std::size_t kControlMessageBufferSize = 4096;
+        static constexpr std::size_t kMaxSessionUriLength = 8192;
 
       public:
         /**
@@ -204,9 +205,9 @@ namespace quicr {
         /// @brief Destroy the session after detaching and releasing its owned state.
         virtual ~Session();
 
-        /// @brief Return shared ownership of the session's connection.
-        /// @return Reference to the connection handle retained for the session's lifetime.
-        const std::shared_ptr<Connection>& GetConnection() const noexcept { return current_connection_; }
+        /// @brief Return shared ownership of the session's default connection.
+        /// @return Reference to the default connection handle currently retained for the session.
+        const std::shared_ptr<Connection>& GetDefaultConnection() const noexcept { return default_connection_; }
 
         /// @brief Return shared ownership of the tick service used by the session.
         /// @return Reference to the tick-service handle retained for the session's lifetime.
@@ -349,6 +350,28 @@ namespace quicr {
          * @throws std::logic_error if the handler has a pending request.
          */
         void RequestTrackStatus(std::shared_ptr<TrackStatusHandler> handler);
+
+        /**
+         * @brief Send GOAWAY on this session's control stream.
+         *
+         * @param new_session_uri URI the peer should migrate to, or empty to reuse the current URI.
+         * @param timeout How long the peer has to migrate before the session may be closed.
+         * @param first_unprocessed_request_id Smallest peer request ID that may not have been processed.
+         */
+        void GoAway(const std::string& new_session_uri,
+                    std::chrono::milliseconds timeout,
+                    std::optional<std::uint64_t> first_unprocessed_request_id = std::nullopt);
+
+        /**
+         * @brief Send GOAWAY on one request stream.
+         *
+         * @param new_session_uri URI the peer should migrate to, or empty to reuse the current URI.
+         * @param timeout How long the peer has to migrate before the session may be closed.
+         * @param handler The handler for the request we are sending away.
+         */
+        void GoAway(const std::string& new_session_uri,
+                    std::chrono::milliseconds timeout,
+                    const std::shared_ptr<TrackHandler>& handler);
 
         // --BEGIN SERVER RELAY METHODS ----------------------------------------------------------------------
         /** @name Server Relay Methods
@@ -563,7 +586,7 @@ namespace quicr {
             }
         }
 
-        void SendSetup(const std::shared_ptr<Connection>& connection);
+        void SendSetup(const std::shared_ptr<Connection>& connection, const std::string& connect_uri);
 
         /*===================================================================*/
         // Requests
@@ -598,13 +621,14 @@ namespace quicr {
                               ErrorCode error,
                               std::chrono::milliseconds retry_interval,
                               const std::string& reason,
-                              bool close_stream = true);
+                              bool close_stream = true,
+                              std::optional<Redirect> redirect = std::nullopt);
 
         /*===================================================================*/
         // Publish Namespace
         /*===================================================================*/
 
-        void SendPublishNamespace(const std::shared_ptr<Stream>& stream,
+        bool SendPublishNamespace(const std::shared_ptr<Stream>& stream,
                                   std::uint64_t request_id,
                                   const TrackNamespace& track_namespace);
 
@@ -612,7 +636,7 @@ namespace quicr {
         // Subscribe Namespace
         /*===================================================================*/
 
-        void SendSubscribeNamespace(const std::shared_ptr<Stream>& stream,
+        bool SendSubscribeNamespace(const std::shared_ptr<Stream>& stream,
                                     std::uint64_t request_id,
                                     const TrackNamespace& prefix,
                                     const messages::Filter& filter,
@@ -624,7 +648,7 @@ namespace quicr {
         // Subscribe
         /*===================================================================*/
 
-        void SendSubscribe(const std::shared_ptr<Stream>& stream,
+        bool SendSubscribe(const std::shared_ptr<Stream>& stream,
                            std::uint64_t request_id,
                            const FullTrackName& tfn,
                            TrackHash th,
@@ -643,7 +667,7 @@ namespace quicr {
         // Publish
         /*===================================================================*/
 
-        void SendPublish(const std::shared_ptr<Stream>& stream,
+        bool SendPublish(const std::shared_ptr<Stream>& stream,
                          std::uint64_t request_id,
                          const PublishAttributes& publish);
 
@@ -658,7 +682,8 @@ namespace quicr {
 
         std::optional<std::uint64_t> FindRequestIdByStream(const Stream& stream) QUICR_EXCLUDES(state_mutex_);
 
-        std::shared_ptr<Stream> ResponseStream(const std::uint64_t request_id) const;
+        bool IsCurrentRequestStream(std::uint64_t request_id, const std::shared_ptr<Stream>& stream)
+          QUICR_EXCLUDES(state_mutex_);
 
         /*===================================================================*/
         // Track Status
@@ -674,7 +699,7 @@ namespace quicr {
                           std::optional<messages::GroupOrder> group_order,
                           const FetchResponse& response);
 
-        void SendFetch(const std::shared_ptr<Stream>& stream,
+        bool SendFetch(const std::shared_ptr<Stream>& stream,
                        std::uint64_t request_id,
                        const FullTrackName& tfn,
                        std::uint8_t priority,
@@ -701,12 +726,12 @@ namespace quicr {
 
         void RemoveSubscribeTrack(SubscribeTrackHandler& handler, bool remove_handler = true);
 
-        void CloseRequestHandler(std::uint64_t request_id, std::uint64_t stream_id, StreamClosedFlag flag)
+        void CloseRequestHandler(std::uint64_t request_id, const std::shared_ptr<Stream>& stream, StreamClosedFlag flag)
           QUICR_EXCLUDES(state_mutex_);
 
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th);
 
-        void RemoveAllTracksForConnectionClose();
+        void RemoveTracksForConnectionClose(const std::shared_ptr<Connection>& connection);
 
         [[nodiscard]] uint64_t GetNextRequestID();
 
@@ -791,20 +816,7 @@ namespace quicr {
                      const uint32_t ttl_ms,
                      const Transport::EnqueueFlags flags);
 
-      public: // TODO: Make private
-        struct Redirect
-        {
-            std::string uri;
-            TrackNamespace prefix;
-            std::optional<Bytes> name;
-            std::optional<std::uint64_t> request_id;
-        };
-
-        void Migrate(const Redirect& redirect);
-
       private:
-        friend class SessionMigrationTestPeer;
-
         void SetConnectionAddedCallback(
           std::function<void(const std::shared_ptr<Connection>&, const std::shared_ptr<Session>&)> callback)
         {
@@ -822,29 +834,43 @@ namespace quicr {
 
         struct PendingMigration
         {
-            std::uint64_t old_connection_id;
-            std::uint64_t new_connection_id;
-            std::uint64_t request_id;
             MigrationRequestType type;
             std::shared_ptr<Stream> request_stream;
         };
 
+        struct Migration
+        {
+            Redirect redirect;
+            std::shared_ptr<Connection> source_connection;
+            std::shared_ptr<Connection> candidate_connection;
+            std::map<std::uint64_t, PendingMigration> pending;
+        };
+
+        using MigrationKey = std::pair<std::uint64_t, std::optional<std::uint64_t>>;
+        using MigrationMap = std::map<MigrationKey, Migration>;
+
+        void Migrate(const std::shared_ptr<Connection>& source_connection, const Redirect& redirect);
+
         void StartMigrationRequests(const std::shared_ptr<Connection>& connection);
+
         void CompleteMigration(const std::shared_ptr<Connection>& connection,
                                std::uint64_t request_id,
+                               MigrationRequestType type,
                                std::optional<std::uint64_t> received_track_alias = std::nullopt);
+
         bool FailMigration(const std::shared_ptr<Connection>& connection, std::uint64_t request_id);
+
         bool MatchesRedirect(const TrackHandler& handler, const Redirect& redirect) const;
+
+        MigrationMap::iterator FindMigration(const Connection& candidate) QUICR_REQUIRES(state_mutex_);
 
         void ResetSubgroup(const std::shared_ptr<Stream>& stream);
 
       private:
         mutable std::mutex connections_mutex_;
         std::map<std::uint64_t, std::shared_ptr<Connection>> connections_ QUICR_GUARDED_BY(connections_mutex_);
-        std::map<std::uint64_t, Redirect> redirects_by_connection_ QUICR_GUARDED_BY(state_mutex_);
-        std::map<std::pair<std::uint64_t, std::uint64_t>, PendingMigration> pending_migrations_
-          QUICR_GUARDED_BY(state_mutex_);
-        std::shared_ptr<Connection> current_connection_;
+        MigrationMap migrations_ QUICR_GUARDED_BY(state_mutex_);
+        std::shared_ptr<Connection> default_connection_;
         std::function<void(const std::shared_ptr<Connection>&, const std::shared_ptr<Session>&)>
           connection_added_callback_;
 
@@ -920,14 +946,6 @@ namespace quicr {
         std::atomic<Status> status_{ Status::kConnecting };
 
         const std::shared_ptr<Clock> clock_;
-
-        enum class MigrationStatus : std::uint8_t
-        {
-            kNone,
-            kMigrating,
-            kDone,
-        };
-        std::optional<MigrationStatus> migration_status;
 
         const std::shared_ptr<Transport> quic_transport_; // **MUST** be last for proper order of destruction
 

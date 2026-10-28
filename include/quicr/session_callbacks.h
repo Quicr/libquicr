@@ -39,6 +39,7 @@ namespace quicr {
         kUninterested,            ///< Endpoint is no longer interested.
         kPrefixOverlap,           ///< Namespace prefix overlaps an existing request incompatibly.
         kInvalidJoiningRequestId, ///< Joining fetch references an invalid request.
+        kRedirect,                ///< A request should redirect with the given Redirect info.
     };
 
     /**
@@ -99,8 +100,8 @@ namespace quicr {
      *      correlates it with the request itself, so there is nothing further for the application to call
      *      and no request identifier for it to keep.
      *
-     *      Return a value to accept, or an `Unexpected<Error<E>>` holding a reason code and optional reason
-     *      string to reject. A `Reply<void, E>` accepts by returning `{}`.
+     *      Return a value to accept, or an `Unexpected<Error<E>>` holding a reason code, optional reason
+     *      string, and optional redirect to reject. A `Reply<void, E>` accepts by returning `{}`.
      *
      *      An answer that cannot be given straight away is deferred with `Reply::Defer()`. Its producer is
      *      called on the session's message-handling thread and must start, rather than perform, slow work there.

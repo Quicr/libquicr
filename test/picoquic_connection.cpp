@@ -145,19 +145,25 @@ TEST_CASE("Connection owns its SETUP exchange and control streams")
     const auto connection = MakeConnection();
     const auto tx_control = connection->AddStream(2, MakeTxQueue());
 
-    CHECK(connection->GetSetupState() == Connection::SetupState::kNone);
-    CHECK(connection->UpdateSetupState(Connection::SetupState::kSent));
-    CHECK_FALSE(connection->UpdateSetupState(Connection::SetupState::kSent));
-    CHECK(connection->GetSetupState() == Connection::SetupState::kSent);
+    CHECK_FALSE(connection->IsSetupComplete());
+    CHECK(connection->RecordSetupSent());
+    CHECK_FALSE(connection->RecordSetupSent());
+    CHECK_FALSE(connection->IsSetupComplete());
 
     connection->SetTxControlStream(tx_control);
     connection->SetRxControlStreamId(3);
     CHECK(connection->GetTxControlStream() == tx_control);
     CHECK(connection->GetRxControlStreamId() == 3);
 
-    CHECK(connection->UpdateSetupState(Connection::SetupState::kReceived));
-    CHECK(connection->GetSetupState() == Connection::SetupState::kComplete);
-    CHECK_FALSE(connection->UpdateSetupState(Connection::SetupState::kReceived));
+    CHECK(connection->RecordSetupReceived());
+    CHECK(connection->IsSetupComplete());
+    CHECK_FALSE(connection->RecordSetupReceived());
+
+    const auto received_first = MakeConnection();
+    CHECK(received_first->RecordSetupReceived());
+    CHECK_FALSE(received_first->IsSetupComplete());
+    CHECK(received_first->RecordSetupSent());
+    CHECK(received_first->IsSetupComplete());
 }
 
 TEST_CASE("Transport rejects a stream from another connection")

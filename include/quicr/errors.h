@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "quicr/attributes.h"
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -20,6 +22,8 @@ namespace quicr {
         E reason_code; ///< Machine-readable reason the operation was rejected.
 
         std::optional<std::string> error_reason; ///< Optional human-readable explanation suitable for diagnostics.
+
+        std::optional<Redirect> redirect = std::nullopt; ///< Optional redirect path for request.
     };
 
     /**
@@ -40,5 +44,6 @@ namespace quicr {
         kUninterested = 0x20,            ///< The endpoint is no longer interested in the request.
         kPrefixOverlap = 0x30,           ///< A namespace prefix overlaps an existing request incompatibly.
         kInvalidJoiningRequestId = 0x32, ///< A joining fetch references an invalid request identifier.
+        kRedirect = 0x34,                ///< A request should redirect with the given redirect info.
     };
 }

@@ -11,6 +11,8 @@ namespace quicr {
       const BytesSpan data,
       [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
+        std::lock_guard lock(binding_operation_mutex_);
+
         if (closed_) {
             return PublishObjectStatus::kFetchClosed;
         }
@@ -92,10 +94,14 @@ namespace quicr {
 
     void PublishFetchHandler::EndFetch()
     {
+        std::lock_guard lock(binding_operation_mutex_);
+
         if (closed_) {
             return;
         }
+
         closed_ = true;
+
         if (stream_ == nullptr) {
             return;
         }

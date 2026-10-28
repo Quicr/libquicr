@@ -56,17 +56,6 @@ namespace quicr {
         };
 
         /**
-         * @brief THe state of the setup control message for the current connection.
-         */
-        enum class SetupState
-        {
-            kNone,
-            kSent,
-            kReceived,
-            kComplete,
-        };
-
-        /**
          * @brief Async Callback API on the transport
          */
         class Delegate
@@ -238,14 +227,11 @@ namespace quicr {
          */
         virtual void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag);
 
-        /**
-         * @brief Record one side of the SETUP exchange.
-         *
-         * @returns False when the same side was already recorded.
-         */
-        bool UpdateSetupState(SetupState state);
+        bool RecordSetupSent();
 
-        SetupState GetSetupState() const;
+        bool RecordSetupReceived();
+
+        bool IsSetupComplete() const;
 
         void SetRxControlStreamId(std::uint64_t stream_id);
 
@@ -272,15 +258,17 @@ namespace quicr {
 
         mutable std::mutex delegate_mutex_; ///< Protects access to the connection delegate.
 
+        mutable std::recursive_mutex callback_mutex_;
+        mutable std::mutex mutex_;
+
         /// @brief Non-owning event delegate guarded by the delegate mutex.
-        std::weak_ptr<Delegate> delegate_ QUICR_GUARDED_BY(delegate_mutex_);
+        std::weak_ptr<Delegate> delegate_ QUICR_GUARDED_BY(mutex_);
 
-        mutable std::mutex session_state_mutex_;
+        bool setup_sent_ QUICR_GUARDED_BY(mutex_){ false };
+        bool setup_received_ QUICR_GUARDED_BY(mutex_){ false };
 
-        SetupState setup_state_ QUICR_GUARDED_BY(session_state_mutex_){ SetupState::kNone };
+        std::optional<std::uint64_t> rx_ctrl_stream_id_ QUICR_GUARDED_BY(mutex_);
 
-        std::optional<std::uint64_t> rx_ctrl_stream_id_ QUICR_GUARDED_BY(session_state_mutex_);
-
-        std::shared_ptr<Stream> tx_ctrl_stream_ QUICR_GUARDED_BY(session_state_mutex_);
+        std::shared_ptr<Stream> tx_ctrl_stream_ QUICR_GUARDED_BY(mutex_);
     };
 }
