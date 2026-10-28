@@ -11,6 +11,7 @@ namespace quicr {
       const BytesSpan data,
       [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
+        std::lock_guard lock(binding_operation_mutex_);
         auto session = GetSession().lock();
 
         if (!session) {
@@ -86,6 +87,7 @@ namespace quicr {
 
     void PublishFetchHandler::EndFetch()
     {
+        std::lock_guard lock(binding_operation_mutex_);
         if (stream_ == nullptr) {
             return;
         }

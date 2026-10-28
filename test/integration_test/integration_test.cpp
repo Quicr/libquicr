@@ -329,12 +329,13 @@ MakeTestServer(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
                std::optional<std::size_t> max_connections = std::nullopt,
                std::optional<std::uint64_t> initial_max_stream_data = std::nullopt,
-               std::optional<std::uint64_t> metrics_sample_ms = std::nullopt)
+               std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
+               std::optional<std::uint16_t> server_port = std::nullopt)
 {
     // Run the server.
     ServerConfig server_config;
     server_config.server_bind_ip = kIp;
-    server_config.server_port = GetTestPort();
+    server_config.server_port = server_port.value_or(GetTestPort());
     server_config.endpoint_id = kServerId;
     server_config.transport_config.debug = true;
     server_config.transport_config.tls_cert_filename = "server-cert.pem";
@@ -369,7 +370,8 @@ MakeTestClient(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
                const std::string& protocol_scheme = "moq",
                const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
-               std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>())
+               std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>(),
+               std::optional<std::uint16_t> server_port = std::nullopt)
 {
     // Connect a client.
     ClientConfig client_config;
@@ -379,7 +381,8 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     if (metrics_sample_ms.has_value()) {
         client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
     }
-    client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(GetTestPort()) + "/relay";
+    client_config.connect_uri =
+      quicr::format("{}://{}:{}/relay", protocol_scheme, kIp, server_port.value_or(GetTestPort()));
     if (qlog_path.has_value()) {
         client_config.transport_config.quic_qlog_path = *qlog_path;
     }
@@ -776,6 +779,8 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
     REQUIRE(WaitFor([&session]() { return session->GetStatus() == Session::Status::kReady; }));
 
     session->Disconnect();
+    CHECK_EQ(session->GetStatus(), Session::Status::kNotConnected);
+    CHECK(session->GetDefaultConnection() == nullptr);
     transport->Shutdown();
 }
 
@@ -916,6 +921,189 @@ TEST_CASE("Integration - Publisher subscriber and transport priorities remain di
     }
 }
 
+TEST_CASE("Integration - GOAWAY migration")
+{
+    const auto test_migration = [](const std::string& protocol_scheme) {
+        auto session_mgr = MakeTestSessionManager();
+        const auto old_relay_port = GetTestPort();
+        const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
+
+        auto old_relay =
+          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
+        auto new_relay =
+          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
+
+        // Connect the client to relay A and retain relay A's server-side session
+        // so the test can originate GOAWAY from the peer.
+        std::promise<std::shared_ptr<Session>> old_server_session_promise;
+        auto old_server_session_future = old_server_session_promise.get_future();
+        old_relay->SetSessionEstablishedPromise(std::move(old_server_session_promise));
+
+        const auto client = MakeTestClient(session_mgr,
+                                           true,
+                                           std::nullopt,
+                                           protocol_scheme,
+                                           std::nullopt,
+                                           std::make_shared<TestClient>(),
+                                           old_relay_port);
+
+        const auto& original_session = client.first;
+        REQUIRE(old_server_session_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto old_server_session = old_server_session_future.get();
+        REQUIRE(old_server_session != nullptr);
+
+        // Establish the original subscription on relay A.
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "goaway", "migration" }), { 1, 2, 3 } };
+        const messages::Filter filter = messages::TrackFilter{ 4, 5, 6 };
+        const auto original_handler = TestSubscribeHandler::Create(ftn, 7, std::nullopt, filter);
+
+        std::promise<TestServer::SubscribeDetails> old_subscribe_promise;
+        auto old_subscribe_future = old_subscribe_promise.get_future();
+        old_relay->SetSubscribePromise(std::move(old_subscribe_promise));
+        original_session->SubscribeTrack(original_handler);
+
+        REQUIRE(old_subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto old_subscribe = old_subscribe_future.get();
+        REQUIRE(
+          WaitFor([&original_handler] { return original_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+        const auto old_connection = original_handler->GetConnection();
+        REQUIRE(old_connection != nullptr);
+        CHECK_EQ(original_handler->GetConnectionId(), old_connection->GetID());
+
+        const FullTrackName publish_name{ TrackNamespace(std::vector<std::string>{ "goaway", "published" }),
+                                          { 4, 5, 6 } };
+        const auto publish_handler =
+          PublishTrackHandler::Create(publish_name, TrackMode::kStream, 3, 3, 5000, { 0, 0 });
+        original_session->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+        REQUIRE_EQ(publish_handler->GetConnection(), old_connection);
+
+        // Observe the subscription being renegotiated on relay B, then redirect.
+        std::promise<TestServer::SubscribeDetails> new_subscribe_promise;
+        auto new_subscribe_future = new_subscribe_promise.get_future();
+        new_relay->SetSubscribePromise(std::move(new_subscribe_promise));
+
+        old_server_session->GoAway(quicr::format("{}://{}:{}/relay", protocol_scheme, kIp, new_relay_port),
+                                   std::chrono::seconds{ 5 });
+
+        // Relay B must receive the same subscription intent and request identity.
+        REQUIRE(new_subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto new_subscribe = new_subscribe_future.get();
+
+        CHECK_EQ(new_subscribe.request_id, old_subscribe.request_id);
+        CHECK_EQ(new_subscribe.track_full_name.name_space, old_subscribe.track_full_name.name_space);
+        CHECK_EQ(new_subscribe.track_full_name.name, old_subscribe.track_full_name.name);
+        CHECK_EQ(new_subscribe.subscribe_attributes.filter, old_subscribe.subscribe_attributes.filter);
+
+        // The original handler must be rebound in place to the original session's
+        // new current connection.
+        REQUIRE(WaitFor([&original_handler, &old_connection] {
+            const auto connection = original_handler->GetConnection();
+            return connection != nullptr && connection->GetID() != old_connection->GetID() &&
+                   original_handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
+        }));
+
+        const auto new_connection = original_handler->GetConnection();
+        REQUIRE(new_connection != nullptr);
+        CHECK_NE(new_connection, old_connection);
+        CHECK_EQ(original_session->GetDefaultConnection(), new_connection);
+        REQUIRE(WaitFor([&publish_handler, &new_connection] {
+            return publish_handler->GetConnection() == new_connection && publish_handler->CanPublish();
+        }));
+
+        const Bytes payload{ 1, 2, 3 };
+        CHECK_EQ(
+          publish_handler->PublishObject(
+            { .group_id = 0, .object_id = 0, .payload_length = payload.size(), .track_mode = TrackMode::kStream },
+            payload),
+          PublishTrackHandler::PublishObjectStatus::kOk);
+
+        // Relay A is released only after the handler has cut over.
+        CHECK(WaitFor([&old_connection] { return old_connection->GetStatus() != Connection::Status::kReady; }));
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_migration("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_migration("https");
+    }
+}
+
+TEST_CASE("Integration - request GOAWAY migrates part of a session")
+{
+    const auto test_partial_migration = [](const std::string& protocol_scheme) {
+        auto session_mgr = MakeTestSessionManager();
+        const auto old_relay_port = GetTestPort();
+        const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
+        auto old_relay =
+          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
+        [[maybe_unused]] auto new_relay =
+          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
+
+        std::promise<std::shared_ptr<Session>> old_server_session_promise;
+        auto old_server_session_future = old_server_session_promise.get_future();
+        old_relay->SetSessionEstablishedPromise(std::move(old_server_session_promise));
+
+        const auto client = MakeTestClient(session_mgr,
+                                           true,
+                                           std::nullopt,
+                                           protocol_scheme,
+                                           std::nullopt,
+                                           std::make_shared<TestClient>(),
+                                           old_relay_port);
+        const auto& session = client.first;
+        const auto old_connection = session->GetDefaultConnection();
+        REQUIRE(old_connection != nullptr);
+        REQUIRE(old_server_session_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto old_server_session = old_server_session_future.get();
+        REQUIRE(old_server_session != nullptr);
+
+        const TrackNamespace track_namespace(std::vector<std::string>{ "partial", "migration" });
+        const FullTrackName migrating_name{ track_namespace, { 1 } };
+        const FullTrackName staying_name{ track_namespace, { 2 } };
+        const auto migrating_handler = TestSubscribeHandler::Create(migrating_name, 0, std::nullopt);
+        const auto staying_handler = TestSubscribeHandler::Create(staying_name, 0, std::nullopt);
+
+        session->SubscribeTrack(migrating_handler);
+        session->SubscribeTrack(staying_handler);
+        REQUIRE(WaitFor([&migrating_handler, &staying_handler] {
+            return migrating_handler->GetStatus() == SubscribeTrackHandler::Status::kOk &&
+                   staying_handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
+        }));
+        REQUIRE_EQ(migrating_handler->GetConnection(), old_connection);
+        REQUIRE_EQ(staying_handler->GetConnection(), old_connection);
+
+        const auto server_handler =
+          old_relay->GetSubscriberPublishHandler(TrackHash(migrating_name).track_fullname_hash);
+        REQUIRE(server_handler != nullptr);
+
+        const auto redirect_uri = quicr::format("{}://{}:{}/relay", protocol_scheme, kIp, new_relay_port);
+        old_server_session->GoAway(redirect_uri, std::chrono::seconds{ 5 }, server_handler);
+        REQUIRE(WaitFor([&migrating_handler, &old_connection] {
+            const auto connection = migrating_handler->GetConnection();
+            return connection != nullptr && connection != old_connection &&
+                   migrating_handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
+        }));
+
+        CHECK_EQ(staying_handler->GetConnection(), old_connection);
+        CHECK_EQ(staying_handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
+        CHECK_EQ(old_connection->GetStatus(), Connection::Status::kReady);
+        CHECK_EQ(session->GetDefaultConnection(), old_connection);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_partial_migration("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_partial_migration("https");
+    }
+}
+
 TEST_CASE("Integration - Subscribe rejection preserves rendezvous error codes")
 {
     auto test_error = [](const std::string& protocol_scheme) {
@@ -947,6 +1135,59 @@ TEST_CASE("Integration - Subscribe rejection preserves rendezvous error codes")
     {
         test_error("https");
     }
+}
+
+TEST_CASE("Integration - REQUEST_ERROR redirect migration")
+{
+    auto session_mgr = MakeTestSessionManager();
+    const auto old_relay_port = GetTestPort();
+    const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
+    auto old_relay =
+      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
+    auto new_relay =
+      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
+
+    const FullTrackName redirected_name{ TrackNamespace(std::vector<std::string>{ "request-error", "replacement" }),
+                                         { 2 } };
+    old_relay->SetSubscribeError(RequestErrorCode::kRedirect,
+                                 "Use the replacement relay",
+                                 Redirect{
+                                   .uri = "moq://" + kIp + ":" + std::to_string(new_relay_port) + "/relay",
+                                   .track_namespace = redirected_name.name_space,
+                                   .track_name = redirected_name.name,
+                                   .request_id = std::nullopt,
+                                 });
+
+    std::promise<TestServer::SubscribeDetails> old_subscribe_promise;
+    auto old_subscribe_future = old_subscribe_promise.get_future();
+    old_relay->SetSubscribePromise(std::move(old_subscribe_promise));
+    std::promise<TestServer::SubscribeDetails> new_subscribe_promise;
+    auto new_subscribe_future = new_subscribe_promise.get_future();
+    new_relay->SetSubscribePromise(std::move(new_subscribe_promise));
+
+    auto [session, callbacks] = MakeTestClient(
+      session_mgr, true, std::nullopt, "moq", std::nullopt, std::make_shared<TestClient>(), old_relay_port);
+    const auto old_connection = session->GetDefaultConnection();
+    REQUIRE(old_connection != nullptr);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "request-error", "redirect" }), { 1 } };
+    const auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
+    session->SubscribeTrack(handler);
+
+    REQUIRE(old_subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+    const auto old_subscribe = old_subscribe_future.get();
+    REQUIRE(new_subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+    const auto new_subscribe = new_subscribe_future.get();
+    CHECK_EQ(new_subscribe.request_id, old_subscribe.request_id);
+    CHECK_EQ(new_subscribe.track_full_name.name_space, redirected_name.name_space);
+    CHECK_EQ(new_subscribe.track_full_name.name, redirected_name.name);
+    CHECK_EQ(handler->GetFullTrackName().name_space, ftn.name_space);
+    CHECK_EQ(handler->GetFullTrackName().name, ftn.name);
+    REQUIRE(WaitFor([&handler, &old_connection] {
+        const auto connection = handler->GetConnection();
+        return connection != nullptr && connection->GetID() != old_connection->GetID() &&
+               handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
+    }));
 }
 
 TEST_CASE("Integration - Datagram object roundtrip")
@@ -2810,7 +3051,7 @@ TEST_CASE("Integration - Invalid stream type is a PROTOCOL_VIOLATION")
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
-    const auto connection = subscriber->GetConnection();
+    const auto connection = subscriber->GetDefaultConnection();
     const auto pq_connection = std::dynamic_pointer_cast<PicoQuicConnection>(connection);
     REQUIRE(pq_connection != nullptr);
 
@@ -2831,7 +3072,7 @@ TEST_CASE("Integration - Invalid stream type is a PROTOCOL_VIOLATION")
     CHECK(WaitFor([&connection] { return connection->GetStatus() == Connection::Status::kRemoteRequestClose; }));
 
     // Any other (publisher's in this case) session should stay up.
-    CHECK_EQ(publisher->GetConnection()->GetStatus(), Connection::Status::kReady);
+    CHECK_EQ(publisher->GetDefaultConnection()->GetStatus(), Connection::Status::kReady);
 
     // Which leaves the track with nothing to arrive on, the subscription having gone with it.
     const std::vector<std::uint8_t> payload(8, 0x5c);
@@ -3452,7 +3693,7 @@ TEST_CASE("Integration - Subscription subgroup close")
         REQUIRE_EQ(closed_stream_ids.size(), 1);
         const auto stream_id = closed_stream_ids.front();
         CHECK(callbacks->CheckStreamState(stream_id) == false);
-        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetConnection());
+        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetDefaultConnection());
         CHECK(WaitFor([&] { return connection->GetStream(stream_id) == nullptr; }));
         CHECK_EQ(subscribe_handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
     };
@@ -3520,7 +3761,7 @@ TEST_CASE("Integration - Track Status")
         CHECK(subscriber_client->CheckStreamState(stream_id) == false);
         REQUIRE(WaitFor([&] { return server->WasStreamReset(stream_id).has_value(); }));
         CHECK(server->WasStreamReset(stream_id) == false);
-        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetConnection());
+        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetDefaultConnection());
         CHECK(WaitFor([&] { return connection->GetStream(stream_id) == nullptr; }));
     };
 

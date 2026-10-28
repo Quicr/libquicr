@@ -57,6 +57,7 @@ namespace quicr {
       uint64_t subgroup_id,
       std::shared_ptr<const std::vector<uint8_t>> data)
     {
+        std::lock_guard lock(binding_operation_mutex_);
         auto session = GetSession().lock();
         std::shared_ptr<Stream> stream;
 
@@ -173,6 +174,7 @@ namespace quicr {
       BytesSpan data,
       std::optional<messages::StreamHeaderProperties> stream_mode)
     {
+        std::lock_guard lock(binding_operation_mutex_);
         auto session = GetSession().lock();
 
         if (!session) {
@@ -370,6 +372,7 @@ namespace quicr {
 
     void PublishTrackHandler::EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed)
     {
+        std::lock_guard lock(binding_operation_mutex_);
         auto session = GetSession().lock();
 
         if (!session) {
@@ -407,6 +410,7 @@ namespace quicr {
 
     void PublishTrackHandler::EndAllSubgroups()
     {
+        std::lock_guard lock(binding_operation_mutex_);
         // EndSubgroup erases as it goes, so gather first rather than iterating the map it mutates.
         std::vector<std::pair<std::uint64_t, std::uint64_t>> open;
         for (const auto& [group_id, subgroups] : stream_info_by_group_) {
@@ -482,6 +486,7 @@ namespace quicr {
 
     void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, [[maybe_unused]] bool reset)
     {
+        std::lock_guard lock(binding_operation_mutex_);
         for (auto group_it = stream_info_by_group_.begin(); group_it != stream_info_by_group_.end();) {
             for (auto subgroup_it = group_it->second.begin(); subgroup_it != group_it->second.end();) {
                 if (subgroup_it->second.stream != nullptr && subgroup_it->second.stream->GetStreamId() == stream_id) {

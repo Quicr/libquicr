@@ -4,6 +4,8 @@
 #pragma once
 
 #include "quicr/messages/ctrl_message_types.h"
+#include "quicr/track_name.h"
+#include "quicr/utilities/bytes.h"
 
 #include <chrono>
 #include <optional>
@@ -114,6 +116,21 @@ namespace quicr {
         uint64_t request_id{ 0 };
         messages::FilterType filter_type{ messages::FilterType::kTrackFilter };
         messages::Filter filter{ std::monostate{} };
+    };
+
+    /**
+     * @brief Alternate endpoint and Full Track Name carried by a Redirect.
+     *
+     * @details An empty namespace and empty name preserve the original request's
+     *      Full Track Name. request_id is local migration correlation and is not
+     *      serialized as part of the Redirect structure.
+     */
+    struct Redirect
+    {
+        std::string uri;
+        TrackNamespace track_namespace;
+        std::optional<Bytes> track_name;
+        std::optional<std::uint64_t> request_id;
     };
 
 }

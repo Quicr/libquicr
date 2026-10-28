@@ -26,6 +26,8 @@ namespace quicr {
 
     void Connection::SetStatus(Status new_status)
     {
+        std::lock_guard _(callback_mutex_);
+
         if (new_status == status_.exchange(new_status, std::memory_order_acq_rel)) {
             return;
         }
@@ -53,8 +55,10 @@ namespace quicr {
 
     void Connection::SetDelegate(const std::shared_ptr<Delegate>& delegate)
     {
+        std::lock_guard _(callback_mutex_);
+
         {
-            std::lock_guard lock(delegate_mutex_);
+            std::lock_guard lock(mutex_);
             delegate_ = delegate;
         }
 
@@ -68,7 +72,7 @@ namespace quicr {
 
     std::shared_ptr<Connection::Delegate> Connection::GetDelegate() const
     {
-        std::lock_guard lock(delegate_mutex_);
+        std::lock_guard _(mutex_);
         return delegate_.lock();
     }
 
@@ -104,53 +108,45 @@ namespace quicr {
         }
     }
 
-    bool Connection::UpdateSetupState(SetupState state)
+    bool Connection::RecordSetupSent()
     {
-        if (state != SetupState::kSent && state != SetupState::kReceived) {
-            return false;
-        }
-
-        std::lock_guard lock(session_state_mutex_);
-        if (setup_state_ == state || setup_state_ == SetupState::kComplete) {
-            return false;
-        }
-
-        if ((setup_state_ == SetupState::kSent && state == SetupState::kReceived) ||
-            (setup_state_ == SetupState::kReceived && state == SetupState::kSent)) {
-            setup_state_ = SetupState::kComplete;
-        } else {
-            setup_state_ = state;
-        }
-        return true;
+        std::lock_guard _(mutex_);
+        return std::exchange(setup_sent_, true) == false;
     }
 
-    Connection::SetupState Connection::GetSetupState() const
+    bool Connection::RecordSetupReceived()
     {
-        std::lock_guard lock(session_state_mutex_);
-        return setup_state_;
+        std::lock_guard _(mutex_);
+        return std::exchange(setup_received_, true) == false;
+    }
+
+    bool Connection::IsSetupComplete() const
+    {
+        std::lock_guard _(mutex_);
+        return setup_sent_ && setup_received_;
     }
 
     void Connection::SetRxControlStreamId(std::uint64_t stream_id)
     {
-        std::lock_guard lock(session_state_mutex_);
+        std::lock_guard _(mutex_);
         rx_ctrl_stream_id_ = stream_id;
     }
 
     std::optional<std::uint64_t> Connection::GetRxControlStreamId() const
     {
-        std::lock_guard lock(session_state_mutex_);
+        std::lock_guard _(mutex_);
         return rx_ctrl_stream_id_;
     }
 
     void Connection::SetTxControlStream(std::shared_ptr<Stream> stream)
     {
-        std::lock_guard lock(session_state_mutex_);
+        std::lock_guard _(mutex_);
         tx_ctrl_stream_ = std::move(stream);
     }
 
     std::shared_ptr<Stream> Connection::GetTxControlStream() const
     {
-        std::lock_guard lock(session_state_mutex_);
+        std::lock_guard _(mutex_);
         return tx_ctrl_stream_;
     }
 }
