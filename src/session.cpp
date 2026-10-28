@@ -2365,14 +2365,15 @@ namespace quicr {
         return rid;
     }
 
-    TransportError Session::Enqueue(const std::shared_ptr<Stream>& stream,
-                                    std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                    const uint8_t priority,
-                                    const uint32_t ttl_ms,
-                                    const Transport::EnqueueFlags flags)
+    bool Session::Enqueue(const std::shared_ptr<Stream>& stream,
+                          std::shared_ptr<const std::vector<uint8_t>> bytes,
+                          const uint8_t priority,
+                          const uint32_t ttl_ms,
+                          const Transport::EnqueueFlags flags)
     {
         if (!flags.use_reliable) {
-            return quic_transport_->EnqueueDatagram(current_connection_, std::move(bytes), priority, ttl_ms);
+            quic_transport_->EnqueueDatagram(current_connection_, std::move(bytes), priority, ttl_ms);
+            return true;
         }
 
         return quic_transport_->Enqueue(current_connection_, stream, std::move(bytes), priority, ttl_ms, flags);

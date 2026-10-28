@@ -55,7 +55,9 @@ namespace quicr {
             kPreviousObjectNotCompleteMustStartNewTrack,
 
             kPaused,
-            kPendingPublishOk
+            kPendingPublishOk,
+            kSubgroupClosed, ///< This subgroup is closed and cannot be published to.
+            kFetchClosed,    ///< This fetch request is over and cannot accept more objects.
         };
 
         /**

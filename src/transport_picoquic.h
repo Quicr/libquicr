@@ -149,17 +149,17 @@ namespace quicr {
 
         virtual bool GetPeerAddrInfo(const std::shared_ptr<Connection>& connection, sockaddr_storage* addr) override;
 
-        TransportError EnqueueDatagram(const std::shared_ptr<Connection>& connection,
-                                       std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                       uint8_t priority,
-                                       uint32_t ttl_ms) override;
+        void EnqueueDatagram(const std::shared_ptr<Connection>& connection,
+                             std::shared_ptr<const std::vector<uint8_t>> bytes,
+                             uint8_t priority,
+                             uint32_t ttl_ms) override;
 
-        TransportError Enqueue(const std::shared_ptr<Connection>& connection,
-                               const std::shared_ptr<Stream>& stream,
-                               std::shared_ptr<const std::vector<uint8_t>> bytes,
-                               uint8_t priority,
-                               uint32_t ttl_ms,
-                               EnqueueFlags flags) override;
+        bool Enqueue(const std::shared_ptr<Connection>& connection,
+                     const std::shared_ptr<Stream>& stream,
+                     std::shared_ptr<const std::vector<uint8_t>> bytes,
+                     uint8_t priority,
+                     uint32_t ttl_ms,
+                     EnqueueFlags flags) override;
 
         std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<Connection>& connection) override;
 
@@ -435,12 +435,12 @@ namespace quicr {
                                                                uint8_t priority);
 
         /// @brief Queue bytes on an already-resolved stream handle.
-        TransportError EnqueueStream(const std::shared_ptr<PicoQuicConnection>& connection,
-                                     const std::shared_ptr<PicoQuicStream>& stream,
-                                     std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                     uint8_t priority,
-                                     uint32_t ttl_ms,
-                                     EnqueueFlags flags);
+        bool EnqueueStream(const std::shared_ptr<PicoQuicConnection>& connection,
+                           const std::shared_ptr<PicoQuicStream>& stream,
+                           std::shared_ptr<const std::vector<uint8_t>> bytes,
+                           uint8_t priority,
+                           uint32_t ttl_ms,
+                           EnqueueFlags flags);
 
         std::shared_ptr<PicoQuicStream> CreateStreamInternal(const std::shared_ptr<Connection>& connection,
                                                              bool bidir,

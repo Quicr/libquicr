@@ -23,21 +23,20 @@ namespace {
         {
         }
         bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
-        quicr::TransportError Enqueue(const std::shared_ptr<quicr::Connection>&,
-                                      const std::shared_ptr<quicr::Stream>&,
-                                      std::shared_ptr<const std::vector<uint8_t>>,
-                                      uint8_t,
-                                      uint32_t,
-                                      EnqueueFlags) override
+        bool Enqueue(const std::shared_ptr<quicr::Connection>&,
+                     const std::shared_ptr<quicr::Stream>&,
+                     std::shared_ptr<const std::vector<uint8_t>>,
+                     uint8_t,
+                     uint32_t,
+                     EnqueueFlags) override
         {
-            return quicr::TransportError::kNone;
+            return true;
         }
-        quicr::TransportError EnqueueDatagram(const std::shared_ptr<quicr::Connection>&,
-                                              std::shared_ptr<const std::vector<uint8_t>>,
-                                              uint8_t,
-                                              uint32_t) override
+        void EnqueueDatagram(const std::shared_ptr<quicr::Connection>&,
+                             std::shared_ptr<const std::vector<uint8_t>>,
+                             uint8_t,
+                             uint32_t) override
         {
-            return quicr::TransportError::kNone;
         }
         std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<quicr::Connection>&) override
         {

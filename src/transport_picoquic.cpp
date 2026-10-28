@@ -1187,14 +1187,14 @@ PicoQuicTransport::GetPeerAddrInfo(const std::shared_ptr<Connection>& connection
     return true;
 }
 
-TransportError
+void
 PicoQuicTransport::EnqueueDatagram(const std::shared_ptr<Connection>& connection,
                                    std::shared_ptr<const std::vector<uint8_t>> bytes,
                                    const uint8_t priority,
                                    const uint32_t ttl_ms)
 {
     if (connection == nullptr) {
-        return TransportError::kInvalidConnContextId;
+        throw std::invalid_argument("Connection must be non-null");
     }
 
     QUICR_LOGGER_TRACE(
@@ -1232,11 +1232,9 @@ PicoQuicTransport::EnqueueDatagram(const std::shared_ptr<Connection>& connection
     if (needs_mark) {
         QueueDatagramMarkReady(pq_conn);
     }
-
-    return TransportError::kNone;
 }
 
-TransportError
+bool
 PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
                            const std::shared_ptr<Stream>& stream,
                            std::shared_ptr<const std::vector<uint8_t>> bytes,
@@ -1244,16 +1242,17 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
                            const uint32_t ttl_ms,
                            const EnqueueFlags flags)
 {
-    if (connection == nullptr) {
-        return TransportError::kInvalidConnContextId;
+    if (connection == nullptr || stream == nullptr) {
+        throw std::invalid_argument("Connection and stream must be non-null");
     }
 
     QUICR_LOGGER_TRACE(logger,
                        "Enqueue conn_id: {} stream_id: {} size: {}",
                        connection->GetID(),
-                       (stream ? stream->GetStreamId() : 0),
+                       stream->GetStreamId(),
                        (bytes ? bytes->size() : 0));
 
+    // TODO: Possible we can consolidate under stream's mutex.
     std::lock_guard<std::mutex> _(state_mutex_);
 
     return EnqueueStream(std::static_pointer_cast<PicoQuicConnection>(connection),
@@ -1264,7 +1263,7 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
                          flags);
 }
 
-TransportError
+bool
 PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& connection,
                                  const std::shared_ptr<PicoQuicStream>& stream,
                                  std::shared_ptr<const std::vector<uint8_t>> bytes,
@@ -1272,8 +1271,9 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
                                  const uint32_t ttl_ms,
                                  const EnqueueFlags flags)
 {
-    if (stream == nullptr || stream->tx_data == nullptr) {
-        return TransportError::kInvalidStreamId;
+    // TODO: Collapse this function into Enqueue above?
+    if (stream == nullptr || stream->tx_data == nullptr || connection == nullptr) {
+        throw std::invalid_argument("Connection and sendable stream must be non-null");
     }
 
     bool needs_mark = false;
@@ -1284,7 +1284,7 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
         // stream is still writable. Queuing past that point would mark a stream active that the
         // transport has already committed to tearing down.
         if (!stream->IsOpen() || stream->tx_closed.load(std::memory_order_acquire)) {
-            return TransportError::kInvalidStreamId;
+            return false;
         }
 
         stream->metrics.enqueued_objs++;
@@ -1325,7 +1325,7 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
         QueueStreamMarkActive(connection, stream);
     }
 
-    return TransportError::kNone;
+    return true;
 }
 
 std::shared_ptr<const std::vector<uint8_t>>
