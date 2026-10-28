@@ -841,6 +841,78 @@ TEST_CASE("Integration - Subscribe")
     }
 }
 
+TEST_CASE("Integration - Publisher subscriber and transport priorities remain distinct")
+{
+    constexpr std::uint8_t publisher_priority = 23;
+    constexpr std::uint8_t subscriber_priority = 71;
+    constexpr std::uint8_t transport_priority = 11;
+
+    auto test_priorities = [&](const std::string& protocol_scheme, TrackMode track_mode) {
+        auto session_mgr = MakeTestSessionManager();
+        auto server = MakeTestServer(session_mgr);
+        auto [subscriber, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "priorities", "distinct" }), { 1 } };
+        auto subscribe_handler = TestSubscribeHandler::Create(ftn, subscriber_priority, std::nullopt);
+
+        std::promise<TestServer::SubscribeDetails> subscribe_promise;
+        auto subscribe_future = subscribe_promise.get_future();
+        server->SetSubscribePromise(std::move(subscribe_promise));
+        subscriber->SubscribeTrack(subscribe_handler);
+        REQUIRE(subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(subscribe_future.get().subscribe_attributes.priority, subscriber_priority);
+        REQUIRE(WaitFor([&]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        auto publish_handler = server->GetSubscriberPublishHandler(TrackHash(ftn).track_fullname_hash);
+        REQUIRE(publish_handler != nullptr);
+        publish_handler->SetDefaultTrackMode(track_mode);
+        publish_handler->SetPublisherPriority(publisher_priority);
+        publish_handler->SetPublishObjectPriority(transport_priority);
+        const Bytes payload{ 0xAA, 0xBB, 0xCC };
+        const ObjectHeaders headers{ .group_id = 1, .object_id = 0, .payload_length = payload.size() };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+
+        // Observe the transport's enqueue state, rather than just the handler's configured priority.
+        if (track_mode == TrackMode::kStream) {
+            auto stream = std::dynamic_pointer_cast<PicoQuicStream>(publish_handler->GetSubgroupStream(1, 0));
+            REQUIRE(stream != nullptr);
+            std::lock_guard lock(stream->tx_mutex);
+            CHECK_EQ(stream->priority, transport_priority);
+        } else {
+            auto session = publish_handler->GetSession().lock();
+            REQUIRE(session != nullptr);
+            auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(session->GetConnection());
+            REQUIRE(connection != nullptr);
+            // Only this thread publishes datagrams on this connection.
+            CHECK_EQ(connection->dgram_priority, std::optional<std::uint8_t>{ transport_priority });
+        }
+
+        REQUIRE(WaitFor([&]() { return subscribe_handler->GetReceivedCount() == 1; }));
+        const auto objects = subscribe_handler->GetReceivedObjects();
+        REQUIRE_EQ(objects.size(), 1);
+        CHECK_EQ(objects.front().priority, std::optional<std::uint8_t>{ publisher_priority });
+        CHECK_EQ(objects.front().track_mode, std::optional<TrackMode>{ track_mode });
+        CHECK_EQ(objects.front().data, payload);
+        subscriber->UnsubscribeTrack(subscribe_handler);
+    };
+
+    SUBCASE("Raw QUIC subgroup")
+    {
+        test_priorities("moq", TrackMode::kStream);
+    }
+    SUBCASE("Raw QUIC datagram")
+    {
+        test_priorities("moq", TrackMode::kDatagram);
+    }
+    SUBCASE("WebTransport subgroup")
+    {
+        test_priorities("https", TrackMode::kStream);
+    }
+    SUBCASE("WebTransport datagram")
+    {
+        test_priorities("https", TrackMode::kDatagram);
+    }
+}
+
 TEST_CASE("Integration - Subscribe rejection preserves rendezvous error codes")
 {
     auto test_error = [](const std::string& protocol_scheme) {
