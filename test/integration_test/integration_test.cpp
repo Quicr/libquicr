@@ -1006,10 +1006,10 @@ TEST_CASE("Integration - GOAWAY migration")
         const auto new_connection = original_handler->GetConnection();
         REQUIRE(new_connection != nullptr);
         CHECK_NE(new_connection, old_connection);
-        CHECK_EQ(original_session->GetDefaultConnection(), new_connection);
         REQUIRE(WaitFor([&publish_handler, &new_connection] {
             return publish_handler->GetConnection() == new_connection && publish_handler->CanPublish();
         }));
+        CHECK_EQ(original_session->GetDefaultConnection(), new_connection);
 
         const Bytes payload{ 1, 2, 3 };
         CHECK_EQ(
