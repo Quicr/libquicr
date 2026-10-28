@@ -1242,53 +1242,34 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
                            const uint32_t ttl_ms,
                            const EnqueueFlags flags)
 {
-    if (connection == nullptr || stream == nullptr) {
-        throw std::invalid_argument("Connection and stream must be non-null");
+    const auto pq_connection = std::static_pointer_cast<PicoQuicConnection>(connection);
+    const auto pq_stream = std::static_pointer_cast<PicoQuicStream>(stream);
+    if (pq_connection == nullptr || pq_stream == nullptr || pq_stream->tx_data == nullptr) {
+        throw std::invalid_argument("Connection and sendable stream must be non-null");
     }
 
     QUICR_LOGGER_TRACE(logger,
                        "Enqueue conn_id: {} stream_id: {} size: {}",
-                       connection->GetID(),
-                       stream->GetStreamId(),
+                       pq_connection->GetID(),
+                       pq_stream->GetStreamId(),
                        (bytes ? bytes->size() : 0));
 
-    // TODO: Possible we can consolidate under stream's mutex.
+    // TODO: This lock can be removed if other metrics and priority callers lock tx_mutex instead.
     std::lock_guard<std::mutex> _(state_mutex_);
-
-    return EnqueueStream(std::static_pointer_cast<PicoQuicConnection>(connection),
-                         std::static_pointer_cast<PicoQuicStream>(stream),
-                         std::move(bytes),
-                         priority,
-                         ttl_ms,
-                         flags);
-}
-
-bool
-PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& connection,
-                                 const std::shared_ptr<PicoQuicStream>& stream,
-                                 std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                 const uint8_t priority,
-                                 const uint32_t ttl_ms,
-                                 const EnqueueFlags flags)
-{
-    // TODO: Collapse this function into Enqueue above?
-    if (stream == nullptr || stream->tx_data == nullptr || connection == nullptr) {
-        throw std::invalid_argument("Connection and sendable stream must be non-null");
-    }
 
     bool needs_mark = false;
     {
-        std::lock_guard _(stream->tx_mutex);
+        std::lock_guard __(pq_stream->tx_mutex);
 
         // A caller-held handle outlives removal from the connection, so being open is what says the
         // stream is still writable. Queuing past that point would mark a stream active that the
         // transport has already committed to tearing down.
-        if (!stream->IsOpen() || stream->tx_closed.load(std::memory_order_acquire)) {
+        if (!pq_stream->IsOpen() || pq_stream->tx_closed.load(std::memory_order_acquire)) {
             return false;
         }
 
-        stream->metrics.enqueued_objs++;
-        stream->priority = priority; // Match object priority for next stream create
+        pq_stream->metrics.enqueued_objs++;
+        pq_stream->priority = priority; // Match object priority for next stream create
 
         StreamAction stream_action{ StreamAction::kNoAction };
 
@@ -1301,28 +1282,28 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
         }
 
         if (flags.clear_tx_queue) {
-            stream->metrics.tx_queue_discards += stream->tx_data->size();
-            stream->tx_data->clear();
+            pq_stream->metrics.tx_queue_discards += pq_stream->tx_data->size();
+            pq_stream->tx_data->clear();
         }
 
         // Picoquic only re-wakes on inactive→active. If it is already pulling this stream (queued
         // bytes or a TX object in flight), further objects ride the existing prepare_to_send
         // callbacks via is_still_active.
-        needs_mark = stream->tx_data->empty() && stream->tx_object == nullptr;
+        needs_mark = pq_stream->tx_data->empty() && pq_stream->tx_object == nullptr;
 
         ConnData cd{
-            connection->GetID(),
+            pq_connection->GetID(),
             priority,
             stream_action,
             std::move(bytes),
             static_cast<uint64_t>(clock_->Get().count()),
         };
 
-        stream->tx_data->push(std::move(cd), ttl_ms);
+        pq_stream->tx_data->push(std::move(cd), ttl_ms);
     }
 
     if (needs_mark) {
-        QueueStreamMarkActive(connection, stream);
+        QueueStreamMarkActive(pq_connection, pq_stream);
     }
 
     return true;

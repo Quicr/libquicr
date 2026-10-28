@@ -434,14 +434,6 @@ namespace quicr {
                                                                bool bidir,
                                                                uint8_t priority);
 
-        /// @brief Queue bytes on an already-resolved stream handle.
-        bool EnqueueStream(const std::shared_ptr<PicoQuicConnection>& connection,
-                           const std::shared_ptr<PicoQuicStream>& stream,
-                           std::shared_ptr<const std::vector<uint8_t>> bytes,
-                           uint8_t priority,
-                           uint32_t ttl_ms,
-                           EnqueueFlags flags);
-
         std::shared_ptr<PicoQuicStream> CreateStreamInternal(const std::shared_ptr<Connection>& connection,
                                                              bool bidir,
                                                              uint8_t priority);
