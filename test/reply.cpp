@@ -26,7 +26,6 @@ namespace {
         bool Enqueue(const std::shared_ptr<quicr::Connection>&,
                      const std::shared_ptr<quicr::Stream>&,
                      std::shared_ptr<const std::vector<uint8_t>>,
-                     uint8_t,
                      uint32_t,
                      EnqueueFlags) override
         {

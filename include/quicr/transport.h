@@ -112,7 +112,6 @@ namespace quicr {
     struct ConnData
     {
         std::uint64_t conn_id;
-        uint8_t priority;
         StreamAction stream_action{ StreamAction::kNoAction };
 
         /// Shared pointer is used so transport can take ownership of the vector without copy/new allocation
@@ -283,7 +282,6 @@ namespace quicr {
          */
         struct EnqueueFlags
         {
-            bool use_reliable{ false };   /// Indicates if object should use reliable stream or unreliable
             bool close_stream{ false };   /// Indicates that a new stream should be created to replace existing one
             bool clear_tx_queue{ false }; /// Indicates that the TX queue should be cleared before adding new object
             bool use_reset{ false };      /// Indicates new stream created will close the previous using reset/abrupt
@@ -307,9 +305,8 @@ namespace quicr {
         virtual bool Enqueue(const std::shared_ptr<Connection>& connection,
                              const std::shared_ptr<Stream>& stream,
                              std::shared_ptr<const std::vector<uint8_t>> bytes,
-                             uint8_t priority = 1,
                              uint32_t ttl_ms = 350,
-                             EnqueueFlags flags = { true, false, false, false }) = 0;
+                             EnqueueFlags flags = { false, false, false }) = 0;
 
         /**
          * @brief Enqueue application data as a datagram

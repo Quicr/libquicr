@@ -126,12 +126,10 @@ namespace quicr {
 
         switch (default_track_mode_) {
             case TrackMode::kDatagram: {
-                eflags.use_reliable = false;
+                session->EnqueueDatagramData(data, GetPublishObjectPriority(), default_ttl_);
                 break;
             }
             default: {
-                eflags.use_reliable = true;
-
                 if (is_new_stream) {
                     // Disable creating stream and doing pipeline on new stream considering delta and subgroups needs
                     // first object parsed
@@ -154,14 +152,13 @@ namespace quicr {
                 }
 
                 stream = subgroup_it->second.stream;
+
+                const auto result = session->EnqueueStreamData(stream, data, default_ttl_, eflags);
+                if (!result) {
+                    return PublishObjectStatus::kSubgroupClosed;
+                }
                 break;
             }
-        }
-
-        auto result = session->Enqueue(stream, data, GetPublishObjectPriority(), default_ttl_, eflags);
-
-        if (!result) {
-            return PublishObjectStatus::kSubgroupClosed;
         }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
@@ -320,12 +317,14 @@ namespace quicr {
                 object.immutable_extensions = object_headers.immutable_extensions;
                 object.payload.assign(data.begin(), data.end());
                 object_msg_buffer_ << object;
+                session->EnqueueDatagramData(
+                  std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
+                  GetPublishObjectPriority(),
+                  ttl);
                 break;
             }
             default: {
                 // use stream per subgroup, group change
-                eflags.use_reliable = true;
-
                 const auto properties = stream_mode.value_or(*GetStreamMode());
                 if (is_stream_header_needed) {
                     messages::StreamHeaderSubGroup subgroup_hdr;
@@ -348,19 +347,17 @@ namespace quicr {
                 object.immutable_extensions = object_headers.immutable_extensions;
                 object.payload.assign(data.begin(), data.end());
                 object_msg_buffer_ << object;
+
+                const auto result = session->EnqueueStreamData(
+                  stream,
+                  std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
+                  ttl,
+                  eflags);
+                if (!result) {
+                    return PublishObjectStatus::kSubgroupClosed;
+                }
                 break;
             }
-        }
-
-        auto result =
-          session->Enqueue(stream,
-                           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-                           GetPublishObjectPriority(),
-                           ttl,
-                           eflags);
-
-        if (!result) {
-            return PublishObjectStatus::kSubgroupClosed;
         }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
@@ -388,10 +385,9 @@ namespace quicr {
 
         if (completed) {
             Transport::EnqueueFlags eflags;
-            eflags.use_reliable = true;
             eflags.close_stream = true;
 
-            session->Enqueue(subgroup_it->second.stream, {}, GetPublishObjectPriority(), default_ttl_, eflags);
+            session->EnqueueStreamData(subgroup_it->second.stream, {}, default_ttl_, eflags);
         } else {
             session->ResetSubgroup(subgroup_it->second.stream);
         }

@@ -470,9 +470,8 @@ namespace quicr {
                 throw std::logic_error("Stream cannot be null");
             }
 
-            auto result = quic_transport_->Enqueue(
-              current_connection_, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
-
+            // TODO: Control message expiry?
+            const auto result = EnqueueStreamData(stream, msg.ToBytes(), 2000, { close_stream, false, false });
             if (!result) {
                 // TODO: Propagate better to callers and handle more specifically. Keeping the throw for now.
                 throw TransportException(TransportError::kInvalidStreamId);
@@ -687,21 +686,29 @@ namespace quicr {
         std::shared_ptr<Stream> CreateStream(std::uint64_t request_id, uint8_t priority);
 
         /**
-         * @brief Send published data.
+         * @brief Send data on a stream.
          *
          * @param stream  Stream to send on, ignored when the flags ask for a datagram.
          * @param bytes Data to send, if any.
-         * @param priority Priority to use for sending.
          * @param ttl_ms Egress time to live.
          * @param flags Additional flags.
-         * @throws std::invalid_argument If stream is nullptr when using streams.
-         * @returns False if using streams and the TX direction has closed.
+         * @throws std::invalid_argument If stream is nullptr.
+         * @returns True if enqueued, false if the stream's TX direction has closed.
          */
-        bool Enqueue(const std::shared_ptr<Stream>& stream,
-                     std::shared_ptr<const std::vector<uint8_t>> bytes,
-                     const uint8_t priority,
-                     const uint32_t ttl_ms,
-                     const Transport::EnqueueFlags flags);
+        bool EnqueueStreamData(const std::shared_ptr<Stream>& stream,
+                               std::shared_ptr<const std::vector<uint8_t>> bytes,
+                               const uint32_t ttl_ms,
+                               const Transport::EnqueueFlags flags) const;
+
+        /**
+         * @brief Send data as datagram.
+         * @param bytes Data to send.
+         * @param priority Priority for this data.
+         * @param ttl_ms Egress time to live.
+         */
+        void EnqueueDatagramData(std::shared_ptr<const std::vector<uint8_t>> bytes,
+                                 uint8_t priority,
+                                 uint32_t ttl_ms) const;
 
       private:
         void ResetSubgroup(const std::shared_ptr<Stream>& stream);

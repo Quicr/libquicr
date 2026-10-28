@@ -36,8 +36,6 @@ namespace quicr {
         std::uint16_t ttl = object_headers.ttl.has_value() ? object_headers.ttl.value() : default_ttl_;
         object_msg_buffer_.clear();
 
-        eflags.use_reliable = true;
-
         if (is_stream_header_needed) {
             eflags.close_stream = false;
             eflags.clear_tx_queue = true;
@@ -49,10 +47,9 @@ namespace quicr {
             fetch_hdr.request_id = *request_id;
             object_msg_buffer_ << fetch_hdr;
 
-            auto result = session->Enqueue(
+            auto result = session->EnqueueStreamData(
               stream_,
               std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-              GetPublishObjectPriority(),
               ttl,
               eflags);
 
@@ -72,12 +69,11 @@ namespace quicr {
         auto object = next_serialization_state.Encode(object_headers, GetPublisherPriority(), data);
         object_msg_buffer_ << object;
 
-        auto result =
-          session->Enqueue(stream_,
-                           std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-                           GetPublishObjectPriority(),
-                           ttl,
-                           eflags);
+        auto result = session->EnqueueStreamData(
+          stream_,
+          std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
+          ttl,
+          eflags);
 
         if (!result) {
             closed_ = true;
@@ -104,11 +100,10 @@ namespace quicr {
         }
 
         Transport::EnqueueFlags eflags;
-        eflags.use_reliable = true;
         eflags.close_stream = true;
         eflags.use_reset = false;
 
-        session->Enqueue(stream_, {}, GetPublishObjectPriority(), default_ttl_, eflags);
+        (void)session->EnqueueStreamData(stream_, {}, default_ttl_, eflags);
 
         stream_.reset();
     }

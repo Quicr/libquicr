@@ -1213,7 +1213,6 @@ PicoQuicTransport::EnqueueDatagram(const std::shared_ptr<Connection>& connection
 
     ConnData cd{
         connection->GetID(),
-        priority,
         StreamAction::kNoAction,
         std::move(bytes),
         static_cast<uint64_t>(clock_->Get().count()),
@@ -1238,7 +1237,6 @@ bool
 PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
                            const std::shared_ptr<Stream>& stream,
                            std::shared_ptr<const std::vector<uint8_t>> bytes,
-                           const uint8_t priority,
                            const uint32_t ttl_ms,
                            const EnqueueFlags flags)
 {
@@ -1269,7 +1267,6 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
         }
 
         pq_stream->metrics.enqueued_objs++;
-        pq_stream->priority = priority; // Match object priority for next stream create
 
         StreamAction stream_action{ StreamAction::kNoAction };
 
@@ -1293,7 +1290,6 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
 
         ConnData cd{
             pq_connection->GetID(),
-            priority,
             stream_action,
             std::move(bytes),
             static_cast<uint64_t>(clock_->Get().count()),
@@ -2803,6 +2799,7 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
     }
 
     const auto stream = pq_conn->AddStream(stream_id, MakeStreamTxQueue());
+    stream->priority = priority;
     stream->wt_stream_ctx = wt_stream_ctx;
 
     if (pq_conn->GetAPI() == Connection::API::kWebTransport) {

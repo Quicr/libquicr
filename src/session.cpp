@@ -2365,18 +2365,19 @@ namespace quicr {
         return rid;
     }
 
-    bool Session::Enqueue(const std::shared_ptr<Stream>& stream,
-                          std::shared_ptr<const std::vector<uint8_t>> bytes,
-                          const uint8_t priority,
-                          const uint32_t ttl_ms,
-                          const Transport::EnqueueFlags flags)
+    bool Session::EnqueueStreamData(const std::shared_ptr<Stream>& stream,
+                                    std::shared_ptr<const std::vector<uint8_t>> bytes,
+                                    const uint32_t ttl_ms,
+                                    const Transport::EnqueueFlags flags) const
     {
-        if (!flags.use_reliable) {
-            quic_transport_->EnqueueDatagram(current_connection_, std::move(bytes), priority, ttl_ms);
-            return true;
-        }
+        return quic_transport_->Enqueue(current_connection_, stream, std::move(bytes), ttl_ms, flags);
+    }
 
-        return quic_transport_->Enqueue(current_connection_, stream, std::move(bytes), priority, ttl_ms, flags);
+    void Session::EnqueueDatagramData(std::shared_ptr<const std::vector<uint8_t>> bytes,
+                                      uint8_t priority,
+                                      uint32_t ttl_ms) const
+    {
+        quic_transport_->EnqueueDatagram(current_connection_, std::move(bytes), priority, ttl_ms);
     }
 
     void Session::ResetSubgroup(const std::shared_ptr<Stream>& stream)
