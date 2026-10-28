@@ -1758,11 +1758,24 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
 
     std::lock_guard _(stream_ctx.tx_mutex);
 
+    if (stream_ctx.tx_closed.load(std::memory_order_acquire)) {
+        return;
+    }
+
     if (stream_ctx.tx_object == nullptr) {
         QUICR_LOGGER_TRACE(logger, "SendStreamBytes conn_id: {} stream_tx_object is nullptr", conn_id);
 
         auto [conn_data_opt, expired] = stream_ctx.tx_data->pop_front();
         stream_ctx.metrics.tx_queue_expired += expired;
+
+        if (expired > 0) {
+            // If we expired objects, we need to reset the stream.
+            stream_ctx.tx_closed.store(true, std::memory_order_release);
+            stream_ctx.metrics.tx_queue_discards += stream_ctx.tx_data->size() + conn_data_opt.has_value();
+            stream_ctx.tx_data->clear();
+            should_reset = true;
+            return;
+        }
 
         if (!conn_data_opt.has_value()) {
             return; // empty queue, nothing to do
