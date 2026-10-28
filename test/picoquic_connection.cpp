@@ -4,6 +4,7 @@
 #include <doctest/doctest.h>
 
 #include "picoquic_connection.h"
+#include "quicr/clock.h"
 #include "transport_picoquic.h"
 
 #include <timeq/tick_service.h>
@@ -168,8 +169,7 @@ TEST_CASE("Connection owns its SETUP exchange and control streams")
 
 TEST_CASE("Transport rejects a stream from another connection")
 {
-    const auto tick_service = std::make_shared<TestTickService>();
-    PicoQuicTransport transport({ .host_or_ip = "127.0.0.1", .port = 4443 }, {}, false, tick_service, nullptr);
+    PicoQuicTransport transport({ .host_or_ip = "127.0.0.1", .port = 4443 }, {}, false, Clock::Create(), nullptr);
     const auto first = MakeConnection();
     const auto second = std::make_shared<PicoQuicConnection>(reinterpret_cast<picoquic_cnx_t*>(0x5000));
     const auto stream = first->AddStream(0, MakeTxQueue());

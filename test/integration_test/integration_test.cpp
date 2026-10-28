@@ -888,7 +888,7 @@ TEST_CASE("Integration - Publisher subscriber and transport priorities remain di
         } else {
             auto session = publish_handler->GetSession().lock();
             REQUIRE(session != nullptr);
-            auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(session->GetConnection());
+            auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
             REQUIRE(connection != nullptr);
             // Only this thread publishes datagrams on this connection.
             CHECK_EQ(connection->dgram_priority, std::optional<std::uint8_t>{ transport_priority });

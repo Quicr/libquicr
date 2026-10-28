@@ -1005,7 +1005,6 @@ namespace quicr {
             }
         }
 
-        track_handler->connection_id_ = current_connection_->GetID();
         if (not proposed_track_alias.has_value()) {
             track_handler->SetTrackAlias(th.track_fullname_hash);
         }
