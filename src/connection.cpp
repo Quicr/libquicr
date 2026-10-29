@@ -26,37 +26,24 @@ namespace quicr {
 
     void Connection::SetStatus(Status new_status)
     {
-        std::lock_guard _(callback_mutex_);
+        std::shared_ptr<Delegate> delegate;
+        {
 
-        if (new_status == status_.exchange(new_status, std::memory_order_acq_rel)) {
-            return;
+            std::lock_guard lock(mutex_);
+            if (new_status == status_.exchange(new_status)) {
+                return;
+            }
+
+            delegate = delegate_.lock();
         }
 
-        // TODO: Do something here
-        switch (new_status) {
-            case Status::kReady:
-                break;
-            case Status::kConnecting:
-                break;
-            case Status::kDisconnected:
-                break;
-            case Status::kIdleTimeout:
-                break;
-            case Status::kRemoteRequestClose:
-                break;
-            case Status::kShuttingDown:
-                break;
-            case Status::kShutdown:
-                break;
+        if (delegate) {
+            delegate->OnConnectionStatus(shared_from_this(), new_status);
         }
-
-        OnStatusChanged(new_status);
     }
 
     void Connection::SetDelegate(const std::shared_ptr<Delegate>& delegate)
     {
-        std::lock_guard _(callback_mutex_);
-
         {
             std::lock_guard lock(mutex_);
             delegate_ = delegate;

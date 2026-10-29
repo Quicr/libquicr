@@ -2464,11 +2464,10 @@ namespace quicr {
         return false;
     }
 
-    std::shared_ptr<Stream> Session::CreateStream(std::uint64_t connection_id,
+    std::shared_ptr<Stream> Session::CreateStream(const std::shared_ptr<Connection>& connection,
                                                   std::uint64_t request_id,
                                                   uint8_t priority)
     {
-        const auto connection = GetConnection(connection_id);
         if (!connection) {
             throw TransportException(TransportError::kInvalidConnContextId);
         }
@@ -3106,7 +3105,7 @@ namespace quicr {
         const auto old_binding = handler->GetBinding();
         const auto old_connection_id = old_connection->GetID();
         if (const auto publisher = handler->Get<PublishTrackHandler>()) {
-            publisher->EndAllSubgroups();
+            publisher->EndAllSubgroupsInternal();
         }
 
         {

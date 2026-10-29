@@ -138,7 +138,7 @@ namespace quicr {
                     // first object parsed
 #if 0
                     auto stream =
-                      session->CreateStream(GetConnectionId(), *GetRequestId(), GetPublishObjectPriority());
+                      session->CreateStream(GetConnection(), *GetRequestId(), GetPublishObjectPriority());
                     stream_info_by_group_[group_id][subgroup_id] = { stream, group_id, subgroup_id };
 #endif
 
@@ -265,7 +265,7 @@ namespace quicr {
             subgroup_it = group_it->second.find(object_headers.subgroup_id);
             if (subgroup_it == group_it->second.end()) {
                 is_stream_header_needed = true;
-                stream = session->CreateStream(GetConnectionId(), *GetRequestId(), GetPublishObjectPriority());
+                stream = session->CreateStream(GetConnection(), *GetRequestId(), GetPublishObjectPriority());
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =
@@ -373,6 +373,11 @@ namespace quicr {
     void PublishTrackHandler::EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed)
     {
         std::lock_guard lock(binding_operation_mutex_);
+        EndSubgroupInternal(group_id, subgroup_id, completed);
+    }
+
+    void PublishTrackHandler::EndSubgroupInternal(uint64_t group_id, uint64_t subgroup_id, bool completed)
+    {
         auto session = GetSession().lock();
 
         if (!session) {
@@ -411,6 +416,11 @@ namespace quicr {
     void PublishTrackHandler::EndAllSubgroups()
     {
         std::lock_guard lock(binding_operation_mutex_);
+        EndAllSubgroupsInternal();
+    }
+
+    void PublishTrackHandler::EndAllSubgroupsInternal()
+    {
         // EndSubgroup erases as it goes, so gather first rather than iterating the map it mutates.
         std::vector<std::pair<std::uint64_t, std::uint64_t>> open;
         for (const auto& [group_id, subgroups] : stream_info_by_group_) {
@@ -420,7 +430,7 @@ namespace quicr {
         }
 
         for (const auto& [group_id, subgroup_id] : open) {
-            EndSubgroup(group_id, subgroup_id, true);
+            EndSubgroupInternal(group_id, subgroup_id, true);
         }
     }
 

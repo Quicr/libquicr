@@ -258,7 +258,6 @@ namespace quicr {
 
         mutable std::mutex delegate_mutex_; ///< Protects access to the connection delegate.
 
-        mutable std::recursive_mutex callback_mutex_;
         mutable std::mutex mutex_;
 
         /// @brief Non-owning event delegate guarded by the delegate mutex.

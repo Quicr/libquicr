@@ -791,7 +791,9 @@ namespace quicr {
          * @param priority QUIC stream priority; lower values are higher priority.
          * @return Shared handle to the created stream.
          */
-        std::shared_ptr<Stream> CreateStream(std::uint64_t connection_id, std::uint64_t request_id, uint8_t priority);
+        std::shared_ptr<Stream> CreateStream(const std::shared_ptr<Connection>& connection,
+                                             std::uint64_t request_id,
+                                             uint8_t priority);
 
         /**
          * @brief Send published data.
