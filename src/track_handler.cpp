@@ -15,6 +15,12 @@ namespace quicr {
         return request_stream_->GetStreamId();
     }
 
+    std::shared_ptr<Connection> TrackHandler::GetConnection() const
+    {
+        std::lock_guard lock(request_stream_mutex_);
+        return request_stream_ ? request_stream_->GetConnection() : nullptr;
+    }
+
     void TrackHandler::SetTransport(std::shared_ptr<Session> transport)
     {
         session_ = transport;

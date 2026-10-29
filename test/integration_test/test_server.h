@@ -128,6 +128,12 @@ namespace quicr_test {
             setup_received_ = std::move(promise);
         }
 
+        void SetSessionEstablishedPromise(std::promise<std::shared_ptr<quicr::Session>> promise)
+        {
+            std::lock_guard lock(state_mutex_);
+            session_established_ = std::move(promise);
+        }
+
         quicr::Expected<void, quicr::Error<quicr::ErrorCode>> SetupReceived(
           const std::shared_ptr<quicr::Session>& session,
           const quicr::SetupAttributes& setup_attributes) override;
@@ -208,10 +214,13 @@ namespace quicr_test {
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
-        void SetSubscribeError(quicr::RequestErrorCode reason_code, std::string error_reason)
+        void SetSubscribeError(quicr::RequestErrorCode reason_code,
+                               std::string error_reason,
+                               std::optional<quicr::Redirect> redirect = std::nullopt)
         {
             std::lock_guard lock(state_mutex_);
-            subscribe_error_ = quicr::Error<quicr::RequestErrorCode>{ reason_code, std::move(error_reason) };
+            subscribe_error_ =
+              quicr::Error<quicr::RequestErrorCode>{ reason_code, std::move(error_reason), std::move(redirect) };
         }
 
         void SetTrackStatusError(std::optional<quicr::Error<quicr::RequestErrorCode>> error)
@@ -275,7 +284,7 @@ namespace quicr_test {
                 }
             }
             if (session != nullptr) {
-                session->GetConnection()->OnStreamClosed(stream, flag);
+                session->GetDefaultConnection()->OnStreamClosed(stream, flag);
             }
         }
         /**
@@ -412,6 +421,7 @@ namespace quicr_test {
       private:
         mutable std::mutex state_mutex_;
         std::optional<std::promise<quicr::SetupAttributes>> setup_received_;
+        std::optional<std::promise<std::shared_ptr<quicr::Session>>> session_established_;
 
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<quicr::Error<quicr::RequestErrorCode>> subscribe_error_;

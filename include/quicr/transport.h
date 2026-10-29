@@ -87,13 +87,9 @@ namespace quicr {
         kFailedToCreateQuicInstance
     };
 
-    /**
-     * Transport Protocol to use
-     */
-    enum class TransportProtocol : uint8_t
+    struct WebTransportOptions
     {
-        kQuic,
-        kWebTransport
+        std::string path{ "relay" }; /// The path to use
     };
 
     /**
@@ -103,10 +99,9 @@ namespace quicr {
      */
     struct TransportRemote
     {
-        std::string host_or_ip;      /// IPv4/v6 or FQDN (user input)
-        uint16_t port;               /// Port (user input)
-        TransportProtocol proto;     /// Protocol to use for the transport
-        std::string path{ "relay" }; /// When using WT, the path to use
+        std::string host_or_ip;                                   /// IPv4/v6 or FQDN (user input)
+        uint16_t port;                                            /// Port (user input)
+        std::optional<WebTransportOptions> web_transport_options; ///< Enables WT protocol with given options
     };
 
     /// Stream action that should be done by send/receive processing
@@ -256,6 +251,8 @@ namespace quicr {
          */
         virtual std::shared_ptr<Connection> Start() = 0;
 
+        virtual std::shared_ptr<Connection> Connect(const TransportRemote& remote) = 0;
+
         /**
          * @brief Close a transport context
          *
@@ -268,13 +265,10 @@ namespace quicr {
         /**
          * @brief Close a stream
          *
-         * @param connection        Connection the stream belongs to
          * @param stream            Stream to close; no-op if null or already closed
-         * @param use_reset         True to close by RESET, false to close by FIN
+         * @param operation         How to close the stream
          */
-        virtual void CloseStream(const std::shared_ptr<Connection>& connection,
-                                 const std::shared_ptr<Stream>& stream,
-                                 StreamOperation operation) = 0;
+        virtual void CloseStream(const std::shared_ptr<Stream>& stream, StreamOperation operation) = 0;
 
         /**
          * @brief Get the peer IP address and port associated with the stream

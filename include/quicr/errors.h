@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "quicr/attributes.h"
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -20,6 +22,8 @@ namespace quicr {
         E reason_code;
 
         std::optional<std::string> error_reason;
+
+        std::optional<Redirect> redirect = std::nullopt;
     };
 
     /**
@@ -40,5 +44,6 @@ namespace quicr {
         kUninterested = 0x20,
         kPrefixOverlap = 0x30,
         kInvalidJoiningRequestId = 0x32,
+        kRedirect = 0x34,
     };
 }

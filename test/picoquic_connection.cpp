@@ -4,6 +4,8 @@
 #include <doctest/doctest.h>
 
 #include "picoquic_connection.h"
+#include "quicr/clock.h"
+#include "transport_picoquic.h"
 
 #include <timeq/tick_service.h>
 #include <timeq/time_queue.h>
@@ -137,4 +139,54 @@ TEST_CASE("A stream is fully closed when every available direction is closed")
         stream->MarkTxClosed();
         CHECK(stream->IsFullyClosed());
     }
+}
+
+TEST_CASE("Connection owns its SETUP exchange and control streams")
+{
+    const auto connection = MakeConnection();
+    const auto tx_control = connection->AddStream(2, MakeTxQueue());
+
+    CHECK_FALSE(connection->IsSetupComplete());
+    CHECK(connection->RecordSetupSent());
+    CHECK_FALSE(connection->RecordSetupSent());
+    CHECK_FALSE(connection->IsSetupComplete());
+
+    connection->SetTxControlStream(tx_control);
+    connection->SetRxControlStreamId(3);
+    CHECK(connection->GetTxControlStream() == tx_control);
+    CHECK(connection->GetRxControlStreamId() == 3);
+
+    CHECK(connection->RecordSetupReceived());
+    CHECK(connection->IsSetupComplete());
+    CHECK_FALSE(connection->RecordSetupReceived());
+
+    const auto received_first = MakeConnection();
+    CHECK(received_first->RecordSetupReceived());
+    CHECK_FALSE(received_first->IsSetupComplete());
+    CHECK(received_first->RecordSetupSent());
+    CHECK(received_first->IsSetupComplete());
+}
+
+TEST_CASE("Transport rejects a stream from another connection")
+{
+    PicoQuicTransport transport({ .host_or_ip = "127.0.0.1", .port = 4443 }, {}, false, Clock::Create(), nullptr);
+    const auto first = MakeConnection();
+    const auto second = std::make_shared<PicoQuicConnection>(reinterpret_cast<picoquic_cnx_t*>(0x5000));
+    const auto stream = first->AddStream(0, MakeTxQueue());
+
+    REQUIRE(first->GetID() == second->GetID());
+    CHECK(stream->GetConnection() == first);
+    CHECK(transport.Enqueue(second, stream, std::make_shared<const Bytes>(), 0, 1000, {}) ==
+          TransportError::kInvalidStreamId);
+}
+
+TEST_CASE("Stream does not extend its connection lifetime")
+{
+    auto connection = MakeConnection();
+    const auto stream = connection->AddStream(0, MakeTxQueue());
+
+    REQUIRE(stream->GetConnection() == connection);
+    connection.reset();
+
+    CHECK(stream->GetConnection() == nullptr);
 }

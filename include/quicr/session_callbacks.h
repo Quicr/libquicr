@@ -39,6 +39,7 @@ namespace quicr {
         kUninterested,
         kPrefixOverlap,
         kInvalidJoiningRequestId,
+        kRedirect,
     };
 
     /**
@@ -96,8 +97,8 @@ namespace quicr {
      *      correlates it with the request itself, so there is nothing further for the application to call
      *      and no request identifier for it to keep.
      *
-     *      Return a value to accept, or an `Unexpected<Error<E>>` holding a reason code and optional reason
-     *      string to reject. A `Reply<void, E>` accepts by returning `{}`.
+     *      Return a value to accept, or an `Unexpected<Error<E>>` holding a reason code, optional reason
+     *      string, and optional redirect to reject. A `Reply<void, E>` accepts by returning `{}`.
      *
      *      An answer that cannot be given straight away is deferred with `Reply::Defer()`, which takes an
      *      action returning the same result and runs it off the session's message handling thread. This is

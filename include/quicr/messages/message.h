@@ -128,6 +128,18 @@ namespace quicr::messages {
             return field;
         }
 
+        template<typename Field>
+        [[nodiscard]] static inline std::optional<Field> ParseOptionalField(std::span<const std::uint8_t>& buffer)
+        {
+            if (buffer.empty()) {
+                return std::nullopt;
+            }
+
+            Field field{};
+            buffer = buffer >> field;
+            return field;
+        }
+
       private:
         std::optional<std::size_t> _length_bytes_offset;
         mutable std::shared_ptr<std::vector<std::uint8_t>> _bytes;

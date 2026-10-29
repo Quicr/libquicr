@@ -16,12 +16,9 @@ namespace {
       public:
         quicr::TransportStatus Status() const override { return quicr::TransportStatus::kReady; }
         std::shared_ptr<quicr::Connection> Start() override { return nullptr; }
+        std::shared_ptr<quicr::Connection> Connect(const quicr::TransportRemote&) override { return nullptr; }
         void Close(const std::shared_ptr<quicr::Connection>&, quicr::AppReasonForClose) override {}
-        void CloseStream(const std::shared_ptr<quicr::Connection>&,
-                         const std::shared_ptr<quicr::Stream>&,
-                         quicr::StreamOperation) override
-        {
-        }
+        void CloseStream(const std::shared_ptr<quicr::Stream>&, quicr::StreamOperation) override {}
         bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
         quicr::TransportError Enqueue(const std::shared_ptr<quicr::Connection>&,
                                       const std::shared_ptr<quicr::Stream>&,
