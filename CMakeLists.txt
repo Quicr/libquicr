@@ -3,13 +3,14 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" quicr_VERSION)
 project(quicr
-    VERSION 1.18.0
+    VERSION "${quicr_VERSION}"
     DESCRIPTION "QuicR, a Media over QUIC Library"
     LANGUAGES C CXX
 )
+
+include(GNUInstallDirs)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
     message(FATAL_ERROR
@@ -17,7 +18,7 @@ if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 You may need to delete the already generated Cache and CMake folder to continue.")
 endif()
 
-configure_file(cmake/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h)
+configure_file(cmake/version.h.in ${PROJECT_BINARY_DIR}/include/quicr/version.h)
 
 #=============================================================================#
 # Options
@@ -26,13 +27,14 @@ configure_file(cmake/version.h.in ${CMAKE_BINARY_DIR}/include/quicr/version.h)
 include(CMakeDependentOption)
 
 if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-    set(quicr_IS_TOP_LEVEL ON)
+    set(quicr_STANDALONE ON)
 endif()
 
-cmake_dependent_option(QUICR_BUILD_TESTS "Build tests for quicr" ON quicr_IS_TOP_LEVEL OFF)
-cmake_dependent_option(QUICR_BUILD_BENCHMARKS "Build benchmarks for quicr" ON quicr_IS_TOP_LEVEL OFF)
-cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON quicr_IS_TOP_LEVEL OFF)
+cmake_dependent_option(QUICR_BUILD_TESTS "Build tests for quicr" ON quicr_STANDALONE OFF)
+cmake_dependent_option(QUICR_BUILD_BENCHMARKS "Build benchmarks for quicr" ON quicr_STANDALONE OFF)
+cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON quicr_STANDALONE OFF)
 
+option(QUICR_INSTALL "Enable install rules for quicr" ${quicr_STANDALONE})
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
 option(QUICR_BUILD_TOOLS "Build tools" OFF)
@@ -111,6 +113,49 @@ endif()
 
 if(QUICR_BUILD_C_BRIDGE)
    add_subdirectory(c-bridge)
+endif()
+
+#=============================================================================#
+# Install
+#=============================================================================#
+
+if (QUICR_INSTALL)
+    include(CMakePackageConfigHelpers)
+
+    write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/quicrConfigVersion.cmake"
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion
+    )
+
+    configure_package_config_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/quicrConfig.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/quicrConfig.cmake"
+        INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/quicr"
+    )
+
+    install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/quicr/version.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/quicr")
+
+    install(TARGETS quicr
+        EXPORT quicrTargets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+
+    install(EXPORT quicrTargets
+        FILE quicrTargets.cmake
+        NAMESPACE quicr::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/quicr
+    )
+
+    install(FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/quicrConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/quicrConfigVersion.cmake"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/quicr
+    )
 endif()
 
 #=============================================================================#

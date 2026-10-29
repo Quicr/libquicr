@@ -6,14 +6,14 @@ CPMDeclarePackage(fmt
   GIT_TAG 12.2.0
   GITHUB_REPOSITORY fmtlib/fmt
   SYSTEM YES
-  EXCLUDE_FROM_ALL YES
+  EXCLUDE_FROM_ALL NO
 )
 # timeq
 CPMDeclarePackage(timeq
   GIT_TAG 898d45c
   GITHUB_REPOSITORY quicr/timeq
   SYSTEM YES
-  EXCLUDE_FROM_ALL YES
+  EXCLUDE_FROM_ALL NO
 )
 # picotls
 CPMDeclarePackage(picotls
@@ -27,10 +27,10 @@ CPMDeclarePackage(picotls
 )
 # picoquic
 CPMDeclarePackage(picoquic
-  GIT_TAG v2026.10.22.70b5fd5
+  VERSION 2026.10.25.1d81a73
   GITHUB_REPOSITORY private-octopus/picoquic
   SYSTEM YES
-  EXCLUDE_FROM_ALL YES
+  EXCLUDE_FROM_ALL NO
   OPTIONS
     "BUILD_DEMO OFF"
     "BUILD_PQBENCH OFF"

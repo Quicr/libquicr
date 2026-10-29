@@ -19,7 +19,11 @@ endif()
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
-CPMAddPackage("gh:quicr/timeq#898d45c")
+set(TIMEQ_INSTALL ${QUICR_INSTALL})
+CPMAddPackage(
+    URI "gh:quicr/timeq#898d45c"
+    EXCLUDE_FROM_ALL NO
+)
 
 CPMAddPackage(
     URI "gh:quicr/picotls#057ed54"
@@ -61,6 +65,7 @@ endif()
 
 CPMAddPackage(
     URI "gh:private-octopus/picoquic@2026.10.25.1d81a73"
+    EXCLUDE_FROM_ALL NO
     OPTIONS
         "BUILD_DEMO OFF"
         "BUILD_PQBENCH OFF"
