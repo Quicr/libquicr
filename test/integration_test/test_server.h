@@ -214,6 +214,12 @@ namespace quicr_test {
             subscribe_error_ = quicr::Error<quicr::RequestErrorCode>{ reason_code, std::move(error_reason) };
         }
 
+        void SetPublishError(quicr::PublishErrorCode reason_code, std::string error_reason)
+        {
+            std::lock_guard lock(state_mutex_);
+            publish_error_ = quicr::Error<quicr::PublishErrorCode>{ reason_code, std::move(error_reason) };
+        }
+
         void SetTrackStatusError(std::optional<quicr::Error<quicr::RequestErrorCode>> error)
         {
             std::lock_guard _(state_mutex_);
@@ -288,6 +294,21 @@ namespace quicr_test {
          */
         bool UnbindSubscriberPublishTrack(std::uint64_t track_alias);
 
+        /**
+         * Check the state of a stream.
+         * @param stream_id The stream to query.
+         * @return Stream closure, or std::nullopt if not closed.
+         */
+        std::optional<std::set<quicr::StreamClosedFlag>> CheckStreamState(std::uint64_t stream_id) const
+        {
+            std::lock_guard lock(state_mutex_);
+            const auto it = closed_streams_.find(stream_id);
+            if (it == closed_streams_.end()) {
+                return std::nullopt;
+            }
+            return it->second;
+        }
+
         // True = reset, false = FIN, nullopt = not closed.
         std::optional<bool> WasStreamReset(std::uint64_t stream_id) const
         {
@@ -296,7 +317,13 @@ namespace quicr_test {
             if (it == closed_streams_.end()) {
                 return std::nullopt;
             }
-            return it->second;
+            if (it->second.contains(quicr::StreamClosedFlag::kReset)) {
+                return true;
+            }
+            if (it->second.contains(quicr::StreamClosedFlag::kFin)) {
+                return false;
+            }
+            return std::nullopt;
         }
 
         // Set up data to respond with when a fetch is received
@@ -316,11 +343,8 @@ namespace quicr_test {
       protected:
         void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override
         {
-            if (flag == quicr::StreamClosedFlag::kStopSending) {
-                return;
-            }
             std::lock_guard lock(state_mutex_);
-            closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
+            closed_streams_[stream_id].insert(flag);
         }
 
         void MetricsSampled(const std::shared_ptr<quicr::Session>& session,
@@ -415,6 +439,7 @@ namespace quicr_test {
 
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<quicr::Error<quicr::RequestErrorCode>> subscribe_error_;
+        std::optional<quicr::Error<quicr::PublishErrorCode>> publish_error_;
         std::optional<quicr::Error<quicr::RequestErrorCode>> track_status_error_;
         std::optional<quicr::TrackStatusResponse> track_status_state_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
@@ -425,7 +450,7 @@ namespace quicr_test {
         std::set<const quicr::Session*> metrics_reporting_sessions_;
         std::optional<std::promise<UnsubscribeReceivedDetails>> unsubscribe_received_promise_;
         std::optional<UnsubscribeReceivedDetails::HandlerType> expected_unsubscribe_handler_type_;
-        std::map<std::uint64_t, bool> closed_streams_;
+        std::map<std::uint64_t, std::set<quicr::StreamClosedFlag>> closed_streams_;
         std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;
         std::vector<FetchResponseData> fetch_response_data_;
 
