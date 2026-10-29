@@ -371,7 +371,8 @@ MakeTestClient(quicr::SessionManager& session_mgr,
                const std::string& protocol_scheme = "moq",
                const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
                std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>(),
-               std::optional<std::uint16_t> server_port = std::nullopt)
+               std::optional<std::uint16_t> server_port = std::nullopt,
+               std::optional<std::size_t> max_connections = std::nullopt)
 {
     // Connect a client.
     ClientConfig client_config;
@@ -380,6 +381,9 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
     if (metrics_sample_ms.has_value()) {
         client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
+    }
+    if (max_connections.has_value()) {
+        client_config.transport_config.max_connections = *max_connections;
     }
     client_config.connect_uri =
       quicr::format("{}://{}:{}/relay", protocol_scheme, kIp, server_port.value_or(GetTestPort()));
@@ -945,7 +949,8 @@ TEST_CASE("Integration - GOAWAY migration")
                                            protocol_scheme,
                                            std::nullopt,
                                            std::make_shared<TestClient>(),
-                                           old_relay_port);
+                                           old_relay_port,
+                                           2);
 
         const auto& original_session = client.first;
         REQUIRE(old_server_session_future.wait_for(kDefaultTimeout) == std::future_status::ready);
@@ -1053,7 +1058,8 @@ TEST_CASE("Integration - request GOAWAY migrates part of a session")
                                            protocol_scheme,
                                            std::nullopt,
                                            std::make_shared<TestClient>(),
-                                           old_relay_port);
+                                           old_relay_port,
+                                           2);
         const auto& session = client.first;
         const auto old_connection = session->GetDefaultConnection();
         REQUIRE(old_connection != nullptr);
@@ -1166,7 +1172,7 @@ TEST_CASE("Integration - REQUEST_ERROR redirect migration")
     new_relay->SetSubscribePromise(std::move(new_subscribe_promise));
 
     auto [session, callbacks] = MakeTestClient(
-      session_mgr, true, std::nullopt, "moq", std::nullopt, std::make_shared<TestClient>(), old_relay_port);
+      session_mgr, true, std::nullopt, "moq", std::nullopt, std::make_shared<TestClient>(), old_relay_port, 2);
     const auto old_connection = session->GetDefaultConnection();
     REQUIRE(old_connection != nullptr);
 

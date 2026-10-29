@@ -36,7 +36,7 @@ namespace quicr {
         CongestionControl congestion_control{ CongestionControl::kBbr }; /// Congestion control algorithm to use
         std::string quic_qlog_path;                                      ///< If present, log QUIC LOG file to this path
         uint8_t quic_priority_limit{ 0 }; ///< Lowest priority that will not be bypassed from pacing/CC in picoquic
-        std::size_t max_connections{ 1 }; ///< Max number of active QUIC connections per QUIC instance
+        std::size_t max_connections{ 2 }; ///< Max number of active QUIC connections per QUIC instance
         bool ssl_keylog{ false };         ///< Enable SSL key logging for QUIC connections
         std::size_t socket_buffer_size{ 1'000'000 }; ///< QUIC UDP socket buffer size
         uint32_t callback_queue_size{ 2000 };        ///< Callback function queue size for callbacks

@@ -1099,10 +1099,8 @@ PicoQuicTransport::Start()
         (void)picoquic_config_set_option(&config_, picoquic_option_ALPN, GetAlpn());
     }
 
-    const auto max_connections =
-      is_server_mode ? tconfig_.max_connections : std::max<std::size_t>(tconfig_.max_connections, 4);
     (void)picoquic_config_set_option(
-      &config_, picoquic_option_MAX_CONNECTIONS, std::to_string(max_connections).c_str());
+      &config_, picoquic_option_MAX_CONNECTIONS, std::to_string(tconfig_.max_connections).c_str());
 
     if (is_server_mode) {
         QUICR_LOGGER_DEBUG(logger, "Start: As Server, configuring WebTransport Path Params");
@@ -1184,6 +1182,18 @@ PicoQuicTransport::Start()
 std::shared_ptr<Connection>
 quicr::PicoQuicTransport::Connect(const TransportRemote& server)
 {
+    {
+        std::lock_guard lock(state_mutex_);
+        if (connections_.size() >= tconfig_.max_connections) {
+            QUICR_LOGGER_WARN(logger,
+                              "Cannot connect to {}:{}: maximum connection count ({}) reached",
+                              server.host_or_ip,
+                              server.port,
+                              tconfig_.max_connections);
+            return nullptr;
+        }
+    }
+
     // Use shared state to avoid lifetime issues if timeout occurs before lambda executes
     struct SharedState
     {
@@ -1364,7 +1374,15 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
     QUICR_LOGGER_DEBUG(logger, "Got client connection context conn_id: {}", state->conn_id);
     if (state->conn_id <= 1) {
         QUICR_LOGGER_DEBUG(logger, "Client connection to {}:{} failed", server.host_or_ip, server.port);
-        SetStatus(TransportStatus::kDisconnected);
+        bool no_connections = true;
+        {
+            std::lock_guard state_lock(state_mutex_);
+            no_connections = connections_.empty();
+        }
+
+        if (no_connections) {
+            SetStatus(TransportStatus::kDisconnected);
+        }
         return nullptr;
     }
 
