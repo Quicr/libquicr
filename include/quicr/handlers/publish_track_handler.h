@@ -233,7 +233,7 @@ namespace quicr {
          * @param reset     True if stream closed by reset
          *
          */
-        virtual void StreamClosed(std::uint64_t stream_id, bool reset = false);
+        virtual void StreamClosed(std::uint64_t stream_id, bool reset = false) QUICR_EXCLUDES(binding_operation_mutex_);
 
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
@@ -300,10 +300,10 @@ namespace quicr {
          *
          * @returns Publish status of the publish
          */
-        virtual PublishObjectStatus PublishObject(
-          const ObjectHeaders& object_headers,
-          BytesSpan data,
-          std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt);
+        virtual PublishObjectStatus PublishObject(const ObjectHeaders& object_headers,
+                                                  BytesSpan data,
+                                                  std::optional<messages::StreamHeaderProperties> stream_mode =
+                                                    std::nullopt) QUICR_EXCLUDES(binding_operation_mutex_);
 
         /**
          * @brief Forward received object data to subscriber/relay/remote client
@@ -322,7 +322,8 @@ namespace quicr {
         PublishObjectStatus ForwardPublishedData(bool is_new_stream,
                                                  uint64_t group_id,
                                                  uint64_t subgroup_id,
-                                                 std::shared_ptr<const std::vector<uint8_t>> data);
+                                                 std::shared_ptr<const std::vector<uint8_t>> data)
+          QUICR_EXCLUDES(binding_operation_mutex_);
 
         /**
          * @brief Ends the subgroup as completed or not.
@@ -335,7 +336,8 @@ namespace quicr {
          * @param subgroup_id
          * @param completed
          */
-        virtual void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true);
+        virtual void EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed = true)
+          QUICR_EXCLUDES(binding_operation_mutex_);
 
         /**
          * @brief End every subgroup still open on this track.
@@ -344,7 +346,7 @@ namespace quicr {
          *      never ended do not keep their streams open for the life of the connection. Each is
          *      ended as completed, matching what a well-behaved application would have done.
          */
-        void EndAllSubgroups();
+        void EndAllSubgroups() QUICR_EXCLUDES(binding_operation_mutex_);
 
         /**
          * @brief Set the publish status
@@ -412,6 +414,10 @@ namespace quicr {
         std::optional<uint64_t> pending_new_group_request_id_;
 
       private:
+        void EndSubgroupInternal(uint64_t group_id, uint64_t subgroup_id, bool completed)
+          QUICR_REQUIRES(binding_operation_mutex_);
+        void EndAllSubgroupsInternal() QUICR_REQUIRES(binding_operation_mutex_);
+
         // Update status without firing the callback.
         std::optional<Status> UpdateStatus(Status status) noexcept;
 

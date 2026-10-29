@@ -32,10 +32,10 @@ namespace quicr {
             return std::shared_ptr<PublishFetchHandler>(
               new PublishFetchHandler(full_track_name, priority, subscribe_id, group_order, ttl));
         }
-        PublishObjectStatus PublishObject(
-          const ObjectHeaders& object_headers,
-          BytesSpan data,
-          std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt) override;
+        PublishObjectStatus PublishObject(const ObjectHeaders& object_headers,
+                                          BytesSpan data,
+                                          std::optional<messages::StreamHeaderProperties> stream_mode =
+                                            std::nullopt) override QUICR_EXCLUDES(binding_operation_mutex_);
         constexpr messages::GroupOrder GetGroupOrder() const noexcept { return group_order_; }
 
       private:
@@ -46,7 +46,7 @@ namespace quicr {
          *      once the transport reaches it, so objects already queued still go out. Does nothing if
          *      the fetch never sent an object, since there is no stream to close.
          */
-        void EndFetch();
+        void EndFetch() QUICR_EXCLUDES(binding_operation_mutex_);
 
         messages::GroupOrder group_order_;
         messages::FetchObjectSerializationState serialization_state_;

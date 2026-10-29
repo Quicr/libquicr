@@ -3116,89 +3116,96 @@ namespace quicr {
             return;
         }
 
-        std::lock_guard migration_lock(handler->binding_operation_mutex_);
-        const auto old_binding = handler->GetBinding();
-        const auto old_connection_id = old_connection->GetID();
-        if (const auto publisher = handler->Get<PublishTrackHandler>()) {
-            publisher->EndAllSubgroups();
-        }
-
-        {
-            std::lock_guard lock(state_mutex_);
-            if (const auto subscriber = handler->Get<SubscribeTrackHandler>()) {
-                if (const auto old_alias = subscriber->GetReceivedTrackAlias()) {
-                    sub_by_recv_track_alias.erase({ old_connection_id, *old_alias });
-                }
-                if (received_track_alias.has_value()) {
-                    subscriber->SetReceivedTrackAlias(*received_track_alias);
-                    sub_by_recv_track_alias[{ connection->GetID(), *received_track_alias }] = subscriber;
-                }
-            } else if (const auto publisher = handler->Get<PublishTrackHandler>();
-                       publisher && !handler->Get<PublishFetchHandler>()) {
-                const auto track_alias = TrackHash(publisher->GetFullTrackName()).track_fullname_hash;
-                if (auto tracks = pub_tracks_by_track_alias.find(track_alias);
-                    tracks != pub_tracks_by_track_alias.end()) {
-                    tracks->second.erase(old_connection_id);
-                    tracks->second[connection->GetID()] = publisher;
-                }
-            }
-
-            handler->SetBinding({
-              .connection_id = connection->GetID(),
-              .request_id = request_id,
-              .request_stream = pending.request_stream,
-            });
-
-            if (old_binding.request_stream) {
-                request_by_stream.erase({ old_connection_id, old_binding.request_stream->GetStreamId() });
-            }
-
-            if (const auto migration = migrations_.find(migration_key); migration != migrations_.end()) {
-                migration->second.pending.erase(request_id);
-                if (migration->second.pending.empty()) {
-                    migrations_.erase(migration);
-                }
-            }
-        }
-
-        if (old_binding.request_stream) {
-            if (handler->Get<PublishTrackHandler>() && !handler->Get<PublishFetchHandler>()) {
-                SendPublishDone(old_binding.request_stream,
-                                old_binding.request_id.value(),
-                                messages::PublishDoneStatusCode::kGoingAway,
-                                "Migrated");
-                quic_transport_->CloseStream(old_binding.request_stream, StreamOperation::kFin);
-            } else {
-                quic_transport_->CloseStream(old_binding.request_stream, StreamOperation::kCancel);
-            }
-        }
-
-        bool old_connection_in_use = false;
-        {
-            std::lock_guard lock(state_mutex_);
-
-            old_connection_in_use = std::ranges::any_of(request_handlers, [&](const auto& item) {
-                return item.second && item.second->GetConnection() == old_connection;
-            });
-
-            if (session_wide && !old_connection_in_use && GetDefaultConnection() == old_connection) {
-                default_connection_ = connection;
-            }
-        }
-
-        if (session_wide && !old_connection_in_use) {
-            RemoveTracksForConnectionClose(old_connection);
+        const auto finish_migration = [&] {
+            const auto old_binding = handler->GetBinding();
+            const auto old_connection_id = old_connection->GetID();
 
             {
-                std::lock_guard lock(connections_mutex_);
-                connections_.erase(old_connection_id);
+                std::lock_guard lock(state_mutex_);
+                if (const auto subscriber = handler->Get<SubscribeTrackHandler>()) {
+                    if (const auto old_alias = subscriber->GetReceivedTrackAlias()) {
+                        sub_by_recv_track_alias.erase({ old_connection_id, *old_alias });
+                    }
+                    if (received_track_alias.has_value()) {
+                        subscriber->SetReceivedTrackAlias(*received_track_alias);
+                        sub_by_recv_track_alias[{ connection->GetID(), *received_track_alias }] = subscriber;
+                    }
+                } else if (const auto publisher = handler->Get<PublishTrackHandler>();
+                           publisher && !handler->Get<PublishFetchHandler>()) {
+                    const auto track_alias = TrackHash(publisher->GetFullTrackName()).track_fullname_hash;
+                    if (auto tracks = pub_tracks_by_track_alias.find(track_alias);
+                        tracks != pub_tracks_by_track_alias.end()) {
+                        tracks->second.erase(old_connection_id);
+                        tracks->second[connection->GetID()] = publisher;
+                    }
+                }
+
+                handler->SetBinding({
+                  .connection_id = connection->GetID(),
+                  .request_id = request_id,
+                  .request_stream = pending.request_stream,
+                });
+
+                if (old_binding.request_stream) {
+                    request_by_stream.erase({ old_connection_id, old_binding.request_stream->GetStreamId() });
+                }
+
+                if (const auto migration = migrations_.find(migration_key); migration != migrations_.end()) {
+                    migration->second.pending.erase(request_id);
+                    if (migration->second.pending.empty()) {
+                        migrations_.erase(migration);
+                    }
+                }
             }
 
-            old_connection->SetDelegate(nullptr);
-
-            if (old_connection->GetStatus() == Connection::Status::kReady) {
-                quic_transport_->Close(old_connection);
+            if (old_binding.request_stream) {
+                if (handler->Get<PublishTrackHandler>() && !handler->Get<PublishFetchHandler>()) {
+                    SendPublishDone(old_binding.request_stream,
+                                    old_binding.request_id.value(),
+                                    messages::PublishDoneStatusCode::kGoingAway,
+                                    "Migrated");
+                    quic_transport_->CloseStream(old_binding.request_stream, StreamOperation::kFin);
+                } else {
+                    quic_transport_->CloseStream(old_binding.request_stream, StreamOperation::kCancel);
+                }
             }
+
+            bool old_connection_in_use = false;
+            {
+                std::lock_guard lock(state_mutex_);
+
+                old_connection_in_use = std::ranges::any_of(request_handlers, [&](const auto& item) {
+                    return item.second && item.second->GetConnection() == old_connection;
+                });
+
+                if (session_wide && !old_connection_in_use && GetDefaultConnection() == old_connection) {
+                    default_connection_ = connection;
+                }
+            }
+
+            if (session_wide && !old_connection_in_use) {
+                RemoveTracksForConnectionClose(old_connection);
+
+                {
+                    std::lock_guard lock(connections_mutex_);
+                    connections_.erase(old_connection_id);
+                }
+
+                old_connection->SetDelegate(nullptr);
+
+                if (old_connection->GetStatus() == Connection::Status::kReady) {
+                    quic_transport_->Close(old_connection);
+                }
+            }
+        };
+
+        if (const auto publisher = handler->Get<PublishTrackHandler>()) {
+            std::lock_guard migration_lock(publisher->binding_operation_mutex_);
+            publisher->EndAllSubgroupsInternal();
+            finish_migration();
+        } else {
+            std::lock_guard migration_lock(handler->binding_operation_mutex_);
+            finish_migration();
         }
     }
 

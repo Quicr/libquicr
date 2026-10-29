@@ -373,6 +373,11 @@ namespace quicr {
     void PublishTrackHandler::EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed)
     {
         std::lock_guard lock(binding_operation_mutex_);
+        EndSubgroupInternal(group_id, subgroup_id, completed);
+    }
+
+    void PublishTrackHandler::EndSubgroupInternal(uint64_t group_id, uint64_t subgroup_id, bool completed)
+    {
         auto session = GetSession().lock();
 
         if (!session) {
@@ -411,7 +416,12 @@ namespace quicr {
     void PublishTrackHandler::EndAllSubgroups()
     {
         std::lock_guard lock(binding_operation_mutex_);
-        // EndSubgroup erases as it goes, so gather first rather than iterating the map it mutates.
+        EndAllSubgroupsInternal();
+    }
+
+    void PublishTrackHandler::EndAllSubgroupsInternal()
+    {
+        // EndSubgroupLocked erases as it goes, so gather first rather than iterating the map it mutates.
         std::vector<std::pair<std::uint64_t, std::uint64_t>> open;
         for (const auto& [group_id, subgroups] : stream_info_by_group_) {
             for (const auto& [subgroup_id, _] : subgroups) {
@@ -420,7 +430,7 @@ namespace quicr {
         }
 
         for (const auto& [group_id, subgroup_id] : open) {
-            EndSubgroup(group_id, subgroup_id, true);
+            EndSubgroupInternal(group_id, subgroup_id, true);
         }
     }
 
