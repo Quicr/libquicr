@@ -166,7 +166,7 @@ namespace quicr {
 
         const std::weak_ptr<Session>& GetSession() const noexcept;
 
-        std::recursive_mutex binding_operation_mutex_;
+        std::mutex binding_operation_mutex_;
 
         // --------------------------------------------------------------------------
         // Internal
