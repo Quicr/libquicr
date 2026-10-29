@@ -662,12 +662,12 @@ TEST_CASE("Filters")
     };
     serialise_filter(FilterType::kTrackFilter, filter);
 
-    filter = LocationFilter{
+    filter = SubscriptionFilter{
         { .start = 1 },
     };
     serialise_filter(FilterType::kSubscriptionFilter, filter);
 
-    filter = LocationFilter{
+    filter = SubscriptionFilter{
         {
           .start = 1,
           .end = 2,
