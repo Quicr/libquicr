@@ -25,6 +25,7 @@ path = [
   "tools/moq-capture/README.md",
   "tools/moq-cli/README.md",
   "package-lock.cmake",
+  "VERSION",
 ]
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "BSD-2-Clause"

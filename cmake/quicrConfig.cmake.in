@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(timeq CONFIG REQUIRED)
+find_dependency(picoquic CONFIG REQUIRED)
+
+function(quicr_check_std_format)
+    set(CMAKE_CXX_STANDARD 20)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+    if(NOT "@QUICR_HAS_STD_FORMAT@")
+        find_dependency(fmt CONFIG REQUIRED)
+    endif()
+endfunction()
+
+quicr_check_std_format()
+
+include("${CMAKE_CURRENT_LIST_DIR}/quicrTargets.cmake")
+
+check_required_components("quicr")
