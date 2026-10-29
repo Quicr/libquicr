@@ -41,7 +41,7 @@ namespace quicr {
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
 
-            stream_ = session->CreateStream(GetConnectionId(), *GetRequestId(), GetPublishObjectPriority());
+            stream_ = session->CreateStream(GetConnection(), *GetRequestId(), GetPublishObjectPriority());
 
             messages::FetchHeader fetch_hdr;
             fetch_hdr.request_id = *request_id;

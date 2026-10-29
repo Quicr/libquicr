@@ -225,7 +225,6 @@ namespace quicr {
 
         std::atomic<Status> status_;
 
-        mutable std::recursive_mutex callback_mutex_;
         mutable std::mutex mutex_;
         std::weak_ptr<Delegate> delegate_ QUICR_GUARDED_BY(mutex_);
 

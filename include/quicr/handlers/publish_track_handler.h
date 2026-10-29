@@ -412,6 +412,10 @@ namespace quicr {
         std::optional<uint64_t> pending_new_group_request_id_;
 
       private:
+        void EndSubgroupInternal(uint64_t group_id, uint64_t subgroup_id, bool completed);
+
+        void EndAllSubgroupsInternal();
+
         // Update status without firing the callback.
         std::optional<Status> UpdateStatus(Status status) noexcept;
 
