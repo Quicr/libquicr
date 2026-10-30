@@ -20,7 +20,7 @@ jobs:
         submodules: recursive
 
     - name: Install Packages
-      # Builds against Homebrew's clang rather than the Xcode one. LINT=ON also
+      # Builds against Homebrew's clang rather than the Xcode one. QUICR_LINT=ON also
       # needs clang-tidy, which Homebrew's llvm keeps off PATH.
       run: |
         HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install llvm google-benchmark openssl@3
@@ -31,7 +31,7 @@ jobs:
         ln -s "$LLVM_PREFIX/bin/clang-tidy" "/usr/local/bin/clang-tidy"
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" -DLINT=ON -DCMAKE_POLICY_VERSION_MINIMUM="3.5" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON -DQUICR_BUILD_TOOLS=ON
+      run: cmake -B ${{github.workspace}}/build -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" -DQUICR_LINT=ON -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_TESTING=ON -DQUICR_BUILD_EXAMPLES=ON -DQUICR_BUILD_TOOLS=ON
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j

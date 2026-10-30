@@ -20,10 +20,15 @@ set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
 set(TIMEQ_INSTALL ${QUICR_INSTALL})
+
 CPMAddPackage(
     URI "gh:quicr/timeq#898d45c"
     EXCLUDE_FROM_ALL NO
 )
+
+if(NOT DEFINED WITH_BROTLI)
+    set(WITH_BROTLI OFF)
+endif()
 
 CPMAddPackage(
     URI "gh:quicr/picotls#057ed54"
