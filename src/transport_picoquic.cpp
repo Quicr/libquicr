@@ -1258,6 +1258,7 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
     std::lock_guard<std::mutex> _(state_mutex_);
 
     bool needs_mark = false;
+    bool priority_changed = false;
     {
         std::lock_guard __(pq_stream->tx_mutex);
 
@@ -1269,7 +1270,8 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
         }
 
         pq_stream->metrics.enqueued_objs++;
-        pq_stream->priority = priority; // Match object priority for next stream create
+        priority_changed = pq_stream->priority != priority;
+        pq_stream->priority = priority;
 
         StreamAction stream_action{ StreamAction::kNoAction };
 
@@ -1300,6 +1302,18 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
         };
 
         pq_stream->tx_data->push(std::move(cd), ttl_ms);
+    }
+
+    if (priority_changed) {
+        // Update the current stream's QUIC priority.
+        RunPqFunction(pq_connection->shard_idx, [pq_connection, pq_stream]() {
+            std::lock_guard _(pq_stream->tx_mutex);
+            if (!pq_stream->IsOpen()) {
+                return 0;
+            }
+            return picoquic_set_stream_priority(
+              pq_connection->pq_cnx, pq_stream->GetStreamId(), (pq_stream->priority << 1));
+        });
     }
 
     if (needs_mark) {

@@ -167,15 +167,15 @@ namespace quicr {
         // Various getter/setters
         // --------------------------------------------------------------------------
         /**
-         * @brief set/update the publisher priority used for datagram headers and subgroup headers
+         * @brief set/update the publisher priority used for datagram headers and new subgroup headers
+         * @dtails Applies to subsequent datagrams and newly opened subgroup streams.
          */
         void SetPublisherPriority(const uint8_t priority) noexcept { publisher_priority_ = priority; }
 
         /**
-         * @brief set/update the publish object priority
+         * @brief set/update the publish object priority (local scheduling priority).
          * @details Publish object priority is set by subscriber priority, but the client app can
-         *      update this as needed at any time. The setting will take effect on next datagram
-         *      object and on next start of group/subgroup
+         *      update this as needed at any time. The setting will take effect immediately.
          */
         void SetPublishObjectPriority(const uint8_t priority) noexcept { publish_object_priority_ = priority; }
 
@@ -186,8 +186,8 @@ namespace quicr {
         constexpr uint8_t GetPublisherPriority() const noexcept { return publisher_priority_; }
 
         /**
-         * @brief Get the publish object priority
-         * @return publisher priority
+         * @brief Get the publish object priority (local scheduling priority).
+         * @return Publish object priority.
          */
         constexpr uint8_t GetPublishObjectPriority() const noexcept { return publish_object_priority_; }
 
