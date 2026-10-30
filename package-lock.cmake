@@ -23,7 +23,6 @@ CPMDeclarePackage(picotls
   EXCLUDE_FROM_ALL YES
   OPTIONS
     "WITH_FUSION OFF"
-    "picotls_BUILD_TESTS OFF"
 )
 # picoquic
 CPMDeclarePackage(picoquic
@@ -35,7 +34,6 @@ CPMDeclarePackage(picoquic
     "BUILD_DEMO OFF"
     "BUILD_PQBENCH OFF"
     "BUILD_LOGREADER OFF"
-    "picoquic_BUILD_TESTS OFF"
     "PICOQUIC_FETCH_PTLS ON"
 )
 # doctest
