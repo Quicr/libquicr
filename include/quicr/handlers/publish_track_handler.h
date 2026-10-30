@@ -175,7 +175,7 @@ namespace quicr {
         /**
          * @brief set/update the publish object priority (local scheduling priority).
          * @details Publish object priority is set by subscriber priority, but the client app can
-         *      update this as needed at any time. The setting will take effect immediately.
+         *      update this as needed at any time. The setting will take effect on the next publish.
          */
         void SetPublishObjectPriority(const uint8_t priority) noexcept { publish_object_priority_ = priority; }
 
