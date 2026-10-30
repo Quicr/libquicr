@@ -34,7 +34,6 @@ CPMAddPackage(
     URI "gh:quicr/picotls#057ed54"
     OPTIONS
         "WITH_FUSION OFF"
-        "picotls_BUILD_TESTS OFF"
 )
 
 if (WITH_MBEDTLS)
@@ -75,7 +74,6 @@ CPMAddPackage(
         "BUILD_DEMO OFF"
         "BUILD_PQBENCH OFF"
         "BUILD_LOGREADER OFF"
-        "picoquic_BUILD_TESTS OFF"
         "PICOQUIC_FETCH_PTLS ON"
 )
 
