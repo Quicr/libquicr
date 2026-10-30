@@ -249,13 +249,26 @@ class TestTransport : public quicr::Transport
     }
     bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
     bool Enqueue(const std::shared_ptr<quicr::Connection>&,
-                 const std::shared_ptr<quicr::Stream>&,
-                 std::shared_ptr<const std::vector<uint8_t>>,
+                 const std::shared_ptr<quicr::Stream>& stream,
+                 std::shared_ptr<const std::vector<uint8_t>> data,
                  uint8_t,
                  uint32_t,
-                 EnqueueFlags) override
+                 EnqueueFlags flags) override
     {
-        return ++enqueue_count != fail_enqueue;
+        if (++enqueue_count == fail_enqueue) {
+            return false;
+        }
+        if (stream) {
+            const bool has_data = data && !data->empty();
+            if (has_data) {
+                auto& sent = sent_by_stream[stream->GetStreamId()];
+                sent.insert(sent.end(), data->begin(), data->end());
+            }
+            enqueued.push_back({ stream->GetStreamId(),
+                                 flags.close_stream,
+                                 has_data ? std::make_optional(data->front()) : std::nullopt });
+        }
+        return true;
     }
     void EnqueueDatagram(const std::shared_ptr<quicr::Connection>&,
                          std::shared_ptr<const std::vector<uint8_t>>,
@@ -282,12 +295,26 @@ class TestTransport : public quicr::Transport
     }
     std::shared_ptr<quicr::Stream> CreateRequestStream(const std::shared_ptr<quicr::Connection>&) override
     {
-        return nullptr;
+        return std::make_shared<TestStream>(4 * ++created_request_streams);
     }
 
     int enqueue_count{ 0 };
     int fail_enqueue{ -1 };
     int created_streams{ 0 };
+    int created_request_streams{ 0 };
+
+    /// Bytes accepted on each stream, in order.
+    std::map<std::uint64_t, std::vector<std::uint8_t>> sent_by_stream;
+
+    struct Enqueued
+    {
+        std::uint64_t stream_id;
+        bool close_stream;
+        std::optional<std::uint8_t> first_byte;
+    };
+
+    /// Every accepted enqueue across all streams, in order.
+    std::vector<Enqueued> enqueued;
 
   private:
     void QueueDeferredReply(std::function<void()>&&) override {}
@@ -373,4 +400,202 @@ TEST_CASE("Fetch closure is terminal")
     CHECK(handler->PublishObject(headers, payload) == Status::kFetchClosed);
     CHECK(transport->enqueue_count == attempts);
     CHECK(transport->created_streams == expected_streams);
+}
+
+/// Stream Count of the PUBLISH_DONE among the control messages sent on a stream, if one was sent.
+static std::optional<std::uint64_t>
+SentPublishDoneStreamCount(const std::vector<std::uint8_t>& sent)
+{
+    std::span<const std::uint8_t> remaining{ sent };
+    while (!remaining.empty()) {
+        const quicr::UintVar type(remaining);
+        remaining = remaining.subspan(type.size());
+        REQUIRE(remaining.size() >= sizeof(std::uint16_t));
+        const std::size_t length = (remaining[0] << 8) | remaining[1];
+        remaining = remaining.subspan(sizeof(std::uint16_t));
+        REQUIRE(remaining.size() >= length);
+        auto payload = remaining.first(length);
+        remaining = remaining.subspan(length);
+
+        if (type.Get() != static_cast<std::uint64_t>(quicr::messages::ControlMessageType::kPublishDone)) {
+            continue;
+        }
+
+        const quicr::UintVar status_code(payload);
+        payload = payload.subspan(status_code.size());
+        return quicr::UintVar(payload).Get();
+    }
+    return std::nullopt;
+}
+
+TEST_CASE("PUBLISH_DONE Stream Count reflects the data streams opened")
+{
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>();
+
+    session->PublishTrack(handler);
+    REQUIRE(transport->created_request_streams == 1);
+    const std::uint64_t request_stream_id = 4;
+
+    // As PUBLISH_OK would.
+    handler->SetStatus(quicr::PublishTrackHandler::Status::kOk);
+
+    const auto publish_one_object = [&] {
+        quicr::ObjectHeaders headers{};
+        const quicr::Bytes payload{ 1 };
+        headers.payload_length = payload.size();
+        REQUIRE(handler->PublishObject(headers, payload) == quicr::PublishTrackHandler::PublishObjectStatus::kOk);
+    };
+
+    std::uint64_t expected_stream_count = 0;
+    std::uint64_t publish_done_stream_id = request_stream_id;
+    SUBCASE("No data stream opened")
+    {
+        expected_stream_count = 0;
+    }
+    SUBCASE("A subgroup stream opened")
+    {
+        publish_one_object();
+        REQUIRE(transport->created_streams == 1);
+
+        // The exact count isn't tracked, so the publisher must say it doesn't know it.
+        expected_stream_count = quicr::messages::kPublishDoneStreamCountUnknown;
+    }
+    SUBCASE("A reused handler does not count an earlier subscription's streams")
+    {
+        publish_one_object();
+        session->UnpublishTrack(handler);
+        REQUIRE(SentPublishDoneStreamCount(transport->sent_by_stream[request_stream_id]) ==
+                quicr::messages::kPublishDoneStreamCountUnknown);
+
+        session->PublishTrack(handler);
+        REQUIRE(transport->created_request_streams == 2);
+        publish_done_stream_id = 8;
+        handler->SetStatus(quicr::PublishTrackHandler::Status::kOk);
+        expected_stream_count = 0;
+    }
+
+    session->UnpublishTrack(handler);
+
+    const auto stream_count = SentPublishDoneStreamCount(transport->sent_by_stream[publish_done_stream_id]);
+    REQUIRE(stream_count.has_value());
+    CHECK_EQ(*stream_count, expected_stream_count);
+}
+
+/// True if PUBLISH_DONE went out on the request stream only after every subgroup stream had its FIN.
+static bool
+PublishDoneFollowsSubgroupFins(const TestTransport& transport, std::uint64_t request_stream_id)
+{
+    const auto& log = transport.enqueued;
+    const auto done = std::find_if(log.begin(), log.end(), [&](const TestTransport::Enqueued& e) {
+        return e.stream_id == request_stream_id &&
+               e.first_byte == static_cast<std::uint8_t>(quicr::messages::ControlMessageType::kPublishDone);
+    });
+    if (done == log.end()) {
+        return false;
+    }
+
+    for (const auto& e : log) {
+        if (e.stream_id == request_stream_id) {
+            continue;
+        }
+        const auto fin = std::find_if(log.begin(), done, [&](const TestTransport::Enqueued& f) {
+            return f.stream_id == e.stream_id && f.close_stream;
+        });
+        if (fin == done) {
+            return false;
+        }
+    }
+    return true;
+}
+
+TEST_CASE("PUBLISH_DONE unknown Stream Count encodes as the largest 62-bit value")
+{
+    const quicr::UintVar encoded(quicr::messages::kPublishDoneStreamCountUnknown);
+    REQUIRE_EQ(encoded.size(), 9);
+    CHECK_EQ(*encoded.begin(), 0xFF);
+    CHECK_EQ(quicr::UintVar(std::span<const std::uint8_t>{ encoded.begin(), encoded.end() }).Get(),
+             (std::uint64_t{ 1 } << 62) - 1);
+}
+
+TEST_CASE("PUBLISH_DONE Stream Count from a server ending a subscription")
+{
+    // A client session writes the SUBSCRIBE, so the server reads one exactly as a peer would send it.
+    auto client_transport = std::make_shared<TestTransport>();
+    auto client = CreateTestSession(client_transport);
+    auto subscribe_handler = quicr::SubscribeTrackHandler::Create({ {}, {} }, 0);
+    client->SubscribeTrack(subscribe_handler);
+    REQUIRE(subscribe_handler->GetRequestId().has_value());
+    const auto request_id = *subscribe_handler->GetRequestId();
+    const std::uint64_t request_stream_id = 4;
+    const auto& subscribe = client_transport->sent_by_stream[request_stream_id];
+    REQUIRE_FALSE(subscribe.empty());
+
+    auto server_transport = std::make_shared<TestTransport>();
+    auto server_connection = std::make_shared<TestConnection>();
+    auto server = quicr::Session::Create(quicr::ServerConfig{}, server_transport, server_connection, nullptr, nullptr);
+    server_connection->SetDelegate(server);
+
+    const auto request_stream = std::make_shared<TestStream>(request_stream_id);
+    REQUIRE(request_stream->IsBidirectional());
+    {
+        std::lock_guard _(request_stream->rx_mutex);
+        request_stream->rx_data.Push(std::span<const std::uint8_t>{ subscribe });
+    }
+    server_connection->OnRecvStream(request_stream);
+
+    // As a relay would from SubscribeReceived.
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>();
+    server->BindPublisherTrack(server_connection->GetID(), request_id, handler, false);
+    REQUIRE(handler->GetStatus() == quicr::PublishTrackHandler::Status::kOk);
+
+    std::uint64_t expected_stream_count = 0;
+    SUBCASE("No data stream opened")
+    {
+        expected_stream_count = 0;
+    }
+    SUBCASE("A subgroup stream opened")
+    {
+        quicr::ObjectHeaders headers{};
+        const quicr::Bytes payload{ 1 };
+        headers.payload_length = payload.size();
+        REQUIRE(handler->PublishObject(headers, payload) == quicr::PublishTrackHandler::PublishObjectStatus::kOk);
+        REQUIRE(server_transport->created_streams == 1);
+        expected_stream_count = quicr::messages::kPublishDoneStreamCountUnknown;
+    }
+
+    server->UnbindPublisherTrack(server_connection->GetID(), handler, true);
+
+    const auto stream_count = SentPublishDoneStreamCount(server_transport->sent_by_stream[request_stream_id]);
+    REQUIRE(stream_count.has_value());
+    CHECK_EQ(*stream_count, expected_stream_count);
+    CHECK(PublishDoneFollowsSubgroupFins(*server_transport, request_stream_id));
+}
+
+TEST_CASE("PUBLISH_DONE follows the FIN of every subgroup stream")
+{
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>();
+
+    session->PublishTrack(handler);
+    REQUIRE(transport->created_request_streams == 1);
+    const std::uint64_t request_stream_id = 4;
+
+    // As PUBLISH_OK would.
+    handler->SetStatus(quicr::PublishTrackHandler::Status::kOk);
+
+    // Two groups, so two subgroup streams the application leaves open.
+    quicr::ObjectHeaders headers{};
+    const quicr::Bytes payload{ 1 };
+    headers.payload_length = payload.size();
+    REQUIRE(handler->PublishObject(headers, payload) == quicr::PublishTrackHandler::PublishObjectStatus::kOk);
+    headers.group_id = 1;
+    REQUIRE(handler->PublishObject(headers, payload) == quicr::PublishTrackHandler::PublishObjectStatus::kOk);
+    REQUIRE(transport->created_streams == 2);
+
+    session->UnpublishTrack(handler);
+
+    CHECK(PublishDoneFollowsSubgroupFins(*transport, request_stream_id));
 }

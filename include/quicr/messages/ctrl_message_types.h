@@ -665,6 +665,9 @@ namespace quicr::messages {
         kTooFarBehind,
     };
 
+    /// PUBLISH_DONE Stream Count sent when the publisher cannot give the exact number of streams it opened.
+    constexpr std::uint64_t kPublishDoneStreamCountUnknown = (std::uint64_t{ 1 } << 62) - 1;
+
     Bytes& operator<<(Bytes& buffer, PublishDoneStatusCode value);
     BytesSpan operator>>(BytesSpan buffer, PublishDoneStatusCode& value);
 
