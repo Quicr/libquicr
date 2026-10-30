@@ -470,8 +470,8 @@ namespace quicr {
                 throw std::logic_error("Stream cannot be null");
             }
 
-            auto result = quic_transport_->Enqueue(
-              current_connection_, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
+            const auto result = quic_transport_->EnqueueStreamData(
+              current_connection_, stream, msg.ToBytes(), 2000, { close_stream, false, false });
 
             if (!result) {
                 // TODO: Propagate better to callers and handle more specifically. Keeping the throw for now.
@@ -687,21 +687,28 @@ namespace quicr {
         std::shared_ptr<Stream> CreateStream(std::uint64_t request_id, uint8_t priority);
 
         /**
-         * @brief Send published data.
+         * @brief Enqueue data to send as a datagram.
+         * @param bytes The data to send.
+         * @param priority The priority to assign to the datagram.
+         * @param ttl_ms Egress time to live.
+         */
+        void EnqueueDatagram(std::shared_ptr<const std::vector<uint8_t>> bytes,
+                             std::uint8_t priority,
+                             std::uint32_t ttl_ms) const;
+
+        /**
+         * @brief Enqueue stream data to send.
          *
-         * @param stream  Stream to send on, ignored when the flags ask for a datagram.
+         * @param stream  Stream to send on.
          * @param bytes Data to send, if any.
-         * @param priority Priority to use for sending.
          * @param ttl_ms Egress time to live.
          * @param flags Additional flags.
-         * @throws std::invalid_argument If stream is nullptr when using streams.
-         * @returns False if using streams and the TX direction has closed.
+         * @returns False if stream TX direction has closed.
          */
-        bool Enqueue(const std::shared_ptr<Stream>& stream,
-                     std::shared_ptr<const std::vector<uint8_t>> bytes,
-                     const uint8_t priority,
-                     const uint32_t ttl_ms,
-                     const Transport::EnqueueFlags flags);
+        bool EnqueueStreamData(const std::shared_ptr<Stream>& stream,
+                               std::shared_ptr<const std::vector<uint8_t>> bytes,
+                               const uint32_t ttl_ms,
+                               const Transport::EnqueueFlags flags) const;
 
       private:
         void ResetSubgroup(const std::shared_ptr<Stream>& stream);

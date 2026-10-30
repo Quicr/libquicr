@@ -248,12 +248,11 @@ class TestTransport : public quicr::Transport
     {
     }
     bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
-    bool Enqueue(const std::shared_ptr<quicr::Connection>&,
-                 const std::shared_ptr<quicr::Stream>&,
-                 std::shared_ptr<const std::vector<uint8_t>>,
-                 uint8_t,
-                 uint32_t,
-                 EnqueueFlags) override
+    bool EnqueueStreamData(const std::shared_ptr<quicr::Connection>&,
+                           const std::shared_ptr<quicr::Stream>&,
+                           std::shared_ptr<const std::vector<uint8_t>>,
+                           uint32_t,
+                           EnqueueFlags) override
     {
         return ++enqueue_count != fail_enqueue;
     }

@@ -112,7 +112,6 @@ namespace quicr {
     struct ConnData
     {
         std::uint64_t conn_id;
-        uint8_t priority;
         StreamAction stream_action{ StreamAction::kNoAction };
 
         /// Shared pointer is used so transport can take ownership of the vector without copy/new allocation
@@ -283,7 +282,6 @@ namespace quicr {
          */
         struct EnqueueFlags
         {
-            bool use_reliable{ false };   /// Indicates if object should use reliable stream or unreliable
             bool close_stream{ false };   /// Indicates that a new stream should be created to replace existing one
             bool clear_tx_queue{ false }; /// Indicates that the TX queue should be cleared before adding new object
             bool use_reset{ false };      /// Indicates new stream created will close the previous using reset/abrupt
@@ -297,19 +295,17 @@ namespace quicr {
          * @param[in] connection    Connection to send from
          * @param[in] stream        Stream to send on
          * @param[in] bytes         Data to send/write
-         * @param[in] priority      Priority of the object, range should be 0 - 255
          * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
          * @param[in] flags         Flags for stream and queue handling on enqueue of object
          *
          * @throws std::invalid_argument If a null connection, stream, or receive only stream is passed.
          * @returns False if the stream's TX direction has closed, so the data could not be enqueued.
          */
-        virtual bool Enqueue(const std::shared_ptr<Connection>& connection,
-                             const std::shared_ptr<Stream>& stream,
-                             std::shared_ptr<const std::vector<uint8_t>> bytes,
-                             uint8_t priority = 1,
-                             uint32_t ttl_ms = 350,
-                             EnqueueFlags flags = { true, false, false, false }) = 0;
+        virtual bool EnqueueStreamData(const std::shared_ptr<Connection>& connection,
+                                       const std::shared_ptr<Stream>& stream,
+                                       std::shared_ptr<const std::vector<uint8_t>> bytes,
+                                       uint32_t ttl_ms = 350,
+                                       EnqueueFlags flags = { false, false, false }) = 0;
 
         /**
          * @brief Enqueue application data as a datagram

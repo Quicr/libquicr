@@ -154,12 +154,11 @@ namespace quicr {
                              uint8_t priority,
                              uint32_t ttl_ms) override;
 
-        bool Enqueue(const std::shared_ptr<Connection>& connection,
-                     const std::shared_ptr<Stream>& stream,
-                     std::shared_ptr<const std::vector<uint8_t>> bytes,
-                     uint8_t priority,
-                     uint32_t ttl_ms,
-                     EnqueueFlags flags) override;
+        bool EnqueueStreamData(const std::shared_ptr<Connection>& connection,
+                               const std::shared_ptr<Stream>& stream,
+                               std::shared_ptr<const std::vector<uint8_t>> bytes,
+                               uint32_t ttl_ms,
+                               EnqueueFlags flags) override;
 
         std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<Connection>& connection) override;
 

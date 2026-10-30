@@ -1213,7 +1213,6 @@ PicoQuicTransport::EnqueueDatagram(const std::shared_ptr<Connection>& connection
 
     ConnData cd{
         connection->GetID(),
-        priority,
         StreamAction::kNoAction,
         std::move(bytes),
         static_cast<uint64_t>(clock_->Get().count()),
@@ -1235,12 +1234,11 @@ PicoQuicTransport::EnqueueDatagram(const std::shared_ptr<Connection>& connection
 }
 
 bool
-PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
-                           const std::shared_ptr<Stream>& stream,
-                           std::shared_ptr<const std::vector<uint8_t>> bytes,
-                           const uint8_t priority,
-                           const uint32_t ttl_ms,
-                           const EnqueueFlags flags)
+PicoQuicTransport::EnqueueStreamData(const std::shared_ptr<Connection>& connection,
+                                     const std::shared_ptr<Stream>& stream,
+                                     std::shared_ptr<const std::vector<uint8_t>> bytes,
+                                     const uint32_t ttl_ms,
+                                     const EnqueueFlags flags)
 {
     const auto pq_connection = std::static_pointer_cast<PicoQuicConnection>(connection);
     const auto pq_stream = std::static_pointer_cast<PicoQuicStream>(stream);
@@ -1269,7 +1267,6 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
         }
 
         pq_stream->metrics.enqueued_objs++;
-        pq_stream->priority = priority; // Match object priority for next stream create
 
         StreamAction stream_action{ StreamAction::kNoAction };
 
@@ -1293,7 +1290,6 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
 
         ConnData cd{
             pq_connection->GetID(),
-            priority,
             stream_action,
             std::move(bytes),
             static_cast<uint64_t>(clock_->Get().count()),
@@ -2816,6 +2812,7 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
     }
 
     const auto stream = pq_conn->AddStream(stream_id, MakeStreamTxQueue());
+    stream->priority = priority;
     stream->wt_stream_ctx = wt_stream_ctx;
 
     if (pq_conn->GetAPI() == Connection::API::kWebTransport) {
