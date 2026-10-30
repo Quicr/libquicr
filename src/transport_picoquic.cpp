@@ -2830,6 +2830,7 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
     }
 
     const auto stream = pq_conn->AddStream(stream_id, MakeStreamTxQueue());
+    stream->priority = priority;
     stream->wt_stream_ctx = wt_stream_ctx;
 
     if (pq_conn->GetAPI() == Connection::API::kWebTransport) {
