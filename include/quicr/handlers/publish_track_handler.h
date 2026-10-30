@@ -417,6 +417,28 @@ namespace quicr {
         // Update status without firing the callback.
         std::optional<Status> UpdateStatus(Status status) noexcept;
 
+        /**
+         * @brief Start counting data streams afresh for a new subscription.
+         *
+         * @details The session calls this wherever it binds the handler to a subscription, so a
+         *      handler reused across subscriptions does not report streams from an earlier one.
+         */
+        void BeginSubscription() noexcept { opened_data_stream_.store(false, std::memory_order_release); }
+
+        /**
+         * @brief Stream Count to send in PUBLISH_DONE for the current subscription.
+         *
+         * @details The exact number of streams is not tracked, so once any has been opened the
+         *      count is reported as unknown, as draft-ietf-moq-transport-18 section 10.11 requires.
+         */
+        std::uint64_t PublishDoneStreamCount() const noexcept
+        {
+            return opened_data_stream_.load(std::memory_order_acquire) ? messages::kPublishDoneStreamCountUnknown : 0;
+        }
+
+        /// True once a data stream has been opened for the current subscription.
+        std::atomic<bool> opened_data_stream_{ false };
+
         friend class Session;
     };
 
