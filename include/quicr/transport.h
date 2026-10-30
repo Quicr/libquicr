@@ -75,14 +75,6 @@ namespace quicr {
     enum class TransportError : uint8_t
     {
         kNone = 0,
-        kQueueFull,
-        kUnknownError,
-        kPeerDisconnected,
-        kPeerUnreachable,
-        kCannotResolveHostname,
-        kInvalidConnContextId,
-        kInvalidIpv4Address,
-        kInvalidIpv6Address,
         kInvalidStreamId,
         kFailedToCreateQuicInstance
     };
@@ -302,21 +294,22 @@ namespace quicr {
          *
          * @details Add data to the stream's transmit queue, to be sent when the stream is next able to.
          *
-         * @param[in] connection    Identifying the connection
+         * @param[in] connection    Connection to send from
          * @param[in] stream        Stream to send on
          * @param[in] bytes         Data to send/write
          * @param[in] priority      Priority of the object, range should be 0 - 255
          * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
          * @param[in] flags         Flags for stream and queue handling on enqueue of object
          *
-         * @returns TransportError is returned indicating status of the operation
+         * @throws std::invalid_argument If a null connection, stream, or receive only stream is passed.
+         * @returns False if the stream's TX direction has closed, so the data could not be enqueued.
          */
-        virtual TransportError Enqueue(const std::shared_ptr<Connection>& connection,
-                                       const std::shared_ptr<Stream>& stream,
-                                       std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                       uint8_t priority = 1,
-                                       uint32_t ttl_ms = 350,
-                                       EnqueueFlags flags = { true, false, false, false }) = 0;
+        virtual bool Enqueue(const std::shared_ptr<Connection>& connection,
+                             const std::shared_ptr<Stream>& stream,
+                             std::shared_ptr<const std::vector<uint8_t>> bytes,
+                             uint8_t priority = 1,
+                             uint32_t ttl_ms = 350,
+                             EnqueueFlags flags = { true, false, false, false }) = 0;
 
         /**
          * @brief Enqueue application data as a datagram
@@ -324,17 +317,17 @@ namespace quicr {
          * @details The datagram queue belongs to the connection, so datagrams from every track share it
          *      and are ordered against each other by priority alone.
          *
-         * @param[in] connection    Identifying the connection
+         * @param[in] connection    Connection to send from
          * @param[in] bytes         Data to send/write
          * @param[in] priority      Priority of the object, range should be 0 - 255
          * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
          *
-         * @returns TransportError is returned indicating status of the operation
+         * @throws std::invalid_argument If connection ptr is null.
          */
-        virtual TransportError EnqueueDatagram(const std::shared_ptr<Connection>& connection,
-                                               std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                               uint8_t priority = 1,
-                                               uint32_t ttl_ms = 350) = 0;
+        virtual void EnqueueDatagram(const std::shared_ptr<Connection>& connection,
+                                     std::shared_ptr<const std::vector<uint8_t>> bytes,
+                                     uint8_t priority = 1,
+                                     uint32_t ttl_ms = 350) = 0;
 
         /**
          * @brief Dequeue datagram application data from transport buffer
