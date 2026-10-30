@@ -1,6 +1,6 @@
 # QuicR C Bridge
 
-The QuicR C Bridge provides a C API that wraps the C++ QuicR library functionality, 
+The QuicR C Bridge provides a C API that wraps the C++ QuicR library functionality,
 allowing C applications to use QuicR for media over QUIC transport.
 
 ## Architecture
@@ -32,6 +32,13 @@ cmake --build build
 
 # Build only C Bridge
 make c-bridge-only
+```
+
+Installed CMake packages expose the bridge as `quicr::bridge`:
+
+```cmake
+find_package(quicr CONFIG REQUIRED)
+target_link_libraries(application PRIVATE quicr::bridge)
 ```
 
 ### Using Makefile
@@ -67,9 +74,7 @@ The `examples/` directory contains complete working examples:
 - **`fetch.c`** - Example of fetching objects on demand
 - **`file_transfer.c`** - File transfer application demonstrating data streaming
 
-See [examples/README.md](examples/README.md) for details. for detailed instructions.
-
-
+See [examples/README.md](examples/README.md) for detailed instructions.
 
 ## License
 

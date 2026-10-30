@@ -49,7 +49,7 @@ It provides APIs for client and server endpoints, including publishers, subscrib
     * Clang 17 or newer
     * Apple Clang 17 or newer
     * or MSVC
-* Clang-Tidy 15 or newer when configuring with `-DLINT=ON`
+* CMake 3.26 or newer and Clang-Tidy 15 or newer when configuring with `-DQUICR_LINT=ON`
 
 ### Ubuntu 22.04 Jammy
 
@@ -265,7 +265,7 @@ The available tools are:
 Configure and build the tools with:
 
 ```bash
-cmake -B build -DBUILD_TESTING=ON -DQUICR_BUILD_TOOLS=ON
+cmake -B build -DQUICR_BUILD_TOOLS=ON
 cmake --build build
 ```
 
@@ -292,19 +292,39 @@ Build targets:
 Tests, benchmarks, and the C Bridge default to `ON` for a standalone build and `OFF` when libquicr
 is included by another CMake project. Tools, examples, and fuzzers default to `OFF`. When both the
 C Bridge and examples are enabled, the C Bridge examples are built automatically.
-`BUILD_TESTING=ON` is also required for the test suite, benchmarks, fuzzers, tools, and C++
-examples.
+`BUILD_TESTING=ON` is also required for the test suite, benchmarks, and fuzzers.
 
 Library configuration:
 
+* `QUICR_INSTALL` — enable libquicr install and CMake package rules; defaults to `ON` for a
+  standalone build and `OFF` when included by another CMake project.
 * `QUICR_BUILD_SHARED` — build libquicr as a shared library; defaults to `OFF`.
 * `WITH_MBEDTLS` — use Mbed TLS instead of OpenSSL; defaults to `OFF`.
-* `QUICR_USE_BROTLI` — enable Brotli TLS certificate compression; defaults to `OFF`.
+* `WITH_BROTLI` — enable picotls Brotli TLS certificate compression; defaults to `OFF`.
 * `QUICR_ENABLE_SANITIZERS` — enable AddressSanitizer and UndefinedBehaviorSanitizer with Clang or
   GCC; defaults to `OFF`.
 * `QUICR_GENERATE_THIRD_PARTY_LICENSES` — add the `third-party-licenses` target for distributed CPM
   dependencies; defaults to `OFF`.
-* `LINT` — run Clang-Tidy while compiling; defaults to `OFF`.
+* `QUICR_LINT` — run Clang-Tidy while compiling a standalone build; defaults to `OFF`.
+
+### Using the installed CMake package
+
+Install libquicr:
+
+```bash
+cmake -B build -DQUICR_INSTALL=ON
+cmake --build build
+cmake --install build --prefix /path/to/install
+```
+
+Consume its exported target:
+
+```cmake
+find_package(quicr CONFIG REQUIRED)
+target_link_libraries(application PRIVATE quicr::quicr)
+```
+
+When the C Bridge is built and installed, it is available as `quicr::bridge`.
 
 ## Make
 
@@ -318,12 +338,15 @@ Use `make fuzz` to run the fuzzer tests.
 
 Use `make licenses` to generate `build/THIRD_PARTY_LICENSES.txt`.
 
+Use `make package-lock` to regenerate `package-lock.cmake`.
+
 ## C Bridge Target
 
 libquicr includes C Bridge interfaces for C applications:
 
 ### Building C Bridge
 The C Bridge provides a C wrapper around the C++ libquicr library.
+Enable it with `-DQUICR_BUILD_C_BRIDGE=ON`. Enable `QUICR_BUILD_EXAMPLES` to build its examples.
 
 See [c-bridge/README.md](c-bridge/README.md) for details.
 

@@ -50,11 +50,10 @@ jobs:
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DCMAKE_C_COMPILER_LAUNCHER=sccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
-          -DCMAKE_POLICY_VERSION_MINIMUM="3.5"
           -DBUILD_TESTING=ON
           -DQUICR_BUILD_EXAMPLES=ON
           -DQUICR_BUILD_TOOLS=ON
-          -DLINT=OFF
+          -DQUICR_LINT=OFF
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build -j

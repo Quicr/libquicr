@@ -86,7 +86,7 @@ target_include_directories(quicr PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-if(LINT)
+if(QUICR_LINT)
     include(Lint)
     lint(quicr)
 endif()
