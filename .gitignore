@@ -53,6 +53,7 @@ cmake-build-release
 # Other
 .tmp.dprobes.h
 libquicr.spdx
+package-lock.cmake.old
 
 # Python
 .venv

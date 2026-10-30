@@ -11,7 +11,7 @@ set_target_properties(moq_capture PROPERTIES
 )
 
 target_link_libraries(moq_capture PRIVATE
-    quicr
+    quicr::quicr
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     cxxopts::cxxopts
@@ -19,7 +19,7 @@ target_link_libraries(moq_capture PRIVATE
 
 target_include_directories(moq_capture PRIVATE "../shared/include")
 
-if(LINT)
+if(QUICR_LINT)
     include(Lint)
-    Lint(moq_capture)
+    lint(moq_capture)
 endif()

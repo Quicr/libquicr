@@ -3,7 +3,7 @@
 
 add_executable(moq_cli client.cpp)
 target_link_libraries(moq_cli PRIVATE
-    quicr
+    quicr::quicr
     spdlog::spdlog
     cxxopts::cxxopts
 )
@@ -22,7 +22,7 @@ set_target_properties(moq_cli PROPERTIES
     OUTPUT_NAME "moq-cli"
 )
 
-if(LINT)
+if(QUICR_LINT)
     include(Lint)
-    Lint(moq_cli)
+    lint(moq_cli)
 endif()

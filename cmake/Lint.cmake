@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
 function(lint target)
-    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     find_program(CLANG_TIDY_EXE NAMES clang-tidy-15 clang-tidy REQUIRED)
 
     set(CLANG_TIDY_COMMAND "${CLANG_TIDY_EXE}")
@@ -13,8 +12,8 @@ function(lint target)
         list(APPEND CLANG_TIDY_COMMAND "--extra-arg=/EHsc")
     endif()
 
-    set_target_properties(${target}
-        PROPERTIES
-            CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}"
-            CXX_CLANG_TIDY_EXPORT_FIXES_DIR "clang-tidy-fixes")
+    set_target_properties(${target} PROPERTIES
+        CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}"
+        CXX_CLANG_TIDY_EXPORT_FIXES_DIR "clang-tidy-fixes"
+    )
 endfunction()
