@@ -265,12 +265,11 @@ namespace quicr::messages {
                 return std::monostate{};
             }
 
-            auto bytes = Find(ToParameterFilterType(type));
-            if (bytes.empty()) {
+            const auto parameter_type = ToParameterFilterType(type);
+            if (!Contains(parameter_type)) {
                 return {};
             }
-
-            return DeserializeFilter(type, bytes);
+            return DeserializeFilter(type, Find(parameter_type));
         }
 
         template<ParameterValueType T>
