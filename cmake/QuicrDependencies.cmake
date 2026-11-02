@@ -22,7 +22,7 @@ set(BUILD_STATIC_LIBS ON)
 set(TIMEQ_INSTALL ${QUICR_INSTALL})
 
 CPMAddPackage(
-    URI "gh:quicr/timeq#898d45c"
+    URI "gh:quicr/timeq@1.0.0"
     EXCLUDE_FROM_ALL NO
 )
 
