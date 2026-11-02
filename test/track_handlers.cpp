@@ -243,9 +243,11 @@ class TestTransport : public quicr::Transport
     std::shared_ptr<quicr::Connection> Start() override { return nullptr; }
     void Close(const std::shared_ptr<quicr::Connection>&, quicr::AppReasonForClose) override {}
     void CloseStream(const std::shared_ptr<quicr::Connection>&,
-                     const std::shared_ptr<quicr::Stream>&,
-                     quicr::StreamOperation) override
+                     const std::shared_ptr<quicr::Stream>& stream,
+                     quicr::StreamOperation operation) override
     {
+        closed_stream = stream;
+        close_operation = operation;
     }
     bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
     bool Enqueue(const std::shared_ptr<quicr::Connection>&,
@@ -282,9 +284,11 @@ class TestTransport : public quicr::Transport
     }
     std::shared_ptr<quicr::Stream> CreateRequestStream(const std::shared_ptr<quicr::Connection>&) override
     {
-        return nullptr;
+        return std::make_shared<TestStream>(0);
     }
 
+    std::shared_ptr<quicr::Stream> closed_stream;
+    std::optional<quicr::StreamOperation> close_operation;
     int enqueue_count{ 0 };
     int fail_enqueue{ -1 };
     int created_streams{ 0 };
@@ -308,6 +312,23 @@ CreateTestSession(const std::shared_ptr<TestTransport>& transport)
 {
     return quicr::Session::Create(
       quicr::ClientConfig{}, transport, std::make_shared<TestConnection>(), nullptr, nullptr);
+}
+
+TEST_CASE("UnsubscribeNamespace cancels the request stream")
+{
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = quicr::SubscribeNamespaceHandler::Create(quicr::TrackNamespace{},
+                                                            quicr::SubscribeNamespaceHandler::Mode::kNamespaces);
+    session->SubscribeNamespace(handler);
+    const auto stream_id = handler->GetRequestStreamId();
+    REQUIRE(stream_id);
+
+    session->UnsubscribeNamespace(handler);
+
+    REQUIRE(transport->closed_stream);
+    CHECK(transport->closed_stream->GetStreamId() == *stream_id);
+    CHECK(transport->close_operation == quicr::StreamOperation::kCancel);
 }
 
 TEST_CASE("Publishing reports rejected subgroup enqueues")
