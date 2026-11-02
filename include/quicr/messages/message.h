@@ -8,8 +8,10 @@
 #include "quicr/utilities/bytes.h"
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 namespace quicr::messages {
@@ -101,18 +103,21 @@ namespace quicr::messages {
             return *this;
         }
 
-        inline const std::shared_ptr<std::vector<uint8_t>>& ToBytes() const noexcept
+        inline const std::shared_ptr<std::vector<uint8_t>>& ToBytes() const
         {
             if (_length_bytes_offset.has_value()) {
-                const std::uint16_t payload_size = SwapBytes(
-                  static_cast<std::uint16_t>(_bytes->size() - _length_bytes_offset.value() - sizeof(std::uint16_t)));
+                const auto payload_length = _bytes->size() - _length_bytes_offset.value() - sizeof(std::uint16_t);
+                if (payload_length > std::numeric_limits<std::uint16_t>::max()) {
+                    throw std::length_error("Control message payload exceeds 65535 bytes");
+                }
+                const std::uint16_t payload_size = SwapBytes(static_cast<std::uint16_t>(payload_length));
                 std::memcpy(_bytes->data() + _length_bytes_offset.value(), &payload_size, sizeof(std::uint16_t));
             }
 
             return _bytes;
         }
 
-        inline std::span<const std::uint8_t> ToByteSpan() const noexcept { return *ToBytes(); }
+        inline std::span<const std::uint8_t> ToByteSpan() const { return *ToBytes(); }
 
         void Clear() noexcept
         {

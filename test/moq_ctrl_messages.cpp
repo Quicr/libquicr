@@ -80,6 +80,21 @@ Verify(std::vector<uint8_t>& buffer, uint64_t message_type, T& message, [[maybe_
     return done;
 }
 
+TEST_CASE("Control message payload length limit")
+{
+    Message message;
+    message.PrependType(ControlMessageType::kSetup).ReserveLength();
+    const Bytes payload(65535, 0);
+    message.Append(BytesSpan{ payload });
+
+    CHECK_NOTHROW(message.ToBytes());
+    CHECK_NOTHROW(message.ToByteSpan());
+
+    message.Append(std::uint8_t{ 0 });
+    CHECK_THROWS_AS(message.ToBytes(), std::length_error);
+    CHECK_THROWS_AS(message.ToByteSpan(), std::length_error);
+}
+
 TEST_CASE("GroupOrder encode rejects invalid values")
 {
     Bytes buffer;
