@@ -9,6 +9,7 @@
 #include "quicr/messages/message_serialisation.h"
 #include "quicr/metrics.h"
 
+#include <atomic>
 #include <stdexcept>
 
 namespace quicr {
@@ -88,7 +89,7 @@ namespace quicr {
           , publisher_initiated_(publisher_initiated)
         {
             if (publisher_initiated) {
-                status_ = Status::kOk; // Initially set to kOk
+                status_ = IsPaused() ? Status::kPaused : Status::kOk;
             }
         }
 
@@ -225,19 +226,27 @@ namespace quicr {
         {
             publisher_initiated_ = true;
             if (status_ == Status::kNotSubscribed) {
-                status_ = Status::kOk; // Initially set to kOk
+                status_ = IsPaused() ? Status::kPaused : Status::kOk;
             }
         }
 
         /**
          * @brief Pause receiving data
-         * @details Pause will send a MoQT SUBSCRIBE_UPDATE to change the forwarding state to be stopped         *
+         * @details Active subscriptions will immediately request objects stop being forwarded. Non-active subscriptions
+         * will respect this flag when subscribing.
          */
         void Pause() noexcept;
 
         /**
+         * @brief The current request state of object forwarding.
+         * @returns True if object forwarding has requested to be paused.
+         */
+        bool IsPaused() const noexcept { return paused_.load(std::memory_order_relaxed); }
+
+        /**
          * @brief Resume receiving data
-         * @details Rresume will send a MoQT SUBSCRIBE_UPDATE to change the forwarding state to send
+         * @details Active subscriptions will immediately request objects start being forwarded. Non-active
+         * subscriptions will respect this flag when subscribing.
          */
         void Resume() noexcept;
 
@@ -419,6 +428,9 @@ namespace quicr {
          */
         void SetStatus(Status status) noexcept
         {
+            if (status == Status::kOk && IsPaused()) {
+                status = Status::kPaused;
+            }
             status_ = status;
             StatusChanged(status);
         }
@@ -429,6 +441,7 @@ namespace quicr {
 
       private:
         Status status_{ Status::kNotSubscribed };
+        std::atomic<bool> paused_{ false };
         std::uint8_t subscriber_priority_;
         std::optional<messages::GroupOrder> group_order_;
         messages::GroupOrder publisher_default_group_order_{ messages::GroupOrder::kAscending };

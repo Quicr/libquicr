@@ -841,6 +841,37 @@ TEST_CASE("Integration - Subscribe")
     }
 }
 
+TEST_CASE("Integration - Initially paused subscription stays paused on acceptance")
+{
+    auto session_mgr = MakeTestSessionManager();
+    auto server = MakeTestServer(session_mgr);
+    const auto test_paused = [&](const std::string& scheme) {
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, scheme);
+        const FullTrackName ftn{ TrackNamespace({ "paused-subscribe" }), { 1 } };
+        auto handler = TestSubscribeHandler::Create(ftn, 1, std::nullopt);
+        handler->Pause();
+        std::promise<TestServer::SubscribeDetails> promise;
+        auto future = promise.get_future();
+        server->SetSubscribePromise(std::move(promise));
+        session->SubscribeTrack(handler);
+        REQUIRE(future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK(future.get().subscribe_attributes.forward == 0);
+        REQUIRE(WaitFor([&] { return handler->GetStatus() == SubscribeTrackHandler::Status::kPaused; }));
+        handler->Resume();
+        REQUIRE(WaitFor([&] { return handler->RequestUpdateOks() == 1; }));
+        CHECK(handler->GetStatus() == SubscribeTrackHandler::Status::kOk);
+        session->UnsubscribeTrack(handler);
+    };
+    SUBCASE("Raw QUIC")
+    {
+        test_paused("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_paused("https");
+    }
+}
+
 TEST_CASE("Integration - Publisher subscriber and transport priorities remain distinct")
 {
     constexpr std::uint8_t publisher_priority = 23;

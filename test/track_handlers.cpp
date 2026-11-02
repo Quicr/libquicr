@@ -250,11 +250,12 @@ class TestTransport : public quicr::Transport
     bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
     bool Enqueue(const std::shared_ptr<quicr::Connection>&,
                  const std::shared_ptr<quicr::Stream>&,
-                 std::shared_ptr<const std::vector<uint8_t>>,
+                 std::shared_ptr<const std::vector<uint8_t>> bytes,
                  uint8_t,
                  uint32_t,
                  EnqueueFlags) override
     {
+        last_enqueued = std::move(bytes);
         return ++enqueue_count != fail_enqueue;
     }
     void EnqueueDatagram(const std::shared_ptr<quicr::Connection>&,
@@ -282,9 +283,10 @@ class TestTransport : public quicr::Transport
     }
     std::shared_ptr<quicr::Stream> CreateRequestStream(const std::shared_ptr<quicr::Connection>&) override
     {
-        return nullptr;
+        return std::make_shared<TestStream>(0);
     }
 
+    std::shared_ptr<const quicr::Bytes> last_enqueued;
     int enqueue_count{ 0 };
     int fail_enqueue{ -1 };
     int created_streams{ 0 };
@@ -308,6 +310,113 @@ CreateTestSession(const std::shared_ptr<TestTransport>& transport)
 {
     return quicr::Session::Create(
       quicr::ClientConfig{}, transport, std::make_shared<TestConnection>(), nullptr, nullptr);
+}
+
+class PauseTestHandler : public quicr::SubscribeTrackHandler
+{
+  public:
+    PauseTestHandler()
+      : SubscribeTrackHandler({ {}, {} }, 1, std::nullopt)
+    {
+    }
+    using SubscribeTrackHandler::SetStatus;
+    void StatusChanged(Status status) override { notifications.push_back(status); }
+    std::vector<Status> notifications;
+};
+
+TEST_CASE("Pause intent is independent of subscription lifecycle")
+{
+    using Status = quicr::SubscribeTrackHandler::Status;
+    PauseTestHandler handler;
+    handler.Pause();
+    CHECK(handler.IsPaused());
+    CHECK(handler.GetStatus() == Status::kNotSubscribed);
+    CHECK(handler.notifications.empty());
+    handler.Resume();
+    CHECK_FALSE(handler.IsPaused());
+    CHECK(handler.GetStatus() == Status::kNotSubscribed);
+
+    handler.Pause();
+    handler.SetStatus(Status::kOk);
+    CHECK(handler.GetStatus() == Status::kPaused);
+    REQUIRE(handler.notifications.size() == 1);
+    CHECK(handler.notifications.back() == Status::kPaused);
+    handler.Resume();
+    CHECK(handler.GetStatus() == Status::kOk);
+    handler.Pause();
+    CHECK(handler.GetStatus() == Status::kPaused);
+    CHECK(handler.notifications.size() == 1);
+
+    for (const auto status : { Status::kError, Status::kNotConnected, Status::kCancelled }) {
+        handler.SetStatus(status);
+        CHECK(handler.GetStatus() == status);
+        CHECK(handler.notifications.back() == status);
+        CHECK(handler.IsPaused());
+    }
+    handler.SetStatus(Status::kOk);
+    CHECK(handler.notifications.back() == Status::kPaused);
+
+    PauseTestHandler pending;
+    pending.SetStatus(Status::kPendingResponse);
+    pending.Pause();
+    pending.Resume();
+    CHECK(pending.GetStatus() == Status::kPendingResponse);
+    pending.SetStatus(Status::kOk);
+    CHECK(pending.notifications.back() == Status::kOk);
+}
+
+TEST_CASE("SUBSCRIBE and REQUEST_UPDATE preserve pause intent")
+{
+    using namespace quicr;
+    using namespace quicr::messages;
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<PauseTestHandler>();
+    bool paused = false;
+    SUBCASE("Running") {}
+    SUBCASE("Paused before subscribe")
+    {
+        handler->Pause();
+        paused = true;
+    }
+    SUBCASE("Resumed before subscribe")
+    {
+        handler->Pause();
+        handler->Resume();
+    }
+    const auto read_params = [&](ControlMessageType expected) {
+        REQUIRE(transport->last_enqueued);
+        BytesSpan bytes{ *transport->last_enqueued };
+        REQUIRE(Message::ParseField<ControlMessageType>(bytes) == expected);
+        static_cast<void>(Message::ParseField<std::uint16_t>(bytes));
+        static_cast<void>(Message::ParseField<std::uint64_t>(bytes));
+        if (expected == ControlMessageType::kSubscribe) {
+            static_cast<void>(Message::ParseField<TrackNamespace>(bytes));
+            static_cast<void>(Message::ParseField<Bytes>(bytes));
+        }
+        return Message::ParseField<Parameters>(bytes);
+    };
+    session->SubscribeTrack(handler);
+    const auto params = read_params(ControlMessageType::kSubscribe);
+    CHECK(params.Contains(ParameterType::kForward) == paused);
+    CHECK(ResolveForward(params, true) == !paused);
+
+    handler->Pause();
+    CHECK_FALSE(
+      ResolveForward(read_params(paused ? ControlMessageType::kSubscribe : ControlMessageType::kRequestUpdate), true));
+    handler->SetStatus(SubscribeTrackHandler::Status::kOk);
+    REQUIRE(handler->notifications.size() == 1);
+    CHECK(handler->notifications.back() == SubscribeTrackHandler::Status::kPaused);
+
+    session->UpdateTrackSubscription(handler);
+    CHECK_FALSE(ResolveForward(read_params(ControlMessageType::kRequestUpdate), true));
+    handler->SupportNewGroupRequest(true);
+    handler->RequestNewGroup(10);
+    CHECK_FALSE(ResolveForward(read_params(ControlMessageType::kRequestUpdate), true));
+    handler->Resume();
+    CHECK(ResolveForward(read_params(ControlMessageType::kRequestUpdate), false));
+    CHECK(handler->GetStatus() == SubscribeTrackHandler::Status::kOk);
+    CHECK(handler->notifications.size() == 1);
 }
 
 TEST_CASE("Publishing reports rejected subgroup enqueues")

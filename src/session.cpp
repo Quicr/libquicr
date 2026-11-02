@@ -478,7 +478,8 @@ namespace quicr {
                                 std::optional<GroupOrder> group_order,
                                 const Filter& filter,
                                 std::optional<std::chrono::milliseconds> delivery_timeout,
-                                std::chrono::milliseconds rendezvous_timeout)
+                                std::chrono::milliseconds rendezvous_timeout,
+                                bool forward)
     try {
         /* Available parameters:
          * - AUTHORIZATION TOKEN (0x03): Conveys information to authorize the subscription.
@@ -493,9 +494,12 @@ namespace quicr {
         auto params =
           Parameters{}
             .AddOptional(ParameterType::kGroupOrder, group_order)
-            .Add(ParameterType::kForward, 1)
             .AddOptional(ParameterType::kDeliveryTimeout,
                          delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt);
+
+        if (!forward) {
+            params.Add(ParameterType::kForward, false);
+        }
 
         if (priority) {
             params.Add(ParameterType::kSubscriberPriority, priority);
@@ -973,7 +977,8 @@ namespace quicr {
                           group_order,
                           filter,
                           delivery_timeout,
-                          rendezvous_timeout);
+                          rendezvous_timeout,
+                          !track_handler->IsPaused());
 
             // Handle joining fetch, if requested.
             auto joining_fetch = track_handler->GetJoiningFetch();
@@ -1047,7 +1052,8 @@ namespace quicr {
             return;
         }
 
-        SendRequestUpdate(request_stream, th, track_handler->pending_new_group_request_id_, priority, true);
+        SendRequestUpdate(
+          request_stream, th, track_handler->pending_new_group_request_id_, priority, !track_handler->IsPaused());
     }
 
     void Session::RemoveSubscribeTrack(SubscribeTrackHandler& handler, bool remove_handler)
@@ -2698,7 +2704,7 @@ namespace quicr {
                 auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
                 auto group_order = parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 const auto publisher_default_group_order = messages::GroupOrder::kAscending;
-                auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
+                auto forward = ResolveForward(parameters, true);
                 auto new_group_request_id =
                   parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 

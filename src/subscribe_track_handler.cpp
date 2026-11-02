@@ -72,30 +72,36 @@ namespace quicr {
 
     void SubscribeTrackHandler::Pause() noexcept
     {
+        if (paused_.exchange(true, std::memory_order_relaxed)) {
+            return;
+        }
+        if (status_ == Status::kOk) {
+            status_ = Status::kPaused;
+        }
         auto session = GetSession().lock();
         const auto request_stream = GetRequestStream();
-        if (!session || status_ == Status::kPaused || status_ == Status::kNotConnected || request_stream == nullptr) {
+        if (!session || status_ == Status::kNotConnected || request_stream == nullptr) {
             return;
         }
 
-        status_ = Status::kPaused;
         session->SendRequestUpdate(
           request_stream, TrackHash(GetFullTrackName()), std::nullopt, GetSubscriberPriority(), false);
     }
 
     void SubscribeTrackHandler::Resume() noexcept
     {
+        if (!paused_.exchange(false, std::memory_order_relaxed)) {
+            return;
+        }
+        if (status_ == Status::kPaused) {
+            status_ = Status::kOk;
+        }
         auto session = GetSession().lock();
         const auto request_stream = GetRequestStream();
-        if (!session || request_stream == nullptr) {
+        if (!session || status_ == Status::kNotConnected || request_stream == nullptr) {
             return;
         }
 
-        if (status_ != Status::kPaused) {
-            return;
-        }
-
-        status_ = Status::kOk;
         session->SendRequestUpdate(
           request_stream, TrackHash(GetFullTrackName()), std::nullopt, GetSubscriberPriority(), true);
     }
@@ -111,7 +117,7 @@ namespace quicr {
 
         // Keep the paused forwarding state. A new-group request must not resume the publisher.
         session->SendRequestUpdate(
-          request_stream, TrackHash(GetFullTrackName()), group_id, GetSubscriberPriority(), status_ == Status::kOk);
+          request_stream, TrackHash(GetFullTrackName()), group_id, GetSubscriberPriority(), !IsPaused());
     }
 
     void SubscribeTrackHandler::RequestOkReceived(const messages::Parameters& params)
