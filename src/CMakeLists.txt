@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
+#=============================================================================#
+# QuicR Library
+#=============================================================================#
+
 if (${QUICR_BUILD_SHARED})
     add_library(quicr SHARED)
 else()
@@ -85,6 +89,30 @@ target_include_directories(quicr PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
+
+#=============================================================================#
+# QuicR C API
+#=============================================================================#
+
+if (${QUICR_BUILD_SHARED})
+    add_library(quicr_c SHARED)
+else()
+    add_library(quicr_c)
+endif()
+
+add_library(quicr::c ALIAS quicr_c)
+
+target_sources(quicr_c PRIVATE quicr_c.cpp)
+target_link_libraries(quicr_c PUBLIC quicr::quicr)
+target_include_directories(quicr_c PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+#=============================================================================#
+# Linting
+#=============================================================================#
 
 if(QUICR_LINT)
     include(Lint)
