@@ -361,10 +361,10 @@ TEST_CASE("Parameters wire encoding")
         CHECK_EQ(out.Get<Bytes>(ParameterType::kAuthorizationToken), value);
     }
 
-    SUBCASE("multiple length-prefixed bytes")
+    SUBCASE("authorization token and namespace prefix")
     {
         const Bytes auth{ 0xAA, 0xBB, 0xCC };
-        const Bytes prefix{ 0xDD, 0xEE };
+        const TrackNamespace prefix{ Bytes{ 0xDD, 0xEE } };
         auto params = Parameters{}
                         .Add(ParameterType::kAuthorizationToken, auth)      // type 0x03
                         .Add(ParameterType::kTrackNamespacePrefix, prefix); // type 0x34
@@ -378,15 +378,37 @@ TEST_CASE("Parameters wire encoding")
                         0xBB,    // Auth byte 2.
                         0xCC,    // Auth byte 3.
                         0x31,    // Type delta from 0x03 to 0x34 = 0x31.
-                        0x02,    // Length prefix of 2.
+                        0x01,    // Namespace field count.
+                        0x02,    // Namespace field length.
                         0xDD,    // Prefix byte 1.
                         0xEE }); // Prefix byte 2.
 
         Parameters out;
-        buffer >> out;
+        CHECK((BytesSpan{ buffer } >> out).empty());
         CHECK_EQ(out.Get<Bytes>(ParameterType::kAuthorizationToken), auth);
-        CHECK_EQ(out.Get<Bytes>(ParameterType::kTrackNamespacePrefix), prefix);
+        CHECK_EQ(out.Get<TrackNamespace>(ParameterType::kTrackNamespacePrefix), prefix);
     }
+}
+
+TEST_CASE("Namespace prefix parameter boundaries")
+{
+    TrackNamespace prefix;
+    SUBCASE("empty namespace") {}
+    SUBCASE("multiple fields")
+    {
+        prefix = TrackNamespace{ Bytes{ 0xAA }, Bytes{}, Bytes{ 0xBB, 0xCC } };
+    }
+
+    const auto params = Parameters{}.Add(ParameterType::kTrackNamespacePrefix, prefix);
+    Bytes buffer;
+    buffer << params;
+    buffer.push_back(0xFF);
+
+    Parameters out;
+    const auto remaining = BytesSpan{ buffer } >> out;
+    REQUIRE_EQ(remaining.size(), 1);
+    CHECK_EQ(remaining.front(), 0xFF);
+    CHECK_EQ(out.Get<TrackNamespace>(ParameterType::kTrackNamespacePrefix), prefix);
 }
 
 // Param byte encoding static checks.

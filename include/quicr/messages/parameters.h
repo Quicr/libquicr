@@ -120,6 +120,7 @@ namespace quicr::messages {
         kByte,
         kVarint,
         kLocation,
+        kNamespace,
         kBytes
     };
 
@@ -143,7 +144,7 @@ namespace quicr::messages {
             { ParameterType::kSubscriberPriority, ParameterEncoding::kByte },
             { ParameterType::kGroupOrder, ParameterEncoding::kByte },
             { ParameterType::kNewGroupRequest, ParameterEncoding::kVarint },
-            { ParameterType::kTrackNamespacePrefix, ParameterEncoding::kBytes },
+            { ParameterType::kTrackNamespacePrefix, ParameterEncoding::kNamespace },
             { ParameterType::kSubscriptionFilter, ParameterEncoding::kBytes },
             { ParameterType::kSubgroupFilter, ParameterEncoding::kBytes },
             { ParameterType::kObjectFilter, ParameterEncoding::kBytes },
@@ -341,6 +342,12 @@ namespace quicr::messages {
                     value << loc;
                     break;
                 }
+                case ParameterEncoding::kNamespace: {
+                    TrackNamespace ns;
+                    buffer = buffer >> ns;
+                    value << ns;
+                    break;
+                }
                 case ParameterEncoding::kBytes: {
                     buffer = buffer >> value;
                     break;
@@ -368,6 +375,8 @@ namespace quicr::messages {
                 case ParameterEncoding::kVarint:
                     [[fallthrough]];
                 case ParameterEncoding::kLocation:
+                    [[fallthrough]];
+                case ParameterEncoding::kNamespace:
                     buffer.insert(buffer.end(), value.begin(), value.end());
                     break;
                 case ParameterEncoding::kBytes:
