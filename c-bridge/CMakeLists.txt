@@ -40,9 +40,14 @@ if(QUICR_BUILD_EXAMPLES)
     )
 
     foreach(example IN LISTS QUICR_BRIDGE_EXAMPLES)
-        add_executable(${example} "examples/${example}.c")
+        add_executable(${example}
+            "examples/${example}.c"
+            examples/example_sleep.c
+        )
         target_link_libraries(${example} PRIVATE quicr-bridge)
         target_compile_features(${example} PRIVATE c_std_11)
     endforeach()
+
+    add_custom_target(bridge_examples DEPENDS ${QUICR_BRIDGE_EXAMPLES})
 endif()
 
