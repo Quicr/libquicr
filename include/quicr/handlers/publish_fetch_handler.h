@@ -39,20 +39,21 @@ namespace quicr {
         constexpr messages::GroupOrder GetGroupOrder() const noexcept { return group_order_; }
 
       private:
+        bool StartFetch();
+
         /**
          * @brief Finish the fetch: let whatever is queued drain, then close the stream.
          *
          * @details The empty object carries no payload; it exists to mark the stream close-on-empty
-         *      once the transport reaches it, so objects already queued still go out. Does nothing if
-         *      the fetch never sent an object, since there is no stream to close.
+         *      once the transport reaches it, so objects already queued still go out. An empty fetch
+         *      closes the stream after its header.
          */
         void EndFetch();
 
         messages::GroupOrder group_order_;
         messages::FetchObjectSerializationState serialization_state_;
-        bool sent_first_header_{ false };
         bool closed_{ false };
-        std::shared_ptr<Stream> stream_; /// Stream for the fetch, created on sent_first_header
+        std::shared_ptr<Stream> stream_; /// Stream for the fetch, created when bound
 
         friend class Session;
     };

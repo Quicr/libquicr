@@ -250,11 +250,12 @@ class TestTransport : public quicr::Transport
     bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
     bool Enqueue(const std::shared_ptr<quicr::Connection>&,
                  const std::shared_ptr<quicr::Stream>&,
-                 std::shared_ptr<const std::vector<uint8_t>>,
+                 std::shared_ptr<const std::vector<uint8_t>> bytes,
                  uint8_t,
                  uint32_t,
-                 EnqueueFlags) override
+                 EnqueueFlags flags) override
     {
+        enqueues.push_back({ std::move(bytes), flags });
         return ++enqueue_count != fail_enqueue;
     }
     void EnqueueDatagram(const std::shared_ptr<quicr::Connection>&,
@@ -285,6 +286,12 @@ class TestTransport : public quicr::Transport
         return nullptr;
     }
 
+    struct EnqueuedData
+    {
+        std::shared_ptr<const quicr::Bytes> bytes;
+        EnqueueFlags flags;
+    };
+    std::vector<EnqueuedData> enqueues;
     int enqueue_count{ 0 };
     int fail_enqueue{ -1 };
     int created_streams{ 0 };
@@ -345,26 +352,28 @@ TEST_CASE("Fetch closure is terminal")
     auto transport = std::make_shared<TestTransport>();
     auto session = CreateTestSession(transport);
     auto handler = quicr::PublishFetchHandler::Create({ {}, {} }, 0, 0, quicr::messages::GroupOrder::kAscending, 1000);
-    session->BindFetchTrack(handler);
     quicr::ObjectHeaders headers{};
     const quicr::Bytes payload{ 1 };
     headers.payload_length = payload.size();
-    int expected_streams = 1;
     SUBCASE("Header rejected")
     {
         transport->fail_enqueue = 1;
+        session->BindFetchTrack(handler);
+        CHECK(handler->GetStatus() != quicr::PublishTrackHandler::Status::kOk);
     }
     SUBCASE("Object rejected")
     {
+        session->BindFetchTrack(handler);
         transport->fail_enqueue = 2;
     }
     SUBCASE("Completed before first object")
     {
+        session->BindFetchTrack(handler);
         session->UnbindFetchTrack(handler);
-        expected_streams = 0;
     }
     SUBCASE("Completed after an object")
     {
+        session->BindFetchTrack(handler);
         REQUIRE(handler->PublishObject(headers, payload) == Status::kOk);
         session->UnbindFetchTrack(handler);
     }
@@ -372,5 +381,49 @@ TEST_CASE("Fetch closure is terminal")
     const auto attempts = transport->enqueue_count;
     CHECK(handler->PublishObject(headers, payload) == Status::kFetchClosed);
     CHECK(transport->enqueue_count == attempts);
-    CHECK(transport->created_streams == expected_streams);
+    CHECK(transport->created_streams == 1);
+}
+
+TEST_CASE("Binding a fetch opens its data stream before any objects")
+{
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = quicr::PublishFetchHandler::Create({ {}, {} }, 0, 0, quicr::messages::GroupOrder::kAscending, 1000);
+    session->BindFetchTrack(handler);
+
+    CHECK(handler->GetStatus() == quicr::PublishTrackHandler::Status::kOk);
+    CHECK(transport->created_streams == 1);
+    REQUIRE(transport->enqueues.size() == 1);
+    const auto& header = transport->enqueues.front();
+    REQUIRE(header.bytes);
+    // FETCH_HEADER type 0x05 followed by Request ID 0.
+    CHECK(*header.bytes == quicr::Bytes{ 0x05, 0x00 });
+    CHECK(header.flags.use_reliable);
+    CHECK_FALSE(header.flags.close_stream);
+
+    SUBCASE("Empty fetch") {}
+    SUBCASE("Fetch with objects")
+    {
+        quicr::ObjectHeaders headers{};
+        const quicr::Bytes payload{ 1 };
+        headers.payload_length = payload.size();
+        REQUIRE(handler->PublishObject(headers, payload) == quicr::PublishTrackHandler::PublishObjectStatus::kOk);
+        headers.object_id++;
+        REQUIRE(handler->PublishObject(headers, payload) == quicr::PublishTrackHandler::PublishObjectStatus::kOk);
+        CHECK(transport->enqueues.size() == 3);
+        CHECK_FALSE(transport->enqueues.back().flags.clear_tx_queue);
+    }
+
+    const auto before_close = transport->enqueues.size();
+    session->UnbindFetchTrack(handler);
+    CHECK(transport->created_streams == 1);
+    REQUIRE(transport->enqueues.size() == before_close + 1);
+    const auto& fin = transport->enqueues.back();
+    CHECK_FALSE(fin.bytes);
+    CHECK(fin.flags.use_reliable);
+    CHECK(fin.flags.close_stream);
+    CHECK_FALSE(fin.flags.use_reset);
+    CHECK_FALSE(fin.flags.clear_tx_queue);
+    session->UnbindFetchTrack(handler);
+    CHECK(transport->enqueues.size() == before_close + 1);
 }

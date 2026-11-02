@@ -2541,15 +2541,18 @@ namespace quicr {
         QUICR_LOGGER_INFO(
           logger_, "Publish fetch track conn_id: {} subscribe: {}", current_connection_->GetID(), request_id);
 
-        std::lock_guard lock(state_mutex_);
-
-        track_handler->SetStatus(PublishFetchHandler::Status::kOk);
         track_handler->connection_id_ = current_connection_->GetID();
-
         track_handler->SetTransport(GetSharedPtr());
+        if (!track_handler->StartFetch()) {
+            return;
+        }
 
-        // Hold ref to track handler
-        pub_fetch_tracks_by_request_id[request_id] = track_handler;
+        {
+            std::lock_guard lock(state_mutex_);
+            // Hold ref to track handler
+            pub_fetch_tracks_by_request_id[request_id] = track_handler;
+        }
+        track_handler->SetStatus(PublishFetchHandler::Status::kOk);
     }
 
     void Session::UnbindFetchTrack(const std::shared_ptr<PublishFetchHandler>& track_handler)

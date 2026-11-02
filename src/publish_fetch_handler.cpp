@@ -6,6 +6,31 @@
 #include "quicr/session.h"
 
 namespace quicr {
+    bool PublishFetchHandler::StartFetch()
+    {
+        auto session = GetSession().lock();
+        const auto request_id = GetRequestId();
+        if (!session || !request_id || closed_) {
+            return false;
+        }
+
+        stream_ = session->CreateStream(*request_id, GetPublishObjectPriority());
+        messages::FetchHeader header;
+        header.request_id = *request_id;
+        Bytes buffer;
+        buffer << header;
+
+        Transport::EnqueueFlags flags;
+        flags.use_reliable = true;
+        flags.clear_tx_queue = true;
+        if (!session->Enqueue(
+              stream_, std::make_shared<Bytes>(std::move(buffer)), GetPublishObjectPriority(), default_ttl_, flags)) {
+            closed_ = true;
+            return false;
+        }
+        return true;
+    }
+
     PublishTrackHandler::PublishObjectStatus PublishFetchHandler::PublishObject(
       const ObjectHeaders& object_headers,
       const BytesSpan data,
@@ -21,13 +46,8 @@ namespace quicr {
             return PublishObjectStatus::kInternalError;
         }
 
-        bool is_stream_header_needed{ !sent_first_header_ };
-        if (is_stream_header_needed) {
-            serialization_state_ = messages::FetchObjectSerializationState(group_order_);
-        }
-
         const auto request_id = GetRequestId();
-        if (!request_id.has_value()) {
+        if (!request_id.has_value() || !stream_) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
 
@@ -37,36 +57,6 @@ namespace quicr {
         object_msg_buffer_.clear();
 
         eflags.use_reliable = true;
-
-        if (is_stream_header_needed) {
-            eflags.close_stream = false;
-            eflags.clear_tx_queue = true;
-            eflags.use_reset = false;
-
-            stream_ = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
-
-            messages::FetchHeader fetch_hdr;
-            fetch_hdr.request_id = *request_id;
-            object_msg_buffer_ << fetch_hdr;
-
-            auto result = session->Enqueue(
-              stream_,
-              std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-              GetPublishObjectPriority(),
-              ttl,
-              eflags);
-
-            object_msg_buffer_.clear();
-            eflags.close_stream = false;
-            eflags.clear_tx_queue = false;
-            eflags.use_reset = false;
-
-            if (!result) {
-                closed_ = true;
-                return PublishObjectStatus::kFetchClosed;
-            }
-            sent_first_header_ = true;
-        }
 
         auto next_serialization_state = serialization_state_;
         auto object = next_serialization_state.Encode(object_headers, GetPublisherPriority(), data);
@@ -96,7 +86,7 @@ namespace quicr {
         closed_ = true;
 
         auto session = GetSession().lock();
-        if (!session) {
+        if (!session || !stream_) {
             return;
         }
 
@@ -105,24 +95,7 @@ namespace quicr {
         eflags.close_stream = true;
         eflags.use_reset = false;
 
-        std::shared_ptr<const std::vector<uint8_t>> bytes;
-        if (stream_ == nullptr) {
-            const auto request_id = GetRequestId();
-            if (!request_id) {
-                return;
-            }
-
-            stream_ = session->CreateStream(*request_id, GetPublishObjectPriority());
-            messages::FetchHeader header;
-            header.request_id = *request_id;
-            Bytes buffer;
-            buffer << header;
-            bytes = std::make_shared<Bytes>(std::move(buffer));
-            eflags.clear_tx_queue = true;
-            sent_first_header_ = true;
-        }
-
-        session->Enqueue(stream_, std::move(bytes), GetPublishObjectPriority(), default_ttl_, eflags);
+        session->Enqueue(stream_, {}, GetPublishObjectPriority(), default_ttl_, eflags);
 
         stream_.reset();
     }
