@@ -160,8 +160,8 @@ namespace quicr {
 
         auto result = session->Enqueue(stream, data, GetPublishObjectPriority(), default_ttl_, eflags);
 
-        if (result != TransportError::kNone) {
-            throw TransportException(result);
+        if (!result) {
+            return PublishObjectStatus::kSubgroupClosed;
         }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
@@ -359,8 +359,8 @@ namespace quicr {
                            ttl,
                            eflags);
 
-        if (result != TransportError::kNone) {
-            throw TransportException(result);
+        if (!result) {
+            return PublishObjectStatus::kSubgroupClosed;
         }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
@@ -482,6 +482,7 @@ namespace quicr {
         for (auto group_it = stream_info_by_group_.begin(); group_it != stream_info_by_group_.end();) {
             for (auto subgroup_it = group_it->second.begin(); subgroup_it != group_it->second.end();) {
                 if (subgroup_it->second.stream != nullptr && subgroup_it->second.stream->GetStreamId() == stream_id) {
+                    // TODO: Don't reopen closed subgroups on subsequent publishes.
                     subgroup_it = group_it->second.erase(subgroup_it);
 
                     if (group_it->second.empty()) {

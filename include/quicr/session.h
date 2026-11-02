@@ -473,8 +473,9 @@ namespace quicr {
             auto result = quic_transport_->Enqueue(
               current_connection_, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
 
-            if (result != TransportError::kNone) {
-                throw TransportException(result);
+            if (!result) {
+                // TODO: Propagate better to callers and handle more specifically. Keeping the throw for now.
+                throw TransportException(TransportError::kInvalidStreamId);
             }
         }
 
@@ -689,12 +690,18 @@ namespace quicr {
          * @brief Send published data.
          *
          * @param stream  Stream to send on, ignored when the flags ask for a datagram.
+         * @param bytes Data to send, if any.
+         * @param priority Priority to use for sending.
+         * @param ttl_ms Egress time to live.
+         * @param flags Additional flags.
+         * @throws std::invalid_argument If stream is nullptr when using streams.
+         * @returns False if using streams and the TX direction has closed.
          */
-        TransportError Enqueue(const std::shared_ptr<Stream>& stream,
-                               std::shared_ptr<const std::vector<uint8_t>> bytes,
-                               const uint8_t priority,
-                               const uint32_t ttl_ms,
-                               const Transport::EnqueueFlags flags);
+        bool Enqueue(const std::shared_ptr<Stream>& stream,
+                     std::shared_ptr<const std::vector<uint8_t>> bytes,
+                     const uint8_t priority,
+                     const uint32_t ttl_ms,
+                     const Transport::EnqueueFlags flags);
 
       private:
         void ResetSubgroup(const std::shared_ptr<Stream>& stream);

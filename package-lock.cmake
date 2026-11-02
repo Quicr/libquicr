@@ -15,16 +15,16 @@ CPMDeclarePackage(timeq
   SYSTEM YES
   EXCLUDE_FROM_ALL YES
 )
-# picotls (unversioned)
-# CPMDeclarePackage(picotls
-#  GIT_TAG sync-092226
-#  GITHUB_REPOSITORY quicr/picotls
-#  SYSTEM YES
-#  EXCLUDE_FROM_ALL YES
-#  OPTIONS
-#    "WITH_FUSION OFF"
-#    "picotls_BUILD_TESTS OFF"
-#)
+# picotls
+CPMDeclarePackage(picotls
+  GIT_TAG 057ed54
+  GITHUB_REPOSITORY quicr/picotls
+  SYSTEM YES
+  EXCLUDE_FROM_ALL YES
+  OPTIONS
+    "WITH_FUSION OFF"
+    "picotls_BUILD_TESTS OFF"
+)
 # picoquic
 CPMDeclarePackage(picoquic
   GIT_TAG v2026.10.22.70b5fd5

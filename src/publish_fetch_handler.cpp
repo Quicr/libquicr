@@ -11,6 +11,10 @@ namespace quicr {
       const BytesSpan data,
       [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
+        if (closed_) {
+            return PublishObjectStatus::kFetchClosed;
+        }
+
         auto session = GetSession().lock();
 
         if (!session) {
@@ -18,7 +22,6 @@ namespace quicr {
         }
 
         bool is_stream_header_needed{ !sent_first_header_ };
-        sent_first_header_ = true;
         if (is_stream_header_needed) {
             serialization_state_ = messages::FetchObjectSerializationState(group_order_);
         }
@@ -58,9 +61,11 @@ namespace quicr {
             eflags.clear_tx_queue = false;
             eflags.use_reset = false;
 
-            if (result != TransportError::kNone) {
-                throw TransportException(result);
+            if (!result) {
+                closed_ = true;
+                return PublishObjectStatus::kFetchClosed;
             }
+            sent_first_header_ = true;
         }
 
         auto next_serialization_state = serialization_state_;
@@ -74,8 +79,9 @@ namespace quicr {
                            ttl,
                            eflags);
 
-        if (result != TransportError::kNone) {
-            throw TransportException(result);
+        if (!result) {
+            closed_ = true;
+            return PublishObjectStatus::kFetchClosed;
         }
         serialization_state_ = std::move(next_serialization_state);
 
@@ -84,6 +90,10 @@ namespace quicr {
 
     void PublishFetchHandler::EndFetch()
     {
+        if (closed_) {
+            return;
+        }
+        closed_ = true;
         if (stream_ == nullptr) {
             return;
         }

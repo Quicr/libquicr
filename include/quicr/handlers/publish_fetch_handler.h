@@ -51,6 +51,7 @@ namespace quicr {
         messages::GroupOrder group_order_;
         messages::FetchObjectSerializationState serialization_state_;
         bool sent_first_header_{ false };
+        bool closed_{ false };
         std::shared_ptr<Stream> stream_; /// Stream for the fetch, created on sent_first_header
 
         friend class Session;
