@@ -29,8 +29,9 @@ namespace quicr {
                                   priority,
                                   group_order,
                                   messages::SubscriptionFilter{
-                                    start_location.group,
-                                    end_location.group,
+                                    .type = messages::SubscriptionFilterType::kAbsoluteRange,
+                                    .start_location = start_location,
+                                    .end_group_delta = end_location.group - start_location.group,
                                   })
           , start_location_(start_location)
           , end_location_(end_location)

@@ -371,69 +371,68 @@ namespace quicr::messages {
         kTrackFilter,
     };
 
-    enum class SubscriptionFilterType
+    enum class SubscriptionFilterType : std::uint64_t
     {
-        kNextGroupStart,
-        kLargestObject,
-        kAbsoluteStart,
-        kAbsoluteRange,
+        kNextGroupStart = 0x1,
+        kLargestObject = 0x2,
+        kAbsoluteStart = 0x3,
+        kAbsoluteRange = 0x4,
     };
 
-    struct Range
-    {
-        std::uint64_t start;
-        std::optional<std::uint64_t> end;
-
-        constexpr auto operator<=>(const Range&) const noexcept = default;
-    };
-
-    inline Bytes& operator<<(Bytes& bytes, const Range& filter)
-    {
-        bytes << UintVar(filter.start);
-
-        if (filter.end.has_value()) {
-            bytes << UintVar(filter.end.value() - filter.start);
-        }
-
-        return bytes;
-    }
-
-    inline BytesSpan operator>>(BytesSpan bytes, Range& filter)
-    {
-        bytes = bytes >> filter.start;
-        if (!bytes.empty()) {
-            std::uint64_t end = 0;
-            bytes = bytes >> end;
-            filter.end = filter.start + end;
-        }
-
-        return bytes;
-    }
-
-    /**
-     * @brief
-     *
-     * @notes: - End Object ID MAY be omitted to indicate no end within End Group.
-     *         - End Group ID and End Object ID MAY be omitted to indicate no end, for an open ended subscription or
-     *           a Joining Fetch which implicitly ends at the associated subscription start Location.
-     *         - All but Start Group ID MAY be omitted to indicate
-     */
     struct SubscriptionFilter
     {
-        Range range;
+        SubscriptionFilterType type{ SubscriptionFilterType::kNextGroupStart };
+        Location start_location{};
+        std::uint64_t end_group_delta{ 0 };
 
-        constexpr auto operator<=>(const SubscriptionFilter&) const noexcept = default;
+        auto operator<=>(const SubscriptionFilter&) const noexcept = default;
     };
 
     inline Bytes& operator<<(Bytes& bytes, const SubscriptionFilter& filter)
     {
-        return bytes << filter.range;
+        bytes << UintVar(static_cast<std::uint64_t>(filter.type));
+        switch (filter.type) {
+            case SubscriptionFilterType::kNextGroupStart:
+            case SubscriptionFilterType::kLargestObject:
+                break;
+            case SubscriptionFilterType::kAbsoluteStart:
+                bytes << filter.start_location;
+                break;
+            case SubscriptionFilterType::kAbsoluteRange:
+                if (filter.end_group_delta > std::numeric_limits<std::uint64_t>::max() - filter.start_location.group) {
+                    throw ProtocolViolationException("Subscription filter end group overflow");
+                }
+                bytes << filter.start_location << UintVar(filter.end_group_delta);
+                break;
+            default:
+                throw ProtocolViolationException("Invalid subscription filter type");
+        }
+        return bytes;
     }
 
     inline BytesSpan operator>>(BytesSpan bytes, SubscriptionFilter& filter)
     {
         filter = SubscriptionFilter{};
-        return bytes >> filter.range;
+        std::uint64_t type = 0;
+        bytes = bytes >> type;
+        filter.type = static_cast<SubscriptionFilterType>(type);
+        switch (filter.type) {
+            case SubscriptionFilterType::kNextGroupStart:
+            case SubscriptionFilterType::kLargestObject:
+                break;
+            case SubscriptionFilterType::kAbsoluteStart:
+                bytes = bytes >> filter.start_location;
+                break;
+            case SubscriptionFilterType::kAbsoluteRange:
+                bytes = bytes >> filter.start_location >> filter.end_group_delta;
+                if (filter.end_group_delta > std::numeric_limits<std::uint64_t>::max() - filter.start_location.group) {
+                    throw ProtocolViolationException("Subscription filter end group overflow");
+                }
+                break;
+            default:
+                throw ProtocolViolationException("Invalid subscription filter type");
+        }
+        return bytes;
     }
 
     struct TrackFilter
@@ -505,6 +504,9 @@ namespace quicr::messages {
             case FilterType::kSubscriptionFilter: {
                 SubscriptionFilter filter{};
                 bytes = bytes >> filter;
+                if (!bytes.empty()) {
+                    throw ProtocolViolationException("Trailing bytes in subscription filter");
+                }
                 return filter;
             }
             case FilterType::kTrackFilter: {
