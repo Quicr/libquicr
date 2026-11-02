@@ -1312,7 +1312,7 @@ namespace quicr {
                                       th.track_fullname_hash);
                     SendPublishDone(ctrl_stream,
                                     *removed->GetRequestId(),
-                                    PublishDoneStatusCode::kSubscribtionEnded,
+                                    PublishDoneStatusCode::kSubscriptionEnded,
                                     "Unpublish track");
                 } else {
                     QUICR_LOGGER_INFO(logger_,
@@ -2533,7 +2533,7 @@ namespace quicr {
             if (send_publish_done && request_stream != nullptr) {
                 SendPublishDone(request_stream,
                                 track_handler->GetRequestId().value(),
-                                messages::PublishDoneStatusCode::kSubscribtionEnded,
+                                messages::PublishDoneStatusCode::kSubscriptionEnded,
                                 "No publishers");
             }
         }

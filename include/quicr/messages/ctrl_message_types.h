@@ -521,13 +521,16 @@ namespace quicr::messages {
 
     enum class PublishDoneStatusCode : uint64_t
     {
-        kInternalError = 0x00,
-        kUnauthorized,
-        kTrackEnded,
-        kSubscribtionEnded,
-        kGoingAway,
-        kExpired,
-        kTooFarBehind,
+        kInternalError = 0x0,
+        kUnauthorized = 0x1,
+        kTrackEnded = 0x2,
+        kSubscriptionEnded = 0x3,
+        kGoingAway = 0x4,
+        kTooFarBehind = 0x5,
+        kExpired = 0x6,
+        kMalformedTrack = 0x12,
+        kUpdateFailed = 0x8,
+        kExcessiveLoad = 0x9
     };
 
     Bytes& operator<<(Bytes& buffer, PublishDoneStatusCode value);
