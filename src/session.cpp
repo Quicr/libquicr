@@ -334,9 +334,7 @@ namespace quicr {
             if (protocol != TransportProtocol::kWebTransport) {
                 const auto authority = port > 0 ? host + ":" + std::to_string(port) : host;
                 setup_options.Add(SetupOptionType::kAuthority, authority);
-                if (!path.empty()) {
-                    setup_options.Add(SetupOptionType::kPath, path);
-                }
+                setup_options.Add(SetupOptionType::kPath, path);
             }
 
         } else {

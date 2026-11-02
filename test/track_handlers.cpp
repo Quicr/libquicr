@@ -293,6 +293,57 @@ class TestTransport : public quicr::Transport
     void QueueDeferredReply(std::function<void()>&&) override {}
 };
 
+TEST_CASE("Client SETUP path option")
+{
+    class SetupTransport : public TestTransport
+    {
+      public:
+        std::shared_ptr<quicr::Stream> CreateControlStream(const std::shared_ptr<quicr::Connection>&) override
+        {
+            return std::make_shared<TestStream>(2);
+        }
+        bool Enqueue(const std::shared_ptr<quicr::Connection>&,
+                     const std::shared_ptr<quicr::Stream>&,
+                     std::shared_ptr<const std::vector<uint8_t>> bytes,
+                     uint8_t,
+                     uint32_t,
+                     EnqueueFlags) override
+        {
+            sent = std::move(bytes);
+            return true;
+        }
+        std::shared_ptr<const quicr::Bytes> sent;
+    };
+
+    quicr::ClientConfig config;
+    config.connect_uri = "moqt://relay.example:443";
+    std::optional<std::string> expected_path = "";
+    SUBCASE("empty native path") {}
+    SUBCASE("native path with query")
+    {
+        config.connect_uri += "/room?token=abc";
+        expected_path = "/room?token=abc";
+    }
+    SUBCASE("WebTransport omits path")
+    {
+        config.connect_uri = "https://relay.example:443/room";
+        expected_path = std::nullopt;
+    }
+    auto transport = std::make_shared<SetupTransport>();
+    auto session = quicr::Session::Create(config, transport, std::make_shared<TestConnection>(), nullptr, nullptr);
+    static_cast<quicr::Connection::Delegate&>(*session).OnConnectionStatus(quicr::Connection::Status::kReady);
+
+    REQUIRE(transport->sent);
+    quicr::BytesSpan bytes{ *transport->sent };
+    using quicr::messages::Message;
+    CHECK(Message::ParseField<quicr::messages::ControlMessageType>(bytes) ==
+          quicr::messages::ControlMessageType::kSetup);
+    const auto length = Message::ParseField<std::uint16_t>(bytes);
+    CHECK(length == bytes.size());
+    const auto options = Message::ParseField<quicr::messages::KeyValuePairs>(bytes);
+    CHECK(options.GetOptional<std::string>(quicr::messages::SetupOptionType::kPath) == expected_path);
+}
+
 class TestStreamPublishTrackHandler : public quicr::PublishTrackHandler
 {
   public:
