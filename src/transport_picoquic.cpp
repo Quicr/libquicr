@@ -1454,11 +1454,9 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
 {
     const auto pq_connection = std::static_pointer_cast<PicoQuicConnection>(connection);
     const auto pq_stream = std::static_pointer_cast<PicoQuicStream>(stream);
-    if (pq_connection == nullptr || pq_stream == nullptr || pq_stream->tx_data == nullptr) {
-        throw std::invalid_argument("Connection and sendable stream must be non-null");
-    }
-    if (stream == nullptr || stream->GetConnection() != connection) {
-        return TransportError::kInvalidStreamId;
+    if (pq_connection == nullptr || pq_stream == nullptr || pq_stream->tx_data == nullptr ||
+        stream->GetConnection() != connection) {
+        throw std::invalid_argument("Connection and sendable stream must be valid");
     }
 
     QUICR_LOGGER_TRACE(logger,

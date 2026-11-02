@@ -176,8 +176,8 @@ TEST_CASE("Transport rejects a stream from another connection")
 
     REQUIRE(first->GetID() == second->GetID());
     CHECK(stream->GetConnection() == first);
-    CHECK(transport.Enqueue(second, stream, std::make_shared<const Bytes>(), 0, 1000, {}) ==
-          TransportError::kInvalidStreamId);
+    CHECK_THROWS_AS(transport.Enqueue(second, stream, std::make_shared<const Bytes>(), 0, 1000, {}),
+                    std::invalid_argument);
 }
 
 TEST_CASE("Stream does not extend its connection lifetime")

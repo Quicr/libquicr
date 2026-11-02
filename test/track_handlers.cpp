@@ -230,8 +230,8 @@ class TestConnection : public quicr::Connection
 class TestStream : public quicr::Stream
 {
   public:
-    explicit TestStream(uint64_t id)
-      : Stream(id, 1)
+    TestStream(uint64_t id, const std::shared_ptr<quicr::Connection>& connection)
+      : Stream(id, connection)
     {
     }
 };
@@ -241,10 +241,9 @@ class TestTransport : public quicr::Transport
   public:
     quicr::TransportStatus Status() const override { return quicr::TransportStatus::kReady; }
     std::shared_ptr<quicr::Connection> Start() override { return nullptr; }
+    std::shared_ptr<quicr::Connection> Connect(const quicr::TransportRemote&) override { return nullptr; }
     void Close(const std::shared_ptr<quicr::Connection>&, quicr::AppReasonForClose) override {}
-    void CloseStream(const std::shared_ptr<quicr::Connection>&,
-                     const std::shared_ptr<quicr::Stream>& stream,
-                     quicr::StreamOperation operation) override
+    void CloseStream(const std::shared_ptr<quicr::Stream>& stream, quicr::StreamOperation operation) override
     {
         closed_stream = stream;
         close_operation = operation;
@@ -273,17 +272,18 @@ class TestTransport : public quicr::Transport
         return 0;
     }
     int DrainWebTransportSession(const std::shared_ptr<quicr::Connection>&) override { return 0; }
-    std::shared_ptr<quicr::Stream> CreateDataStream(const std::shared_ptr<quicr::Connection>&, uint8_t) override
+    std::shared_ptr<quicr::Stream> CreateDataStream(const std::shared_ptr<quicr::Connection>& connection,
+                                                    uint8_t) override
     {
-        return std::make_shared<TestStream>(2 + 4 * created_streams++);
+        return std::make_shared<TestStream>(2 + 4 * created_streams++, connection);
     }
     std::shared_ptr<quicr::Stream> CreateControlStream(const std::shared_ptr<quicr::Connection>&) override
     {
         return nullptr;
     }
-    std::shared_ptr<quicr::Stream> CreateRequestStream(const std::shared_ptr<quicr::Connection>&) override
+    std::shared_ptr<quicr::Stream> CreateRequestStream(const std::shared_ptr<quicr::Connection>& connection) override
     {
-        return std::make_shared<TestStream>(0);
+        return std::make_shared<TestStream>(0, connection);
     }
 
     std::shared_ptr<quicr::Stream> closed_stream;
@@ -309,8 +309,61 @@ class TestStreamPublishTrackHandler : public quicr::PublishTrackHandler
 static std::shared_ptr<quicr::Session>
 CreateTestSession(const std::shared_ptr<TestTransport>& transport)
 {
-    return quicr::Session::Create(
-      quicr::ClientConfig{}, transport, std::make_shared<TestConnection>(), nullptr, nullptr);
+    auto session =
+      quicr::Session::Create(quicr::ClientConfig{}, transport, std::make_shared<TestConnection>(), nullptr, nullptr);
+    session->GetDefaultConnection()->SetDelegate(session);
+    return session;
+}
+
+class TestSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
+{
+  public:
+    TestSubscribeNamespaceHandler()
+      : SubscribeNamespaceHandler({}, Mode::kNamespaces)
+    {
+    }
+
+    using SubscribeNamespaceHandler::RequestOkReceived;
+
+    void StatusChanged(Status status) override
+    {
+        CHECK(GetStatus() == status);
+        statuses.push_back(status);
+    }
+
+    std::vector<Status> statuses;
+};
+
+TEST_CASE("UnsubscribeNamespace cancels the request stream")
+{
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestSubscribeNamespaceHandler>();
+    session->SubscribeNamespace(handler);
+    SUBCASE("Accepted subscription")
+    {
+        handler->RequestOkReceived({});
+        REQUIRE(handler->GetStatus() == quicr::SubscribeNamespaceHandler::Status::kOk);
+    }
+    SUBCASE("Pending subscription") {}
+    handler->statuses.clear();
+    const auto stream_id = handler->GetRequestStreamId();
+    REQUIRE(stream_id);
+
+    session->UnsubscribeNamespace(handler);
+
+    REQUIRE(transport->closed_stream);
+    CHECK(transport->closed_stream->GetStreamId() == *stream_id);
+    CHECK(transport->close_operation == quicr::StreamOperation::kCancel);
+    CHECK(handler->GetStatus() == quicr::SubscribeNamespaceHandler::Status::kNotSubscribed);
+    CHECK_FALSE(handler->GetRequestId());
+    CHECK_FALSE(handler->GetRequestStreamId());
+    REQUIRE(handler->statuses.size() == 1);
+    CHECK(handler->statuses.front() == quicr::SubscribeNamespaceHandler::Status::kNotSubscribed);
+
+    transport->closed_stream.reset();
+    session->UnsubscribeNamespace(handler);
+    CHECK_FALSE(transport->closed_stream);
 }
 
 class TestSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
@@ -371,10 +424,9 @@ TEST_CASE("Publishing reports rejected subgroup enqueues")
     auto transport = std::make_shared<TestTransport>();
     auto session = CreateTestSession(transport);
     auto handler = std::make_shared<TestStreamPublishTrackHandler>();
-    handler->SetTransport(session);
-    handler->SetRequestId(0);
-    handler->SetTrackAlias(0);
+    session->PublishTrack(handler);
     handler->SetStatus(quicr::PublishTrackHandler::Status::kOk);
+    transport->enqueue_count = 0;
     quicr::ObjectHeaders headers{};
     const quicr::Bytes payload{ 1 };
     headers.payload_length = payload.size();
@@ -400,6 +452,20 @@ TEST_CASE("Fetch closure is terminal")
     auto transport = std::make_shared<TestTransport>();
     auto session = CreateTestSession(transport);
     auto handler = quicr::PublishFetchHandler::Create({ {}, {} }, 0, 0, quicr::messages::GroupOrder::kAscending, 1000);
+    const auto request_stream = std::make_shared<TestStream>(0, session->GetDefaultConnection());
+    auto request = quicr::messages::Message{}.PrependType(quicr::messages::ControlMessageType::kFetch).ReserveLength();
+    request.Append(quicr::UintVar(0))
+      .Append(quicr::messages::FetchType::kStandalone)
+      .Append(quicr::TrackNamespace{})
+      .Append(quicr::Bytes{})
+      .Append(quicr::messages::Location{})
+      .Append(quicr::messages::Location{})
+      .Append(quicr::messages::Parameters{}.Add(quicr::messages::ParameterType::kSubscriberPriority, 0));
+    {
+        std::lock_guard lock(request_stream->rx_mutex);
+        request_stream->rx_data.Push(std::span<const uint8_t>(*request.ToBytes()));
+    }
+    session->GetDefaultConnection()->OnRecvStream(request_stream);
     session->BindFetchTrack(handler);
     quicr::ObjectHeaders headers{};
     const quicr::Bytes payload{ 1 };

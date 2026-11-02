@@ -575,7 +575,7 @@ namespace quicr {
 
             const auto connection = GetConnectionForStream(stream);
             if (!connection) {
-                throw TransportException(TransportError::kInvalidConnContextId);
+                throw std::invalid_argument("Stream has no connection");
             }
             auto result = quic_transport_->Enqueue(
               connection, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
@@ -798,18 +798,13 @@ namespace quicr {
         /**
          * @brief Send published data.
          *
+         * @param connection The connection to enqueue data on.
          * @param stream Stream to send on, ignored when the flags ask for a datagram.
          * @param bytes Immutable serialized object bytes.
          * @param priority Object priority; lower values are higher priority.
          * @param ttl_ms Maximum queue lifetime in milliseconds.
          * @param flags Reliability and queue-handling options.
          * @return Transport enqueue result.
-         * @param bytes Data to send, if any.
-         * @param priority Priority to use for sending.
-         * @param ttl_ms Egress time to live.
-         * @param flags Additional flags.
-         * @throws std::invalid_argument If stream is nullptr when using streams.
-         * @returns False if using streams and the TX direction has closed.
          */
         bool Enqueue(const std::shared_ptr<Connection>& connection,
                      const std::shared_ptr<Stream>& stream,

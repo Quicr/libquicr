@@ -309,7 +309,7 @@ namespace quicr {
 
         const auto connection = GetDefaultConnection();
         if (!connection) {
-            throw TransportException(TransportError::kInvalidConnContextId);
+            throw std::logic_error("Session has no default connection");
         }
 
         const auto stream = connection->GetTxControlStream();
@@ -765,7 +765,7 @@ namespace quicr {
     {
         const auto connection = GetDefaultConnection();
         if (!connection) {
-            throw TransportException(TransportError::kInvalidConnContextId);
+            throw std::logic_error("Session has no default connection");
         }
 
         const auto& prefix = handler->GetPrefix();
@@ -942,7 +942,7 @@ namespace quicr {
 
         const auto connection = GetDefaultConnection();
         if (!connection) {
-            throw TransportException(TransportError::kInvalidConnContextId);
+            throw std::logic_error("Session has no default connection");
         }
 
         const auto ftn = handler->GetFullTrackName();
@@ -974,7 +974,7 @@ namespace quicr {
     {
         const auto connection = track_handler->IsPublisherInitiated() ? nullptr : GetDefaultConnection();
         if (!track_handler->IsPublisherInitiated() && !connection) {
-            throw TransportException(TransportError::kInvalidConnContextId);
+            throw std::logic_error("Session has no default connection");
         }
 
         if (!track_handler->IsPublisherInitiated()) {
@@ -1409,7 +1409,7 @@ namespace quicr {
     {
         const auto connection = GetDefaultConnection();
         if (!connection) {
-            throw TransportException(TransportError::kInvalidConnContextId);
+            throw std::logic_error("Session has no default connection");
         }
 
         const auto tfn = track_handler->GetFullTrackName();
@@ -1477,7 +1477,7 @@ namespace quicr {
     {
         const auto connection = GetDefaultConnection();
         if (!connection) {
-            throw TransportException(TransportError::kInvalidConnContextId);
+            throw std::logic_error("Session has no default connection");
         }
 
         auto prefix_hash = hash(ns_handler->GetPrefix());
@@ -1541,7 +1541,7 @@ namespace quicr {
     {
         const auto connection = GetDefaultConnection();
         if (!connection) {
-            throw TransportException(TransportError::kInvalidConnContextId);
+            throw std::logic_error("Session has no default connection");
         }
 
         const auto& tfn = track_handler->GetFullTrackName();
@@ -2469,7 +2469,7 @@ namespace quicr {
                                                   uint8_t priority)
     {
         if (!connection) {
-            throw TransportException(TransportError::kInvalidConnContextId);
+            throw std::invalid_argument("Connection cannot be null");
         }
         const auto stream = quic_transport_->CreateDataStream(connection, priority);
 
@@ -2658,7 +2658,7 @@ namespace quicr {
                           const Transport::EnqueueFlags flags)
     {
         if (!connection) {
-            return TransportError::kInvalidConnContextId;
+            throw std::invalid_argument("Connection cannot be null");
         }
 
         if (!flags.use_reliable) {
@@ -2667,7 +2667,7 @@ namespace quicr {
         }
 
         if (!stream || stream->GetConnection() != connection) {
-            return false;
+            throw std::invalid_argument("Stream must belong to connection");
         }
 
         return quic_transport_->Enqueue(connection, stream, std::move(bytes), priority, ttl_ms, flags);
@@ -2944,10 +2944,10 @@ namespace quicr {
                             // an object within a group, so migration is intentionally at-least-once:
                             // the remainder of this group may overlap, but earlier groups do not.
                             if (std::holds_alternative<std::monostate>(filter)) {
-                                filter = messages::LocationFilter{
+                                filter = messages::SubscriptionFilter{
                                     .range = { .start = delivered->group, .end = std::nullopt },
                                 };
-                            } else if (auto* location = std::get_if<messages::LocationFilter>(&filter)) {
+                            } else if (auto* location = std::get_if<messages::SubscriptionFilter>(&filter)) {
                                 location->range.start = std::max(location->range.start, delivered->group);
                                 if (location->range.end && *location->range.end < location->range.start) {
                                     location->range.end = location->range.start;
