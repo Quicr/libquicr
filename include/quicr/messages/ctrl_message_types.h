@@ -719,19 +719,6 @@ namespace quicr::messages {
         kMalformedAuthority = 0x1A,
     };
 
-    enum class PublishDoneStatus : uint64_t
-    {
-        kInternalError = 0x0,
-        kUnauthorized = 0x1,
-        kTrackEnded = 0x2,
-        kSubscriptionEnded = 0x3,
-        kGoingAway = 0x4,
-        kExpired = 0x5,
-        kTooFarBehind = 0x6,
-        kUpdateFailed = 0x8,
-        kMalformedTrack = 0x12,
-    };
-
     enum class StreamResetError : uint64_t
     {
         kInternalError = 0x0,
