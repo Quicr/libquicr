@@ -18,14 +18,17 @@ quicr::PicoQuicConnection::TakeMetricsSample()
 {
     QuicMetricsSample sample;
 
-    {
-        std::lock_guard _(stream_mutex_);
-        sample.streams = std::exchange(unreported_stream_metrics_, {});
-    }
+    sample.streams = std::exchange(unreported_stream_metrics_, {});
 
     // Snapshot the container so the streams' own lock is not held while their metrics are taken.
     for (const auto& stream : GetStreams()) {
-        sample.streams.push_back({ stream->GetStreamId(), std::exchange(stream->metrics, {}), false });
+        auto stream_metrics = std::exchange(stream->metrics, {});
+        if (stream->tx_data != nullptr) {
+            std::lock_guard _(stream->tx_mutex);
+            stream_metrics.enqueued_objs = std::exchange(stream->enqueued_objs, 0);
+            stream_metrics.tx_queue_discards += std::exchange(stream->enqueue_discards, 0);
+        }
+        sample.streams.push_back({ stream->GetStreamId(), stream_metrics, false });
     }
 
     // The connection's counters are reported as running totals rather than accumulated, so only
@@ -119,15 +122,23 @@ quicr::PicoQuicConnection::RemoveStream(const std::uint64_t stream_id)
 
         stream = std::move(it->second);
         streams_.erase(it);
-
-        // Bounded because nothing drains this if samples stop being taken, which happens when the
-        // callback queue is under sustained backpressure.
-        if (unreported_stream_metrics_.size() < kMaxUnreportedStreams) {
-            unreported_stream_metrics_.push_back({ stream_id, stream->metrics, true });
-        }
     }
 
-    stream->MarkClosed();
+    auto final_metrics = stream->metrics;
+    if (stream->tx_data != nullptr) {
+        std::lock_guard _(stream->tx_mutex);
+        stream->MarkClosed();
+        final_metrics.enqueued_objs = stream->enqueued_objs;
+        final_metrics.tx_queue_discards += stream->enqueue_discards;
+    } else {
+        stream->MarkClosed();
+    }
+
+    // Bounded because nothing drains this if samples stop being taken, which happens when the
+    // callback queue is under sustained backpressure.
+    if (unreported_stream_metrics_.size() < kMaxUnreportedStreams) {
+        unreported_stream_metrics_.push_back({ stream_id, final_metrics, true });
+    }
 
     return stream;
 }

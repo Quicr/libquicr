@@ -73,7 +73,7 @@ namespace quicr {
         /**
          * Close the send direction.
          */
-        void MarkTxClosed()
+        void MarkTxClosed() QUICR_EXCLUDES(tx_mutex)
         {
             if (tx_data == nullptr) {
                 return;
@@ -90,7 +90,7 @@ namespace quicr {
         bool close_using_reset : 1 { false };
 
         /// The priority of the stream.
-        uint8_t priority{ 0 };
+        uint8_t priority QUICR_GUARDED_BY(tx_mutex){ 0 };
 
         /// Pending objects to be written to the network
         const std::unique_ptr<timeq::time_queue<ConnData>> tx_data QUICR_PT_GUARDED_BY(tx_mutex);
@@ -112,6 +112,10 @@ namespace quicr {
 
         /// WebTransport stream context (only used in WebTransport mode)
         h3zero_stream_ctx_t* wt_stream_ctx{ nullptr };
+
+        /// Metrics written by application threads
+        std::uint64_t enqueued_objs QUICR_GUARDED_BY(tx_mutex){ 0 };
+        std::uint64_t enqueue_discards QUICR_GUARDED_BY(tx_mutex){ 0 };
 
         /// Metrics for this stream, taken and reset each sample period
         QuicStreamMetrics metrics;
@@ -269,7 +273,7 @@ namespace quicr {
 
       private:
         /// Every stream on this connection, sending and receiving, keyed by stream ID
-        std::map<std::uint64_t, std::shared_ptr<PicoQuicStream>> streams_;
+        std::map<std::uint64_t, std::shared_ptr<PicoQuicStream>> streams_ QUICR_GUARDED_BY(stream_mutex_);
 
         /**
          * What streams removed since the last sample had left to report
@@ -279,7 +283,7 @@ namespace quicr {
          */
         std::vector<QuicMetricsSample::Stream> unreported_stream_metrics_;
 
-        /// Guards streams_ and unreported_stream_metrics_
+        /// Guards streams_
         mutable std::mutex stream_mutex_;
     };
 }

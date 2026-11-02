@@ -1254,9 +1254,6 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
                        pq_stream->GetStreamId(),
                        (bytes ? bytes->size() : 0));
 
-    // TODO: This lock can be removed if other metrics and priority callers lock tx_mutex instead.
-    std::lock_guard<std::mutex> _(state_mutex_);
-
     bool needs_mark = false;
     {
         std::lock_guard __(pq_stream->tx_mutex);
@@ -1268,7 +1265,7 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
             return false;
         }
 
-        pq_stream->metrics.enqueued_objs++;
+        pq_stream->enqueued_objs++;
         pq_stream->priority = priority; // Match object priority for next stream create
 
         StreamAction stream_action{ StreamAction::kNoAction };
@@ -1282,7 +1279,7 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
         }
 
         if (flags.clear_tx_queue) {
-            pq_stream->metrics.tx_queue_discards += pq_stream->tx_data->size();
+            pq_stream->enqueue_discards += pq_stream->tx_data->size();
             pq_stream->tx_data->clear();
         }
 
@@ -1375,8 +1372,9 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
     for (const auto& stream : streams) {
         if (stream->tx_data) {
             std::lock_guard __(stream->tx_mutex);
+            stream->tx_closed.store(true, std::memory_order_release);
             stream->tx_data->clear();
-            stream->tx_object = nullptr;
+            stream->ResetTxObject();
         }
     }
 
@@ -2233,9 +2231,16 @@ PicoQuicTransport::CheckConnsForCongestion(std::size_t shard_idx)
             }
 
             const auto tx_delayed = std::exchange(stream.tx_delayed_since_cc_check, 0);
+            uint8_t priority;
+            size_t tx_data_size;
+            {
+                std::lock_guard __(stream.tx_mutex);
+                priority = stream.priority;
+                tx_data_size = stream.tx_data->size();
+            }
 
             // Don't include control stream in delayed callbacks check. Control stream should be priority 0 or 1
-            if (stream.priority >= 2 && tx_delayed > 1) {
+            if (priority >= 2 && tx_delayed > 1) {
                 QUICR_LOGGER_DEBUG(logger,
                                    "CC: remote: {} port: {} conn_id: {} stream_id: {} queue_size: {}",
                                    connection->peer_addr_text,
@@ -2247,9 +2252,6 @@ PicoQuicTransport::CheckConnsForCongestion(std::size_t shard_idx)
                 congested_count++;
             }
 
-            std::lock_guard __(stream.tx_mutex);
-
-            auto tx_data_size = stream.tx_data->size();
             stream.metrics.tx_queue_size.AddValue(tx_data_size);
 
             // TODO(tievens): size of TX is based on rate; adjust based on burst rates
