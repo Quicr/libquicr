@@ -27,13 +27,13 @@ class TestPublishTrackHandler : public quicr::PublishTrackHandler
 
 TEST_CASE("Create Track Handler")
 {
-    CHECK_NOTHROW(quicr::PublishTrackHandler::Create({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0, 0, { 0, 0 }));
+    CHECK_NOTHROW(quicr::PublishTrackHandler::Create({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0, 0, std::nullopt));
     CHECK_NOTHROW(TestPublishTrackHandler::Create());
 }
 
 TEST_CASE("Publish Track Handler CanPublish")
 {
-    auto handler = quicr::PublishTrackHandler::Create({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0, 0, { 0, 0 });
+    auto handler = quicr::PublishTrackHandler::Create({ {}, {} }, quicr::TrackMode::kDatagram, 0, 0, 0, std::nullopt);
 
     CHECK_FALSE(handler->CanPublish());
 }
@@ -296,8 +296,9 @@ class TestTransport : public quicr::Transport
 class TestStreamPublishTrackHandler : public quicr::PublishTrackHandler
 {
   public:
-    TestStreamPublishTrackHandler()
-      : PublishTrackHandler({ {}, {} }, quicr::TrackMode::kStream, 0, 0, 1000)
+    TestStreamPublishTrackHandler(quicr::TrackMode mode = quicr::TrackMode::kStream,
+                                  std::optional<quicr::messages::Location> largest_location = std::nullopt)
+      : PublishTrackHandler({ {}, {} }, mode, 0, 0, 1000, std::nullopt, largest_location)
     {
     }
     using TrackHandler::SetTransport;
@@ -308,6 +309,81 @@ CreateTestSession(const std::shared_ptr<TestTransport>& transport)
 {
     return quicr::Session::Create(
       quicr::ClientConfig{}, transport, std::make_shared<TestConnection>(), nullptr, nullptr);
+}
+
+TEST_CASE("Largest published location is largest not latest")
+{
+    using quicr::messages::Location;
+    using Status = quicr::PublishTrackHandler::PublishObjectStatus;
+    auto mode = quicr::TrackMode::kStream;
+    SUBCASE("Stream") {}
+    SUBCASE("Datagram")
+    {
+        mode = quicr::TrackMode::kDatagram;
+    }
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>(mode);
+    handler->SetTransport(session);
+    handler->SetRequestId(0);
+    handler->SetTrackAlias(0);
+    const quicr::Bytes payload{ 1 };
+    quicr::ObjectHeaders headers{};
+    headers.payload_length = payload.size();
+    CHECK_FALSE(handler->GetLargestLocation());
+    CHECK(handler->PublishObject(headers, payload) != Status::kOk);
+    CHECK_FALSE(handler->GetLargestLocation());
+    handler->SetStatus(quicr::PublishTrackHandler::Status::kOk);
+
+    constexpr Location locations[]{ { 0, 0 }, { 10, 7 }, { 10, 3 }, { 9, 100 }, { 11, 0 }, { 10, 999 } };
+    for (std::size_t i = 0; i < std::size(locations); ++i) {
+        constexpr Location expected[]{ { 0, 0 }, { 10, 7 }, { 10, 7 }, { 10, 7 }, { 11, 0 }, { 11, 0 } };
+        headers.group_id = locations[i].group;
+        headers.object_id = locations[i].object;
+        headers.subgroup_id = i;
+        REQUIRE(handler->PublishObject(headers, payload) == Status::kOk);
+        CHECK(handler->GetLargestLocation() == expected[i]);
+    }
+}
+
+TEST_CASE("Rejected publications do not update largest location")
+{
+    using quicr::messages::Location;
+    using Status = quicr::PublishTrackHandler::PublishObjectStatus;
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>();
+    handler->SetTransport(session);
+    handler->SetRequestId(0);
+    handler->SetTrackAlias(0);
+    handler->SetStatus(quicr::PublishTrackHandler::Status::kOk);
+    const quicr::Bytes payload{ 1 };
+    quicr::ObjectHeaders headers{};
+    headers.payload_length = payload.size();
+    SUBCASE("No previous object")
+    {
+        CHECK_FALSE(handler->GetLargestLocation());
+    }
+    SUBCASE("Previously published object")
+    {
+        REQUIRE(handler->PublishObject(headers, payload) == Status::kOk);
+        CHECK(handler->GetLargestLocation() == Location{ 0, 0 });
+    }
+    const auto previous = handler->GetLargestLocation();
+    headers.group_id = 99;
+    transport->fail_enqueue = transport->enqueue_count + 1;
+    CHECK(handler->PublishObject(headers, payload) == Status::kSubgroupClosed);
+    CHECK(handler->GetLargestLocation() == previous);
+    CHECK(handler->ForwardPublishedData(true, 100, 0, std::make_shared<quicr::Bytes>(payload)) ==
+          Status::kObjectDataIncomplete);
+    CHECK(handler->GetLargestLocation() == previous);
+}
+
+TEST_CASE("Initial location exposed")
+{
+    const quicr::messages::Location initial{ 0, 0 };
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>(quicr::TrackMode::kStream, initial);
+    CHECK(handler->GetLargestLocation() == initial);
 }
 
 TEST_CASE("Publishing reports rejected subgroup enqueues")

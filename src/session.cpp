@@ -1367,9 +1367,7 @@ namespace quicr {
                                          .track_alias = track_handler->GetTrackAlias().value(),
                                          .auth_tokens = {},
                                          .expires = 0, // TODO: Expires?
-                                         .largest_object =
-                                           std::make_optional(Location{ track_handler->largest_location_.group,
-                                                                        track_handler->largest_location_.object }),
+                                         .largest_object = track_handler->GetLargestLocation(),
                                          .forward = true,
                                          .default_publisher_group_order = GroupOrder::kAscending,
                                          .dynamic_groups = track_handler->support_new_group_request_,
@@ -2671,6 +2669,7 @@ namespace quicr {
 
                     // TODO: These should not exist and only be set by a callback, but preserving existing behaviour.
                     SubscribeResponse default_response;
+                    default_response.largest_location = ptd->GetLargestLocation();
                     default_response.expires = std::chrono::milliseconds(kSubscribeExpires);
                     default_response.track_properties = TrackExtensions{}
                                                           .Add(ExtensionType::kDefaultPublisherPriority, 1)

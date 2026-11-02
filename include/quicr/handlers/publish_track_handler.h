@@ -101,7 +101,7 @@ namespace quicr {
                             uint8_t publish_object_priority,
                             uint32_t default_ttl,
                             std::optional<messages::StreamHeaderProperties> stream_mode = std::nullopt,
-                            messages::Location largest_location = { 0, 0 });
+                            std::optional<messages::Location> largest_location = std::nullopt);
 
       public:
         /**
@@ -114,12 +114,13 @@ namespace quicr {
          * @param default_ttl           Default TTL for objects if not specified in ObjectHeaderss
          * @param largest_location      Largest location to start handler at
          */
-        static std::shared_ptr<PublishTrackHandler> Create(const FullTrackName& full_track_name,
-                                                           TrackMode track_mode,
-                                                           uint8_t publisher_priority,
-                                                           uint8_t publish_object_priority,
-                                                           uint32_t default_ttl,
-                                                           messages::Location largest_location)
+        static std::shared_ptr<PublishTrackHandler> Create(
+          const FullTrackName& full_track_name,
+          TrackMode track_mode,
+          uint8_t publisher_priority,
+          uint8_t publish_object_priority,
+          uint32_t default_ttl,
+          std::optional<messages::Location> largest_location = std::nullopt)
         {
             return std::shared_ptr<PublishTrackHandler>(new PublishTrackHandler(full_track_name,
                                                                                 track_mode,
@@ -225,9 +226,9 @@ namespace quicr {
         /**
          * Get the largest location
          *
-         * @return the largest/current location
+         * @return Largest published location, if any.
          */
-        constexpr messages::Location GetLargestLocation() const noexcept { return largest_location_; }
+        constexpr std::optional<messages::Location> GetLargestLocation() const noexcept { return largest_location_; }
 
         /**
          * @brief Notification that a stream has been closed.
@@ -406,7 +407,7 @@ namespace quicr {
         std::map<std::uint64_t, std::map<std::uint64_t, StreamInfo>> stream_info_by_group_;
 
         std::optional<uint64_t> track_alias_;
-        messages::Location largest_location_;
+        std::optional<messages::Location> largest_location_;
 
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 

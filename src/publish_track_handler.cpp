@@ -15,7 +15,7 @@ namespace quicr {
                                              uint8_t publish_object_priority,
                                              uint32_t default_ttl,
                                              std::optional<messages::StreamHeaderProperties> stream_mode,
-                                             messages::Location largest_location)
+                                             std::optional<messages::Location> largest_location)
       : TrackHandler(full_track_name)
       , default_track_mode_(track_mode)
       , publisher_priority_(publisher_priority)
@@ -118,11 +118,6 @@ namespace quicr {
         }
 
         Transport::EnqueueFlags eflags;
-
-        if (group_id > largest_location_.group) {
-            largest_location_.group = group_id;
-            largest_location_.object = 0;
-        }
 
         switch (default_track_mode_) {
             case TrackMode::kDatagram: {
@@ -234,14 +229,6 @@ namespace quicr {
         }
 
         std::uint16_t ttl = object_headers.ttl.value_or(default_ttl_);
-
-        if (object_headers.group_id > largest_location_.group) {
-            largest_location_.group = object_headers.group_id;
-            largest_location_.object = object_headers.object_id;
-
-        } else if (largest_location_.group == object_headers.group_id) {
-            largest_location_.object = object_headers.object_id;
-        }
 
         std::map<std::uint64_t, StreamInfo> subgroup_it;
         bool is_stream_header_needed{ false };
@@ -361,6 +348,11 @@ namespace quicr {
 
         if (!result) {
             return PublishObjectStatus::kSubgroupClosed;
+        }
+
+        const messages::Location location{ object_headers.group_id, object_headers.object_id };
+        if (!largest_location_ || location > *largest_location_) {
+            largest_location_ = location;
         }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;

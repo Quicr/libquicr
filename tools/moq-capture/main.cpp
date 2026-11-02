@@ -407,12 +407,8 @@ try {
         }
 
         replay_capture = BuildReplayMessages(moq_file, data_file);
-        handler = quicr::PublishTrackHandler::Create(track_name,
-                                                     quicr::TrackMode::kStream,
-                                                     replay_capture->publisher_priority,
-                                                     127,
-                                                     5000,
-                                                     quicr::messages::Location{});
+        handler = quicr::PublishTrackHandler::Create(
+          track_name, quicr::TrackMode::kStream, replay_capture->publisher_priority, 127, 5000, std::nullopt);
     } else if (record) {
         handler = RecordingTrackHandler::Create(track_name, 127, data_dir);
     }
