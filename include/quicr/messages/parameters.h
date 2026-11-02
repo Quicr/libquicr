@@ -35,10 +35,6 @@ namespace quicr::messages {
         kTrackNamespacePrefix = 0x34,
 
         // Filters
-        kSubgroupFilter = 0x25,
-        kObjectFilter = 0x26,
-        kPriorityFilter = 0x27,
-        kPropertyFilter = 0x28,
         kTrackFilter = 0x29,
 
         /*===================================================================*/
@@ -56,14 +52,6 @@ namespace quicr::messages {
         switch (type) {
             case FilterType::kSubscriptionFilter:
                 return ParameterType::kSubscriptionFilter;
-            case FilterType::kSubgroupFilter:
-                return ParameterType::kSubgroupFilter;
-            case FilterType::kObjectFilter:
-                return ParameterType::kObjectFilter;
-            case FilterType::kPriorityFilter:
-                return ParameterType::kPriorityFilter;
-            case FilterType::kPropertyFilter:
-                return ParameterType::kPropertyFilter;
             case FilterType::kTrackFilter:
                 return ParameterType::kTrackFilter;
             default:
@@ -76,14 +64,6 @@ namespace quicr::messages {
         switch (type) {
             case ParameterType::kSubscriptionFilter:
                 return FilterType::kSubscriptionFilter;
-            case ParameterType::kSubgroupFilter:
-                return FilterType::kSubgroupFilter;
-            case ParameterType::kObjectFilter:
-                return FilterType::kObjectFilter;
-            case ParameterType::kPriorityFilter:
-                return FilterType::kPriorityFilter;
-            case ParameterType::kPropertyFilter:
-                return FilterType::kPropertyFilter;
             case ParameterType::kTrackFilter:
                 return FilterType::kTrackFilter;
 
@@ -145,10 +125,6 @@ namespace quicr::messages {
             { ParameterType::kNewGroupRequest, ParameterEncoding::kVarint },
             { ParameterType::kTrackNamespacePrefix, ParameterEncoding::kBytes },
             { ParameterType::kSubscriptionFilter, ParameterEncoding::kBytes },
-            { ParameterType::kSubgroupFilter, ParameterEncoding::kBytes },
-            { ParameterType::kObjectFilter, ParameterEncoding::kBytes },
-            { ParameterType::kPriorityFilter, ParameterEncoding::kBytes },
-            { ParameterType::kPropertyFilter, ParameterEncoding::kBytes },
             { ParameterType::kTrackFilter, ParameterEncoding::kBytes },
         };
 
@@ -448,8 +424,8 @@ namespace quicr::messages {
 
     // Filters.
     inline constexpr FilterType kFilterTypes[] = {
-        FilterType::kSubscriptionFilter, FilterType::kSubgroupFilter, FilterType::kObjectFilter,
-        FilterType::kPriorityFilter,     FilterType::kPropertyFilter, FilterType::kTrackFilter,
+        FilterType::kSubscriptionFilter,
+        FilterType::kTrackFilter,
     };
     inline bool ContainsAnyFilter(const Parameters& params)
     {
