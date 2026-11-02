@@ -23,6 +23,8 @@ namespace quicr {
 
 namespace quicr::messages {
 
+    constexpr std::uint8_t kDefaultPriority = 128;
+
     enum class ControlMessageType : uint64_t
     {
         kRequestUpdate = 0x2,

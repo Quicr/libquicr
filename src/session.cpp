@@ -497,7 +497,7 @@ namespace quicr {
             .AddOptional(ParameterType::kDeliveryTimeout,
                          delivery_timeout.has_value() ? std::make_optional(delivery_timeout->count()) : std::nullopt);
 
-        if (priority) {
+        if (priority != kDefaultPriority) {
             params.Add(ParameterType::kSubscriberPriority, priority);
         }
 
@@ -2695,7 +2695,8 @@ namespace quicr {
                     return true;
                 }
                 const auto rendezvous_timeout = std::chrono::milliseconds{ rendezvous_timeout_ms };
-                auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                auto priority = parameters.GetOptional<uint8_t>(messages::ParameterType::kSubscriberPriority)
+                                  .value_or(messages::kDefaultPriority);
                 auto group_order = parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
                 const auto publisher_default_group_order = messages::GroupOrder::kAscending;
                 auto forward = parameters.Get<bool>(messages::ParameterType::kForward);

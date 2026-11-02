@@ -37,7 +37,8 @@ namespace quicr::messages {
 
     inline std::uint8_t ResolveDefaultPublisherPriority(const TrackExtensions& properties)
     {
-        return properties.GetOptional<std::uint8_t>(ExtensionType::kDefaultPublisherPriority).value_or(128);
+        return properties.GetOptional<std::uint8_t>(ExtensionType::kDefaultPublisherPriority)
+          .value_or(kDefaultPriority);
     }
 
     inline std::optional<std::uint64_t> ResolveMaxCacheDuration(const TrackExtensions& properties)

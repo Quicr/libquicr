@@ -789,7 +789,7 @@ TEST_CASE("Integration - Subscribe")
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
         const messages::Filter filter = messages::TrackFilter{ 1, 2, 3 };
-        const auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt, filter);
+        const auto handler = TestSubscribeHandler::Create(ftn, messages::kDefaultPriority, std::nullopt, filter);
         const auto rendezvous_timeout = std::chrono::seconds{ 30 };
         handler->SetRendezvousTimeout(rendezvous_timeout);
 
@@ -808,6 +808,7 @@ TEST_CASE("Integration - Subscribe")
         CHECK_EQ(details.track_full_name.name, ftn.name);
         CHECK_EQ(details.track_full_name.name_space, ftn.name_space);
         CHECK_EQ(details.subscribe_attributes.filter, filter);
+        CHECK_EQ(details.subscribe_attributes.priority, messages::kDefaultPriority);
         CHECK_EQ(details.subscribe_attributes.rendezvous_timeout, rendezvous_timeout);
 
         // Server should respond, track should go live.
