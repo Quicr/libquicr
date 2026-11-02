@@ -10,6 +10,12 @@ set_target_properties(simple_publish PROPERTIES
 
 target_link_libraries(simple_publish PRIVATE quicr::quicr)
 
+add_executable(simple_c_publish main.c)
+set_target_properties(simple_c_publish PROPERTIES
+    C_STANDARD 11
+)
+target_link_libraries(simple_c_publish PRIVATE quicr::c)
+
 if(QUICR_LINT)
     include(Lint)
     lint(simple_publish)
