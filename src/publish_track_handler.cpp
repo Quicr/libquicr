@@ -263,7 +263,7 @@ namespace quicr {
             if (subgroup_it == group_it->second.end()) {
                 is_stream_header_needed = true;
                 stream = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
-                opened_data_stream_.store(true, std::memory_order_release);
+                opened_subgroup_streams_.fetch_add(1, std::memory_order_acq_rel);
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =

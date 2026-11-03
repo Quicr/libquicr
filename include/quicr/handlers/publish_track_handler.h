@@ -418,26 +418,21 @@ namespace quicr {
         std::optional<Status> UpdateStatus(Status status) noexcept;
 
         /**
-         * @brief Start counting data streams afresh for a new subscription.
+         * @brief Reset the state that belongs to one subscription.
          *
          * @details The session calls this wherever it binds the handler to a subscription, so a
-         *      handler reused across subscriptions does not report streams from an earlier one.
+         *      handler reused across subscriptions starts fresh rather than carrying state from an
+         *      earlier one. Today that state is the count of opened subgroup streams.
          */
-        void BeginSubscription() noexcept { opened_data_stream_.store(false, std::memory_order_release); }
+        void BeginSubscription() noexcept { opened_subgroup_streams_.store(0, std::memory_order_release); }
 
-        /**
-         * @brief Stream Count to send in PUBLISH_DONE for the current subscription.
-         *
-         * @details The exact number of streams is not tracked, so once any has been opened the
-         *      count is reported as unknown, as draft-ietf-moq-transport-18 section 10.11 requires.
-         */
-        std::uint64_t PublishDoneStreamCount() const noexcept
+        /// Number of subgroup streams opened for the current subscription.
+        std::uint64_t OpenedSubgroupStreams() const noexcept
         {
-            return opened_data_stream_.load(std::memory_order_acquire) ? messages::kPublishDoneStreamCountUnknown : 0;
+            return opened_subgroup_streams_.load(std::memory_order_acquire);
         }
 
-        /// True once a data stream has been opened for the current subscription.
-        std::atomic<bool> opened_data_stream_{ false };
+        std::atomic<std::uint64_t> opened_subgroup_streams_{ 0 };
 
         friend class Session;
     };

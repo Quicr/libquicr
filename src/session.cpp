@@ -616,9 +616,14 @@ namespace quicr {
     void Session::SendPublishDone(const std::shared_ptr<Stream>& stream,
                                   uint64_t request_id,
                                   messages::PublishDoneStatusCode status,
-                                  std::uint64_t stream_count,
+                                  std::uint64_t opened_subgroup_streams,
                                   const std::string& reason)
     try {
+        // draft-ietf-moq-transport-18 section 10.11: 0 when no stream was opened, otherwise the exact
+        // count or 2^62 - 1. The exact count is not sent because a stream can still open while the
+        // track is being unpublished, which would make it too low.
+        const std::uint64_t stream_count = opened_subgroup_streams == 0 ? 0 : messages::kPublishDoneStreamCountUnknown;
+
         QUICR_LOGGER_DEBUG(logger_,
                            "Sending PUBLISH_DONE to conn_id: {} request_id: {} status: {} stream_count: {}",
                            current_connection_->GetID(),
@@ -1320,7 +1325,7 @@ namespace quicr {
                     SendPublishDone(ctrl_stream,
                                     *removed->GetRequestId(),
                                     PublishDoneStatusCode::kSubscribtionEnded,
-                                    removed->PublishDoneStreamCount(),
+                                    removed->OpenedSubgroupStreams(),
                                     "Unpublish track");
                 } else {
                     QUICR_LOGGER_INFO(logger_,
@@ -2540,7 +2545,7 @@ namespace quicr {
                 SendPublishDone(request_stream,
                                 track_handler->GetRequestId().value(),
                                 messages::PublishDoneStatusCode::kSubscribtionEnded,
-                                track_handler->PublishDoneStreamCount(),
+                                track_handler->OpenedSubgroupStreams(),
                                 "No publishers");
             }
         }
@@ -3223,7 +3228,7 @@ namespace quicr {
 
                 [[maybe_unused]] const auto status_code =
                   messages::Message::ParseField<messages::PublishDoneStatusCode>(msg_bytes);
-                [[maybe_unused]] const auto stream_count = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto stream_count = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 [[maybe_unused]] const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
 
                 auto sub_it = request_handlers.find(*request_id);
@@ -3237,6 +3242,7 @@ namespace quicr {
 
                 if (client_mode_) {
                     if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
+                        h->SetPublishDoneStreamCount(stream_count);
                         h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     }
                     return true;
@@ -3255,6 +3261,7 @@ namespace quicr {
                                   th.track_fullname_hash);
 
                 if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
+                    h->SetPublishDoneStreamCount(stream_count);
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                         callbacks->PublishDoneReceived(GetSharedPtr(), *request_id);
