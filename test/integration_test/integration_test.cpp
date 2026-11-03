@@ -6,6 +6,7 @@
 #endif
 
 #include "picoquic_connection.h"
+#include "picoquic_internal.h"
 #include "quicr/config.h"
 #include "quicr/handlers/fetch_track_handler.h"
 #include "quicr/handlers/forwarding_subscribe_track_handler.h"
@@ -326,7 +327,8 @@ MakeTestServer(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
                std::optional<std::size_t> max_connections = std::nullopt,
                std::optional<std::uint64_t> initial_max_stream_data = std::nullopt,
-               std::optional<std::uint64_t> metrics_sample_ms = std::nullopt)
+               std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
+               std::optional<CongestionControl> congestion_control = std::nullopt)
 {
     // Run the server.
     ServerConfig server_config;
@@ -349,6 +351,9 @@ MakeTestServer(quicr::SessionManager& session_mgr,
     if (metrics_sample_ms.has_value()) {
         server_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
     }
+    if (congestion_control.has_value()) {
+        server_config.transport_config.congestion_control = *congestion_control;
+    }
 
     // The same callbacks instance is used by every session accepted on this listening
     // transport, so relaying between two different client connections (e.g. a publisher and
@@ -366,7 +371,8 @@ MakeTestClient(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
                const std::string& protocol_scheme = "moq",
                const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
-               std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>())
+               std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>(),
+               const std::optional<CongestionControl> congestion_control = std::nullopt)
 {
     // Connect a client.
     ClientConfig client_config;
@@ -375,6 +381,9 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
     if (metrics_sample_ms.has_value()) {
         client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
+    }
+    if (congestion_control.has_value()) {
+        client_config.transport_config.congestion_control = *congestion_control;
     }
     client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(GetTestPort()) + "/relay";
     if (qlog_path.has_value()) {
@@ -732,6 +741,64 @@ TEST_CASE("Integration - Connection")
     {
         CAPTURE("WebTransport");
         test_connection("https");
+    }
+}
+
+TEST_CASE("Integration - Lost feedback notification follows the congestion controller")
+{
+    /*
+     * picoquic's lost-feedback signal is designed for C4, which turns it on for itself. BBR freezes
+     * its congestion window at the bytes in flight when the signal fires, and on a bursty,
+     * application-limited sender the signal fires after every burst, so it must stay off for BBR.
+     */
+    const auto test_notification =
+      [](const std::string& protocol_scheme, const CongestionControl congestion_control, const bool expected) {
+          auto session_mgr = MakeTestSessionManager();
+          auto server =
+            MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, congestion_control);
+          auto [client, _] = MakeTestClient(session_mgr,
+                                            true,
+                                            std::nullopt,
+                                            protocol_scheme,
+                                            std::nullopt,
+                                            std::make_shared<TestClient>(),
+                                            congestion_control);
+          REQUIRE(client->GetStatus() == Session::Status::kReady);
+
+          std::shared_ptr<Session> server_session;
+          REQUIRE(WaitFor([&] {
+              server_session = server->GetLastSetupSession();
+              return server_session != nullptr;
+          }));
+
+          for (const auto& [end, session] :
+               { std::pair{ std::string("client"), client }, std::pair{ std::string("server"), server_session } }) {
+              CAPTURE(end);
+              const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetConnection());
+              REQUIRE(connection != nullptr);
+              REQUIRE(connection->pq_cnx != nullptr);
+              CHECK_EQ(static_cast<bool>(connection->pq_cnx->is_lost_feedback_notification_required), expected);
+          }
+      };
+
+    SUBCASE("BBR over raw QUIC")
+    {
+        test_notification("moq", CongestionControl::kBbr, false);
+    }
+
+    SUBCASE("BBR over WebTransport")
+    {
+        test_notification("https", CongestionControl::kBbr, false);
+    }
+
+    SUBCASE("C4 over raw QUIC")
+    {
+        test_notification("moq", CongestionControl::kC4, true);
+    }
+
+    SUBCASE("C4 over WebTransport")
+    {
+        test_notification("https", CongestionControl::kC4, true);
     }
 }
 

@@ -1875,7 +1875,6 @@ PicoQuicTransport::HandleNewConnection(const std::shared_ptr<PicoQuicConnection>
                             .proto = TransportProtocol::kQuic };
 
     picoquic_enable_keep_alive(connection->pq_cnx, tconfig_.idle_timeout_ms * 500);
-    picoquic_set_feedback_loss_notification(connection->pq_cnx, 1);
 
 #if 0
     // Setup WebTransport for server connections if needed
@@ -2434,7 +2433,6 @@ PicoQuicTransport::StartClient()
             }
 
             picoquic_set_transport_parameters(cnx, &local_tp_options_);
-            picoquic_set_feedback_loss_notification(cnx, 1);
             picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
             picoquic_set_callback(cnx, PqEventCb, this);
 
@@ -2469,7 +2467,6 @@ PicoQuicTransport::StartClient()
             // Must run after set_transport_parameters; picowt_prepare_client_cnx sets WT params that local_tp_options_
             // overwrites.
             picowt_set_transport_parameters(cnx);
-            picoquic_set_feedback_loss_notification(cnx, 1);
             picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
 
             // Create connection context and store per-connection WebTransport context first

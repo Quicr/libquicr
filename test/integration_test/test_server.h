@@ -132,6 +132,13 @@ namespace quicr_test {
           const std::shared_ptr<quicr::Session>& session,
           const quicr::SetupAttributes& setup_attributes) override;
 
+        /// @returns The session whose SETUP the server accepted most recently, or nullptr.
+        std::shared_ptr<quicr::Session> GetLastSetupSession() const
+        {
+            std::lock_guard lock(state_mutex_);
+            return last_setup_session_.lock();
+        }
+
         struct AvailableTrack
         {
             quicr::FullTrackName full_track_name;
@@ -412,6 +419,7 @@ namespace quicr_test {
       private:
         mutable std::mutex state_mutex_;
         std::optional<std::promise<quicr::SetupAttributes>> setup_received_;
+        std::weak_ptr<quicr::Session> last_setup_session_;
 
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<quicr::Error<quicr::RequestErrorCode>> subscribe_error_;
