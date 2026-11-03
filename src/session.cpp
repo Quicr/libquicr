@@ -2215,28 +2215,23 @@ namespace quicr {
         for (int i = 0; i < kReadLoopMax; i++) {
             auto data = quic_transport_->Dequeue(current_connection_);
             if (data && !data->empty() && data->size() > 3) {
-                auto msg_type = data->front();
+                BytesSpan cursor{ *data };
+                const auto msg_type = TryDecodeUintV(cursor);
 
                 // Message type needs to be either datagram header types or status types.
-                if (!DatagramHeaderProperties::IsValid(msg_type)) {
-                    QUICR_LOGGER_DEBUG(
-                      logger_, "Received datagram that is not a supported datagram type, dropping: {}", msg_type);
+                if (!msg_type || *msg_type > std::numeric_limits<std::uint8_t>::max() ||
+                    !DatagramHeaderProperties::IsValid(static_cast<std::uint8_t>(*msg_type))) {
+                    QUICR_LOGGER_DEBUG(logger_, "Received datagram that is not a supported datagram type, dropping");
                     current_connection_->metrics.rx_dgram_invalid_type++;
                     continue;
                 }
 
-                uint64_t track_alias = 0;
-                try {
-                    // Decode and check next header, subscribe ID
-                    auto cursor_it = std::next(data->begin(), 1);
-
-                    auto track_alias_sz = quicr::UintVar::Size(*cursor_it);
-                    track_alias = uint64_t(quicr::UintVar({ cursor_it, cursor_it + track_alias_sz }));
-                    cursor_it += track_alias_sz;
-
-                } catch (std::invalid_argument&) {
-                    continue; // Invalid, not enough bytes to decode
+                const auto decoded_track_alias = TryDecodeUintV(cursor);
+                if (!decoded_track_alias) {
+                    current_connection_->metrics.rx_dgram_decode_failed++;
+                    continue;
                 }
+                const auto track_alias = *decoded_track_alias;
 
                 auto sub_it = sub_by_recv_track_alias.find(track_alias);
                 if (sub_it == sub_by_recv_track_alias.end()) {

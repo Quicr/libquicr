@@ -36,6 +36,46 @@ enum class ExtensionTest
     kImmutable = 2,
     kBoth = 3,
 };
+
+TEST_CASE("Subgroup properties account for non-minimal length encodings")
+{
+    // Delta, four property bytes (type 0x39, length 1 in two bytes, value), then payload.
+    const Bytes wire{
+        0x00, 0x04, 0x39, 0x80, 0x01, 0xAB, 0x02, 0x11, 0x22, 0x00, 0x00, 0x01, 0x33
+    }; // Next object: no properties, one payload byte.
+    StreamBuffer<std::uint8_t> buffer;
+    const StreamHeaderProperties properties{ true, SubgroupIdType::kIsZero, false, false, true };
+    StreamSubGroupObject first{};
+    first.properties.emplace(properties);
+    bool parsed = false;
+    SUBCASE("Complete buffer")
+    {
+        buffer.Push(BytesSpan{ wire });
+        parsed = buffer >> first;
+    }
+    SUBCASE("One byte at a time")
+    {
+        for (const auto byte : wire) {
+            buffer.Push(byte);
+            if (!parsed) {
+                parsed = buffer >> first;
+            }
+        }
+    }
+    REQUIRE(parsed);
+    CHECK(first.payload == Bytes{ 0x11, 0x22 });
+    REQUIRE(first.extensions);
+    CHECK(first.extensions->at(0x39) == std::vector<Bytes>{ Bytes{ 0xAB } });
+    CHECK(buffer.Size() == 4);
+
+    StreamSubGroupObject second{};
+    second.properties.emplace(properties);
+    const bool parsed_second = buffer >> second;
+    REQUIRE(parsed_second);
+    CHECK(second.payload == Bytes{ 0x33 });
+    CHECK(buffer.Empty());
+}
+
 const Extensions kExampleExtensions = { { 0x1, { { 0x1, 0x2 } } }, // Raw bytes.
                                         { 0x2, { kUint1ByteValue } },
                                         { 0x4, { kUint2ByteValue } },

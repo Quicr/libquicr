@@ -9,6 +9,8 @@
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
 
+#include <limits>
+
 namespace quicr {
 
     void SubscribeTrackHandler::SupportNewGroupRequest(bool is_supported) noexcept
@@ -29,7 +31,12 @@ namespace quicr {
         dgram_buffer_.Push(*data);
 
         // Payload or status?
-        const auto properties = messages::DatagramHeaderProperties(data->front());
+        const auto type = dgram_buffer_.DecodeUintV(false);
+        if (!type || *type > std::numeric_limits<std::uint8_t>::max() ||
+            !messages::DatagramHeaderProperties::IsValid(static_cast<std::uint8_t>(*type))) {
+            return;
+        }
+        const auto properties = messages::DatagramHeaderProperties(static_cast<std::uint8_t>(*type));
         if (properties.status) {
             messages::ObjectDatagramStatus status_msg;
             if (dgram_buffer_ >> status_msg) {

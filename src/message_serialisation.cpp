@@ -113,10 +113,11 @@ namespace quicr::messages {
             } else {
                 // Odd types: UIntVar length prefixed bytes.
                 Bytes bytes;
+                const auto bytes_left = buffer.Size();
                 if (!ParseBytesField(buffer, bytes)) {
                     return false;
                 }
-                extension_bytes_remaining -= bytes.size() + UintVar(bytes.size()).size();
+                extension_bytes_remaining -= bytes_left - buffer.Size();
                 (*extensions)[tag].push_back(std::move(bytes));
             }
             prev_extension_type = tag;

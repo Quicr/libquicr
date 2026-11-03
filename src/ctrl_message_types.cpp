@@ -110,8 +110,12 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, FetchType& value)
     {
-        std::uint8_t uvalue;
+        std::uint64_t uvalue;
         buffer = buffer >> uvalue;
+        if (uvalue < static_cast<std::uint64_t>(FetchType::kStandalone) ||
+            uvalue > static_cast<std::uint64_t>(FetchType::kAbsoluteJoiningFetch)) {
+            throw ProtocolViolationException("Invalid fetch type");
+        }
         value = static_cast<FetchType>(uvalue);
         return buffer;
     }

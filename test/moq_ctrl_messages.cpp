@@ -88,6 +88,23 @@ TEST_CASE("GroupOrder encode rejects invalid values")
     CHECK_THROWS_AS(buffer << static_cast<GroupOrder>(3), ProtocolViolationException);
 }
 
+TEST_CASE("Fetch types accept non-minimal encodings")
+{
+    for (const auto type :
+         { FetchType::kStandalone, FetchType::kRelativeJoiningFetch, FetchType::kAbsoluteJoiningFetch }) {
+        const Bytes wire{ 0x80, static_cast<std::uint8_t>(type), 0x42 };
+        BytesSpan remaining{ wire };
+        const auto decoded = Message::ParseField<FetchType>(remaining);
+        CHECK(decoded == type);
+        REQUIRE(remaining.size() == 1);
+        CHECK(remaining.front() == 0x42);
+    }
+
+    const Bytes invalid{ 0x81, 0x01 }; // 257 must not narrow to Standalone.
+    BytesSpan remaining{ invalid };
+    CHECK_THROWS_AS(static_cast<void>(Message::ParseField<FetchType>(remaining)), ProtocolViolationException);
+}
+
 using TestKVP64 = KeyValuePair<std::uint64_t>;
 enum class ExampleEnum : std::uint64_t
 {

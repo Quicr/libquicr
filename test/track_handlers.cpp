@@ -11,6 +11,8 @@
 
 #include <doctest/doctest.h>
 
+#include <utility>
+
 class TestPublishTrackHandler : public quicr::PublishTrackHandler
 {
     TestPublishTrackHandler()
@@ -63,8 +65,13 @@ class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
         std::optional<quicr::Extensions> immutable_extensions;
     };
 
-    TestSubscribeTrackHandler()
-      : SubscribeTrackHandler({ {}, {} }, 0, quicr::messages::GroupOrder::kAscending)
+    explicit TestSubscribeTrackHandler(bool publisher_initiated = false)
+      : SubscribeTrackHandler({ {}, {} },
+                              0,
+                              quicr::messages::GroupOrder::kAscending,
+                              {},
+                              std::nullopt,
+                              publisher_initiated)
     {
     }
 
@@ -265,7 +272,7 @@ class TestTransport : public quicr::Transport
     }
     std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<quicr::Connection>&) override
     {
-        return nullptr;
+        return std::exchange(datagram, nullptr);
     }
     int CloseWebTransportSession(const std::shared_ptr<quicr::Connection>&, uint32_t, const char*) override
     {
@@ -288,6 +295,7 @@ class TestTransport : public quicr::Transport
     int enqueue_count{ 0 };
     int fail_enqueue{ -1 };
     int created_streams{ 0 };
+    std::shared_ptr<const quicr::Bytes> datagram;
 
   private:
     void QueueDeferredReply(std::function<void()>&&) override {}
@@ -308,6 +316,68 @@ CreateTestSession(const std::shared_ptr<TestTransport>& transport)
 {
     return quicr::Session::Create(
       quicr::ClientConfig{}, transport, std::make_shared<TestConnection>(), nullptr, nullptr);
+}
+
+TEST_CASE("Session dispatches datagrams with non-minimal types and track aliases")
+{
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestSubscribeTrackHandler>(true);
+    handler->SetRequestId(0);
+    handler->SetReceivedTrackAlias(7);
+    session->SubscribeTrack(handler);
+
+    quicr::Bytes wire;
+    bool status = false;
+    bool valid = true;
+    SUBCASE("Payload")
+    {
+        wire = { 0x80, 0x00, 0x80, 0x07, 0x02, 0x03, 0x80, 0xAA };
+    }
+    SUBCASE("Status")
+    {
+        status = true;
+        wire = { 0x80, 0x20, 0x80, 0x07, 0x02, 0x03, 0x80, 0x01 };
+    }
+    SUBCASE("Nine-byte type")
+    {
+        wire = { 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0x07, 0x02, 0x03, 0x80, 0xAA };
+    }
+    SUBCASE("Truncated type")
+    {
+        valid = false;
+        wire = { 0xFF, 0, 0, 0 };
+    }
+    SUBCASE("Truncated track alias")
+    {
+        valid = false;
+        wire = { 0x00, 0xFF, 0, 0 };
+    }
+    SUBCASE("Type must not narrow to a valid type")
+    {
+        valid = false;
+        wire = { 0x81, 0x00, 0x07, 0x02, 0x03, 0x80, 0xAA };
+    }
+    transport->datagram = std::make_shared<quicr::Bytes>(wire);
+    static_cast<quicr::Connection::Delegate&>(*session).OnRecvDgram();
+
+    if (!valid) {
+        CHECK(handler->received_objects.empty());
+        CHECK(handler->status_received_count == 0);
+    } else if (status) {
+        REQUIRE(handler->last_status);
+        CHECK(handler->status_received_count == 1);
+        CHECK(handler->last_status->group_id == 2);
+        CHECK(handler->last_status->object_id == 3);
+        CHECK(handler->last_status->status == quicr::ObjectStatus::kDoesNotExist);
+        CHECK(handler->received_objects.empty());
+    } else {
+        REQUIRE(handler->received_objects.size() == 1);
+        CHECK(handler->received_objects.front().group_id == 2);
+        CHECK(handler->received_objects.front().object_id == 3);
+        CHECK(handler->received_objects.front().payload == quicr::Bytes{ 0xAA });
+        CHECK(handler->status_received_count == 0);
+    }
 }
 
 TEST_CASE("Publishing reports rejected subgroup enqueues")
