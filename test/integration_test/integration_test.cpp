@@ -747,9 +747,9 @@ TEST_CASE("Integration - Connection")
 TEST_CASE("Integration - Lost feedback notification follows the congestion controller")
 {
     /*
-     * picoquic's lost-feedback signal is designed for C4, which turns it on for itself. BBR freezes
-     * its congestion window at the bytes in flight when the signal fires, and on a bursty,
-     * application-limited sender the signal fires after every burst, so it must stay off for BBR.
+     * C4 turns picoquic's lost-feedback signal on for itself. With BBR, the signal can repeatedly
+     * set the congestion window to the bytes in flight on a bursty, application-limited sender that
+     * also receives data, so libquicr leaves it off for BBR.
      */
     const auto test_notification =
       [](const std::string& protocol_scheme, const CongestionControl congestion_control, const bool expected) {
