@@ -210,11 +210,11 @@ namespace quicr::messages {
 
         bool Contains(Type type) const { return parameters.contains(static_cast<std::uint64_t>(type)); }
 
-        BytesSpan Find(Type type) const
+        std::optional<BytesSpan> Find(Type type) const
         {
-            auto it = parameters.find(static_cast<std::uint64_t>(type));
+            const auto it = parameters.find(static_cast<std::uint64_t>(type));
             if (it == parameters.end()) {
-                return {};
+                return std::nullopt;
             }
 
             return it->second;
@@ -223,11 +223,15 @@ namespace quicr::messages {
         void Remove(Type type) { parameters.erase(static_cast<std::uint64_t>(type)); }
 
         template<ParameterValueType T>
-        T Get(Type type) const
+        std::optional<T> Get(Type type) const
         {
-            auto bytes = Find(type);
+            const auto bytes_opt = Find(type);
+            if (!bytes_opt.has_value()) {
+                return std::nullopt;
+            }
+            const auto bytes = *bytes_opt;
             if (bytes.empty()) {
-                return {};
+                throw ProtocolViolationException("Parameter value must not be empty");
             }
 
             switch (GetParameterEncoding(type)) {
@@ -265,18 +269,11 @@ namespace quicr::messages {
                 return std::monostate{};
             }
 
-            auto bytes = Find(ToParameterFilterType(type));
-            if (bytes.empty()) {
-                return {};
+            const auto bytes = Get<Bytes>(ToParameterFilterType(type));
+            if (!bytes.has_value()) {
+                return std::monostate{};
             }
-
-            return DeserializeFilter(type, bytes);
-        }
-
-        template<ParameterValueType T>
-        std::optional<T> GetOptional(Type type) const
-        {
-            return Contains(type) ? std::make_optional(Get<T>(type)) : std::nullopt;
+            return DeserializeFilter(type, *bytes);
         }
 
         auto operator<=>(const ParameterList&) const = default;
@@ -405,20 +402,20 @@ namespace quicr::messages {
 
     inline std::optional<GroupOrder> ResolveGroupOrder(const Parameters& params)
     {
-        if (!params.Contains(ParameterType::kGroupOrder)) {
+        const auto value = params.Get<std::uint8_t>(ParameterType::kGroupOrder);
+        if (!value.has_value()) {
             return std::nullopt;
         }
-        const auto value = params.Get<std::uint8_t>(ParameterType::kGroupOrder);
         if (value != static_cast<std::uint8_t>(GroupOrder::kAscending) &&
             value != static_cast<std::uint8_t>(GroupOrder::kDescending)) {
             throw ProtocolViolationException("GROUP_ORDER parameter must be Ascending or Descending");
         }
-        return static_cast<GroupOrder>(value);
+        return static_cast<GroupOrder>(*value);
     }
 
     inline std::optional<std::uint64_t> ResolveExpires(const Parameters& params)
     {
-        const auto expires = params.GetOptional<std::uint64_t>(ParameterType::kExpires);
+        const auto expires = params.Get<std::uint64_t>(ParameterType::kExpires);
         return (expires.has_value() && expires.value() != 0) ? expires : std::nullopt;
     }
 
