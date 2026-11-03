@@ -13,7 +13,6 @@
 #include <quicr/session_callbacks.h>
 #include <quicr/session_manager.h>
 #include <quicr/utilities/defer.h>
-#include <timeq/tick_service.h>
 
 #include <atomic>
 #include <csignal>
@@ -50,7 +49,7 @@ namespace qclient_vars {
     std::chrono::milliseconds subgroup_test_interval_ms(100);
     std::chrono::milliseconds cache_duration_ms(180000);
     std::unordered_map<std::uint64_t, quicr::Cache<std::uint64_t, std::set<CacheObject>>> cache;
-    std::shared_ptr<timeq::threaded_tick_service> tick_service = std::make_shared<timeq::threaded_tick_service>();
+    std::shared_ptr<quicr::Clock> tick_service = quicr::Clock::Create();
     std::optional<std::filesystem::path> watch_path;
     std::chrono::milliseconds watch_interval_ms(5000);
     std::uint8_t publisher_priority{ 200 };

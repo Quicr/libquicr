@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "quicr/containers/priority_queue.h"
+#include "containers/priority_queue.h"
 
 #include <doctest/doctest.h>
 

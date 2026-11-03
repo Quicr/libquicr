@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/session.h"
+#include "quicr/clock.h"
 #include "quicr/connection.h"
 #include "quicr/handlers/joining_fetch_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
@@ -213,7 +214,7 @@ namespace quicr {
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
                      std::shared_ptr<ClientCallbacks> callbacks,
-                     std::shared_ptr<timeq::tick_service> tick_service,
+                     std::shared_ptr<Clock> clock,
                      std::shared_ptr<Logger> logger)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
@@ -223,7 +224,7 @@ namespace quicr {
       , logger_(std::move(logger))
       , server_config_({})
       , client_config_(cfg)
-      , tick_service_(std::move(tick_service))
+      , clock_(std::move(clock))
       , quic_transport_(std::move(transport))
     {
         QUICR_LOGGER_TRACE(logger_, "Created MoQ Session in client mode connected to {}", cfg.connect_uri);
@@ -234,7 +235,7 @@ namespace quicr {
                      std::shared_ptr<Transport> transport,
                      std::shared_ptr<Connection> connection,
                      std::shared_ptr<ServerCallbacks> callbacks,
-                     std::shared_ptr<timeq::tick_service> tick_service,
+                     std::shared_ptr<Clock> clock,
                      std::shared_ptr<Logger> logger)
       : std::enable_shared_from_this<Session>()
       , current_connection_(std::move(connection))
@@ -244,12 +245,40 @@ namespace quicr {
       , logger_(std::move(logger))
       , server_config_(cfg)
       , client_config_({})
-      , tick_service_(std::move(tick_service))
+      , clock_(std::move(clock))
       , quic_transport_(std::move(transport))
     {
         QUICR_LOGGER_INFO(
           logger_, "Created MoQ Session in server mode listening on {}:{}", cfg.server_bind_ip, cfg.server_port);
         Init();
+    }
+
+    Session::Session(const ClientConfig& cfg,
+                     std::shared_ptr<Transport> transport,
+                     std::shared_ptr<Connection> connection,
+                     std::shared_ptr<ClientCallbacks> callbacks,
+                     std::shared_ptr<Logger> logger)
+      : Session(cfg,
+                std::move(transport),
+                std::move(connection),
+                std::move(callbacks),
+                Clock::Create(cfg.tick_service_sleep_delay_us),
+                std::move(logger))
+    {
+    }
+
+    Session::Session(const ServerConfig& cfg,
+                     std::shared_ptr<Transport> transport,
+                     std::shared_ptr<Connection> connection,
+                     std::shared_ptr<ServerCallbacks> callbacks,
+                     std::shared_ptr<Logger> logger)
+      : Session(cfg,
+                std::move(transport),
+                std::move(connection),
+                std::move(callbacks),
+                Clock::Create(cfg.tick_service_sleep_delay_us),
+                std::move(logger))
+    {
     }
 
     Session::~Session() {}
@@ -864,15 +893,12 @@ namespace quicr {
     void Session::SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto& tfn = track_handler->GetFullTrackName();
-        track_handler->connection_id_ = current_connection_->GetID();
 
         // Track hash is the track alias for now.
         auto th = TrackHash(tfn);
 
         auto proposed_track_alias = track_handler->GetTrackAlias();
-        if (not proposed_track_alias.has_value()) {
-            track_handler->SetTrackAlias(th.track_fullname_hash);
-        } else {
+        if (proposed_track_alias.has_value()) {
             th.track_fullname_hash = proposed_track_alias.value();
         }
 
@@ -881,11 +907,7 @@ namespace quicr {
 
         std::lock_guard<std::mutex> _(state_mutex_);
 
-        if (!track_handler->IsPublisherInitiated()) {
-            // increment and get the next request id if not initiated by publisher, which request Id is reused
-            track_handler->SetRequestId(GetNextRequestID());
-
-        } else {
+        if (track_handler->IsPublisherInitiated()) {
             if (!track_handler->GetReceivedTrackAlias().has_value()) {
                 throw std::runtime_error("Missing received track alias for publisher initiated subscribe");
             }
@@ -894,6 +916,24 @@ namespace quicr {
                 throw std::runtime_error("Missing request id for publisher initiated subscribe");
             }
 
+            // The relay may have adopted this handler before PublishReceived returned. A second
+            // call would SetTransport again while a peer thread is already using the session.
+            const auto existing = request_handlers.find(*track_handler->GetRequestId());
+            if (existing != request_handlers.end() && existing->second.get() == track_handler.get()) {
+                return;
+            }
+        }
+
+        track_handler->connection_id_ = current_connection_->GetID();
+        if (not proposed_track_alias.has_value()) {
+            track_handler->SetTrackAlias(th.track_fullname_hash);
+        }
+
+        if (!track_handler->IsPublisherInitiated()) {
+            // increment and get the next request id if not initiated by publisher, which request Id is reused
+            track_handler->SetRequestId(GetNextRequestID());
+
+        } else {
             const auto req_it = recv_req_id.find(*track_handler->GetRequestId());
             if (req_it != recv_req_id.end() && req_it->second.stream) {
                 track_handler->SetRequestStream(req_it->second.stream);
@@ -2325,14 +2365,15 @@ namespace quicr {
         return rid;
     }
 
-    TransportError Session::Enqueue(const std::shared_ptr<Stream>& stream,
-                                    std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                    const uint8_t priority,
-                                    const uint32_t ttl_ms,
-                                    const Transport::EnqueueFlags flags)
+    bool Session::Enqueue(const std::shared_ptr<Stream>& stream,
+                          std::shared_ptr<const std::vector<uint8_t>> bytes,
+                          const uint8_t priority,
+                          const uint32_t ttl_ms,
+                          const Transport::EnqueueFlags flags)
     {
         if (!flags.use_reliable) {
-            return quic_transport_->EnqueueDatagram(current_connection_, std::move(bytes), priority, ttl_ms);
+            quic_transport_->EnqueueDatagram(current_connection_, std::move(bytes), priority, ttl_ms);
+            return true;
         }
 
         return quic_transport_->Enqueue(current_connection_, stream, std::move(bytes), priority, ttl_ms, flags);
@@ -3501,21 +3542,34 @@ namespace quicr {
                               return;
                           }
 
-                          // Update the handler to correctly work with publisher initiated subscribe
+                          // Update the handler to correctly work with publisher initiated subscribe.
+                          // A null handler means the application already adopted the publish. A handler
+                          // already stored for this request was adopted inside the callback; writing the
+                          // fields again, or calling SubscribeTrack, races the peer thread that is using it.
                           if (result->handler) {
-                              result->handler->SetPublishInitiated();
+                              bool already_adopted = false;
+                              {
+                                  std::lock_guard lock(self->state_mutex_);
+                                  const auto existing = self->request_handlers.find(request_id);
+                                  already_adopted = existing != self->request_handlers.end() &&
+                                                    existing->second.get() == result->handler.get();
+                              }
 
-                              result->handler->SetConnectionId(self->current_connection_->GetID());
-                              result->handler->SetRequestId(request_id);
-                              result->handler->SetReceivedTrackAlias(publish.track_alias);
-                              result->handler->SetSubscriberPriority(publish.publisher_priority);
-                              // TODO: Optional delivery timeout?
-                              const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
-                              result->handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));
-                              result->handler->SetPublisherDefaultGroupOrder(publish.default_publisher_group_order);
-                              result->handler->SupportNewGroupRequest(publish.dynamic_groups);
+                              if (!already_adopted) {
+                                  result->handler->SetPublishInitiated();
 
-                              self->SubscribeTrack(result->handler);
+                                  result->handler->SetConnectionId(self->current_connection_->GetID());
+                                  result->handler->SetRequestId(request_id);
+                                  result->handler->SetReceivedTrackAlias(publish.track_alias);
+                                  result->handler->SetSubscriberPriority(publish.publisher_priority);
+                                  // TODO: Optional delivery timeout?
+                                  const std::uint64_t delivery_timeout_ms = publish.delivery_timeout.value_or(0);
+                                  result->handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));
+                                  result->handler->SetPublisherDefaultGroupOrder(publish.default_publisher_group_order);
+                                  result->handler->SupportNewGroupRequest(publish.dynamic_groups);
+
+                                  self->SubscribeTrack(result->handler);
+                              }
                           }
 
                           self->SendPublishOk(self->ResponseStream(request_id), result->attributes);

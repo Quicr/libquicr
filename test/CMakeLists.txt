@@ -24,9 +24,12 @@ endif()
 
 target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
-# quicr links picoquic privately, so its include paths do not reach this target. They are needed
-# here because unit tests of internal classes include private headers that pull in picoquic.
-target_link_libraries(quicr_test PRIVATE quicr doctest::doctest picoquic-core picoquic-log picohttp-core)
+# quicr links its implementation dependencies privately, so their include paths do not reach this
+# target. They are needed here because unit tests include private headers directly.
+target_link_libraries(
+    quicr_test
+    PRIVATE quicr doctest::doctest timeq picoquic-core picoquic-log picohttp-core
+)
 
 set_target_properties(quicr_test PROPERTIES
     CXX_STANDARD 20

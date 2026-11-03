@@ -97,6 +97,8 @@ namespace quicr_test {
 
         void StatusChanged(Status status) override;
 
+        using quicr::TrackHandler::GetSession;
+
         /// @returns The stream the subgroup is being written to, or nullptr.
         std::shared_ptr<quicr::Stream> GetSubgroupStream(std::uint64_t group_id, std::uint64_t subgroup_id) const
         {

@@ -22,7 +22,7 @@ set(BUILD_STATIC_LIBS ON)
 CPMAddPackage("gh:quicr/timeq#898d45c")
 
 CPMAddPackage(
-    URI "gh:quicr/picotls#sync-092226"
+    URI "gh:quicr/picotls#057ed54"
     OPTIONS
         "WITH_FUSION OFF"
         "picotls_BUILD_TESTS OFF"
@@ -60,7 +60,7 @@ if (WIN32)
 endif()
 
 CPMAddPackage(
-    URI "gh:private-octopus/picoquic#poll-recvmmsg"
+    URI "gh:private-octopus/picoquic@2026.10.25.1d81a73"
     OPTIONS
         "BUILD_DEMO OFF"
         "BUILD_PQBENCH OFF"

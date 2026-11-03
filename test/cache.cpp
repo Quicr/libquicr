@@ -3,25 +3,24 @@
 
 #include <doctest/doctest.h>
 
+#include "quicr/clock.h"
 #include "quicr/containers/cache.h"
-
-#include <timeq/tick_service.h>
 
 // Compatibility shim until cache.h is migrated to timeq::tick_service directly.
 namespace quicr {
-    struct TickService : public timeq::tick_service
+    struct TickService : public Clock
     {
-        using TickType = tick_service::tick_type;
+        using TickType = std::size_t;
         using DurationType = std::chrono::microseconds;
+
+        virtual ~TickService() = default;
 
         virtual TickType Milliseconds() const
         {
-            return std::chrono::duration_cast<std::chrono::milliseconds>(get()).count();
+            return std::chrono::duration_cast<std::chrono::milliseconds>(Get()).count();
         }
 
-        virtual TickType Microseconds() const { return get().count(); }
-
-        ~TickService() override = default;
+        virtual TickType Microseconds() const { return Get().count(); }
     };
 } // namespace quicr
 
@@ -29,9 +28,11 @@ using namespace quicr;
 
 struct MockTickService : TickService
 {
+    virtual ~MockTickService() = default;
+
     void SetCurrentTime(std::chrono::milliseconds time) { time_ = time; }
 
-    std::chrono::microseconds get() const override
+    std::chrono::microseconds Get() const override
     {
         return std::chrono::duration_cast<std::chrono::microseconds>(time_);
     }

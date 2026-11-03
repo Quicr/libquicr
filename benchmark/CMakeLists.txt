@@ -10,12 +10,11 @@ add_executable(quicr_benchmark
     extensions.cpp
     hash.cpp
     priority_queue.cpp
-    safe_time_queue.cpp
     stream_buffer.cpp
     uintvar.cpp
 )
 
-target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)
+target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main timeq)
 target_include_directories(quicr_benchmark PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_compile_options(quicr_benchmark PRIVATE
