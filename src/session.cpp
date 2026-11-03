@@ -777,7 +777,9 @@ namespace quicr {
                 QUICR_LOGGER_ERROR(logger_, "Failed to unsubscribe from namespace: {}", e.what());
             }
         }
-        handler->StatusChanged(SubscribeNamespaceHandler::Status::kNotSubscribed);
+        if (stream || handler->GetStatus() != SubscribeNamespaceHandler::Status::kNotSubscribed) {
+            handler->SetStatus(SubscribeNamespaceHandler::Status::kNotSubscribed);
+        }
     }
 
     void Session::SendFetch(const std::shared_ptr<Stream>& stream,
