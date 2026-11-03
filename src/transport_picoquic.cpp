@@ -1071,6 +1071,7 @@ PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
     if (!tconfig_.quic_qlog_path.empty()) {
         QUICR_LOGGER_INFO(logger, "Enabling qlog using '{0}' path", tconfig_.quic_qlog_path);
         picoquic_set_qlog(quic_ctx, tconfig_.quic_qlog_path.c_str());
+        picoquic_set_log_level(quic_ctx, 1);
     }
 
     return quic_ctx;
