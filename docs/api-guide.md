@@ -451,3 +451,20 @@ Unsubscribe, unpublish, cancel fetches, and complete subgroups before shutdown
 when protocol-level teardown matters to the peer.
 
 For a complete working example, see `examples/qclient/client.cpp`.
+
+## Client local network path migration
+
+`Session::MigrateLocalNetworkPath(local_address, interface_index = 0)` requests migration
+of the existing client QUIC connection to a new local address, including path
+validation.
+
+Migration is best effort: an unavailable, stopping, or disconnected connection is ignored.
+Returning normally does not establish that a probe started, validation completed, or
+traffic migrated. Checks on the network thread may discard the request if the connection
+closes or is not ready. Subsequent rejection (including migration being disabled) and
+path events are logged; there is currently no application completion callback.
+
+The relay address, QUIC connection, streams, and MoQ session remain the same. This is
+local network path migration, separate from MoQ session migration initiated through
+`GOAWAY` and a session URI; it does not send `GOAWAY` or replay MoQ requests. This API
+provides neither automatic network-change detection nor reconnect fallback.

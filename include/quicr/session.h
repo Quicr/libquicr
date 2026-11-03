@@ -197,6 +197,24 @@ namespace quicr {
          */
         void Disconnect();
 
+        /**
+         * @brief Request migration of the existing QUIC connection to a new local address.
+         *
+         * @param local_address Address assigned to a usable interface, with the same address family as
+         *        the peer. A zero port reuses the current local UDP port.
+         * @param interface_index Optional interface index; zero lets QUIC select the interface.
+         * @throws std::invalid_argument For an unsupported address family, an address family different
+         *         from the peer, or an interface index exceeding INT_MAX.
+         * @throws std::logic_error When called on a server session or an unsupported transport.
+         *
+         * @details Preserves the MoQ session, its streams, and the relay address. This does not perform
+         *          MoQ session migration or send GOAWAY.
+         *          Best effort: an unavailable or closing connection is ignored. Returning does not
+         *          indicate validation or migration success. Later rejection and path events are logged;
+         *          no completion callback, automatic network detection, or reconnect fallback is provided.
+         */
+        void MigrateLocalNetworkPath(const sockaddr_storage& local_address, unsigned int interface_index = 0);
+
         /*===================================================================*/
         // Public API MoQ Instance API methods
         /*===================================================================*/

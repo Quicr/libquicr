@@ -235,6 +235,22 @@ namespace quicr {
         virtual std::shared_ptr<Connection> Start() = 0;
 
         /**
+         * @brief Request migration of the existing client QUIC connection to a new local address.
+         *
+         * @details Preserves the MoQ session and relay address; does not send GOAWAY.
+         *          The address must be assigned to a usable interface and have the same address family
+         *          as the peer. A zero port reuses the current local UDP port. An unavailable or closing
+         *          connection is ignored. Validation and migration happen asynchronously; later rejection
+         *          and path events are logged, with no completion callback.
+         * @throws std::invalid_argument For invalid address or interface arguments.
+         * @throws std::logic_error For server-side use, an incompatible connection, or an unsupported transport.
+         */
+        virtual void MigrateLocalNetworkPath(const std::shared_ptr<Connection>&, const sockaddr_storage&, unsigned int)
+        {
+            throw std::logic_error("Local network path migration is not supported by this transport");
+        }
+
+        /**
          * @brief Close a transport context
          *
          * @param conn_id           Connection ID to close

@@ -312,6 +312,16 @@ namespace quicr {
         SetStatus(Status::kReady);
     }
 
+    void Session::MigrateLocalNetworkPath(const sockaddr_storage& local_address, unsigned int interface_index)
+    {
+        if (!client_mode_) {
+            throw std::logic_error("Local network path migration is client mode only");
+        }
+        if (quic_transport_) {
+            quic_transport_->MigrateLocalNetworkPath(current_connection_, local_address, interface_index);
+        }
+    }
+
     void Session::Disconnect()
     {
         current_connection_->SetDelegate(nullptr);

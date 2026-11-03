@@ -40,6 +40,7 @@
 #include <future>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -284,13 +285,37 @@ try {
             break;
 
         case picoquic_callback_path_suspended:
+            QUICR_LOGGER_WARN(transport->logger, "QUIC path suspended conn_id: {} path_id: {}", conn_id, stream_id);
             break;
 
         case picoquic_callback_path_deleted:
+            QUICR_LOGGER_INFO(transport->logger, "QUIC path deleted conn_id: {} path_id: {}", conn_id, stream_id);
             break;
 
-        case picoquic_callback_path_available:
+        case picoquic_callback_path_available: {
+            sockaddr_storage local_addr{};
+            if (picoquic_get_path_addr(pq_cnx, stream_id, 1, &local_addr) == 0 &&
+                (local_addr.ss_family == AF_INET || local_addr.ss_family == AF_INET6)) {
+                char local_text[INET6_ADDRSTRLEN]{};
+                const void* ip =
+                  local_addr.ss_family == AF_INET
+                    ? static_cast<const void*>(&reinterpret_cast<const sockaddr_in*>(&local_addr)->sin_addr)
+                    : static_cast<const void*>(&reinterpret_cast<const sockaddr_in6*>(&local_addr)->sin6_addr);
+                inet_ntop(local_addr.ss_family, ip, local_text, sizeof(local_text));
+                QUICR_LOGGER_INFO(transport->logger,
+                                  "QUIC path available conn_id: {} path_id: {} local: {}",
+                                  conn_id,
+                                  stream_id,
+                                  local_text);
+                if (auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(transport->GetConnection(conn_id));
+                    connection && connection->pending_local_path &&
+                    picoquic_compare_addr(reinterpret_cast<const sockaddr*>(&local_addr),
+                                          reinterpret_cast<const sockaddr*>(&*connection->pending_local_path)) == 0) {
+                    connection->pending_local_path.reset();
+                }
+            }
             break;
+        }
 
         case picoquic_callback_path_quality_changed:
             break;
@@ -487,6 +512,22 @@ try {
 
             if (!shard->pq_loop_prev_time) {
                 shard->pq_loop_prev_time = targ->current_time;
+            }
+
+            if (!transport->is_server_mode) {
+                auto* cnx = picoquic_get_first_cnx(quic);
+                auto connection = cnx ? transport->GetConnection(reinterpret_cast<std::uint64_t>(cnx)) : nullptr;
+                if (connection && connection->GetAPI() == Connection::API::kWebTransport &&
+                    connection->pending_local_path) {
+                    sockaddr_storage current_local{};
+                    if (picoquic_get_path_addr(cnx, 0, 1, &current_local) == 0 &&
+                        picoquic_compare_addr(reinterpret_cast<const sockaddr*>(&current_local),
+                                              reinterpret_cast<const sockaddr*>(&*connection->pending_local_path)) ==
+                          0) {
+                        QUICR_LOGGER_INFO(transport->logger, "QUIC path available conn_id: {}", connection->GetID());
+                        connection->pending_local_path.reset();
+                    }
+                }
             }
 
             if (targ->current_time - shard->pq_loop_metrics_prev_time >= transport->MetricsSampleIntervalUs()) {
@@ -1035,6 +1076,8 @@ PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
         throw PicoQuicException("Unable to create picoquic context");
     }
 
+    picoquic_enable_path_callbacks_default(quic_ctx, 1);
+
     picoquic_congestion_algorithm_t* selected_algorithm;
     switch (tconfig_.congestion_control) {
         case CongestionControl::kBbr:
@@ -1183,6 +1226,93 @@ PicoQuicTransport::Start()
     }
 
     return nullptr;
+}
+
+void
+PicoQuicTransport::MigrateLocalNetworkPath(const std::shared_ptr<Connection>& connection,
+                                           const sockaddr_storage& local_address,
+                                           unsigned int interface_index)
+{
+    if (is_server_mode) {
+        throw std::logic_error("Local network path migration requires a client transport");
+    }
+    if (local_address.ss_family != AF_INET && local_address.ss_family != AF_INET6) {
+        throw std::invalid_argument("Local network path migration requires an IPv4 or IPv6 address");
+    }
+    if (interface_index > static_cast<unsigned int>(std::numeric_limits<int>::max())) {
+        throw std::invalid_argument("Local network path migration interface index exceeds INT_MAX");
+    }
+    if (!connection) {
+        return;
+    }
+    auto pq_connection = std::dynamic_pointer_cast<PicoQuicConnection>(connection);
+    if (!pq_connection) {
+        throw std::logic_error("Local network path migration requires a picoquic connection");
+    }
+    sockaddr_storage peer_address{};
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        peer_address = pq_connection->peer_addr;
+    }
+    if (peer_address.ss_family != 0 && peer_address.ss_family != local_address.ss_family) {
+        throw std::invalid_argument("Local network path migration address family differs from the peer");
+    }
+    if (stop_ || Status() != TransportStatus::kReady) {
+        return;
+    }
+
+    RunPqFunction(
+      pq_connection->shard_idx,
+      [this, connection = std::weak_ptr<PicoQuicConnection>(pq_connection), local_address, interface_index]() {
+          const auto current = connection.lock();
+          if (!current || GetConnection(current->GetID()) != current) {
+              return 0;
+          }
+
+          auto* cnx = current->pq_cnx;
+          if (picoquic_get_cnx_state(cnx) != picoquic_state_ready) {
+              QUICR_LOGGER_WARN(logger, "Cannot probe a new path before QUIC is ready");
+              return 0;
+          }
+
+          sockaddr_storage peer_addr{};
+          sockaddr_storage old_local_addr{};
+          if (picoquic_get_path_addr(cnx, 0, 2, &peer_addr) != 0 ||
+              picoquic_get_path_addr(cnx, 0, 1, &old_local_addr) != 0 ||
+              peer_addr.ss_family != local_address.ss_family) {
+              QUICR_LOGGER_WARN(logger, "Cannot probe a new path with a different address family");
+              return 0;
+          }
+
+          auto new_local_addr = local_address;
+          if (new_local_addr.ss_family == AF_INET) {
+              auto* new_addr = reinterpret_cast<sockaddr_in*>(&new_local_addr);
+              if (new_addr->sin_port == 0) {
+                  new_addr->sin_port = reinterpret_cast<const sockaddr_in*>(&old_local_addr)->sin_port;
+              }
+          } else {
+              auto* new_addr = reinterpret_cast<sockaddr_in6*>(&new_local_addr);
+              if (new_addr->sin6_port == 0) {
+                  new_addr->sin6_port = reinterpret_cast<const sockaddr_in6*>(&old_local_addr)->sin6_port;
+              }
+          }
+
+          const int result = (cnx->remote_parameters.migration_disabled || cnx->local_parameters.migration_disabled)
+                               ? PICOQUIC_ERROR_MIGRATION_DISABLED
+                               : picoquic_probe_new_path_ex(cnx,
+                                                            reinterpret_cast<const sockaddr*>(&peer_addr),
+                                                            reinterpret_cast<const sockaddr*>(&new_local_addr),
+                                                            static_cast<int>(interface_index),
+                                                            picoquic_get_quic_time(picoquic_get_quic_ctx(cnx)),
+                                                            0);
+          if (result != 0) {
+              QUICR_LOGGER_WARN(logger, "QUIC path probe rejected conn_id: {} error: {}", current->GetID(), result);
+          } else {
+              current->pending_local_path = new_local_addr;
+              QUICR_LOGGER_INFO(logger, "QUIC path probe started conn_id: {}", current->GetID());
+          }
+          return 0;
+      });
 }
 
 void

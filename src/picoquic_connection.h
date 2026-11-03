@@ -209,6 +209,9 @@ namespace quicr {
         /// Picoquic shard ID.
         std::size_t shard_idx{ 0 };
 
+        /// Local tuple being validated; accessed only by the picoquic network thread.
+        std::optional<sockaddr_storage> pending_local_path;
+
         /// Datagram pending objects to be written to the network
         std::shared_ptr<PriorityQueue<ConnData>> dgram_tx_data;
 

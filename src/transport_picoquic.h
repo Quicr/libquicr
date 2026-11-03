@@ -132,6 +132,10 @@ namespace quicr {
 
         std::shared_ptr<Connection> Start() override;
 
+        void MigrateLocalNetworkPath(const std::shared_ptr<Connection>& connection,
+                                     const sockaddr_storage& local_address,
+                                     unsigned int interface_index) override;
+
         void Shutdown() override;
 
         void Close(const std::shared_ptr<Connection>& connection,

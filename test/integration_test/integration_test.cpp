@@ -731,6 +731,30 @@ TEST_CASE("Integration - Connection")
     }
 }
 
+TEST_CASE("Integration - Local network path migration caller errors and disconnected use")
+{
+    auto session_mgr = MakeTestSessionManager();
+    auto server = MakeTestServer(session_mgr);
+    auto [session, callbacks] = MakeTestClient(session_mgr);
+    REQUIRE(session->GetStatus() == Session::Status::kReady);
+
+    sockaddr_storage local{};
+    CHECK_THROWS_AS(session->MigrateLocalNetworkPath(local), std::invalid_argument);
+
+    local.ss_family = AF_INET6;
+    CHECK_THROWS_AS(session->MigrateLocalNetworkPath(local), std::invalid_argument);
+
+    local.ss_family = AF_INET;
+    CHECK_THROWS_AS(session->MigrateLocalNetworkPath(local, std::numeric_limits<unsigned int>::max()),
+                    std::invalid_argument);
+
+    auto server_session = Session::Create(ServerConfig{}, nullptr, nullptr, nullptr, nullptr);
+    CHECK_THROWS_AS(server_session->MigrateLocalNetworkPath(local), std::logic_error);
+
+    session->Disconnect();
+    CHECK_NOTHROW(session->MigrateLocalNetworkPath(local));
+}
+
 TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
 {
     auto session_mgr = MakeTestSessionManager();
