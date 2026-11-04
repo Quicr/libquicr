@@ -568,6 +568,7 @@ namespace quicr {
         void SendPublishDone(const std::shared_ptr<Stream>& stream,
                              std::uint64_t request_id,
                              messages::PublishDoneStatusCode status,
+                             std::uint64_t stream_count,
                              const std::string& reason);
 
         void SendPublishOk(const std::shared_ptr<Stream>& stream, const PublishOkAttributes& attributes);

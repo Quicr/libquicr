@@ -616,15 +616,17 @@ namespace quicr {
     void Session::SendPublishDone(const std::shared_ptr<Stream>& stream,
                                   uint64_t request_id,
                                   messages::PublishDoneStatusCode status,
+                                  std::uint64_t stream_count,
                                   const std::string& reason)
     try {
         QUICR_LOGGER_DEBUG(logger_,
-                           "Sending PUBLISH_DONE to conn_id: {} request_id: {} status: {}",
+                           "Sending PUBLISH_DONE to conn_id: {} request_id: {} status: {} stream_count: {}",
                            current_connection_->GetID(),
                            request_id,
-                           static_cast<uint64_t>(status));
+                           static_cast<uint64_t>(status),
+                           stream_count);
 
-        SendCtrlMsg(stream, ControlMessageType::kPublishDone, status, UintVar(0), AsOwnedBytes(reason));
+        SendCtrlMsg(stream, ControlMessageType::kPublishDone, status, UintVar(stream_count), AsOwnedBytes(reason));
     } catch (const std::exception& e) {
         QUICR_LOGGER_ERROR(logger_, "Caught exception sending PUBLISH_DONE (error={})", e.what());
         // TODO: add error handling in libquicr in calling function
@@ -1294,6 +1296,8 @@ namespace quicr {
                 return;
             }
 
+            track_handler->EndAllSubgroups();
+
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
             if (pub_n_it != pub_ns_it->second.end()) {
                 removed = std::move(pub_n_it->second);
@@ -1313,6 +1317,7 @@ namespace quicr {
                     SendPublishDone(ctrl_stream,
                                     *removed->GetRequestId(),
                                     PublishDoneStatusCode::kSubscriptionEnded,
+                                    removed->publish_track_metrics_.opened_streams,
                                     "Unpublish track");
                 } else {
                     QUICR_LOGGER_INFO(logger_,
@@ -1328,10 +1333,6 @@ namespace quicr {
             // We continue to use the kNotAnnounced state when removing. Might make sense to use kDestroyed instead
             removed->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
         }
-
-        // Close whatever the application left open, so its objects drain rather than the streams
-        // lingering for the life of the connection.
-        track_handler->EndAllSubgroups();
     }
 
     void Session::PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
@@ -2534,6 +2535,7 @@ namespace quicr {
                 SendPublishDone(request_stream,
                                 track_handler->GetRequestId().value(),
                                 messages::PublishDoneStatusCode::kSubscriptionEnded,
+                                track_handler->publish_track_metrics_.opened_streams,
                                 "No publishers");
             }
         }
@@ -3215,7 +3217,7 @@ namespace quicr {
 
                 [[maybe_unused]] const auto status_code =
                   messages::Message::ParseField<messages::PublishDoneStatusCode>(msg_bytes);
-                [[maybe_unused]] const auto stream_count = messages::Message::ParseField<std::uint64_t>(msg_bytes);
+                const auto stream_count = messages::Message::ParseField<std::uint64_t>(msg_bytes);
                 [[maybe_unused]] const auto error_reason = messages::Message::ParseField<Bytes>(msg_bytes);
 
                 auto sub_it = request_handlers.find(*request_id);
@@ -3229,6 +3231,7 @@ namespace quicr {
 
                 if (client_mode_) {
                     if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
+                        h->SetPublishDoneStreamCount(stream_count);
                         h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     }
                     return true;
@@ -3247,6 +3250,7 @@ namespace quicr {
                                   th.track_fullname_hash);
 
                 if (auto h = sub_it->second->Get<SubscribeTrackHandler>()) {
+                    h->SetPublishDoneStreamCount(stream_count);
                     h->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                         callbacks->PublishDoneReceived(GetSharedPtr(), *request_id);

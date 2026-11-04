@@ -120,6 +120,19 @@ namespace quicr {
         constexpr Status GetStatus() const noexcept { return status_; }
 
         /**
+         * @brief Get the Stream Count of the last PUBLISH_DONE received for this subscription
+         *
+         * @details The number of data streams the publisher says it opened.
+         *
+         * @return Stream Count, or nullopt if no PUBLISH_DONE has been received
+         */
+        std::optional<std::uint64_t> GetPublishDoneStreamCount() const
+        {
+            std::lock_guard lock(publish_done_mutex_);
+            return publish_done_stream_count_;
+        }
+
+        /**
          * @brief Set the priority of received data
          *
          * @param priority      Priority value of received data
@@ -428,6 +441,12 @@ namespace quicr {
         StreamBuffer<uint8_t> dgram_buffer_;
 
       private:
+        void SetPublishDoneStreamCount(std::uint64_t stream_count)
+        {
+            std::lock_guard lock(publish_done_mutex_);
+            publish_done_stream_count_ = stream_count;
+        }
+
         Status status_{ Status::kNotSubscribed };
         std::uint8_t subscriber_priority_;
         std::optional<messages::GroupOrder> group_order_;
@@ -442,6 +461,10 @@ namespace quicr {
 
         bool publisher_initiated_{ false };
         bool support_new_group_request_{ false };
+
+        /// Guards publish_done_stream_count_, which the session sets while the application reads it.
+        mutable std::mutex publish_done_mutex_;
+        std::optional<std::uint64_t> publish_done_stream_count_ QUICR_GUARDED_BY(publish_done_mutex_);
 
         friend class Session;
     };

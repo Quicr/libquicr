@@ -3316,6 +3316,110 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
     }
 }
 
+TEST_CASE("Integration - PUBLISH_DONE Stream Count")
+{
+    auto session_mgr = MakeTestSessionManager();
+    // Every scenario below connects its own clients.
+    auto server = MakeTestServer(session_mgr, std::nullopt, 32);
+
+    const std::vector<std::uint8_t> payload(64, 0x5a);
+    const ObjectHeaders headers{ .group_id = 0,
+                                 .object_id = 0,
+                                 .subgroup_id = 0,
+                                 .payload_length = payload.size(),
+                                 .status = ObjectStatus::kAvailable,
+                                 .priority = 3,
+                                 .ttl = 5000,
+                                 .track_mode = TrackMode::kStream };
+
+    // One subgroup stream per group.
+    const auto publish_groups = [&](const std::shared_ptr<PublishTrackHandler>& pub_handler,
+                                    const std::uint64_t nb_groups) {
+        for (std::uint64_t group_id = 0; group_id < nb_groups; group_id++) {
+            ObjectHeaders group_headers = headers;
+            group_headers.group_id = group_id;
+            REQUIRE_EQ(pub_handler->PublishObject(group_headers, payload),
+                       PublishTrackHandler::PublishObjectStatus::kOk);
+        }
+    };
+
+    std::uint8_t next_track = 0;
+    const auto make_track = [&next_track](const std::string& path) {
+        return FullTrackName{ TrackNamespace(std::vector<std::string>{ "publish-done", path }), { next_track++ } };
+    };
+
+    // The server unbinds the handler it bound for a subscribing client.
+    const auto server_ends = [&](const std::string& protocol_scheme, const std::uint64_t nb_streams) {
+        CAPTURE(nb_streams);
+        auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto ftn = make_track("server");
+        const auto track_alias = TrackHash(ftn).track_fullname_hash;
+
+        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        subscriber->SubscribeTrack(sub_handler);
+
+        std::shared_ptr<TestPublishTrackHandler> pub_handler;
+        REQUIRE(WaitFor([&] {
+            pub_handler = server->GetSubscriberPublishHandler(track_alias);
+            return pub_handler != nullptr && pub_handler->CanPublish();
+        }));
+        publish_groups(pub_handler, nb_streams);
+
+        REQUIRE(server->UnbindSubscriberPublishTrack(track_alias, true));
+
+        REQUIRE(WaitFor([&sub_handler] { return sub_handler->GetPublishDoneStreamCount().has_value(); }));
+        CHECK_EQ(*sub_handler->GetPublishDoneStreamCount(), nb_streams);
+    };
+
+    // The server only forwards a client's PUBLISH once someone subscribes to the track.
+    const auto subscribe_first = [&](const std::string& protocol_scheme, const FullTrackName& ftn) {
+        auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        subscriber->SubscribeTrack(sub_handler);
+        REQUIRE(WaitFor([&sub_handler] { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+        return std::make_pair(subscriber, sub_handler);
+    };
+
+    // A publishing client unpublishes its track, which the server receives through PUBLISH.
+    const auto client_ends = [&](const std::string& protocol_scheme, const std::uint64_t nb_streams) {
+        CAPTURE(nb_streams);
+        const auto ftn = make_track("client");
+        const auto track_alias = TrackHash(ftn).track_fullname_hash;
+        const auto subscription = subscribe_first(protocol_scheme, ftn);
+        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+
+        const auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 5000, { 0, 0 });
+        publisher->PublishTrack(pub_handler);
+        REQUIRE(WaitFor([&pub_handler] { return pub_handler->CanPublish(); }));
+
+        const auto sub_handler = server->GetPublisherSubscribeHandler(track_alias);
+        REQUIRE(sub_handler != nullptr);
+        publish_groups(pub_handler, nb_streams);
+
+        publisher->UnpublishTrack(pub_handler);
+
+        REQUIRE(WaitFor([&sub_handler] { return sub_handler->GetPublishDoneStreamCount().has_value(); }));
+        CHECK_EQ(*sub_handler->GetPublishDoneStreamCount(), nb_streams);
+    };
+
+    const auto run_all = [&](const std::string& protocol_scheme) {
+        for (const std::uint64_t nb_streams : { 0, 1, 3 }) {
+            server_ends(protocol_scheme, nb_streams);
+            client_ends(protocol_scheme, nb_streams);
+        }
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        run_all("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        run_all("https");
+    }
+}
+
 TEST_CASE("Integration - Request updates reuse the handler's request stream")
 {
     auto session_mgr = MakeTestSessionManager();

@@ -263,6 +263,9 @@ namespace quicr_test {
         /// @returns The publish track handler the server bound for a subscriber, or nullptr.
         std::shared_ptr<TestPublishTrackHandler> GetSubscriberPublishHandler(std::uint64_t track_alias) const;
 
+        /// @returns The subscribe track handler the server made for a client's PUBLISH, or nullptr.
+        std::shared_ptr<TestSubscribeTrackHandler> GetPublisherSubscribeHandler(std::uint64_t track_alias) const;
+
         void MockStreamClosed(std::uint64_t track_alias,
                               const std::shared_ptr<quicr::Stream>& stream,
                               quicr::StreamClosedFlag flag)
@@ -284,9 +287,12 @@ namespace quicr_test {
          * @details Drives Session::UnbindPublisherTrack, the server-side teardown path, which has no
          *      other caller in this repository.
          *
+         * @param track_alias           Track alias of the subscription
+         * @param send_publish_done     True to send PUBLISH_DONE to the subscriber
+         *
          * @returns True if a bound handler was found and unbound
          */
-        bool UnbindSubscriberPublishTrack(std::uint64_t track_alias);
+        bool UnbindSubscriberPublishTrack(std::uint64_t track_alias, bool send_publish_done = false);
 
         // True = reset, false = FIN, nullopt = not closed.
         std::optional<bool> WasStreamReset(std::uint64_t stream_id) const

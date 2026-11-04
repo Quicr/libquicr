@@ -263,6 +263,7 @@ namespace quicr {
             if (subgroup_it == group_it->second.end()) {
                 is_stream_header_needed = true;
                 stream = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
+                publish_track_metrics_.opened_streams++;
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =

@@ -243,8 +243,17 @@ TestServer::GetSubscriberPublishHandler(const std::uint64_t track_alias) const
     return it == subscribes_.end() ? nullptr : it->second;
 }
 
+std::shared_ptr<TestSubscribeTrackHandler>
+TestServer::GetPublisherSubscribeHandler(const std::uint64_t track_alias) const
+{
+    std::lock_guard lock(state_mutex_);
+
+    const auto it = pub_subscribes_.find(track_alias);
+    return it == pub_subscribes_.end() ? nullptr : it->second;
+}
+
 bool
-TestServer::UnbindSubscriberPublishTrack(const std::uint64_t track_alias)
+TestServer::UnbindSubscriberPublishTrack(const std::uint64_t track_alias, const bool send_publish_done)
 {
     std::shared_ptr<TestPublishTrackHandler> handler;
     std::shared_ptr<quicr::Session> session;
@@ -266,7 +275,7 @@ TestServer::UnbindSubscriberPublishTrack(const std::uint64_t track_alias)
     }
 
     // Called without our lock held, since the session takes its own lock during unbind.
-    session->UnbindPublisherTrack(session->GetConnection()->GetID(), handler, false);
+    session->UnbindPublisherTrack(session->GetConnection()->GetID(), handler, send_publish_done);
 
     return true;
 }

@@ -249,13 +249,21 @@ class TestTransport : public quicr::Transport
     }
     bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
     bool Enqueue(const std::shared_ptr<quicr::Connection>&,
-                 const std::shared_ptr<quicr::Stream>&,
-                 std::shared_ptr<const std::vector<uint8_t>>,
+                 const std::shared_ptr<quicr::Stream>& stream,
+                 std::shared_ptr<const std::vector<uint8_t>> data,
                  uint8_t,
                  uint32_t,
-                 EnqueueFlags) override
+                 EnqueueFlags flags) override
     {
-        return ++enqueue_count != fail_enqueue;
+        if (++enqueue_count == fail_enqueue) {
+            return false;
+        }
+        if (stream) {
+            enqueued.push_back({ stream->GetStreamId(),
+                                 flags.close_stream,
+                                 data && !data->empty() ? std::make_optional(data->front()) : std::nullopt });
+        }
+        return true;
     }
     void EnqueueDatagram(const std::shared_ptr<quicr::Connection>&,
                          std::shared_ptr<const std::vector<uint8_t>>,
@@ -282,12 +290,23 @@ class TestTransport : public quicr::Transport
     }
     std::shared_ptr<quicr::Stream> CreateRequestStream(const std::shared_ptr<quicr::Connection>&) override
     {
-        return nullptr;
+        return std::make_shared<TestStream>(4 * ++created_request_streams);
     }
 
     int enqueue_count{ 0 };
     int fail_enqueue{ -1 };
     int created_streams{ 0 };
+    int created_request_streams{ 0 };
+
+    struct Enqueued
+    {
+        std::uint64_t stream_id;
+        bool close_stream;
+        std::optional<std::uint8_t> first_byte;
+    };
+
+    /// Every accepted enqueue across all streams, in order.
+    std::vector<Enqueued> enqueued;
 
   private:
     void QueueDeferredReply(std::function<void()>&&) override {}
@@ -373,4 +392,58 @@ TEST_CASE("Fetch closure is terminal")
     CHECK(handler->PublishObject(headers, payload) == Status::kFetchClosed);
     CHECK(transport->enqueue_count == attempts);
     CHECK(transport->created_streams == expected_streams);
+}
+
+/// True if PUBLISH_DONE went out on the request stream only after every subgroup stream had its FIN.
+static bool
+PublishDoneFollowsSubgroupFins(const TestTransport& transport, std::uint64_t request_stream_id)
+{
+    const auto& log = transport.enqueued;
+    const auto done = std::find_if(log.begin(), log.end(), [&](const TestTransport::Enqueued& e) {
+        return e.stream_id == request_stream_id &&
+               e.first_byte == static_cast<std::uint8_t>(quicr::messages::ControlMessageType::kPublishDone);
+    });
+    if (done == log.end()) {
+        return false;
+    }
+
+    for (const auto& e : log) {
+        if (e.stream_id == request_stream_id) {
+            continue;
+        }
+        const auto fin = std::find_if(log.begin(), done, [&](const TestTransport::Enqueued& f) {
+            return f.stream_id == e.stream_id && f.close_stream;
+        });
+        if (fin == done) {
+            return false;
+        }
+    }
+    return true;
+}
+
+TEST_CASE("PUBLISH_DONE follows the FIN of every subgroup stream")
+{
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>();
+
+    session->PublishTrack(handler);
+    REQUIRE(transport->created_request_streams == 1);
+    const std::uint64_t request_stream_id = 4;
+
+    // As PUBLISH_OK would.
+    handler->SetStatus(quicr::PublishTrackHandler::Status::kOk);
+
+    // Two groups, so two subgroup streams the application leaves open.
+    quicr::ObjectHeaders headers{};
+    const quicr::Bytes payload{ 1 };
+    headers.payload_length = payload.size();
+    REQUIRE(handler->PublishObject(headers, payload) == quicr::PublishTrackHandler::PublishObjectStatus::kOk);
+    headers.group_id = 1;
+    REQUIRE(handler->PublishObject(headers, payload) == quicr::PublishTrackHandler::PublishObjectStatus::kOk);
+    REQUIRE(transport->created_streams == 2);
+
+    session->UnpublishTrack(handler);
+
+    CHECK(PublishDoneFollowsSubgroupFins(*transport, request_stream_id));
 }
