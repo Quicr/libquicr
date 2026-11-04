@@ -397,6 +397,7 @@ namespace quicr {
              *      it detects and rejects on send.
              */
             std::shared_ptr<Stream> stream;
+            messages::StreamHeaderProperties properties;
             uint64_t last_group_id{ 0 };
             uint64_t last_subgroup_id{ 0 };
             std::optional<uint64_t> last_object_id{ std::nullopt };

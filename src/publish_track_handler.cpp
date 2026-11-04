@@ -248,6 +248,7 @@ namespace quicr {
         uint64_t group_id_delta{ 0 };
         uint64_t object_id_delta{ 0 };
         std::shared_ptr<Stream> stream;
+        std::optional<messages::StreamHeaderProperties> subgroup_properties;
 
         if (default_track_mode_ == TrackMode::kStream) {
             // If this is the first time this group/subgroup has been seen, then a new stream is required
@@ -261,15 +262,22 @@ namespace quicr {
 
             subgroup_it = group_it->second.find(object_headers.subgroup_id);
             if (subgroup_it == group_it->second.end()) {
+                const auto properties = stream_mode ? *stream_mode : GetStreamMode().value();
                 is_stream_header_needed = true;
                 stream = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
-                auto [it, _] =
-                  subgroup_map.emplace(object_headers.subgroup_id,
-                                       StreamInfo{ stream, object_headers.group_id, object_headers.subgroup_id });
+                auto [it, _] = subgroup_map.emplace(
+                  object_headers.subgroup_id,
+                  StreamInfo{ stream, properties, object_headers.group_id, object_headers.subgroup_id });
                 subgroup_it = std::move(it);
             }
+
+            const auto& properties = subgroup_it->second.properties;
+            if (stream_mode && stream_mode->GetType() != properties.GetType()) {
+                throw std::invalid_argument("Cannot change framing on an open subgroup stream");
+            }
+            subgroup_properties.emplace(properties);
 
             if (subgroup_it->second.last_object_id.has_value()) {
                 group_id_delta = subgroup_it->second.last_group_id > object_headers.group_id
@@ -326,7 +334,7 @@ namespace quicr {
                 // use stream per subgroup, group change
                 eflags.use_reliable = true;
 
-                const auto properties = stream_mode.value_or(*GetStreamMode());
+                const auto& properties = subgroup_properties.value();
                 if (is_stream_header_needed) {
                     messages::StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.properties.emplace(properties);
