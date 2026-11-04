@@ -3332,9 +3332,15 @@ TEST_CASE("Integration - PUBLISH_DONE Stream Count")
                                  .ttl = 5000,
                                  .track_mode = TrackMode::kStream };
 
-    // Opening any subgroup stream makes the count unknown, since the exact number is not sent.
-    const auto expected_count = [](const bool opens_stream) {
-        return opens_stream ? messages::kPublishDoneStreamCountUnknown : std::uint64_t{ 0 };
+    // One subgroup stream per group.
+    const auto publish_groups = [&](const std::shared_ptr<PublishTrackHandler>& pub_handler,
+                                    const std::uint64_t nb_groups) {
+        for (std::uint64_t group_id = 0; group_id < nb_groups; group_id++) {
+            ObjectHeaders group_headers = headers;
+            group_headers.group_id = group_id;
+            REQUIRE_EQ(pub_handler->PublishObject(group_headers, payload),
+                       PublishTrackHandler::PublishObjectStatus::kOk);
+        }
     };
 
     std::uint8_t next_track = 0;
@@ -3343,8 +3349,8 @@ TEST_CASE("Integration - PUBLISH_DONE Stream Count")
     };
 
     // The server unbinds the handler it bound for a subscribing client.
-    const auto server_ends = [&](const std::string& protocol_scheme, const bool opens_stream) {
-        CAPTURE(opens_stream);
+    const auto server_ends = [&](const std::string& protocol_scheme, const std::uint64_t nb_streams) {
+        CAPTURE(nb_streams);
         auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
         const auto ftn = make_track("server");
         const auto track_alias = TrackHash(ftn).track_fullname_hash;
@@ -3357,14 +3363,12 @@ TEST_CASE("Integration - PUBLISH_DONE Stream Count")
             pub_handler = server->GetSubscriberPublishHandler(track_alias);
             return pub_handler != nullptr && pub_handler->CanPublish();
         }));
-        if (opens_stream) {
-            REQUIRE_EQ(pub_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
-        }
+        publish_groups(pub_handler, nb_streams);
 
         REQUIRE(server->UnbindSubscriberPublishTrack(track_alias, true));
 
         REQUIRE(WaitFor([&sub_handler] { return sub_handler->GetPublishDoneStreamCount().has_value(); }));
-        CHECK_EQ(*sub_handler->GetPublishDoneStreamCount(), expected_count(opens_stream));
+        CHECK_EQ(*sub_handler->GetPublishDoneStreamCount(), nb_streams);
     };
 
     // The server only forwards a client's PUBLISH once someone subscribes to the track.
@@ -3377,8 +3381,8 @@ TEST_CASE("Integration - PUBLISH_DONE Stream Count")
     };
 
     // A publishing client unpublishes its track, which the server receives through PUBLISH.
-    const auto client_ends = [&](const std::string& protocol_scheme, const bool opens_stream) {
-        CAPTURE(opens_stream);
+    const auto client_ends = [&](const std::string& protocol_scheme, const std::uint64_t nb_streams) {
+        CAPTURE(nb_streams);
         const auto ftn = make_track("client");
         const auto track_alias = TrackHash(ftn).track_fullname_hash;
         const auto subscription = subscribe_first(protocol_scheme, ftn);
@@ -3390,52 +3394,19 @@ TEST_CASE("Integration - PUBLISH_DONE Stream Count")
 
         const auto sub_handler = server->GetPublisherSubscribeHandler(track_alias);
         REQUIRE(sub_handler != nullptr);
-        if (opens_stream) {
-            REQUIRE_EQ(pub_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
-        }
+        publish_groups(pub_handler, nb_streams);
 
         publisher->UnpublishTrack(pub_handler);
 
         REQUIRE(WaitFor([&sub_handler] { return sub_handler->GetPublishDoneStreamCount().has_value(); }));
-        CHECK_EQ(*sub_handler->GetPublishDoneStreamCount(), expected_count(opens_stream));
-    };
-
-    // A handler published again after an earlier subscription opened a stream.
-    const auto client_republishes = [&](const std::string& protocol_scheme) {
-        const auto ftn = make_track("republish");
-        const auto track_alias = TrackHash(ftn).track_fullname_hash;
-        const auto subscription = subscribe_first(protocol_scheme, ftn);
-        auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-        const auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 5000, { 0, 0 });
-
-        publisher->PublishTrack(pub_handler);
-        REQUIRE(WaitFor([&pub_handler] { return pub_handler->CanPublish(); }));
-        const auto first = server->GetPublisherSubscribeHandler(track_alias);
-        REQUIRE(first != nullptr);
-        REQUIRE_EQ(pub_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
-        publisher->UnpublishTrack(pub_handler);
-        REQUIRE(WaitFor([&first] { return first->GetPublishDoneStreamCount().has_value(); }));
-        REQUIRE_EQ(*first->GetPublishDoneStreamCount(), messages::kPublishDoneStreamCountUnknown);
-
-        publisher->PublishTrack(pub_handler);
-        REQUIRE(WaitFor([&pub_handler] { return pub_handler->CanPublish(); }));
-        std::shared_ptr<TestSubscribeTrackHandler> second;
-        REQUIRE(WaitFor([&] {
-            second = server->GetPublisherSubscribeHandler(track_alias);
-            return second != nullptr && second != first;
-        }));
-        publisher->UnpublishTrack(pub_handler);
-
-        REQUIRE(WaitFor([&second] { return second->GetPublishDoneStreamCount().has_value(); }));
-        CHECK_EQ(*second->GetPublishDoneStreamCount(), 0);
+        CHECK_EQ(*sub_handler->GetPublishDoneStreamCount(), nb_streams);
     };
 
     const auto run_all = [&](const std::string& protocol_scheme) {
-        for (const bool opens_stream : { false, true }) {
-            server_ends(protocol_scheme, opens_stream);
-            client_ends(protocol_scheme, opens_stream);
+        for (const std::uint64_t nb_streams : { 0, 1, 3 }) {
+            server_ends(protocol_scheme, nb_streams);
+            client_ends(protocol_scheme, nb_streams);
         }
-        client_republishes(protocol_scheme);
     };
 
     SUBCASE("Raw QUIC")

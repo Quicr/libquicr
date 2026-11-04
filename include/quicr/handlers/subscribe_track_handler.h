@@ -122,8 +122,7 @@ namespace quicr {
         /**
          * @brief Get the Stream Count of the last PUBLISH_DONE received for this subscription
          *
-         * @details The number of data streams the publisher says it opened, or 2^62 - 1
-         *      (`messages::kPublishDoneStreamCountUnknown`) when it does not know the exact number.
+         * @details The number of data streams the publisher says it opened.
          *
          * @return Stream Count, or nullopt if no PUBLISH_DONE has been received
          */

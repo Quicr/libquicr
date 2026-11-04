@@ -417,23 +417,6 @@ namespace quicr {
         // Update status without firing the callback.
         std::optional<Status> UpdateStatus(Status status) noexcept;
 
-        /**
-         * @brief Reset the state that belongs to one subscription.
-         *
-         * @details The session calls this wherever it binds the handler to a subscription, so a
-         *      handler reused across subscriptions starts fresh rather than carrying state from an
-         *      earlier one. Today that state is the count of opened subgroup streams.
-         */
-        void BeginSubscription() noexcept { opened_subgroup_streams_.store(0, std::memory_order_release); }
-
-        /// Number of subgroup streams opened for the current subscription.
-        std::uint64_t OpenedSubgroupStreams() const noexcept
-        {
-            return opened_subgroup_streams_.load(std::memory_order_acquire);
-        }
-
-        std::atomic<std::uint64_t> opened_subgroup_streams_{ 0 };
-
         friend class Session;
     };
 

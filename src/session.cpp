@@ -616,14 +616,9 @@ namespace quicr {
     void Session::SendPublishDone(const std::shared_ptr<Stream>& stream,
                                   uint64_t request_id,
                                   messages::PublishDoneStatusCode status,
-                                  std::uint64_t opened_subgroup_streams,
+                                  std::uint64_t stream_count,
                                   const std::string& reason)
     try {
-        // draft-ietf-moq-transport-18 section 10.11: 0 when no stream was opened, otherwise the exact
-        // count or 2^62 - 1. The exact count is not sent because a stream can still open while the
-        // track is being unpublished, which would make it too low.
-        const std::uint64_t stream_count = opened_subgroup_streams == 0 ? 0 : messages::kPublishDoneStreamCountUnknown;
-
         QUICR_LOGGER_DEBUG(logger_,
                            "Sending PUBLISH_DONE to conn_id: {} request_id: {} status: {} stream_count: {}",
                            current_connection_->GetID(),
@@ -1301,9 +1296,6 @@ namespace quicr {
                 return;
             }
 
-            // Close whatever the application left open, so its objects drain rather than the streams
-            // lingering for the life of the connection. This comes first because PUBLISH_DONE must not
-            // be sent until every stream for the subscription is closed.
             track_handler->EndAllSubgroups();
 
             auto pub_n_it = pub_ns_it->second.find(th.track_name_hash);
@@ -1325,7 +1317,7 @@ namespace quicr {
                     SendPublishDone(ctrl_stream,
                                     *removed->GetRequestId(),
                                     PublishDoneStatusCode::kSubscriptionEnded,
-                                    removed->OpenedSubgroupStreams(),
+                                    removed->publish_track_metrics_.opened_streams,
                                     "Unpublish track");
                 } else {
                     QUICR_LOGGER_INFO(logger_,
@@ -1357,7 +1349,6 @@ namespace quicr {
         std::lock_guard _(state_mutex_);
 
         track_handler->SetRequestId(GetNextRequestID());
-        track_handler->BeginSubscription();
 
         if (!track_handler->GetTrackAlias().has_value()) {
             track_handler->SetTrackAlias(th.track_fullname_hash);
@@ -2475,7 +2466,6 @@ namespace quicr {
             }
 
             track_handler->SetRequestId(request_id);
-            track_handler->BeginSubscription();
 
             request_handlers[request_id] = track_handler;
 
@@ -2545,7 +2535,7 @@ namespace quicr {
                 SendPublishDone(request_stream,
                                 track_handler->GetRequestId().value(),
                                 messages::PublishDoneStatusCode::kSubscriptionEnded,
-                                track_handler->OpenedSubgroupStreams(),
+                                track_handler->publish_track_metrics_.opened_streams,
                                 "No publishers");
             }
         }
@@ -2692,7 +2682,6 @@ namespace quicr {
                       ResponseStream(request_id), request_id, ptd->GetTrackAlias().value(), default_response);
 
                     ptd->SetRequestId(request_id);
-                    ptd->BeginSubscription();
                     ptd->SetTrackAlias(ptd->GetTrackAlias().value());
                     ptd->SetStatus(PublishTrackHandler::Status::kOk);
 
