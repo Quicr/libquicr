@@ -364,57 +364,6 @@ TEST_CASE("UnsubscribeNamespace cancels the request stream")
     transport->closed_stream.reset();
     session->UnsubscribeNamespace(handler);
     CHECK_FALSE(transport->closed_stream);
-}
-
-class TestSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
-{
-  public:
-    TestSubscribeNamespaceHandler()
-      : SubscribeNamespaceHandler({}, Mode::kNamespaces)
-    {
-    }
-
-    using SubscribeNamespaceHandler::RequestOkReceived;
-
-    void StatusChanged(Status status) override
-    {
-        CHECK(GetStatus() == status);
-        statuses.push_back(status);
-    }
-
-    std::vector<Status> statuses;
-};
-
-TEST_CASE("UnsubscribeNamespace cancels the request stream")
-{
-    auto transport = std::make_shared<TestTransport>();
-    auto session = CreateTestSession(transport);
-    auto handler = std::make_shared<TestSubscribeNamespaceHandler>();
-    session->SubscribeNamespace(handler);
-    SUBCASE("Accepted subscription")
-    {
-        handler->RequestOkReceived({});
-        REQUIRE(handler->GetStatus() == quicr::SubscribeNamespaceHandler::Status::kOk);
-    }
-    SUBCASE("Pending subscription") {}
-    handler->statuses.clear();
-    const auto stream_id = handler->GetRequestStreamId();
-    REQUIRE(stream_id);
-
-    session->UnsubscribeNamespace(handler);
-
-    REQUIRE(transport->closed_stream);
-    CHECK(transport->closed_stream->GetStreamId() == *stream_id);
-    CHECK(transport->close_operation == quicr::StreamOperation::kCancel);
-    CHECK(handler->GetStatus() == quicr::SubscribeNamespaceHandler::Status::kNotSubscribed);
-    CHECK_FALSE(handler->GetRequestId());
-    CHECK_FALSE(handler->GetRequestStreamId());
-    REQUIRE(handler->statuses.size() == 1);
-    CHECK(handler->statuses.front() == quicr::SubscribeNamespaceHandler::Status::kNotSubscribed);
-
-    transport->closed_stream.reset();
-    session->UnsubscribeNamespace(handler);
-    CHECK_FALSE(transport->closed_stream);
     CHECK(handler->statuses.size() == 1);
 }
 

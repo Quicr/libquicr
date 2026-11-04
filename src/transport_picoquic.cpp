@@ -1312,6 +1312,14 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
             state->connection->wt_authority = server.host_or_ip + ":" + std::to_string(server.port);
             const auto& webtransport_path = server.web_transport_options->path;
 
+            const auto fail_webtransport = [&](const char* message, int error) {
+                QUICR_LOGGER_ERROR(logger, "{} ret: {}", message, error);
+                CloseInternal(state->connection, AppReasonForClose::kInternalError);
+                state->connection.reset();
+                notify_caller(1);
+                return error;
+            };
+
             QUICR_LOGGER_INFO(logger,
                               "StartClient:Webtransport Connect: Control Stream ID: {}, "
                               "authority: {}, path: {}",
@@ -1329,17 +1337,13 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
                                  this,
                                  quicr::format("\"{}\"", kMoqtAlpn).c_str());
             if (ret != 0) {
-                QUICR_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
-                notify_caller(1);
-                return ret;
+                return fail_webtransport("Failed to initiate WebTransport connect", ret);
             }
 
             ret = picoquic_start_client_cnx(cnx);
 
             if (ret != 0) {
-                QUICR_LOGGER_ERROR(logger, "Failed to initiate WebTransport client connection");
-                notify_caller(1);
-                return ret;
+                return fail_webtransport("Failed to initiate WebTransport client connection", ret);
             }
 
             picoquic_connection_id_t icid = picoquic_get_initial_cnxid(cnx);

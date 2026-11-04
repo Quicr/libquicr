@@ -260,11 +260,9 @@ namespace quicr {
 
         std::atomic<Status> status_; ///< Current lifecycle state.
 
-        mutable std::mutex delegate_mutex_; ///< Protects access to the connection delegate.
-
         mutable std::mutex mutex_;
 
-        /// @brief Non-owning event delegate guarded by the delegate mutex.
+        /// @brief Non-owning event delegate guarded by the connection mutex.
         std::weak_ptr<Delegate> delegate_ QUICR_GUARDED_BY(mutex_);
 
         bool setup_sent_ QUICR_GUARDED_BY(mutex_){ false };

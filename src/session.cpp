@@ -2962,17 +2962,23 @@ namespace quicr {
                         // TODO: Make this require a new group request
                         auto filter = subscribe->GetFilter();
                         if (const auto delivered = subscribe->GetLatestDeliveredLocation()) {
-                            // Resume at the last delivered group. The current wire filter cannot name
-                            // an object within a group, so migration is intentionally at-least-once:
-                            // the remainder of this group may overlap, but earlier groups do not.
                             if (std::holds_alternative<std::monostate>(filter)) {
                                 filter = messages::SubscriptionFilter{
-                                    .range = { .start = delivered->group, .end = std::nullopt },
+                                    .type = messages::SubscriptionFilterType::kAbsoluteStart,
+                                    .start_location = *delivered,
                                 };
                             } else if (auto* location = std::get_if<messages::SubscriptionFilter>(&filter)) {
-                                location->range.start = std::max(location->range.start, delivered->group);
-                                if (location->range.end && *location->range.end < location->range.start) {
-                                    location->range.end = location->range.start;
+                                const auto end_group =
+                                  location->type == messages::SubscriptionFilterType::kAbsoluteRange
+                                    ? std::optional{ location->start_location.group + location->end_group_delta }
+                                    : std::nullopt;
+                                location->type = end_group ? messages::SubscriptionFilterType::kAbsoluteRange
+                                                           : messages::SubscriptionFilterType::kAbsoluteStart;
+                                location->start_location = std::max(location->start_location, *delivered);
+                                if (end_group) {
+                                    location->end_group_delta = *end_group > location->start_location.group
+                                                                  ? *end_group - location->start_location.group
+                                                                  : 0;
                                 }
                             }
                         }

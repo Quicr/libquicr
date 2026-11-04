@@ -91,7 +91,7 @@ namespace quicr {
         /**
          * @brief Sets or clears the connection-scoped request ID.
          * @param request_id Request ID assigned by the session, or `std::nullopt` when unbound.
-         * @note This setter is not synchronized; it is primarily for session state management.
+         * @note Thread-safe with request-stream installation and removal.
          */
         void SetRequestId(std::optional<uint64_t> request_id)
         {
