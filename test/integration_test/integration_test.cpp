@@ -191,7 +191,7 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
                                 const uint32_t ttl,
                                 const StatusCallback on_status,
                                 const bool support_dynamic_groups = true)
-      : PublishTrackHandler(ftn, TrackMode::kStream, priority, ttl, std::nullopt, { 0, 0 })
+      : PublishTrackHandler(ftn, TrackMode::kStream, priority, priority, ttl, std::nullopt, { 0, 0 })
       , on_status_(std::move(on_status))
     {
         support_new_group_request_ = support_dynamic_groups;
@@ -744,7 +744,7 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
     ClientConfig config;
     config.endpoint_id = "client";
     config.connect_uri = "moq://" + kIp + ":" + std::to_string(GetTestPort()) + "/relay";
-    auto tick_service = std::make_shared<timeq::threaded_tick_service>(config.tick_service_sleep_delay_us);
+    auto tick_service = quicr::Clock::Create(config.tick_service_sleep_delay_us);
     auto transport = Transport::MakeClientTransport(
       { kIp, GetTestPort(), TransportProtocol::kQuic, "/relay" }, config.transport_config, tick_service, nullptr);
 
@@ -837,6 +837,78 @@ TEST_CASE("Integration - Subscribe")
     }
 }
 
+TEST_CASE("Integration - Publisher subscriber and transport priorities remain distinct")
+{
+    constexpr std::uint8_t publisher_priority = 23;
+    constexpr std::uint8_t subscriber_priority = 71;
+    constexpr std::uint8_t transport_priority = 11;
+
+    auto test_priorities = [&](const std::string& protocol_scheme, TrackMode track_mode) {
+        auto session_mgr = MakeTestSessionManager();
+        auto server = MakeTestServer(session_mgr);
+        auto [subscriber, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "priorities", "distinct" }), { 1 } };
+        auto subscribe_handler = TestSubscribeHandler::Create(ftn, subscriber_priority, std::nullopt);
+
+        std::promise<TestServer::SubscribeDetails> subscribe_promise;
+        auto subscribe_future = subscribe_promise.get_future();
+        server->SetSubscribePromise(std::move(subscribe_promise));
+        subscriber->SubscribeTrack(subscribe_handler);
+        REQUIRE(subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(subscribe_future.get().subscribe_attributes.priority, subscriber_priority);
+        REQUIRE(WaitFor([&]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        auto publish_handler = server->GetSubscriberPublishHandler(TrackHash(ftn).track_fullname_hash);
+        REQUIRE(publish_handler != nullptr);
+        publish_handler->SetDefaultTrackMode(track_mode);
+        publish_handler->SetPublisherPriority(publisher_priority);
+        publish_handler->SetPublishObjectPriority(transport_priority);
+        const Bytes payload{ 0xAA, 0xBB, 0xCC };
+        const ObjectHeaders headers{ .group_id = 1, .object_id = 0, .payload_length = payload.size() };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+
+        // Observe the transport's enqueue state, rather than just the handler's configured priority.
+        if (track_mode == TrackMode::kStream) {
+            auto stream = std::dynamic_pointer_cast<PicoQuicStream>(publish_handler->GetSubgroupStream(1, 0));
+            REQUIRE(stream != nullptr);
+            std::lock_guard lock(stream->tx_mutex);
+            CHECK_EQ(stream->priority, transport_priority);
+        } else {
+            auto session = publish_handler->GetSession().lock();
+            REQUIRE(session != nullptr);
+            auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(session->GetConnection());
+            REQUIRE(connection != nullptr);
+            // Only this thread publishes datagrams on this connection.
+            CHECK_EQ(connection->dgram_priority, std::optional<std::uint8_t>{ transport_priority });
+        }
+
+        REQUIRE(WaitFor([&]() { return subscribe_handler->GetReceivedCount() == 1; }));
+        const auto objects = subscribe_handler->GetReceivedObjects();
+        REQUIRE_EQ(objects.size(), 1);
+        CHECK_EQ(objects.front().priority, std::optional<std::uint8_t>{ publisher_priority });
+        CHECK_EQ(objects.front().track_mode, std::optional<TrackMode>{ track_mode });
+        CHECK_EQ(objects.front().data, payload);
+        subscriber->UnsubscribeTrack(subscribe_handler);
+    };
+
+    SUBCASE("Raw QUIC subgroup")
+    {
+        test_priorities("moq", TrackMode::kStream);
+    }
+    SUBCASE("Raw QUIC datagram")
+    {
+        test_priorities("moq", TrackMode::kDatagram);
+    }
+    SUBCASE("WebTransport subgroup")
+    {
+        test_priorities("https", TrackMode::kStream);
+    }
+    SUBCASE("WebTransport datagram")
+    {
+        test_priorities("https", TrackMode::kDatagram);
+    }
+}
+
 TEST_CASE("Integration - Subscribe rejection preserves rendezvous error codes")
 {
     auto test_error = [](const std::string& protocol_scheme) {
@@ -879,7 +951,7 @@ TEST_CASE("Integration - Datagram object roundtrip")
         auto [subscriber, subscriber_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "datagram", "roundtrip" }), { 1 } };
-        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kDatagram, 3, 5000, { 0, 0 });
+        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kDatagram, 3, 3, 5000, { 0, 0 });
         publisher->PublishTrack(publish_handler);
         REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
 
@@ -915,7 +987,7 @@ TEST_CASE("Integration - Datagram object roundtrip")
             CHECK_EQ(object.group_id, 10 + i);
             CHECK_EQ(object.object_id, 20 + i);
             CHECK_EQ(object.status, ObjectStatus::kAvailable);
-            CHECK_EQ(object.priority, 7);
+            CHECK_EQ(object.priority, std::optional<std::uint8_t>{ 3 });
             CHECK_EQ(object.track_mode, TrackMode::kDatagram);
             CHECK_EQ(object.extensions, extensions);
             CHECK_EQ(object.data, (Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 }));
@@ -1402,7 +1474,7 @@ TEST_CASE("Integration - Cancelling a subgroup")
         subscribe_future.get();
 
         // Pub.
-        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 1000, { 0, 0 });
         publisher_client->PublishTrack(pub_handler);
         REQUIRE(WaitFor([&] { return pub_handler->CanPublish(); }));
 
@@ -1623,7 +1695,7 @@ TEST_CASE("Integration - Handlers with no transport")
 
     // Publish.
     {
-        const auto handler = PublishTrackHandler::Create(FullTrackName(), TrackMode::kStream, 0, 0, { 0, 0 });
+        const auto handler = PublishTrackHandler::Create(FullTrackName(), TrackMode::kStream, 0, 0, 0, { 0, 0 });
         ObjectHeaders headers = { .group_id = 0,
                                   .object_id = 0,
                                   .payload_length = 1,
@@ -1658,7 +1730,7 @@ TEST_CASE("Group ID Gap")
         ftn.name = { 1, 2, 3 };
 
         // Pub.
-        const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500, { 0, 0 });
+        const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 0, 500, { 0, 0 });
         session->PublishTrack(pub);
 
         // Wait for publisher to be ready
@@ -2016,7 +2088,7 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
         const bool ns_ok =
           WaitFor([&ns_handler]() { return ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; });
         REQUIRE(ns_ok);
-        const auto publish = PublishTrackHandler::Create(existing_track, TrackMode::kStream, 10, 5000, { 0, 0 });
+        const auto publish = PublishTrackHandler::Create(existing_track, TrackMode::kStream, 10, 10, 5000, { 0, 0 });
         publisher->PublishTrack(publish);
 
         // Client should receive matched PUBLISH for existing track.
@@ -2120,7 +2192,7 @@ TEST_CASE("Integration - Announce Flow")
         const FullTrackName ftn{ prefix, quicr::Bytes{ name.begin(), name.end() } };
 
         std::weak_ptr<PublishTrackHandler> w_pub_handler;
-        auto pub_h = TestPublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 5000, { 0, 0 });
+        auto pub_h = TestPublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 1, 5000, { 0, 0 });
         REQUIRE_NOTHROW(w_pub_handler = pub_h);
 
         session->PublishTrack(pub_h);
@@ -2220,7 +2292,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
                               .object_id = 0,
                               .subgroup_id = 0,
                               .payload_length = 1,
-                              .priority = 5,
+                              .priority = 4,
                               .track_mode = TrackMode::kStream };
         cached[0].payload = { 0 };
         cached[1].headers = cached[0].headers;
@@ -2230,13 +2302,13 @@ TEST_CASE("Integration - Fetch object roundtrip")
                               .object_id = 3,
                               .subgroup_id = 1,
                               .payload_length = 0,
-                              .priority = 7,
+                              .priority = 4,
                               .track_mode = TrackMode::kStream };
         cached[3].headers = { .group_id = 102,
                               .object_id = 0,
                               .subgroup_id = 1,
                               .payload_length = 1,
-                              .priority = 7,
+                              .priority = 4,
                               .track_mode = TrackMode::kStream };
         cached[3].payload = { 2 };
         cached[4].headers = { .group_id = 102,
@@ -2257,7 +2329,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
 
         server->SetFetchResponseData(cached);
 
-        auto fetch_handler = TestFetchTrackHandler::Create(ftn, 0, { 100, 0 }, { 103, std::nullopt });
+        auto fetch_handler = TestFetchTrackHandler::Create(ftn, 4, { 100, 0 }, { 103, std::nullopt });
 
         session_mgr.AddHandler(session, fetch_handler);
 
@@ -2355,7 +2427,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         REQUIRE(sub_ready);
 
         // Create publisher with stream mode (explicit subgroup ID)
-        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 1000, { 0, 0 });
         publisher_session->PublishTrack(pub_handler);
 
         // Wait for publisher to be ready
@@ -2557,7 +2629,7 @@ TEST_CASE("Integration - Small data callbacks assemble")
 
     // Pub.
     const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "small", "callbacks" }), { 1 } };
-    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 5000, { 0, 0 });
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 5000, { 0, 0 });
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
@@ -2599,7 +2671,7 @@ TEST_CASE("Integration - A forwarding subscriber is given subgroup bytes rather 
     REQUIRE(
       WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 10'000, { 0, 0 });
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
@@ -2676,7 +2748,7 @@ TEST_CASE("Integration - A forwarded subgroup framed from its first object is st
     REQUIRE(
       WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 10'000, { 0, 0 });
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
@@ -2727,7 +2799,7 @@ TEST_CASE("Integration - Invalid stream type is a PROTOCOL_VIOLATION")
     REQUIRE(
       WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 10'000, { 0, 0 });
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
@@ -2784,7 +2856,7 @@ TEST_CASE("Integration - Failed publish does not create subgroup state")
     subscriber->SubscribeTrack(sub_handler);
     REQUIRE(WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-    auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+    auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 1000, { 0, 0 });
     publisher->PublishTrack(pub_handler);
     REQUIRE(WaitFor([&pub_handler]() { return pub_handler->CanPublish(); }));
 
@@ -2866,7 +2938,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         ftn.name = { 0x01 };
 
         // Publisher.
-        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 1000, { 0, 0 });
         publisher_session->PublishTrack(pub_handler);
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
@@ -3311,7 +3383,7 @@ TEST_CASE("Integration - Stream data is delivered before its FIN callback")
     REQUIRE(
       WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 10'000, { 0, 0 });
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
@@ -3352,7 +3424,7 @@ TEST_CASE("Integration - Subscription subgroup close")
         REQUIRE(WaitFor(
           [&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 10'000, { 0, 0 });
         publisher->PublishTrack(publish_handler);
         REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 

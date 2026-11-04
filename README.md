@@ -4,6 +4,7 @@ libquicr
 [![Ubuntu](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml)
 [![macOS](https://github.com/Quicr/libquicr/actions/workflows/macos.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/macos.yml)
 [![Windows](https://github.com/Quicr/libquicr/actions/workflows/windows.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/windows.yml)
+[![Android](https://github.com/Quicr/libquicr/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/android.yml)
 
 [![REUSE status](https://api.reuse.software/badge/github.com/fsfe/reuse-action)](https://api.reuse.software/info/github.com/fsfe/reuse-action)
 [![REUSE Compliance](https://github.com/Quicr/libquicr/actions/workflows/reuse.yaml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/reuse.yaml)
@@ -17,7 +18,7 @@ It provides APIs for client and server endpoints, including publishers, subscrib
 ## Navigation
 
 * [Requirements](#requirements)
-  * [Tools](#tools)
+  * [Build tools](#build-tools)
   * [Ubuntu](#ubuntu-2204-jammy)
   * [Debian](#debian-bookworm)
   * [Apple/Mac](#applemac)
@@ -29,6 +30,7 @@ It provides APIs for client and server endpoints, including publishers, subscrib
     * [OpenSSL-compatible providers](#openssl-compatible-providers)
     * [BoringSSL](#boringssl)
     * [Mbed TLS](#mbed-tls)
+* [Command-line tools](#command-line-tools)
 * [CMake options](#cmake-options)
 * [Make](#make)
 * [C Bridge Target](#c-bridge-target)
@@ -39,7 +41,7 @@ It provides APIs for client and server endpoints, including publishers, subscrib
 
 ## Requirements
 
-### Tools
+### Build tools
 
 * CMake 3.16 or newer
 * A C++20 compiler:
@@ -91,13 +93,15 @@ External TLS backends are optional and remain under the consuming application's 
 `cmake/CPM.cmake` first downloads a pinned CPM release and checks it against a recorded SHA-256,
 and each fetched dependency is then pinned to its own tag or commit:
 
-| Dependency | Declared in |
-| --- | --- |
-| picoquic, picotls, timeq | `cmake/QuicrDependencies.cmake` |
-| fmt | `cmake/QuicrFormat.txt` |
-| doctest | `test/CMakeLists.txt` |
-| Google Benchmark | `benchmark/CMakeLists.txt` |
-| nlohmann/json, sframe, spdlog | `examples/qclient/CMakeLists.txt` |
+| Dependency | Purpose | Declared in |
+| --- | --- | --- |
+| [picoquic](https://github.com/private-octopus/picoquic) | QUIC transport | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
+| [picotls](https://github.com/Quicr/picotls) | TLS 1.3 implementation | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
+| [timeq](https://github.com/Quicr/timeq) | Timed task scheduling | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
+| [fmt](https://github.com/fmtlib/fmt) | Formatting fallback when `std::format` is unavailable | [`cmake/QuicrFormat.cmake`](cmake/QuicrFormat.cmake) |
+
+Optional tests, benchmarks, tools, and examples may fetch additional dependencies. Their
+dependencies are documented alongside those targets.
 
 ### Caching dependency sources
 
@@ -246,6 +250,27 @@ CMake searches standard installation paths. For an in-tree or non-standard build
 libquicr never fetches Mbed TLS. The consuming application is responsible for selecting, updating,
 and supplying it.
 
+## Command-line tools
+
+The [`tools`](tools/README.md) directory contains utilities for testing and debugging
+MoQ networking. It is separate from [`examples`](examples/README.md), which contains small programs
+focused on demonstrating individual APIs.
+
+The available tools are:
+
+- `moq-cli`, an interactive client for publishing, subscribing, fetching, and protocol test
+  scenarios.
+- `moq-capture`, a client for recording track objects and replaying recorded data.
+
+Configure and build the tools with:
+
+```bash
+cmake -B build -DBUILD_TESTING=ON -DQUICR_BUILD_TOOLS=ON
+cmake --build build
+```
+
+See the [`tools` documentation](tools/README.md) for usage.
+
 ## CMake options
 
 libquicr provides CMake options for selecting build targets and optional features. For example,
@@ -259,14 +284,16 @@ Build targets:
 
 * `QUICR_BUILD_C_BRIDGE` — build the C API bridge.
 * `QUICR_BUILD_EXAMPLES` — build examples.
+* `QUICR_BUILD_TOOLS` — build testing and debugging tools.
 * `QUICR_BUILD_TESTS` — build the test suite.
 * `QUICR_BUILD_BENCHMARKS` — build benchmarks.
 * `QUICR_BUILD_FUZZ` — build Clang fuzzing targets.
 
 Tests, benchmarks, and the C Bridge default to `ON` for a standalone build and `OFF` when libquicr
-is included by another CMake project. Examples and fuzzers default to `OFF`. When both the C Bridge
-and examples are enabled, the C Bridge examples are built automatically. `BUILD_TESTING=ON` is
-also required for the test suite, benchmarks, fuzzers, and C++ examples.
+is included by another CMake project. Tools, examples, and fuzzers default to `OFF`. When both the
+C Bridge and examples are enabled, the C Bridge examples are built automatically.
+`BUILD_TESTING=ON` is also required for the test suite, benchmarks, fuzzers, tools, and C++
+examples.
 
 Library configuration:
 

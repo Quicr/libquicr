@@ -12,16 +12,13 @@
 #include <memory>
 #include <mutex>
 
-namespace timeq {
-    struct tick_service;
-}
-
 namespace quicr {
 
+    class Clock;
     class Connection;
-    class Transport;
-    class TrackHandler;
     class Logger;
+    class TrackHandler;
+    class Transport;
 
     class SessionManager
     {
@@ -40,10 +37,10 @@ namespace quicr {
 
         SessionManager(std::shared_ptr<Callbacks> callbacks, std::shared_ptr<Logger> logger = nullptr);
 
-        SessionManager(std::shared_ptr<timeq::tick_service> tick_service, std::shared_ptr<Logger> logger = nullptr);
+        SessionManager(std::shared_ptr<Clock> tick_service, std::shared_ptr<Logger> logger = nullptr);
 
         SessionManager(std::shared_ptr<Callbacks> callbacks,
-                       std::shared_ptr<timeq::tick_service> tick_service,
+                       std::shared_ptr<Clock> tick_service,
                        std::shared_ptr<Logger> logger = nullptr);
 
         ~SessionManager();
@@ -60,7 +57,7 @@ namespace quicr {
       private:
         std::shared_ptr<Callbacks> callbacks_;
 
-        std::shared_ptr<timeq::tick_service> tick_service_;
+        std::shared_ptr<Clock> clock_;
 
         std::shared_ptr<Logger> logger_;
 

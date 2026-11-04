@@ -459,7 +459,7 @@ namespace quicr::messages {
         std::uint64_t track_alias;
         std::uint64_t group_id;
         std::uint64_t object_id;
-        std::optional<std::uint8_t> priority;
+        std::optional<std::uint8_t> publisher_priority;
         std::optional<Extensions> extensions;
         std::optional<Extensions> immutable_extensions;
         ObjectStatus status;
@@ -472,7 +472,7 @@ namespace quicr::messages {
             const auto properties = DatagramHeaderProperties(extensions.has_value() || immutable_extensions.has_value(),
                                                              false,
                                                              object_id == 0,
-                                                             !priority.has_value(),
+                                                             !publisher_priority.has_value(),
                                                              true);
             return properties.GetType();
         }
@@ -496,7 +496,7 @@ namespace quicr::messages {
         std::uint64_t track_alias;
         std::uint64_t group_id;
         std::optional<std::uint64_t> subgroup_id;
-        std::optional<std::uint8_t> priority;
+        std::optional<std::uint8_t> publisher_priority;
         template<class StreamBufferType>
         friend bool operator>>(StreamBufferType& buffer, StreamHeaderSubGroup& msg);
 

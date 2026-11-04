@@ -35,9 +35,11 @@ target_link_libraries(quicr_integration_test PRIVATE
     quicr
     doctest::doctest
     spdlog::spdlog
+    timeq
     picoquic-core
     picoquic-log
-    picohttp-core)
+    picohttp-core
+)
 
 # Compiler options
 target_compile_options(quicr_integration_test

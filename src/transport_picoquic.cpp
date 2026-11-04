@@ -3,8 +3,9 @@
 
 #include "transport_picoquic.h"
 
+#include "containers/priority_queue.h"
 #include "picoquic_connection.h"
-#include "quicr/containers/priority_queue.h"
+#include "quicr/clock.h"
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/log.h"
@@ -26,6 +27,7 @@
 #include <picoquic_packet_loop.h>
 #include <picoquic_utils.h>
 #include <picosocks.h>
+#include <timeq/tick_service.h>
 #include <timeq/time_queue.h>
 #include <tls_api.h>
 
@@ -72,6 +74,21 @@
 using namespace quicr;
 
 constexpr const char* kMoqtAlpn = "moqt-18";
+
+class TickServiceAdaptor : public timeq::tick_service
+{
+  public:
+    TickServiceAdaptor(std::shared_ptr<Clock> clock)
+      : clock_(std::move(clock))
+    {
+    }
+
+    std::chrono::microseconds get() const override { return clock_->Get(); }
+
+  private:
+    std::shared_ptr<Clock> clock_;
+};
+
 /* ============================================================================
  * PicoQuic Callbacks
  * ============================================================================
@@ -1061,6 +1078,7 @@ PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
     if (!tconfig_.quic_qlog_path.empty()) {
         QUICR_LOGGER_INFO(logger, "Enabling qlog using '{0}' path", tconfig_.quic_qlog_path);
         picoquic_set_qlog(quic_ctx, tconfig_.quic_qlog_path.c_str());
+        picoquic_set_log_level(quic_ctx, 1);
     }
 
     return quic_ctx;
@@ -1095,8 +1113,16 @@ PicoQuicTransport::Start()
     if (is_server_mode) {
         QUICR_LOGGER_DEBUG(logger, "Start: As Server, configuring WebTransport Path Params");
 
-        // Store path items in the class member to ensure memory persists after Start() returns
-        wt_config_->path_items = { { serverInfo_.path.c_str(), 6, DefaultWebTransportCallback, this } };
+        // Store path items in the class member to ensure memory persists after Start() returns.
+        // Extended CONNECT is refused unless the path names the WebTransport protocol.
+        picohttp_server_path_item_t path_item{};
+        path_item.path = serverInfo_.path.c_str();
+        path_item.path_length = serverInfo_.path.size();
+        path_item.path_callback = DefaultWebTransportCallback;
+        path_item.path_app_ctx = this;
+        path_item.connect_protocol = H3ZERO_WEBTRANSPORT_H3_PROTOCOL;
+        path_item.connect_protocol_length = sizeof(H3ZERO_WEBTRANSPORT_H3_PROTOCOL) - 1;
+        wt_config_->path_items = { path_item };
 
         // Store server_params in class member so it persists for the ALPN callback
         // The ALPN callback uses path_table[0].path_app_ctx to get the transport pointer for raw QUIC
@@ -1159,14 +1185,14 @@ PicoQuicTransport::Start()
     return nullptr;
 }
 
-TransportError
+void
 PicoQuicTransport::EnqueueDatagram(const std::shared_ptr<Connection>& connection,
                                    std::shared_ptr<const std::vector<uint8_t>> bytes,
                                    const uint8_t priority,
                                    const uint32_t ttl_ms)
 {
     if (connection == nullptr) {
-        return TransportError::kInvalidConnContextId;
+        throw std::invalid_argument("Connection must be non-null");
     }
 
     QUICR_LOGGER_TRACE(
@@ -1188,7 +1214,7 @@ PicoQuicTransport::EnqueueDatagram(const std::shared_ptr<Connection>& connection
         priority,
         StreamAction::kNoAction,
         std::move(bytes),
-        static_cast<uint64_t>(tick_service_->get().count()),
+        static_cast<uint64_t>(clock_->Get().count()),
     };
 
     pq_conn->dgram_metrics.enqueued_objs++;
@@ -1204,11 +1230,9 @@ PicoQuicTransport::EnqueueDatagram(const std::shared_ptr<Connection>& connection
     if (needs_mark) {
         QueueDatagramMarkReady(pq_conn);
     }
-
-    return TransportError::kNone;
 }
 
-TransportError
+bool
 PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
                            const std::shared_ptr<Stream>& stream,
                            std::shared_ptr<const std::vector<uint8_t>> bytes,
@@ -1216,51 +1240,34 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
                            const uint32_t ttl_ms,
                            const EnqueueFlags flags)
 {
-    if (connection == nullptr) {
-        return TransportError::kInvalidConnContextId;
+    const auto pq_connection = std::static_pointer_cast<PicoQuicConnection>(connection);
+    const auto pq_stream = std::static_pointer_cast<PicoQuicStream>(stream);
+    if (pq_connection == nullptr || pq_stream == nullptr || pq_stream->tx_data == nullptr) {
+        throw std::invalid_argument("Connection and sendable stream must be non-null");
     }
 
     QUICR_LOGGER_TRACE(logger,
                        "Enqueue conn_id: {} stream_id: {} size: {}",
-                       connection->GetID(),
-                       (stream ? stream->GetStreamId() : 0),
+                       pq_connection->GetID(),
+                       pq_stream->GetStreamId(),
                        (bytes ? bytes->size() : 0));
 
+    // TODO: This lock can be removed if other metrics and priority callers lock tx_mutex instead.
     std::lock_guard<std::mutex> _(state_mutex_);
-
-    return EnqueueStream(std::static_pointer_cast<PicoQuicConnection>(connection),
-                         std::static_pointer_cast<PicoQuicStream>(stream),
-                         std::move(bytes),
-                         priority,
-                         ttl_ms,
-                         flags);
-}
-
-TransportError
-PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& connection,
-                                 const std::shared_ptr<PicoQuicStream>& stream,
-                                 std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                 const uint8_t priority,
-                                 const uint32_t ttl_ms,
-                                 const EnqueueFlags flags)
-{
-    if (stream == nullptr || stream->tx_data == nullptr) {
-        return TransportError::kInvalidStreamId;
-    }
 
     bool needs_mark = false;
     {
-        std::lock_guard _(stream->tx_mutex);
+        std::lock_guard __(pq_stream->tx_mutex);
 
         // A caller-held handle outlives removal from the connection, so being open is what says the
         // stream is still writable. Queuing past that point would mark a stream active that the
         // transport has already committed to tearing down.
-        if (!stream->IsOpen() || stream->tx_closed.load(std::memory_order_acquire)) {
-            return TransportError::kInvalidStreamId;
+        if (!pq_stream->IsOpen() || pq_stream->tx_closed.load(std::memory_order_acquire)) {
+            return false;
         }
 
-        stream->metrics.enqueued_objs++;
-        stream->priority = priority; // Match object priority for next stream create
+        pq_stream->metrics.enqueued_objs++;
+        pq_stream->priority = priority; // Match object priority for next stream create
 
         StreamAction stream_action{ StreamAction::kNoAction };
 
@@ -1273,31 +1280,31 @@ PicoQuicTransport::EnqueueStream(const std::shared_ptr<PicoQuicConnection>& conn
         }
 
         if (flags.clear_tx_queue) {
-            stream->metrics.tx_queue_discards += stream->tx_data->size();
-            stream->tx_data->clear();
+            pq_stream->metrics.tx_queue_discards += pq_stream->tx_data->size();
+            pq_stream->tx_data->clear();
         }
 
         // Picoquic only re-wakes on inactive→active. If it is already pulling this stream (queued
         // bytes or a TX object in flight), further objects ride the existing prepare_to_send
         // callbacks via is_still_active.
-        needs_mark = stream->tx_data->empty() && stream->tx_object == nullptr;
+        needs_mark = pq_stream->tx_data->empty() && pq_stream->tx_object == nullptr;
 
         ConnData cd{
-            connection->GetID(),
+            pq_connection->GetID(),
             priority,
             stream_action,
             std::move(bytes),
-            static_cast<uint64_t>(tick_service_->get().count()),
+            static_cast<uint64_t>(clock_->Get().count()),
         };
 
-        stream->tx_data->push(std::move(cd), ttl_ms);
+        pq_stream->tx_data->push(std::move(cd), ttl_ms);
     }
 
     if (needs_mark) {
-        QueueStreamMarkActive(connection, stream);
+        QueueStreamMarkActive(pq_connection, pq_stream);
     }
 
-    return TransportError::kNone;
+    return true;
 }
 
 std::shared_ptr<const std::vector<uint8_t>>
@@ -1530,10 +1537,11 @@ PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::API api)
         QUICR_LOGGER_INFO(logger, "Created new connection context for conn_id: {}", connection->GetID());
 
         connection->dgram_rx_data->SetLimit(tconfig_.time_queue_rx_size);
-        connection->dgram_tx_data = std::make_shared<PriorityQueue<ConnData>>(tconfig_.time_queue_max_duration,
-                                                                              tconfig_.time_queue_bucket_interval,
-                                                                              tick_service_,
-                                                                              tconfig_.time_queue_init_queue_size);
+        connection->dgram_tx_data =
+          std::make_shared<PriorityQueue<ConnData>>(tconfig_.time_queue_max_duration,
+                                                    tconfig_.time_queue_bucket_interval,
+                                                    std::make_shared<TickServiceAdaptor>(clock_),
+                                                    tconfig_.time_queue_init_queue_size);
     }
 
     return connection;
@@ -1542,7 +1550,7 @@ PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::API api)
 PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
                                      const TransportConfig& tcfg,
                                      bool is_server_mode,
-                                     std::shared_ptr<timeq::tick_service> tick_service,
+                                     std::shared_ptr<Clock> clock,
                                      std::shared_ptr<Logger> logger,
                                      Connection::API connection_api)
   : logger(std::move(logger))
@@ -1552,7 +1560,7 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
   , transportStatus_(TransportStatus::kConnecting)
   , serverInfo_(server)
   , tconfig_(tcfg)
-  , tick_service_(std::move(tick_service))
+  , clock_(std::move(clock))
 {
     debug = tcfg.debug;
 
@@ -1596,7 +1604,7 @@ PicoQuicTransport::MakeStreamTxQueue() const
 {
     return std::make_unique<timeq::time_queue<ConnData>>(tconfig_.time_queue_max_duration,
                                                          tconfig_.time_queue_bucket_interval,
-                                                         tick_service_,
+                                                         std::make_shared<TickServiceAdaptor>(clock_),
                                                          tconfig_.time_queue_init_queue_size);
 }
 
@@ -1659,8 +1667,8 @@ PicoQuicTransport::SendNextDatagram(const std::shared_ptr<PicoQuicConnection>& c
 
         if (out_data->get().data->size() <= max_len) {
 
-            connection->dgram_metrics.tx_object_duration_us.AddValue(
-              static_cast<uint64_t>(tick_service_->get().count()) - out_data->get().tick_microseconds);
+            connection->dgram_metrics.tx_object_duration_us.AddValue(static_cast<uint64_t>(clock_->Get().count()) -
+                                                                     out_data->get().tick_microseconds);
             connection->dgram_metrics.tx_dgrams_bytes += out_data->get().data->size();
             connection->dgram_metrics.tx_dgrams++;
 
@@ -1729,11 +1737,24 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
 
     std::lock_guard _(stream_ctx.tx_mutex);
 
+    if (stream_ctx.tx_closed.load(std::memory_order_acquire)) {
+        return;
+    }
+
     if (stream_ctx.tx_object == nullptr) {
         QUICR_LOGGER_TRACE(logger, "SendStreamBytes conn_id: {} stream_tx_object is nullptr", conn_id);
 
         auto [conn_data_opt, expired] = stream_ctx.tx_data->pop_front();
         stream_ctx.metrics.tx_queue_expired += expired;
+
+        if (expired > 0) {
+            // If we expired objects, we need to reset the stream.
+            stream_ctx.tx_closed.store(true, std::memory_order_release);
+            stream_ctx.metrics.tx_queue_discards += stream_ctx.tx_data->size() + conn_data_opt.has_value();
+            stream_ctx.tx_data->clear();
+            should_reset = true;
+            return;
+        }
 
         if (!conn_data_opt.has_value()) {
             return; // empty queue, nothing to do
@@ -1758,7 +1779,7 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
 
             stream_ctx.tx_object_offset = 0;
             stream_ctx.metrics.tx_stream_objects++;
-            stream_ctx.metrics.tx_object_duration_us.AddValue(static_cast<uint64_t>(tick_service_->get().count()) -
+            stream_ctx.metrics.tx_object_duration_us.AddValue(static_cast<uint64_t>(clock_->Get().count()) -
                                                               conn_data.tick_microseconds);
 
             if (conn_data.stream_action != StreamAction::kNoAction) {
@@ -2625,7 +2646,7 @@ PicoQuicTransport::Shutdown()
     OnNewConnection = nullptr;
     OnConnectionClosed = nullptr;
 
-    tick_service_.reset();
+    clock_.reset();
     QUICR_LOGGER_INFO(logger, "done closing transport threads");
 
     picoquic_config_clear(&config_);
@@ -2639,7 +2660,7 @@ PicoQuicTransport::CheckCallbackDelta(const std::shared_ptr<PicoQuicStream>& str
     }
 
     const auto current_tick =
-      static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
+      static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(clock_->Get()).count());
 
     if (stream->last_tx_tick == 0) {
         stream->last_tx_tick = current_tick;

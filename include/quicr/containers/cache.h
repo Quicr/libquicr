@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <timeq/tick_service.h>
+#include <quicr/clock.h>
 
 #include <atomic>
 #include <chrono>
@@ -26,24 +26,24 @@ namespace quicr {
         // Internal type definitions
         /*=======================================================================*/
 
-        using TickType = timeq::tick_service::tick_type;
+        using TickType = std::size_t;
 
         using BucketType = std::vector<K>;
         using ValueType = std::shared_ptr<T>;
         using CacheType = std::map<K, ValueType>;
 
       public:
-        Cache(size_t duration, size_t interval, std::shared_ptr<timeq::tick_service> tick_service)
+        Cache(size_t duration, size_t interval, std::shared_ptr<Clock> clock)
           : duration_{ duration }
           , interval_{ interval }
           , total_buckets_{ duration_ / interval_ }
-          , tick_service_(std::move(tick_service))
+          , clock_(std::move(clock))
         {
             if (duration == 0 || duration % interval != 0 || duration == interval) {
                 throw std::invalid_argument("Invalid time_queue constructor args");
             }
 
-            if (!tick_service_) {
+            if (!clock_) {
                 throw std::invalid_argument("Tick service cannot be null");
             }
         }
@@ -146,8 +146,8 @@ namespace quicr {
       protected:
         FORCE_INLINE void Advance()
         {
-            const TickType new_ticks = static_cast<uint64_t>(
-              std::chrono::duration_cast<std::chrono::milliseconds>(tick_service_->get()).count());
+            const TickType new_ticks =
+              static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(clock_->Get()).count());
             const TickType delta = current_ticks_ ? (new_ticks - current_ticks_) / interval_ : 0;
             current_ticks_ = new_ticks;
 
@@ -213,7 +213,7 @@ namespace quicr {
         CacheType cache_;
 
         /// Tick service for calculating new tick and jumps in time.
-        std::shared_ptr<timeq::tick_service> tick_service_;
+        std::shared_ptr<Clock> clock_;
     };
 
 #undef FORCE_INLINE

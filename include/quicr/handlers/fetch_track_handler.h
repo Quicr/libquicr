@@ -28,7 +28,7 @@ namespace quicr {
           : SubscribeTrackHandler(full_track_name,
                                   priority,
                                   group_order,
-                                  messages::LocationFilter{
+                                  messages::SubscriptionFilter{
                                     start_location.group,
                                     end_location.group,
                                   })

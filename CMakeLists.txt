@@ -35,13 +35,14 @@ cmake_dependent_option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ON qu
 
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
 option(QUICR_BUILD_FUZZ "Build fuzzer targets" OFF)
+option(QUICR_BUILD_TOOLS "Build tools" OFF)
 option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
 option(QUICR_GENERATE_THIRD_PARTY_LICENSES "Generate notices for distributed CPM dependencies" OFF)
 
 option(WITH_MBEDTLS "Build with the MbedTLS crypto backend" OFF)
+option(WITH_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
 option(LINT "Perform linting with clang-tidy" OFF)
-option(QUICR_USE_BROTLI "Enable picotls Brotli TLS certificate compression (libbrotlidec)" OFF)
 
 if(QUICR_ENABLE_SANITIZERS)
     if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang|GNU" OR NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -92,7 +93,11 @@ if(BUILD_TESTING)
     endif()
 
     if(QUICR_BUILD_FUZZ)
-       add_subdirectory(fuzz)
+       add_subdirectory(test/fuzz)
+    endif()
+
+    if(QUICR_BUILD_TOOLS)
+       add_subdirectory(tools)
     endif()
 
     if(QUICR_BUILD_EXAMPLES)

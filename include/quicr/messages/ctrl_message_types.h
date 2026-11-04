@@ -189,6 +189,7 @@ namespace quicr::messages {
     {
         return buffer << UintVar(static_cast<std::uint64_t>(value));
     }
+
     template<KeyType T>
     BytesSpan operator>>(BytesSpan buffer, T& value)
     {
@@ -367,14 +368,10 @@ namespace quicr::messages {
     {
         kNone,
         kSubscriptionFilter,
-        kSubgroupFilter,
-        kObjectFilter,
-        kPriorityFilter,
-        kPropertyFilter,
         kTrackFilter,
     };
 
-    enum class LocationFilterType
+    enum class SubscriptionFilterType
     {
         kNextGroupStart,
         kLargestObject,
@@ -401,7 +398,7 @@ namespace quicr::messages {
         return bytes;
     }
 
-    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] Range& filter)
+    inline BytesSpan operator>>(BytesSpan bytes, Range& filter)
     {
         bytes = bytes >> filter.start;
         if (!bytes.empty()) {
@@ -413,27 +410,6 @@ namespace quicr::messages {
         return bytes;
     }
 
-    inline Bytes& operator<<(Bytes& bytes, const std::vector<Range>& filters)
-    {
-        std::uint64_t last_end = 0;
-        for (const auto& filter : filters) {
-            AppendBytes(bytes, UintVar(filter.start - last_end));
-
-            if (filter.end.has_value()) {
-                AppendBytes(bytes, UintVar(filter.end.value() - (filter.start - last_end)));
-                last_end = filter.end.value();
-            }
-        }
-
-        return bytes;
-    }
-
-    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] std::vector<Range>& filter)
-    {
-        // TODO: Figure this out.
-        return bytes;
-    }
-
     /**
      * @brief
      *
@@ -442,43 +418,22 @@ namespace quicr::messages {
      *           a Joining Fetch which implicitly ends at the associated subscription start Location.
      *         - All but Start Group ID MAY be omitted to indicate
      */
-    struct LocationFilter
+    struct SubscriptionFilter
     {
         Range range;
 
-        constexpr auto operator<=>(const LocationFilter&) const noexcept = default;
+        constexpr auto operator<=>(const SubscriptionFilter&) const noexcept = default;
     };
 
-    inline Bytes& operator<<(Bytes& bytes, const LocationFilter& filter)
+    inline Bytes& operator<<(Bytes& bytes, const SubscriptionFilter& filter)
     {
         return bytes << filter.range;
     }
 
-    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] LocationFilter& filter)
+    inline BytesSpan operator>>(BytesSpan bytes, SubscriptionFilter& filter)
     {
-        filter = LocationFilter{};
+        filter = SubscriptionFilter{};
         return bytes >> filter.range;
-    }
-
-    struct PropertyFilter
-    {
-        std::uint64_t property_type;
-        std::vector<Range> ranges;
-
-        constexpr auto operator<=>(const PropertyFilter&) const noexcept = default;
-    };
-
-    inline Bytes& operator<<(Bytes& bytes, const PropertyFilter& filter)
-    {
-        bytes << UintVar(filter.property_type);
-        bytes << filter.ranges;
-
-        return bytes;
-    }
-
-    inline BytesSpan operator>>(BytesSpan bytes, [[maybe_unused]] PropertyFilter& filter)
-    {
-        return bytes;
     }
 
     struct TrackFilter
@@ -508,76 +463,7 @@ namespace quicr::messages {
         return bytes;
     }
 
-    struct SubgroupFilter
-    {
-        SubgroupFilter(std::initializer_list<Range> fs)
-          : ranges(fs)
-        {
-        }
-
-        std::vector<Range> ranges;
-        auto operator<=>(const SubgroupFilter&) const noexcept = default;
-    };
-
-    inline Bytes& operator<<(Bytes& bytes, const SubgroupFilter& filter)
-    {
-        return bytes << filter.ranges;
-    }
-
-    inline BytesSpan operator>>(BytesSpan bytes, SubgroupFilter& filter)
-    {
-        return bytes >> filter.ranges;
-    }
-
-    struct ObjectFilter
-    {
-        ObjectFilter(std::initializer_list<Range> fs)
-          : ranges(fs)
-        {
-        }
-
-        std::vector<Range> ranges;
-        auto operator<=>(const ObjectFilter&) const noexcept = default;
-    };
-
-    inline Bytes& operator<<(Bytes& bytes, const ObjectFilter& filter)
-    {
-        return bytes << filter.ranges;
-    }
-
-    inline BytesSpan operator>>(BytesSpan bytes, ObjectFilter& filter)
-    {
-        return bytes >> filter.ranges;
-    }
-
-    struct PriorityFilter
-    {
-        PriorityFilter(std::initializer_list<Range> fs)
-          : ranges(fs)
-        {
-        }
-
-        std::vector<Range> ranges;
-        auto operator<=>(const PriorityFilter&) const noexcept = default;
-    };
-
-    inline Bytes& operator<<(Bytes& bytes, const PriorityFilter& filter)
-    {
-        return bytes << filter.ranges;
-    }
-
-    inline BytesSpan operator>>(BytesSpan bytes, PriorityFilter& filter)
-    {
-        return bytes >> filter.ranges;
-    }
-
-    using Filter = std::variant<std::monostate,
-                                LocationFilter,
-                                SubgroupFilter,
-                                ObjectFilter,
-                                PriorityFilter,
-                                PropertyFilter,
-                                TrackFilter>;
+    using Filter = std::variant<std::monostate, SubscriptionFilter, TrackFilter>;
 
     inline FilterType GetFilterType(const Filter& filter)
     {
@@ -586,16 +472,8 @@ namespace quicr::messages {
               using T = std::decay_t<decltype(f)>;
               if constexpr (std::is_same_v<std::monostate, T>) {
                   return FilterType::kNone;
-              } else if constexpr (std::is_same_v<LocationFilter, T>) {
+              } else if constexpr (std::is_same_v<SubscriptionFilter, T>) {
                   return FilterType::kSubscriptionFilter;
-              } else if constexpr (std::is_same_v<SubgroupFilter, T>) {
-                  return FilterType::kSubgroupFilter;
-              } else if constexpr (std::is_same_v<ObjectFilter, T>) {
-                  return FilterType::kObjectFilter;
-              } else if constexpr (std::is_same_v<PriorityFilter, T>) {
-                  return FilterType::kPriorityFilter;
-              } else if constexpr (std::is_same_v<PropertyFilter, T>) {
-                  return FilterType::kPropertyFilter;
               } else if constexpr (std::is_same_v<TrackFilter, T>) {
                   return FilterType::kTrackFilter;
               }
@@ -623,24 +501,11 @@ namespace quicr::messages {
 
     inline Filter DeserializeFilter(FilterType filter_type, BytesSpan bytes)
     {
-        // TODO: Figure out how to parse the vector filters.
         switch (filter_type) {
             case FilterType::kSubscriptionFilter: {
-                LocationFilter filter{};
+                SubscriptionFilter filter{};
                 bytes = bytes >> filter;
                 return filter;
-            }
-            case FilterType::kSubgroupFilter: {
-                return std::monostate{};
-            }
-            case FilterType::kObjectFilter: {
-                return std::monostate{};
-            }
-            case FilterType::kPriorityFilter: {
-                return std::monostate{};
-            }
-            case FilterType::kPropertyFilter: {
-                return std::monostate{};
             }
             case FilterType::kTrackFilter: {
                 TrackFilter filter{};
@@ -656,13 +521,16 @@ namespace quicr::messages {
 
     enum class PublishDoneStatusCode : uint64_t
     {
-        kInternalError = 0x00,
-        kUnauthorized,
-        kTrackEnded,
-        kSubscribtionEnded,
-        kGoingAway,
-        kExpired,
-        kTooFarBehind,
+        kInternalError = 0x0,
+        kUnauthorized = 0x1,
+        kTrackEnded = 0x2,
+        kSubscriptionEnded = 0x3,
+        kGoingAway = 0x4,
+        kTooFarBehind = 0x5,
+        kExpired = 0x6,
+        kMalformedTrack = 0x12,
+        kUpdateFailed = 0x8,
+        kExcessiveLoad = 0x9
     };
 
     Bytes& operator<<(Bytes& buffer, PublishDoneStatusCode value);
@@ -677,19 +545,6 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, FetchType value);
     BytesSpan operator>>(BytesSpan buffer, FetchType& value);
-
-    // TODO (Suhas): rename it to StreamMapping
-    enum ForwardingPreference : uint8_t
-    {
-        kStreamPerGroup = 0,
-        kStreamPerObject,
-        kStreamPerPriority,
-        kStreamPerTrack,
-        kDatagram
-    };
-
-    Bytes& operator<<(Bytes& buffer, ForwardingPreference value);
-    BytesSpan operator>>(BytesSpan buffer, ForwardingPreference& value);
 
     enum class TerminationReason : uint64_t
     {
@@ -714,19 +569,6 @@ namespace quicr::messages {
         kExpiredAuthToken = 0x18,
         kInvalidAuthority = 0x19,
         kMalformedAuthority = 0x1A,
-    };
-
-    enum class PublishDoneStatus : uint64_t
-    {
-        kInternalError = 0x0,
-        kUnauthorized = 0x1,
-        kTrackEnded = 0x2,
-        kSubscriptionEnded = 0x3,
-        kGoingAway = 0x4,
-        kExpired = 0x5,
-        kTooFarBehind = 0x6,
-        kUpdateFailed = 0x8,
-        kMalformedTrack = 0x12,
     };
 
     enum class StreamResetError : uint64_t

@@ -15,7 +15,7 @@ namespace quicr {
                             uint64_t subscribe_id,
                             messages::GroupOrder group_order,
                             uint32_t ttl)
-          : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, ttl)
+          : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, priority, ttl)
           , group_order_(group_order)
           , serialization_state_(group_order)
         {
@@ -51,6 +51,7 @@ namespace quicr {
         messages::GroupOrder group_order_;
         messages::FetchObjectSerializationState serialization_state_;
         bool sent_first_header_{ false };
+        bool closed_{ false };
         std::shared_ptr<Stream> stream_; /// Stream for the fetch, created on sent_first_header
 
         friend class Session;

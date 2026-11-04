@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "containers/priority_queue.h"
 #include "picoquic_connection.h"
-#include "quicr/containers/priority_queue.h"
 #include "quicr/containers/safe_queue.h"
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/log.h"
@@ -33,6 +33,8 @@
 #include <vector>
 
 namespace quicr {
+
+    class Clock;
 
     constexpr int kPqCcLowCwin = 4000;                /// Bytes less than this value are considered a low/congested CWIN
     constexpr int kCongestionCheckInterval = 100'000; /// Congestion check interval in microseconds
@@ -120,7 +122,7 @@ namespace quicr {
         PicoQuicTransport(const TransportRemote& server,
                           const TransportConfig& tcfg,
                           bool is_server_mode,
-                          std::shared_ptr<timeq::tick_service> tick_service,
+                          std::shared_ptr<Clock> tick_service,
                           std::shared_ptr<Logger> logger,
                           Connection::API connection_api);
 
@@ -138,17 +140,17 @@ namespace quicr {
         void CloseInternal(const std::shared_ptr<Connection>& connection,
                            AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose);
 
-        TransportError EnqueueDatagram(const std::shared_ptr<Connection>& connection,
-                                       std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                       uint8_t priority,
-                                       uint32_t ttl_ms) override;
+        void EnqueueDatagram(const std::shared_ptr<Connection>& connection,
+                             std::shared_ptr<const std::vector<uint8_t>> bytes,
+                             uint8_t priority,
+                             uint32_t ttl_ms) override;
 
-        TransportError Enqueue(const std::shared_ptr<Connection>& connection,
-                               const std::shared_ptr<Stream>& stream,
-                               std::shared_ptr<const std::vector<uint8_t>> bytes,
-                               uint8_t priority,
-                               uint32_t ttl_ms,
-                               EnqueueFlags flags) override;
+        bool Enqueue(const std::shared_ptr<Connection>& connection,
+                     const std::shared_ptr<Stream>& stream,
+                     std::shared_ptr<const std::vector<uint8_t>> bytes,
+                     uint8_t priority,
+                     uint32_t ttl_ms,
+                     EnqueueFlags flags) override;
 
         std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<Connection>& connection) override;
 
@@ -423,14 +425,6 @@ namespace quicr {
                                                                bool bidir,
                                                                uint8_t priority);
 
-        /// @brief Queue bytes on an already-resolved stream handle.
-        TransportError EnqueueStream(const std::shared_ptr<PicoQuicConnection>& connection,
-                                     const std::shared_ptr<PicoQuicStream>& stream,
-                                     std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                     uint8_t priority,
-                                     uint32_t ttl_ms,
-                                     EnqueueFlags flags);
-
         std::shared_ptr<PicoQuicStream> CreateStreamInternal(const std::shared_ptr<Connection>& connection,
                                                              bool bidir,
                                                              uint8_t priority);
@@ -469,7 +463,7 @@ namespace quicr {
         TransportConfig tconfig_;
 
         std::map<std::uint64_t, std::shared_ptr<PicoQuicConnection>> connections_;
-        std::shared_ptr<timeq::tick_service> tick_service_;
+        std::shared_ptr<Clock> clock_;
 
         // WebTransport configuration (server-wide, not per-connection)
         struct WebTransportConfig

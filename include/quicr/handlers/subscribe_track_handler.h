@@ -59,7 +59,7 @@ namespace quicr {
          */
         struct JoiningFetch
         {
-            const std::uint8_t priority;
+            const std::uint8_t priority{ 0 };
             const std::optional<messages::GroupOrder> group_order;
             const messages::Parameters parameters;
             const std::uint64_t joining_start;
@@ -81,7 +81,7 @@ namespace quicr {
                               const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
                               bool publisher_initiated = false)
           : TrackHandler(full_track_name)
-          , priority_(priority)
+          , subscriber_priority_(priority)
           , group_order_(group_order)
           , filter_(filter)
           , joining_fetch_(publisher_initiated ? std::nullopt : joining_fetch)
@@ -124,14 +124,14 @@ namespace quicr {
          *
          * @param priority      Priority value of received data
          */
-        void SetPriority(uint8_t priority) noexcept { priority_ = priority; }
+        void SetSubscriberPriority(uint8_t priority) noexcept { subscriber_priority_ = priority; }
 
         /**
          * @brief Get subscription priority
          *
          * @return Priority value
          */
-        constexpr std::uint8_t GetPriority() const noexcept { return priority_; }
+        constexpr std::uint8_t GetSubscriberPriority() const noexcept { return subscriber_priority_; }
 
         /**
          * @brief Get subscription group order
@@ -429,7 +429,7 @@ namespace quicr {
 
       private:
         Status status_{ Status::kNotSubscribed };
-        std::uint8_t priority_;
+        std::uint8_t subscriber_priority_;
         std::optional<messages::GroupOrder> group_order_;
         messages::GroupOrder publisher_default_group_order_{ messages::GroupOrder::kAscending };
         messages::Filter filter_;

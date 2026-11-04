@@ -91,6 +91,9 @@ namespace quicr {
         /** Called for a NAMESPACE notification in kNamespaces mode. */
         virtual void NamespaceReceived(const TrackNamespace&) {}
 
+        /** Called for a NAMESPACE_DONE notification in kNamespaces mode. */
+        virtual void NamespaceDoneReceived(const TrackNamespace&) {}
+
         /**
          * @brief Set the subscribe status
          * @param status                Status of the subscribe

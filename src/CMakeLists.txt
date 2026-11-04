@@ -21,6 +21,14 @@ target_compile_options(quicr PRIVATE
 target_compile_options(quicr PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>
 )
 
+# Request, and check support for, clang's thread safety analysis.
+include(CheckThreadSafetyAnnotations)
+if(QUICR_HAS_THREAD_SAFETY_ANNOTATIONS)
+    target_compile_definitions(quicr PUBLIC
+        QUICR_HAS_THREAD_SAFETY_ANNOTATIONS
+        _LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS)
+endif()
+
 if(NOT QUICR_BUILD_FUZZ)
     target_compile_options(quicr PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>: -Wthread-safety -Werror=thread-safety>
@@ -28,10 +36,14 @@ if(NOT QUICR_BUILD_FUZZ)
 endif()
 
 target_sources(quicr PRIVATE
+    clock.cpp
+    connection.cpp
     ctrl_message_types.cpp
     joining_fetch_handler.cpp
     log.cpp
     message_serialisation.cpp
+    picoquic_connection.cpp
+    containers/priority_queue.h
     publish_fetch_handler.cpp
     publish_namespace_handler.cpp
     publish_track_handler.cpp
@@ -44,15 +56,10 @@ target_sources(quicr PRIVATE
     track_status_handler.cpp
     transport_picoquic.cpp
     transport.cpp
-    connection.cpp
-    picoquic_connection.cpp
-)
-
-target_link_libraries(quicr PUBLIC
-    timeq
 )
 
 target_link_libraries(quicr PRIVATE
+    timeq
     picoquic-core
     picoquic-log
     picohttp-core
