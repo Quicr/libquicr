@@ -241,6 +241,10 @@ namespace quicr {
 
         std::shared_ptr<Stream> GetTxControlStream() const;
 
+        void SetFirstUnprocessedRequestId(std::uint64_t request_id);
+
+        std::optional<std::uint64_t> GetFirstUnprocessedRequestId() const;
+
       public:
         ConnectionMetrics metrics{}; ///< Application-facing cumulative and current-period connection metrics.
 
@@ -269,5 +273,7 @@ namespace quicr {
         std::optional<std::uint64_t> rx_ctrl_stream_id_ QUICR_GUARDED_BY(mutex_);
 
         std::shared_ptr<Stream> tx_ctrl_stream_ QUICR_GUARDED_BY(mutex_);
+
+        std::optional<std::uint64_t> first_unprocessed_request_id_ QUICR_GUARDED_BY(mutex_);
     };
 }

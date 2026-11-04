@@ -40,6 +40,7 @@ namespace quicr {
         kPrefixOverlap,           ///< Namespace prefix overlaps an existing request incompatibly.
         kInvalidJoiningRequestId, ///< Joining fetch references an invalid request.
         kRedirect,                ///< A request should redirect with the given Redirect info.
+        kGoingAway,               ///< The request is going away.
     };
 
     /**

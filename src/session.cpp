@@ -73,6 +73,8 @@ namespace quicr {
                     return RequestErrorCode::kMalformedAuthToken;
                 case ErrorCode::kExpiredAuthToken:
                     return RequestErrorCode::kExpiredAuthToken;
+                case ErrorCode::kGoingAway:
+                    return RequestErrorCode::kGoingAway;
                 case ErrorCode::kDoesNotExist:
                     return RequestErrorCode::kDoesNotExist;
                 case ErrorCode::kInvalidRange:
@@ -107,6 +109,8 @@ namespace quicr {
                     return ErrorCode::kMalformedAuthToken;
                 case RequestErrorCode::kExpiredAuthToken:
                     return ErrorCode::kExpiredAuthToken;
+                case RequestErrorCode::kGoingAway:
+                    return ErrorCode::kGoingAway;
                 case RequestErrorCode::kDoesNotExist:
                     return ErrorCode::kDoesNotExist;
                 case RequestErrorCode::kInvalidRange:
@@ -208,6 +212,12 @@ namespace quicr {
 
     Session::~Session() {}
 
+    std::shared_ptr<Connection> Session::GetDefaultConnection() const noexcept
+    {
+        std::lock_guard lock(state_mutex_);
+        return default_connection_;
+    }
+
     void Session::Init()
     {
         const auto connection = GetDefaultConnection();
@@ -241,7 +251,12 @@ namespace quicr {
             return;
         }
 
-        if (connection == GetDefaultConnection() && GetStatus() == Status::kPendingPeerSetup) {
+        if (connection != GetDefaultConnection()) {
+            StartMigrationRequests(connection);
+            return;
+        }
+
+        if (GetStatus() == Status::kPendingPeerSetup) {
             SetStatus(Status::kReady);
         }
     }
@@ -278,9 +293,9 @@ namespace quicr {
                 }
             }
             migrations_.clear();
+            default_connection_ = nullptr;
         }
 
-        default_connection_ = nullptr;
         for (const auto& [_, connection] : connections) {
             RemoveTracksForConnectionClose(connection);
             connection->SetDelegate(nullptr);
@@ -299,8 +314,8 @@ namespace quicr {
             throw std::invalid_argument("GOAWAY timeout cannot be negative");
         }
 
-        if (new_session_uri.size() > kMaxSessionUriLength) {
-            throw std::invalid_argument(quicr::format("GOAWAY URI exceeds {} bytes", kMaxSessionUriLength));
+        if (new_session_uri.size() > detail::kMaxUriLength) {
+            throw std::invalid_argument(quicr::format("GOAWAY URI exceeds {} bytes", detail::kMaxUriLength));
         }
 
         if (client_mode_ && !new_session_uri.empty()) {
@@ -314,6 +329,7 @@ namespace quicr {
 
         const auto stream = connection->GetTxControlStream();
         if (first_unprocessed_request_id.has_value()) {
+            connection->SetFirstUnprocessedRequestId(*first_unprocessed_request_id);
             SendCtrlMsg(stream,
                         ControlMessageType::kGoaway,
                         AsOwnedBytes(new_session_uri),
@@ -336,8 +352,8 @@ namespace quicr {
             throw std::invalid_argument("GOAWAY timeout cannot be negative");
         }
 
-        if (new_session_uri.size() > kMaxSessionUriLength) {
-            throw std::invalid_argument(quicr::format("GOAWAY URI exceeds {} bytes", kMaxSessionUriLength));
+        if (new_session_uri.size() > detail::kMaxUriLength) {
+            throw std::invalid_argument(quicr::format("GOAWAY URI exceeds {} bytes", detail::kMaxUriLength));
         }
 
         if (client_mode_ && !new_session_uri.empty()) {
@@ -455,9 +471,9 @@ namespace quicr {
             throw std::invalid_argument("REQUEST_ERROR must carry Redirect exactly when its error code is REDIRECT");
         }
 
-        if (redirect && redirect->uri.size() > kMaxSessionUriLength) {
+        if (redirect && redirect->uri.size() > detail::kMaxUriLength) {
             throw std::invalid_argument(
-              quicr::format("REQUEST_ERROR redirect URI exceeds {} bytes", kMaxSessionUriLength));
+              quicr::format("REQUEST_ERROR redirect URI exceeds {} bytes", detail::kMaxUriLength));
         }
 
         if (client_mode_ && redirect && !redirect->uri.empty()) {
@@ -1796,7 +1812,10 @@ namespace quicr {
                 }
             }
 
-            default_connection_ = replacement;
+            {
+                std::lock_guard lock(state_mutex_);
+                default_connection_ = replacement;
+            }
             if (!replacement) {
                 SetStatus(status == Connection::Status::kShutdown ? Status::kNotReady : Status::kNotConnected);
             }
@@ -2033,7 +2052,7 @@ namespace quicr {
         bool processed = false;
         try {
             processed = is_request_stream ? ProcessRequestMessage(connection, stream, msg_type, payload)
-                                          : ProcessCtrlMessage(connection, msg_type, payload);
+                                          : ProcessCtrlMessage(connection, stream, msg_type, payload);
         } catch (const std::exception& e) {
             QUICR_LOGGER_ERROR(logger_,
                                "Caught exception trying to process control message. (type={}, error={})",
@@ -2687,11 +2706,13 @@ namespace quicr {
                        (!migration.first.second.has_value() || !redirect_key.second.has_value() ||
                         migration.first.second == redirect_key.second);
             });
+
             if (overlaps) {
                 QUICR_LOGGER_DEBUG(
-                  logger_, "Ignoring duplicate redirect while migration is pending (uri='{}')", redirect.uri);
+                  logger_, "Ignoring overlapping redirect while migration is pending (uri='{}')", redirect.uri);
                 return;
             }
+
             migrations_.emplace(redirect_key,
                                 Migration{
                                   .redirect = redirect,
@@ -2831,7 +2852,7 @@ namespace quicr {
             {
                 std::lock_guard lock(state_mutex_);
                 migrations_.erase(migration_key);
-                if (session_wide && GetDefaultConnection() == source_connection) {
+                if (session_wide && default_connection_ == source_connection) {
                     old_connection = source_connection;
                     default_connection_ = connection;
                 }
@@ -2890,8 +2911,9 @@ namespace quicr {
                 if (subscribe->IsPublisherInitiated()) {
                     continue;
                 }
-                type =
-                  handler->Get<FetchTrackHandler>() ? MigrationRequestType::kFetch : MigrationRequestType::kSubscribe;
+                type = handler->Get<FetchTrackHandler>() || handler->Get<JoiningFetchHandler>()
+                         ? MigrationRequestType::kFetch
+                         : MigrationRequestType::kSubscribe;
             } else if (handler->Get<PublishTrackHandler>()) {
                 type = MigrationRequestType::kPublish;
             } else if (handler->Get<SubscribeNamespaceHandler>()) {
@@ -3022,15 +3044,33 @@ namespace quicr {
                         break;
                     }
                     case MigrationRequestType::kFetch: {
-                        const auto fetch_handler = handler->Get<FetchTrackHandler>();
-                        if (!SendFetch(request_stream,
-                                       *request_id,
-                                       redirected_name(fetch_handler->GetFullTrackName()),
-                                       fetch_handler->GetSubscriberPriority(),
-                                       fetch_handler->GetGroupOrder(),
-                                       fetch_handler->GetStartLocation(),
-                                       fetch_handler->GetEndLocation())) {
-                            throw std::runtime_error("Failed to send migrated FETCH");
+                        if (const auto joining_handler = handler->Get<JoiningFetchHandler>()) {
+                            const auto& subscribe = joining_handler->joining_subscribe_;
+                            const auto info = subscribe->GetJoiningFetch();
+                            const auto joining_request_id = subscribe->GetRequestId();
+
+                            if (!info || !joining_request_id) {
+                                throw std::logic_error("Joining FETCH is missing its subscription");
+                            }
+
+                            SendJoiningFetch(request_stream,
+                                             *request_id,
+                                             info->priority,
+                                             info->group_order,
+                                             *joining_request_id,
+                                             info->joining_start,
+                                             info->absolute);
+                        } else {
+                            const auto fetch_handler = handler->Get<FetchTrackHandler>();
+                            if (!SendFetch(request_stream,
+                                           *request_id,
+                                           redirected_name(fetch_handler->GetFullTrackName()),
+                                           fetch_handler->GetSubscriberPriority(),
+                                           fetch_handler->GetGroupOrder(),
+                                           fetch_handler->GetStartLocation(),
+                                           fetch_handler->GetEndLocation())) {
+                                throw std::runtime_error("Failed to send migrated FETCH");
+                            }
                         }
 
                         break;
@@ -3166,7 +3206,7 @@ namespace quicr {
                 return item.second && item.second->GetConnection() == old_connection;
             });
 
-            if (session_wide && !old_connection_in_use && GetDefaultConnection() == old_connection) {
+            if (session_wide && !old_connection_in_use && default_connection_ == old_connection) {
                 default_connection_ = connection;
             }
         }
@@ -3371,7 +3411,8 @@ namespace quicr {
     {
         std::optional<PublishTrackHandler::Status> changed_status;
         {
-            std::lock_guard _(state_mutex_);
+            std::lock_guard binding_lock(track_handler->binding_operation_mutex_);
+            std::lock_guard state_lock(state_mutex_);
 
             auto th = TrackHash(track_handler->GetFullTrackName());
             QUICR_LOGGER_DEBUG(
@@ -3402,6 +3443,8 @@ namespace quicr {
                 pub_tracks_by_name.erase(th.track_namespace_hash);
             }
 
+            track_handler->EndAllSubgroupsInternal();
+
             const auto request_stream = track_handler->GetRequestStream();
             if (send_publish_done && request_stream != nullptr) {
                 SendPublishDone(request_stream,
@@ -3411,7 +3454,6 @@ namespace quicr {
             }
         }
 
-        track_handler->EndAllSubgroups();
         if (changed_status) {
             track_handler->StatusChanged(*changed_status);
         }
@@ -3462,6 +3504,7 @@ namespace quicr {
     // -- Private --
 
     bool Session::ProcessCtrlMessage(const std::shared_ptr<Connection>& connection,
+                                     const std::shared_ptr<Stream>& stream,
                                      messages::ControlMessageType msg_type,
                                      BytesSpan msg_bytes)
     {
@@ -3505,9 +3548,6 @@ namespace quicr {
                 }
 
                 CheckReady(connection);
-                if (connection != GetDefaultConnection() && connection->IsSetupComplete()) {
-                    StartMigrationRequests(connection);
-                }
 
                 QUICR_LOGGER_INFO(logger_, "Setup received conn_id: {} from: {}", connection->GetID(), endpoint_id);
 
@@ -3523,9 +3563,14 @@ namespace quicr {
                 const std::optional<std::uint64_t> first_unprocessed_request_id =
                   messages::Message::ParseOptionalField<std::uint64_t>(msg_bytes);
 
-                if (new_session_uri.size() > kMaxSessionUriLength) {
+                if (new_session_uri.size() > detail::kMaxUriLength) {
                     throw ProtocolViolationException(
-                      quicr::format("GOAWAY URI exceeds {} bytes", kMaxSessionUriLength));
+                      quicr::format("GOAWAY URI exceeds {} bytes", detail::kMaxUriLength));
+                }
+
+                if (stream->RecordGoAwayReceived()) {
+                    throw ProtocolViolationException(
+                      quicr::format("Duplicate GOAWAY received on stream (stream_id={})", stream->GetStreamId()));
                 }
 
                 if (!client_mode_) {
@@ -3560,6 +3605,27 @@ namespace quicr {
                                         messages::ControlMessageType msg_type,
                                         BytesSpan msg_bytes)
     {
+        switch (msg_type) {
+            case messages::ControlMessageType::kSubscribe:
+            case messages::ControlMessageType::kTrackStatus:
+            case messages::ControlMessageType::kPublishNamespace:
+            case messages::ControlMessageType::kSubscribeTracks:
+            case messages::ControlMessageType::kSubscribeNamespace:
+            case messages::ControlMessageType::kFetch:
+            case messages::ControlMessageType::kPublish: {
+                auto request = msg_bytes;
+                const auto request_id = messages::Message::ParseField<std::uint64_t>(request);
+                const auto first_unprocessed_request_id = connection->GetFirstUnprocessedRequestId();
+                if (first_unprocessed_request_id && request_id >= *first_unprocessed_request_id) {
+                    SendRequestError(stream, request_id, ErrorCode::kGoingAway, 0ms, "Session is going away");
+                    return true;
+                }
+                break;
+            }
+            default:
+                break;
+        }
+
         switch (msg_type) {
             case messages::ControlMessageType::kSubscribe: {
                 const auto request_id = messages::Message::ParseField<std::uint64_t>(msg_bytes);
@@ -3859,9 +3925,14 @@ namespace quicr {
                     throw ProtocolViolationException("Request-stream GOAWAY contained a Request ID");
                 }
 
-                if (new_session_uri.size() > kMaxSessionUriLength) {
+                if (new_session_uri.size() > detail::kMaxUriLength) {
                     throw ProtocolViolationException(
-                      quicr::format("GOAWAY URI exceeds {} bytes", kMaxSessionUriLength));
+                      quicr::format("GOAWAY URI exceeds {} bytes", detail::kMaxUriLength));
+                }
+
+                if (stream->RecordGoAwayReceived()) {
+                    throw ProtocolViolationException(
+                      quicr::format("Duplicate GOAWAY received on stream (stream_id={})", stream->GetStreamId()));
                 }
 
                 if (!client_mode_) {
@@ -3915,9 +3986,9 @@ namespace quicr {
                         throw ProtocolViolationException("REQUEST_ERROR has trailing bytes after Redirect");
                     }
 
-                    if (redirect_uri.size() > kMaxSessionUriLength) {
+                    if (redirect_uri.size() > detail::kMaxUriLength) {
                         throw ProtocolViolationException(
-                          quicr::format("REQUEST_ERROR redirect URI exceeds {} bytes", kMaxSessionUriLength));
+                          quicr::format("REQUEST_ERROR redirect URI exceeds {} bytes", detail::kMaxUriLength));
                     }
 
                     if (!client_mode_ && !redirect_uri.empty()) {

@@ -136,4 +136,16 @@ namespace quicr {
         std::lock_guard _(mutex_);
         return tx_ctrl_stream_;
     }
+
+    void Connection::SetFirstUnprocessedRequestId(std::uint64_t request_id)
+    {
+        std::lock_guard _(mutex_);
+        first_unprocessed_request_id_ = request_id;
+    }
+
+    std::optional<std::uint64_t> Connection::GetFirstUnprocessedRequestId() const
+    {
+        std::lock_guard _(mutex_);
+        return first_unprocessed_request_id_;
+    }
 }

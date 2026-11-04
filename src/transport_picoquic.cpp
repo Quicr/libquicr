@@ -364,7 +364,7 @@ try {
                     break;
             }
 
-            if (not transport->is_server_mode) {
+            if (!transport->is_server_mode && transport->Status() == TransportStatus::kShutdown) {
                 // TODO: Fix picoquic. Apparently picoquic is not processing return values for this callback
                 return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
             }

@@ -37,6 +37,7 @@ namespace quicr {
         kNotSupported = 0x3,             ///< The requested operation or feature is unsupported.
         kMalformedAuthToken = 0x4,       ///< An authorization token is syntactically invalid.
         kExpiredAuthToken = 0x5,         ///< An authorization token has expired.
+        kGoingAway = 0x6,                ///< The request is going away.
         kDoesNotExist = 0x10,            ///< The requested resource does not exist.
         kInvalidRange = 0x11,            ///< The requested object range is invalid.
         kMalformedTrack = 0x12,          ///< The supplied track name or properties are malformed.

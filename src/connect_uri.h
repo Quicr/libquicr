@@ -17,6 +17,7 @@
 #include <utility>
 
 namespace quicr::detail {
+    static constexpr std::size_t kMaxUriLength = 8192;
 
     struct ParsedConnectUri
     {
@@ -28,7 +29,7 @@ namespace quicr::detail {
 
     inline std::optional<ParsedConnectUri> ParseConnectUri(const std::string& connect_uri)
     {
-        if (connect_uri.empty() || connect_uri.size() > 2048 ||
+        if (connect_uri.empty() || connect_uri.size() > kMaxUriLength ||
             std::ranges::any_of(connect_uri, [](unsigned char ch) { return ch <= 0x20 || ch == 0x7f; })) {
             return std::nullopt;
         }

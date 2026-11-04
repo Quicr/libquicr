@@ -67,7 +67,6 @@ namespace quicr {
       , public std::enable_shared_from_this<Session>
     {
         static constexpr std::size_t kControlMessageBufferSize = 4096;
-        static constexpr std::size_t kMaxSessionUriLength = 8192;
 
       public:
         /**
@@ -207,7 +206,7 @@ namespace quicr {
 
         /// @brief Return shared ownership of the session's default connection.
         /// @return Reference to the default connection handle currently retained for the session.
-        const std::shared_ptr<Connection>& GetDefaultConnection() const noexcept { return default_connection_; }
+        std::shared_ptr<Connection> GetDefaultConnection() const noexcept;
 
         /// @brief Return shared ownership of the tick service used by the session.
         /// @return Reference to the tick-service handle retained for the session's lifetime.
@@ -548,6 +547,7 @@ namespace quicr {
                                    BytesSpan msg_bytes);
 
         bool ProcessCtrlMessage(const std::shared_ptr<Connection>& connection,
+                                const std::shared_ptr<Stream>& stream,
                                 messages::ControlMessageType msg_type,
                                 BytesSpan msg_bytes);
 
@@ -867,7 +867,7 @@ namespace quicr {
         mutable std::mutex connections_mutex_;
         std::map<std::uint64_t, std::shared_ptr<Connection>> connections_ QUICR_GUARDED_BY(connections_mutex_);
         MigrationMap migrations_ QUICR_GUARDED_BY(state_mutex_);
-        std::shared_ptr<Connection> default_connection_;
+        std::shared_ptr<Connection> default_connection_ QUICR_GUARDED_BY(state_mutex_);
         std::function<void(const std::shared_ptr<Connection>&, const std::shared_ptr<Session>&)>
           connection_added_callback_;
 

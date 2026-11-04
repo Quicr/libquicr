@@ -207,6 +207,9 @@ namespace quicr {
 
         ///@}
 
+        /// Record that this stream has received a GOAWAY
+        bool RecordGoAwayReceived() noexcept { return going_away_.exchange(true, std::memory_order_acq_rel); }
+
       protected:
         Stream(std::uint64_t stream_id, const std::shared_ptr<Connection>& connection)
           : stream_id_(stream_id)
@@ -222,5 +225,8 @@ namespace quicr {
 
         /// Read from application threads while the transport thread clears it, so it must be atomic.
         std::atomic_bool open_{ true };
+
+        /// Flag this stream as going away
+        std::atomic_bool going_away_{ false };
     };
 }
