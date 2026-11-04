@@ -771,10 +771,11 @@ TEST_CASE("Integration - Lost feedback notification follows the congestion contr
               return server_session != nullptr;
           }));
 
-          for (const auto& [end, session] :
-               { std::pair{ std::string("client"), client }, std::pair{ std::string("server"), server_session } }) {
-              CAPTURE(end);
-              const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetConnection());
+          const std::pair<std::string, std::shared_ptr<Session>> ends[] = { { "client", client },
+                                                                            { "server", server_session } };
+          for (const auto& end : ends) {
+              CAPTURE(end.first);
+              const auto connection = std::static_pointer_cast<PicoQuicConnection>(end.second->GetConnection());
               REQUIRE(connection != nullptr);
               REQUIRE(connection->pq_cnx != nullptr);
               CHECK_EQ(static_cast<bool>(connection->pq_cnx->is_lost_feedback_notification_required), expected);
