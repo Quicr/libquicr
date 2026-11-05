@@ -34,8 +34,30 @@ extern "C"
         size_t size;
     } quicr_byte_span_t;
 
+    typedef struct quicr_location
+    {
+        uint64_t group;
+        uint64_t object;
+    } quicr_location_t;
+
+    typedef uint8_t quicr_group_order_t;
+    enum
+    {
+        QUICR_GROUP_ORDER_UNSPECIFIED = 0,
+        QUICR_GROUP_ORDER_ASCENDING = 0x1,
+        QUICR_GROUP_ORDER_DESCENDING = 0x2,
+    };
+
+    typedef struct quicr_fetch_end_location
+    {
+        uint64_t group;
+        bool has_object;
+        uint64_t object;
+    } quicr_fetch_end_location_t;
+
     typedef struct quicr_track_namespace quicr_track_namespace_t;
     typedef struct quicr_full_track_name quicr_full_track_name_t;
+    typedef struct quicr_track_extensions quicr_track_extensions_t;
 
     QUICR_C_API quicr_status_t quicr_track_namespace_create(const quicr_byte_span_t* entries,
                                                             size_t count,
@@ -197,9 +219,29 @@ extern "C"
 
     typedef struct quicr_session quicr_session_t;
     typedef struct quicr_publish_response quicr_publish_response_t;
-    typedef struct quicr_subscribe_response quicr_subscribe_response_t;
-    typedef struct quicr_fetch_response quicr_fetch_response_t;
-    typedef struct quicr_track_status_response quicr_track_status_response_t;
+
+    typedef struct quicr_track_status_response
+    {
+        bool has_largest_location;
+        quicr_location_t largest_location;
+        const quicr_track_extensions_t* track_extensions;
+    } quicr_track_status_response_t;
+
+    typedef struct quicr_subscribe_response
+    {
+        quicr_track_status_response_t track_status;
+        bool is_publisher_initiated;
+        bool has_expires;
+        uint64_t expires_ms;
+    } quicr_subscribe_response_t;
+
+    typedef struct quicr_fetch_response
+    {
+        bool has_largest_location;
+        quicr_location_t largest_location;
+        quicr_group_order_t publisher_default_group_order;
+    } quicr_fetch_response_t;
+
     typedef struct quicr_setup_attributes quicr_setup_attributes_t;
     typedef struct quicr_publish_attributes quicr_publish_attributes_t;
     typedef struct quicr_publish_namespace_attributes quicr_publish_namespace_attributes_t;
@@ -267,7 +309,7 @@ extern "C"
         quicr_reply_result_t result;
         union
         {
-            const quicr_subscribe_response_t* response;
+            quicr_subscribe_response_t response;
             quicr_request_error_t error;
         };
     } quicr_subscribe_reply_t;
@@ -283,7 +325,7 @@ extern "C"
         quicr_reply_result_t result;
         union
         {
-            const quicr_fetch_response_t* response;
+            quicr_fetch_response_t response;
             quicr_fetch_error_t error;
         };
     } quicr_fetch_reply_t;
@@ -299,7 +341,7 @@ extern "C"
         quicr_reply_result_t result;
         union
         {
-            const quicr_track_status_response_t* response;
+            quicr_track_status_response_t response;
             quicr_request_error_t error;
         };
     } quicr_track_status_reply_t;
@@ -434,8 +476,6 @@ extern "C"
                                                    void* user_data);
     } quicr_session_server_callbacks_t;
 
-    QUICR_C_API quicr_byte_span_t quicr_setup_attributes_endpoint_id(const quicr_setup_attributes_t* attributes);
-
     QUICR_C_API quicr_status_t quicr_session_get_status(const quicr_session_t* session, quicr_session_status_t* status);
 
     /*=======================================================================*/
@@ -515,27 +555,9 @@ extern "C"
 
     QUICR_C_API void quicr_stream_header_properties_init(quicr_stream_header_properties_t* properties);
 
-    typedef struct quicr_location
-    {
-        uint64_t group;
-        uint64_t object;
-    } quicr_location_t;
-
     QUICR_C_API void quicr_location_init(quicr_location_t* location);
 
     typedef struct quicr_publish_track_handler quicr_publish_track_handler_t;
-
-    QUICR_C_API quicr_status_t quicr_publish_track_handler_create(const quicr_full_track_name_t* ftn,
-                                                                  quicr_track_mode_t track_mode,
-                                                                  uint8_t publisher_priority,
-                                                                  uint8_t publish_object_priority,
-                                                                  uint32_t default_ttl,
-                                                                  const quicr_location_t* largest_location,
-                                                                  quicr_publish_track_handler_t** handler);
-
-    QUICR_C_API void quicr_publish_track_handler_destroy(quicr_publish_track_handler_t* handler);
-
-    QUICR_C_API bool quicr_publish_track_handler_can_publish(const quicr_publish_track_handler_t* handler);
 
     typedef uint8_t quicr_publish_track_handler_status_t;
     enum
@@ -554,6 +576,28 @@ extern "C"
         QUICR_PUBLISH_TRACK_HANDLER_STATUS_PENDING_PUBLISH_OK,
         QUICR_PUBLISH_TRACK_HANDLER_STATUS_PAUSED,
     };
+
+    typedef struct quicr_publish_track_handler_callbacks
+    {
+        void* user_data;
+        void (*status_changed)(quicr_publish_track_handler_t* handler,
+                               quicr_publish_track_handler_status_t status,
+                               void* user_data);
+    } quicr_publish_track_handler_callbacks_t;
+
+    QUICR_C_API quicr_status_t
+    quicr_publish_track_handler_create(const quicr_publish_track_handler_callbacks_t* callbacks,
+                                       const quicr_full_track_name_t* ftn,
+                                       quicr_track_mode_t track_mode,
+                                       uint8_t publisher_priority,
+                                       uint8_t publish_object_priority,
+                                       uint32_t default_ttl,
+                                       const quicr_location_t* largest_location,
+                                       quicr_publish_track_handler_t** handler);
+
+    QUICR_C_API void quicr_publish_track_handler_destroy(quicr_publish_track_handler_t* handler);
+
+    QUICR_C_API bool quicr_publish_track_handler_can_publish(const quicr_publish_track_handler_t* handler);
 
     QUICR_C_API quicr_status_t quicr_publish_track_handler_get_status(const quicr_publish_track_handler_t* handler,
                                                                       quicr_publish_track_handler_status_t* status);
@@ -586,23 +630,43 @@ extern "C"
                                                const quicr_stream_header_properties_t* properties,
                                                quicr_publish_object_status_t* status);
 
+    QUICR_C_API quicr_status_t quicr_publish_track_handler_end_subgroup(quicr_publish_track_handler_t* handler,
+                                                                        uint64_t group_id,
+                                                                        uint64_t subgroup_id,
+                                                                        bool completed);
+
+    QUICR_C_API quicr_status_t quicr_publish_track_handler_end_all_subgroups(quicr_publish_track_handler_t* handler);
+
     typedef struct quicr_subscribe_track_handler quicr_subscribe_track_handler_t;
+
+    typedef uint8_t quicr_subscribe_track_handler_status_t;
+    enum
+    {
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_OK = 0,
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_NOT_CONNECTED,
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_ERROR,
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_NOT_AUTHORIZED,
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_NOT_SUBSCRIBED,
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_PENDING_RESPONSE,
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_SENDING_UNSUBSCRIBE,
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_PAUSED,
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_NEW_GROUP_REQUESTED,
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_CANCELLED,
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_DONE_BY_FIN,
+        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_DONE_BY_RESET,
+    };
 
     typedef struct quicr_subscribe_track_handler_callbacks
     {
         void* user_data;
+        void (*status_changed)(quicr_subscribe_track_handler_t* handler,
+                               quicr_subscribe_track_handler_status_t status,
+                               void* user_data);
         void (*object_received)(const quicr_object_headers_t* headers,
                                 quicr_byte_span_t data,
                                 const quicr_stream_header_properties_t* properties,
                                 void* user_data);
     } quicr_subscribe_track_handler_callbacks_t;
-
-    typedef uint8_t quicr_group_order_t;
-    enum
-    {
-        QUICR_GROUP_ORDER_ASCENDING = 0x1,
-        QUICR_GROUP_ORDER_DESCENDING = 0x2,
-    };
 
     typedef uint64_t quicr_filter_type_t;
     enum
@@ -660,36 +724,33 @@ extern "C"
 
     QUICR_C_API void quicr_subscribe_track_handler_destroy(quicr_subscribe_track_handler_t* handler);
 
-    typedef uint8_t quicr_subscribe_track_handler_status_t;
-    enum
-    {
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_OK = 0,
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_NOT_CONNECTED,
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_ERROR,
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_NOT_AUTHORIZED,
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_NOT_SUBSCRIBED,
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_PENDING_RESPONSE,
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_SENDING_UNSUBSCRIBE,
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_PAUSED,
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_NEW_GROUP_REQUESTED,
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_CANCELLED,
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_DONE_BY_FIN,
-        QUICR_SUBSCRIBE_TRACK_HANDLER_STATUS_DONE_BY_RESET,
-    };
-
     QUICR_C_API quicr_status_t quicr_subscribe_track_handler_get_status(const quicr_subscribe_track_handler_t* handler,
                                                                         quicr_subscribe_track_handler_status_t* status);
 
+    QUICR_C_API quicr_status_t quicr_subscribe_track_handler_pause(quicr_subscribe_track_handler_t* handler);
+
+    QUICR_C_API quicr_status_t quicr_subscribe_track_handler_resume(quicr_subscribe_track_handler_t* handler);
+
+    QUICR_C_API quicr_status_t quicr_subscribe_track_handler_request_new_group(quicr_subscribe_track_handler_t* handler,
+                                                                               uint64_t group_id);
+
+    QUICR_C_API quicr_status_t
+    quicr_subscribe_track_handler_support_new_group_request(quicr_subscribe_track_handler_t* handler, bool supported);
+
     typedef struct quicr_fetch_track_handler quicr_fetch_track_handler_t;
-    typedef quicr_subscribe_track_handler_callbacks_t quicr_fetch_track_handler_callbacks_t;
     typedef quicr_subscribe_track_handler_status_t quicr_fetch_track_handler_status_t;
 
-    typedef struct quicr_fetch_end_location
+    typedef struct quicr_fetch_track_handler_callbacks
     {
-        uint64_t group;
-        bool has_object;
-        uint64_t object;
-    } quicr_fetch_end_location_t;
+        void* user_data;
+        void (*status_changed)(quicr_fetch_track_handler_t* handler,
+                               quicr_fetch_track_handler_status_t status,
+                               void* user_data);
+        void (*object_received)(const quicr_object_headers_t* headers,
+                                quicr_byte_span_t data,
+                                const quicr_stream_header_properties_t* properties,
+                                void* user_data);
+    } quicr_fetch_track_handler_callbacks_t;
 
     QUICR_C_API quicr_status_t quicr_fetch_track_handler_create(const quicr_fetch_track_handler_callbacks_t* callbacks,
                                                                 const quicr_full_track_name_t* ftn,
@@ -701,6 +762,16 @@ extern "C"
     QUICR_C_API void quicr_fetch_track_handler_destroy(quicr_fetch_track_handler_t* handler);
     QUICR_C_API quicr_status_t quicr_fetch_track_handler_get_status(const quicr_fetch_track_handler_t* handler,
                                                                     quicr_fetch_track_handler_status_t* status);
+
+    QUICR_C_API quicr_status_t quicr_fetch_track_handler_pause(quicr_fetch_track_handler_t* handler);
+
+    QUICR_C_API quicr_status_t quicr_fetch_track_handler_resume(quicr_fetch_track_handler_t* handler);
+
+    QUICR_C_API quicr_status_t quicr_fetch_track_handler_request_new_group(quicr_fetch_track_handler_t* handler,
+                                                                           uint64_t group_id);
+
+    QUICR_C_API quicr_status_t quicr_fetch_track_handler_support_new_group_request(quicr_fetch_track_handler_t* handler,
+                                                                                   bool supported);
 
     typedef struct quicr_publish_namespace_handler quicr_publish_namespace_handler_t;
 
@@ -732,6 +803,20 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_publish_namespace_handler_get_status(const quicr_publish_namespace_handler_t* handler,
                                                quicr_publish_namespace_handler_status_t* status);
+
+    /* Error reasons remain valid until the next error query on the same handler or handler destruction. */
+    QUICR_C_API quicr_status_t
+    quicr_publish_namespace_handler_get_error(const quicr_publish_namespace_handler_t* handler,
+                                              bool* has_error,
+                                              quicr_error_t* error);
+
+    QUICR_C_API quicr_status_t
+    quicr_publish_namespace_handler_publish_track(quicr_publish_namespace_handler_t* handler,
+                                                  const quicr_publish_track_handler_t* track_handler);
+
+    QUICR_C_API quicr_status_t
+    quicr_publish_namespace_handler_unpublish_track(quicr_publish_namespace_handler_t* handler,
+                                                    const quicr_publish_track_handler_t* track_handler);
 
     typedef struct quicr_subscribe_namespace_handler quicr_subscribe_namespace_handler_t;
 
@@ -775,6 +860,12 @@ extern "C"
     quicr_subscribe_namespace_handler_get_status(const quicr_subscribe_namespace_handler_t* handler,
                                                  quicr_subscribe_namespace_handler_status_t* status);
 
+    /* Error reasons remain valid until the next error query on the same handler or handler destruction. */
+    QUICR_C_API quicr_status_t
+    quicr_subscribe_namespace_handler_get_error(const quicr_subscribe_namespace_handler_t* handler,
+                                                bool* has_error,
+                                                quicr_error_t* error);
+
     typedef struct quicr_track_status_track_handler quicr_track_status_track_handler_t;
 
     typedef uint8_t quicr_track_status_handler_status_t;
@@ -804,6 +895,196 @@ extern "C"
     QUICR_C_API void quicr_track_status_handler_destroy(quicr_track_status_track_handler_t* handler);
     QUICR_C_API quicr_status_t quicr_track_status_handler_get_status(const quicr_track_status_track_handler_t* handler,
                                                                      quicr_track_status_handler_status_t* status);
+
+    QUICR_C_API quicr_status_t
+    quicr_track_status_handler_get_response(const quicr_track_status_track_handler_t* handler,
+                                            bool* has_response,
+                                            quicr_track_status_response_t* response);
+
+    /* Error reasons remain valid until the next error query on the same handler or handler destruction. */
+    QUICR_C_API quicr_status_t quicr_track_status_handler_get_error(const quicr_track_status_track_handler_t* handler,
+                                                                    bool* has_error,
+                                                                    quicr_error_t* error);
+
+    /*=======================================================================*/
+    // Attributes
+    /*=======================================================================*/
+
+    struct quicr_setup_attributes
+    {
+        quicr_byte_span_t endpoint_id;
+    };
+
+    struct quicr_publish_namespace_attributes
+    {
+        uint64_t request_id;
+    };
+
+    struct quicr_standalone_fetch_attributes
+    {
+        uint8_t priority;
+        quicr_group_order_t group_order;
+        quicr_group_order_t publisher_default_group_order;
+        quicr_location_t start_location;
+        quicr_fetch_end_location_t end_location;
+    };
+
+    struct quicr_joining_fetch_attributes
+    {
+        uint8_t priority;
+        quicr_group_order_t group_order;
+        quicr_group_order_t publisher_default_group_order;
+        uint64_t joining_request_id;
+        bool relative;
+        uint64_t joining_start;
+    };
+
+    typedef uint64_t quicr_token_alias_type_t;
+    enum
+    {
+        QUICR_TOKEN_ALIAS_TYPE_DELETE = 0,
+        QUICR_TOKEN_ALIAS_TYPE_REGISTER = 1,
+        QUICR_TOKEN_ALIAS_TYPE_USE_ALIAS = 2,
+        QUICR_TOKEN_ALIAS_TYPE_USE_VALUE = 3,
+    };
+
+    typedef struct quicr_token
+    {
+        quicr_token_alias_type_t alias_type;
+        bool has_token_alias;
+        uint64_t token_alias;
+        bool has_token_type;
+        uint64_t token_type;
+        quicr_byte_span_t token_value;
+    } quicr_token_t;
+
+    QUICR_C_API quicr_status_t quicr_track_extensions_create(quicr_track_extensions_t** extensions);
+
+    QUICR_C_API void quicr_track_extensions_destroy(quicr_track_extensions_t* extensions);
+
+    QUICR_C_API quicr_status_t quicr_track_extensions_add(quicr_track_extensions_t* extensions,
+                                                          uint64_t type,
+                                                          quicr_byte_span_t value);
+
+    QUICR_C_API quicr_status_t quicr_track_extensions_add_immutable(quicr_track_extensions_t* extensions,
+                                                                    uint64_t type,
+                                                                    quicr_byte_span_t value);
+
+    QUICR_C_API size_t quicr_track_extensions_count(const quicr_track_extensions_t* extensions);
+
+    QUICR_C_API size_t quicr_track_extensions_immutable_count(const quicr_track_extensions_t* extensions);
+
+    QUICR_C_API quicr_status_t quicr_track_extensions_entry(const quicr_track_extensions_t* extensions,
+                                                            size_t index,
+                                                            uint64_t* type,
+                                                            quicr_byte_span_t* value);
+
+    QUICR_C_API quicr_status_t quicr_track_extensions_immutable_entry(const quicr_track_extensions_t* extensions,
+                                                                      size_t index,
+                                                                      uint64_t* type,
+                                                                      quicr_byte_span_t* value);
+
+    QUICR_C_API const quicr_full_track_name_t* quicr_publish_attributes_full_track_name(
+      const quicr_publish_attributes_t* attributes);
+
+    QUICR_C_API uint64_t quicr_publish_attributes_track_alias(const quicr_publish_attributes_t* attributes);
+
+    QUICR_C_API size_t quicr_publish_attributes_auth_token_count(const quicr_publish_attributes_t* attributes);
+
+    QUICR_C_API quicr_status_t quicr_publish_attributes_auth_token(const quicr_publish_attributes_t* attributes,
+                                                                   size_t index,
+                                                                   quicr_token_t* token);
+
+    QUICR_C_API quicr_status_t quicr_publish_attributes_expires(const quicr_publish_attributes_t* attributes,
+                                                                bool* has_expires,
+                                                                uint64_t* expires);
+
+    QUICR_C_API quicr_status_t quicr_publish_attributes_largest_object(const quicr_publish_attributes_t* attributes,
+                                                                       bool* has_largest_object,
+                                                                       quicr_location_t* largest_object);
+
+    QUICR_C_API bool quicr_publish_attributes_forward(const quicr_publish_attributes_t* attributes);
+
+    QUICR_C_API quicr_status_t quicr_publish_attributes_group_order(const quicr_publish_attributes_t* attributes,
+                                                                    quicr_group_order_t* group_order);
+
+    QUICR_C_API bool quicr_publish_attributes_dynamic_groups(const quicr_publish_attributes_t* attributes);
+
+    QUICR_C_API uint8_t quicr_publish_attributes_publisher_priority(const quicr_publish_attributes_t* attributes);
+
+    QUICR_C_API const quicr_track_extensions_t* quicr_publish_attributes_track_extensions(
+      const quicr_publish_attributes_t* attributes);
+
+    QUICR_C_API quicr_status_t quicr_publish_attributes_max_cache_duration(const quicr_publish_attributes_t* attributes,
+                                                                           bool* has_max_cache_duration,
+                                                                           uint64_t* max_cache_duration);
+
+    QUICR_C_API quicr_status_t quicr_publish_attributes_delivery_timeout(const quicr_publish_attributes_t* attributes,
+                                                                         bool* has_delivery_timeout,
+                                                                         uint64_t* delivery_timeout);
+
+    QUICR_C_API uint8_t quicr_subscribe_attributes_priority(const quicr_subscribe_attributes_t* attributes);
+
+    QUICR_C_API quicr_status_t quicr_subscribe_attributes_group_order(const quicr_subscribe_attributes_t* attributes,
+                                                                      bool* has_group_order,
+                                                                      quicr_group_order_t* group_order);
+
+    QUICR_C_API quicr_status_t
+    quicr_subscribe_attributes_publisher_group_order(const quicr_subscribe_attributes_t* attributes,
+                                                     quicr_group_order_t* group_order);
+
+    QUICR_C_API uint64_t quicr_subscribe_attributes_delivery_timeout(const quicr_subscribe_attributes_t* attributes);
+
+    QUICR_C_API uint64_t quicr_subscribe_attributes_expires(const quicr_subscribe_attributes_t* attributes);
+
+    QUICR_C_API bool quicr_subscribe_attributes_forward(const quicr_subscribe_attributes_t* attributes);
+
+    QUICR_C_API quicr_status_t
+    quicr_subscribe_attributes_new_group_request_id(const quicr_subscribe_attributes_t* attributes,
+                                                    bool* has_new_group_request_id,
+                                                    uint64_t* new_group_request_id);
+
+    QUICR_C_API bool quicr_subscribe_attributes_is_publisher_initiated(const quicr_subscribe_attributes_t* attributes);
+
+    QUICR_C_API quicr_location_t
+    quicr_subscribe_attributes_start_location(const quicr_subscribe_attributes_t* attributes);
+
+    QUICR_C_API uint64_t quicr_subscribe_attributes_rendezvous_timeout(const quicr_subscribe_attributes_t* attributes);
+
+    QUICR_C_API uint64_t
+    quicr_subscribe_namespace_attributes_request_id(const quicr_subscribe_namespace_attributes_t* attributes);
+
+    /*=======================================================================*/
+    // Responses
+    /*=======================================================================*/
+
+    QUICR_C_API quicr_status_t quicr_publish_response_create(quicr_subscribe_track_handler_t* handler,
+                                                             quicr_publish_response_t** response);
+
+    QUICR_C_API void quicr_publish_response_destroy(quicr_publish_response_t* response);
+
+    QUICR_C_API quicr_status_t quicr_publish_response_set_subscriber_priority(quicr_publish_response_t* response,
+                                                                              uint8_t priority);
+
+    QUICR_C_API quicr_status_t quicr_publish_response_set_group_order(quicr_publish_response_t* response,
+                                                                      quicr_group_order_t group_order);
+
+    QUICR_C_API quicr_status_t quicr_publish_response_set_filter(quicr_publish_response_t* response,
+                                                                 const quicr_filter_t* filter);
+
+    QUICR_C_API quicr_status_t quicr_publish_response_set_forward(quicr_publish_response_t* response, bool forward);
+
+    QUICR_C_API quicr_status_t quicr_publish_response_set_subgroup_delivery_timeout(quicr_publish_response_t* response,
+                                                                                    uint64_t timeout_ms);
+
+    QUICR_C_API quicr_status_t quicr_publish_response_set_object_delivery_timeout(quicr_publish_response_t* response,
+                                                                                  uint64_t timeout_ms);
+
+    QUICR_C_API quicr_status_t quicr_publish_response_set_new_group_request_id(quicr_publish_response_t* response,
+                                                                               uint64_t request_id);
+
+    QUICR_C_API quicr_subscribe_track_handler_t* quicr_publish_response_get_handler(
+      const quicr_publish_response_t* response);
 
     /*=======================================================================*/
     // Session Manager
