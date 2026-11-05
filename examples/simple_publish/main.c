@@ -22,7 +22,7 @@ setup_received(quicr_session_t* session, const quicr_setup_attributes_t* attribu
     (void)session;
     (void)user_data;
 
-    const quicr_byte_span_t endpoint_id = quicr_setup_attributes_endpoint_id(attributes);
+    const quicr_byte_span_t endpoint_id = attributes->endpoint_id;
     fprintf(stderr, "Setup received from '");
     fwrite(endpoint_id.data, sizeof(*endpoint_id.data), endpoint_id.size, stderr);
     fprintf(stderr, "'\n");
@@ -123,8 +123,8 @@ main()
                                        &full_track_name));
 
     quicr_publish_track_handler_t* handler = NULL;
-    CHECK(
-      quicr_publish_track_handler_create(full_track_name, QUICR_TRACK_MODE_STREAM, 127, 127, 5000, NULL, &handler));
+    CHECK(quicr_publish_track_handler_create(
+      NULL, full_track_name, QUICR_TRACK_MODE_STREAM, 127, 127, 5000, NULL, &handler));
 
     if (!handler) {
         fprintf(stderr, "Failed to create handler\n");
