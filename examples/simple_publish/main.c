@@ -16,6 +16,22 @@
         }                                                                                                              \
     } while (0)
 
+static quicr_error_reply_t
+setup_received(quicr_session_t* session, const quicr_setup_attributes_t* attributes, void* user_data)
+{
+    (void)session;
+    (void)user_data;
+
+    const quicr_byte_span_t endpoint_id = quicr_setup_attributes_endpoint_id(attributes);
+    fprintf(stderr, "Setup received from '");
+    fwrite(endpoint_id.data, sizeof(*endpoint_id.data), endpoint_id.size, stderr);
+    fprintf(stderr, "'\n");
+
+    return (quicr_error_reply_t){
+        .result = QUICR_REPLY_RESULT_ACCEPT,
+    };
+}
+
 int
 main()
 {
@@ -41,7 +57,10 @@ main()
     }
 
     quicr_session_t* session = NULL;
-    CHECK(quicr_session_manager_add_client(session_manager, &config, NULL, &session));
+    quicr_session_client_callbacks_t callbacks = {
+        .setup_received = setup_received,
+    };
+    CHECK(quicr_session_manager_add_client(session_manager, &config, &callbacks, &session));
 
     quicr_session_status_t status;
     CHECK(quicr_session_get_status(session, &status));
@@ -85,10 +104,8 @@ main()
         entry = separator + 1;
     }
 
-    quicr_track_namespace_t track_namespace = {
-        .entries = entries,
-        .count = entry_count,
-    };
+    quicr_track_namespace_t* track_namespace = NULL;
+    CHECK(quicr_track_namespace_create(entries, entry_count, &track_namespace));
 
     char track_name_input[1024];
     fprintf(stderr, "Enter a name for the track: ");
@@ -97,17 +114,17 @@ main()
     }
 
     track_name_input[strcspn(track_name_input, "\r\n")] = '\0';
-    quicr_full_track_name_t full_track_name = {
-        .ns = track_namespace,
-        .track_name = {
-            .data = (const uint8_t*)track_name_input,
-            .size = strlen(track_name_input),
-        },
-    };
+    quicr_full_track_name_t* full_track_name = NULL;
+    CHECK(quicr_full_track_name_create(track_namespace,
+                                       (quicr_byte_span_t){
+                                         .data = (const uint8_t*)track_name_input,
+                                         .size = strlen(track_name_input),
+                                       },
+                                       &full_track_name));
 
     quicr_publish_track_handler_t* handler = NULL;
     CHECK(
-      quicr_publish_track_handler_create(&full_track_name, QUICR_TRACK_MODE_STREAM, 127, 127, 5000, NULL, &handler));
+      quicr_publish_track_handler_create(full_track_name, QUICR_TRACK_MODE_STREAM, 127, 127, 5000, NULL, &handler));
 
     if (!handler) {
         fprintf(stderr, "Failed to create handler\n");
@@ -160,6 +177,8 @@ main()
     }
 
     quicr_publish_track_handler_destroy(handler);
+    quicr_full_track_name_destroy(full_track_name);
+    quicr_track_namespace_destroy(track_namespace);
     quicr_session_manager_destroy(session_manager);
 
     fprintf(stderr, "Done publishing! Goodbye\n");
