@@ -437,7 +437,7 @@ namespace quicr {
             // TODO: SUBSCRIPTION_FILTER
             // TODO: EXPIRES
 
-            const auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+            const auto ngr = params.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
             if (ngr.has_value()) {
                 if (!support_new_group_request_) {
                     throw messages::ProtocolViolationException("Must not request new group on non-dynamic track");
@@ -466,11 +466,11 @@ namespace quicr {
         // TODO: SUBGROUP_DELIVERY_TIMEOUT
         // TODO: SUBSCRIBER_PRIORITY
         // TODO: SUBSCRIPTION_FILTER
-        if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
-            SetStatus(*forward ? Status::kOk : Status::kPaused);
+        if (params.Contains(messages::ParameterType::kForward)) {
+            SetStatus(messages::ResolveForward(params, true) ? Status::kOk : Status::kPaused);
         }
 
-        if (auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
+        if (auto ngr = params.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
             SetStatus(Status::kNewGroupRequested);
         }
 
