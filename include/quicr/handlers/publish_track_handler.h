@@ -396,9 +396,9 @@ namespace quicr {
              *      costs no lookup. The transport may close the stream underneath this handle, which
              *      it detects and rejects on send.
              */
-            std::shared_ptr<Stream> stream;
-            uint64_t last_group_id{ 0 };
-            uint64_t last_subgroup_id{ 0 };
+            const std::shared_ptr<Stream> stream;
+
+            // Last object ID published, for delta encoding.
             std::optional<uint64_t> last_object_id{ std::nullopt };
         };
 
@@ -411,7 +411,6 @@ namespace quicr {
         Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
 
         bool support_new_group_request_{ true }; /// TODO: For now, always support dynamic groups
-        std::optional<uint64_t> pending_new_group_request_id_;
 
       private:
         // Update status without firing the callback.

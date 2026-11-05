@@ -245,7 +245,6 @@ namespace quicr {
 
         std::map<std::uint64_t, StreamInfo> subgroup_it;
         bool is_stream_header_needed{ false };
-        uint64_t group_id_delta{ 0 };
         uint64_t object_id_delta{ 0 };
         std::shared_ptr<Stream> stream;
 
@@ -265,17 +264,11 @@ namespace quicr {
                 stream = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
-                auto [it, _] =
-                  subgroup_map.emplace(object_headers.subgroup_id,
-                                       StreamInfo{ stream, object_headers.group_id, object_headers.subgroup_id });
+                auto [it, _] = subgroup_map.emplace(object_headers.subgroup_id, StreamInfo{ stream });
                 subgroup_it = std::move(it);
             }
 
             if (subgroup_it->second.last_object_id.has_value()) {
-                group_id_delta = subgroup_it->second.last_group_id > object_headers.group_id
-                                   ? 0
-                                   : object_headers.group_id - subgroup_it->second.last_group_id;
-
                 object_id_delta = subgroup_it->second.last_object_id > object_headers.object_id
                                     ? object_headers.object_id
                                     : object_headers.object_id - *subgroup_it->second.last_object_id;
@@ -286,13 +279,6 @@ namespace quicr {
             if (object_id_delta)
                 object_id_delta--; // Adjust for delta in missing objects
 
-            if (group_id_delta) {
-                // Group change, reset pending new group request
-                pending_new_group_request_id_ = std::nullopt;
-            }
-
-            subgroup_it->second.last_group_id = object_headers.group_id;
-            subgroup_it->second.last_subgroup_id = object_headers.subgroup_id;
             subgroup_it->second.last_object_id = object_headers.object_id;
 
             stream = subgroup_it->second.stream;
