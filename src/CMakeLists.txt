@@ -5,7 +5,7 @@
 # QuicR Library
 #=============================================================================#
 
-if (${QUICR_BUILD_SHARED})
+if (QUICR_BUILD_SHARED)
     add_library(quicr SHARED)
 else()
     add_library(quicr)
@@ -20,16 +20,12 @@ set_target_properties(quicr PROPERTIES
 )
 
 target_compile_features(quicr PUBLIC cxx_std_20)
-
+target_compile_options(quicr PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>)
 target_compile_options(quicr PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wall -pedantic -Wextra -Wmissing-declarations -Werror=switch>
     $<$<CXX_COMPILER_ID:MSVC>:/MP>
 )
 
-target_compile_options(quicr PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>
-)
-
-# Request, and check support for, clang's thread safety analysis.
 include(CheckThreadSafetyAnnotations)
 if(QUICR_HAS_THREAD_SAFETY_ANNOTATIONS)
     target_compile_definitions(quicr PUBLIC
@@ -94,16 +90,24 @@ target_include_directories(quicr PUBLIC
 # QuicR C API
 #=============================================================================#
 
-if (${QUICR_BUILD_SHARED})
+if (QUICR_BUILD_SHARED)
     add_library(quicr_c SHARED)
 else()
     add_library(quicr_c)
 endif()
 
 add_library(quicr::c ALIAS quicr_c)
+set_target_properties(quicr_c PROPERTIES EXPORT_NAME c)
 
-target_sources(quicr_c PRIVATE quicr_c.cpp)
-target_link_libraries(quicr_c PUBLIC quicr::quicr)
+include(GenerateExportHeader)
+generate_export_header(quicr_c
+    EXPORT_FILE_NAME "${PROJECT_BINARY_DIR}/include/quicr/quicr_c_export.h"
+    EXPORT_MACRO_NAME QUICR_C_API
+    STATIC_DEFINE QUICR_C_STATIC_DEFINE
+)
+
+target_sources(quicr_c PRIVATE quicr.cpp)
+target_link_libraries(quicr_c PRIVATE quicr::quicr)
 target_include_directories(quicr_c PUBLIC
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
@@ -117,4 +121,5 @@ target_include_directories(quicr_c PUBLIC
 if(QUICR_LINT)
     include(Lint)
     lint(quicr)
+    lint(quicr_c)
 endif()

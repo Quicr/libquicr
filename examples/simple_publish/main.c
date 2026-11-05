@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <quicr/quicr_c.h>
+#include <quicr/quicr.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -114,8 +114,7 @@ main()
         return EXIT_FAILURE;
     }
 
-    CHECK(quicr_session_manager_add_handler(
-      session_manager, session, quicr_publish_track_handler_as_track_handler(handler)));
+    CHECK(quicr_session_manager_add_publish_track_handler(session_manager, session, handler));
 
     while (!quicr_publish_track_handler_can_publish(handler)) {
         quicr_publish_track_handler_status_t status;
