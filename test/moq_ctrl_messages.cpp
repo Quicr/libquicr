@@ -688,18 +688,25 @@ TEST_CASE("Filters")
     };
     serialise_filter(FilterType::kTrackFilter, filter);
 
+    for (const auto type : { SubscriptionFilterType::kNextGroupStart, SubscriptionFilterType::kLargestObject }) {
+        filter = SubscriptionFilter{ .type = type };
+        serialise_filter(FilterType::kSubscriptionFilter, filter);
+    }
+
     filter = SubscriptionFilter{
-        { .start = 1 },
+        .type = SubscriptionFilterType::kAbsoluteStart,
+        .start_location = { 1, 2 },
     };
     serialise_filter(FilterType::kSubscriptionFilter, filter);
 
-    filter = SubscriptionFilter{
-        {
-          .start = 1,
-          .end = 2,
-        },
-    };
-    serialise_filter(FilterType::kSubscriptionFilter, filter);
+    for (const auto delta : { std::uint64_t{ 0 }, std::uint64_t{ 2 }, std::numeric_limits<std::uint64_t>::max() - 1 }) {
+        filter = SubscriptionFilter{
+            .type = SubscriptionFilterType::kAbsoluteRange,
+            .start_location = { 1, 2 },
+            .end_group_delta = delta,
+        };
+        serialise_filter(FilterType::kSubscriptionFilter, filter);
+    }
 }
 
 TEST_CASE("Parameters - Filters")

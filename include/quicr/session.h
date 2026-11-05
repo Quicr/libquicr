@@ -534,8 +534,6 @@ namespace quicr {
                                     const messages::Filter& filter,
                                     messages::ControlMessageType type);
 
-        void SendUnsubscribeNamespace(const std::shared_ptr<Stream>& stream, const TrackNamespace& prefix);
-
         void SendNamespaceMessage(messages::ControlMessageType type, const TrackNamespace& track_namespace);
 
         /*===================================================================*/
@@ -618,10 +616,6 @@ namespace quicr {
         /*===================================================================*/
 
         void RemoveSubscribeTrack(SubscribeTrackHandler& handler, bool remove_handler = true);
-
-        void RemoveSubscribeNamespace(SubscribeNamespaceHandler& handler,
-                                      bool remove_handler = true,
-                                      bool send_unsubscribe = true);
 
         void CloseRequestHandler(std::uint64_t request_id, std::uint64_t stream_id, StreamClosedFlag flag)
           QUICR_EXCLUDES(state_mutex_);

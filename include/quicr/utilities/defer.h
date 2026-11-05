@@ -3,32 +3,25 @@
 
 #pragma once
 
-#include <functional>
+#include <utility>
 
-#define DEFER_CONCAT(a, b) DEFER_CONCAT_INNER(a, b)
-#define DEFER_CONCAT_INNER(a, b) a##b
+#define QUICR_DEFER_CONCAT(a, b) QUICR_DEFER_CONCAT_INNER(a, b)
+#define QUICR_DEFER_CONCAT_INNER(a, b) a##b
 
 #if defined(__clang__) && __clang_major__ >= 21
-#define DEFER_PUSH _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wthread-safety-analysis\"")
-#define DEFER_POP _Pragma("clang diagnostic pop")
+#define QUICR_DEFER_PUSH                                                                                               \
+    _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wthread-safety-analysis\"")
+#define QUICR_DEFER_POP _Pragma("clang diagnostic pop")
 #else
-#define DEFER_PUSH
-#define DEFER_POP
+#define QUICR_DEFER_PUSH
+#define QUICR_DEFER_POP
 #endif
 
-#ifdef _WIN32
 #define defer(n)                                                                                                       \
-    quicr::ScopeGuard DEFER_CONCAT(defer_, __LINE__)([&]() [[msv::forceinline]] {                                      \
-        DEFER_PUSH n;                                                                                                  \
-        DEFER_POP                                                                                                      \
+    quicr::ScopeGuard QUICR_DEFER_CONCAT(defer_, __LINE__)([&]() {                                                     \
+        QUICR_DEFER_PUSH n;                                                                                            \
+        QUICR_DEFER_POP                                                                                                \
     })
-#else
-#define defer(n)                                                                                                       \
-    quicr::ScopeGuard DEFER_CONCAT(defer_, __LINE__)([&]() __attribute__((always_inline)) {                            \
-        DEFER_PUSH n;                                                                                                  \
-        DEFER_POP                                                                                                      \
-    })
-#endif
 
 namespace quicr {
     template<typename F>

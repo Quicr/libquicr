@@ -53,7 +53,14 @@
 #include <vector>
 
 #ifdef _WIN32
-#include <windows.h>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #else
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -1176,16 +1183,6 @@ PicoQuicTransport::Start()
     }
 
     return nullptr;
-}
-
-bool
-PicoQuicTransport::GetPeerAddrInfo(const std::shared_ptr<Connection>& connection, sockaddr_storage* addr)
-{
-    std::lock_guard<std::mutex> _(state_mutex_);
-
-    std::memcpy(addr, &std::static_pointer_cast<PicoQuicConnection>(connection)->peer_addr, sizeof(sockaddr_storage));
-
-    return true;
 }
 
 void
