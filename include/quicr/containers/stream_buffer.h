@@ -14,11 +14,6 @@
 #include <vector>
 
 namespace quicr {
-#ifdef _MSC_VER
-#define FORCE_INLINE inline __forceinline
-#else
-#define FORCE_INLINE inline __attribute__((always_inline))
-#endif
 
     template<typename T, class Allocator = std::allocator<T>>
     class StreamBuffer
@@ -342,7 +337,7 @@ namespace quicr {
         }
 
       private:
-        FORCE_INLINE void CompactFrontIfNeeded()
+        void CompactFrontIfNeeded()
         {
 
             if (read_offset_ == 0) {
@@ -371,7 +366,7 @@ namespace quicr {
             read_offset_ = 0;
         }
 
-        FORCE_INLINE void PopInternal(std::size_t length)
+        void PopInternal(std::size_t length)
         {
             if (read_offset_ >= buffer_.size() || length >= buffer_.size() - read_offset_) {
                 buffer_.clear();
@@ -391,5 +386,4 @@ namespace quicr {
         std::size_t compact_threshold_{ 4096 };
     };
 
-#undef FORCE_INLINE
 }

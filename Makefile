@@ -78,7 +78,6 @@ format:
 	find src/quic -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find test -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find examples -iname "*.h" -or -iname "*.cpp" -or -iname "*.cc" -or -iname "*.hpp" | xargs ${CLANG_FORMAT}
-	find examples/qclient -iname "*.h" -or -iname "*.cpp" -or -iname "*.cc" -or -iname "*.hpp" | xargs ${CLANG_FORMAT}
 	find benchmark -name "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find tools -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
 	find c-bridge -iname "*.h" -or -iname "*.c" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}

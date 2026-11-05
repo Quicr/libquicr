@@ -633,8 +633,10 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
 
             if (qclient_vars::publish_clock) {
                 QUICR_LOGGER_INFO(qclient_vars::logger, " Publishing clock timestamp every second");
-            } else {
+            } else if (!qclient_vars::watch_path.has_value()) {
                 QUICR_LOGGER_INFO(qclient_vars::logger, " Type message and press enter to send");
+                QUICR_LOGGER_INFO(qclient_vars::logger,
+                                  " Send EOF to stop input (Ctrl+D on macOS/Linux; Ctrl+Z then Enter on Windows)");
             }
 
             QUICR_LOGGER_INFO(qclient_vars::logger,
@@ -1403,11 +1405,7 @@ main(int argc, char* argv[])
     }
 
     std::signal(SIGINT, HandleSignal);
-
-#ifndef _WIN32
-    std::signal(SIGHUP, HandleSignal);
-    std::signal(SIGQUIT, HandleSignal);
-#endif
+    std::signal(SIGTERM, HandleSignal);
 
     bool enable_pub{ false };
     bool enable_sub{ false };

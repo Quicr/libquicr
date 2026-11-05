@@ -13,11 +13,6 @@
 #include <vector>
 
 namespace quicr {
-#ifdef _MSC_VER
-#define FORCE_INLINE inline __forceinline
-#else
-#define FORCE_INLINE inline __attribute__((always_inline))
-#endif
 
     template<typename K, typename T>
     class Cache
@@ -144,7 +139,7 @@ namespace quicr {
         }
 
       protected:
-        FORCE_INLINE void Advance()
+        void Advance()
         {
             const TickType new_ticks =
               static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(clock_->Get()).count());
@@ -173,7 +168,7 @@ namespace quicr {
         }
 
         template<typename Value>
-        FORCE_INLINE void InternalInsert(const K& key, Value value, size_t ttl)
+        void InternalInsert(const K& key, Value value, size_t ttl)
         {
             if (ttl > duration_) {
                 throw std::invalid_argument("TTL is greater than max duration");
@@ -216,5 +211,4 @@ namespace quicr {
         std::shared_ptr<Clock> clock_;
     };
 
-#undef FORCE_INLINE
 } // namespace quicr
