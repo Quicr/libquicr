@@ -243,9 +243,11 @@ class TestTransport : public quicr::Transport
     std::shared_ptr<quicr::Connection> Start() override { return nullptr; }
     void Close(const std::shared_ptr<quicr::Connection>&, quicr::AppReasonForClose) override {}
     void CloseStream(const std::shared_ptr<quicr::Connection>&,
-                     const std::shared_ptr<quicr::Stream>&,
-                     quicr::StreamOperation) override
+                     const std::shared_ptr<quicr::Stream>& stream,
+                     quicr::StreamOperation operation) override
     {
+        closed_stream = stream;
+        close_operation = operation;
     }
     bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
     bool Enqueue(const std::shared_ptr<quicr::Connection>&,
@@ -289,9 +291,11 @@ class TestTransport : public quicr::Transport
     }
     std::shared_ptr<quicr::Stream> CreateRequestStream(const std::shared_ptr<quicr::Connection>&) override
     {
-        return nullptr;
+        return std::make_shared<TestStream>(0);
     }
 
+    std::shared_ptr<quicr::Stream> closed_stream;
+    std::optional<quicr::StreamOperation> close_operation;
     int enqueue_count{ 0 };
     int fail_enqueue{ -1 };
     int created_streams{ 0 };
@@ -384,6 +388,58 @@ TEST_CASE("Publishing retains framing for each subgroup stream")
         }
         CHECK(buffer.Empty());
     }
+}
+
+class TestSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
+{
+  public:
+    TestSubscribeNamespaceHandler()
+      : SubscribeNamespaceHandler({}, Mode::kNamespaces)
+    {
+    }
+
+    using SubscribeNamespaceHandler::RequestOkReceived;
+
+    void StatusChanged(Status status) override
+    {
+        CHECK(GetStatus() == status);
+        statuses.push_back(status);
+    }
+
+    std::vector<Status> statuses;
+};
+
+TEST_CASE("UnsubscribeNamespace cancels the request stream")
+{
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestSubscribeNamespaceHandler>();
+    session->SubscribeNamespace(handler);
+    SUBCASE("Accepted subscription")
+    {
+        handler->RequestOkReceived({});
+        REQUIRE(handler->GetStatus() == quicr::SubscribeNamespaceHandler::Status::kOk);
+    }
+    SUBCASE("Pending subscription") {}
+    handler->statuses.clear();
+    const auto stream_id = handler->GetRequestStreamId();
+    REQUIRE(stream_id);
+
+    session->UnsubscribeNamespace(handler);
+
+    REQUIRE(transport->closed_stream);
+    CHECK(transport->closed_stream->GetStreamId() == *stream_id);
+    CHECK(transport->close_operation == quicr::StreamOperation::kCancel);
+    CHECK(handler->GetStatus() == quicr::SubscribeNamespaceHandler::Status::kNotSubscribed);
+    CHECK_FALSE(handler->GetRequestId());
+    CHECK_FALSE(handler->GetRequestStreamId());
+    REQUIRE(handler->statuses.size() == 1);
+    CHECK(handler->statuses.front() == quicr::SubscribeNamespaceHandler::Status::kNotSubscribed);
+
+    transport->closed_stream.reset();
+    session->UnsubscribeNamespace(handler);
+    CHECK_FALSE(transport->closed_stream);
+    CHECK(handler->statuses.size() == 1);
 }
 
 TEST_CASE("Publishing reports rejected subgroup enqueues")

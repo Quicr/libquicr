@@ -659,21 +659,6 @@ namespace quicr {
         // TODO: add error handling in libquicr in calling function
     }
 
-    void Session::SendUnsubscribeNamespace(const std::shared_ptr<Stream>& stream, const TrackNamespace& prefix)
-    try {
-        [[maybe_unused]] auto th = TrackHash({ prefix, {} });
-
-        QUICR_LOGGER_DEBUG(logger_,
-                           "Sending UNSUBSCRIBE_NAMESPACE to conn_id: {} prefix_hash: {}",
-                           current_connection_->GetID(),
-                           th.track_namespace_hash);
-
-        SendCtrlMsg(stream, ControlMessageType::kNamespaceDone, prefix);
-    } catch (const std::exception& e) {
-        QUICR_LOGGER_ERROR(logger_, "Caught exception sending UNSUBSCRIBE_NAMESPACE (error={})", e.what());
-        // TODO: add error handling in libquicr in calling function
-    }
-
     void Session::SendNamespace(const TrackNamespace& track_namespace)
     {
         SendNamespaceMessage(ControlMessageType::kNamespace, track_namespace);
@@ -759,6 +744,10 @@ namespace quicr {
 
     void Session::UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler)
     {
+        if (handler == nullptr) {
+            throw std::invalid_argument("Handler must not be null");
+        }
+
         const auto& prefix = handler->GetPrefix();
         [[maybe_unused]] auto th = TrackHash({ prefix, {} });
 
@@ -767,9 +756,30 @@ namespace quicr {
                           current_connection_->GetID(),
                           th.track_namespace_hash);
 
-        std::lock_guard<std::mutex> lock(state_mutex_);
+        std::shared_ptr<Stream> stream;
+        {
+            std::lock_guard _(state_mutex_);
+            stream = handler->GetRequestStream();
+            if (const auto request_id = handler->GetRequestId()) {
+                request_handlers.erase(*request_id);
+            }
+            if (stream) {
+                request_by_stream.erase(stream->GetStreamId());
+            }
+            handler->SetRequestId(std::nullopt);
+            handler->SetRequestStream(nullptr);
+        }
 
-        RemoveSubscribeNamespace(*handler);
+        if (stream) {
+            try {
+                quic_transport_->CloseStream(current_connection_, stream, StreamOperation::kCancel);
+            } catch (const std::exception& e) {
+                QUICR_LOGGER_ERROR(logger_, "Failed to unsubscribe from namespace: {}", e.what());
+            }
+        }
+        if (stream || handler->GetStatus() != SubscribeNamespaceHandler::Status::kNotSubscribed) {
+            handler->SetStatus(SubscribeNamespaceHandler::Status::kNotSubscribed);
+        }
     }
 
     void Session::SendFetch(const std::shared_ptr<Stream>& stream,
@@ -1085,32 +1095,6 @@ namespace quicr {
             if (handler.GetReceivedTrackAlias().has_value()) {
                 sub_by_recv_track_alias.erase(handler.GetReceivedTrackAlias().value());
             }
-        }
-    }
-
-    void Session::RemoveSubscribeNamespace(SubscribeNamespaceHandler& handler,
-                                           bool remove_handler,
-                                           bool send_unsubscribe)
-    {
-        switch (handler.GetStatus()) {
-            case SubscribeNamespaceHandler::Status::kOk:
-                try {
-                    if (const auto stream = handler.GetRequestStream(); send_unsubscribe && stream != nullptr) {
-                        SendUnsubscribeNamespace(stream, handler.GetPrefix());
-                    }
-                } catch (const std::exception& e) {
-                    QUICR_LOGGER_ERROR(logger_, "Failed to send unsubscribe namespace: {}", e.what());
-                }
-
-                handler.SetStatus(SubscribeNamespaceHandler::Status::kNotSubscribed);
-                break;
-
-            default:
-                break;
-        }
-
-        if (remove_handler && handler.GetRequestId().has_value()) {
-            request_handlers.erase(*handler.GetRequestId());
         }
     }
 
