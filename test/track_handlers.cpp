@@ -251,13 +251,20 @@ class TestTransport : public quicr::Transport
     }
     bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
     bool Enqueue(const std::shared_ptr<quicr::Connection>&,
-                 const std::shared_ptr<quicr::Stream>&,
-                 std::shared_ptr<const std::vector<uint8_t>>,
+                 const std::shared_ptr<quicr::Stream>& stream,
+                 std::shared_ptr<const std::vector<uint8_t>> bytes,
                  uint8_t,
                  uint32_t,
                  EnqueueFlags) override
     {
-        return ++enqueue_count != fail_enqueue;
+        if (++enqueue_count == fail_enqueue) {
+            return false;
+        }
+        if (stream && bytes) {
+            auto& data = stream_data[stream->GetStreamId()];
+            data.insert(data.end(), bytes->begin(), bytes->end());
+        }
+        return true;
     }
     void EnqueueDatagram(const std::shared_ptr<quicr::Connection>&,
                          std::shared_ptr<const std::vector<uint8_t>>,
@@ -292,6 +299,7 @@ class TestTransport : public quicr::Transport
     int enqueue_count{ 0 };
     int fail_enqueue{ -1 };
     int created_streams{ 0 };
+    std::map<std::uint64_t, quicr::Bytes> stream_data;
 
   private:
     void QueueDeferredReply(std::function<void()>&&) override {}
@@ -312,6 +320,74 @@ CreateTestSession(const std::shared_ptr<TestTransport>& transport)
 {
     return quicr::Session::Create(
       quicr::ClientConfig{}, transport, std::make_shared<TestConnection>(), nullptr, nullptr);
+}
+
+TEST_CASE("Publishing retains framing for each subgroup stream")
+{
+    using namespace quicr;
+    using namespace quicr::messages;
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>();
+    handler->SetTransport(session);
+    handler->SetRequestId(0);
+    handler->SetTrackAlias(0);
+    handler->SetStatus(PublishTrackHandler::Status::kOk);
+    const StreamHeaderProperties custom{ false, SubgroupIdType::kExplicit, false, false, true };
+    const Bytes payload{ 0xAA };
+    ObjectHeaders headers{};
+    headers.subgroup_id = 1;
+    REQUIRE(handler->PublishObject(headers, payload, custom) == PublishTrackHandler::PublishObjectStatus::kOk);
+
+    SUBCASE("Interleaved subgroups keep their own framing")
+    {
+        headers.subgroup_id = 2;
+        REQUIRE(handler->PublishObject(headers, payload) == PublishTrackHandler::PublishObjectStatus::kOk);
+        headers.object_id = 1;
+        for (const auto subgroup : { 1, 2 }) {
+            headers.subgroup_id = subgroup;
+            REQUIRE(handler->PublishObject(headers, payload) == PublishTrackHandler::PublishObjectStatus::kOk);
+        }
+        CHECK(transport->created_streams == 2);
+    }
+    SUBCASE("Reject changing any header flag before emitting an object")
+    {
+        const std::vector<StreamHeaderProperties> changes{
+            { true, SubgroupIdType::kExplicit, false, false, true },
+            { false, SubgroupIdType::kIsZero, false, false, true },
+            { false, SubgroupIdType::kExplicit, true, false, true },
+            { false, SubgroupIdType::kExplicit, false, true, true },
+            { false, SubgroupIdType::kExplicit, false, false, false },
+        };
+        headers.object_id = 1;
+        for (const auto& changed : changes) {
+            CHECK_THROWS_AS(static_cast<void>(handler->PublishObject(headers, payload, changed)),
+                            std::invalid_argument);
+        }
+        CHECK(transport->enqueue_count == 1);
+        CHECK(transport->created_streams == 1);
+        REQUIRE(handler->PublishObject(headers, payload, custom) == PublishTrackHandler::PublishObjectStatus::kOk);
+    }
+
+    for (const auto& [_, wire] : transport->stream_data) {
+        StreamBuffer<std::uint8_t> buffer;
+        buffer.Push(BytesSpan{ wire });
+        StreamHeaderSubGroup header{};
+        const bool parsed_header = buffer >> header;
+        REQUIRE(parsed_header);
+        REQUIRE(header.subgroup_id.has_value());
+        CHECK(header.properties->extensions == (*header.subgroup_id == 2));
+        for (std::uint64_t id = 0; id < 2; ++id) {
+            StreamSubGroupObject object{};
+            object.properties.emplace(*header.properties);
+            const bool parsed_object = buffer >> object;
+            REQUIRE(parsed_object);
+            CHECK(object.object_delta == 0);
+            CHECK(object.payload == payload);
+            CHECK(object.object_status == ObjectStatus::kAvailable);
+        }
+        CHECK(buffer.Empty());
+    }
 }
 
 class TestSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
