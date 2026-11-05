@@ -3680,24 +3680,26 @@ namespace quicr {
                                    forward.value_or(true),
                                    new_group_request_id.has_value());
 
-                const auto status = new_group_request_id.has_value() ? PublishTrackHandler::Status::kNewGroupRequested
-                                                                     : (messages::ResolveForward(parameters, true)
-                                                                          ? PublishTrackHandler::Status::kOk
-                                                                          : PublishTrackHandler::Status::kPaused);
-                std::vector<std::shared_ptr<PublishTrackHandler>> handlers;
+                std::vector<std::pair<std::shared_ptr<PublishTrackHandler>, PublishTrackHandler::Status>> handlers;
                 {
                     std::lock_guard _(state_mutex_);
                     const auto it = pub_tracks_by_track_alias.find(sub_ctx_it->second.track_hash.track_fullname_hash);
                     if (it != pub_tracks_by_track_alias.end()) {
                         for (const auto& [_, handler] : it->second) {
+                            const bool forward_state = messages::ResolveForward(
+                              parameters, handler->GetStatus() != PublishTrackHandler::Status::kPaused);
+                            const auto status = !forward_state ? PublishTrackHandler::Status::kPaused
+                                                : new_group_request_id.has_value()
+                                                  ? PublishTrackHandler::Status::kNewGroupRequested
+                                                  : PublishTrackHandler::Status::kOk;
                             if ((forward.has_value() || new_group_request_id.has_value()) &&
                                 handler->UpdateStatus(status)) {
-                                handlers.push_back(handler);
+                                handlers.emplace_back(handler, status);
                             }
                         }
                     }
                 }
-                for (const auto& handler : handlers) {
+                for (const auto& [handler, status] : handlers) {
                     handler->StatusChanged(status);
                 }
 
