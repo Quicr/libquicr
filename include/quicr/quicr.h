@@ -22,6 +22,8 @@ extern "C"
         QUICR_STATUS_INVALID_ARGUMENT = 1,
         QUICR_STATUS_OUT_OF_MEMORY = 2,
         QUICR_STATUS_INTERNAL_ERROR = 3,
+        QUICR_STATUS_NOT_FOUND = 4,
+        QUICR_STATUS_BUFFER_TOO_SMALL = 5,
     };
 
     /*=======================================================================*/
@@ -557,6 +559,42 @@ extern "C"
 
     QUICR_C_API void quicr_location_init(quicr_location_t* location);
 
+    typedef struct quicr_min_max_avg
+    {
+        uint64_t min;
+        uint64_t max;
+        uint64_t avg;
+        uint64_t value_sum;
+        uint64_t value_count;
+    } quicr_min_max_avg_t;
+
+    typedef struct quicr_subscribe_track_metrics
+    {
+        uint64_t last_sample_time;
+        uint64_t bytes_received;
+        uint64_t objects_received;
+    } quicr_subscribe_track_metrics_t;
+
+    typedef struct quicr_publish_track_quic_metrics
+    {
+        uint64_t tx_buffer_drops;
+        uint64_t tx_queue_discards;
+        uint64_t tx_queue_expired;
+        uint64_t tx_delayed_callback;
+        quicr_min_max_avg_t tx_queue_size;
+        quicr_min_max_avg_t tx_callback_ms;
+        quicr_min_max_avg_t tx_object_duration_us;
+    } quicr_publish_track_quic_metrics_t;
+
+    typedef struct quicr_publish_track_metrics
+    {
+        uint64_t last_sample_time;
+        uint64_t bytes_published;
+        uint64_t objects_published;
+        uint64_t objects_dropped_not_ok;
+        quicr_publish_track_quic_metrics_t quic;
+    } quicr_publish_track_metrics_t;
+
     typedef struct quicr_publish_track_handler quicr_publish_track_handler_t;
 
     typedef uint8_t quicr_publish_track_handler_status_t;
@@ -583,6 +621,9 @@ extern "C"
         void (*status_changed)(quicr_publish_track_handler_t* handler,
                                quicr_publish_track_handler_status_t status,
                                void* user_data);
+        void (*metrics_sampled)(quicr_publish_track_handler_t* handler,
+                                const quicr_publish_track_metrics_t* metrics,
+                                void* user_data);
     } quicr_publish_track_handler_callbacks_t;
 
     QUICR_C_API quicr_status_t
@@ -662,6 +703,9 @@ extern "C"
         void (*status_changed)(quicr_subscribe_track_handler_t* handler,
                                quicr_subscribe_track_handler_status_t status,
                                void* user_data);
+        void (*metrics_sampled)(quicr_subscribe_track_handler_t* handler,
+                                const quicr_subscribe_track_metrics_t* metrics,
+                                void* user_data);
         void (*object_received)(const quicr_object_headers_t* headers,
                                 quicr_byte_span_t data,
                                 const quicr_stream_header_properties_t* properties,
@@ -746,6 +790,9 @@ extern "C"
         void (*status_changed)(quicr_fetch_track_handler_t* handler,
                                quicr_fetch_track_handler_status_t status,
                                void* user_data);
+        void (*metrics_sampled)(quicr_fetch_track_handler_t* handler,
+                                const quicr_subscribe_track_metrics_t* metrics,
+                                void* user_data);
         void (*object_received)(const quicr_object_headers_t* headers,
                                 quicr_byte_span_t data,
                                 const quicr_stream_header_properties_t* properties,
@@ -804,11 +851,12 @@ extern "C"
     quicr_publish_namespace_handler_get_status(const quicr_publish_namespace_handler_t* handler,
                                                quicr_publish_namespace_handler_status_t* status);
 
-    /* Error reasons remain valid until the next error query on the same handler or handler destruction. */
+    /* reason_size is input capacity and output required size, including the null terminator. */
     QUICR_C_API quicr_status_t
     quicr_publish_namespace_handler_get_error(const quicr_publish_namespace_handler_t* handler,
-                                              bool* has_error,
-                                              quicr_error_t* error);
+                                              quicr_error_code_t* code,
+                                              char* reason,
+                                              size_t* reason_size);
 
     QUICR_C_API quicr_status_t
     quicr_publish_namespace_handler_publish_track(quicr_publish_namespace_handler_t* handler,
@@ -860,11 +908,11 @@ extern "C"
     quicr_subscribe_namespace_handler_get_status(const quicr_subscribe_namespace_handler_t* handler,
                                                  quicr_subscribe_namespace_handler_status_t* status);
 
-    /* Error reasons remain valid until the next error query on the same handler or handler destruction. */
     QUICR_C_API quicr_status_t
     quicr_subscribe_namespace_handler_get_error(const quicr_subscribe_namespace_handler_t* handler,
-                                                bool* has_error,
-                                                quicr_error_t* error);
+                                                quicr_error_code_t* code,
+                                                char* reason,
+                                                size_t* reason_size);
 
     typedef struct quicr_track_status_track_handler quicr_track_status_track_handler_t;
 
@@ -896,15 +944,17 @@ extern "C"
     QUICR_C_API quicr_status_t quicr_track_status_handler_get_status(const quicr_track_status_track_handler_t* handler,
                                                                      quicr_track_status_handler_status_t* status);
 
+    /* track_extensions may be null when extension data is not needed. */
     QUICR_C_API quicr_status_t
     quicr_track_status_handler_get_response(const quicr_track_status_track_handler_t* handler,
                                             bool* has_response,
-                                            quicr_track_status_response_t* response);
+                                            quicr_track_status_response_t* response,
+                                            quicr_track_extensions_t* track_extensions);
 
-    /* Error reasons remain valid until the next error query on the same handler or handler destruction. */
     QUICR_C_API quicr_status_t quicr_track_status_handler_get_error(const quicr_track_status_track_handler_t* handler,
-                                                                    bool* has_error,
-                                                                    quicr_error_t* error);
+                                                                    quicr_error_code_t* code,
+                                                                    char* reason,
+                                                                    size_t* reason_size);
 
     /*=======================================================================*/
     // Attributes
