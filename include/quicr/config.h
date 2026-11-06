@@ -45,7 +45,7 @@ namespace quicr {
         CongestionControl congestion_control{ CongestionControl::kBbr }; ///< Congestion controller to use.
         std::string quic_qlog_path;       ///< Path passed to picoquic for qlog output; empty disables qlog.
         uint8_t quic_priority_limit{ 0 }; ///< Lowest numeric priority exempted from picoquic pacing/CC bypass.
-        std::size_t max_connections{ 1 }; ///< Maximum active connections per QUIC instance.
+        std::size_t max_connections{ 2 }; ///< Maximum active connections per QUIC instance.
 
         /// @brief Whether to log TLS traffic secrets for QUIC connections.
         ///
