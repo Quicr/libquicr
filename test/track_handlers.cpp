@@ -303,7 +303,6 @@ class TestStreamPublishTrackHandler : public quicr::PublishTrackHandler
       : PublishTrackHandler({ {}, {} }, quicr::TrackMode::kStream, 0, 0, 1000)
     {
     }
-    using TrackHandler::SetTransport;
 };
 
 static std::shared_ptr<quicr::Session>
