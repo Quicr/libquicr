@@ -11,6 +11,7 @@
 #include "quicr/handlers/publish_track_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/handlers/track_status_handler.h"
 #include "quicr/log.h"
 #include "quicr/session.h"
 #include "quicr/transport.h"
@@ -200,6 +201,8 @@ namespace quicr {
             session->SubscribeTrack(std::move(h));
         } else if (auto h = std::dynamic_pointer_cast<SubscribeNamespaceHandler>(handler)) {
             session->SubscribeNamespace(std::move(h));
+        } else if (auto h = std::dynamic_pointer_cast<TrackStatusHandler>(handler)) {
+            session->RequestTrackStatus(std::move(h));
         } else {
             throw std::invalid_argument("Unknown track handler type");
         }
@@ -222,6 +225,8 @@ namespace quicr {
             session->UnsubscribeTrack(h);
         } else if (auto h = std::dynamic_pointer_cast<SubscribeNamespaceHandler>(handler)) {
             session->UnsubscribeNamespace(h);
+        } else if (auto h = std::dynamic_pointer_cast<TrackStatusHandler>(handler)) {
+            session->CancelTrackStatus(h);
         } else {
             throw std::invalid_argument("Unknown track handler type");
         }
