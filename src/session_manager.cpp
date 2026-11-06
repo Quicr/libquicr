@@ -187,8 +187,8 @@ namespace quicr {
 
     void SessionManager::AddHandler(const std::shared_ptr<Session>& session, std::shared_ptr<TrackHandler> handler)
     {
-        if (!session) {
-            throw std::invalid_argument("Session cannot be null");
+        if (!session || !handler) {
+            throw std::invalid_argument("Session and handler cannot be null");
         }
 
         if (auto h = std::dynamic_pointer_cast<PublishTrackHandler>(handler)) {
@@ -211,8 +211,8 @@ namespace quicr {
     void SessionManager::RemoveHandler(const std::shared_ptr<Session>& session,
                                        const std::shared_ptr<TrackHandler>& handler)
     {
-        if (!session) {
-            throw std::invalid_argument("Session cannot be null");
+        if (!session || !handler) {
+            throw std::invalid_argument("Session and handler cannot be null");
         }
 
         if (auto h = std::dynamic_pointer_cast<PublishTrackHandler>(handler)) {
