@@ -7,12 +7,15 @@
 #include <quicr/session_callbacks.h>
 #include <quicr/session_manager.h>
 
+#include <cstring>
 #include <functional>
 #include <iterator>
 #include <limits>
 #include <mutex>
 #include <new>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -34,6 +37,22 @@ namespace {
         return QUICR_STATUS_OUT_OF_MEMORY;
     } catch (...) {
         return QUICR_STATUS_INTERNAL_ERROR;
+    }
+
+    template<typename E>
+    Unexpected<Error<E>> CallbackInternalError() noexcept
+    {
+        return Error<E>{ E::kInternalError, std::nullopt };
+    }
+
+    template<typename F, typename R>
+    auto SafeCallback(F&& function, R&& fallback) noexcept -> std::invoke_result_t<F>
+    {
+        try {
+            return function();
+        } catch (...) {
+            return std::forward<R>(fallback);
+        }
     }
 
     template<typename C, typename Cpp>
@@ -131,6 +150,50 @@ namespace {
         return {
             .data = bytes.data(),
             .size = bytes.size(),
+        };
+    }
+
+    template<>
+    quicr_min_max_avg_t ToCType<quicr_min_max_avg_t, MinMaxAvg>(const MinMaxAvg& metrics)
+    {
+        return {
+            .min = metrics.min,
+            .max = metrics.max,
+            .avg = metrics.avg,
+            .value_sum = metrics.value_sum,
+            .value_count = metrics.value_count,
+        };
+    }
+
+    template<>
+    quicr_subscribe_track_metrics_t ToCType<quicr_subscribe_track_metrics_t, SubscribeTrackMetrics>(
+      const SubscribeTrackMetrics& metrics)
+    {
+        return {
+            .last_sample_time = metrics.last_sample_time,
+            .bytes_received = metrics.bytes_received,
+            .objects_received = metrics.objects_received,
+        };
+    }
+
+    template<>
+    quicr_publish_track_metrics_t ToCType<quicr_publish_track_metrics_t, PublishTrackMetrics>(
+      const PublishTrackMetrics& metrics)
+    {
+        return {
+            .last_sample_time = metrics.last_sample_time,
+            .bytes_published = metrics.bytes_published,
+            .objects_published = metrics.objects_published,
+            .objects_dropped_not_ok = metrics.objects_dropped_not_ok,
+            .quic = {
+              .tx_buffer_drops = metrics.quic.tx_buffer_drops,
+              .tx_queue_discards = metrics.quic.tx_queue_discards,
+              .tx_queue_expired = metrics.quic.tx_queue_expired,
+              .tx_delayed_callback = metrics.quic.tx_delayed_callback,
+              .tx_queue_size = ToCType<quicr_min_max_avg_t>(metrics.quic.tx_queue_size),
+              .tx_callback_ms = ToCType<quicr_min_max_avg_t>(metrics.quic.tx_callback_ms),
+              .tx_object_duration_us = ToCType<quicr_min_max_avg_t>(metrics.quic.tx_object_duration_us),
+            },
         };
     }
 
@@ -1284,21 +1347,59 @@ struct quicr_fetch_track_handler
 struct quicr_publish_namespace_handler
 {
     std::shared_ptr<PublishNamespaceHandler> impl;
-    mutable std::string error_reason;
 };
 
 struct quicr_subscribe_namespace_handler
 {
     std::shared_ptr<SubscribeNamespaceHandler> impl;
-    mutable std::string error_reason;
 };
 
 struct quicr_track_status_track_handler
 {
     std::shared_ptr<TrackStatusHandler> impl;
-    mutable std::string error_reason;
-    mutable quicr_track_extensions_t response_track_extensions;
 };
+
+namespace {
+    quicr_status_t CopyHandlerError(const std::optional<Error<ErrorCode>>& cpp_error,
+                                    quicr_error_code_t* code,
+                                    char* reason,
+                                    size_t* reason_size)
+    {
+        if (!code || (reason && !reason_size)) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (!cpp_error) {
+            if (reason_size) {
+                *reason_size = 0;
+            }
+            return QUICR_STATUS_NOT_FOUND;
+        }
+
+        *code = static_cast<quicr_error_code_t>(cpp_error->reason_code);
+        if (!reason_size) {
+            return QUICR_STATUS_OK;
+        }
+
+        const size_t capacity = *reason_size;
+        const size_t required_size = cpp_error->error_reason ? cpp_error->error_reason->size() + 1 : 0;
+        *reason_size = required_size;
+
+        if (!reason) {
+            return QUICR_STATUS_OK;
+        }
+
+        if (capacity < required_size) {
+            return QUICR_STATUS_BUFFER_TOO_SMALL;
+        }
+
+        if (required_size != 0) {
+            std::memcpy(reason, cpp_error->error_reason->c_str(), required_size);
+        }
+
+        return QUICR_STATUS_OK;
+    }
+}
 
 /*===========================================================================*/
 // C++ Adapters
@@ -1330,7 +1431,9 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
 
         const auto c_attributes = ToCType<quicr_setup_attributes>(attributes);
         const auto reply = callbacks.setup_received(GetSessionHandle(session), &c_attributes, callbacks.user_data);
-        return ToCppType<Expected<void, Error<ErrorCode>>>(reply);
+
+        return SafeCallback([&] { return ToCppType<Expected<void, Error<ErrorCode>>>(reply); },
+                            CallbackInternalError<ErrorCode>());
     }
 
     void OnStreamClosed(std::uint64_t stream_id, StreamClosedFlag flag) override
@@ -1370,7 +1473,9 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
                                                       &c_attributes,
                                                       cpp_handler ? &c_handler : nullptr,
                                                       callbacks.user_data);
-        return ToCppType<Reply<const PublishResponse, PublishErrorCode>>(reply);
+
+        return SafeCallback([&] { return ToCppType<Reply<const PublishResponse, PublishErrorCode>>(reply); },
+                            CallbackInternalError<PublishErrorCode>());
     }
 
     Reply<void, PublishNamespaceErrorCode> PublishNamespaceReceived(
@@ -1386,7 +1491,9 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         const auto c_attributes = ToCType<quicr_publish_namespace_attributes>(attributes);
         const auto reply = callbacks.publish_namespace_received(
           GetSessionHandle(session), &c_track_namespace, &c_attributes, callbacks.user_data);
-        return ToCppType<Reply<void, PublishNamespaceErrorCode>>(reply);
+
+        return SafeCallback([&] { return ToCppType<Reply<void, PublishNamespaceErrorCode>>(reply); },
+                            CallbackInternalError<PublishNamespaceErrorCode>());
     }
 
     Reply<const FetchResponse, FetchErrorCode> StandaloneFetchReceived(
@@ -1403,7 +1510,9 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         const auto c_attributes = ToCType<quicr_standalone_fetch_attributes>(attributes);
         const auto reply = callbacks.standalone_fetch_received(
           GetSessionHandle(session), request_id, &c_full_track_name, &c_attributes, callbacks.user_data);
-        return ToCppType<Reply<const FetchResponse, FetchErrorCode>>(reply);
+
+        return SafeCallback([&] { return ToCppType<Reply<const FetchResponse, FetchErrorCode>>(reply); },
+                            CallbackInternalError<FetchErrorCode>());
     }
 
     Reply<const FetchResponse, FetchErrorCode> JoiningFetchReceived(const std::shared_ptr<Session>& session,
@@ -1419,7 +1528,9 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         const auto c_attributes = ToCType<quicr_joining_fetch_attributes>(attributes);
         const auto reply = callbacks.joining_fetch_received(
           GetSessionHandle(session), request_id, &c_full_track_name, &c_attributes, callbacks.user_data);
-        return ToCppType<Reply<const FetchResponse, FetchErrorCode>>(reply);
+
+        return SafeCallback([&] { return ToCppType<Reply<const FetchResponse, FetchErrorCode>>(reply); },
+                            CallbackInternalError<FetchErrorCode>());
     }
 
     Reply<void, FetchErrorCode> FetchCancelReceived(const std::shared_ptr<Session>& session,
@@ -1430,7 +1541,9 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         }
 
         const auto reply = callbacks.fetch_cancel_received(GetSessionHandle(session), request_id, callbacks.user_data);
-        return ToCppType<Reply<void, FetchErrorCode>>(reply);
+
+        return SafeCallback([&] { return ToCppType<Reply<void, FetchErrorCode>>(reply); },
+                            CallbackInternalError<FetchErrorCode>());
     }
 
     Reply<TrackStatusResponse, RequestErrorCode> TrackStatusReceived(const std::shared_ptr<Session>& session,
@@ -1443,7 +1556,9 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         const auto c_full_track_name = ToCType<quicr_full_track_name_t>(full_track_name);
         const auto reply =
           callbacks.track_status_received(GetSessionHandle(session), &c_full_track_name, callbacks.user_data);
-        return ToCppType<Reply<TrackStatusResponse, RequestErrorCode>>(reply);
+
+        return SafeCallback([&] { return ToCppType<Reply<TrackStatusResponse, RequestErrorCode>>(reply); },
+                            CallbackInternalError<RequestErrorCode>());
     }
 
   protected:
@@ -1475,7 +1590,9 @@ class ClientCallbacksAdapter final
         const auto c_attributes = ToCType<quicr_subscribe_attributes>(attributes);
         const auto reply = callbacks.unpublished_subscribe_received(
           GetSessionHandle(session), &c_full_track_name, &c_attributes, callbacks.user_data);
-        return ToCppType<Reply<void, ErrorCode>>(reply);
+
+        return SafeCallback([&] { return ToCppType<Reply<void, ErrorCode>>(reply); },
+                            CallbackInternalError<ErrorCode>());
     }
 };
 
@@ -1496,8 +1613,11 @@ class ServerCallbacksAdapter final
 
         const auto c_prefix_namespace = ToCType<quicr_track_namespace_t>(prefix_namespace);
         const auto c_attributes = ToCType<quicr_subscribe_namespace_attributes>(attributes);
-        return ToCppType<Reply<std::vector<TrackNamespace>, RequestErrorCode>>(callbacks.subscribe_namespace_received(
-          GetSessionHandle(session), &c_prefix_namespace, &c_attributes, callbacks.user_data));
+        const auto reply = callbacks.subscribe_namespace_received(
+          GetSessionHandle(session), &c_prefix_namespace, &c_attributes, callbacks.user_data);
+
+        return SafeCallback([&] { return ToCppType<Reply<std::vector<TrackNamespace>, RequestErrorCode>>(reply); },
+                            CallbackInternalError<RequestErrorCode>());
     }
 
     Reply<std::vector<TrackNamespace>, RequestErrorCode> SubscribeTracksReceived(
@@ -1511,8 +1631,11 @@ class ServerCallbacksAdapter final
 
         const auto c_prefix_namespace = ToCType<quicr_track_namespace_t>(prefix_namespace);
         const auto c_attributes = ToCType<quicr_subscribe_namespace_attributes>(attributes);
-        return ToCppType<Reply<std::vector<TrackNamespace>, RequestErrorCode>>(callbacks.subscribe_tracks_received(
-          GetSessionHandle(session), &c_prefix_namespace, &c_attributes, callbacks.user_data));
+        const auto reply = callbacks.subscribe_tracks_received(
+          GetSessionHandle(session), &c_prefix_namespace, &c_attributes, callbacks.user_data);
+
+        return SafeCallback([&] { return ToCppType<Reply<std::vector<TrackNamespace>, RequestErrorCode>>(reply); },
+                            CallbackInternalError<RequestErrorCode>());
     }
 
     Reply<SubscribeResponse, RequestErrorCode> SubscribeReceived(const std::shared_ptr<Session>& session,
@@ -1528,7 +1651,9 @@ class ServerCallbacksAdapter final
         const auto c_attributes = ToCType<quicr_subscribe_attributes>(attributes);
         const auto reply = callbacks.subscribe_received(
           GetSessionHandle(session), request_id, &c_full_track_name, &c_attributes, callbacks.user_data);
-        return ToCppType<Reply<SubscribeResponse, RequestErrorCode>>(reply);
+
+        return SafeCallback([&] { return ToCppType<Reply<SubscribeResponse, RequestErrorCode>>(reply); },
+                            CallbackInternalError<RequestErrorCode>());
     }
 
     Reply<void, ErrorCode> NewGroupRequested(const FullTrackName& full_track_name, std::uint64_t group_id) override
@@ -1539,7 +1664,9 @@ class ServerCallbacksAdapter final
 
         const auto c_full_track_name = ToCType<quicr_full_track_name_t>(full_track_name);
         const auto reply = callbacks.new_group_requested(&c_full_track_name, group_id, callbacks.user_data);
-        return ToCppType<Reply<void, ErrorCode>>(reply);
+
+        return SafeCallback([&] { return ToCppType<Reply<void, ErrorCode>>(reply); },
+                            CallbackInternalError<ErrorCode>());
     }
 };
 
@@ -1614,6 +1741,14 @@ class PublishTrackHandlerAdapter : public quicr::PublishTrackHandler
         }
     }
 
+    void MetricsSampled(const PublishTrackMetrics& metrics) override
+    {
+        if (owner_ && callbacks_.metrics_sampled) {
+            const auto c_metrics = ToCType<quicr_publish_track_metrics_t>(metrics);
+            callbacks_.metrics_sampled(owner_, &c_metrics, callbacks_.user_data);
+        }
+    }
+
   private:
     quicr_publish_track_handler* owner_;
     quicr_publish_track_handler_callbacks_t callbacks_;
@@ -1641,6 +1776,14 @@ class SubscribeTrackHandlerAdapter : public quicr::SubscribeTrackHandler
         if (owner_ && callbacks_.status_changed) {
             callbacks_.status_changed(
               owner_, ToCType<quicr_subscribe_track_handler_status_t>(status), callbacks_.user_data);
+        }
+    }
+
+    void MetricsSampled(const SubscribeTrackMetrics& metrics) override
+    {
+        if (owner_ && callbacks_.metrics_sampled) {
+            const auto c_metrics = ToCType<quicr_subscribe_track_metrics_t>(metrics);
+            callbacks_.metrics_sampled(owner_, &c_metrics, callbacks_.user_data);
         }
     }
 
@@ -1701,6 +1844,14 @@ class FetchTrackHandlerAdapter : public quicr::FetchTrackHandler
         if (owner_ && callbacks_.status_changed) {
             callbacks_.status_changed(
               owner_, ToCType<quicr_fetch_track_handler_status_t>(status), callbacks_.user_data);
+        }
+    }
+
+    void MetricsSampled(const SubscribeTrackMetrics& metrics) override
+    {
+        if (owner_ && callbacks_.metrics_sampled) {
+            const auto c_metrics = ToCType<quicr_subscribe_track_metrics_t>(metrics);
+            callbacks_.metrics_sampled(owner_, &c_metrics, callbacks_.user_data);
         }
     }
 
@@ -2424,28 +2575,16 @@ extern "C"
     }
 
     quicr_status_t quicr_publish_namespace_handler_get_error(const quicr_publish_namespace_handler_t* handler,
-                                                             bool* has_error,
-                                                             quicr_error_t* error)
+                                                             quicr_error_code_t* code,
+                                                             char* reason,
+                                                             size_t* reason_size)
     {
-        return SafeCall([&] {
-            if (!handler || !handler->impl || !has_error || !error) {
+        return SafeCall([&]() -> quicr_status_t {
+            if (!handler || !handler->impl) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            const auto cpp_error = handler->impl->GetError();
-            *has_error = cpp_error.has_value();
-            if (cpp_error) {
-                handler->error_reason = cpp_error->error_reason.value_or("");
-                *error = {
-                    .code = static_cast<quicr_error_code_t>(cpp_error->reason_code),
-                    .reason = cpp_error->error_reason ? handler->error_reason.c_str() : nullptr,
-                };
-            } else {
-                handler->error_reason.clear();
-                *error = {};
-            }
-
-            return QUICR_STATUS_OK;
+            return CopyHandlerError(handler->impl->GetError(), code, reason, reason_size);
         });
     }
 
@@ -2522,28 +2661,16 @@ extern "C"
     }
 
     quicr_status_t quicr_subscribe_namespace_handler_get_error(const quicr_subscribe_namespace_handler_t* handler,
-                                                               bool* has_error,
-                                                               quicr_error_t* error)
+                                                               quicr_error_code_t* code,
+                                                               char* reason,
+                                                               size_t* reason_size)
     {
-        return SafeCall([&] {
-            if (!handler || !handler->impl || !has_error || !error) {
+        return SafeCall([&]() -> quicr_status_t {
+            if (!handler || !handler->impl) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            const auto cpp_error = handler->impl->GetError();
-            *has_error = cpp_error.has_value();
-            if (cpp_error) {
-                handler->error_reason = cpp_error->error_reason.value_or("");
-                *error = {
-                    .code = static_cast<quicr_error_code_t>(cpp_error->reason_code),
-                    .reason = cpp_error->error_reason ? handler->error_reason.c_str() : nullptr,
-                };
-            } else {
-                handler->error_reason.clear();
-                *error = {};
-            }
-
-            return QUICR_STATUS_OK;
+            return CopyHandlerError(handler->impl->GetError(), code, reason, reason_size);
         });
     }
 
@@ -2589,7 +2716,8 @@ extern "C"
 
     quicr_status_t quicr_track_status_handler_get_response(const quicr_track_status_track_handler_t* handler,
                                                            bool* has_response,
-                                                           quicr_track_status_response_t* response)
+                                                           quicr_track_status_response_t* response,
+                                                           quicr_track_extensions_t* track_extensions)
     {
         return SafeCall([&] {
             if (!handler || !handler->impl || !has_response || !response) {
@@ -2604,8 +2732,11 @@ extern "C"
                 if (cpp_response->largest_location) {
                     response->largest_location = ToCType<quicr_location_t>(*cpp_response->largest_location);
                 }
-                handler->response_track_extensions.GetMutable() = cpp_response->track_properties;
-                response->track_extensions = &handler->response_track_extensions;
+
+                if (track_extensions) {
+                    track_extensions->GetMutable() = cpp_response->track_properties;
+                    response->track_extensions = track_extensions;
+                }
             }
 
             return QUICR_STATUS_OK;
@@ -2613,28 +2744,16 @@ extern "C"
     }
 
     quicr_status_t quicr_track_status_handler_get_error(const quicr_track_status_track_handler_t* handler,
-                                                        bool* has_error,
-                                                        quicr_error_t* error)
+                                                        quicr_error_code_t* code,
+                                                        char* reason,
+                                                        size_t* reason_size)
     {
-        return SafeCall([&] {
-            if (!handler || !handler->impl || !has_error || !error) {
+        return SafeCall([&]() -> quicr_status_t {
+            if (!handler || !handler->impl) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            const auto cpp_error = handler->impl->GetError();
-            *has_error = cpp_error.has_value();
-            if (cpp_error) {
-                handler->error_reason = cpp_error->error_reason.value_or("");
-                *error = {
-                    .code = static_cast<quicr_error_code_t>(cpp_error->reason_code),
-                    .reason = cpp_error->error_reason ? handler->error_reason.c_str() : nullptr,
-                };
-            } else {
-                handler->error_reason.clear();
-                *error = {};
-            }
-
-            return QUICR_STATUS_OK;
+            return CopyHandlerError(handler->impl->GetError(), code, reason, reason_size);
         });
     }
 
