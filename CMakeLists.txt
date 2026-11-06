@@ -36,7 +36,6 @@ endif()
 
 option(QUICR_INSTALL "Enable install rules for quicr" ${quicr_IS_TOP_LEVEL})
 option(QUICR_BUILD_SHARED "Build quicr as a SHARED library" OFF)
-option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ${quicr_IS_TOP_LEVEL})
 option(QUICR_BUILD_TOOLS "Build tools" OFF)
 option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
@@ -112,14 +111,6 @@ if(BUILD_TESTING)
 endif()
 
 #=============================================================================#
-# C Bridge API
-#=============================================================================#
-
-if(QUICR_BUILD_C_BRIDGE)
-   add_subdirectory(c-bridge)
-endif()
-
-#=============================================================================#
 # Install
 #=============================================================================#
 
@@ -138,16 +129,10 @@ if (QUICR_INSTALL)
         INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/quicr"
     )
 
-    install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+    install(DIRECTORY "${PROJECT_BINARY_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/quicr/version.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/quicr")
-
-    set(quicr_INSTALL_TARGETS quicr)
-    if(TARGET quicr-bridge)
-        list(APPEND quicr_INSTALL_TARGETS quicr-bridge)
-    endif()
-
-    install(TARGETS ${quicr_INSTALL_TARGETS}
+    install(TARGETS quicr quicr_c
         EXPORT quicrTargets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -158,13 +143,13 @@ if (QUICR_INSTALL)
     install(EXPORT quicrTargets
         FILE quicrTargets.cmake
         NAMESPACE quicr::
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/quicr
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/quicr"
     )
 
     install(FILES
         "${CMAKE_CURRENT_BINARY_DIR}/quicrConfig.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/quicrConfigVersion.cmake"
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/quicr
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/quicr"
     )
 endif()
 

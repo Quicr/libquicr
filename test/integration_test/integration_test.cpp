@@ -3749,11 +3749,14 @@ TEST_CASE("Integration - Track Status")
         CHECK_FALSE(handler->GetResponse().has_value());
         CHECK_FALSE(handler->GetError().has_value());
 
-        subscriber->RequestTrackStatus(handler);
+        session_mgr.AddHandler(subscriber, handler);
+        CHECK(handler->IsRegistered());
         REQUIRE(WaitFor([&] { return handler->GetStatus() == TrackStatusHandler::Status::kOk; }));
         REQUIRE(handler->GetResponse().has_value());
         CHECK(handler->GetResponse().value() == expected);
         CHECK_FALSE(handler->GetError().has_value());
+        session_mgr.RemoveHandler(subscriber, handler);
+        CHECK_FALSE(handler->IsRegistered());
 
         REQUIRE(WaitFor(
           [subscriber_client = subscriber_client] { return !subscriber_client->GetClosedStreamIds().empty(); }));
