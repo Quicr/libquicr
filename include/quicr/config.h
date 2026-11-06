@@ -84,7 +84,7 @@ namespace quicr {
     struct ServerConfig : Config
     {
         std::string server_bind_ip; ///< Local IPv4/IPv6 address; empty binds to the wildcard address.
-        uint16_t server_port;       ///< Local UDP port on which to listen.
+        uint16_t server_port{ 0 };  ///< Local UDP port on which to listen.
         std::uint64_t tick_service_sleep_delay_us{ 333 }; ///< Default tick-service sleep delay in microseconds.
     };
 
