@@ -24,6 +24,7 @@ extern "C"
         QUICR_STATUS_INTERNAL_ERROR = 3,
         QUICR_STATUS_NOT_FOUND = 4,
         QUICR_STATUS_BUFFER_TOO_SMALL = 5,
+        QUICR_STATUS_BUSY = 6,
     };
 
     /*=======================================================================*/
@@ -638,7 +639,7 @@ extern "C"
                                        const quicr_location_t* largest_location,
                                        quicr_publish_track_handler_t** handler);
 
-    QUICR_C_API void quicr_publish_track_handler_destroy(quicr_publish_track_handler_t* handler);
+    QUICR_C_API quicr_status_t quicr_publish_track_handler_destroy(quicr_publish_track_handler_t* handler);
 
     QUICR_C_API bool quicr_publish_track_handler_can_publish(const quicr_publish_track_handler_t* handler);
 
@@ -769,7 +770,7 @@ extern "C"
                                          const quicr_filter_t* filter,
                                          quicr_subscribe_track_handler_t** handler);
 
-    QUICR_C_API void quicr_subscribe_track_handler_destroy(quicr_subscribe_track_handler_t* handler);
+    QUICR_C_API quicr_status_t quicr_subscribe_track_handler_destroy(quicr_subscribe_track_handler_t* handler);
 
     QUICR_C_API quicr_status_t quicr_subscribe_track_handler_get_status(const quicr_subscribe_track_handler_t* handler,
                                                                         quicr_subscribe_track_handler_status_t* status);
@@ -810,7 +811,7 @@ extern "C"
                                                                 const quicr_fetch_end_location_t* end_location,
                                                                 quicr_group_order_t group_order,
                                                                 quicr_fetch_track_handler_t** handler);
-    QUICR_C_API void quicr_fetch_track_handler_destroy(quicr_fetch_track_handler_t* handler);
+    QUICR_C_API quicr_status_t quicr_fetch_track_handler_destroy(quicr_fetch_track_handler_t* handler);
     QUICR_C_API quicr_status_t quicr_fetch_track_handler_get_status(const quicr_fetch_track_handler_t* handler,
                                                                     quicr_fetch_track_handler_status_t* status);
 
@@ -850,7 +851,7 @@ extern "C"
     quicr_publish_namespace_handler_create(const quicr_publish_namespace_handler_callbacks_t* callbacks,
                                            const quicr_track_namespace_t* prefix,
                                            quicr_publish_namespace_handler_t** handler);
-    QUICR_C_API void quicr_publish_namespace_handler_destroy(quicr_publish_namespace_handler_t* handler);
+    QUICR_C_API quicr_status_t quicr_publish_namespace_handler_destroy(quicr_publish_namespace_handler_t* handler);
     QUICR_C_API quicr_status_t
     quicr_publish_namespace_handler_get_status(const quicr_publish_namespace_handler_t* handler,
                                                quicr_publish_namespace_handler_status_t* status);
@@ -907,7 +908,7 @@ extern "C"
                                              quicr_subscribe_namespace_mode_t mode,
                                              const quicr_filter_t* filter,
                                              quicr_subscribe_namespace_handler_t** handler);
-    QUICR_C_API void quicr_subscribe_namespace_handler_destroy(quicr_subscribe_namespace_handler_t* handler);
+    QUICR_C_API quicr_status_t quicr_subscribe_namespace_handler_destroy(quicr_subscribe_namespace_handler_t* handler);
     QUICR_C_API quicr_status_t
     quicr_subscribe_namespace_handler_get_status(const quicr_subscribe_namespace_handler_t* handler,
                                                  quicr_subscribe_namespace_handler_status_t* status);
@@ -944,7 +945,7 @@ extern "C"
     quicr_track_status_handler_create(const quicr_track_status_handler_callbacks_t* callbacks,
                                       const quicr_full_track_name_t* ftn,
                                       quicr_track_status_track_handler_t** handler);
-    QUICR_C_API void quicr_track_status_handler_destroy(quicr_track_status_track_handler_t* handler);
+    QUICR_C_API quicr_status_t quicr_track_status_handler_destroy(quicr_track_status_track_handler_t* handler);
     QUICR_C_API quicr_status_t quicr_track_status_handler_get_status(const quicr_track_status_track_handler_t* handler,
                                                                      quicr_track_status_handler_status_t* status);
 
