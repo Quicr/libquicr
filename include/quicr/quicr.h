@@ -665,6 +665,8 @@ extern "C"
         QUICR_PUBLISH_OBJECT_STATUS_PREVIOUS_OBJECT_NOT_COMPLETE_MUST_START_NEW_TRACK,
         QUICR_PUBLISH_OBJECT_STATUS_PAUSED,
         QUICR_PUBLISH_OBJECT_STATUS_PENDING_PUBLISH_OK,
+        QUICR_PUBLISH_OBJECT_STATUS_SUBGROUP_CLOSED,
+        QUICR_PUBLISH_OBJECT_STATUS_FETCH_CLOSED,
     };
 
     QUICR_C_API quicr_status_t
@@ -679,7 +681,8 @@ extern "C"
                                                                         uint64_t subgroup_id,
                                                                         bool completed);
 
-    QUICR_C_API quicr_status_t quicr_publish_track_handler_end_all_subgroups(quicr_publish_track_handler_t* handler);
+    QUICR_C_API quicr_status_t quicr_publish_track_handler_end_all_subgroups(quicr_publish_track_handler_t* handler,
+                                                                             bool completed);
 
     typedef struct quicr_subscribe_track_handler quicr_subscribe_track_handler_t;
 

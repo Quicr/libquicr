@@ -179,18 +179,10 @@ namespace quicr {
         virtual void RequestOkReceived(const messages::Parameters& params) = 0;
 
         /**
-         * @brief Sets the session used for control and data operations.
-         * @param transport Session retained weakly; passing null clears effective access.
-         * @note The caller must keep the session alive independently.
-         */
-        void SetTransport(std::shared_ptr<Session> transport);
-
-        /**
          * @brief Gets the non-owning session handle.
-         * @return Borrowed reference to the stored weak pointer, valid for this handler's lifetime.
-         * Callers must lock it before use.
+         * @return A weak pointer to the registered session.
          */
-        std::weak_ptr<Session> GetSession() const noexcept;
+        std::weak_ptr<Session> GetSession() const;
 
         std::mutex binding_operation_mutex_;
 

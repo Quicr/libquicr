@@ -516,6 +516,10 @@ namespace {
                 return QUICR_PUBLISH_OBJECT_STATUS_PAUSED;
             case PublishTrackHandler::PublishObjectStatus::kPendingPublishOk:
                 return QUICR_PUBLISH_OBJECT_STATUS_PENDING_PUBLISH_OK;
+            case PublishTrackHandler::PublishObjectStatus::kSubgroupClosed:
+                return QUICR_PUBLISH_OBJECT_STATUS_SUBGROUP_CLOSED;
+            case PublishTrackHandler::PublishObjectStatus::kFetchClosed:
+                return QUICR_PUBLISH_OBJECT_STATUS_FETCH_CLOSED;
         }
 
         throw std::invalid_argument("Invalid publish object status value");
@@ -731,21 +735,22 @@ namespace {
     }
 
     template<>
-    messages::LocationFilter ToCppType<messages::LocationFilter, quicr_subscription_filter_t>(
+    messages::SubscriptionFilter ToCppType<messages::SubscriptionFilter, quicr_subscription_filter_t>(
       const quicr_subscription_filter_t& filter)
     {
-        if (filter.start_location.object != 0) {
-            throw std::invalid_argument("Subscription filters do not support object locations");
-        }
-
-        // TODO: Fix this implementation once the PR fixing SubFIlter is in.
         switch (filter.type) {
+            case QUICR_SUBSCRIPTION_FILTER_TYPE_NEXT_GROUP_START:
+                return {
+                    .type = messages::SubscriptionFilterType::kNextGroupStart,
+                };
+            case QUICR_SUBSCRIPTION_FILTER_TYPE_LARGEST_OBJECT:
+                return {
+                    .type = messages::SubscriptionFilterType::kLargestObject,
+                };
             case QUICR_SUBSCRIPTION_FILTER_TYPE_ABSOLUTE_START:
                 return {
-                    .range = {
-                      .start = filter.start_location.group,
-                      .end = std::nullopt,
-                    },
+                    .type = messages::SubscriptionFilterType::kAbsoluteStart,
+                    .start_location = ToCppType<messages::Location>(filter.start_location),
                 };
             case QUICR_SUBSCRIPTION_FILTER_TYPE_ABSOLUTE_RANGE:
                 if (filter.end_group_delta > std::numeric_limits<std::uint64_t>::max() - filter.start_location.group) {
@@ -753,14 +758,10 @@ namespace {
                 }
 
                 return {
-                    .range = {
-                      .start = filter.start_location.group,
-                      .end = filter.start_location.group + filter.end_group_delta,
-                    },
+                    .type = messages::SubscriptionFilterType::kAbsoluteRange,
+                    .start_location = ToCppType<messages::Location>(filter.start_location),
+                    .end_group_delta = filter.end_group_delta,
                 };
-            case QUICR_SUBSCRIPTION_FILTER_TYPE_NEXT_GROUP_START:
-            case QUICR_SUBSCRIPTION_FILTER_TYPE_LARGEST_OBJECT:
-                throw std::invalid_argument("Subscription filter type is not supported by the C++ filter model");
         }
 
         throw std::invalid_argument("Invalid subscription filter type value");
@@ -783,7 +784,7 @@ namespace {
             case QUICR_FILTER_TYPE_NONE:
                 return std::monostate{};
             case QUICR_FILTER_TYPE_SUBSCRIPTION_FILTER:
-                return ToCppType<messages::LocationFilter>(filter.subscription);
+                return ToCppType<messages::SubscriptionFilter>(filter.subscription);
             case QUICR_FILTER_TYPE_TRACK_FILTER:
                 return ToCppType<messages::TrackFilter>(filter.track);
         }
@@ -2453,14 +2454,14 @@ extern "C"
         });
     }
 
-    quicr_status_t quicr_publish_track_handler_end_all_subgroups(quicr_publish_track_handler_t* handler)
+    quicr_status_t quicr_publish_track_handler_end_all_subgroups(quicr_publish_track_handler_t* handler, bool completed)
     {
         return SafeCall([&] {
             if (!handler || !handler->impl) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            handler->impl->EndAllSubgroups();
+            handler->impl->EndAllSubgroups(completed);
 
             return QUICR_STATUS_OK;
         });
@@ -2473,6 +2474,7 @@ extern "C"
         }
 
         *filter = {};
+        filter->type = QUICR_SUBSCRIPTION_FILTER_TYPE_NEXT_GROUP_START;
     }
 
     void quicr_track_filter_init(quicr_track_filter_t* filter)
