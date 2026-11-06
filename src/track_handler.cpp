@@ -5,6 +5,8 @@
 #include "quicr/session.h"
 #include "stream.h"
 
+#include <stdexcept>
+
 namespace quicr {
     std::optional<uint64_t> TrackHandler::GetRequestStreamId() const
     {
@@ -21,14 +23,41 @@ namespace quicr {
         return request_stream_ ? request_stream_->GetConnection() : nullptr;
     }
 
-    void TrackHandler::SetTransport(std::shared_ptr<Session> transport)
+    std::weak_ptr<Session> TrackHandler::GetSession() const
     {
-        session_ = transport;
+        std::lock_guard lock(registration_mutex_);
+        return registered_session_;
     }
 
-    const std::weak_ptr<Session>& TrackHandler::GetSession() const noexcept
+    void TrackHandler::RegisterSession(const std::shared_ptr<Session>& session)
     {
-        return session_;
+        if (!session) {
+            throw std::invalid_argument("Session cannot be null");
+        }
+
+        std::lock_guard lock(registration_mutex_);
+        if (!registered_session_.expired()) {
+            throw std::logic_error("Handler is already registered with a session");
+        }
+
+        registered_session_ = session;
+    }
+
+    void TrackHandler::UnregisterSession(const std::shared_ptr<Session>& session)
+    {
+        std::lock_guard lock(registration_mutex_);
+        const auto current = registered_session_.lock();
+        if (current && current != session) {
+            throw std::logic_error("Handler is registered with another session");
+        }
+
+        registered_session_.reset();
+    }
+
+    bool TrackHandler::IsRegistered() const
+    {
+        std::lock_guard lock(registration_mutex_);
+        return !registered_session_.expired();
     }
 
     void TrackHandler::RequestError(ErrorCode, std::string) {}

@@ -2374,13 +2374,19 @@ extern "C"
         });
     }
 
-    void quicr_publish_track_handler_destroy(quicr_publish_track_handler_t* handler)
+    quicr_status_t quicr_publish_track_handler_destroy(quicr_publish_track_handler_t* handler)
     {
         if (!handler) {
-            return;
+            return QUICR_STATUS_OK;
+        }
+
+        if (handler->impl->IsRegistered()) {
+            return QUICR_STATUS_BUSY;
         }
 
         delete handler;
+
+        return QUICR_STATUS_OK;
     }
 
     bool quicr_publish_track_handler_can_publish(const quicr_publish_track_handler_t* handler)
@@ -2507,13 +2513,19 @@ extern "C"
         });
     }
 
-    void quicr_subscribe_track_handler_destroy(quicr_subscribe_track_handler_t* handler)
+    quicr_status_t quicr_subscribe_track_handler_destroy(quicr_subscribe_track_handler_t* handler)
     {
         if (!handler) {
-            return;
+            return QUICR_STATUS_OK;
+        }
+
+        if (handler->impl->IsRegistered()) {
+            return QUICR_STATUS_BUSY;
         }
 
         delete handler;
+
+        return QUICR_STATUS_OK;
     }
 
     quicr_status_t quicr_subscribe_track_handler_get_status(const quicr_subscribe_track_handler_t* handler,
@@ -2612,13 +2624,19 @@ extern "C"
         });
     }
 
-    void quicr_fetch_track_handler_destroy(quicr_fetch_track_handler_t* handler)
+    quicr_status_t quicr_fetch_track_handler_destroy(quicr_fetch_track_handler_t* handler)
     {
         if (!handler) {
-            return;
+            return QUICR_STATUS_OK;
+        }
+
+        if (handler->impl->IsRegistered()) {
+            return QUICR_STATUS_BUSY;
         }
 
         delete handler;
+
+        return QUICR_STATUS_OK;
     }
 
     quicr_status_t quicr_fetch_track_handler_get_status(const quicr_fetch_track_handler_t* handler,
@@ -2708,13 +2726,19 @@ extern "C"
         });
     }
 
-    void quicr_publish_namespace_handler_destroy(quicr_publish_namespace_handler_t* handler)
+    quicr_status_t quicr_publish_namespace_handler_destroy(quicr_publish_namespace_handler_t* handler)
     {
         if (!handler) {
-            return;
+            return QUICR_STATUS_OK;
+        }
+
+        if (handler->impl->IsRegistered()) {
+            return QUICR_STATUS_BUSY;
         }
 
         delete handler;
+
+        return QUICR_STATUS_OK;
     }
 
     quicr_status_t quicr_publish_namespace_handler_get_status(const quicr_publish_namespace_handler_t* handler,
@@ -2798,13 +2822,19 @@ extern "C"
         });
     }
 
-    void quicr_subscribe_namespace_handler_destroy(quicr_subscribe_namespace_handler_t* handler)
+    quicr_status_t quicr_subscribe_namespace_handler_destroy(quicr_subscribe_namespace_handler_t* handler)
     {
         if (!handler) {
-            return;
+            return QUICR_STATUS_OK;
+        }
+
+        if (handler->impl->IsRegistered()) {
+            return QUICR_STATUS_BUSY;
         }
 
         delete handler;
+
+        return QUICR_STATUS_OK;
     }
 
     quicr_status_t quicr_subscribe_namespace_handler_get_status(const quicr_subscribe_namespace_handler_t* handler,
@@ -2855,13 +2885,19 @@ extern "C"
         });
     }
 
-    void quicr_track_status_handler_destroy(quicr_track_status_track_handler_t* handler)
+    quicr_status_t quicr_track_status_handler_destroy(quicr_track_status_track_handler_t* handler)
     {
         if (!handler) {
-            return;
+            return QUICR_STATUS_OK;
+        }
+
+        if (handler->impl->IsRegistered()) {
+            return QUICR_STATUS_BUSY;
         }
 
         delete handler;
+
+        return QUICR_STATUS_OK;
     }
 
     quicr_status_t quicr_track_status_handler_get_status(const quicr_track_status_track_handler_t* handler,
