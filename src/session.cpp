@@ -1021,12 +1021,12 @@ namespace quicr {
 
             request_handlers.erase(handler_it);
             if (request_stream) {
-                request_by_stream.erase(request_stream->GetStreamId());
+                request_by_stream.erase({ request_stream->GetConnectionID(), request_stream->GetStreamId() });
             }
         }
 
         if (request_stream) {
-            quic_transport_->CloseStream(current_connection_, request_stream, StreamOperation::kCancel);
+            quic_transport_->CloseStream(request_stream, StreamOperation::kCancel);
         }
 
         handler->SetRequestId(std::nullopt);
