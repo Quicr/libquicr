@@ -17,7 +17,7 @@ function(quicr_enable_sanitizers target)
         -fno-omit-frame-pointer
         -fno-sanitize-recover=undefined
     )
-    target_link_options(${target} PRIVATE
+    target_link_libraries(${target} PUBLIC
         -fsanitize=address,undefined
     )
 endfunction()
