@@ -392,10 +392,11 @@ extern "C"
                                               void* user_data);
         void (*on_stream_closed)(uint64_t stream_id, quicr_stream_closed_flag_t flag, void* user_data);
         void (*status_changed)(quicr_session_t* session, quicr_session_status_t status, void* user_data);
+        /* handler is borrowed and valid only for the duration of the callback. */
         quicr_publish_reply_t (*publish_received)(quicr_session_t* session,
                                                   uint64_t request_id,
                                                   const quicr_publish_attributes_t* attributes,
-                                                  quicr_subscribe_namespace_handler_t* handler,
+                                                  const quicr_subscribe_namespace_handler_t* handler,
                                                   void* user_data);
         quicr_publish_namespace_reply_t (*publish_namespace_received)(
           quicr_session_t* session,
@@ -432,10 +433,11 @@ extern "C"
                                               void* user_data);
         void (*on_stream_closed)(uint64_t stream_id, quicr_stream_closed_flag_t flag, void* user_data);
         void (*status_changed)(quicr_session_t* session, quicr_session_status_t status, void* user_data);
+        /* handler is borrowed and valid only for the duration of the callback. */
         quicr_publish_reply_t (*publish_received)(quicr_session_t* session,
                                                   uint64_t request_id,
                                                   const quicr_publish_attributes_t* attributes,
-                                                  quicr_subscribe_namespace_handler_t* handler,
+                                                  const quicr_subscribe_namespace_handler_t* handler,
                                                   void* user_data);
         quicr_publish_namespace_reply_t (*publish_namespace_received)(
           quicr_session_t* session,
