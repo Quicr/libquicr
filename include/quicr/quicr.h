@@ -710,6 +710,7 @@ extern "C"
                                 quicr_byte_span_t data,
                                 const quicr_stream_header_properties_t* properties,
                                 void* user_data);
+        void (*object_status_received)(const quicr_object_headers_t* headers, void* user_data);
     } quicr_subscribe_track_handler_callbacks_t;
 
     typedef uint64_t quicr_filter_type_t;
@@ -797,6 +798,7 @@ extern "C"
                                 quicr_byte_span_t data,
                                 const quicr_stream_header_properties_t* properties,
                                 void* user_data);
+        void (*object_status_received)(const quicr_object_headers_t* headers, void* user_data);
     } quicr_fetch_track_handler_callbacks_t;
 
     QUICR_C_API quicr_status_t quicr_fetch_track_handler_create(const quicr_fetch_track_handler_callbacks_t* callbacks,
@@ -1132,9 +1134,6 @@ extern "C"
 
     QUICR_C_API quicr_status_t quicr_publish_response_set_new_group_request_id(quicr_publish_response_t* response,
                                                                                uint64_t request_id);
-
-    QUICR_C_API quicr_subscribe_track_handler_t* quicr_publish_response_get_handler(
-      const quicr_publish_response_t* response);
 
     /*=======================================================================*/
     // Session Manager
