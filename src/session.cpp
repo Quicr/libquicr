@@ -986,6 +986,43 @@ namespace quicr {
         SendTrackStatus(request_stream, request_id, ftn);
     }
 
+    void Session::CancelTrackStatus(const std::shared_ptr<TrackStatusHandler>& handler)
+    {
+        if (!handler) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+        if (handler->GetStatus() != TrackStatusHandler::Status::kPendingResponse) {
+            return;
+        }
+
+        const auto request_id = handler->GetRequestId();
+        const auto request_stream = handler->GetRequestStream();
+        {
+            std::lock_guard lock(state_mutex_);
+            if (!request_id) {
+                return;
+            }
+
+            const auto handler_it = request_handlers.find(*request_id);
+            if (handler_it == request_handlers.end() || handler_it->second.get() != handler.get()) {
+                return;
+            }
+
+            request_handlers.erase(handler_it);
+            if (request_stream) {
+                request_by_stream.erase(request_stream->GetStreamId());
+            }
+        }
+
+        if (request_stream) {
+            quic_transport_->CloseStream(current_connection_, request_stream, StreamOperation::kCancel);
+        }
+
+        handler->SetRequestId(std::nullopt);
+        handler->SetRequestStream(nullptr);
+        handler->SetStatus(TrackStatusHandler::Status::kDoneByReset);
+    }
+
     void Session::SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
         const auto connection = track_handler->IsPublisherInitiated() ? nullptr : GetDefaultConnection();
