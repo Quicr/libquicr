@@ -1,22 +1,43 @@
-libquicr
-========
+libquicr — Media over QUIC (MoQ) library
+========================================
+
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B)](#requirements)
+[![MOQT draft-18](https://img.shields.io/badge/MOQT-draft--18-blue)](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18)
 
 [![Ubuntu](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml)
 [![macOS](https://github.com/Quicr/libquicr/actions/workflows/macos.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/macos.yml)
 [![Windows](https://github.com/Quicr/libquicr/actions/workflows/windows.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/windows.yml)
 [![Android](https://github.com/Quicr/libquicr/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/android.yml)
 
-[![REUSE status](https://api.reuse.software/badge/github.com/fsfe/reuse-action)](https://api.reuse.software/info/github.com/fsfe/reuse-action)
 [![REUSE Compliance](https://github.com/Quicr/libquicr/actions/workflows/reuse.yaml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/reuse.yaml)
+[![License: BSD-2-Clause](https://img.shields.io/badge/License-BSD--2--Clause-blue.svg)](LICENSE)
 
-libquicr is a C++ implementation of Media over QUIC Transport (MOQT), currently targeting
+Media over QUIC (MoQ) is a publish/subscribe architecture for low-latency delivery of live media
+and other time-sensitive data.
+
+libquicr implements Media over QUIC Transport (MOQT) with a C++ API for client and server endpoints
+that publish, subscribe, fetch, and relay. It currently targets
 [draft-ietf-moq-transport-18](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18).
-It provides APIs for client and server endpoints, including publishers, subscribers, and relays.
 
-[API documentation](https://www.quicr.org/html/)
+## Key features
 
-## Navigation
+* ⚡ **Low-latency media** — prioritized streams, datagrams, and TTL-based expiry.
+* 🚀 **Flexible transport options** — native QUIC and WebTransport over HTTP/3.
+* 🧩 **Handler-driven architecture** — build publish, subscribe, fetch, and relay workflows.
+* 🔌 **C++ API** — integrate directly with static or shared-library builds.
+* 🌐 **Cross-platform** — desktop, mobile, and embedded targets.
+* 🛡️ **Modern foundation** — C++20 with TLS 1.3 transport.
+* 🛠️ **Practical tooling** — interactive MOQT client, capture and replay, examples, and metrics.
 
+**Start building:** follow the [API guide](docs/api-guide.md).
+
+## Contents
+
+* [Support](#support)
+  * [Transport options](#transport-options)
+  * [Platforms](#platforms)
+  * [APIs](#apis)
+  * [TLS backends](#tls-backends)
 * [Requirements](#requirements)
   * [Build tools](#build-tools)
   * [Ubuntu](#ubuntu-2204-jammy)
@@ -32,19 +53,64 @@ It provides APIs for client and server endpoints, including publishers, subscrib
     * [Mbed TLS](#mbed-tls)
 * [Command-line tools](#command-line-tools)
 * [CMake options](#cmake-options)
-* [Make](#make)
+* [Makefile Shortcuts](#makefile-shortcuts)
 * [C Bridge Target](#c-bridge-target)
   * [Building C Bridge](#building-c-bridge)
 * [Generate documentation](#generate-documentation)
   * [Prerequisites on macOS](#prerequisites-on-macos)
   * [Additional documentation](#additional-documentation)
 
+## Support
+
+**Status:** ✅ Available · 🧪 Verified outside CI · 🚧 Planned
+
+### Transport options
+
+| Option | Status | Selection | Notes |
+| --- | --- | --- | --- |
+| Native QUIC | ✅ | `moq://` or `moqt://` | |
+| WebTransport over HTTP/3 | ✅ | `https://` | |
+| QMUX | 🚧 | To be determined | [Tracking issue #1044](https://github.com/Quicr/libquicr/issues/1044) |
+
+### Platforms
+
+| Platform | Build | Automated tests |
+| --- | --- | --- |
+| Linux | ✅ | ✅ |
+| macOS | ✅ | ✅ |
+| Windows | ✅ | ✅ |
+| Android | ✅ | — |
+| iOS | 🧪 | — |
+| ESP32 | 🧪 | — |
+
+### APIs
+
+| API | Status | Notes |
+| --- | --- | --- |
+| C++ API | ✅ | Requires C++20 |
+| C bridge | ✅ | Client-only API |
+| C API | 🚧 | Replacement planned in [PR #1046](https://github.com/Quicr/libquicr/pull/1046) |
+
+### TLS backends
+
+[![TLS Backends](https://github.com/Quicr/libquicr/actions/workflows/tls-backends.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/tls-backends.yml)
+
+TLS backend selection applies to both native QUIC and WebTransport.
+
+| Backend | Status | Known versions | Notes |
+| --- | --- | --- | --- |
+| [picotls-minicrypto](#no-external-tls-backend) | ✅ | Bundled | Fallback when no external provider is selected |
+| [OpenSSL-compatible providers](#openssl-compatible-providers) | ✅ | [![OpenSSL 3 (CI)](https://img.shields.io/badge/OpenSSL-3%20%28CI%29-blue)](https://www.openssl.org/) [![BoringSSL 0.20260929.0](https://img.shields.io/badge/BoringSSL-0.20260929.0-blue)](https://github.com/google/boringssl/tree/0.20260929.0) | OpenSSL 3 is tested through Ubuntu and Homebrew packages; see [BoringSSL limitations](#boringssl) |
+| [Mbed TLS](#mbed-tls) | ✅ | [![Mbed TLS 3.6.7](https://img.shields.io/badge/Mbed%20TLS-3.6.7-blue)](https://github.com/Mbed-TLS/mbedtls/releases/tag/mbedtls-3.6.7) | Enable with `WITH_MBEDTLS=ON` |
+
+See [TLS providers](#tls-providers) for versions, configuration, and security caveats.
+
 ## Requirements
 
 ### Build tools
 
 * CMake 3.16 or newer
-* A C++20 compiler:
+* Supported C++20 toolchains:
     * GCC 12 or newer
     * Clang 17 or newer
     * Apple Clang 17 or newer
@@ -77,7 +143,7 @@ sudo apt-get install -y make wget git cmake clang-tidy-15
 
 ### Apple/Mac
 
-Framework builds support both Intel and Apple Silicon. Install
+macOS builds support both Intel and Apple Silicon. Install
 [Xcode](https://apps.apple.com/app/xcode/id497799835) and [Homebrew](https://brew.sh), then run:
 
 ```
@@ -95,13 +161,14 @@ and each fetched dependency is then pinned to its own tag or commit:
 
 | Dependency | Purpose | Declared in |
 | --- | --- | --- |
-| [picoquic](https://github.com/private-octopus/picoquic) | QUIC transport | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
-| [picotls](https://github.com/Quicr/picotls) | TLS 1.3 implementation | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
-| [timeq](https://github.com/Quicr/timeq) | Timed task scheduling | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
-| [fmt](https://github.com/fmtlib/fmt) | Formatting fallback when `std::format` is unavailable | [`cmake/QuicrFormat.cmake`](cmake/QuicrFormat.cmake) |
+| [picoquic](https://github.com/private-octopus/picoquic/commit/1d81a730ebbc0f4598f8127a7f43260a71a9ac7d) | QUIC transport | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
+| [picotls](https://github.com/Quicr/picotls/tree/057ed54) | TLS 1.3 implementation | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
+| [timeq](https://github.com/Quicr/timeq/tree/898d45c) | Timed task scheduling | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
+| [fmt](https://github.com/fmtlib/fmt/tree/12.2.0) | Formatting fallback when `std::format` is unavailable | [`cmake/QuicrFormat.cmake`](cmake/QuicrFormat.cmake) |
 
-Optional tests, benchmarks, tools, and examples may fetch additional dependencies. Their
-dependencies are documented alongside those targets.
+Optional [tests](test/README.md), [benchmarks](benchmark/README.md), [tools](tools/README.md), and
+[examples](examples/README.md) may fetch additional dependencies. See their documentation for
+target-specific build and dependency notes.
 
 ### Caching dependency sources
 
@@ -155,13 +222,6 @@ review. This notice file complements rather than replaces the product SBOM and l
 checks.
 
 ### TLS providers
-
-[![TLS Backends](https://github.com/Quicr/libquicr/actions/workflows/tls-backends.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/tls-backends.yml)
-
-Known supported provider versions:
-
-[![Mbed TLS 3.6.7](https://img.shields.io/badge/Mbed%20TLS-3.6.7-blue)](https://github.com/Mbed-TLS/mbedtls/releases/tag/mbedtls-3.6.7)
-[![BoringSSL 0.20260929.0](https://img.shields.io/badge/BoringSSL-0.20260929.0-blue)](https://github.com/google/boringssl/tree/0.20260929.0)
 
 An external TLS provider is optional: libquicr can use picotls-minicrypto on its own, or applications
 can provide an OpenSSL-compatible provider or Mbed TLS when desired. OpenSSL-compatible providers
@@ -260,7 +320,7 @@ The available tools are:
 
 - `moq-cli`, an interactive client for publishing, subscribing, fetching, and protocol test
   scenarios.
-- `moq-capture`, a client for recording track objects and replaying recorded data.
+- `moq_capture`, a client for recording track objects and replaying recorded data.
 
 Configure and build the tools with:
 
@@ -272,6 +332,9 @@ cmake --build build
 See the [`tools` documentation](tools/README.md) for usage.
 
 ## CMake options
+
+[![Sanitizers](https://github.com/Quicr/libquicr/actions/workflows/sanitizers.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/sanitizers.yml)
+[![Fuzz](https://github.com/Quicr/libquicr/actions/workflows/fuzz.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/fuzz.yml)
 
 libquicr provides CMake options for selecting build targets and optional features. For example,
 configure a build with examples enabled:
@@ -298,25 +361,27 @@ examples.
 Library configuration:
 
 * `QUICR_BUILD_SHARED` — build libquicr as a shared library; defaults to `OFF`.
-* `WITH_MBEDTLS` — use Mbed TLS instead of OpenSSL; defaults to `OFF`.
-* `QUICR_USE_BROTLI` — enable Brotli TLS certificate compression; defaults to `OFF`.
 * `QUICR_ENABLE_SANITIZERS` — enable AddressSanitizer and UndefinedBehaviorSanitizer with Clang or
   GCC; defaults to `OFF`.
 * `QUICR_GENERATE_THIRD_PARTY_LICENSES` — add the `third-party-licenses` target for distributed CPM
   dependencies; defaults to `OFF`.
 * `LINT` — run Clang-Tidy while compiling; defaults to `OFF`.
 
-## Make
+Picotls configuration used by the build:
 
-Use `make` to build libquicr.
+* `WITH_MBEDTLS` — use Mbed TLS instead of OpenSSL; defaults to `OFF`.
+* `WITH_BROTLI` — enable Brotli TLS certificate compression; defaults to `OFF`.
 
-Use `make test` to run tests.
+## Makefile Shortcuts
 
-Use `make cclean` to clean build files.
-
-Use `make fuzz` to run the fuzzer tests.
-
-Use `make licenses` to generate `build/THIRD_PARTY_LICENSES.txt`.
+| Command | Action |
+| --- | --- |
+| `make` | Configure and build libquicr |
+| `make test` | Build and run the test suite |
+| `make cclean` | Remove the build directory |
+| `make fuzz` | Build and run the control-message fuzzer |
+| `make licenses` | Generate `build/THIRD_PARTY_LICENSES.txt` |
+| `make doc` | Generate the Doxygen reference and API guide |
 
 ## C Bridge Target
 
