@@ -9,6 +9,7 @@
 #include <chrono>
 #include <map>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
@@ -31,7 +32,7 @@ namespace quicr {
         Cache(size_t duration, size_t interval, std::shared_ptr<Clock> clock)
           : duration_{ duration }
           , interval_{ interval }
-          , total_buckets_{ duration_ / interval_ }
+          , total_buckets_{ duration_ / interval_ + 1 }
           , clock_(std::move(clock))
         {
             if (duration == 0 || duration % interval != 0 || duration == interval) {
@@ -143,12 +144,18 @@ namespace quicr {
         {
             const TickType new_ticks =
               static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(clock_->Get()).count());
-            const TickType delta = current_ticks_ ? (new_ticks - current_ticks_) / interval_ : 0;
-            current_ticks_ = new_ticks;
+            if (!current_ticks_.has_value()) {
+                current_ticks_ = new_ticks;
+                return;
+            }
+
+            const TickType delta = (new_ticks - *current_ticks_) / interval_;
 
             if (delta == 0) {
                 return;
             }
+
+            *current_ticks_ += delta * interval_;
 
             if (delta >= static_cast<TickType>(total_buckets_)) {
                 Clear();
@@ -176,10 +183,8 @@ namespace quicr {
                 ttl = duration_;
             }
 
-            ttl /= interval_;
-
             Advance();
-            const std::size_t future_index = (bucket_index_ + ttl - 1) % total_buckets_;
+            const std::size_t future_index = (bucket_index_ + (ttl + interval_ - 1) / interval_) % total_buckets_;
 
             buckets_[future_index].push_back(key);
             cache_[key] = std::make_shared<T>(value);
@@ -198,8 +203,8 @@ namespace quicr {
         /// The index in time of the current bucket.
         std::uint32_t bucket_index_{ 0 };
 
-        /// Last calculated tick value.
-        TickType current_ticks_{ 0 };
+        /// Tick value at the start of the current bucket.
+        std::optional<TickType> current_ticks_;
 
         /// The memory storage for all keys to be managed.
         std::map<std::uint64_t, BucketType> buckets_;
