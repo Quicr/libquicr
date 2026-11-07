@@ -59,7 +59,7 @@ namespace quicr {
         uint64_t initial_max_stream_data{ 0 }; ///< Initial per-stream receive window; zero uses picoquic's default.
         uint64_t initial_max_stream_id{ 512 }; ///< Initial bidirectional and unidirectional stream limit.
         std::size_t quic_shards{ 1 };          ///< Number of picoquic instances used in server mode.
-        std::string tls_root_trust_filename; ///< PEM CA for certificate verification, empty allows unverified.
+        std::string tls_root_trust_filename;   ///< PEM CA to verify the server, empty allows unverified. Clients only.
         bool use_af_xdp{ true }; ///< Whether to use AF_XDP transmit when available, falling back to sendmsg.
     };
 
