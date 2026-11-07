@@ -320,6 +320,31 @@ class TestSubscribeNamespaceHandler : public SubscribeNamespaceHandler
     std::promise<TrackNamespace> namespace_received_;
 };
 
+static ServerConfig
+MakeTestServerConfig(std::optional<std::uint16_t> server_port = std::nullopt)
+{
+    ServerConfig server_config;
+    server_config.server_bind_ip = kIp;
+    server_config.server_port = server_port.value_or(GetTestPort());
+    server_config.endpoint_id = kServerId;
+    server_config.transport_config.debug = true;
+    server_config.transport_config.tls_cert_filename = "server-cert.pem";
+    server_config.transport_config.tls_key_filename = "server-key.pem";
+    server_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
+    return server_config;
+}
+
+static ClientConfig
+MakeTestClientConfig(const std::string& protocol_scheme, const std::string& host = kIp)
+{
+    ClientConfig client_config;
+    client_config.transport_config.debug = true;
+    client_config.endpoint_id = "client";
+    client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
+    client_config.connect_uri = protocol_scheme + "://" + host + ":" + std::to_string(GetTestPort()) + "/relay";
+    return client_config;
+}
+
 static std::shared_ptr<TestServer>
 MakeTestServer(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
@@ -329,14 +354,7 @@ MakeTestServer(quicr::SessionManager& session_mgr,
                std::optional<std::uint16_t> server_port = std::nullopt)
 {
     // Run the server.
-    ServerConfig server_config;
-    server_config.server_bind_ip = kIp;
-    server_config.server_port = server_port.value_or(GetTestPort());
-    server_config.endpoint_id = kServerId;
-    server_config.transport_config.debug = true;
-    server_config.transport_config.tls_cert_filename = "server-cert.pem";
-    server_config.transport_config.tls_key_filename = "server-key.pem";
-    server_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
+    auto server_config = MakeTestServerConfig(server_port);
     if (qlog_path.has_value()) {
         server_config.transport_config.quic_qlog_path = *qlog_path;
     }
@@ -371,10 +389,7 @@ MakeTestClient(quicr::SessionManager& session_mgr,
                std::optional<std::size_t> max_connections = std::nullopt)
 {
     // Connect a client.
-    ClientConfig client_config;
-    client_config.transport_config.debug = true;
-    client_config.endpoint_id = "client";
-    client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
+    auto client_config = MakeTestClientConfig(protocol_scheme);
     if (metrics_sample_ms.has_value()) {
         client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
     }
@@ -739,6 +754,127 @@ TEST_CASE("Integration - Connection")
         CAPTURE("WebTransport");
         test_connection("https");
     }
+}
+
+static void
+TestTlsTrustRoots(const std::string& scheme)
+{
+    enum class Outcome
+    {
+        kConnects,
+        kRejected,
+        kInvalidConfig,
+    };
+
+    std::string host = kIp;
+    std::string server_cert = "server-cert.pem";
+    std::string roots = server_cert;
+    auto expected = Outcome::kConnects;
+    SUBCASE("Trusted IP address") {}
+    SUBCASE("Trusted DNS name")
+    {
+        host = "localhost";
+    }
+    SUBCASE("Untrusted issuer")
+    {
+        roots = "other-cert.pem";
+        expected = Outcome::kRejected;
+    }
+    SUBCASE("Wrong IP address")
+    {
+        server_cert = "wrong-host-cert.pem";
+        roots = server_cert;
+        expected = Outcome::kRejected;
+    }
+    SUBCASE("Wrong DNS name")
+    {
+        host = "localhost";
+        server_cert = "wrong-host-cert.pem";
+        roots = server_cert;
+        expected = Outcome::kRejected;
+    }
+    SUBCASE("Missing trust file")
+    {
+        roots = "missing-roots.pem";
+        expected = Outcome::kInvalidConfig;
+    }
+    SUBCASE("Empty trust file")
+    {
+        roots = "empty-roots.pem";
+        expected = Outcome::kInvalidConfig;
+    }
+    SUBCASE("Malformed trust file")
+    {
+        roots = "malformed-roots.pem";
+        expected = Outcome::kInvalidConfig;
+    }
+
+#ifdef QUICR_TEST_NO_CERT_VERIFIER
+    // A backend that cannot verify certificates must refuse every trust file.
+    expected = Outcome::kInvalidConfig;
+#endif
+
+    CAPTURE(scheme);
+    CAPTURE(host);
+    CAPTURE(roots);
+    CAPTURE(server_cert);
+    auto session_mgr = MakeTestSessionManager();
+    auto server_config = MakeTestServerConfig();
+    server_config.transport_config.tls_cert_filename = server_cert;
+    auto server = std::make_shared<TestServer>();
+    std::promise<SetupAttributes> server_setup_promise;
+    auto server_setup = server_setup_promise.get_future();
+    server->SetSetupReceivedPromise(std::move(server_setup_promise));
+    session_mgr.AddTransport(server_config, server);
+
+    auto client_config = MakeTestClientConfig(scheme, host);
+    client_config.transport_config.tls_root_trust_filename = roots;
+    auto callbacks = std::make_shared<TestClient>();
+    std::promise<SetupAttributes> client_setup_promise;
+    auto client_setup = client_setup_promise.get_future();
+    callbacks->SetConnectedPromise(std::move(client_setup_promise));
+
+    if (expected == Outcome::kInvalidConfig) {
+        CHECK_THROWS_AS(session_mgr.AddTransport(client_config, callbacks), std::runtime_error);
+        return;
+    }
+
+    auto session = session_mgr.AddTransport(client_config, callbacks).lock();
+    REQUIRE(session != nullptr);
+    if (expected == Outcome::kConnects) {
+        REQUIRE(client_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(client_setup.get().endpoint_id, kServerId);
+        REQUIRE(server_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK(WaitFor([&] { return session->GetStatus() == Session::Status::kReady; }));
+    } else if (scheme == "moq") {
+        // The failed handshake closes the connection before either peer enters the MoQ session.
+        CHECK(WaitFor([&] { return session->GetStatus() == Session::Status::kNotConnected; }));
+        CHECK(client_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
+        CHECK(server_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
+    } else {
+        // FIXME: Fix WT failure notifications and we don't have to wait here.
+        CHECK(server_setup.wait_for(kNegativeTimeout) == std::future_status::timeout);
+        CHECK(client_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
+        CHECK_NE(session->GetStatus(), Session::Status::kReady);
+    }
+}
+
+TEST_CASE("Integration - TLS trust roots over raw QUIC")
+{
+    TestTlsTrustRoots("moq");
+}
+
+TEST_CASE("Integration - TLS trust roots over WebTransport")
+{
+    TestTlsTrustRoots("https");
+}
+
+TEST_CASE("Integration - TLS trust root on server is rejected")
+{
+    auto session_mgr = MakeTestSessionManager();
+    auto server_config = MakeTestServerConfig();
+    server_config.transport_config.tls_root_trust_filename = "server-cert.pem";
+    CHECK_THROWS_AS(session_mgr.AddTransport(server_config, std::make_shared<TestServer>()), std::runtime_error);
 }
 
 TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
