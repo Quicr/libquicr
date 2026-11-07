@@ -24,6 +24,8 @@ path = [
   "tools/README.md",
   "tools/moq-capture/README.md",
   "tools/moq-cli/README.md",
+  "test/README.md",
+  "benchmark/README.md",
   "package-lock.cmake",
 ]
 SPDX-FileCopyrightText = "NONE"
