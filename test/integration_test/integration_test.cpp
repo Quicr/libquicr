@@ -852,8 +852,7 @@ TestTlsTrustRoots(const std::string& scheme)
         CHECK(client_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
         CHECK(server_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
     } else {
-        // A WebTransport client is not told when its QUIC connection closes before the session is established,
-        // so it never leaves kConnecting. Check that neither peer receives SETUP during the negative wait.
+        // FIXME: Fix WT failure notifications and we don't have to wait here.
         CHECK(server_setup.wait_for(kNegativeTimeout) == std::future_status::timeout);
         CHECK(client_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
         CHECK_NE(session->GetStatus(), Session::Status::kReady);
