@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <iostream>
 #include <string>
-#include <string_view>
 
 class SimpleClientCallbacks : public quicr::Session::ClientCallbacks
 {
@@ -73,10 +72,9 @@ HandleSignal(int)
 }
 
 int
-main(int argc, char* argv[])
+main()
 try {
     quicr::ClientConfig config;
-    config.use_qmux = argc > 1 && std::string_view(argv[1]) == "--qmux";
     config.transport_config.time_queue_max_duration = 5000;
     config.transport_config.tls_cert_filename = "";
     config.transport_config.tls_key_filename = "";
