@@ -14,6 +14,7 @@
 #include "quicr/utilities/defer.h"
 #include "test_client.h"
 #include "test_server.h"
+#include <picoquic_internal.h>
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
@@ -321,11 +322,12 @@ class TestSubscribeNamespaceHandler : public SubscribeNamespaceHandler
 };
 
 static ServerConfig
-MakeTestServerConfig(std::optional<std::uint16_t> server_port = std::nullopt)
+MakeTestServerConfig(std::optional<std::uint16_t> server_port = std::nullopt, bool enable_qmux = false)
 {
     ServerConfig server_config;
     server_config.server_bind_ip = kIp;
     server_config.server_port = server_port.value_or(GetTestPort());
+    server_config.transport_config.qmux_port = enable_qmux ? server_config.server_port : 0;
     server_config.endpoint_id = kServerId;
     server_config.transport_config.debug = true;
     server_config.transport_config.tls_cert_filename = "server-cert.pem";
@@ -335,13 +337,17 @@ MakeTestServerConfig(std::optional<std::uint16_t> server_port = std::nullopt)
 }
 
 static ClientConfig
-MakeTestClientConfig(const std::string& protocol_scheme, const std::string& host = kIp)
+MakeTestClientConfig(const std::string& protocol_scheme,
+                     const std::string& host = kIp,
+                     std::uint16_t port = GetTestPort())
 {
     ClientConfig client_config;
     client_config.transport_config.debug = true;
     client_config.endpoint_id = "client";
     client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
-    client_config.connect_uri = protocol_scheme + "://" + host + ":" + std::to_string(GetTestPort()) + "/relay";
+    client_config.use_qmux = protocol_scheme == "qmux";
+    const auto scheme = client_config.use_qmux ? std::string("moqt") : protocol_scheme;
+    client_config.connect_uri = quicr::format("{}://{}:{}/relay", scheme, host, port);
     return client_config;
 }
 
@@ -351,10 +357,11 @@ MakeTestServer(quicr::SessionManager& session_mgr,
                std::optional<std::size_t> max_connections = std::nullopt,
                std::optional<std::uint64_t> initial_max_stream_data = std::nullopt,
                std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
-               std::optional<std::uint16_t> server_port = std::nullopt)
+               std::optional<std::uint16_t> server_port = std::nullopt,
+               bool enable_qmux = false)
 {
     // Run the server.
-    auto server_config = MakeTestServerConfig(server_port);
+    auto server_config = MakeTestServerConfig(server_port, enable_qmux);
     if (qlog_path.has_value()) {
         server_config.transport_config.quic_qlog_path = *qlog_path;
     }
@@ -389,15 +396,13 @@ MakeTestClient(quicr::SessionManager& session_mgr,
                std::optional<std::size_t> max_connections = std::nullopt)
 {
     // Connect a client.
-    auto client_config = MakeTestClientConfig(protocol_scheme);
+    auto client_config = MakeTestClientConfig(protocol_scheme, kIp, server_port.value_or(GetTestPort()));
     if (metrics_sample_ms.has_value()) {
         client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
     }
     if (max_connections.has_value()) {
         client_config.transport_config.max_connections = *max_connections;
     }
-    client_config.connect_uri =
-      quicr::format("{}://{}:{}/relay", protocol_scheme, kIp, server_port.value_or(GetTestPort()));
     if (qlog_path.has_value()) {
         client_config.transport_config.quic_qlog_path = *qlog_path;
     }
@@ -723,7 +728,8 @@ DecodeForwardedObjects(const TestForwardingSubscribeHandler::Subgroup& subgroup)
 TEST_CASE("Integration - Connection")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr);
+    auto server =
+      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
 
     auto test_connection = [&](const std::string& protocol_scheme) {
         std::promise<SetupAttributes> client_attributes;
@@ -753,6 +759,10 @@ TEST_CASE("Integration - Connection")
     {
         CAPTURE("WebTransport");
         test_connection("https");
+    }
+    SUBCASE("QMUX")
+    {
+        test_connection("qmux");
     }
 }
 
@@ -819,7 +829,7 @@ TestTlsTrustRoots(const std::string& scheme)
     CAPTURE(roots);
     CAPTURE(server_cert);
     auto session_mgr = MakeTestSessionManager();
-    auto server_config = MakeTestServerConfig();
+    auto server_config = MakeTestServerConfig(std::nullopt, scheme == "qmux");
     server_config.transport_config.tls_cert_filename = server_cert;
     auto server = std::make_shared<TestServer>();
     std::promise<SetupAttributes> server_setup_promise;
@@ -846,7 +856,7 @@ TestTlsTrustRoots(const std::string& scheme)
         CHECK_EQ(client_setup.get().endpoint_id, kServerId);
         REQUIRE(server_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
         CHECK(WaitFor([&] { return session->GetStatus() == Session::Status::kReady; }));
-    } else if (scheme == "moq") {
+    } else if (scheme != "https") {
         // The failed handshake closes the connection before either peer enters the MoQ session.
         CHECK(WaitFor([&] { return session->GetStatus() == Session::Status::kNotConnected; }));
         CHECK(client_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
@@ -867,6 +877,11 @@ TEST_CASE("Integration - TLS trust roots over raw QUIC")
 TEST_CASE("Integration - TLS trust roots over WebTransport")
 {
     TestTlsTrustRoots("https");
+}
+
+TEST_CASE("Integration - TLS trust roots over QMUX")
+{
+    TestTlsTrustRoots("qmux");
 }
 
 TEST_CASE("Integration - TLS trust root on server is rejected")
@@ -923,7 +938,8 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
 TEST_CASE("Integration - Subscribe")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr);
+    auto server =
+      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
 
     auto test_subscribe = [&](const std::string& protocol_scheme) {
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -982,6 +998,10 @@ TEST_CASE("Integration - Subscribe")
     {
         CAPTURE("WebTransport");
         test_subscribe("https");
+    }
+    SUBCASE("QMUX")
+    {
+        test_subscribe("qmux");
     }
 }
 
@@ -1330,14 +1350,17 @@ TEST_CASE("Integration - REQUEST_ERROR redirect migration")
 
 TEST_CASE("Integration - Datagram object roundtrip")
 {
-    auto test_datagrams = [](const std::string& protocol_scheme) {
+    auto test_datagrams = [](const std::string& protocol_scheme,
+                             TrackMode mode = TrackMode::kDatagram,
+                             const std::string& subscriber_scheme = "") {
         auto session_mgr = MakeTestSessionManager();
-        auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+        auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, std::nullopt, std::nullopt, true);
         auto [publisher, publisher_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-        auto [subscriber, subscriber_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber, subscriber_callbacks] = MakeTestClient(
+          session_mgr, true, std::nullopt, subscriber_scheme.empty() ? protocol_scheme : subscriber_scheme);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "datagram", "roundtrip" }), { 1 } };
-        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kDatagram, 3, 3, 5000, { 0, 0 });
+        auto publish_handler = PublishTrackHandler::Create(ftn, mode, 3, 3, 5000, { 0, 0 });
         publisher->PublishTrack(publish_handler);
         REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
 
@@ -1349,14 +1372,15 @@ TEST_CASE("Integration - Datagram object roundtrip")
         constexpr std::uint64_t object_count = 5;
         const Extensions extensions{ { 1, { { 0xAA, 0xBB } } } };
         for (std::uint64_t i = 0; i < object_count; ++i) {
-            const Bytes payload{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 };
+            const Bytes payload = mode == TrackMode::kStream ? Bytes(40'000, static_cast<std::uint8_t>(i))
+                                                             : Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 };
             const ObjectHeaders headers{ .group_id = 10 + i,
                                          .object_id = 20 + i,
                                          .payload_length = payload.size(),
                                          .status = ObjectStatus::kAvailable,
                                          .priority = 7,
                                          .ttl = 5000,
-                                         .track_mode = TrackMode::kDatagram,
+                                         .track_mode = mode,
                                          .extensions = extensions };
             REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
         }
@@ -1374,9 +1398,11 @@ TEST_CASE("Integration - Datagram object roundtrip")
             CHECK_EQ(object.object_id, 20 + i);
             CHECK_EQ(object.status, ObjectStatus::kAvailable);
             CHECK_EQ(object.priority, std::optional<std::uint8_t>{ 3 });
-            CHECK_EQ(object.track_mode, TrackMode::kDatagram);
+            CHECK_EQ(object.track_mode, mode);
             CHECK_EQ(object.extensions, extensions);
-            CHECK_EQ(object.data, (Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 }));
+            CHECK_EQ(object.data,
+                     mode == TrackMode::kStream ? Bytes(40'000, static_cast<std::uint8_t>(i))
+                                                : (Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 }));
         }
     };
 
@@ -1387,6 +1413,22 @@ TEST_CASE("Integration - Datagram object roundtrip")
     SUBCASE("WebTransport")
     {
         test_datagrams("https");
+    }
+    SUBCASE("QMUX datagrams")
+    {
+        test_datagrams("qmux");
+    }
+    SUBCASE("QMUX streams")
+    {
+        test_datagrams("qmux", TrackMode::kStream);
+    }
+    SUBCASE("QUIC publisher QMUX subscriber")
+    {
+        test_datagrams("moq", TrackMode::kDatagram, "qmux");
+    }
+    SUBCASE("QMUX publisher QUIC subscriber")
+    {
+        test_datagrams("qmux", TrackMode::kStream, "moq");
     }
 }
 
@@ -1675,7 +1717,8 @@ TEST_CASE("Integration - Track metrics do not recount a stream's bytes each samp
 TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr);
+    auto server =
+      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
 
     auto test_unsubscribe = [&](const std::string& protocol_scheme) {
         const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -1729,6 +1772,10 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
     {
         CAPTURE("WebTransport");
         test_unsubscribe("https");
+    }
+    SUBCASE("QMUX")
+    {
+        test_unsubscribe("qmux");
     }
 }
 
@@ -1967,7 +2014,8 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
 TEST_CASE("Integration - Fetch")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr);
+    auto server =
+      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
 
     auto test_fetch = [&](const std::string& protocol_scheme) {
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -1991,6 +2039,10 @@ TEST_CASE("Integration - Fetch")
     {
         CAPTURE("WebTransport");
         test_fetch("https");
+    }
+    SUBCASE("QMUX")
+    {
+        test_fetch("qmux");
     }
 }
 
@@ -2665,7 +2717,8 @@ TEST_CASE("Integration - Fetch object roundtrip")
 {
     auto session_mgr = MakeTestSessionManager();
 
-    auto server = MakeTestServer(session_mgr);
+    auto server =
+      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
     auto test_fetch_roundtrip = [&](const std::string& protocol_scheme) {
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
@@ -2759,6 +2812,10 @@ TEST_CASE("Integration - Fetch object roundtrip")
         CAPTURE("WebTransport");
         test_fetch_roundtrip("https");
     }
+    SUBCASE("QMUX")
+    {
+        test_fetch_roundtrip("qmux");
+    }
 }
 
 TEST_CASE("Integration - Subgroup and Stream Testing")
@@ -2766,7 +2823,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
     auto session_mgr = MakeTestSessionManager();
 
     // Server needs to support 2 connections (subscriber + publisher)
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, std::nullopt, std::nullopt, true);
 
     auto test_subgroups = [&](const std::string& protocol_scheme) {
         // Create subscriber and publisher clients
@@ -3001,6 +3058,10 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
     {
         CAPTURE("WebTransport");
         test_subgroups("https");
+    }
+    SUBCASE("QMUX")
+    {
+        test_subgroups("qmux");
     }
 }
 
@@ -3798,7 +3859,7 @@ TEST_CASE("Integration - Subscription subgroup close")
     const auto test_subgroup_release = [](const std::string& protocol_scheme) {
         auto session_mgr = MakeTestSessionManager();
 
-        auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+        auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, std::nullopt, std::nullopt, true);
         auto [subscriber, callbacks] =
           MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kStreamSweepDisabledMs);
         auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -3844,6 +3905,10 @@ TEST_CASE("Integration - Subscription subgroup close")
     {
         test_subgroup_release("https");
     }
+    SUBCASE("QMUX")
+    {
+        test_subgroup_release("qmux");
+    }
 }
 
 namespace quicr {
@@ -3861,6 +3926,7 @@ namespace quicr {
     {
         return lhs.largest_location == rhs.largest_location && lhs.track_properties == rhs.track_properties;
     }
+
 }
 
 TEST_CASE("Integration - Track Status")
@@ -3911,4 +3977,47 @@ TEST_CASE("Integration - Track Status")
     {
         test_track_status("https");
     }
+}
+
+TEST_CASE("Integration - QMUX reconnect and verified transport")
+{
+    auto session_mgr = MakeTestSessionManager();
+    auto server = MakeTestServer(session_mgr, std::nullopt, 8, std::nullopt, std::nullopt, std::nullopt, true);
+    for (int i = 0; i < 5; ++i) {
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, "qmux");
+        REQUIRE_EQ(session->GetStatus(), Session::Status::kReady);
+        auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
+        CHECK(connection->pq_cnx->is_qmux);
+        CHECK_FALSE(connection->pq_cnx->is_qmux_cleartext);
+        CHECK(connection->pq_cnx->is_qmux_tls_ready);
+        session->Disconnect();
+        REQUIRE(
+          WaitFor([&connection]() { return connection->GetStatus() == Connection::Status::kRemoteRequestClose; }));
+    }
+}
+
+TEST_CASE("Integration - QMUX peer shutdown disconnects the client")
+{
+    auto clients = MakeTestSessionManager();
+    std::shared_ptr<Session> session;
+    {
+        auto servers = MakeTestSessionManager();
+        auto server =
+          MakeTestServer(servers, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
+        session = MakeTestClient(clients, true, std::nullopt, "qmux").first;
+        REQUIRE_EQ(session->GetStatus(), Session::Status::kReady);
+    }
+    REQUIRE(WaitFor([&session]() {
+        return session->GetStatus() == Session::Status::kNotConnected ||
+               session->GetStatus() == Session::Status::kNotReady;
+    }));
+}
+
+TEST_CASE("Integration - QMUX rejects multiple server shards")
+{
+    TransportConfig config;
+    config.qmux_port = GetTestPort();
+    config.quic_shards = 2;
+    CHECK_THROWS(
+      Transport::MakeServerTransport({ .host_or_ip = kIp, .port = GetTestPort() }, config, nullptr, nullptr));
 }

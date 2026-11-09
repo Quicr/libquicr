@@ -62,6 +62,7 @@ namespace quicr {
         /// PEM CA bundle for server certificate and hostname verification; empty disables verification.
         std::string tls_root_trust_filename;
         bool use_af_xdp{ true }; ///< Whether to use AF_XDP transmit when available, falling back to sendmsg.
+        uint16_t qmux_port{ 0 }; ///< QMUX/TLS/TCP listening port, 0 is disabled.
     };
 
     /// @brief Configuration common to client-mode and server-mode sessions.
@@ -77,6 +78,7 @@ namespace quicr {
     struct ClientConfig : Config
     {
         std::string connect_uri;                          ///< Destination URI using `moq://`, `moqt://`, or `https://`.
+        bool use_qmux{ false };                           ///< Connect over QMUX and TLS/TCP.
         std::uint64_t tick_service_sleep_delay_us{ 333 }; ///< Default tick-service sleep delay in microseconds.
     };
 

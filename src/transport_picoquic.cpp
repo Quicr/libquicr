@@ -17,6 +17,7 @@
 #include <democlient.h>
 #include <h3zero_uri.h>
 #include <pico_webtransport.h>
+#include <picoqmux.h>
 #include <picoquic.h>
 #include <picoquic_bbr.h>
 #include <picoquic_c4.h>
@@ -74,6 +75,7 @@
 using namespace quicr;
 
 constexpr const char* kMoqtAlpn = "moqt-18";
+constexpr const char* kMoqtQmuxAlpn = "moqt-18qx";
 
 class TickServiceAdaptor : public timeq::tick_service
 {
@@ -382,7 +384,7 @@ try {
             } else {
                 // Client - for raw QUIC connections only, WebTransport connections use DefaultWebTransportCallback
                 auto connection = transport->GetConnection(conn_id);
-                if (connection && connection->GetProtocol() == Connection::Protocol::kNativeQuic) {
+                if (connection && connection->GetProtocol() != Connection::Protocol::kWebTransport) {
                     transport->SetStatus(TransportStatus::kReady);
                     transport->OnConnectionStatus(connection, TransportStatus::kReady);
                 }
@@ -1007,11 +1009,25 @@ PicoQuicTransport::Status() const
 }
 
 picoquic_quic_t*
-PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
+PicoQuicTransport::CreateQuicInstance(uint64_t current_time, bool qmux)
 {
     picoquic_quic_t* quic_ctx = nullptr;
 
-    if (is_server_mode) {
+    if (qmux) {
+        quic_ctx = picoqmux_create(static_cast<uint32_t>(tconfig_.max_connections),
+                                   config_.server_cert_file,
+                                   config_.server_key_file,
+                                   config_.root_trust_file,
+                                   kMoqtQmuxAlpn,
+                                   PqEventCb,
+                                   this,
+                                   nullptr,
+                                   current_time,
+                                   nullptr,
+                                   nullptr,
+                                   nullptr,
+                                   0);
+    } else if (is_server_mode) {
         quic_ctx = picoquic_create_and_configure(&config_, NULL, &wt_config_->server_params, current_time, NULL);
 
         if (quic_ctx == NULL) {
@@ -1042,28 +1058,33 @@ PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
                                          tconfig_.tls_root_trust_filename + "': missing, malformed, or unsupported");
         }
         picoquic_set_client_cert_verification_policy(quic_ctx, 1);
+    } else if (!is_server_mode && qmux) {
+        picoquic_set_null_verifier(quic_ctx);
     }
 
-    picoquic_congestion_algorithm_t* selected_algorithm;
-    switch (tconfig_.congestion_control) {
-        case CongestionControl::kBbr:
-            selected_algorithm = picoquic_bbr_algorithm;
-            break;
-        case CongestionControl::kC4:
-            selected_algorithm = c4_algorithm;
-            break;
-        case CongestionControl::kCubic:
-            selected_algorithm = picoquic_cubic_algorithm;
-            break;
-        case CongestionControl::kNewReno:
-            selected_algorithm = picoquic_newreno_algorithm;
-            break;
-        default:
-            picoquic_free(quic_ctx);
-            throw InvalidConfigException("Invalid congestion control algorithm");
+    if (!qmux) {
+        picoquic_congestion_algorithm_t* selected_algorithm;
+        switch (tconfig_.congestion_control) {
+            case CongestionControl::kBbr:
+                selected_algorithm = picoquic_bbr_algorithm;
+                break;
+            case CongestionControl::kC4:
+                selected_algorithm = c4_algorithm;
+                break;
+            case CongestionControl::kCubic:
+                selected_algorithm = picoquic_cubic_algorithm;
+                break;
+            case CongestionControl::kNewReno:
+                selected_algorithm = picoquic_newreno_algorithm;
+                break;
+            default:
+                picoquic_free(quic_ctx);
+                throw InvalidConfigException("Invalid congestion control algorithm");
+        }
+        picoquic_set_default_congestion_algorithm(quic_ctx, selected_algorithm);
+        QUICR_LOGGER_INFO(
+          logger, "Using {} congestion control", quic_ctx->default_congestion_alg->congestion_algorithm_id);
     }
-    picoquic_set_default_congestion_algorithm(quic_ctx, selected_algorithm);
-    QUICR_LOGGER_INFO(logger, "Using {} congestion control", quic_ctx->default_congestion_alg->congestion_algorithm_id);
 
     if (config_.enable_sslkeylog) {
         if (std::getenv("SSLKEYLOGFILE") == nullptr) {
@@ -1076,7 +1097,7 @@ PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
     picoquic_set_default_tp(quic_ctx, &local_tp_options_);
 
     // Must run after set_default_tp; WebTransport requires reset_stream_at in transport parameters.
-    if (is_server_mode || serverInfo_.web_transport_options.has_value()) {
+    if (!qmux && (is_server_mode || serverInfo_.web_transport_options.has_value())) {
         picowt_set_default_transport_parameters(quic_ctx);
     }
 
@@ -1174,8 +1195,13 @@ PicoQuicTransport::Start()
         shard->transport = this;
         shard->index = i;
         shard->quic_ctx = CreateQuicInstance(current_time);
-        shard->picoquic_runner_queue.SetLimit(tconfig_.callback_queue_size);
         shards_.push_back(std::move(shard));
+        // TODO: Shard should manage lifetime better and then this can go.
+        auto& active_shard = *shards_.back();
+        if (tconfig_.qmux_port != 0 || (!is_server_mode && serverInfo_.qmux)) {
+            active_shard.qmux_ctx = CreateQuicInstance(current_time, true);
+        }
+        active_shard.picoquic_runner_queue.SetLimit(tconfig_.callback_queue_size);
     }
 
     std::ostringstream log_msg;
@@ -1188,7 +1214,7 @@ PicoQuicTransport::Start()
     } else {
         QUICR_LOGGER_INFO(logger, "Connecting to server {}:{}", serverInfo_.host_or_ip, serverInfo_.port);
 
-        if (ClientLoop()) {
+        if (serverInfo_.qmux || ClientLoop()) {
             return StartClient();
         }
     }
@@ -1223,7 +1249,7 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
     auto state = std::make_shared<SharedState>();
     std::unique_lock lock(state->mtx);
 
-    RunPqFunction(0, [this, state, server]() {
+    auto create_connection = [this, state, server]() {
         auto notify_caller = [this, state](uint64_t id) {
             std::lock_guard _(state->mtx);
             if (state->cancelled) {
@@ -1256,7 +1282,23 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
 
         const bool use_webtransport = server.web_transport_options.has_value();
         picoquic_cnx_t* cnx = NULL;
-        if (!use_webtransport) {
+        if (server.qmux) {
+            cnx = picoqmux_create_qmux_cnx(shards_[0]->qmux_ctx,
+                                           picoquic_current_time(),
+                                           1,
+                                           0,
+                                           sni,
+                                           kMoqtQmuxAlpn,
+                                           reinterpret_cast<struct sockaddr*>(&server_address));
+            if (cnx == nullptr) {
+                QUICR_LOGGER_ERROR(logger, "Could not create QMUX connection client context");
+                notify_caller(1);
+                return PICOQUIC_ERROR_DISCONNECTED;
+            }
+            picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
+            state->connection = CreateConnection(cnx, Connection::Protocol::kQmux);
+            QUICR_LOGGER_INFO(logger, "Client connection using QMUX/TLS/TCP (ALPN: {})", kMoqtQmuxAlpn);
+        } else if (!use_webtransport) {
             cnx = picoquic_create_cnx(shards_[0]->quic_ctx,
                                       picoquic_null_connection_id,
                                       picoquic_null_connection_id,
@@ -1381,7 +1423,22 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
         notify_caller(reinterpret_cast<uint64_t>(cnx));
 
         return 0;
-    });
+    };
+
+    if (server.qmux) {
+        if (shards_[0]->quic_network_thread_ctx != nullptr) {
+            QUICR_LOGGER_ERROR(logger, "QMUX connections must be created before the network thread starts");
+            return nullptr;
+        }
+        lock.unlock();
+        if (create_connection() != 0 || !ClientLoop()) {
+            SetStatus(TransportStatus::kDisconnected);
+            return nullptr;
+        }
+        lock.lock();
+    } else {
+        RunPqFunction(0, std::move(create_connection));
+    }
 
     QUICR_LOGGER_DEBUG(logger, "Waiting for client connection context");
 
@@ -1707,6 +1764,9 @@ PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::Protocol
             if (strcmp(negotiated_alpn, webtransport_alpn) == 0) {
                 protocol = Connection::Protocol::kWebTransport;
                 QUICR_LOGGER_INFO(logger, "Server connection using WebTransport (ALPN: {})", negotiated_alpn);
+            } else if (strcmp(negotiated_alpn, kMoqtQmuxAlpn) == 0) {
+                protocol = Connection::Protocol::kQmux;
+                QUICR_LOGGER_INFO(logger, "Server connection using QMUX/TLS/TCP (ALPN: {})", negotiated_alpn);
             } else if (strcmp(negotiated_alpn, kMoqtAlpn) == 0) {
                 protocol = Connection::Protocol::kNativeQuic;
                 QUICR_LOGGER_INFO(logger, "Server connection using raw QUIC (ALPN: {})", negotiated_alpn);
@@ -1726,7 +1786,7 @@ PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::Protocol
 
     const auto* cnx_quic_ctx = picoquic_get_quic_ctx(pq_cnx);
     for (const auto& shard : shards_) {
-        if (shard->quic_ctx == cnx_quic_ctx) {
+        if (shard->quic_ctx == cnx_quic_ctx || shard->qmux_ctx == cnx_quic_ctx) {
             std::static_pointer_cast<PicoQuicConnection>(connection)->shard_idx = shard->index;
             break;
         }
@@ -1783,6 +1843,15 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
   , tconfig_(tcfg)
   , clock_(std::move(clock))
 {
+    if (tcfg.qmux_port != 0 && (!is_server_mode || tcfg.quic_shards != 1)) {
+        throw InvalidConfigException("QMUX listening requires server mode with one shard");
+    }
+    if (server.qmux && server.web_transport_options.has_value()) {
+        throw InvalidConfigException("QMUX and WebTransport are mutually exclusive");
+    }
+    if (server.qmux && !is_server_mode && server.port == 0) {
+        throw InvalidConfigException("QMUX requires an explicit TCP port");
+    }
     debug = tcfg.debug;
 
     picoquic_config_init(&config_);
@@ -2431,29 +2500,31 @@ PicoQuicTransport::CheckConnsForCongestion(std::size_t shard_idx)
         int congested_count{ 0 };
         uint16_t cwin_congested_count = connection->metrics.cwin_congested - connection->metrics.prev_cwin_congested;
 
-        picoquic_path_quality_t path_quality;
-        picoquic_get_path_quality(connection->pq_cnx, connection->pq_cnx->path[0]->unique_path_id, &path_quality);
+        if (!connection->pq_cnx->is_qmux) {
+            picoquic_path_quality_t path_quality;
+            picoquic_get_path_quality(connection->pq_cnx, connection->pq_cnx->path[0]->unique_path_id, &path_quality);
 
-        /*
-         * Update metrics
-         */
-        connection->metrics.tx_lost_pkts = path_quality.lost;
-        connection->metrics.tx_cwin_bytes.AddValue(path_quality.cwin);
-        connection->metrics.tx_in_transit_bytes.AddValue(path_quality.bytes_in_transit);
-        connection->metrics.tx_spurious_losses = path_quality.spurious_losses;
-        connection->metrics.tx_timer_losses = path_quality.timer_losses;
-        connection->metrics.rtt_us.AddValue(path_quality.rtt_sample);
-        connection->metrics.srtt_us.AddValue(path_quality.rtt);
-        connection->metrics.tx_rate_bps.AddValue(path_quality.pacing_rate * 8);
-        connection->metrics.rx_rate_bps.AddValue(path_quality.receive_rate_estimate * 8);
+            /*
+             * Update metrics
+             */
+            connection->metrics.tx_lost_pkts = path_quality.lost;
+            connection->metrics.tx_cwin_bytes.AddValue(path_quality.cwin);
+            connection->metrics.tx_in_transit_bytes.AddValue(path_quality.bytes_in_transit);
+            connection->metrics.tx_spurious_losses = path_quality.spurious_losses;
+            connection->metrics.tx_timer_losses = path_quality.timer_losses;
+            connection->metrics.rtt_us.AddValue(path_quality.rtt_sample);
+            connection->metrics.srtt_us.AddValue(path_quality.rtt);
+            connection->metrics.tx_rate_bps.AddValue(path_quality.pacing_rate * 8);
+            connection->metrics.rx_rate_bps.AddValue(path_quality.receive_rate_estimate * 8);
 
-        // Is CWIN congested?
-        if (cwin_congested_count > 5 || (path_quality.cwin < kPqCcLowCwin && path_quality.bytes_in_transit)) {
+            // Is CWIN congested?
+            if (cwin_congested_count > 5 || (path_quality.cwin < kPqCcLowCwin && path_quality.bytes_in_transit)) {
 
-            // congested_count++; /* TODO(tievens): DO NOT react to this right now, causing issue with low latency
-            // wired networks */
+                // congested_count++; /* TODO(tievens): DO NOT react to this right now, causing issue with low latency
+                // wired networks */
+            }
+            connection->metrics.prev_cwin_congested = connection->metrics.cwin_congested;
         }
-        connection->metrics.prev_cwin_congested = connection->metrics.cwin_congested;
 
         // One pass over the connection's streams, reaching each stream's context through the stream.
         for (const auto& stream_handle : connection->GetStreams()) {
@@ -2573,8 +2644,13 @@ PicoQuicTransport::Server()
           MakeThreadConfig(serverInfo_.port, tconfig_.socket_buffer_size, shards_.size(), tconfig_.use_af_xdp);
 
         QUICR_LOGGER_DEBUG(logger, "Starting picoquic network thread for shard {}", shard->index);
-        shard->quic_network_thread_ctx = picoquic_start_network_thread(
-          shard->quic_ctx, &shard->quic_network_thread_params, PqLoopCb, shard.get(), &shard->quic_loop_return_value);
+        shard->quic_network_thread_params.qmux_port = tconfig_.qmux_port;
+        shard->quic_network_thread_ctx = picoquic_start_network_thread_qmux(shard->quic_ctx,
+                                                                            shard->qmux_ctx,
+                                                                            &shard->quic_network_thread_params,
+                                                                            PqLoopCb,
+                                                                            shard.get(),
+                                                                            &shard->quic_loop_return_value);
 
         if (shard->quic_ctx == NULL || shard->quic_network_thread_ctx == NULL) {
             QUICR_LOGGER_ERROR(logger, "Failed to start picoquic network thread for shard {}", shard->index);
@@ -2617,8 +2693,12 @@ PicoQuicTransport::ClientLoop()
     socket_buffer_size = tconfig_.socket_buffer_size;
 #endif
     shard.quic_network_thread_params = MakeThreadConfig(0, socket_buffer_size, 1, tconfig_.use_af_xdp);
-    shard.quic_network_thread_ctx = picoquic_start_network_thread(
-      shard.quic_ctx, &shard.quic_network_thread_params, PqLoopCb, &shard, &shard.quic_loop_return_value);
+    shard.quic_network_thread_ctx = picoquic_start_network_thread_qmux(shard.quic_ctx,
+                                                                       shard.qmux_ctx,
+                                                                       &shard.quic_network_thread_params,
+                                                                       PqLoopCb,
+                                                                       &shard,
+                                                                       &shard.quic_loop_return_value);
 
     if (shard.quic_ctx == nullptr || shard.quic_network_thread_ctx == nullptr) {
         QUICR_LOGGER_ERROR(logger, "Failed to create picoquic network thread");
@@ -2687,6 +2767,10 @@ PicoQuicTransport::Shutdown()
     }
 
     for (auto& shard : shards_) {
+        if (shard->qmux_ctx != nullptr) {
+            picoquic_free(shard->qmux_ctx);
+            shard->qmux_ctx = nullptr;
+        }
         if (shard->quic_ctx != nullptr) {
             picoquic_free(shard->quic_ctx);
             shard->quic_ctx = nullptr;

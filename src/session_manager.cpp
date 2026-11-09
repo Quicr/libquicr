@@ -95,6 +95,7 @@ namespace quicr {
         if (protocol == Connection::Protocol::kWebTransport) {
             relay.web_transport_options = WebTransportOptions{ .path = std::move(path) };
         }
+        relay.qmux = config.use_qmux;
 
         auto clock = clock_ ? clock_ : Clock::Create(config.tick_service_sleep_delay_us);
         auto transport = Transport::MakeClientTransport(relay, config.transport_config, clock, logger_);

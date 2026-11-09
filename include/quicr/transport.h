@@ -75,8 +75,9 @@ namespace quicr {
     struct TransportRemote
     {
         std::string host_or_ip;                                   ///< IPv4/IPv6 address or fully qualified host name.
-        uint16_t port;                                            ///< UDP destination or listening port.
+        uint16_t port;                                            ///< Destination or listening port.
         std::optional<WebTransportOptions> web_transport_options; ///< Enables WT protocol with given options
+        bool qmux{ false };                                       ///< QMUX in use.
     };
 
     /// Stream action that should be done by send/receive processing
