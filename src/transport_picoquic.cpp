@@ -1237,6 +1237,8 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
         }
     }
 
+    auto& shard = *shards_.front();
+
     // Use shared state to avoid lifetime issues if timeout occurs before lambda executes
     struct SharedState
     {
@@ -1249,7 +1251,7 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
     auto state = std::make_shared<SharedState>();
     std::unique_lock lock(state->mtx);
 
-    auto create_connection = [this, state, server]() {
+    auto create_connection = [this, state, server, &shard]() {
         auto notify_caller = [this, state](uint64_t id) {
             std::lock_guard _(state->mtx);
             if (state->cancelled) {
@@ -1283,7 +1285,7 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
         const bool use_webtransport = server.web_transport_options.has_value();
         picoquic_cnx_t* cnx = NULL;
         if (server.qmux) {
-            cnx = picoqmux_create_qmux_cnx(shards_[0]->qmux_ctx,
+            cnx = picoqmux_create_qmux_cnx(shard.qmux_ctx,
                                            picoquic_current_time(),
                                            1,
                                            0,
@@ -1299,7 +1301,7 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
             state->connection = CreateConnection(cnx, Connection::Protocol::kQmux);
             QUICR_LOGGER_INFO(logger, "Client connection using QMUX/TLS/TCP (ALPN: {})", kMoqtQmuxAlpn);
         } else if (!use_webtransport) {
-            cnx = picoquic_create_cnx(shards_[0]->quic_ctx,
+            cnx = picoquic_create_cnx(shard.quic_ctx,
                                       picoquic_null_connection_id,
                                       picoquic_null_connection_id,
                                       reinterpret_cast<struct sockaddr*>(&server_address),
@@ -1333,13 +1335,8 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
             h3zero_stream_ctx_t* control_stream_ctx = nullptr;
             uint64_t current_time = picoquic_current_time();
 
-            ret = picowt_prepare_client_cnx(shards_[0]->quic_ctx,
-                                            (struct sockaddr*)&server_address,
-                                            &cnx,
-                                            &h3_ctx,
-                                            &control_stream_ctx,
-                                            current_time,
-                                            sni);
+            ret = picowt_prepare_client_cnx(
+              shard.quic_ctx, (struct sockaddr*)&server_address, &cnx, &h3_ctx, &control_stream_ctx, current_time, sni);
             if (ret != 0) {
                 QUICR_LOGGER_ERROR(logger, "picowt_prepare_client_cnx failed with ret: {}", ret);
                 notify_caller(1);
@@ -1426,7 +1423,7 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
     };
 
     if (server.qmux) {
-        if (shards_[0]->quic_network_thread_ctx != nullptr) {
+        if (shard.quic_network_thread_ctx != nullptr) {
             QUICR_LOGGER_ERROR(logger, "QMUX cannot open a connection on a running network thread");
             return nullptr;
         }
