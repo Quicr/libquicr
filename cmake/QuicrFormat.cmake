@@ -29,8 +29,11 @@ function(quicr_configure_format)
         set(FMT_INSTALL ${QUICR_INSTALL})
         CPMAddPackage(
             URI "gh:fmtlib/fmt#12.2.0"
-            EXCLUDE_FROM_ALL NO
+            EXCLUDE_FROM_ALL YES
         )
+        if(QUICR_INSTALL)
+            set_property(DIRECTORY "${fmt_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL NO)
+        endif()
     endif()
 endfunction()
 
