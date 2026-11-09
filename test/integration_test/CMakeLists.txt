@@ -66,7 +66,7 @@ add_custom_command(
     OUTPUT ${TEST_KEY} ${TEST_CERT}
     COMMAND ${QUICR_OPENSSL_EXECUTABLE} genpkey -algorithm EC
         -pkeyopt ec_paramgen_curve:P-256 -out ${TEST_KEY}
-    COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 3650
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 1
         -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org"
         -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
         -key ${TEST_KEY} -out ${TEST_CERT}
