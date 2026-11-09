@@ -29,3 +29,6 @@ from the build directory:
 
 Each client prompts for the relay URI, track namespace, and track name. Use the
 same values in both clients to publish and receive messages.
+
+Pass `--qmux` to either client to connect over QMUX and TLS/TCP; the relay URI
+then needs an explicit port.
