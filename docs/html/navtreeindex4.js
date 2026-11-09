@@ -1,5 +1,6 @@
 var NAVTREEINDEX4 =
 {
+"classquicr_1_1messages_1_1Message.html#af0b3bc95062b219a4c3c925f4d327173":[2,0,0,1,9,1],
 "classquicr_1_1messages_1_1Message.html#afb00bfcf5a9af55625bc7d8bcc2090f2":[2,0,0,1,9,2],
 "classquicr_1_1messages_1_1Message.html#afea7f5791fbf3f92c421555e24141326":[2,0,0,1,9,5],
 "classquicr_1_1messages_1_1Message.html#afff7b40b271cb386248a9982e295a87e":[2,0,0,1,9,10],
@@ -248,6 +249,5 @@ var NAVTREEINDEX4 =
 "functions_f.html":[2,3,0,5],
 "functions_func.html":[2,3,1],
 "functions_func.html":[2,3,1,0],
-"functions_func_b.html":[2,3,1,1],
-"functions_func_c.html":[2,3,1,2]
+"functions_func_b.html":[2,3,1,1]
 };

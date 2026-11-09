@@ -1,5 +1,6 @@
 var NAVTREEINDEX0 =
 {
+"":[1,0,1],
 "annotated.html":[2,0],
 "attributes_8h.html":[3,0,1,0,4],
 "attributes_8h_source.html":[3,0,1,0,4],
@@ -248,6 +249,5 @@ var NAVTREEINDEX0 =
 "classquicr_1_1ForwardingSubscribeTrackHandler.html#a22b58f83ec337645126d15a60a6ec703":[2,0,0,25,20],
 "classquicr_1_1ForwardingSubscribeTrackHandler.html#a2f1a1f4d40e85f2b657ffe91b1f3da79":[2,0,0,25,19],
 "classquicr_1_1ForwardingSubscribeTrackHandler.html#a30af9738e364ef53cb8b13b88bccc350":[2,0,0,25,18],
-"classquicr_1_1ForwardingSubscribeTrackHandler.html#a360cc2e877f2b0ba9990283517fdae24":[2,0,0,25,44],
-"classquicr_1_1ForwardingSubscribeTrackHandler.html#a3c07d9be23f528614085804ebae6961a":[2,0,0,25,34]
+"classquicr_1_1ForwardingSubscribeTrackHandler.html#a360cc2e877f2b0ba9990283517fdae24":[2,0,0,25,44]
 };
