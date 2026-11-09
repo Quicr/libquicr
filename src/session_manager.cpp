@@ -84,7 +84,7 @@ namespace quicr {
                                                         std::shared_ptr<Session::ClientCallbacks> callbacks)
     {
         TransportRemote relay;
-        auto parse_result = detail::ParseConnectUri(config.connect_uri);
+        auto parse_result = detail::ParseConnectUri(config.connect_uri, config.use_qmux);
         if (!parse_result) {
             return {};
         }

@@ -375,7 +375,8 @@ namespace quicr {
         if (client_mode_) {
             setup_options.Add(SetupOptionType::kEndpointId, client_config_.endpoint_id);
 
-            const auto [host, port, protocol, path] = *detail::ParseConnectUri(connect_uri);
+            const auto [host, port, protocol, path] =
+              *detail::ParseConnectUri(connect_uri, connection->GetProtocol() == Connection::Protocol::kQmux);
             if (protocol != Connection::Protocol::kWebTransport) {
                 const auto authority = port > 0 ? host + ":" + std::to_string(port) : host;
                 setup_options.Add(SetupOptionType::kAuthority, authority);
@@ -2727,20 +2728,16 @@ namespace quicr {
             migrations_.erase(redirect_key);
         };
 
-        auto uri = detail::ParseConnectUri(redirect.uri);
+        const bool qmux = source_connection->GetProtocol() == Connection::Protocol::kQmux;
+        auto uri = detail::ParseConnectUri(redirect.uri, qmux);
         if (!uri.has_value()) {
             QUICR_LOGGER_ERROR(logger_, "Invalid redirect URI (uri='{}')", redirect.uri);
             release_redirect();
             return;
         }
 
-        auto existing_protocol = source_connection->GetProtocol();
-        const bool qmux = existing_protocol == Connection::Protocol::kQmux;
-        if (qmux) {
-            existing_protocol = Connection::Protocol::kNativeQuic;
-        }
         const auto& [host, port, protocol, path] = uri.value();
-        if (protocol != existing_protocol) {
+        if (protocol != source_connection->GetProtocol()) {
             QUICR_LOGGER_ERROR(logger_,
                                "Redirect changes transport protocol, which one transport cannot currently support "
                                "(uri='{}')",
