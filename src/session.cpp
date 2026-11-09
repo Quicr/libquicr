@@ -3683,28 +3683,22 @@ namespace quicr {
                     return true;
                 }
 
-                auto delivery_timeout = parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
+                auto delivery_timeout =
+                  parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout).value_or(0);
                 const auto rendezvous_timeout_ms =
-                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kRendezvousTimeout).value_or(0);
+                  parameters.Get<std::uint64_t>(messages::ParameterType::kRendezvousTimeout).value_or(0);
                 if (rendezvous_timeout_ms > std::chrono::milliseconds::max().count()) {
                     SendRequestError(
                       stream, request_id, ErrorCode::kNotSupported, 0ms, "Rendezvous timeout too large", true);
                     return true;
                 }
                 const auto rendezvous_timeout = std::chrono::milliseconds{ rendezvous_timeout_ms };
-                auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto group_order = parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
+                auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority).value_or(128);
+                auto group_order = messages::ResolveGroupOrder(parameters);
                 const auto publisher_default_group_order = messages::GroupOrder::kAscending;
-                auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
-                auto new_group_request_id =
-                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-
-                messages::Filter filter;
-                if (parameters.Contains(messages::ParameterType::kSubscriptionFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kSubscriptionFilter);
-                } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
-                }
+                auto forward = messages::ResolveForward(parameters, true);
+                auto new_group_request_id = parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                auto filter = messages::ResolveFilter(parameters);
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     callbacks
@@ -3846,9 +3840,9 @@ namespace quicr {
                         .value_or(messages::GroupOrder::kAscending);
 
                     if (client_mode_) {
-                        if (parameters.Contains(messages::ParameterType::kLargestObject)) {
-                            sub_handler->SetLatestLocation(
-                              parameters.Get<messages::Location>(messages::ParameterType::kLargestObject));
+                        if (auto largest =
+                              parameters.Get<messages::Location>(messages::ParameterType::kLargestObject)) {
+                            sub_handler->SetLatestLocation(*largest);
                         }
                         sub_handler->SupportNewGroupRequest(true);
                     }
@@ -3885,8 +3879,7 @@ namespace quicr {
 
                 if (auto status_handler = track_it->second->Get<TrackStatusHandler>()) {
                     TrackStatusResponse response = {
-                        .largest_location =
-                          parameters.GetOptional<messages::Location>(messages::ParameterType::kLargestObject),
+                        .largest_location = parameters.Get<messages::Location>(messages::ParameterType::kLargestObject),
                         .track_properties = Message::ParseField<messages::TrackExtensions>(msg_bytes),
                     };
                     {
@@ -4509,9 +4502,10 @@ namespace quicr {
                             end_location.object = end.object - 1;
                         }
 
-                        auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                        auto priority =
+                          parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority).value_or(128);
                         auto group_order =
-                          parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
+                          messages::ResolveGroupOrder(parameters).value_or(messages::GroupOrder::kAscending);
 
                         if (callbacks_) {
                             StandaloneFetchAttributes attrs = {
@@ -4592,9 +4586,10 @@ namespace quicr {
                             };
                         }
 
-                        auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                        auto priority =
+                          parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority).value_or(128);
                         auto group_order =
-                          parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
+                          messages::ResolveGroupOrder(parameters).value_or(messages::GroupOrder::kAscending);
 
                         if (callbacks_) {
                             JoiningFetchAttributes attrs = {
@@ -4669,8 +4664,8 @@ namespace quicr {
                                                  .track_alias = track_alias,
                                                  .auth_tokens = CollectAuthTokens(parameters),
                                                  .expires = ResolveExpires(parameters),
-                                                 .largest_object = parameters.GetOptional<Location>(
-                                                   messages::ParameterType::kLargestObject),
+                                                 .largest_object =
+                                                   parameters.Get<Location>(messages::ParameterType::kLargestObject),
                                                  .forward = ResolveForward(parameters, true),
                                                  .default_publisher_group_order = default_publisher_group_order,
                                                  .dynamic_groups = dynamic_groups,
@@ -4852,9 +4847,8 @@ namespace quicr {
                 [[maybe_unused]] auto delivery_timeout =
                   parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 [[maybe_unused]] auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
-                auto new_group_request_id =
-                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                auto forward = parameters.Get<std::uint8_t>(messages::ParameterType::kForward);
+                auto new_group_request_id = parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                 if (new_group_request_id.has_value()) {
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
@@ -4881,24 +4875,29 @@ namespace quicr {
                 QUICR_LOGGER_DEBUG(logger_,
                                    "Received subscribe_update to recv request_id: {} forward: {} ngr: {}",
                                    request_id,
-                                   forward,
+                                   forward.value_or(true),
                                    new_group_request_id.has_value());
 
-                const auto status =
-                  forward ? PublishTrackHandler::Status::kNewGroupRequested : PublishTrackHandler::Status::kPaused;
-                std::vector<std::shared_ptr<PublishTrackHandler>> handlers;
+                std::vector<std::pair<std::shared_ptr<PublishTrackHandler>, PublishTrackHandler::Status>> handlers;
                 {
                     std::lock_guard _(state_mutex_);
                     const auto it = pub_tracks_by_track_alias.find(sub_ctx_it->second.track_hash.track_fullname_hash);
                     if (it != pub_tracks_by_track_alias.end()) {
                         for (const auto& [_, handler] : it->second) {
-                            if (handler->UpdateStatus(status)) {
-                                handlers.push_back(handler);
+                            const bool forward_state = messages::ResolveForward(
+                              parameters, handler->GetStatus() != PublishTrackHandler::Status::kPaused);
+                            const auto status = !forward_state ? PublishTrackHandler::Status::kPaused
+                                                : new_group_request_id.has_value()
+                                                  ? PublishTrackHandler::Status::kNewGroupRequested
+                                                  : PublishTrackHandler::Status::kOk;
+                            if ((forward.has_value() || new_group_request_id.has_value()) &&
+                                handler->UpdateStatus(status)) {
+                                handlers.emplace_back(handler, status);
                             }
                         }
                     }
                 }
-                for (const auto& handler : handlers) {
+                for (const auto& [handler, status] : handlers) {
                     handler->StatusChanged(status);
                 }
 
