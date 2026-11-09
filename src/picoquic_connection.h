@@ -40,7 +40,7 @@ namespace quicr {
     {
       public:
         PicoQuicStream(std::uint64_t stream_id,
-                       std::uint64_t conn_id,
+                       const std::shared_ptr<Connection>& connection,
                        std::unique_ptr<timeq::time_queue<ConnData>> tx_queue);
 
         ~PicoQuicStream() = default;
@@ -139,7 +139,7 @@ namespace quicr {
     class PicoQuicConnection : public Connection
     {
       public:
-        PicoQuicConnection(picoquic_cnx_t* cnx, API api = API::kNativeQuic)
+        PicoQuicConnection(picoquic_cnx_t* cnx, Protocol api = Protocol::kNativeQuic)
           : Connection(reinterpret_cast<std::uint64_t>(cnx), api)
           , pq_cnx(cnx)
           , dgram_rx_data(std::make_shared<SafeQueue<std::shared_ptr<const Bytes>>>())

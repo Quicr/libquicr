@@ -7,7 +7,6 @@
 #include "transport_picoquic.h"
 
 #include <memory>
-#include <stdexcept>
 #include <utility>
 
 using namespace quicr;
@@ -19,19 +18,7 @@ namespace quicr {
                                                               std::shared_ptr<Clock> clock,
                                                               std::shared_ptr<Logger> logger)
     {
-        switch (server.proto) {
-            case TransportProtocol::kQuic:
-                return std::make_shared<PicoQuicTransport>(
-                  server, tcfg, false, std::move(clock), std::move(logger), Connection::API::kNativeQuic);
-            case TransportProtocol::kWebTransport:
-                return std::make_shared<PicoQuicTransport>(
-                  server, tcfg, false, std::move(clock), std::move(logger), Connection::API::kWebTransport);
-            default:
-                throw std::runtime_error("make_client_transport: Protocol not implemented");
-                break;
-        }
-
-        return nullptr;
+        return std::make_shared<PicoQuicTransport>(server, tcfg, false, std::move(clock), std::move(logger));
     }
 
     std::shared_ptr<Transport> Transport::MakeServerTransport(const TransportRemote& server,
@@ -41,18 +28,14 @@ namespace quicr {
     {
         // Server mode supports BOTH raw QUIC (moq-00) and WebTransport (h3) simultaneously.
         //
-        // The server.proto field is IGNORED - the transport mode is automatically determined
-        // per-connection based on the ALPN negotiated with each client:
-        //   - Client sends ALPN "moq-00" -> ConnectionContext.transport_mode = Connection::API::kNativeQuic
-        //   - Client sends ALPN "h3"     -> ConnectionContext.transport_mode = Connection::API::kWebTransport
+        // The transport mode is automatically determined per connection based on the
+        // ALPN negotiated with each client:
+        //   - Client sends ALPN "moq-00" -> native QUIC
+        //   - Client sends ALPN "h3"     -> WebTransport
         //
         // See PqAlpnSelectCb() in transport_picoquic.cpp for ALPN selection logic.
         // See CreateConnection() in transport_picoquic.cpp for per-connection mode assignment.
-        //
-        // The Connection::API parameter passed to PicoQuicTransport constructor is only used as
-        // a default/fallback and is overridden for each connection based on ALPN.
-        return std::make_shared<PicoQuicTransport>(
-          server, tcfg, true, std::move(clock), std::move(logger), Connection::API::kNativeQuic);
+        return std::make_shared<PicoQuicTransport>(server, tcfg, true, std::move(clock), std::move(logger));
     }
 
 } // namespace quicr

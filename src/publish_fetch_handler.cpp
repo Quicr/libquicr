@@ -11,6 +11,8 @@ namespace quicr {
       const BytesSpan data,
       [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
+        std::lock_guard lock(binding_operation_mutex_);
+
         if (closed_) {
             return PublishObjectStatus::kFetchClosed;
         }
@@ -43,13 +45,14 @@ namespace quicr {
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
 
-            stream_ = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
+            stream_ = session->CreateStream(GetConnection(), *GetRequestId(), GetPublishObjectPriority());
 
             messages::FetchHeader fetch_hdr;
             fetch_hdr.request_id = *request_id;
             object_msg_buffer_ << fetch_hdr;
 
             auto result = session->Enqueue(
+              GetConnection(),
               stream_,
               std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
               GetPublishObjectPriority(),
@@ -73,7 +76,8 @@ namespace quicr {
         object_msg_buffer_ << object;
 
         auto result =
-          session->Enqueue(stream_,
+          session->Enqueue(GetConnection(),
+                           stream_,
                            std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
                            GetPublishObjectPriority(),
                            ttl,
@@ -90,10 +94,14 @@ namespace quicr {
 
     void PublishFetchHandler::EndFetch()
     {
+        std::lock_guard lock(binding_operation_mutex_);
+
         if (closed_) {
             return;
         }
+
         closed_ = true;
+
         if (stream_ == nullptr) {
             return;
         }
@@ -108,7 +116,7 @@ namespace quicr {
         eflags.close_stream = true;
         eflags.use_reset = false;
 
-        session->Enqueue(stream_, {}, GetPublishObjectPriority(), default_ttl_, eflags);
+        session->Enqueue(GetConnection(), stream_, {}, GetPublishObjectPriority(), default_ttl_, eflags);
 
         stream_.reset();
     }

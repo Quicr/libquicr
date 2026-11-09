@@ -11,6 +11,7 @@ BUILD_DIR=build
 PACKAGE_LOCK_BUILD_DIR?=${BUILD_DIR}-package-lock
 export MERMAID_FILTER_THEME=neutral
 CLANG_FORMAT=clang-format -i
+FORMAT_DIRS=include src test examples benchmark tools c-bridge
 
 .PHONY: all clean cclean format fuzz c-bridge c-bridge-only cert licenses package-lock
 
@@ -72,15 +73,9 @@ package-lock:
 
 # Format code.
 format:
-	find include -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find src -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find src/moq -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find src/quic -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find test -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find examples -iname "*.h" -or -iname "*.cpp" -or -iname "*.cc" -or -iname "*.hpp" | xargs ${CLANG_FORMAT}
-	find benchmark -name "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find tools -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find c-bridge -iname "*.h" -or -iname "*.c" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
+	find ${FORMAT_DIRS} -type f \
+		\( -iname "*.c" -o -iname "*.cc" -o -iname "*.cpp" -o -iname "*.h" -o -iname "*.hpp" \) \
+		-print0 | xargs -0 ${CLANG_FORMAT}
 
 lint:
 	reuse lint
