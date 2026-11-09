@@ -4,6 +4,10 @@
 cmake_minimum_required(VERSION 3.16)
 
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" quicr_VERSION)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/VERSION"
+)
+
 project(quicr
     VERSION "${quicr_VERSION}"
     DESCRIPTION "QuicR, a Media over QUIC Library"
@@ -53,6 +57,20 @@ if(QUICR_LINT AND CMAKE_VERSION VERSION_LESS 3.26)
     message(FATAL_ERROR "QUICR_LINT requires CMake 3.26 or newer")
 endif()
 
+if(QUICR_ENABLE_SANITIZERS)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang|GNU" OR
+       NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        message(FATAL_ERROR "Sanitizers require Clang or GCC")
+    endif()
+
+    add_compile_options(
+        -fsanitize=address,undefined
+        -fno-omit-frame-pointer
+        -fno-sanitize-recover=undefined
+    )
+    add_link_options(-fsanitize=address,undefined)
+endif()
+
 #=============================================================================#
 # Dependencies
 #=============================================================================#
@@ -71,11 +89,6 @@ include(QuicrDependencies)
 #=============================================================================#
 
 add_subdirectory(src)
-
-if(QUICR_ENABLE_SANITIZERS)
-    include(QuicrSanitizers)
-    quicr_enable_sanitizers(quicr)
-endif()
 
 #=============================================================================#
 # Tools and Examples
@@ -138,9 +151,8 @@ if (QUICR_INSTALL)
         INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/quicr"
     )
 
-    install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/quicr/version.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/quicr")
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+    install(DIRECTORY "${PROJECT_BINARY_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
     set(quicr_INSTALL_TARGETS quicr)
     if(TARGET quicr-bridge)

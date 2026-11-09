@@ -21,7 +21,6 @@ add_executable(quicr_test
 
 if(QUICR_ENABLE_SANITIZERS)
     target_sources(quicr_test PRIVATE sanitizer_options.cpp)
-    quicr_enable_sanitizers(quicr_test)
 endif()
 
 # quicr links its implementation dependencies privately, so their include paths do not reach this

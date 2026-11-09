@@ -20,7 +20,6 @@ if(QUICR_ENABLE_SANITIZERS)
     target_sources(quicr_integration_test PRIVATE
         "${CMAKE_CURRENT_LIST_DIR}/../sanitizer_options.cpp"
     )
-    quicr_enable_sanitizers(quicr_integration_test)
 endif()
 
 # quicr links its implementation dependencies privately, so their include paths do not reach this
