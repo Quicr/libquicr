@@ -1,6 +1,7 @@
 var searchData=
 [
-  ['byte_0',['Byte',['../namespacequicr.html#afc0a634888231229a3c4ca9455f639cf',1,'quicr']]],
-  ['bytes_1',['Bytes',['../namespacequicr.html#a196ac5046236a7e948d3b5a766ac02ee',1,'quicr']]],
-  ['bytesspan_2',['BytesSpan',['../namespacequicr.html#ae70de664ee7965d202a9dfccfbb12e12',1,'quicr']]]
+  ['buffertype_1735',['BufferType',['../classquicr_1_1DataStorage.html#a7901cbcd13da013ac658e9ba13bc5a6d',1,'quicr::DataStorage']]],
+  ['byte_1736',['Byte',['../namespacequicr.html#a168efa75c9ccf934572948a6974d0812',1,'quicr']]],
+  ['bytes_1737',['Bytes',['../namespacequicr.html#a2a6bdf5f92feb1b6bc403c877fc944af',1,'quicr']]],
+  ['bytesspan_1738',['BytesSpan',['../namespacequicr.html#a310d3c1c8c93811441cbbb1ea805ec33',1,'quicr']]]
 ];

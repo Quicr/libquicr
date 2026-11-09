@@ -1,8 +1,14 @@
 var metrics_8h =
 [
-    [ "quicr::ConnectionMetrics", "structquicr_1_1_connection_metrics.html", "structquicr_1_1_connection_metrics" ],
-    [ "quicr::SubscribeTrackMetrics", "structquicr_1_1_subscribe_track_metrics.html", "structquicr_1_1_subscribe_track_metrics" ],
-    [ "quicr::PublishTrackMetrics", "structquicr_1_1_publish_track_metrics.html", "structquicr_1_1_publish_track_metrics" ],
-    [ "quicr::PublishTrackMetrics::Quic", "structquicr_1_1_publish_track_metrics_1_1_quic.html", "structquicr_1_1_publish_track_metrics_1_1_quic" ],
-    [ "quicr::MetricsTimeStampUs", "namespacequicr.html#a40bbec8f57f3e736978aa38e4d015b26", null ]
+    [ "MinMaxAvg", "structquicr_1_1MinMaxAvg.html", "structquicr_1_1MinMaxAvg" ],
+    [ "QuicConnectionMetrics", "structquicr_1_1QuicConnectionMetrics.html", "structquicr_1_1QuicConnectionMetrics" ],
+    [ "QuicStreamMetrics", "structquicr_1_1QuicStreamMetrics.html", "structquicr_1_1QuicStreamMetrics" ],
+    [ "QuicDatagramMetrics", "structquicr_1_1QuicDatagramMetrics.html", "structquicr_1_1QuicDatagramMetrics" ],
+    [ "QuicMetricsSample", "structquicr_1_1QuicMetricsSample.html", "structquicr_1_1QuicMetricsSample" ],
+    [ "Stream", "structquicr_1_1QuicMetricsSample_1_1Stream.html", "structquicr_1_1QuicMetricsSample_1_1Stream" ],
+    [ "ConnectionMetrics", "structquicr_1_1ConnectionMetrics.html", "structquicr_1_1ConnectionMetrics" ],
+    [ "SubscribeTrackMetrics", "structquicr_1_1SubscribeTrackMetrics.html", "structquicr_1_1SubscribeTrackMetrics" ],
+    [ "PublishTrackMetrics", "structquicr_1_1PublishTrackMetrics.html", "structquicr_1_1PublishTrackMetrics" ],
+    [ "Quic", "structquicr_1_1PublishTrackMetrics_1_1Quic.html", "structquicr_1_1PublishTrackMetrics_1_1Quic" ],
+    [ "MetricsTimeStampUs", "metrics_8h.html#a8fd3e3b2e13143c5ec8aaab3faa0d9fa", null ]
 ];

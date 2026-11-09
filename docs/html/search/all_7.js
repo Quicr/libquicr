@@ -1,11 +1,17 @@
 var searchData=
 [
-  ['handlers_0',['Track Handlers',['../index.html#autotoc_md3',1,'']]],
-  ['hash_1',['hash',['../namespacequicr.html#a590f36a26bdd0f42c35a2f560312d54e',1,'quicr']]],
-  ['hash_2eh_2',['hash.h',['../hash_8h.html',1,'']]],
-  ['hash_3c_20quicr_3a_3afulltrackname_20_3e_3',['hash&lt; quicr::FullTrackName &gt;',['../structstd_1_1hash_3_01quicr_1_1_full_track_name_01_4.html',1,'std']]],
-  ['hash_3c_20quicr_3a_3atracknamespace_20_3e_4',['hash&lt; quicr::TrackNamespace &gt;',['../structstd_1_1hash_3_01quicr_1_1_track_namespace_01_4.html',1,'std']]],
-  ['hash_3c_20std_3a_3aspan_3c_20const_20std_3a_3auint8_5ft_20_3e_20_3e_5',['hash&lt; std::span&lt; const std::uint8_t &gt; &gt;',['../structstd_1_1hash_3_01std_1_1span_3_01const_01std_1_1uint8__t_01_4_01_4.html',1,'std']]],
-  ['hash_5fcombine_6',['hash_combine',['../namespacequicr.html#a5b1daf94b6ece39883143188241fdbb3',1,'quicr']]],
-  ['hassameprefix_7',['HasSamePrefix',['../classquicr_1_1_track_namespace.html#a8f7feab21465d130568f1eb32781490c',1,'quicr::TrackNamespace']]]
+  ['handler_252',['handler',['../structquicr_1_1PublishResponse.html#a493305ac2a9f990d2ab8894723c70514',1,'quicr::PublishResponse']]],
+  ['handlers_5f_253',['handlers_',['../classquicr_1_1PublishNamespaceHandler.html#a9a65e953e1c57a325d7d172e899f4cad',1,'quicr::PublishNamespaceHandler']]],
+  ['has_5fvalue_254',['has_value',['../classquicr_1_1Expected.html#a9106efc0be154c520e799d86b9a362d2',1,'quicr::Expected::has_value()'],['../classquicr_1_1Expected_3_01void_00_01E_01_4.html#a778202c7612a93ffb484f46055f6abdc',1,'quicr::Expected&lt; void, E &gt;::has_value()']]],
+  ['hasbytestreamoperators_255',['HasByteStreamOperators',['../namespacequicr_1_1messages.html#a2da4a046b0eee1b17b56d0d6bfaaca7b',1,'quicr::messages']]],
+  ['hash_256',['hash',['../namespacequicr.html#a590f36a26bdd0f42c35a2f560312d54e',1,'quicr']]],
+  ['hash_2eh_257',['hash.h',['../hash_8h.html',1,'']]],
+  ['hash_3c_20quicr_3a_3afulltrackname_20_3e_258',['hash&lt; quicr::FullTrackName &gt;',['../structstd_1_1hash_3_01quicr_1_1FullTrackName_01_4.html',1,'std']]],
+  ['hash_3c_20quicr_3a_3atracknamespace_20_3e_259',['hash&lt; quicr::TrackNamespace &gt;',['../structstd_1_1hash_3_01quicr_1_1TrackNamespace_01_4.html',1,'std']]],
+  ['hash_3c_20std_3a_3aspan_3c_20const_20std_3a_3auint8_5ft_20_3e_20_3e_260',['hash&lt; std::span&lt; const std::uint8_t &gt; &gt;',['../structstd_1_1hash_3_01std_1_1span_3_01const_01std_1_1uint8__t_01_4_01_4.html',1,'std']]],
+  ['hash_5fcombine_261',['hash_combine',['../namespacequicr.html#a5b1daf94b6ece39883143188241fdbb3',1,'quicr']]],
+  ['hasprependedlength_262',['HasPrependedLength',['../classquicr_1_1messages_1_1Message.html#afea7f5791fbf3f92c421555e24141326',1,'quicr::messages::Message']]],
+  ['hassameprefix_263',['HasSamePrefix',['../classquicr_1_1TrackNamespace.html#a8f7feab21465d130568f1eb32781490c',1,'quicr::TrackNamespace']]],
+  ['headers_264',['headers',['../structquicr_1_1messages_1_1ResolvedFetchObject.html#a70a0503a54ebb909138068349d8823aa',1,'quicr::messages::ResolvedFetchObject']]],
+  ['host_5for_5fip_265',['host_or_ip',['../structquicr_1_1TransportRemote.html#a7cb3c16713f6b1949b4166fc38235701',1,'quicr::TransportRemote']]]
 ];

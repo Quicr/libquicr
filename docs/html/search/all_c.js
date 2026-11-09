@@ -1,10 +1,23 @@
 var searchData=
 [
-  ['media_20over_20quic_20moq_20publisher_20subscriber_20api_0',['Media over QUIC (MoQ) Publisher/Subscriber API',['../index.html',1,'']]],
-  ['metrics_2eh_1',['metrics.h',['../metrics_8h.html',1,'']]],
-  ['metrics_5fsample_5fms_2',['metrics_sample_ms',['../structquicr_1_1_config.html#a11973dbf6804e281e2e7af5c0305713e',1,'quicr::Config']]],
-  ['metricssampled_3',['MetricsSampled',['../classquicr_1_1_client.html#ad4d45bf8cdae687842daa5204e6a7cf9',1,'quicr::Client::MetricsSampled()'],['../classquicr_1_1_publish_track_handler.html#aa0e5f4b4173834d38929f71dace54c8c',1,'quicr::PublishTrackHandler::MetricsSampled()'],['../classquicr_1_1_server.html#a180b88779341122e656eb6a98656f43a',1,'quicr::Server::MetricsSampled()'],['../classquicr_1_1_subscribe_track_handler.html#a3824e9ce82a8e52d43166931a24cc1fc',1,'quicr::SubscribeTrackHandler::MetricsSampled()']]],
-  ['metricstimestampus_4',['MetricsTimeStampUs',['../namespacequicr.html#a40bbec8f57f3e736978aa38e4d015b26',1,'quicr']]],
-  ['moq_20publisher_20subscriber_20api_5',['Media over QUIC (MoQ) Publisher/Subscriber API',['../index.html',1,'']]],
-  ['moqt_5fversion_6',['moqt_version',['../structquicr_1_1_server_setup_attributes.html#a3f9f8550d98417d72fdc5e38a6d046b2',1,'quicr::ServerSetupAttributes']]]
+  ['makeclienttransport_537',['MakeClientTransport',['../classquicr_1_1Transport.html#a34bf938b9a2c2e6e324b5893060c66e2',1,'quicr::Transport']]],
+  ['makeservertransport_538',['MakeServerTransport',['../classquicr_1_1Transport.html#ace3f9665199ba99543d343b6bf7eab2f',1,'quicr::Transport']]],
+  ['max_539',['max',['../structquicr_1_1MinMaxAvg.html#ac20de44d1787802682cef6e241cb010b',1,'quicr::MinMaxAvg']]],
+  ['max_5fcache_5fduration_540',['max_cache_duration',['../structquicr_1_1PublishAttributes.html#af0657863837676dea7c728da0b3ccaf2',1,'quicr::PublishAttributes']]],
+  ['max_5fconnections_541',['max_connections',['../structquicr_1_1TransportConfig.html#a20be629af5e6e131159a5eccc540ef1c',1,'quicr::TransportConfig']]],
+  ['max_5ftracks_5fselected_542',['max_tracks_selected',['../structquicr_1_1messages_1_1TrackFilter.html#a8739d2447ded1ad3659636450e995e07',1,'quicr::messages::TrackFilter']]],
+  ['media_20over_20quic_20_28moq_29_20publisher_2fsubscriber_20api_543',['Media over QUIC (MoQ) Publisher/Subscriber API',['../index.html',1,'']]],
+  ['merge_544',['Merge',['../structquicr_1_1QuicStreamMetrics.html#a094ee7f5510aa1ce15e2c0eb4ad0139f',1,'quicr::QuicStreamMetrics::Merge()'],['../structquicr_1_1MinMaxAvg.html#aace6d7b903de691c9e3f27140dfb8956',1,'quicr::MinMaxAvg::Merge()']]],
+  ['message_545',['Message',['../classquicr_1_1messages_1_1Message.html#acfe8b3a9562c30352200e8929fd440e2',1,'quicr::messages::Message::Message()'],['../classquicr_1_1messages_1_1Message.html',1,'quicr::messages::Message']]],
+  ['message_2eh_546',['message.h',['../message_8h.html',1,'']]],
+  ['message_5fserialisation_2eh_547',['message_serialisation.h',['../message__serialisation_8h.html',1,'']]],
+  ['metrics_548',['metrics',['../classquicr_1_1Connection.html#a850d0440bf0a2f6919c67e3af9c02626',1,'quicr::Connection::metrics()'],['../structquicr_1_1QuicMetricsSample_1_1Stream.html#a6fa658bbc53e85209bda3029990fb586',1,'quicr::QuicMetricsSample::Stream::metrics()']]],
+  ['metrics_2eh_549',['metrics.h',['../metrics_8h.html',1,'']]],
+  ['metrics_5fsample_5fms_550',['metrics_sample_ms',['../structquicr_1_1TransportConfig.html#afca4e72d72d55f8d1ab05c55395a6533',1,'quicr::TransportConfig']]],
+  ['metricssampled_551',['MetricsSampled',['../classquicr_1_1PublishTrackHandler.html#aa0e5f4b4173834d38929f71dace54c8c',1,'quicr::PublishTrackHandler::MetricsSampled()'],['../classquicr_1_1SubscribeTrackHandler.html#a7b5354e3dedf9665b088700b5fae8876',1,'quicr::SubscribeTrackHandler::MetricsSampled()'],['../structquicr_1_1Session_1_1Callbacks.html#a16c8538aabf8587bdcce2b69e1762f3b',1,'quicr::Session::Callbacks::MetricsSampled()']]],
+  ['metricstimestampus_552',['MetricsTimeStampUs',['../namespacequicr.html#a8fd3e3b2e13143c5ec8aaab3faa0d9fa',1,'quicr']]],
+  ['min_553',['min',['../structquicr_1_1MinMaxAvg.html#a7e0c1090bdbd3642170d0c131d177f94',1,'quicr::MinMaxAvg']]],
+  ['minmaxavg_554',['MinMaxAvg',['../structquicr_1_1MinMaxAvg.html',1,'quicr']]],
+  ['mode_555',['Mode',['../classquicr_1_1SubscribeNamespaceHandler.html#a05d0d885562e215628b7bb1e4482b426',1,'quicr::SubscribeNamespaceHandler']]],
+  ['mutex_5f_556',['mutex_',['../classquicr_1_1Connection.html#a059da8a1e97d9c4e22b97bcb0b40b222',1,'quicr::Connection']]]
 ];

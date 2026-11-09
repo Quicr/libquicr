@@ -25,7 +25,10 @@
 var NAVTREE =
 [
   [ "LibQuicR", "index.html", [
-    [ "Media over QUIC (MoQ) Publisher/Subscriber API", "index.html", "index" ],
+    [ "Media over QUIC (MoQ) Publisher/Subscriber API", "index.html", [
+      [ "Sessions", "index.html#autotoc_md1", null ],
+      [ "Track handlers", "index.html#autotoc_md2", null ]
+    ] ],
     [ "Namespaces", "namespaces.html", [
       [ "Namespace List", "namespaces.html", "namespaces_dup" ],
       [ "Namespace Members", "namespacemembers.html", [
@@ -42,15 +45,19 @@ var NAVTREE =
       [ "Class Hierarchy", "hierarchy.html", "hierarchy" ],
       [ "Class Members", "functions.html", [
         [ "All", "functions.html", "functions_dup" ],
-        [ "Functions", "functions_func.html", null ],
-        [ "Variables", "functions_vars.html", null ],
+        [ "Functions", "functions_func.html", "functions_func" ],
+        [ "Variables", "functions_vars.html", "functions_vars" ],
         [ "Typedefs", "functions_type.html", null ],
         [ "Enumerations", "functions_enum.html", null ],
-        [ "Related Symbols", "functions_rela.html", null ]
+        [ "Related Functions", "functions_rela.html", null ]
       ] ]
     ] ],
     [ "Files", "files.html", [
-      [ "File List", "files.html", "files_dup" ]
+      [ "File List", "files.html", "files_dup" ],
+      [ "File Members", "globals.html", [
+        [ "All", "globals.html", null ],
+        [ "Macros", "globals_defs.html", null ]
+      ] ]
     ] ],
     [ "Examples", "examples.html", "examples" ]
   ] ]
@@ -58,14 +65,17 @@ var NAVTREE =
 
 var NAVTREEINDEX =
 [
-"annotated.html",
-"classquicr_1_1_fetch_track_handler.html#a73d8e7dfc1dfa07809aaec0daea79c37",
-"classquicr_1_1_publish_track_handler.html#ae1d84347753c980a4fba65ed740a94b1",
-"classquicr_1_1_subscribe_track_handler.html#a5e07af66c3912bd4bfcdfdc6b97abb55",
-"classquicr_1_1detail_1_1_city_hash64.html#a7358db4f0c839d44fe1b0bf18722114d",
-"structquicr_1_1_subscribe_track_handler_1_1_joining_fetch.html#ac0d034a3a4e01ac0e4ab29db57e73b4c"
+"",
+"classquicr_1_1ForwardingSubscribeTrackHandler.html#a3c07d9be23f528614085804ebae6961a",
+"classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98d",
+"classquicr_1_1SubscribeNamespaceHandler.html#a1c1f66aa39d51705cca2b8eb866aef61",
+"classquicr_1_1messages_1_1Message.html#af0b3bc95062b219a4c3c925f4d327173",
+"functions_func_b.html",
+"namespacequicr.html#afa08da627c4aa379f61774da6ba93b61a6ab6f82eb5ca31ff76473f45f033181f",
+"parameters_8h.html#a3f602a42f98a6d8c2d77ef01b328f527",
+"structquicr_1_1Redirect.html#adfef8fd9f7bc7b272253dd5bb44b49a2",
+"structquicr_1_1messages_1_1StreamHeaderProperties.html#a8bff5c90ba11abed1bfeb8caf62e15d0"
 ];
 
-var SYNCONMSG = 'click to disable panel synchronization';
-var SYNCOFFMSG = 'click to enable panel synchronization';
-var LISTOFALLMEMBERS = 'List of all members';
+var SYNCONMSG = 'click to disable panel synchronisation';
+var SYNCOFFMSG = 'click to enable panel synchronisation';

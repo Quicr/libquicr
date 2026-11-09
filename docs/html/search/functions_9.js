@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['last_0',['Last',['../classquicr_1_1_cache.html#abec7120ecc46913b9cf68bd3600b420f',1,'quicr::Cache']]]
+  ['joiningfetchhandler_1294',['JoiningFetchHandler',['../classquicr_1_1JoiningFetchHandler.html#a5013e0394488adb59621dbc12112b39b',1,'quicr::JoiningFetchHandler']]],
+  ['joiningfetchreceived_1295',['JoiningFetchReceived',['../structquicr_1_1Session_1_1Callbacks.html#a7dbf8b73fd7a1b270f07bfa52a2d0e5d',1,'quicr::Session::Callbacks']]]
 ];

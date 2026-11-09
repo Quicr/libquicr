@@ -1,12 +1,14 @@
 var searchData=
 [
-  ['cache_0',['Cache',['../classquicr_1_1_cache.html',1,'quicr']]],
-  ['cityhash64_1',['CityHash64',['../classquicr_1_1detail_1_1_city_hash64.html',1,'quicr::detail']]],
-  ['client_2',['Client',['../classquicr_1_1_client.html',1,'quicr']]],
-  ['clientconfig_3',['ClientConfig',['../structquicr_1_1_client_config.html',1,'quicr']]],
-  ['clientsetupattributes_4',['ClientSetupAttributes',['../structquicr_1_1_client_setup_attributes.html',1,'quicr']]],
-  ['clientsetupresponse_5',['ClientSetupResponse',['../structquicr_1_1_server_1_1_client_setup_response.html',1,'quicr::Server']]],
-  ['config_6',['Config',['../structquicr_1_1_config.html',1,'quicr']]],
-  ['connectionmetrics_7',['ConnectionMetrics',['../structquicr_1_1_connection_metrics.html',1,'quicr']]],
-  ['connectionremoteinfo_8',['ConnectionRemoteInfo',['../structquicr_1_1_transport_1_1_connection_remote_info.html',1,'quicr::Transport']]]
+  ['cache_1004',['Cache',['../classquicr_1_1Cache.html',1,'quicr']]],
+  ['callbacks_1005',['Callbacks',['../structquicr_1_1Session_1_1Callbacks.html',1,'quicr::Session::Callbacks'],['../structquicr_1_1SessionManager_1_1Callbacks.html',1,'quicr::SessionManager::Callbacks']]],
+  ['cityhash64_1006',['CityHash64',['../classquicr_1_1detail_1_1CityHash64.html',1,'quicr::detail']]],
+  ['clientcallbacks_1007',['ClientCallbacks',['../structquicr_1_1Session_1_1ClientCallbacks.html',1,'quicr::Session']]],
+  ['clientconfig_1008',['ClientConfig',['../structquicr_1_1ClientConfig.html',1,'quicr']]],
+  ['clock_1009',['Clock',['../classquicr_1_1Clock.html',1,'quicr']]],
+  ['config_1010',['Config',['../structquicr_1_1Config.html',1,'quicr']]],
+  ['conndata_1011',['ConnData',['../structquicr_1_1ConnData.html',1,'quicr']]],
+  ['connection_1012',['Connection',['../classquicr_1_1Connection.html',1,'quicr']]],
+  ['connectionmetrics_1013',['ConnectionMetrics',['../structquicr_1_1ConnectionMetrics.html',1,'quicr']]],
+  ['connectionremoteinfo_1014',['ConnectionRemoteInfo',['../structquicr_1_1Session_1_1ConnectionRemoteInfo.html',1,'quicr::Session']]]
 ];

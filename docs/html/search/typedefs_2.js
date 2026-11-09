@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['extensions_0',['Extensions',['../namespacequicr.html#a46df09228d12c1aa95c59315dc0dd30c',1,'quicr']]]
+  ['defertype_1741',['DeferType',['../classquicr_1_1Reply.html#ae8543ed7cb2f97727b26b433148f622f',1,'quicr::Reply']]]
 ];

@@ -1,9 +1,14 @@
 var searchData=
 [
-  ['fetchcancelreceived_0',['FetchCancelReceived',['../classquicr_1_1_server.html#a2f4d866c50718d15ecaba516a3c6a5ae',1,'quicr::Server']]],
-  ['fetchreceived_1',['FetchReceived',['../classquicr_1_1_transport.html#a0728459646b498c15d3cb285182f6b2f',1,'quicr::Transport::FetchReceived()'],['../classquicr_1_1_client.html#a6941229a7e2f8b978440b1c5e31ac946',1,'quicr::Client::FetchReceived()'],['../classquicr_1_1_server.html#a92a44ec4aecfb0b5e62c1e099e40fdb8',1,'quicr::Server::FetchReceived()']]],
-  ['fetchtrack_2',['FetchTrack',['../classquicr_1_1_transport.html#a87fba644270c33f3322491bcacbb8244',1,'quicr::Transport::FetchTrack()'],['../classquicr_1_1_client.html#a8e6103b26efaade861d9788bd9077796',1,'quicr::Client::FetchTrack()']]],
-  ['fetchtrackhandler_3',['FetchTrackHandler',['../classquicr_1_1_fetch_track_handler.html#a61fb8397b0c5e6e89c8606eaadc836d2',1,'quicr::FetchTrackHandler']]],
-  ['first_4',['First',['../classquicr_1_1_cache.html#a99bca0d3b3c2940dc1e5865643273532',1,'quicr::Cache']]],
-  ['forwardpublisheddata_5',['ForwardPublishedData',['../classquicr_1_1_publish_track_handler.html#a4d432fd8ddcabc9b33c1a2f6986cd3f3',1,'quicr::PublishTrackHandler']]]
+  ['fetchcancelreceived_1213',['FetchCancelReceived',['../structquicr_1_1Session_1_1Callbacks.html#a8d9dd2c91782683c352f15913cd4ce8a',1,'quicr::Session::Callbacks']]],
+  ['fetchobjectserializationstate_1214',['FetchObjectSerializationState',['../classquicr_1_1messages_1_1FetchObjectSerializationState.html#aab747f143abd17e7309df7965f28f3a1',1,'quicr::messages::FetchObjectSerializationState']]],
+  ['fetchserializationproperties_1215',['FetchSerializationProperties',['../structquicr_1_1messages_1_1FetchSerializationProperties.html#a12f70199355d879329edefb3296ed6e9',1,'quicr::messages::FetchSerializationProperties::FetchSerializationProperties(std::uint64_t value)'],['../structquicr_1_1messages_1_1FetchSerializationProperties.html#a555285f9cc45f6361a07dd405d99a2f9',1,'quicr::messages::FetchSerializationProperties::FetchSerializationProperties(SubgroupIdMode subgroup_id_mode, bool object_id_delta_present, bool group_id_delta_present, bool priority_present, bool properties_present, bool datagram) noexcept']]],
+  ['fetchtrack_1216',['FetchTrack',['../classquicr_1_1Session.html#a72146cc45859f9704c3cf94bc46fd95b',1,'quicr::Session']]],
+  ['fetchtrackhandler_1217',['FetchTrackHandler',['../classquicr_1_1FetchTrackHandler.html#ae5e987aa6cc162f1a9b2d448b30f1e0e',1,'quicr::FetchTrackHandler']]],
+  ['find_1218',['Find',['../classquicr_1_1messages_1_1ParameterList.html#afdafeba411f9f9909081df4f963ce30f',1,'quicr::messages::ParameterList']]],
+  ['first_1219',['First',['../classquicr_1_1Cache.html#a99bca0d3b3c2940dc1e5865643273532',1,'quicr::Cache::First()'],['../classquicr_1_1DataStorage.html#a6ea975c60dd5beccf33a738d33dfa072',1,'quicr::DataStorage::First()']]],
+  ['format_1220',['format',['../namespacequicr.html#a97e2f5a8f434f696859875513c5666fc',1,'quicr']]],
+  ['forwardpublisheddata_1221',['ForwardPublishedData',['../classquicr_1_1PublishNamespaceHandler.html#ad0f819a0790e3b3e7814546adfd3b44d',1,'quicr::PublishNamespaceHandler::ForwardPublishedData()'],['../classquicr_1_1PublishTrackHandler.html#a7a4ef92cd663d7bd2ea96d66550bf567',1,'quicr::PublishTrackHandler::ForwardPublishedData()']]],
+  ['frombytes_1222',['FromBytes',['../namespacequicr.html#a088480399fd9673ec7bf1b85bc9fabc4',1,'quicr']]],
+  ['front_1223',['Front',['../classquicr_1_1SafeQueue.html#a6b3c02ec7c2844afb0cce26292f6dd92',1,'quicr::SafeQueue::Front()'],['../classquicr_1_1StreamBuffer.html#a4bf780a896dcc1694c71c9b0bbdf6b2a',1,'quicr::StreamBuffer::Front() noexcept'],['../classquicr_1_1StreamBuffer.html#a8b50faede0e72a001dd8e540314008ae',1,'quicr::StreamBuffer::Front(std::size_t length) noexcept']]]
 ];

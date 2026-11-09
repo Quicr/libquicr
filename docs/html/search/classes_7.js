@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['quic_0',['Quic',['../structquicr_1_1_publish_track_metrics_1_1_quic.html',1,'quicr::PublishTrackMetrics']]]
+  ['keyvaluepair_1038',['KeyValuePair',['../structquicr_1_1messages_1_1KeyValuePair.html',1,'quicr::messages']]],
+  ['keyvaluepairs_1039',['KeyValuePairs',['../classquicr_1_1messages_1_1KeyValuePairs.html',1,'quicr::messages']]]
 ];

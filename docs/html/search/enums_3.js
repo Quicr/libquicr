@@ -1,5 +1,7 @@
 var searchData=
 [
-  ['publishannouncestatus_0',['PublishAnnounceStatus',['../namespacequicr.html#af82eff7adbcd82b21179868efb55d3f1',1,'quicr']]],
-  ['publishobjectstatus_1',['PublishObjectStatus',['../classquicr_1_1_publish_track_handler.html#af4b42f9237fde47f666b9360ae337654',1,'quicr::PublishTrackHandler']]]
+  ['endofrange_1759',['EndOfRange',['../structquicr_1_1messages_1_1FetchSerializationProperties.html#a8d6e3d591aad5aaa80163fe971a8ef56',1,'quicr::messages::FetchSerializationProperties']]],
+  ['error_1760',['Error',['../classquicr_1_1SubscribeTrackHandler.html#a056830ef56b1c16911c17844db8e5e44',1,'quicr::SubscribeTrackHandler']]],
+  ['errorcode_1761',['ErrorCode',['../namespacequicr.html#afa08da627c4aa379f61774da6ba93b61',1,'quicr']]],
+  ['extensiontype_1762',['ExtensionType',['../namespacequicr_1_1messages.html#a8ce0d61490f4528a9c6a926ec3cc242f',1,'quicr::messages']]]
 ];

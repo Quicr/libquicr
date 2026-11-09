@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['connectionstatus_0',['ConnectionStatus',['../classquicr_1_1_transport.html#ae5adbdfe900741b6fb2adc0158203389',1,'quicr::Transport']]],
-  ['controlmessagestatus_1',['ControlMessageStatus',['../classquicr_1_1_transport.html#a824a203adc5f06ce584b93213d667909',1,'quicr::Transport']]]
+  ['aliastype_1751',['AliasType',['../structquicr_1_1messages_1_1Token.html#a4cac451bfb342703c2f8fcfa07962f9f',1,'quicr::messages::Token']]],
+  ['appreasonforclose_1752',['AppReasonForClose',['../namespacequicr.html#a657cc1690a396b784866e5fe9a8416ca',1,'quicr']]]
 ];
