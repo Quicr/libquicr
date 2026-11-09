@@ -8,9 +8,9 @@ set_target_properties(simple_subscribe PROPERTIES
     CXX_EXTENSIONS OFF
 )
 
-target_link_libraries(simple_subscribe PRIVATE quicr)
+target_link_libraries(simple_subscribe PRIVATE quicr::quicr)
 
-if(LINT)
+if(QUICR_LINT)
     include(Lint)
-    Lint(simple_subscribe)
+    lint(simple_subscribe)
 endif()
