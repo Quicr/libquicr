@@ -1189,6 +1189,46 @@ TEST_CASE("Integration - GOAWAY migration")
     }
 }
 
+// TODO: Investigate pq qmux migration suport.
+TEST_CASE("Integration - QMUX GOAWAY keeps the session on its connection")
+{
+    auto session_mgr = MakeTestSessionManager();
+    const auto old_relay_port = GetTestPort();
+    const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
+    auto old_relay =
+      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port, true);
+    auto new_relay =
+      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port, true);
+
+    std::promise<std::shared_ptr<Session>> old_server_session_promise;
+    auto old_server_session_future = old_server_session_promise.get_future();
+    old_relay->SetSessionEstablishedPromise(std::move(old_server_session_promise));
+
+    const auto [session, callbacks] = MakeTestClient(
+      session_mgr, true, std::nullopt, "qmux", std::nullopt, std::make_shared<TestClient>(), old_relay_port, 2);
+    REQUIRE(old_server_session_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+    const auto old_server_session = old_server_session_future.get();
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "goaway", "qmux" }), { 1 } };
+    const auto handler = TestSubscribeHandler::Create(ftn, 7, std::nullopt);
+    session->SubscribeTrack(handler);
+    REQUIRE(WaitFor([&handler] { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+    const auto connection = handler->GetConnection();
+
+    std::promise<TestServer::SubscribeDetails> new_subscribe_promise;
+    auto new_subscribe_future = new_subscribe_promise.get_future();
+    new_relay->SetSubscribePromise(std::move(new_subscribe_promise));
+
+    old_server_session->GoAway(quicr::format("moqt://{}:{}/relay", kIp, new_relay_port), std::chrono::seconds{ 5 });
+
+    // For now, don't migrate.
+    CHECK(new_subscribe_future.wait_for(kNegativeTimeout) == std::future_status::timeout);
+    CHECK_EQ(handler->GetConnection(), connection);
+    CHECK_EQ(handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
+    CHECK_EQ(session->GetDefaultConnection(), connection);
+    CHECK_EQ(connection->GetStatus(), Connection::Status::kReady);
+}
+
 TEST_CASE("Integration - request GOAWAY migrates part of a session")
 {
     const auto test_partial_migration = [](const std::string& protocol_scheme) {

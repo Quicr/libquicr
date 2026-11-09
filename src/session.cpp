@@ -2734,8 +2734,13 @@ namespace quicr {
             return;
         }
 
+        auto existing_protocol = source_connection->GetProtocol();
+        const bool qmux = existing_protocol == Connection::Protocol::kQmux;
+        if (qmux) {
+            existing_protocol = Connection::Protocol::kNativeQuic;
+        }
         const auto& [host, port, protocol, path] = uri.value();
-        if (protocol != source_connection->GetProtocol()) {
+        if (protocol != existing_protocol) {
             QUICR_LOGGER_ERROR(logger_,
                                "Redirect changes transport protocol, which one transport cannot currently support "
                                "(uri='{}')",
@@ -2750,6 +2755,7 @@ namespace quicr {
             .web_transport_options = protocol == Connection::Protocol::kWebTransport
                                        ? std::make_optional(WebTransportOptions{ .path = path })
                                        : std::nullopt,
+            .qmux = qmux,
         };
 
         std::shared_ptr<Connection> connection;

@@ -1427,7 +1427,7 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
 
     if (server.qmux) {
         if (shards_[0]->quic_network_thread_ctx != nullptr) {
-            QUICR_LOGGER_ERROR(logger, "QMUX connections must be created before the network thread starts");
+            QUICR_LOGGER_ERROR(logger, "QMUX cannot open a connection on a running network thread");
             return nullptr;
         }
         lock.unlock();
