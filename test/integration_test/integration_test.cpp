@@ -1390,9 +1390,7 @@ TEST_CASE("Integration - REQUEST_ERROR redirect migration")
 
 TEST_CASE("Integration - Datagram object roundtrip")
 {
-    auto test_datagrams = [](const std::string& protocol_scheme,
-                             TrackMode mode = TrackMode::kDatagram,
-                             const std::string& subscriber_scheme = "") {
+    auto test_datagrams = [](const std::string& protocol_scheme, const std::string& subscriber_scheme = "") {
         auto session_mgr = MakeTestSessionManager();
         auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, std::nullopt, std::nullopt, true);
         auto [publisher, publisher_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -1400,7 +1398,7 @@ TEST_CASE("Integration - Datagram object roundtrip")
           session_mgr, true, std::nullopt, subscriber_scheme.empty() ? protocol_scheme : subscriber_scheme);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "datagram", "roundtrip" }), { 1 } };
-        auto publish_handler = PublishTrackHandler::Create(ftn, mode, 3, 3, 5000, { 0, 0 });
+        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kDatagram, 3, 3, 5000, { 0, 0 });
         publisher->PublishTrack(publish_handler);
         REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
 
@@ -1412,15 +1410,14 @@ TEST_CASE("Integration - Datagram object roundtrip")
         constexpr std::uint64_t object_count = 5;
         const Extensions extensions{ { 1, { { 0xAA, 0xBB } } } };
         for (std::uint64_t i = 0; i < object_count; ++i) {
-            const Bytes payload = mode == TrackMode::kStream ? Bytes(40'000, static_cast<std::uint8_t>(i))
-                                                             : Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 };
+            const Bytes payload = Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 };
             const ObjectHeaders headers{ .group_id = 10 + i,
                                          .object_id = 20 + i,
                                          .payload_length = payload.size(),
                                          .status = ObjectStatus::kAvailable,
                                          .priority = 7,
                                          .ttl = 5000,
-                                         .track_mode = mode,
+                                         .track_mode = TrackMode::kDatagram,
                                          .extensions = extensions };
             REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
         }
@@ -1438,11 +1435,9 @@ TEST_CASE("Integration - Datagram object roundtrip")
             CHECK_EQ(object.object_id, 20 + i);
             CHECK_EQ(object.status, ObjectStatus::kAvailable);
             CHECK_EQ(object.priority, std::optional<std::uint8_t>{ 3 });
-            CHECK_EQ(object.track_mode, mode);
+            CHECK_EQ(object.track_mode, TrackMode::kDatagram);
             CHECK_EQ(object.extensions, extensions);
-            CHECK_EQ(object.data,
-                     mode == TrackMode::kStream ? Bytes(40'000, static_cast<std::uint8_t>(i))
-                                                : (Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 }));
+            CHECK_EQ(object.data, (Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 }));
         }
     };
 
@@ -1458,17 +1453,9 @@ TEST_CASE("Integration - Datagram object roundtrip")
     {
         test_datagrams("qmux");
     }
-    SUBCASE("QMUX streams")
-    {
-        test_datagrams("qmux", TrackMode::kStream);
-    }
     SUBCASE("QUIC publisher QMUX subscriber")
     {
-        test_datagrams("moq", TrackMode::kDatagram, "qmux");
-    }
-    SUBCASE("QMUX publisher QUIC subscriber")
-    {
-        test_datagrams("qmux", TrackMode::kStream, "moq");
+        test_datagrams("moq", "qmux");
     }
 }
 
@@ -3088,6 +3075,54 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         INFO("  - Subgroup 2: ", subgroup_2_messages, " messages (ran 3 phases)");
     };
 
+    auto test_stream_roundtrip = [&](const std::string& protocol_scheme, const std::string& subscriber_scheme = "") {
+        auto [publisher, publisher_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        auto [subscriber, subscriber_callbacks] = MakeTestClient(
+          session_mgr, true, std::nullopt, subscriber_scheme.empty() ? protocol_scheme : subscriber_scheme);
+
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "stream", "roundtrip" }), { 1 } };
+        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 5000, { 0, 0 });
+        publisher->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
+
+        auto subscribe_handler = TestSubscribeHandler::Create(ftn, 3, std::nullopt);
+        subscriber->SubscribeTrack(subscribe_handler);
+        REQUIRE(WaitFor(
+          [&subscribe_handler]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        constexpr std::uint64_t object_count = 5;
+        const Extensions extensions{ { 1, { { 0xAA, 0xBB } } } };
+        for (std::uint64_t i = 0; i < object_count; ++i) {
+            const Bytes payload = Bytes(40'000, static_cast<std::uint8_t>(i));
+            const ObjectHeaders headers{ .group_id = 10 + i,
+                                         .object_id = 20 + i,
+                                         .payload_length = payload.size(),
+                                         .status = ObjectStatus::kAvailable,
+                                         .priority = 7,
+                                         .ttl = 5000,
+                                         .track_mode = TrackMode::kStream,
+                                         .extensions = extensions };
+            REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        }
+
+        REQUIRE(WaitFor([&subscribe_handler]() { return subscribe_handler->GetReceivedCount() == object_count; }));
+        const auto objects = subscribe_handler->GetReceivedObjects();
+        REQUIRE_EQ(objects.size(), object_count);
+        for (std::size_t i = 0; i < objects.size(); ++i) {
+            const auto it = std::find_if(
+              objects.begin(), objects.end(), [i](const auto& object) { return object.object_id == 20 + i; });
+            REQUIRE(it != objects.end());
+            const auto& object = *it;
+            CHECK_EQ(object.group_id, 10 + i);
+            CHECK_EQ(object.object_id, 20 + i);
+            CHECK_EQ(object.status, ObjectStatus::kAvailable);
+            CHECK_EQ(object.priority, std::optional<std::uint8_t>{ 3 });
+            CHECK_EQ(object.track_mode, TrackMode::kStream);
+            CHECK_EQ(object.extensions, extensions);
+            CHECK_EQ(object.data, Bytes(40'000, static_cast<std::uint8_t>(i)));
+        }
+    };
+
     SUBCASE("Raw QUIC")
     {
         CAPTURE("Raw QUIC");
@@ -3102,6 +3137,14 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
     SUBCASE("QMUX")
     {
         test_subgroups("qmux");
+    }
+    SUBCASE("QMUX large stream objects")
+    {
+        test_stream_roundtrip("qmux");
+    }
+    SUBCASE("QMUX publisher QUIC subscriber")
+    {
+        test_stream_roundtrip("qmux", "moq");
     }
 }
 
