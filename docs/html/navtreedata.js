@@ -65,16 +65,16 @@ var NAVTREE =
 
 var NAVTREEINDEX =
 [
-"",
-"classquicr_1_1ForwardingSubscribeTrackHandler.html#a3c07d9be23f528614085804ebae6961a",
-"classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98d",
-"classquicr_1_1SubscribeNamespaceHandler.html#a1c1f66aa39d51705cca2b8eb866aef61",
-"classquicr_1_1messages_1_1Message.html#af0b3bc95062b219a4c3c925f4d327173",
-"functions_func_b.html",
-"namespacequicr.html#afa08da627c4aa379f61774da6ba93b61a6ab6f82eb5ca31ff76473f45f033181f",
-"parameters_8h.html#a3f602a42f98a6d8c2d77ef01b328f527",
-"structquicr_1_1Redirect.html#adfef8fd9f7bc7b272253dd5bb44b49a2",
-"structquicr_1_1messages_1_1StreamHeaderProperties.html#a8bff5c90ba11abed1bfeb8caf62e15d0"
+"annotated.html",
+"classquicr_1_1ForwardingSubscribeTrackHandler.html#a44a22b00ede78da103f109a335f54dfb",
+"classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98da1a92f7a65f6718e345298f8e4c4093b1",
+"classquicr_1_1SubscribeNamespaceHandler.html#a22b58f83ec337645126d15a60a6ec703",
+"classquicr_1_1messages_1_1Message.html#afb00bfcf5a9af55625bc7d8bcc2090f2",
+"functions_func_d.html",
+"namespacequicr.html#afa08da627c4aa379f61774da6ba93b61aaf4aefe93c2f045e47c4e2fcbfde25fd",
+"parameters_8h.html#a60564b2ff75987d5a018e1e275e32e28",
+"structquicr_1_1ServerConfig.html#a53c4590ed6d36b310bdd7d73187b1dfd",
+"structquicr_1_1messages_1_1StreamHeaderProperties.html#aa1835e7e77f96492c017bca3f54c0e17"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';
