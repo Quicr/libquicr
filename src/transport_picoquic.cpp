@@ -1251,8 +1251,7 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
             return 0;
         }
 
-        char const* sni =
-          is_name || !tconfig_.tls_root_trust_filename.empty() ? server.host_or_ip.c_str() : "cisco.webex.com";
+        char const* sni = server.host_or_ip.c_str();
 
         const bool use_webtransport = server.web_transport_options.has_value();
         picoquic_cnx_t* cnx = NULL;
