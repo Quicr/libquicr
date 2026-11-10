@@ -3635,10 +3635,11 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
         std::future<TestServer::SubscribeDetails> subscribe_future = subscribe_promise.get_future();
         server->SetSubscribePromise(std::move(subscribe_promise));
 
-        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        const auto sub_handler = TestForwardingSubscribeHandler::Create(ftn, 0);
         CHECK_NOTHROW(subscriber->SubscribeTrack(sub_handler));
         REQUIRE(subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         (void)subscribe_future.get();
+        REQUIRE(WaitFor([&] { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
         // The server binds a publish track handler to serve this subscriber.
         const auto pub_handler = server->GetSubscriberPublishHandler(track_alias);
@@ -3659,8 +3660,11 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
 
         // Baseline: a new group opens a stream while the track is still bound.
         REQUIRE_EQ(pub_handler->PublishObject(header_for(0), payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        REQUIRE(WaitFor([&] { return sub_handler->GetSubgroupCount() == 1; }));
 
         REQUIRE(server->UnbindSubscriberPublishTrack(track_alias));
+        REQUIRE(WaitFor([&] { return sub_handler->GetSubgroups().front().ended; }));
+        CHECK(sub_handler->GetSubgroups().front().reset);
 
         /*
          * Once unbound, the handler must refuse every publish rather than opening a stream on a

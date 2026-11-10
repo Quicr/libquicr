@@ -1342,8 +1342,7 @@ namespace quicr {
             // The subscriber has closed the request stream.
             pub_handler->SetStatus(is_reset ? PublishTrackHandler::Status::kUnsubscribed
                                             : PublishTrackHandler::Status::kDoneByFin);
-            // TODO: This should RESET all open subgroups.
-            pub_handler->EndAllSubgroups();
+            pub_handler->EndAllSubgroups(false);
             quic_transport_->CloseStream(stream, operation);
             pub_handler->SetRequestStream(nullptr);
 
@@ -1440,9 +1439,8 @@ namespace quicr {
             removed->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
         }
 
-        // Close whatever the application left open, so its objects drain rather than the streams
-        // lingering for the life of the connection.
-        track_handler->EndAllSubgroups();
+        // Remaining open subgroups have not been declared complete.
+        track_handler->EndAllSubgroups(false);
     }
 
     void Session::PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
@@ -3171,7 +3169,7 @@ namespace quicr {
         const auto old_binding = handler->GetBinding();
         const auto old_connection_id = old_connection->GetID();
         if (const auto publisher = handler->Get<PublishTrackHandler>()) {
-            publisher->EndAllSubgroupsInternal();
+            publisher->EndAllSubgroupsInternal(false);
         }
 
         {
@@ -3469,7 +3467,7 @@ namespace quicr {
                 pub_tracks_by_name.erase(th.track_namespace_hash);
             }
 
-            track_handler->EndAllSubgroupsInternal();
+            track_handler->EndAllSubgroupsInternal(false);
 
             const auto request_stream = track_handler->GetRequestStream();
             if (send_publish_done && request_stream != nullptr) {
