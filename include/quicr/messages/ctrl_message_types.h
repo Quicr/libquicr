@@ -910,20 +910,23 @@ namespace quicr::messages {
         }
 
         /**
-         * Decodes a required value.
+         * Decodes a value when present.
          * @tparam T Requested result type.
          * @tparam K Key type.
          * @param type Key to retrieve.
-         * @return Decoded value.
-         * @throws std::out_of_range if the key is absent.
+         * @return Decoded value, or std::nullopt when absent.
          */
         template<typename T, KeyType K>
-        T Get(K type) const
+        std::optional<T> Get(K type) const
         {
+            const auto it = pairs_.find(static_cast<std::uint64_t>(type));
+            if (it == pairs_.end()) {
+                return std::nullopt;
+            }
+            const auto& bytes = it->second;
             if constexpr (std::is_arithmetic_v<T>) {
                 if (static_cast<std::uint64_t>(type) % 2 == 0) {
                     std::uint64_t val = 0;
-                    const auto& bytes = pairs_.at(static_cast<std::uint64_t>(type));
                     std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
                     return static_cast<T>(val);
                 }
@@ -931,21 +934,11 @@ namespace quicr::messages {
 
             if constexpr (HasByteStreamOperators<T>) {
                 T result;
-                pairs_.at(static_cast<std::uint64_t>(type)) >> result;
+                bytes >> result;
                 return result;
             }
 
-            return FromBytes<T>(pairs_.at(static_cast<std::uint64_t>(type)));
-        }
-
-        /// @tparam T Decoded value type.
-        /// @tparam K Parameter-key type.
-        /// @param type Key to decode.
-        /// @return Decoded @p type, or std::nullopt when absent.
-        template<typename T, KeyType K>
-        std::optional<T> GetOptional(K type) const
-        {
-            return pairs_.contains(static_cast<std::uint64_t>(type)) ? std::make_optional(Get<T>(type)) : std::nullopt;
+            return FromBytes<T>(bytes);
         }
 
         /// @param type Numeric key to find.
