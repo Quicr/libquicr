@@ -311,7 +311,6 @@ class TestStreamPublishTrackHandler : public quicr::PublishTrackHandler
       : PublishTrackHandler({ {}, {} }, quicr::TrackMode::kStream, 0, 0, 1000)
     {
     }
-    using TrackHandler::SetTransport;
 };
 
 static std::shared_ptr<quicr::Session>
@@ -330,9 +329,10 @@ TEST_CASE("Publishing retains framing for each subgroup stream")
     auto transport = std::make_shared<TestTransport>();
     auto session = CreateTestSession(transport);
     auto handler = std::make_shared<TestStreamPublishTrackHandler>();
-    handler->SetTransport(session);
-    handler->SetRequestId(0);
     handler->SetTrackAlias(0);
+    session->PublishTrack(handler);
+    transport->enqueue_count = 0;
+    transport->stream_data.clear();
     handler->SetStatus(PublishTrackHandler::Status::kOk);
     const StreamHeaderProperties custom{ false, SubgroupIdType::kExplicit, false, false, true };
     const Bytes payload{ 0xAA };
