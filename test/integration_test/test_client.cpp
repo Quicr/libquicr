@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #include "test_client.h"
 
 #include "quicr/handlers/subscribe_track_handler.h"
@@ -7,8 +10,8 @@ using namespace quicr;
 using namespace quicr_test;
 
 quicr::Expected<void, quicr::Error<quicr::ErrorCode>>
-TestClient::ServerSetupReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
-                                const ServerSetupAttributes& server_setup_attributes)
+TestClient::SetupReceived([[maybe_unused]] const std::shared_ptr<Session>& session,
+                          const SetupAttributes& setup_attributes)
 {
     {
         std::lock_guard lock(status_mutex_);
@@ -16,7 +19,7 @@ TestClient::ServerSetupReceived([[maybe_unused]] const std::shared_ptr<Session>&
     }
 
     if (client_connected_) {
-        client_connected_->set_value(server_setup_attributes);
+        client_connected_->set_value(setup_attributes);
     }
 
     return {};
@@ -41,7 +44,7 @@ TestClient::PublishReceived([[maybe_unused]] const std::shared_ptr<Session>& ses
                             [[maybe_unused]] std::weak_ptr<SubscribeNamespaceHandler> ns_handler)
 {
     auto sub_handler =
-      SubscribeTrackHandler::Create(publish_attributes.track_full_name, publish_attributes.default_publisher_priority);
+      SubscribeTrackHandler::Create(publish_attributes.track_full_name, publish_attributes.publisher_priority);
     last_publish_received_sub_handler_ = sub_handler;
 
     if (publish_received_) {

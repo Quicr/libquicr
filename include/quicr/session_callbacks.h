@@ -26,19 +26,21 @@ namespace quicr {
      */
     enum class RequestErrorCode : uint8_t
     {
-        kInternalError = 1,
-        kUnauthorized,
-        kTimeout,
-        kNotSupported,
-        kMalformedAuthToken,
-        kExpiredAuthToken,
-        kDoesNotExist,
-        kInvalidRange,
-        kMalformedTrack,
-        kDuplicateSubscription,
-        kUninterested,
-        kPrefixOverlap,
-        kInvalidJoiningRequestId,
+        kInternalError = 1,       ///< Unspecified application or endpoint failure.
+        kUnauthorized,            ///< Requester is not authorized.
+        kTimeout,                 ///< Request could not be completed before its deadline.
+        kNotSupported,            ///< Requested operation is unsupported.
+        kMalformedAuthToken,      ///< Authorization token is malformed.
+        kExpiredAuthToken,        ///< Authorization token has expired.
+        kDoesNotExist,            ///< Requested resource does not exist.
+        kInvalidRange,            ///< Requested object range is invalid.
+        kMalformedTrack,          ///< Track name or properties are malformed.
+        kDuplicateSubscription,   ///< Equivalent subscription already exists.
+        kUninterested,            ///< Endpoint is no longer interested.
+        kPrefixOverlap,           ///< Namespace prefix overlaps an existing request incompatibly.
+        kInvalidJoiningRequestId, ///< Joining fetch references an invalid request.
+        kRedirect,                ///< A request should redirect with the given Redirect info.
+        kGoingAway,               ///< The request is going away.
     };
 
     /**
@@ -49,16 +51,19 @@ namespace quicr {
      */
     enum class PublishErrorCode : std::uint8_t
     {
-        kInternalError = 1,
-        kNotSupported,
-        kNotAuthorized,
-        kRejected,
+        kInternalError = 1, ///< Unspecified application or endpoint failure.
+        kNotSupported,      ///< Receiving publications is unsupported.
+        kNotAuthorized,     ///< Publisher is not authorized.
+        kRejected,          ///< Publication was declined for another reason.
     };
 
+    /// @brief Successful application response to an inbound PUBLISH request.
     struct PublishResponse
     {
-        const PublishOkAttributes attributes;
-        std::shared_ptr<SubscribeTrackHandler> handler;
+        const PublishOkAttributes attributes; ///< Attributes to return in PUBLISH_OK.
+
+        std::shared_ptr<SubscribeTrackHandler>
+          handler; ///< Handler that receives objects from the accepted publication.
     };
 
     /**
@@ -69,8 +74,8 @@ namespace quicr {
      */
     enum class PublishNamespaceErrorCode : uint8_t
     {
-        kOk = 0,
-        kInternalError
+        kOk = 0,       ///< Vestigial success value; do not return it as an error.
+        kInternalError ///< Unspecified application or endpoint failure.
     };
 
     /**
@@ -81,10 +86,10 @@ namespace quicr {
      */
     enum class FetchErrorCode : uint8_t
     {
-        kOk = 0,
-        kInvalidRange,
-        kNoObjects,
-        kInternalError,
+        kOk = 0,        ///< Vestigial success value; do not return it as an error.
+        kInvalidRange,  ///< Requested fetch range is invalid.
+        kNoObjects,     ///< No objects are available in the requested range.
+        kInternalError, ///< Unspecified application or endpoint failure.
         // TODO: Expand reasons.
     };
 
@@ -96,34 +101,55 @@ namespace quicr {
      *      correlates it with the request itself, so there is nothing further for the application to call
      *      and no request identifier for it to keep.
      *
-     *      Return a value to accept, or an `Unexpected<Error<E>>` holding a reason code and optional reason
-     *      string to reject. A `Reply<void, E>` accepts by returning `{}`.
+     *      Return a value to accept, or an `Unexpected<Error<E>>` holding a reason code, optional reason
+     *      string, and optional redirect to reject. A `Reply<void, E>` accepts by returning `{}`.
      *
-     *      An answer that cannot be given straight away is deferred with `Reply::Defer()`, which takes an
-     *      action returning the same result and runs it off the session's message handling thread. This is
-     *      the way to consult something slow, such as an authorization service, without stalling the
-     *      session.
+     *      An answer that cannot be given straight away is deferred with `Reply::Defer()`. Its producer is
+     *      called on the session's message-handling thread and must start, rather than perform, slow work there.
+     *      When that work completes, invoking the supplied completion callback marshals the response back to the
+     *      transport notification thread.
      *
      *      Callbacks are invoked on the transport notify thread, which also carries stream and connection
      *      events, so an immediate reply must return promptly; anything slow belongs in a deferred one. Each
-     *      reply is answered exactly once, and an exception escaping a deferred action is swallowed, which
-     *      leaves the request unanswered until the peer times it out.
+     *      reply is answered exactly once. The transport catches exceptions that escape the producer while it
+     *      is invoked or the continuation after it is queued; either case can leave the request unanswered until
+     *      the peer times it out. Exceptions on an application-created worker thread remain the application's
+     *      responsibility.
      *
      *      A callback that is not overridden keeps its default, given per method below.
      */
     struct Session::Callbacks
     {
+        /// @brief Destroy the callback interface.
         virtual ~Callbacks() = default;
 
+        /**
+         * @brief Callback on receipt of the peer's SETUP message
+         *
+         * @details Returning an error disconnects the session.
+         *
+         * @param session The session receiving SETUP
+         * @param setup_attributes Peer setup attributes received
+         * @return Success to continue setup, or an error that disconnects the session.
+         */
+        virtual Expected<void, Error<ErrorCode>> SetupReceived(const std::shared_ptr<Session>& session,
+                                                               const SetupAttributes& setup_attributes);
+
+        /**
+         * @brief Notify that a QUIC stream closed.
+         * @param stream_id Identifier of the closed stream.
+         * @param flag Event that closed the stream direction.
+         */
         virtual void OnStreamClosed(std::uint64_t stream_id, StreamClosedFlag flag);
+
         /**
          * @brief Callback notification for status/state change
          *
          * @details Callback notification indicates state change of connection, such as disconnected. May be
          *      invoked in either client or server mode.
          *
-         * @param session          The session whose status changed
-         * @param status           Changed Status value
+         * @param session The session whose status changed
+         * @param status Changed Status value
          */
         virtual void StatusChanged(const std::shared_ptr<Session>& session, Status status);
 
@@ -138,8 +164,8 @@ namespace quicr {
          *      Invoked on the transport notify thread, which also carries stream and connection events. Return
          *      promptly; a slow implementation backs the queue up and other notifications are dropped to make room.
          *
-         * @param session          The session the metrics belong to
-         * @param metrics          Copy of the connection metrics for the sample period
+         * @param session The session the metrics belong to
+         * @param metrics Copy of the connection metrics for the sample period
          */
         virtual void MetricsSampled(const std::shared_ptr<Session>& session, const ConnectionMetrics& metrics);
 
@@ -148,9 +174,11 @@ namespace quicr {
          *
          * @details Return the publish response to accept. Defaults to rejecting with `kNotSupported`.
          *
-         * @param request_id         Incoming publish request ID
+         * @param request_id Incoming publish request ID
+         * @param session Session that received the request.
          * @param publish_attributes Attributes of the publish
-         * @param sub_ns_handler     Matching subscribe namespace handler, if any
+         * @param sub_ns_handler Matching subscribe namespace handler, if any
+         * @return Immediate or deferred acceptance response, or rejection reason.
          */
         virtual Reply<const PublishResponse, PublishErrorCode> PublishReceived(
           const std::shared_ptr<Session>& session,
@@ -163,8 +191,10 @@ namespace quicr {
          *
          * @details Client mode only. Called when a PUBLISH_NAMESPACE is received for a subscribed prefix.
          *
-         * @param track_namespace                Track namespace
-         * @param publish_namespace_attributes   Publish announce attributes received
+         * @param track_namespace Track namespace
+         * @param session Session that received the request.
+         * @param publish_namespace_attributes Publish announce attributes received
+         * @return Immediate or deferred success, or rejection reason.
          */
         virtual Reply<void, PublishNamespaceErrorCode> PublishNamespaceReceived(
           const std::shared_ptr<Session>& session,
@@ -176,9 +206,11 @@ namespace quicr {
          *
          * @details Defaults to rejecting with `kInternalError`, since fetch is not served unless implemented.
          *
-         * @param request_id        Request ID received.
-         * @param track_full_name   Track full name
-         * @param attributes        Fetch attributes received.
+         * @param request_id Request ID received.
+         * @param session Session that received the request.
+         * @param track_full_name Track full name
+         * @param attributes Fetch attributes received.
+         * @return Immediate or deferred fetch response, or rejection reason.
          */
         virtual Reply<const FetchResponse, FetchErrorCode> StandaloneFetchReceived(
           const std::shared_ptr<Session>& session,
@@ -191,9 +223,11 @@ namespace quicr {
          *
          * @details Defaults to rejecting with `kInternalError`, since fetch is not served unless implemented.
          *
-         * @param request_id        Request ID received.
-         * @param track_full_name   Track full name
-         * @param attributes        Fetch attributes received.
+         * @param request_id Request ID received.
+         * @param session Session that received the request.
+         * @param track_full_name Track full name
+         * @param attributes Fetch attributes received.
+         * @return Immediate or deferred fetch response, or rejection reason.
          */
         virtual Reply<const FetchResponse, FetchErrorCode> JoiningFetchReceived(
           const std::shared_ptr<Session>& session,
@@ -204,7 +238,9 @@ namespace quicr {
         /**
          * @brief Callback notification on receiving a FetchCancel message.
          *
-         * @param request_id        Request ID received.
+         * @param request_id Request ID received.
+         * @param session Session that received the cancellation.
+         * @return Immediate or deferred acknowledgment, or error.
          */
         virtual Reply<void, FetchErrorCode> FetchCancelReceived(const std::shared_ptr<Session>& session,
                                                                 std::uint64_t request_id);
@@ -214,7 +250,9 @@ namespace quicr {
          *
          * @details Defaults to accepting with an empty `TrackStatusResponse`.
          *
-         * @param track_full_name       Track full name
+         * @param track_full_name Track full name
+         * @param session Session that received the query.
+         * @return Immediate or deferred status response, or rejection reason.
          */
         virtual Reply<TrackStatusResponse, RequestErrorCode> TrackStatusReceived(
           const std::shared_ptr<Session>& session,
@@ -226,18 +264,8 @@ namespace quicr {
      */
     struct Session::ClientCallbacks : public Session::Callbacks
     {
+        /// @brief Destroy the client callback interface.
         virtual ~ClientCallbacks() = default;
-
-        /**
-         * @brief Callback on server setup message
-         *
-         * @details Called when the peer's setup has been received. Client mode only.
-         *
-         * @param server_setup_attributes Server setup attributes received
-         */
-        virtual Expected<void, Error<ErrorCode>> ServerSetupReceived(
-          const std::shared_ptr<Session>& session,
-          const ServerSetupAttributes& server_setup_attributes);
 
         /**
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
@@ -248,8 +276,10 @@ namespace quicr {
          *
          *      Defaults to accepting.
          *
-         * @param track_full_name      Track full name
+         * @param track_full_name Track full name
+         * @param session Session that received the request.
          * @param subscribe_attributes Subscribe attributes received
+         * @return Immediate or deferred acceptance, or rejection reason.
          */
         virtual Reply<void, ErrorCode> UnpublishedSubscribeReceived(const std::shared_ptr<Session>& session,
                                                                     const FullTrackName& track_full_name,
@@ -261,19 +291,15 @@ namespace quicr {
      */
     struct Session::ServerCallbacks : public Session::Callbacks
     {
+        /// @brief Destroy the server callback interface.
         virtual ~ServerCallbacks() = default;
 
-        virtual void OnStreamClosed(std::uint64_t stream_id, StreamClosedFlag flag);
         /**
-         * @brief Callback on client setup message
-         *
-         * @details Called when the peer's setup has been received. Server mode only.
-         *
-         * @param client_setup_attributes Decoded client setup message
+         * @brief Notify that a server-side QUIC stream closed.
+         * @param stream_id Identifier of the closed stream.
+         * @param flag Event that closed the stream direction.
          */
-        virtual Expected<void, Error<ErrorCode>> ClientSetupReceived(
-          const std::shared_ptr<Session>& session,
-          const ClientSetupAttributes& client_setup_attributes);
+        virtual void OnStreamClosed(std::uint64_t stream_id, StreamClosedFlag flag);
 
         /**
          * @brief Callback notification for new subscribe namespace received
@@ -281,8 +307,10 @@ namespace quicr {
          * @details Server mode only. Accept by returning the namespaces already published under the prefix,
          *      which the session sends with the OK. Defaults to accepting with none.
          *
-         * @param prefix_namespace   Track namespace prefix
-         * @param attributes         Attributes received
+         * @param prefix_namespace Track namespace prefix
+         * @param session Session that received the request.
+         * @param attributes Attributes received
+         * @return Immediate or deferred list of already-active matching namespaces, or rejection reason.
          */
         virtual Reply<std::vector<TrackNamespace>, RequestErrorCode> SubscribeNamespaceReceived(
           const std::shared_ptr<Session>& session,
@@ -295,8 +323,10 @@ namespace quicr {
          * @details Server mode only. Accept by returning the namespaces already published under the prefix,
          *      which the session sends with the OK. Defaults to accepting with none.
          *
-         * @param prefix_namespace   Track namespace prefix
-         * @param attributes         Attributes received
+         * @param prefix_namespace Track namespace prefix
+         * @param session Session that received the request.
+         * @param attributes Attributes received
+         * @return Immediate or deferred list of already-active matching namespaces, or rejection reason.
          */
         virtual Reply<std::vector<TrackNamespace>, RequestErrorCode> SubscribeTracksReceived(
           const std::shared_ptr<Session>& session,
@@ -308,9 +338,11 @@ namespace quicr {
          *
          * @details Server mode only. Defaults to accepting with an empty `SubscribeResponse`.
          *
-         * @param request_id           Request ID received
-         * @param track_full_name      Track full name
+         * @param request_id Request ID received
+         * @param session Session that received the request.
+         * @param track_full_name Track full name
          * @param subscribe_attributes Subscribe attributes received
+         * @return Immediate or deferred subscribe response, or rejection reason.
          */
         virtual Reply<SubscribeResponse, RequestErrorCode> SubscribeReceived(
           const std::shared_ptr<Session>& session,
@@ -324,7 +356,8 @@ namespace quicr {
          * @details Server mode only.
          *
          * @param track_full_name Track full name
-         * @param group_id        Group ID requested — should be plus one of current group or zero
+         * @param group_id Group ID requested — should be plus one of current group or zero
+         * @return Immediate or deferred acknowledgment, or rejection reason.
          */
         virtual Reply<void, ErrorCode> NewGroupRequested(const FullTrackName& track_full_name, std::uint64_t group_id);
 
@@ -335,7 +368,8 @@ namespace quicr {
          *      The app is responsible for forwarding a copy of the publish namespace done message to the
          *      subscribe namespace connections whose prefix matches.
          *
-         * @param request_id        Request ID for the namespace that is done
+         * @param request_id Request ID for the namespace that is done
+         * @param session Session that received the notification.
          */
         virtual void PublishNamespaceDoneReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
 
@@ -344,7 +378,8 @@ namespace quicr {
          *
          * @details Server mode only.
          *
-         * @param prefix_namespace  Prefix namespace
+         * @param prefix_namespace Prefix namespace
+         * @param session Session that received the request.
          */
         virtual void UnsubscribeNamespaceReceived(const std::shared_ptr<Session>& session,
                                                   const TrackNamespace& prefix_namespace);
@@ -354,7 +389,8 @@ namespace quicr {
          *
          * @details Server mode only.
          *
-         * @param request_id        Request ID received
+         * @param request_id Request ID received
+         * @param session Session that received the request.
          */
         virtual void UnsubscribeReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
 
@@ -363,7 +399,8 @@ namespace quicr {
          *
          * @details Server mode only.
          *
-         * @param request_id        Request ID received
+         * @param request_id Request ID received
+         * @param session Session that received the notification.
          */
         virtual void PublishDoneReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
     };

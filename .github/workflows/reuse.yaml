@@ -1,0 +1,36 @@
+name: REUSE Compliance and SPDX
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  reuse-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: REUSE Compliance Check
+        uses: fsfe/reuse-action@v6
+        with:
+          args: lint
+
+      - name: Generate REUSE SPDX SBOM
+        uses: fsfe/reuse-action@v6
+        with:
+          args: spdx --output quicr.spdx
+
+      - name: Upload REUSE SPDX SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: quicr-spdx
+          path: quicr.spdx
+          if-no-files-found: error
+          retention-days: 14

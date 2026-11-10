@@ -2,23 +2,22 @@ name: Sanitizers
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "draft-18" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "draft-18" ]
 
 env:
   BUILD_TYPE: Release
 
-permissions:
-  contents: read
-
 jobs:
   integration-tests:
-    name: ASan & UBSan
-    runs-on: ubuntu-22.04
+    name: Integration Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
+      matrix:
+        os: [ ubuntu-22.04 ]
 
     steps:
       - uses: actions/checkout@v6
@@ -55,7 +54,7 @@ jobs:
           ctest --test-dir ${{ github.workspace }}/build/test/integration_test
           -C ${{ env.BUILD_TYPE }}
           --output-on-failure
-          --parallel
+          --parallel 4
 
   thread-sanitizer-integration-tests:
     name: TSan
@@ -98,6 +97,5 @@ jobs:
         run: >
           ctest --test-dir ${{ github.workspace }}/build/test/integration_test
           -C Debug
-          -j 1
+          --parallel 1
           --output-on-failure
-          --parallel

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #include "test_server.h"
 
 #include "quicr/handlers/publish_fetch_handler.h"
@@ -9,6 +12,25 @@
 
 using namespace quicr;
 using namespace quicr_test;
+
+quicr::Expected<void, quicr::Error<quicr::ErrorCode>>
+TestServer::SetupReceived(const std::shared_ptr<quicr::Session>& session,
+                          const quicr::SetupAttributes& setup_attributes)
+{
+    std::lock_guard _(state_mutex_);
+
+    if (setup_received_) {
+        setup_received_->set_value(setup_attributes);
+        setup_received_.reset();
+    }
+
+    if (session_established_) {
+        session_established_->set_value(session);
+        session_established_.reset();
+    }
+
+    return {};
+}
 
 void
 TestPublishTrackHandler::StatusChanged(Status status)
@@ -53,7 +75,8 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
             const auto delivery_timeout = publish_attributes.delivery_timeout.value_or(0ull);
             auto handler = std::make_shared<TestPublishTrackHandler>(publish_attributes.track_full_name,
                                                                      quicr::TrackMode::kStream,
-                                                                     publish_attributes.default_publisher_priority,
+                                                                     publish_attributes.publisher_priority,
+                                                                     publish_attributes.publisher_priority,
                                                                      delivery_timeout,
                                                                      shared_from_this());
             ns_handler->PublishTrack(handler);
@@ -115,6 +138,7 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
       std::make_shared<TestPublishTrackHandler>(track_full_name,
                                                 TrackMode::kStream,
                                                 subscribe_attributes.priority,
+                                                subscribe_attributes.priority,
                                                 ttl,
                                                 std::static_pointer_cast<TestServer>(shared_from_this()));
 
@@ -124,7 +148,7 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
     subscribe_sessions_[track_alias] = session;
 
     // Bind the publish track handler to send data to the subscriber
-    session->BindPublisherTrack(session->GetConnection()->GetID(), request_id, pub_track_handler, false);
+    session->BindPublisherTrack(session->GetDefaultConnection()->GetID(), request_id, pub_track_handler, false);
 
     // Link any existing publisher subscribe handlers (possibly from a different
     // connection/session) to forward to this subscriber.
@@ -172,7 +196,8 @@ TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& sessi
         auto handler =
           std::make_shared<TestPublishTrackHandler>(track.full_track_name,
                                                     quicr::TrackMode::kStream,
-                                                    track.attributes.default_publisher_priority,
+                                                    track.attributes.publisher_priority,
+                                                    track.attributes.publisher_priority,
                                                     track.attributes.delivery_timeout.value_or(0ull),
                                                     std::static_pointer_cast<TestServer>(shared_from_this()));
         ns_handler->PublishTrack(handler);
@@ -248,7 +273,7 @@ TestServer::UnbindSubscriberPublishTrack(const std::uint64_t track_alias)
     }
 
     // Called without our lock held, since the session takes its own lock during unbind.
-    session->UnbindPublisherTrack(session->GetConnection()->GetID(), handler, false);
+    session->UnbindPublisherTrack(session->GetDefaultConnection()->GetID(), handler, false);
 
     return true;
 }
@@ -304,7 +329,8 @@ TestServer::JoiningFetchReceived(const std::shared_ptr<quicr::Session>& session,
                                  const JoiningFetchAttributes& attrs)
 {
     if (joining_fetch_promise_.has_value()) {
-        joining_fetch_promise_->set_value({ session->GetConnection()->GetID(), request_id, track_full_name, attrs });
+        joining_fetch_promise_->set_value(
+          { session->GetDefaultConnection()->GetID(), request_id, track_full_name, attrs });
         joining_fetch_promise_.reset();
     }
 

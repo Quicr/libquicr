@@ -266,6 +266,7 @@ extern "C"
         uint64_t start_object_id;                  /**< Start object ID */
         uint64_t end_group_id;                     /**< End group ID */
         uint64_t end_object_id;                    /**< End object ID */
+        uint64_t rendezvous_timeout_ms;            /**< Wait for a publisher; zero means do not wait. */
     } qbridge_subscribe_track_config_t;
 
     /**

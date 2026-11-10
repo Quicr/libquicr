@@ -1,6 +1,5 @@
-#ifdef _WIN32
-#define _CRT_SECURE_NO_WARNINGS // NOLINT
-#endif
+// SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
 
 #include "picoquic_connection.h"
 #include "quicr/config.h"
@@ -192,7 +191,7 @@ class CallbackPublishTrackHandler final : public PublishTrackHandler
                                 const uint32_t ttl,
                                 const StatusCallback on_status,
                                 const bool support_dynamic_groups = true)
-      : PublishTrackHandler(ftn, TrackMode::kStream, priority, ttl, std::nullopt, { 0, 0 })
+      : PublishTrackHandler(ftn, TrackMode::kStream, priority, priority, ttl, std::nullopt, { 0, 0 })
       , on_status_(std::move(on_status))
     {
         support_new_group_request_ = support_dynamic_groups;
@@ -234,23 +233,23 @@ class SetupBeforeReadyDelegate final : public Connection::Delegate
     {
     }
 
-    void OnConnectionStatus(Connection::Status status) override
+    void OnConnectionStatus(const std::shared_ptr<Connection>& connection, Connection::Status status) override
     {
         if (status == Connection::Status::kReady && !first_stream_received_) {
             ready_pending_ = true;
             return;
         }
-        delegate_->OnConnectionStatus(status);
+        delegate_->OnConnectionStatus(connection, status);
     }
 
-    void OnRecvDgram() override { delegate_->OnRecvDgram(); }
+    void OnRecvDgram(const std::shared_ptr<Connection>& connection) override { delegate_->OnRecvDgram(connection); }
 
     bool OnRecvStream(const std::shared_ptr<Stream>& stream) override
     {
         first_stream_received_ = true;
         const bool more_data = delegate_->OnRecvStream(stream);
         if (std::exchange(ready_pending_, false)) {
-            delegate_->OnConnectionStatus(Connection::Status::kReady);
+            delegate_->OnConnectionStatus(stream->GetConnection(), Connection::Status::kReady);
         }
         return more_data;
     }
@@ -260,17 +259,20 @@ class SetupBeforeReadyDelegate final : public Connection::Delegate
         delegate_->OnStreamClosed(stream, flag);
     }
 
-    void OnConnectionMetricsSampled(const MetricsTimeStamp sample_time, const QuicConnectionMetrics& metrics) override
+    void OnConnectionMetricsSampled(const std::shared_ptr<Connection>& connection,
+                                    const MetricsTimeStamp sample_time,
+                                    const QuicConnectionMetrics& metrics) override
     {
-        delegate_->OnConnectionMetricsSampled(sample_time, metrics);
+        delegate_->OnConnectionMetricsSampled(connection, sample_time, metrics);
     }
 
-    void OnStreamMetricsStampled(const MetricsTimeStamp sample_time,
+    void OnStreamMetricsStampled(const std::shared_ptr<Connection>& connection,
+                                 const MetricsTimeStamp sample_time,
                                  std::uint64_t stream_id,
                                  const QuicStreamMetrics& metrics,
                                  bool is_final) override
     {
-        delegate_->OnStreamMetricsStampled(sample_time, stream_id, metrics, is_final);
+        delegate_->OnStreamMetricsStampled(connection, sample_time, stream_id, metrics, is_final);
     }
 
   private:
@@ -323,12 +325,13 @@ MakeTestServer(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
                std::optional<std::size_t> max_connections = std::nullopt,
                std::optional<std::uint64_t> initial_max_stream_data = std::nullopt,
-               std::optional<std::uint64_t> metrics_sample_ms = std::nullopt)
+               std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
+               std::optional<std::uint16_t> server_port = std::nullopt)
 {
     // Run the server.
     ServerConfig server_config;
     server_config.server_bind_ip = kIp;
-    server_config.server_port = GetTestPort();
+    server_config.server_port = server_port.value_or(GetTestPort());
     server_config.endpoint_id = kServerId;
     server_config.transport_config.debug = true;
     server_config.transport_config.tls_cert_filename = "server-cert.pem";
@@ -363,7 +366,9 @@ MakeTestClient(quicr::SessionManager& session_mgr,
                const std::optional<std::string>& qlog_path = std::nullopt,
                const std::string& protocol_scheme = "moq",
                const std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
-               std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>())
+               std::shared_ptr<TestClient> callbacks = std::make_shared<TestClient>(),
+               std::optional<std::uint16_t> server_port = std::nullopt,
+               std::optional<std::size_t> max_connections = std::nullopt)
 {
     // Connect a client.
     ClientConfig client_config;
@@ -373,7 +378,11 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     if (metrics_sample_ms.has_value()) {
         client_config.transport_config.metrics_sample_ms = *metrics_sample_ms;
     }
-    client_config.connect_uri = protocol_scheme + "://" + kIp + ":" + std::to_string(GetTestPort()) + "/relay";
+    if (max_connections.has_value()) {
+        client_config.transport_config.max_connections = *max_connections;
+    }
+    client_config.connect_uri =
+      quicr::format("{}://{}:{}/relay", protocol_scheme, kIp, server_port.value_or(GetTestPort()));
     if (qlog_path.has_value()) {
         client_config.transport_config.quic_qlog_path = *qlog_path;
     }
@@ -443,6 +452,12 @@ class TestSubscribeHandler : public SubscribeTrackHandler
     {
         std::lock_guard lock(mutex_);
         return request_error_.has_value();
+    }
+
+    std::optional<ErrorCode> GetRequestError() const
+    {
+        std::lock_guard lock(mutex_);
+        return request_error_;
     }
 
     std::uint64_t RequestUpdateOks() const noexcept { return request_update_oks_; }
@@ -696,7 +711,10 @@ TEST_CASE("Integration - Connection")
     auto server = MakeTestServer(session_mgr);
 
     auto test_connection = [&](const std::string& protocol_scheme) {
-        std::promise<ServerSetupAttributes> recv_attributes;
+        std::promise<SetupAttributes> client_attributes;
+        auto client_setup = client_attributes.get_future();
+        server->SetSetupReceivedPromise(std::move(client_attributes));
+        std::promise<SetupAttributes> recv_attributes;
         auto future = recv_attributes.get_future();
         auto callbacks = std::make_shared<TestClient>();
         callbacks->SetConnectedPromise(std::move(recv_attributes));
@@ -704,8 +722,10 @@ TEST_CASE("Integration - Connection")
           MakeTestClient(session_mgr, false, std::nullopt, protocol_scheme, std::nullopt, std::move(callbacks));
         auto status = future.wait_for(kDefaultTimeout);
         REQUIRE(status == std::future_status::ready);
-        const auto& [moqt_version, server_id] = future.get();
-        CHECK_EQ(server_id, kServerId);
+        const auto attributes = future.get();
+        CHECK_EQ(attributes.endpoint_id, kServerId);
+        REQUIRE(client_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(client_setup.get().endpoint_id, "client");
     };
 
     SUBCASE("Raw QUIC")
@@ -726,7 +746,7 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
     auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
 
-    std::promise<ServerSetupAttributes> recv_attributes;
+    std::promise<SetupAttributes> recv_attributes;
     auto setup_received = recv_attributes.get_future();
     auto callbacks = std::make_shared<TestClient>();
     callbacks->SetConnectedPromise(std::move(recv_attributes));
@@ -734,9 +754,9 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
     ClientConfig config;
     config.endpoint_id = "client";
     config.connect_uri = "moq://" + kIp + ":" + std::to_string(GetTestPort()) + "/relay";
-    auto tick_service = std::make_shared<timeq::threaded_tick_service>(config.tick_service_sleep_delay_us);
+    auto tick_service = quicr::Clock::Create(config.tick_service_sleep_delay_us);
     auto transport = Transport::MakeClientTransport(
-      { kIp, GetTestPort(), TransportProtocol::kQuic, "/relay" }, config.transport_config, tick_service, nullptr);
+      { kIp, GetTestPort(), quicr::WebTransportOptions{ "/relay" } }, config.transport_config, tick_service, nullptr);
 
     using ClientSession = std::pair<std::shared_ptr<Session>, std::shared_ptr<SetupBeforeReadyDelegate>>;
     std::promise<ClientSession> session_created;
@@ -759,6 +779,8 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
     REQUIRE(WaitFor([&session]() { return session->GetStatus() == Session::Status::kReady; }));
 
     session->Disconnect();
+    CHECK_EQ(session->GetStatus(), Session::Status::kNotConnected);
+    CHECK(session->GetDefaultConnection() == nullptr);
     transport->Shutdown();
 }
 
@@ -776,6 +798,8 @@ TEST_CASE("Integration - Subscribe")
         ftn.name = { 1, 2, 3 };
         const messages::Filter filter = messages::TrackFilter{ 1, 2, 3 };
         const auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt, filter);
+        const auto rendezvous_timeout = std::chrono::seconds{ 30 };
+        handler->SetRendezvousTimeout(rendezvous_timeout);
 
         // When we subscribe, server should receive a subscribe.
         std::promise<TestServer::SubscribeDetails> promise;
@@ -792,6 +816,7 @@ TEST_CASE("Integration - Subscribe")
         CHECK_EQ(details.track_full_name.name, ftn.name);
         CHECK_EQ(details.track_full_name.name_space, ftn.name_space);
         CHECK_EQ(details.subscribe_attributes.filter, filter);
+        CHECK_EQ(details.subscribe_attributes.rendezvous_timeout, rendezvous_timeout);
 
         // Server should respond, track should go live.
         const bool track_live =
@@ -824,6 +849,349 @@ TEST_CASE("Integration - Subscribe")
     }
 }
 
+TEST_CASE("Integration - Publisher subscriber and transport priorities remain distinct")
+{
+    constexpr std::uint8_t publisher_priority = 23;
+    constexpr std::uint8_t subscriber_priority = 71;
+    constexpr std::uint8_t transport_priority = 11;
+
+    auto test_priorities = [&](const std::string& protocol_scheme, TrackMode track_mode) {
+        auto session_mgr = MakeTestSessionManager();
+        auto server = MakeTestServer(session_mgr);
+        auto [subscriber, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "priorities", "distinct" }), { 1 } };
+        auto subscribe_handler = TestSubscribeHandler::Create(ftn, subscriber_priority, std::nullopt);
+
+        std::promise<TestServer::SubscribeDetails> subscribe_promise;
+        auto subscribe_future = subscribe_promise.get_future();
+        server->SetSubscribePromise(std::move(subscribe_promise));
+        subscriber->SubscribeTrack(subscribe_handler);
+        REQUIRE(subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(subscribe_future.get().subscribe_attributes.priority, subscriber_priority);
+        REQUIRE(WaitFor([&]() { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
+        auto publish_handler = server->GetSubscriberPublishHandler(TrackHash(ftn).track_fullname_hash);
+        REQUIRE(publish_handler != nullptr);
+        publish_handler->SetDefaultTrackMode(track_mode);
+        publish_handler->SetPublisherPriority(publisher_priority);
+        publish_handler->SetPublishObjectPriority(transport_priority);
+        const Bytes payload{ 0xAA, 0xBB, 0xCC };
+        const ObjectHeaders headers{ .group_id = 1, .object_id = 0, .payload_length = payload.size() };
+        REQUIRE_EQ(publish_handler->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+
+        // Observe the transport's enqueue state, rather than just the handler's configured priority.
+        if (track_mode == TrackMode::kStream) {
+            auto stream = std::dynamic_pointer_cast<PicoQuicStream>(publish_handler->GetSubgroupStream(1, 0));
+            REQUIRE(stream != nullptr);
+            std::lock_guard lock(stream->tx_mutex);
+            CHECK_EQ(stream->priority, transport_priority);
+        } else {
+            auto session = publish_handler->GetSession().lock();
+            REQUIRE(session != nullptr);
+            auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
+            REQUIRE(connection != nullptr);
+            // Only this thread publishes datagrams on this connection.
+            CHECK_EQ(connection->dgram_priority, std::optional<std::uint8_t>{ transport_priority });
+        }
+
+        REQUIRE(WaitFor([&]() { return subscribe_handler->GetReceivedCount() == 1; }));
+        const auto objects = subscribe_handler->GetReceivedObjects();
+        REQUIRE_EQ(objects.size(), 1);
+        CHECK_EQ(objects.front().priority, std::optional<std::uint8_t>{ publisher_priority });
+        CHECK_EQ(objects.front().track_mode, std::optional<TrackMode>{ track_mode });
+        CHECK_EQ(objects.front().data, payload);
+        subscriber->UnsubscribeTrack(subscribe_handler);
+    };
+
+    SUBCASE("Raw QUIC subgroup")
+    {
+        test_priorities("moq", TrackMode::kStream);
+    }
+    SUBCASE("Raw QUIC datagram")
+    {
+        test_priorities("moq", TrackMode::kDatagram);
+    }
+    SUBCASE("WebTransport subgroup")
+    {
+        test_priorities("https", TrackMode::kStream);
+    }
+    SUBCASE("WebTransport datagram")
+    {
+        test_priorities("https", TrackMode::kDatagram);
+    }
+}
+
+TEST_CASE("Integration - GOAWAY migration")
+{
+    const auto test_migration = [](const std::string& protocol_scheme) {
+        auto session_mgr = MakeTestSessionManager();
+        const auto old_relay_port = GetTestPort();
+        const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
+
+        auto old_relay =
+          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
+        auto new_relay =
+          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
+
+        // Connect the client to relay A and retain relay A's server-side session
+        // so the test can originate GOAWAY from the peer.
+        std::promise<std::shared_ptr<Session>> old_server_session_promise;
+        auto old_server_session_future = old_server_session_promise.get_future();
+        old_relay->SetSessionEstablishedPromise(std::move(old_server_session_promise));
+
+        const auto client = MakeTestClient(session_mgr,
+                                           true,
+                                           std::nullopt,
+                                           protocol_scheme,
+                                           std::nullopt,
+                                           std::make_shared<TestClient>(),
+                                           old_relay_port,
+                                           2);
+
+        const auto& original_session = client.first;
+        REQUIRE(old_server_session_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto old_server_session = old_server_session_future.get();
+        REQUIRE(old_server_session != nullptr);
+
+        // Establish the original subscription on relay A.
+        const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "goaway", "migration" }), { 1, 2, 3 } };
+        const messages::Filter filter = messages::TrackFilter{ 4, 5, 6 };
+        const auto original_handler = TestSubscribeHandler::Create(ftn, 7, std::nullopt, filter);
+
+        std::promise<TestServer::SubscribeDetails> old_subscribe_promise;
+        auto old_subscribe_future = old_subscribe_promise.get_future();
+        old_relay->SetSubscribePromise(std::move(old_subscribe_promise));
+        original_session->SubscribeTrack(original_handler);
+
+        REQUIRE(old_subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto old_subscribe = old_subscribe_future.get();
+        REQUIRE(
+          WaitFor([&original_handler] { return original_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+        const auto old_connection = original_handler->GetConnection();
+        REQUIRE(old_connection != nullptr);
+        CHECK_EQ(original_handler->GetConnectionId(), old_connection->GetID());
+
+        const FullTrackName publish_name{ TrackNamespace(std::vector<std::string>{ "goaway", "published" }),
+                                          { 4, 5, 6 } };
+        const auto publish_handler =
+          PublishTrackHandler::Create(publish_name, TrackMode::kStream, 3, 3, 5000, { 0, 0 });
+        original_session->PublishTrack(publish_handler);
+        REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
+        REQUIRE_EQ(publish_handler->GetConnection(), old_connection);
+
+        // Observe the subscription being renegotiated on relay B, then redirect.
+        std::promise<TestServer::SubscribeDetails> new_subscribe_promise;
+        auto new_subscribe_future = new_subscribe_promise.get_future();
+        new_relay->SetSubscribePromise(std::move(new_subscribe_promise));
+
+        old_server_session->GoAway(quicr::format("{}://{}:{}/relay", protocol_scheme, kIp, new_relay_port),
+                                   std::chrono::seconds{ 5 });
+
+        // Relay B must receive the same subscription intent and request identity.
+        REQUIRE(new_subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto new_subscribe = new_subscribe_future.get();
+
+        CHECK_EQ(new_subscribe.request_id, old_subscribe.request_id);
+        CHECK_EQ(new_subscribe.track_full_name.name_space, old_subscribe.track_full_name.name_space);
+        CHECK_EQ(new_subscribe.track_full_name.name, old_subscribe.track_full_name.name);
+        CHECK_EQ(new_subscribe.subscribe_attributes.filter, old_subscribe.subscribe_attributes.filter);
+
+        // The original handler must be rebound in place to the original session's
+        // new current connection.
+        REQUIRE(WaitFor([&original_handler, &old_connection] {
+            const auto connection = original_handler->GetConnection();
+            return connection != nullptr && connection->GetID() != old_connection->GetID() &&
+                   original_handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
+        }));
+
+        const auto new_connection = original_handler->GetConnection();
+        REQUIRE(new_connection != nullptr);
+        CHECK_NE(new_connection, old_connection);
+        REQUIRE(WaitFor([&publish_handler, &new_connection] {
+            return publish_handler->GetConnection() == new_connection && publish_handler->CanPublish();
+        }));
+        CHECK_EQ(original_session->GetDefaultConnection(), new_connection);
+
+        const Bytes payload{ 1, 2, 3 };
+        CHECK_EQ(
+          publish_handler->PublishObject(
+            { .group_id = 0, .object_id = 0, .payload_length = payload.size(), .track_mode = TrackMode::kStream },
+            payload),
+          PublishTrackHandler::PublishObjectStatus::kOk);
+
+        // Relay A is released only after the handler has cut over.
+        CHECK(WaitFor([&old_connection] { return old_connection->GetStatus() != Connection::Status::kReady; }));
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_migration("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_migration("https");
+    }
+}
+
+TEST_CASE("Integration - request GOAWAY migrates part of a session")
+{
+    const auto test_partial_migration = [](const std::string& protocol_scheme) {
+        auto session_mgr = MakeTestSessionManager();
+        const auto old_relay_port = GetTestPort();
+        const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
+        auto old_relay =
+          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
+        [[maybe_unused]] auto new_relay =
+          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
+
+        std::promise<std::shared_ptr<Session>> old_server_session_promise;
+        auto old_server_session_future = old_server_session_promise.get_future();
+        old_relay->SetSessionEstablishedPromise(std::move(old_server_session_promise));
+
+        const auto client = MakeTestClient(session_mgr,
+                                           true,
+                                           std::nullopt,
+                                           protocol_scheme,
+                                           std::nullopt,
+                                           std::make_shared<TestClient>(),
+                                           old_relay_port,
+                                           2);
+        const auto& session = client.first;
+        const auto old_connection = session->GetDefaultConnection();
+        REQUIRE(old_connection != nullptr);
+        REQUIRE(old_server_session_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto old_server_session = old_server_session_future.get();
+        REQUIRE(old_server_session != nullptr);
+
+        const TrackNamespace track_namespace(std::vector<std::string>{ "partial", "migration" });
+        const FullTrackName migrating_name{ track_namespace, { 1 } };
+        const FullTrackName staying_name{ track_namespace, { 2 } };
+        const auto migrating_handler = TestSubscribeHandler::Create(migrating_name, 0, std::nullopt);
+        const auto staying_handler = TestSubscribeHandler::Create(staying_name, 0, std::nullopt);
+
+        session->SubscribeTrack(migrating_handler);
+        session->SubscribeTrack(staying_handler);
+        REQUIRE(WaitFor([&migrating_handler, &staying_handler] {
+            return migrating_handler->GetStatus() == SubscribeTrackHandler::Status::kOk &&
+                   staying_handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
+        }));
+        REQUIRE_EQ(migrating_handler->GetConnection(), old_connection);
+        REQUIRE_EQ(staying_handler->GetConnection(), old_connection);
+
+        const auto server_handler =
+          old_relay->GetSubscriberPublishHandler(TrackHash(migrating_name).track_fullname_hash);
+        REQUIRE(server_handler != nullptr);
+
+        const auto redirect_uri = quicr::format("{}://{}:{}/relay", protocol_scheme, kIp, new_relay_port);
+        old_server_session->GoAway(redirect_uri, std::chrono::seconds{ 5 }, server_handler);
+        REQUIRE(WaitFor([&migrating_handler, &old_connection] {
+            const auto connection = migrating_handler->GetConnection();
+            return connection != nullptr && connection != old_connection &&
+                   migrating_handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
+        }));
+
+        CHECK_EQ(staying_handler->GetConnection(), old_connection);
+        CHECK_EQ(staying_handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
+        CHECK_EQ(old_connection->GetStatus(), Connection::Status::kReady);
+        CHECK_EQ(session->GetDefaultConnection(), old_connection);
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_partial_migration("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_partial_migration("https");
+    }
+}
+
+TEST_CASE("Integration - Subscribe rejection preserves rendezvous error codes")
+{
+    auto test_error = [](const std::string& protocol_scheme) {
+        const std::vector<std::pair<RequestErrorCode, ErrorCode>> errors{
+            { RequestErrorCode::kDoesNotExist, ErrorCode::kDoesNotExist },
+            { RequestErrorCode::kTimeout, ErrorCode::kTimeout }
+        };
+        for (const auto& error : errors) {
+            const auto callback_error = error.first;
+            const auto wire_error = error.second;
+            CAPTURE(callback_error);
+            auto session_mgr = MakeTestSessionManager();
+            auto server = MakeTestServer(session_mgr);
+            server->SetSubscribeError(callback_error, "Publisher unavailable");
+            auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+            const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "rendezvous", "missing" }), { 1 } };
+            auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
+            session->SubscribeTrack(handler);
+            REQUIRE(WaitFor([&handler] { return handler->RequestErrorReceived(); }));
+            CHECK(handler->GetRequestError() == wire_error);
+        }
+    };
+
+    SUBCASE("Raw QUIC")
+    {
+        test_error("moq");
+    }
+    SUBCASE("WebTransport")
+    {
+        test_error("https");
+    }
+}
+
+TEST_CASE("Integration - REQUEST_ERROR redirect migration")
+{
+    auto session_mgr = MakeTestSessionManager();
+    const auto old_relay_port = GetTestPort();
+    const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
+    auto old_relay =
+      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
+    auto new_relay =
+      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
+
+    const FullTrackName redirected_name{ TrackNamespace(std::vector<std::string>{ "request-error", "replacement" }),
+                                         { 2 } };
+    old_relay->SetSubscribeError(RequestErrorCode::kRedirect,
+                                 "Use the replacement relay",
+                                 Redirect{
+                                   .uri = "moq://" + kIp + ":" + std::to_string(new_relay_port) + "/relay",
+                                   .track_namespace = redirected_name.name_space,
+                                   .track_name = redirected_name.name,
+                                   .request_id = std::nullopt,
+                                 });
+
+    std::promise<TestServer::SubscribeDetails> old_subscribe_promise;
+    auto old_subscribe_future = old_subscribe_promise.get_future();
+    old_relay->SetSubscribePromise(std::move(old_subscribe_promise));
+    std::promise<TestServer::SubscribeDetails> new_subscribe_promise;
+    auto new_subscribe_future = new_subscribe_promise.get_future();
+    new_relay->SetSubscribePromise(std::move(new_subscribe_promise));
+
+    auto [session, callbacks] = MakeTestClient(
+      session_mgr, true, std::nullopt, "moq", std::nullopt, std::make_shared<TestClient>(), old_relay_port, 2);
+    const auto old_connection = session->GetDefaultConnection();
+    REQUIRE(old_connection != nullptr);
+
+    const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "request-error", "redirect" }), { 1 } };
+    const auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
+    session->SubscribeTrack(handler);
+
+    REQUIRE(old_subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+    const auto old_subscribe = old_subscribe_future.get();
+    REQUIRE(new_subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+    const auto new_subscribe = new_subscribe_future.get();
+    CHECK_EQ(new_subscribe.request_id, old_subscribe.request_id);
+    CHECK_EQ(new_subscribe.track_full_name.name_space, redirected_name.name_space);
+    CHECK_EQ(new_subscribe.track_full_name.name, redirected_name.name);
+    CHECK_EQ(handler->GetFullTrackName().name_space, ftn.name_space);
+    CHECK_EQ(handler->GetFullTrackName().name, ftn.name);
+    REQUIRE(WaitFor([&handler, &old_connection] {
+        const auto connection = handler->GetConnection();
+        return connection != nullptr && connection->GetID() != old_connection->GetID() &&
+               handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
+    }));
+}
+
 TEST_CASE("Integration - Datagram object roundtrip")
 {
     auto test_datagrams = [](const std::string& protocol_scheme) {
@@ -833,7 +1201,7 @@ TEST_CASE("Integration - Datagram object roundtrip")
         auto [subscriber, subscriber_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
         const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "datagram", "roundtrip" }), { 1 } };
-        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kDatagram, 3, 5000, { 0, 0 });
+        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kDatagram, 3, 3, 5000, { 0, 0 });
         publisher->PublishTrack(publish_handler);
         REQUIRE(WaitFor([&publish_handler]() { return publish_handler->CanPublish(); }));
 
@@ -869,7 +1237,7 @@ TEST_CASE("Integration - Datagram object roundtrip")
             CHECK_EQ(object.group_id, 10 + i);
             CHECK_EQ(object.object_id, 20 + i);
             CHECK_EQ(object.status, ObjectStatus::kAvailable);
-            CHECK_EQ(object.priority, 7);
+            CHECK_EQ(object.priority, std::optional<std::uint8_t>{ 3 });
             CHECK_EQ(object.track_mode, TrackMode::kDatagram);
             CHECK_EQ(object.extensions, extensions);
             CHECK_EQ(object.data, (Bytes{ static_cast<std::uint8_t>(i), 0x5A, 0xA5 }));
@@ -1356,7 +1724,7 @@ TEST_CASE("Integration - Cancelling a subgroup")
         subscribe_future.get();
 
         // Pub.
-        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 1000, { 0, 0 });
         publisher_client->PublishTrack(pub_handler);
         REQUIRE(WaitFor([&] { return pub_handler->CanPublish(); }));
 
@@ -1577,7 +1945,7 @@ TEST_CASE("Integration - Handlers with no transport")
 
     // Publish.
     {
-        const auto handler = PublishTrackHandler::Create(FullTrackName(), TrackMode::kStream, 0, 0, { 0, 0 });
+        const auto handler = PublishTrackHandler::Create(FullTrackName(), TrackMode::kStream, 0, 0, 0, { 0, 0 });
         ObjectHeaders headers = { .group_id = 0,
                                   .object_id = 0,
                                   .payload_length = 1,
@@ -1612,7 +1980,7 @@ TEST_CASE("Group ID Gap")
         ftn.name = { 1, 2, 3 };
 
         // Pub.
-        const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 500, { 0, 0 });
+        const auto pub = PublishTrackHandler::Create(ftn, TrackMode::kStream, 0, 0, 500, { 0, 0 });
         session->PublishTrack(pub);
 
         // Wait for publisher to be ready
@@ -1970,7 +2338,7 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
         const bool ns_ok =
           WaitFor([&ns_handler]() { return ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; });
         REQUIRE(ns_ok);
-        const auto publish = PublishTrackHandler::Create(existing_track, TrackMode::kStream, 10, 5000, { 0, 0 });
+        const auto publish = PublishTrackHandler::Create(existing_track, TrackMode::kStream, 10, 10, 5000, { 0, 0 });
         publisher->PublishTrack(publish);
 
         // Client should receive matched PUBLISH for existing track.
@@ -2074,7 +2442,7 @@ TEST_CASE("Integration - Announce Flow")
         const FullTrackName ftn{ prefix, quicr::Bytes{ name.begin(), name.end() } };
 
         std::weak_ptr<PublishTrackHandler> w_pub_handler;
-        auto pub_h = TestPublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 5000, { 0, 0 });
+        auto pub_h = TestPublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 1, 5000, { 0, 0 });
         REQUIRE_NOTHROW(w_pub_handler = pub_h);
 
         session->PublishTrack(pub_h);
@@ -2174,7 +2542,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
                               .object_id = 0,
                               .subgroup_id = 0,
                               .payload_length = 1,
-                              .priority = 5,
+                              .priority = 4,
                               .track_mode = TrackMode::kStream };
         cached[0].payload = { 0 };
         cached[1].headers = cached[0].headers;
@@ -2184,13 +2552,13 @@ TEST_CASE("Integration - Fetch object roundtrip")
                               .object_id = 3,
                               .subgroup_id = 1,
                               .payload_length = 0,
-                              .priority = 7,
+                              .priority = 4,
                               .track_mode = TrackMode::kStream };
         cached[3].headers = { .group_id = 102,
                               .object_id = 0,
                               .subgroup_id = 1,
                               .payload_length = 1,
-                              .priority = 7,
+                              .priority = 4,
                               .track_mode = TrackMode::kStream };
         cached[3].payload = { 2 };
         cached[4].headers = { .group_id = 102,
@@ -2211,7 +2579,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
 
         server->SetFetchResponseData(cached);
 
-        auto fetch_handler = TestFetchTrackHandler::Create(ftn, 0, { 100, 0 }, { 103, std::nullopt });
+        auto fetch_handler = TestFetchTrackHandler::Create(ftn, 4, { 100, 0 }, { 103, std::nullopt });
 
         session_mgr.AddHandler(session, fetch_handler);
 
@@ -2309,7 +2677,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
         REQUIRE(sub_ready);
 
         // Create publisher with stream mode (explicit subgroup ID)
-        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 1000, { 0, 0 });
         publisher_session->PublishTrack(pub_handler);
 
         // Wait for publisher to be ready
@@ -2511,7 +2879,7 @@ TEST_CASE("Integration - Small data callbacks assemble")
 
     // Pub.
     const FullTrackName ftn{ TrackNamespace(std::vector<std::string>{ "small", "callbacks" }), { 1 } };
-    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 5000, { 0, 0 });
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 5000, { 0, 0 });
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
@@ -2553,7 +2921,7 @@ TEST_CASE("Integration - A forwarding subscriber is given subgroup bytes rather 
     REQUIRE(
       WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 10'000, { 0, 0 });
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
@@ -2630,7 +2998,7 @@ TEST_CASE("Integration - A forwarded subgroup framed from its first object is st
     REQUIRE(
       WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 10'000, { 0, 0 });
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
@@ -2681,11 +3049,11 @@ TEST_CASE("Integration - Invalid stream type is a PROTOCOL_VIOLATION")
     REQUIRE(
       WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 10'000, { 0, 0 });
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
-    const auto connection = subscriber->GetConnection();
+    const auto connection = subscriber->GetDefaultConnection();
     const auto pq_connection = std::dynamic_pointer_cast<PicoQuicConnection>(connection);
     REQUIRE(pq_connection != nullptr);
 
@@ -2706,7 +3074,7 @@ TEST_CASE("Integration - Invalid stream type is a PROTOCOL_VIOLATION")
     CHECK(WaitFor([&connection] { return connection->GetStatus() == Connection::Status::kRemoteRequestClose; }));
 
     // Any other (publisher's in this case) session should stay up.
-    CHECK_EQ(publisher->GetConnection()->GetStatus(), Connection::Status::kReady);
+    CHECK_EQ(publisher->GetDefaultConnection()->GetStatus(), Connection::Status::kReady);
 
     // Which leaves the track with nothing to arrive on, the subscription having gone with it.
     const std::vector<std::uint8_t> payload(8, 0x5c);
@@ -2738,7 +3106,7 @@ TEST_CASE("Integration - Failed publish does not create subgroup state")
     subscriber->SubscribeTrack(sub_handler);
     REQUIRE(WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-    auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+    auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 1000, { 0, 0 });
     publisher->PublishTrack(pub_handler);
     REQUIRE(WaitFor([&pub_handler]() { return pub_handler->CanPublish(); }));
 
@@ -2820,7 +3188,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         ftn.name = { 0x01 };
 
         // Publisher.
-        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 1000, { 0, 0 });
+        auto pub_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 1000, { 0, 0 });
         publisher_session->PublishTrack(pub_handler);
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
@@ -3194,6 +3562,71 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
     }
 }
 
+TEST_CASE("Integration - New group requests preserve server forwarding state")
+{
+    auto session_mgr = MakeTestSessionManager();
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    std::string scheme = "moq";
+    SUBCASE("Raw QUIC") {}
+    SUBCASE("WebTransport")
+    {
+        scheme = "https";
+    }
+
+    auto [subscriber, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, scheme);
+    const FullTrackName ftn{ TrackNamespace({ "paused-new-group" }), { 1 } };
+    const auto sub_handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
+    subscriber->SubscribeTrack(sub_handler);
+    REQUIRE(WaitFor([&]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+    const auto pub_handler = server->GetSubscriberPublishHandler(TrackHash(ftn).track_fullname_hash);
+    REQUIRE(pub_handler);
+    const auto session = pub_handler->GetSession().lock();
+    REQUIRE(session);
+    const auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(pub_handler->GetConnection());
+    REQUIRE(connection);
+    REQUIRE(pub_handler->GetRequestStreamId().has_value());
+    const auto stream = connection->GetStream(*pub_handler->GetRequestStreamId());
+    REQUIRE(stream);
+
+    for (const auto forward :
+         { std::optional<std::uint8_t>{}, std::optional<std::uint8_t>{ 0 }, std::optional<std::uint8_t>{ 1 } }) {
+        const auto acknowledgements = sub_handler->RequestUpdateOks();
+        sub_handler->Pause();
+        REQUIRE(WaitFor([&]() { return sub_handler->RequestUpdateOks() == acknowledgements + 1; }));
+        REQUIRE(WaitFor([&]() { return pub_handler->GetStatus() == PublishTrackHandler::Status::kPaused; }));
+
+        // Inject the wire update because RequestNewGroup always sends FORWARD=1.
+        const auto params = messages::Parameters{}
+                              .Add(messages::ParameterType::kNewGroupRequest, std::uint64_t{ 0 })
+                              .AddOptional(messages::ParameterType::kForward, forward);
+        auto msg = messages::Message{}.PrependType(messages::ControlMessageType::kRequestUpdate).ReserveLength();
+        msg.Append(UintVar{ 100 });
+        msg.Append(params);
+        const auto bytes = msg.ToBytes();
+        {
+            std::lock_guard lock(stream->rx_mutex);
+            stream->rx_data.Push(*bytes);
+        }
+        connection->OnRecvStream(stream);
+
+        REQUIRE(WaitFor([&]() { return sub_handler->RequestUpdateOks() == acknowledgements + 2; }));
+        const bool resumed = forward == 1;
+        CHECK_EQ(pub_handler->GetStatus(),
+                 resumed ? PublishTrackHandler::Status::kNewGroupRequested : PublishTrackHandler::Status::kPaused);
+        const Bytes payload{ 42 };
+        const ObjectHeaders headers{ .group_id = 1,
+                                     .object_id = 0,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable };
+        CHECK_EQ(pub_handler->PublishObject(headers, payload),
+                 resumed ? PublishTrackHandler::PublishObjectStatus::kOk
+                         : PublishTrackHandler::PublishObjectStatus::kPaused);
+        sub_handler->Resume();
+        REQUIRE(WaitFor([&]() { return sub_handler->RequestUpdateOks() == acknowledgements + 3; }));
+    }
+}
+
 TEST_CASE("Integration - Request updates reuse the handler's request stream")
 {
     auto session_mgr = MakeTestSessionManager();
@@ -3265,7 +3698,7 @@ TEST_CASE("Integration - Stream data is delivered before its FIN callback")
     REQUIRE(
       WaitFor([&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+    auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 10'000, { 0, 0 });
     publisher->PublishTrack(publish_handler);
     REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
@@ -3306,7 +3739,7 @@ TEST_CASE("Integration - Subscription subgroup close")
         REQUIRE(WaitFor(
           [&subscribe_handler] { return subscribe_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 10'000, { 0, 0 });
+        auto publish_handler = PublishTrackHandler::Create(ftn, TrackMode::kStream, 3, 3, 10'000, { 0, 0 });
         publisher->PublishTrack(publish_handler);
         REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
 
@@ -3327,7 +3760,7 @@ TEST_CASE("Integration - Subscription subgroup close")
         REQUIRE_EQ(closed_stream_ids.size(), 1);
         const auto stream_id = closed_stream_ids.front();
         CHECK(callbacks->CheckStreamState(stream_id) == false);
-        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetConnection());
+        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetDefaultConnection());
         CHECK(WaitFor([&] { return connection->GetStream(stream_id) == nullptr; }));
         CHECK_EQ(subscribe_handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
     };
@@ -3395,7 +3828,7 @@ TEST_CASE("Integration - Track Status")
         CHECK(subscriber_client->CheckStreamState(stream_id) == false);
         REQUIRE(WaitFor([&] { return server->WasStreamReset(stream_id).has_value(); }));
         CHECK(server->WasStreamReset(stream_id) == false);
-        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetConnection());
+        const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetDefaultConnection());
         CHECK(WaitFor([&] { return connection->GetStream(stream_id) == nullptr; }));
     };
 

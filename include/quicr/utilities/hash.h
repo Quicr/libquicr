@@ -198,6 +198,11 @@ namespace quicr {
             }
 
           public:
+            /**
+             * @brief Computes CityHash64 for the supplied bytes.
+             * @param bytes Input view, which must remain valid for the duration of the call.
+             * @return Deterministic 64-bit non-cryptographic hash.
+             */
             constexpr std::uint64_t operator()(std::span<const std::uint8_t> bytes)
             {
                 std::size_t len = bytes.size();
@@ -258,8 +263,8 @@ namespace quicr {
      * @details Adds/combines new hash to existing hash. Existing hash will
      *       be updated.
      *
-     * @param[in,out]   seed    Existing hash to update
-     * @param[in]       value   New hash to add to the existing (combine)
+     * @param seed Existing hash to update.
+     * @param value New hash to combine with @p seed.
      */
     constexpr void hash_combine(std::uint64_t& seed, const std::uint64_t& value)
     {
@@ -267,6 +272,7 @@ namespace quicr {
     }
 }
 
+/** @brief `std::hash` specialization using the non-cryptographic CityHash64 algorithm. */
 template<>
 struct std::hash<std::span<const std::uint8_t>> : public quicr::detail::CityHash64
 {};

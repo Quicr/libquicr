@@ -4,6 +4,10 @@ libquicr
 [![Ubuntu](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml)
 [![macOS](https://github.com/Quicr/libquicr/actions/workflows/macos.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/macos.yml)
 [![Windows](https://github.com/Quicr/libquicr/actions/workflows/windows.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/windows.yml)
+[![Android](https://github.com/Quicr/libquicr/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/android.yml)
+
+[![REUSE status](https://api.reuse.software/badge/github.com/fsfe/reuse-action)](https://api.reuse.software/info/github.com/fsfe/reuse-action)
+[![REUSE Compliance](https://github.com/Quicr/libquicr/actions/workflows/reuse.yaml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/reuse.yaml)
 
 libquicr is a C++ implementation of Media over QUIC Transport (MOQT), currently targeting
 [draft-ietf-moq-transport-18](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18).
@@ -14,20 +18,30 @@ It provides APIs for client and server endpoints, including publishers, subscrib
 ## Navigation
 
 * [Requirements](#requirements)
-  * [Tools](#tools)
+  * [Build tools](#build-tools)
   * [Ubuntu](#ubuntu-2204-jammy)
   * [Debian](#debian-bookworm)
   * [Apple/Mac](#applemac)
 * [Dependencies](#dependencies)
   * [Caching dependency sources](#caching-dependency-sources)
+  * [Third-party license notices](#third-party-license-notices)
+  * [TLS providers](#tls-providers)
+    * [No external TLS backend](#no-external-tls-backend)
+    * [OpenSSL-compatible providers](#openssl-compatible-providers)
+    * [BoringSSL](#boringssl)
+    * [Mbed TLS](#mbed-tls)
+* [Command-line tools](#command-line-tools)
 * [CMake options](#cmake-options)
 * [Make](#make)
 * [C Bridge Target](#c-bridge-target)
+  * [Building C Bridge](#building-c-bridge)
 * [Generate documentation](#generate-documentation)
+  * [Prerequisites on macOS](#prerequisites-on-macos)
+  * [Additional documentation](#additional-documentation)
 
 ## Requirements
 
-### Tools
+### Build tools
 
 * CMake 3.16 or newer
 * A C++20 compiler:
@@ -35,13 +49,13 @@ It provides APIs for client and server endpoints, including publishers, subscrib
     * Clang 17 or newer
     * Apple Clang 17 or newer
     * or MSVC
-* Clang-Tidy 15 or newer when configuring with `-DLINT=ON`
+* CMake 3.26 or newer and Clang-Tidy 15 or newer when configuring with `-DQUICR_LINT=ON`
 
 ### Ubuntu 22.04 Jammy
 
 ```
 sudo apt-get update
-sudo apt-get install -y cmake make gcc-12 g++-12 clang-tidy-15 openssl golang wget git libssl-dev
+sudo apt-get install -y cmake make gcc-12 g++-12 clang-tidy-15 wget git
 ```
 
 > [!IMPORTANT]
@@ -54,7 +68,7 @@ sudo apt-get install -y cmake make gcc-12 g++-12 clang-tidy-15 openssl golang wg
 
 ```
 sudo apt-get update
-sudo apt-get install -y make wget git cmake openssl golang libssl-dev clang-tidy-15
+sudo apt-get install -y make wget git cmake clang-tidy-15
 ```
 
 > [!NOTE]
@@ -73,22 +87,21 @@ brew install cmake
 
 ## Dependencies
 
-libquicr's C/C++ dependencies are fetched at CMake configure time by
-[CPM.cmake](https://github.com/cpm-cmake/CPM.cmake). There is nothing to install by hand and no
-submodules to initialise — configuring the project is enough. `cmake/CPM.cmake` first downloads a
-pinned CPM release and checks it against a recorded SHA-256, and each dependency is then pinned to
-its own tag or commit:
+Most of libquicr's C/C++ dependencies are fetched at CMake configure time by
+[CPM.cmake](https://github.com/cpm-cmake/CPM.cmake). There are no submodules to initialise.
+External TLS backends are optional and remain under the consuming application's control.
+`cmake/CPM.cmake` first downloads a pinned CPM release and checks it against a recorded SHA-256,
+and each fetched dependency is then pinned to its own tag or commit:
 
-| Dependency | Declared in |
-| --- | --- |
-| picoquic, picotls, timeq, Mbed TLS | `cmake/QuicrDependencies.cmake` |
-| fmt | `cmake/QuicrFormat.txt` |
-| doctest | `test/CMakeLists.txt` |
-| Google Benchmark | `benchmark/CMakeLists.txt` |
-| nlohmann/json, sframe, spdlog | `examples/qclient/CMakeLists.txt` |
+| Dependency | Purpose | Declared in |
+| --- | --- | --- |
+| [picoquic](https://github.com/private-octopus/picoquic) | QUIC transport | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
+| [picotls](https://github.com/Quicr/picotls) | TLS 1.3 implementation | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
+| [timeq](https://github.com/Quicr/timeq) | Timed task scheduling | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
+| [fmt](https://github.com/fmtlib/fmt) | Formatting fallback when `std::format` is unavailable | [`cmake/QuicrFormat.cmake`](cmake/QuicrFormat.cmake) |
 
-Mbed TLS is only fetched when configuring with `-DWITH_MBEDTLS=ON`. The default build links the
-system OpenSSL instead, which is why OpenSSL is the one TLS dependency you still install yourself.
+Optional tests, benchmarks, tools, and examples may fetch additional dependencies. Their
+dependencies are documented alongside those targets.
 
 ### Caching dependency sources
 
@@ -109,10 +122,154 @@ or passed per configure:
 cmake -B build -DCPM_SOURCE_CACHE=$HOME/.cache/CPM
 ```
 
-Entries are keyed by package name and version, so separate build directories, `WITH_MBEDTLS=ON` and
-`OFF` builds, and branch switches all share the same clones and a clean rebuild costs no network.
+Entries are keyed by package name and version, so separate build directories, crypto backend
+selections, and branch switches all share the same clones and a clean rebuild costs no network.
 The cache also holds the bootstrapped CPM release itself, so the download in `cmake/CPM.cmake` is
 skipped as well.
+
+### Third-party license notices
+
+[CPMLicenses.cmake](https://github.com/cpm-cmake/CPMLicenses.cmake) can collect license and
+copyright files from CPM dependencies distributed with libquicr. Enable its target with
+`QUICR_GENERATE_THIRD_PARTY_LICENSES`:
+
+```bash
+cmake -B build -DQUICR_GENERATE_THIRD_PARTY_LICENSES=ON
+cmake --build build --target third-party-licenses
+```
+
+Alternatively, run:
+
+```bash
+make licenses
+```
+
+Both commands write `build/THIRD_PARTY_LICENSES.txt`. The target intentionally includes only
+`timeq`, `picotls`, `picoquic`, and conditional `fmt`; test, benchmark, example, and build-tool
+dependencies are excluded.
+
+CPMLicenses searches dependency roots for files beginning with `LICENSE`, `LICENCE`, `COPYING`, or
+`Copyright` and uses only the first match. Review its warnings and generated output: dependencies
+without a matching root file, or repositories containing multiple license files, require manual
+review. This notice file complements rather than replaces the product SBOM and license-policy
+checks.
+
+### TLS providers
+
+[![TLS Backends](https://github.com/Quicr/libquicr/actions/workflows/tls-backends.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/tls-backends.yml)
+
+Known supported provider versions:
+
+[![Mbed TLS 3.6.7](https://img.shields.io/badge/Mbed%20TLS-3.6.7-blue)](https://github.com/Mbed-TLS/mbedtls/releases/tag/mbedtls-3.6.7)
+[![BoringSSL 0.20260929.0](https://img.shields.io/badge/BoringSSL-0.20260929.0-blue)](https://github.com/google/boringssl/tree/0.20260929.0)
+
+An external TLS provider is optional: libquicr can use picotls-minicrypto on its own, or applications
+can provide an OpenSSL-compatible provider or Mbed TLS when desired. OpenSSL-compatible providers
+are used automatically when found; `WITH_MBEDTLS=ON` selects Mbed TLS instead. Use a fresh build
+directory when switching providers so cached discovery results cannot select a previous
+installation.
+
+> [!WARNING]
+> Use a currently supported provider release and apply security updates promptly. Do not mix
+> headers and libraries from different installations or weaken TLS 1.3, certificate validation, or
+> secure-random configuration.
+
+#### No external TLS backend
+
+When no external provider is available, the build falls back to `picotls-minicrypto`, so minimal
+systems do not need OpenSSL, BoringSSL, or Mbed TLS:
+
+```
+cmake -B build
+```
+
+QUIC still uses TLS 1.3 through picotls; this configuration only removes the external provider.
+To test this path on a system where OpenSSL is installed, disable its package discovery explicitly:
+
+```
+cmake -B build -DCMAKE_DISABLE_FIND_PACKAGE_OpenSSL=TRUE
+```
+
+> [!WARNING]
+> The current picoquic minicrypto integration does not verify peer certificates, so clients do not
+> authenticate servers in this mode. Use it only where peer authentication is not required.
+
+#### OpenSSL-compatible providers
+
+Providers exposing an OpenSSL-compatible API, including OpenSSL and BoringSSL, are detected and
+enabled automatically through CMake's OpenSSL discovery interface:
+
+```
+cmake -B build
+```
+
+For a non-standard OpenSSL-compatible provider, pass its installation prefix:
+
+```
+cmake -B build -DOPENSSL_ROOT_DIR=/path/to/provider
+```
+
+#### BoringSSL
+
+For a static BoringSSL installation, picotls also expects `libdecrepit.a` beside the installed
+`libcrypto.a`. BoringSSL's install step may omit it, so copy it from the build directory before
+configuring libquicr:
+
+```
+cmake -E copy /path/to/boringssl-build/libdecrepit.a \
+    /path/to/boringssl-install/lib/libdecrepit.a
+cmake -B build -DOPENSSL_ROOT_DIR=/path/to/boringssl-install
+```
+
+This library is required for picotls compatibility; applications should not directly use the
+deprecated algorithms it exposes.
+
+> [!NOTE]
+> BoringSSL is currently tested and supported through this interface on Linux. Static BoringSSL
+> installations do not configure with picotls on macOS because picotls' BoringSSL adjustment logic
+> does not recognize CMake's `AppleClang` compiler ID when selecting the required C++ standard
+> library. Until that upstream limitation is fixed, use OpenSSL, Mbed TLS, or picotls-minicrypto on
+> macOS.
+
+#### Mbed TLS
+
+Applications can provide an installed or in-tree Mbed TLS build:
+
+```
+cmake -B build -DWITH_MBEDTLS=ON
+```
+
+CMake searches standard installation paths. For an in-tree or non-standard build, provide:
+
+- `MBEDTLS_INCLUDE_DIR=<path>` — primary include directory.
+- `MBEDTLS_INCLUDE_DIRS=<paths>` — all required include directories.
+- `MBEDTLS_LIBRARY=<target-or-path>` — `mbedtls`.
+- `MBEDTLS_X509=<target-or-path>` — `mbedx509`.
+- `MBEDTLS_CRYPTO=<target-or-path>` — `mbedcrypto`.
+
+libquicr never fetches Mbed TLS. The consuming application is responsible for selecting, updating,
+and supplying it.
+
+## Command-line tools
+
+The [`tools`](tools/README.md) directory contains utilities for testing and debugging
+MoQ networking. It is separate from [`examples`](examples/README.md), which contains small programs
+focused on demonstrating individual APIs.
+
+The available tools are:
+
+- `moq-cli`, an interactive client for publishing, subscribing, fetching, and protocol test
+  scenarios.
+- `moq-capture`, a client for recording track objects and replaying recorded data.
+
+Configure and build the tools with:
+
+```bash
+cmake -B build -DQUICR_BUILD_TOOLS=ON
+cmake --build build
+```
+
+See the [`tools` documentation](tools/README.md) for usage.
 
 ## CMake options
 
@@ -127,23 +284,47 @@ Build targets:
 
 * `QUICR_BUILD_C_BRIDGE` — build the C API bridge.
 * `QUICR_BUILD_EXAMPLES` — build examples.
+* `QUICR_BUILD_TOOLS` — build testing and debugging tools.
 * `QUICR_BUILD_TESTS` — build the test suite.
 * `QUICR_BUILD_BENCHMARKS` — build benchmarks.
 * `QUICR_BUILD_FUZZ` — build Clang fuzzing targets.
 
 Tests, benchmarks, and the C Bridge default to `ON` for a standalone build and `OFF` when libquicr
-is included by another CMake project. Examples and fuzzers default to `OFF`. When both the C Bridge
-and examples are enabled, the C Bridge examples are built automatically. `BUILD_TESTING=ON` is
-also required for the test suite, benchmarks, fuzzers, and C++ examples.
+is included by another CMake project. Tools, examples, and fuzzers default to `OFF`. When both the
+C Bridge and examples are enabled, the C Bridge examples are built automatically.
+`BUILD_TESTING=ON` is also required for the test suite, benchmarks, and fuzzers.
 
 Library configuration:
 
+* `QUICR_INSTALL` — enable libquicr install and CMake package rules; defaults to `ON` for a
+  standalone build and `OFF` when included by another CMake project.
 * `QUICR_BUILD_SHARED` — build libquicr as a shared library; defaults to `OFF`.
 * `WITH_MBEDTLS` — use Mbed TLS instead of OpenSSL; defaults to `OFF`.
-* `QUICR_USE_BROTLI` — enable Brotli TLS certificate compression; defaults to `OFF`.
+* `WITH_BROTLI` — enable picotls Brotli TLS certificate compression; defaults to `OFF`.
 * `QUICR_ENABLE_SANITIZERS` — enable AddressSanitizer and UndefinedBehaviorSanitizer with Clang or
   GCC; defaults to `OFF`.
-* `LINT` — run Clang-Tidy while compiling; defaults to `OFF`.
+* `QUICR_GENERATE_THIRD_PARTY_LICENSES` — add the `third-party-licenses` target for distributed CPM
+  dependencies; defaults to `OFF`.
+* `QUICR_LINT` — run Clang-Tidy while compiling a standalone build; defaults to `OFF`.
+
+### Using the installed CMake package
+
+Install libquicr:
+
+```bash
+cmake -B build -DQUICR_INSTALL=ON
+cmake --build build
+cmake --install build --prefix /path/to/install
+```
+
+Consume its exported target:
+
+```cmake
+find_package(quicr CONFIG REQUIRED)
+target_link_libraries(application PRIVATE quicr::quicr)
+```
+
+When the C Bridge is built and installed, it is available as `quicr::bridge`.
 
 ## Make
 
@@ -155,12 +336,17 @@ Use `make cclean` to clean build files.
 
 Use `make fuzz` to run the fuzzer tests.
 
+Use `make licenses` to generate `build/THIRD_PARTY_LICENSES.txt`.
+
+Use `make package-lock` to regenerate `package-lock.cmake`.
+
 ## C Bridge Target
 
 libquicr includes C Bridge interfaces for C applications:
 
 ### Building C Bridge
 The C Bridge provides a C wrapper around the C++ libquicr library.
+Enable it with `-DQUICR_BUILD_C_BRIDGE=ON`. Enable `QUICR_BUILD_EXAMPLES` to build its examples.
 
 See [c-bridge/README.md](c-bridge/README.md) for details.
 

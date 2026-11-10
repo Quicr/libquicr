@@ -5,6 +5,7 @@ CPMAddPackage("gh:doctest/doctest@2.5.2")
 
 add_executable(quicr_test
     cache.cpp
+    connect_uri.cpp
     data_storage.cpp
     main.cpp
     moq_ctrl_messages.cpp
@@ -22,11 +23,20 @@ if(QUICR_ENABLE_SANITIZERS)
     target_sources(quicr_test PRIVATE sanitizer_options.cpp)
 endif()
 
-target_include_directories(quicr_test PRIVATE ${PROJECT_SOURCE_DIR}/src)
+# quicr links its implementation dependencies privately, so their include paths do not reach this
+# target. They are needed here because unit tests include private headers directly.
+target_include_directories(quicr_test PRIVATE
+    ${PROJECT_SOURCE_DIR}/src
+    $<TARGET_PROPERTY:picoquic-core,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:picoquic-log,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:picohttp-core,INTERFACE_INCLUDE_DIRECTORIES>
+)
 
-# quicr links picoquic privately, so its include paths do not reach this target. They are needed
-# here because unit tests of internal classes include private headers that pull in picoquic.
-target_link_libraries(quicr_test PRIVATE quicr doctest::doctest picoquic-core picoquic-log picohttp-core)
+target_link_libraries(quicr_test PRIVATE
+    doctest::doctest
+    quicr::quicr
+    timeq::timeq
+)
 
 set_target_properties(quicr_test PROPERTIES
     CXX_STANDARD 20
@@ -52,9 +62,14 @@ include(doctest)
 
 doctest_discover_tests(quicr_test)
 
-add_subdirectory(integration_test)
+find_program(QUICR_OPENSSL_EXECUTABLE openssl)
+if(QUICR_OPENSSL_EXECUTABLE)
+    add_subdirectory(integration_test)
+else()
+    message(WARNING "Skipping certificate-backed integration tests because the openssl command was not found")
+endif()
 
-if (LINT)
+if(QUICR_LINT)
     include(Lint)
-    Lint(quicr_test)
+    lint(quicr_test)
 endif()

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #include "quicr/handlers/track_handler.h"
 #include "quicr/session.h"
 #include "stream.h"
@@ -10,6 +13,12 @@ namespace quicr {
             return std::nullopt;
         }
         return request_stream_->GetStreamId();
+    }
+
+    std::shared_ptr<Connection> TrackHandler::GetConnection() const
+    {
+        std::lock_guard lock(request_stream_mutex_);
+        return request_stream_ ? request_stream_->GetConnection() : nullptr;
     }
 
     void TrackHandler::SetTransport(std::shared_ptr<Session> transport)

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: NONE
+# SPDX-License-Identifier: BSD-2-Clause
+
 ---
 CheckOptions:
   - { key: readability-identifier-naming.FunctionCase, value: aNy_CasE }

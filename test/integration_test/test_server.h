@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #pragma once
 
 #include "quicr/handlers/publish_namespace_handler.h"
@@ -47,6 +50,11 @@ namespace quicr_test {
             std::lock_guard lock(mutex_);
             // Forward to subscriber if we have a publish handler bound
             if (pub_handler_) {
+                // The received priority is the origin publisher priority. Sending uses the
+                // subscriber priority already stored as the publish object priority.
+                if (object_headers.priority.has_value()) {
+                    pub_handler_->SetPublisherPriority(*object_headers.priority);
+                }
                 pub_handler_->PublishObject(object_headers, data, stream_mode);
             }
         }
@@ -74,15 +82,22 @@ namespace quicr_test {
       public:
         TestPublishTrackHandler(const quicr::FullTrackName& full_track_name,
                                 quicr::TrackMode track_mode,
-                                uint8_t default_priority,
+                                uint8_t publisher_priority,
+                                uint8_t publish_object_priority,
                                 uint32_t default_ttl,
                                 const std::weak_ptr<TestServer> server = {})
-          : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
+          : quicr::PublishTrackHandler(full_track_name,
+                                       track_mode,
+                                       publisher_priority,
+                                       publish_object_priority,
+                                       default_ttl)
           , server_(server)
         {
         }
 
         void StatusChanged(Status status) override;
+
+        using quicr::TrackHandler::GetSession;
 
         /// @returns The stream the subgroup is being written to, or nullptr.
         std::shared_ptr<quicr::Stream> GetSubgroupStream(std::uint64_t group_id, std::uint64_t subgroup_id) const
@@ -107,6 +122,22 @@ namespace quicr_test {
       , public std::enable_shared_from_this<TestServer>
     {
       public:
+        void SetSetupReceivedPromise(std::promise<quicr::SetupAttributes> promise)
+        {
+            std::lock_guard lock(state_mutex_);
+            setup_received_ = std::move(promise);
+        }
+
+        void SetSessionEstablishedPromise(std::promise<std::shared_ptr<quicr::Session>> promise)
+        {
+            std::lock_guard lock(state_mutex_);
+            session_established_ = std::move(promise);
+        }
+
+        quicr::Expected<void, quicr::Error<quicr::ErrorCode>> SetupReceived(
+          const std::shared_ptr<quicr::Session>& session,
+          const quicr::SetupAttributes& setup_attributes) override;
+
         struct AvailableTrack
         {
             quicr::FullTrackName full_track_name;
@@ -183,10 +214,13 @@ namespace quicr_test {
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
-        void SetSubscribeError(quicr::RequestErrorCode reason_code, std::string error_reason)
+        void SetSubscribeError(quicr::RequestErrorCode reason_code,
+                               std::string error_reason,
+                               std::optional<quicr::Redirect> redirect = std::nullopt)
         {
             std::lock_guard lock(state_mutex_);
-            subscribe_error_ = quicr::Error<quicr::RequestErrorCode>{ reason_code, std::move(error_reason) };
+            subscribe_error_ =
+              quicr::Error<quicr::RequestErrorCode>{ reason_code, std::move(error_reason), std::move(redirect) };
         }
 
         void SetTrackStatusError(std::optional<quicr::Error<quicr::RequestErrorCode>> error)
@@ -250,7 +284,7 @@ namespace quicr_test {
                 }
             }
             if (session != nullptr) {
-                session->GetConnection()->OnStreamClosed(stream, flag);
+                session->GetDefaultConnection()->OnStreamClosed(stream, flag);
             }
         }
         /**
@@ -386,6 +420,8 @@ namespace quicr_test {
 
       private:
         mutable std::mutex state_mutex_;
+        std::optional<std::promise<quicr::SetupAttributes>> setup_received_;
+        std::optional<std::promise<std::shared_ptr<quicr::Session>>> session_established_;
 
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<quicr::Error<quicr::RequestErrorCode>> subscribe_error_;

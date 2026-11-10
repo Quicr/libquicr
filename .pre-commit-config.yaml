@@ -18,3 +18,9 @@ repos:
         entry: ctest --test-dir build --output-on-failure --parallel
         language: system
         pass_filenames: false
+
+      - id: reuse lint
+        name: REUSE Lint
+        entry: reuse lint
+        language: system
+        pass_filenames: false

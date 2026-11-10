@@ -7,8 +7,6 @@
 #include "quicr/containers/stream_buffer.h"
 #include "quicr/metrics.h"
 
-#include <timeq/tick_service.h>
-
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -16,85 +14,57 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <queue>
 #include <source_location>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#else
-#include <sys/socket.h>
-#endif
-
 namespace quicr {
 
+    class Clock;
     class Connection;
     class Logger;
     class Stream;
 
-    /**
-     * Close Connection App Reasons
-     */
+    /// @brief Application reason sent when closing a connection.
     enum class AppReasonForClose : uint8_t
     {
-        kShutdown = 1,
-        kIdleTimeout,
-        kRemoteRequestClose,
-        kInternalError,
-        kProtocolViolation,
-        kNotAuthorized,
-        kUnknown,
+        kShutdown = 1,       ///< Local application shutdown.
+        kIdleTimeout,        ///< Connection exceeded its idle timeout.
+        kRemoteRequestClose, ///< Closure requested by the remote endpoint.
+        kInternalError,      ///< Unspecified local internal failure.
+        kProtocolViolation,  ///< Peer traffic violated the protocol.
+        kNotAuthorized,      ///< Peer is not authorized to continue.
+        kUnknown,            ///< No more specific reason is available.
     };
 
-    /**
-     * Transport status/state values
-     */
+    /// @brief Transport lifecycle state.
     enum class TransportStatus : uint8_t
     {
-        kReady = 0,
-        kConnecting,
-        kRemoteRequestClose,
-        kDisconnected,
-        kIdleTimeout,
-        kShutdown,
-        kShuttingDown,
+        kReady = 0,          ///< Ready to carry application traffic.
+        kConnecting,         ///< Connection establishment is in progress.
+        kRemoteRequestClose, ///< The peer requested closure.
+        kDisconnected,       ///< No longer connected.
+        kIdleTimeout,        ///< Closed because the idle timeout elapsed.
+        kShutdown,           ///< Shutdown is complete.
+        kShuttingDown,       ///< Shutdown is in progress.
     };
 
-    /**
-     * Transport errors
-     */
+    /// @brief Result codes returned by transport operations.
     enum class TransportError : uint8_t
     {
-        kNone = 0,
-        kQueueFull,
-        kUnknownError,
-        kPeerDisconnected,
-        kPeerUnreachable,
-        kCannotResolveHostname,
-        kInvalidConnContextId,
-        kInvalidIpv4Address,
-        kInvalidIpv6Address,
-        kInvalidStreamId,
-        kFailedToCreateQuicInstance
+        kNone = 0,                   ///< Operation succeeded.
+        kInvalidStreamId,            ///< The stream handle or identifier is invalid.
+        kFailedToCreateQuicInstance, ///< The underlying QUIC instance could not be created.
     };
 
     /**
-     * Transport Protocol to use
+     * @brief Options to use when protocol is set to WebTransport.
      */
-    enum class TransportProtocol : uint8_t
+    struct WebTransportOptions
     {
-        kQuic,
-        kWebTransport
+        std::string path{ "relay" }; /// The path to use
     };
 
     /**
@@ -104,48 +74,66 @@ namespace quicr {
      */
     struct TransportRemote
     {
-        std::string host_or_ip;      /// IPv4/v6 or FQDN (user input)
-        uint16_t port;               /// Port (user input)
-        TransportProtocol proto;     /// Protocol to use for the transport
-        std::string path{ "relay" }; /// When using WT, the path to use
+        std::string host_or_ip;                                   ///< IPv4/IPv6 address or fully qualified host name.
+        uint16_t port;                                            ///< UDP destination or listening port.
+        std::optional<WebTransportOptions> web_transport_options; ///< Enables WT protocol with given options
     };
 
     /// Stream action that should be done by send/receive processing
     enum class StreamAction : uint8_t
     {
-        kNoAction = 0,
-        kCloseStreamUseReset,
-        kCloseStreamUseFin,
+        kNoAction = 0,        ///< Keep the current stream open.
+        kCloseStreamUseReset, ///< Close the current stream abruptly with RESET_STREAM.
+        kCloseStreamUseFin,   ///< Close the current stream normally with FIN.
     };
 
+    /// @brief Queued connection payload and stream action used by transport internals.
     struct ConnData
     {
-        std::uint64_t conn_id;
-        uint8_t priority;
-        StreamAction stream_action{ StreamAction::kNoAction };
+        std::uint64_t conn_id; ///< Transport-defined connection identifier.
 
-        /// Shared pointer is used so transport can take ownership of the vector without copy/new allocation
+        /// @brief Payload priority; lower values are higher priority.
+        uint8_t priority;
+
+        StreamAction stream_action{
+            StreamAction::kNoAction
+        }; ///< Stream action to apply while processing this payload.
+
+        /// @brief Immutable payload whose ownership can be transferred without copying.
         std::shared_ptr<const std::vector<uint8_t>> data;
 
-        uint64_t tick_microseconds; // Tick value in microseconds
+        uint64_t tick_microseconds; ///< Queue timestamp in tick-service microseconds.
     };
 
+    /// @brief Exception carrying a failed transport operation's result code and call site.
     struct TransportException : std::runtime_error
     {
-        TransportException(TransportError, std::source_location = std::source_location::current());
+        /**
+         * @brief Construct an exception for a transport failure.
+         * @param error Transport error that caused the failure.
+         * @param location Source location at which the exception was created.
+         */
+        TransportException(TransportError error, std::source_location location = std::source_location::current());
 
-        TransportError Error;
+        TransportError Error; ///< Machine-readable transport failure.
     };
 
+    /// @brief Operation used to close one or both directions of a QUIC stream.
     enum class StreamOperation : uint8_t
     {
-        kFin,
-        kReset,
-        kStopSending,
-        // Cancel a bidirectional stream: RESET the send side and STOP_SENDING the receive side.
-        kCancel,
+        kFin,         ///< Finish the locally writable direction normally.
+        kReset,       ///< Reset the locally writable direction.
+        kStopSending, ///< Request that the peer stop its writable direction.
+        kCancel,      ///< Reset and stop both directions of a bidirectional stream.
     };
 
+    /**
+     * @brief Validate that a close operation is legal for a QUIC stream's direction.
+     * @param stream_id QUIC stream identifier encoding initiator and direction.
+     * @param is_server Whether the local endpoint is the server.
+     * @param operation Requested close operation.
+     * @throws std::invalid_argument if the local endpoint cannot perform @p operation on the stream direction.
+     */
     constexpr void CheckCloseStream(std::uint64_t stream_id, bool is_server, StreamOperation operation)
     {
         const bool is_bidir = (stream_id & 0x2) == 0;
@@ -179,20 +167,9 @@ namespace quicr {
     /**
      * @brief Transport interface
      *
-     * @details A single threaded, async transport interface.
-     * 	The transport implementations own the queues
-     * 	on which the applications can enqueue the messages
-     * 	for transmitting and dequeue for consumption
-     *
-     * 	Applications using this transport interface
-     * 	MUST treat it as thread-unsafe and the same
-     * 	is ensured by the transport owing the lock and
-     * 	access to the queues.
-     *
-     * @note Some implementations may choose to
-     * 	have enqueue/dequeue being blocking. However
-     * 	in such cases applications needs to
-     * 	take the burden of non-blocking flows.
+     * @details Implementations own asynchronous network and notification queues. Public operations marshal work
+     *      to the transport as needed; callbacks are delivered serially on the transport notification thread.
+     *      Callback implementations must return promptly to avoid delaying unrelated connection and stream events.
      */
     class Transport
     {
@@ -202,16 +179,18 @@ namespace quicr {
         /**
          * @brief Create a new client transport based on the remote (server) host/ip
          *
-         * @param[in] server        Transport remote server information
-         * @param[in] tcfg          Transport configuration
-         * @param[in] tick_service  Shared pointer to the tick service to use
-         * @param[in] logger        Shared pointer to logger
+         * @param server Transport remote server information
+         * @param tcfg Transport configuration
+         * @param clock        Shared pointer to the tick service to use
+         * @param logger Shared pointer to logger
          *
-         * @return shared_ptr for the under lining transport.
+         * @return Shared ownership of the created transport.
+         * @throws std::runtime_error if @p server selects an unsupported protocol.
+         * @throws std::runtime_error if the QUIC/TLS configuration cannot be initialized.
          */
         static std::shared_ptr<Transport> MakeClientTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
-                                                              std::shared_ptr<timeq::tick_service> tick_service,
+                                                              std::shared_ptr<Clock> clock,
                                                               std::shared_ptr<Logger> logger);
 
         /**
@@ -222,19 +201,21 @@ namespace quicr {
          * is determined dynamically based on the ALPN negotiated with each client during
          * the TLS handshake.
          *
-         * @param[in] server      Transport remote server information (server.proto is ignored)
-         * @param[in] tcfg        Transport configuration
-         * @param[in] tick_service Shared pointer to tick service
-         * @param[in] logger      Shared pointer to logger
+         * @param server Transport remote server information (server.proto is ignored)
+         * @param tcfg Transport configuration
+         * @param clock       Shared pointer to tick service
+         * @param logger Shared pointer to logger
          *
-         * @return shared_ptr for the underlying transport
+         * @return Shared ownership of the created transport.
+         * @throws std::runtime_error if the QUIC/TLS configuration cannot be initialized.
          */
         static std::shared_ptr<Transport> MakeServerTransport(const TransportRemote& server,
                                                               const TransportConfig& tcfg,
-                                                              std::shared_ptr<timeq::tick_service> tick_service,
+                                                              std::shared_ptr<Clock> clock,
                                                               std::shared_ptr<Logger> logger);
 
       public:
+        /// @brief Destroy the transport after derived-class shutdown has completed.
         virtual ~Transport() = default;
 
         /**
@@ -243,6 +224,8 @@ namespace quicr {
          * @details Return the status of the transport. In server mode, the transport
          * will reflect the status of the listening socket. In client mode it will
          * reflect the status of the server connection.
+         *
+         * @return Current transport lifecycle state.
          */
         virtual TransportStatus Status() const = 0;
 
@@ -253,15 +236,18 @@ namespace quicr {
          * 		start listening on the socket for new connections. In client
          * mode this will initiate a connection to the remote/server.
          *
-         * @return TransportContextId: identifying the connection
+         * @return Client connection, or the server listener's connection object as defined by the implementation.
          */
         virtual std::shared_ptr<Connection> Start() = 0;
+
+        virtual std::shared_ptr<Connection> Connect(const TransportRemote& remote) = 0;
 
         /**
          * @brief Close a transport context
          *
-         * @param conn_id           Connection ID to close
-         * @param app_reason        Application reason to close the connection
+         * @param connection Connection to close.
+         * @param app_reason Application reason to close the connection
+         * @pre @p connection must refer to a connection created by this transport.
          */
         virtual void Close(const std::shared_ptr<Connection>& connection,
                            AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose) = 0;
@@ -269,33 +255,22 @@ namespace quicr {
         /**
          * @brief Close a stream
          *
-         * @param connection        Connection the stream belongs to
-         * @param stream            Stream to close; no-op if null or already closed
-         * @param use_reset         True to close by RESET, false to close by FIN
-         */
-        virtual void CloseStream(const std::shared_ptr<Connection>& connection,
-                                 const std::shared_ptr<Stream>& stream,
-                                 StreamOperation operation) = 0;
-
-        /**
-         * @brief Get the peer IP address and port associated with the stream
+         * @param stream Stream to close; no-op if null or already closed
+         * @param operation Directional stream-close operation.
          *
-         * @param[in]  context_id	Identifying the connection
-         * @param[out] addr	Peer address
-         *
-         * @returns True if the address was successfully returned, false otherwise
+         * @throws std::invalid_argument if @p operation is invalid for the stream direction.
          */
-        virtual bool GetPeerAddrInfo(const std::shared_ptr<Connection>& connection, sockaddr_storage* addr) = 0;
+        virtual void CloseStream(const std::shared_ptr<Stream>& stream, StreamOperation operation) = 0;
 
         /**
          * Enqueue flags
          */
         struct EnqueueFlags
         {
-            bool use_reliable{ false };   /// Indicates if object should use reliable stream or unreliable
-            bool close_stream{ false };   /// Indicates that a new stream should be created to replace existing one
-            bool clear_tx_queue{ false }; /// Indicates that the TX queue should be cleared before adding new object
-            bool use_reset{ false };      /// Indicates new stream created will close the previous using reset/abrupt
+            bool use_reliable{ false };   ///< Send on a reliable stream rather than as a datagram.
+            bool close_stream{ false };   ///< Roll over to a replacement stream after this object.
+            bool clear_tx_queue{ false }; ///< Clear queued transmit objects before adding this object.
+            bool use_reset{ false };      ///< Reset, rather than finish, the stream being replaced.
         };
 
         /**
@@ -303,21 +278,22 @@ namespace quicr {
          *
          * @details Add data to the stream's transmit queue, to be sent when the stream is next able to.
          *
-         * @param[in] connection    Identifying the connection
-         * @param[in] stream        Stream to send on
-         * @param[in] bytes         Data to send/write
-         * @param[in] priority      Priority of the object, range should be 0 - 255
-         * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
-         * @param[in] flags         Flags for stream and queue handling on enqueue of object
+         * @param connection Connection to send from
+         * @param stream Stream to send on
+         * @param bytes Data to send/write
+         * @param priority Priority of the object, range should be 0 - 255
+         * @param ttl_ms The age the object should exist in queue in milliseconds
+         * @param flags Flags for stream and queue handling on enqueue of object
          *
-         * @returns TransportError is returned indicating status of the operation
+         * @throws std::invalid_argument If a null connection, stream, or receive only stream is passed.
+         * @returns False if the stream's TX direction has closed, so the data could not be enqueued.
          */
-        virtual TransportError Enqueue(const std::shared_ptr<Connection>& connection,
-                                       const std::shared_ptr<Stream>& stream,
-                                       std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                       uint8_t priority = 1,
-                                       uint32_t ttl_ms = 350,
-                                       EnqueueFlags flags = { true, false, false, false }) = 0;
+        virtual bool Enqueue(const std::shared_ptr<Connection>& connection,
+                             const std::shared_ptr<Stream>& stream,
+                             std::shared_ptr<const std::vector<uint8_t>> bytes,
+                             uint8_t priority = 1,
+                             uint32_t ttl_ms = 350,
+                             EnqueueFlags flags = { true, false, false, false }) = 0;
 
         /**
          * @brief Enqueue application data as a datagram
@@ -325,27 +301,26 @@ namespace quicr {
          * @details The datagram queue belongs to the connection, so datagrams from every track share it
          *      and are ordered against each other by priority alone.
          *
-         * @param[in] connection    Identifying the connection
-         * @param[in] bytes         Data to send/write
-         * @param[in] priority      Priority of the object, range should be 0 - 255
-         * @param[in] ttl_ms        The age the object should exist in queue in milliseconds
+         * @param connection Connection to send from
+         * @param bytes Data to send/write
+         * @param priority Priority of the object, range should be 0 - 255
+         * @param ttl_ms The age the object should exist in queue in milliseconds
          *
-         * @returns TransportError is returned indicating status of the operation
+         * @throws std::invalid_argument If connection ptr is null.
          */
-        virtual TransportError EnqueueDatagram(const std::shared_ptr<Connection>& connection,
-                                               std::shared_ptr<const std::vector<uint8_t>> bytes,
-                                               uint8_t priority = 1,
-                                               uint32_t ttl_ms = 350) = 0;
+        virtual void EnqueueDatagram(const std::shared_ptr<Connection>& connection,
+                                     std::shared_ptr<const std::vector<uint8_t>> bytes,
+                                     uint8_t priority = 1,
+                                     uint32_t ttl_ms = 350) = 0;
 
         /**
          * @brief Dequeue datagram application data from transport buffer
          *
-         * @details Data received by the transport will be queued and made available
-         * to the caller using this method.  An empty return will be
+         * @details Removes the next received datagram from the connection's receive queue.
          *
-         * @param[in] connection            Identifying the connection
+         * @param connection Identifying the connection
          *
-         * @returns std::nullopt if there is no data
+         * @returns Shared immutable datagram bytes, or null if no datagram is queued.
          */
         virtual std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<Connection>& connection) = 0;
 
@@ -365,9 +340,9 @@ namespace quicr {
          * used when the application wants to explicitly close the session due to an
          * error condition or when normal session termination is required.
          *
-         * @param conn_id           Connection ID to close WebTransport session
-         * @param error_code        WebTransport error code (application-defined)
-         * @param error_msg         Optional error message string (can be nullptr)
+         * @param connection WebTransport connection to close.
+         * @param error_code WebTransport error code (application-defined)
+         * @param error_msg Optional error message string (can be nullptr)
          *
          * @returns 0 on success, -1 on failure (e.g., not a WebTransport connection)
          */
@@ -394,7 +369,7 @@ namespace quicr {
          * Only valid for WebTransport connections. For raw QUIC connections,
          * this method has no effect.
          *
-         * @param conn_id           Connection ID to drain WebTransport session
+         * @param connection WebTransport connection to drain.
          *
          * @returns 0 on success, -1 on failure (e.g., not a WebTransport connection)
          */
@@ -403,8 +378,8 @@ namespace quicr {
         /**
          * @brief Create a unidirectional stream to publish objects on.
          *
-         * @param connection    The connection for the stream.
-         * @param priority      Priority of the stream
+         * @param connection The connection for the stream.
+         * @param priority Priority of the stream
          *
          * @returns Handle to the created stream. Hold it for as long as the stream is being written
          *      to, rather than looking it up per object.
@@ -418,6 +393,7 @@ namespace quicr {
          * @details Carries no flow: control messages are not a track, and the stream's metrics are
          *      reported against the stream itself.
          *
+         * @param connection Connection that owns the stream.
          * @returns Handle to the created stream, which the caller holds for the life of the connection.
          */
         virtual std::shared_ptr<Stream> CreateControlStream(const std::shared_ptr<Connection>& connection) = 0;
@@ -428,12 +404,16 @@ namespace quicr {
          * @details One request is carried per stream, in both directions, so it has nothing to share
          *      state with and carries no flow.
          *
+         * @param connection Connection that owns the stream.
          * @returns Handle to the created stream, which the caller holds for the life of the request.
          */
         virtual std::shared_ptr<Stream> CreateRequestStream(const std::shared_ptr<Connection>& connection) = 0;
 
         /**
          * @brief Stop network threads and release transport resources.
+         *
+         * @note Implementations should permit repeated calls. No callbacks should be expected after shutdown
+         *      completes.
          */
         virtual void Shutdown() {}
 
@@ -444,7 +424,19 @@ namespace quicr {
         friend class Reply;
 
       public:
+        /**
+         * @brief Callback invoked when the transport creates or accepts a connection.
+         *
+         * @details Runs on the transport notification thread. The callback receives shared ownership of the
+         *      connection for the duration of the call.
+         */
         std::function<void(const std::shared_ptr<Connection>&)> OnNewConnection;
+
+        /**
+         * @brief Callback invoked when a connection closes.
+         *
+         * @details Runs on the transport notification thread after transport closure processing.
+         */
         std::function<void(const std::shared_ptr<Connection>&)> OnConnectionClosed;
     };
 } // namespace quicr

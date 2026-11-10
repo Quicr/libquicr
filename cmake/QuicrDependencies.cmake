@@ -16,84 +16,46 @@ if(CMAKE_FRAMEWORK)
     endmacro()
 endif()
 
-
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
-CPMAddPackage("gh:quicr/timeq#898d45c")
+set(TIMEQ_INSTALL ${QUICR_INSTALL})
 
-if (WITH_MBEDTLS)
-    message(STATUS "Transport building with MbedTLS")
+CPMAddPackage(
+    URI "gh:quicr/timeq@1.0.0"
+    EXCLUDE_FROM_ALL YES
+)
 
-    set(ENABLE_TESTING OFF)
-    set(ENABLE_PROGRAMS OFF)
-
-    if(DEFINED ENV{IDF_PATH})
-        set(MBEDTLS_ROOT_DIR $ENV{IDF_PATH}/components/mbedtls/mbedtls)
-        set(MBEDTLS_PREFIX ${MBEDTLS_ROOT_DIR})
-        set(MBEDTLS_INCLUDE_DIRS
-            ${MBEDTLS_ROOT_DIR}
-            ${MBEDTLS_ROOT_DIR}/include
-            $ENV{IDF_PATH}/components/mbedtls/port/include)
-        set(MBEDTLS_CRYPTO mbedcrypto)
-        set(WITH_SELECT ON)
-    else()
-        set(DISABLE_PACKAGE_CONFIG_AND_INSTALL OFF CACHE BOOL
-            "Disable package configuration, target export and installation" FORCE)
-        CPMAddPackage(URI "gh:Mbed-TLS/mbedtls@3.6.7" EXCLUDE_FROM_ALL YES)
-
-        # Mbed TLS always compiles and links the Everest and p256-m drivers, but their
-        # sources are #ifdef'd out unless enabled in mbedtls_config.h. With the stock
-        # config they link empty archives that Apple's ranlib warns about every build.
-        # A custom config may well turn them on, so only unlink them for the stock one.
-        if (NOT MBEDTLS_CONFIG_FILE AND NOT MBEDTLS_USER_CONFIG_FILE)
-            foreach(driver everest p256m)
-                if (TARGET ${driver})
-                    foreach(prop LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
-                        get_target_property(linked mbedcrypto ${prop})
-                        list(REMOVE_ITEM linked ${driver})
-                        set_target_properties(mbedcrypto PROPERTIES ${prop} "${linked}")
-                    endforeach()
-                endif()
-            endforeach()
-        endif()
-
-        set(MBEDTLS_ROOT_DIR ${mbedtls_SOURCE_DIR})
-        set(MBEDTLS_PREFIX ${mbedtls_SOURCE_DIR})
-        set(MBEDTLS_INCLUDE_DIRS ${mbedtls_SOURCE_DIR}/include)
-        set(MBEDTLS_CRYPTO mbedcrypto)
-    endif()
-
-    set(MBEDTLS_LIBRARY mbedtls)
-    set(MBEDTLS_X509 mbedx509)
-    set(MBEDTLS_LIBRARIES ${MBEDTLS_LIBRARY} ${MBEDTLS_X509} ${MBEDTLS_CRYPTO})
-
-    set(WITH_OPENSSL OFF)
-    set(BUILD_HTTP ON)
-
-    set(PICOQUIC_ADDITIONAL_C_FLAGS -Wno-error=format)
-    set(PICOQUIC_ADDITIONAL_CXX_FLAGS -Wno-error=format)
-else ()
-    set(WITH_OPENSSL ON)
-endif ()
-
-set(WITH_FUSION OFF)
-set(BUILD_DEMO OFF)
-set(BUILD_PQBENCH OFF)
-set(BUILD_LOGREADER OFF)
-set(picotls_BUILD_TESTS OFF)
-
-# Picoquic still errors out if this is not set. Blanking it only for the duration of the
-# picotls/picoquic configure keeps find_package(OpenSSL) working for everything else.
-if (WITH_MBEDTLS)
-    set(OPENSSL_INCLUDE_DIR "")
+if(QUICR_INSTALL)
+    set_property(DIRECTORY "${timeq_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL NO)
 endif()
 
-CPMAddPackage("gh:quicr/picotls#sync-092226")
+if(NOT DEFINED WITH_BROTLI)
+    set(WITH_BROTLI OFF)
+endif()
 
-set(PTLS_INCLUDE_DIR ${picotls_SOURCE_DIR}/include)
+CPMAddPackage(
+    URI "gh:quicr/picotls#057ed54"
+    OPTIONS
+        "WITH_FUSION OFF"
+)
 
-if (WIN32 AND NOT WITH_MBEDTLS)
+if (WITH_MBEDTLS)
+    set(WITH_OPENSSL OFF)
+    set(PTLS_INCLUDE_DIR ${picotls_SOURCE_DIR}/include)
+else()
+    if (TARGET picotls-openssl)
+        set(WITH_OPENSSL ON)
+    else()
+        set(WITH_OPENSSL OFF)
+        message(WARNING
+            "No external TLS provider was found; using picotls-minicrypto. "
+            "This backend does not verify peer certificates in the current picoquic integration. "
+            "Use it only where peer authentication is not required.")
+    endif()
+endif()
+
+if (WIN32)
     target_compile_definitions(picotls-core PUBLIC _WINDOWS)
     target_include_directories(picotls-core PUBLIC
         "$<BUILD_INTERFACE:${picotls_SOURCE_DIR}/picotlsvs/picotls>")
@@ -109,19 +71,23 @@ if (WIN32 AND NOT WITH_MBEDTLS)
     endforeach()
 endif()
 
-set(picoquic_BUILD_TESTS OFF)
-set(PICOQUIC_FETCH_PTLS ON)
-CPMAddPackage("gh:private-octopus/picoquic#poll-recvmmsg")
-add_dependencies(picoquic-core picotls-core)
+CPMAddPackage(
+    URI "gh:private-octopus/picoquic@2026.10.25.1d81a73"
+    EXCLUDE_FROM_ALL YES
+    OPTIONS
+        "BUILD_DEMO OFF"
+        "BUILD_PQBENCH OFF"
+        "BUILD_LOGREADER OFF"
+        "PICOQUIC_FETCH_PTLS ON"
+)
 
-if (WITH_MBEDTLS)
-    unset(OPENSSL_INCLUDE_DIR)
+if(QUICR_INSTALL)
+    set_property(DIRECTORY "${picoquic_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL NO)
 endif()
 
 set(WARN_SUPPRESS_TARGET_LIST picoquic-core picoquic-log picohttp-core picotls-core picotls-openssl picotls-minicrypto)
 
 if (WITH_MBEDTLS)
-    add_dependencies(picoquic-core ${MBEDTLS_LIBRARIES})
     list(APPEND WARN_SUPPRESS_TARGET_LIST picotls-mbedtls)
 endif()
 

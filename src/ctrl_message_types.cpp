@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #include "quicr/messages/ctrl_message_types.h"
 
 namespace quicr::messages {
