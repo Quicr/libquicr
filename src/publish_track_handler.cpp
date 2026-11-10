@@ -11,13 +11,15 @@
 namespace quicr {
     PublishTrackHandler::PublishTrackHandler(const FullTrackName& full_track_name,
                                              TrackMode track_mode,
-                                             uint8_t default_priority,
+                                             uint8_t publisher_priority,
+                                             uint8_t publish_object_priority,
                                              uint32_t default_ttl,
                                              std::optional<messages::StreamHeaderProperties> stream_mode,
                                              messages::Location largest_location)
       : TrackHandler(full_track_name)
       , default_track_mode_(track_mode)
-      , default_priority_(default_priority)
+      , publisher_priority_(publisher_priority)
+      , publish_object_priority_(publish_object_priority)
       , default_ttl_(default_ttl)
       , largest_location_(largest_location)
     {
@@ -39,6 +41,14 @@ namespace quicr {
 
     void PublishTrackHandler::StatusChanged(Status) {}
 
+    std::optional<PublishTrackHandler::Status> PublishTrackHandler::UpdateStatus(Status status) noexcept
+    {
+        if (publish_status_.exchange(status, std::memory_order_acq_rel) == status) {
+            return std::nullopt;
+        }
+        return status;
+    }
+
     void PublishTrackHandler::MetricsSampled(const PublishTrackMetrics&) {}
 
     PublishTrackHandler::PublishObjectStatus PublishTrackHandler::ForwardPublishedData(
@@ -47,6 +57,7 @@ namespace quicr {
       uint64_t subgroup_id,
       std::shared_ptr<const std::vector<uint8_t>> data)
     {
+        std::lock_guard lock(binding_operation_mutex_);
         auto session = GetSession().lock();
         std::shared_ptr<Stream> stream;
 
@@ -126,7 +137,8 @@ namespace quicr {
                     // Disable creating stream and doing pipeline on new stream considering delta and subgroups needs
                     // first object parsed
 #if 0
-                    auto stream = session->CreateStream(*GetRequestId(), GetDefaultPriority());
+                    auto stream =
+                      session->CreateStream(GetConnection(), *GetRequestId(), GetPublishObjectPriority());
                     stream_info_by_group_[group_id][subgroup_id] = { stream, group_id, subgroup_id };
 #endif
 
@@ -148,10 +160,10 @@ namespace quicr {
             }
         }
 
-        auto result = session->Enqueue(stream, data, default_priority_, default_ttl_, eflags);
+        auto result = session->Enqueue(GetConnection(), stream, data, GetPublishObjectPriority(), default_ttl_, eflags);
 
-        if (result != TransportError::kNone) {
-            throw TransportException(result);
+        if (!result) {
+            return PublishObjectStatus::kSubgroupClosed;
         }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
@@ -162,6 +174,7 @@ namespace quicr {
       BytesSpan data,
       std::optional<messages::StreamHeaderProperties> stream_mode)
     {
+        std::lock_guard lock(binding_operation_mutex_);
         auto session = GetSession().lock();
 
         if (!session) {
@@ -224,7 +237,6 @@ namespace quicr {
         }
 
         std::uint16_t ttl = object_headers.ttl.value_or(default_ttl_);
-        std::uint8_t priority = object_headers.priority.value_or(default_priority_);
 
         if (object_headers.group_id > largest_location_.group) {
             largest_location_.group = object_headers.group_id;
@@ -253,7 +265,7 @@ namespace quicr {
             subgroup_it = group_it->second.find(object_headers.subgroup_id);
             if (subgroup_it == group_it->second.end()) {
                 is_stream_header_needed = true;
-                stream = session->CreateStream(*GetRequestId(), priority);
+                stream = session->CreateStream(GetConnection(), *GetRequestId(), GetPublishObjectPriority());
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] =
@@ -305,7 +317,7 @@ namespace quicr {
                 messages::ObjectDatagram object;
                 object.group_id = object_headers.group_id;
                 object.object_id = object_headers.object_id;
-                object.priority = priority;
+                object.priority = GetPublisherPriority();
                 object.track_alias = GetTrackAlias().value();
                 object.extensions = object_headers.extensions;
                 object.immutable_extensions = object_headers.immutable_extensions;
@@ -325,9 +337,8 @@ namespace quicr {
                     if (properties.subgroup_id_mode == messages::SubgroupIdType::kExplicit) {
                         subgroup_hdr.subgroup_id = object_headers.subgroup_id;
                     }
-                    if (!properties.default_priority) {
-                        subgroup_hdr.priority = priority;
-                    }
+
+                    subgroup_hdr.publisher_priority = GetPublisherPriority();
                     subgroup_hdr.track_alias = GetTrackAlias().value();
                     object_msg_buffer_ << subgroup_hdr;
                 }
@@ -345,20 +356,27 @@ namespace quicr {
         }
 
         auto result =
-          session->Enqueue(stream,
+          session->Enqueue(GetConnection(),
+                           stream,
                            std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
-                           priority,
+                           GetPublishObjectPriority(),
                            ttl,
                            eflags);
 
-        if (result != TransportError::kNone) {
-            throw TransportException(result);
+        if (!result) {
+            return PublishObjectStatus::kSubgroupClosed;
         }
 
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
 
     void PublishTrackHandler::EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed)
+    {
+        std::lock_guard lock(binding_operation_mutex_);
+        EndSubgroupInternal(group_id, subgroup_id, completed);
+    }
+
+    void PublishTrackHandler::EndSubgroupInternal(uint64_t group_id, uint64_t subgroup_id, bool completed)
     {
         auto session = GetSession().lock();
 
@@ -383,7 +401,8 @@ namespace quicr {
             eflags.use_reliable = true;
             eflags.close_stream = true;
 
-            session->Enqueue(subgroup_it->second.stream, {}, default_priority_, default_ttl_, eflags);
+            session->Enqueue(
+              GetConnection(), subgroup_it->second.stream, {}, GetPublishObjectPriority(), default_ttl_, eflags);
         } else {
             session->ResetSubgroup(subgroup_it->second.stream);
         }
@@ -396,6 +415,12 @@ namespace quicr {
 
     void PublishTrackHandler::EndAllSubgroups()
     {
+        std::lock_guard lock(binding_operation_mutex_);
+        EndAllSubgroupsInternal();
+    }
+
+    void PublishTrackHandler::EndAllSubgroupsInternal()
+    {
         // EndSubgroup erases as it goes, so gather first rather than iterating the map it mutates.
         std::vector<std::pair<std::uint64_t, std::uint64_t>> open;
         for (const auto& [group_id, subgroups] : stream_info_by_group_) {
@@ -405,7 +430,7 @@ namespace quicr {
         }
 
         for (const auto& [group_id, subgroup_id] : open) {
-            EndSubgroup(group_id, subgroup_id, true);
+            EndSubgroupInternal(group_id, subgroup_id, true);
         }
     }
 
@@ -429,7 +454,7 @@ namespace quicr {
             // TODO: SUBSCRIPTION_FILTER
             // TODO: EXPIRES
 
-            const auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+            const auto ngr = params.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
             if (ngr.has_value()) {
                 if (!support_new_group_request_) {
                     throw messages::ProtocolViolationException("Must not request new group on non-dynamic track");
@@ -444,7 +469,7 @@ namespace quicr {
             // REQUEST_UPDATE_OK.
             // TODO: In theory largest_object here?
             // TODO: Handle unsolicited REQUEST_UPDATE_OK?
-            messages::ValidateParameters(params, { messages::ParameterType::kExpires });
+            // TODO: Add when stable - messages::ValidateParameters(params, { messages::ParameterType::kExpires });
             // TODO: EXPIRES.
         }
     }
@@ -458,11 +483,11 @@ namespace quicr {
         // TODO: SUBGROUP_DELIVERY_TIMEOUT
         // TODO: SUBSCRIBER_PRIORITY
         // TODO: SUBSCRIPTION_FILTER
-        if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
-            SetStatus(*forward ? Status::kOk : Status::kPaused);
+        if (params.Contains(messages::ParameterType::kForward)) {
+            SetStatus(messages::ResolveForward(params, true) ? Status::kOk : Status::kPaused);
         }
 
-        if (auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
+        if (auto ngr = params.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
             SetStatus(Status::kNewGroupRequested);
         }
 
@@ -471,9 +496,11 @@ namespace quicr {
 
     void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, [[maybe_unused]] bool reset)
     {
+        std::lock_guard lock(binding_operation_mutex_);
         for (auto group_it = stream_info_by_group_.begin(); group_it != stream_info_by_group_.end();) {
             for (auto subgroup_it = group_it->second.begin(); subgroup_it != group_it->second.end();) {
                 if (subgroup_it->second.stream != nullptr && subgroup_it->second.stream->GetStreamId() == stream_id) {
+                    // TODO: Don't reopen closed subgroups on subsequent publishes.
                     subgroup_it = group_it->second.erase(subgroup_it);
 
                     if (group_it->second.empty()) {

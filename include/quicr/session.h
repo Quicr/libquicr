@@ -21,8 +21,6 @@
 #include "quicr/metrics.h"
 #include "quicr/transport.h"
 
-#include <timeq/tick_service.h>
-
 #include <atomic>
 #include <chrono>
 #include <map>
@@ -40,7 +38,9 @@ namespace quicr {
      */
     struct SubscribeResponse : TrackStatusResponse
     {
-        bool is_publisher_initiated = false;
+        bool is_publisher_initiated = false; ///< Whether the accepted subscription was initiated by the publisher.
+
+        /// @brief Accepted subscription lifetime, when bounded.
         std::optional<std::chrono::milliseconds> expires{};
     };
 
@@ -49,8 +49,11 @@ namespace quicr {
      */
     struct FetchResponse
     {
+        /// @brief Largest object available to the fetch, when known.
         std::optional<messages::Location> largest_location = std::nullopt;
-        messages::GroupOrder publisher_default_group_order = messages::GroupOrder::kAscending;
+
+        messages::GroupOrder publisher_default_group_order =
+          messages::GroupOrder::kAscending; ///< Publisher's default group delivery order.
     };
 
     /**
@@ -71,18 +74,15 @@ namespace quicr {
          */
         enum class Status : uint8_t
         {
-            kReady = 0,
-            kNotReady,
-
-            kInternalError,
-
-            kInvalidParams,
-
-            kConnecting,
-            kDisconnecting,
-            kNotConnected,
-            kFailedToConnect,
-            kPendingPeerSetup,
+            kReady = 0,        ///< Setup is complete and the session is ready.
+            kNotReady,         ///< Session is not ready for protocol operations.
+            kInternalError,    ///< Session encountered an internal failure.
+            kInvalidParams,    ///< Session configuration or peer parameters are invalid.
+            kConnecting,       ///< Underlying connection establishment is in progress.
+            kDisconnecting,    ///< Session teardown is in progress.
+            kNotConnected,     ///< No active underlying connection exists.
+            kFailedToConnect,  ///< Underlying connection establishment failed.
+            kPendingPeerSetup, ///< Local setup was sent and peer setup is still pending.
         };
 
         /**
@@ -108,6 +108,7 @@ namespace quicr {
             kUnsupportedMessageType,   ///< Unsupported MOQT message type
         };
 
+        /// @brief Reserved status type for stream-data parsing.
         enum class StreamDataMessageStatus : uint8_t
         {
         };
@@ -117,11 +118,11 @@ namespace quicr {
          */
         enum class ConnectionStatus : uint8_t
         {
-            kNotConnected = 0,
-            kConnecting,
-            kConnected,
-            kIdleTimeout,
-            kClosedByRemote
+            kNotConnected = 0, ///< No active connection.
+            kConnecting,       ///< Connection establishment is in progress.
+            kConnected,        ///< Connection is active.
+            kIdleTimeout,      ///< Connection closed after an idle timeout.
+            kClosedByRemote    ///< Connection was closed by the peer.
         };
 
         /**
@@ -137,10 +138,14 @@ namespace quicr {
         /// Used to map published tracks to subscribes in client mode and to handle joining fetch lookups
         struct SubscribeContext
         {
-            FullTrackName track_full_name;
-            TrackHash track_hash{ 0, 0 };
+            FullTrackName track_full_name; ///< Full name of the subscribed or published track.
+
+            TrackHash track_hash{ 0, 0 }; ///< Cached hashes used to index the track.
+
+            /// @brief Largest object location advertised for the request, when present.
             std::optional<messages::Location> largest_location{ std::nullopt };
-            std::shared_ptr<Stream> stream;
+
+            std::shared_ptr<Stream> stream; ///< Bidirectional request stream associated with the context.
         };
 
       public:
@@ -148,19 +153,25 @@ namespace quicr {
          * @brief Create a client-mode endpoint
          *
          * @param cfg MoQ Client Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Client callbacks retained by the session; may be null.
+         * @param clock Clock retained by the session; must not be null.
+         * @param logger Optional logger retained by the session.
+         * @return Shared ownership of the new session.
          */
         static std::shared_ptr<Session> Create(const ClientConfig& cfg,
                                                std::shared_ptr<Transport> transport,
                                                std::shared_ptr<Connection> connection,
                                                std::shared_ptr<ClientCallbacks> callbacks,
-                                               std::shared_ptr<timeq::tick_service> tick_service,
+                                               std::shared_ptr<Clock> clock,
                                                std::shared_ptr<Logger> logger = nullptr)
         {
             return std::shared_ptr<Session>(new Session(cfg,
                                                         std::move(transport),
                                                         std::move(connection),
                                                         std::move(callbacks),
-                                                        std::move(tick_service),
+                                                        std::move(clock),
                                                         std::move(logger)));
         }
 
@@ -168,34 +179,52 @@ namespace quicr {
          * @brief Create a server-mode endpoint
          *
          * @param cfg MoQ Server Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Server callbacks retained by the session; may be null.
+         * @param clock Clock retained by the session; must not be null.
+         * @param logger Optional logger retained by the session.
+         * @return Shared ownership of the new session.
          */
         static std::shared_ptr<Session> Create(const ServerConfig& cfg,
                                                std::shared_ptr<Transport> transport,
                                                std::shared_ptr<Connection> connection,
                                                std::shared_ptr<ServerCallbacks> callbacks,
-                                               std::shared_ptr<timeq::tick_service> tick_service,
+                                               std::shared_ptr<Clock> clock,
                                                std::shared_ptr<Logger> logger = nullptr)
         {
             return std::shared_ptr<Session>(new Session(cfg,
                                                         std::move(transport),
                                                         std::move(connection),
                                                         std::move(callbacks),
-                                                        std::move(tick_service),
+                                                        std::move(clock),
                                                         std::move(logger)));
         }
 
+        /// @brief Destroy the session after detaching and releasing its owned state.
         virtual ~Session();
 
-        const std::shared_ptr<Connection>& GetConnection() const noexcept { return current_connection_; }
+        /// @brief Return shared ownership of the session's default connection.
+        /// @return Reference to the default connection handle currently retained for the session.
+        std::shared_ptr<Connection> GetDefaultConnection() const noexcept;
 
-        const std::shared_ptr<timeq::tick_service>& GetTickService() const noexcept { return tick_service_; }
+        /// @brief Return shared ownership of the tick service used by the session.
+        /// @return Reference to the tick-service handle retained for the session's lifetime.
+        const std::shared_ptr<Clock>& GetTickService() const noexcept { return clock_; }
 
+        /// @brief Return the optional logger used by the session.
+        /// @return Reference to the logger handle, which may be null.
         const std::shared_ptr<Logger>& GetLogger() const noexcept { return logger_; }
 
+        /// @brief Return the current session status.
+        /// @return Atomically loaded lifecycle state.
         Status GetStatus() const noexcept { return status_.load(std::memory_order_acquire); }
 
         /**
          * @brief Close the underlying transport connection and detach this session as delegate.
+         *
+         * @note The session object and connection handle may remain alive, but no further connection callbacks
+         *      are delivered to this session.
          */
         void Disconnect();
 
@@ -206,91 +235,142 @@ namespace quicr {
         /**
          * @brief Subscribe to a track
          *
-         * @param track_handler     Track handler to use for track related functions and callbacks
-         *
+         * @param track_handler Track handler to use for track related functions and callbacks
+         * @pre @p track_handler must not be null.
+         * @throws std::runtime_error if a publisher-initiated subscription lacks required request metadata.
          */
         void SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler);
 
         /**
          * @brief Unsubscribe track
          *
-         * @param track_handler     Track handler to use for track related functions and callbacks
+         * @param track_handler Track handler to use for track related functions and callbacks
+         * @pre @p track_handler must not be null.
          */
         void UnsubscribeTrack(const std::shared_ptr<SubscribeTrackHandler>& track_handler);
 
         /**
          * @brief Update Subscription to a track
          *
-         * @param track_handler     Track handler to use for track related functions and callbacks
-         *
+         * @param track_handler Track handler to use for track related functions and callbacks
+         * @pre @p track_handler must not be null.
          */
         void UpdateTrackSubscription(std::shared_ptr<SubscribeTrackHandler> track_handler);
 
         /**
          * @brief Publish to a track
          *
-         * @param track_handler     Track handler to use for track related functions and callbacks
+         * @param track_handler Track handler to use for track related functions and callbacks
+         * @pre @p track_handler must not be null.
          */
         void PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler);
 
         /**
          * @brief Unpublish track
          *
-         * @param track_handler     Track handler used when published track
+         * @param track_handler Track handler used when published track
+         * @pre @p track_handler must not be null.
          */
         void UnpublishTrack(const std::shared_ptr<PublishTrackHandler>& track_handler);
 
         /**
          * @brief Publish a track namespace
          *
-         * @param ns_handler        Namespace handler to use for track related functions and callbacks
-         * @param passive           True indicates that PUBLISH_NAMESPACE will not be sent
+         * @param ns_handler Namespace handler to use for track related functions and callbacks
+         * @param passive True indicates that PUBLISH_NAMESPACE will not be sent
+         * @pre @p ns_handler must not be null.
          */
         void PublishNamespace(std::shared_ptr<PublishNamespaceHandler> ns_handler, bool passive = false);
 
         /**
          * @brief Unpublish track namespace
          *
-         * @param track_handler     Track handler used when published track
+         * @param track_handler Published namespace handler to finish.
+         * @pre @p track_handler must not be null.
+         * @pre @p track_handler must retain the request stream and request identifier assigned by
+         *      `PublishNamespace`.
          */
         void PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& track_handler);
 
         /**
          * @brief Subscribe to a prefix namespace on a specific connection
          *
-         * @param handler           Namespace handler to subscribe with
+         * @param handler Namespace handler to subscribe with
+         * @pre @p handler must not be null.
          */
         void SubscribeNamespace(std::shared_ptr<SubscribeNamespaceHandler> handler);
 
         /**
          * @brief Unsubscribe from a prefix namespace on a specific connection
          *
-         * @param handler           Namespace handler to unsubscribe
+         * @param handler Namespace handler to unsubscribe
+         * @pre @p handler must not be null.
          */
         void UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler);
 
         /**
+         * @brief Tell subscribe-namespace subscribers on this connection that a namespace is active
+         *
+         * @details Sends NAMESPACE on each SUBSCRIBE_NAMESPACE request stream whose prefix matches.
+         *      The value on the wire is the namespace suffix relative to that prefix.
+         *
+         * @param track_namespace Fully qualified namespace that became active
+         */
+        void SendNamespace(const TrackNamespace& track_namespace);
+
+        /**
+         * @brief Tell subscribe-namespace subscribers on this connection that a namespace is no longer active
+         *
+         * @param track_namespace Fully qualified namespace that ended
+         */
+        void SendNamespaceDone(const TrackNamespace& track_namespace);
+
+        /**
          * @brief Fetch track
          *
-         * @param track_handler         Track handler used for fetching
+         * @param track_handler Track handler used for fetching
+         * @pre @p track_handler must not be null.
          */
         void FetchTrack(std::shared_ptr<FetchTrackHandler> track_handler);
 
         /**
          * @brief Cancel Fetch track
          *
-         * @param track_handler         Fetch Track handler to cancel.
+         * @param track_handler Fetch Track handler to cancel.
+         * @pre @p track_handler must not be null.
          */
         void CancelFetchTrack(std::shared_ptr<FetchTrackHandler> track_handler);
 
         /**
          * @brief Request track status
          *
-         * @param handler           Handler for this query's status and response.
+         * @param handler Handler for this query's status and response.
          * @throws std::invalid_argument if handler is null.
          * @throws std::logic_error if the handler has a pending request.
          */
         void RequestTrackStatus(std::shared_ptr<TrackStatusHandler> handler);
+
+        /**
+         * @brief Send GOAWAY on this session's control stream.
+         *
+         * @param new_session_uri URI the peer should migrate to, or empty to reuse the current URI.
+         * @param timeout How long the peer has to migrate before the session may be closed.
+         * @param first_unprocessed_request_id Smallest peer request ID that may not have been processed.
+         */
+        void GoAway(const std::string& new_session_uri,
+                    std::chrono::milliseconds timeout,
+                    std::optional<std::uint64_t> first_unprocessed_request_id = std::nullopt);
+
+        /**
+         * @brief Send GOAWAY on one request stream.
+         *
+         * @param new_session_uri URI the peer should migrate to, or empty to reuse the current URI.
+         * @param timeout How long the peer has to migrate before the session may be closed.
+         * @param handler The handler for the request we are sending away.
+         */
+        void GoAway(const std::string& new_session_uri,
+                    std::chrono::milliseconds timeout,
+                    const std::shared_ptr<TrackHandler>& handler);
 
         // --BEGIN SERVER RELAY METHODS ----------------------------------------------------------------------
         /** @name Server Relay Methods
@@ -304,10 +384,11 @@ namespace quicr {
          * @details The server will create a server publish track handler based on a received subscribe. It will
          *      use this handler to send objects to the subscriber.
          *
-         * @param src_id            Connection or peering ID for publisher origin
-         * @param request_id        Request ID from the received subscribe
-         * @param track_handler     Server publish track handler
-         * @param ephemeral         Indicates if persistent state tracking is needed
+         * @param src_id Connection or peering ID for publisher origin
+         * @param request_id Request ID from the received subscribe
+         * @param track_handler Server publish track handler
+         * @param ephemeral Indicates if persistent state tracking is needed
+         * @pre @p track_handler must not be null.
          */
         void BindPublisherTrack(std::uint64_t src_id,
                                 uint64_t request_id,
@@ -319,9 +400,11 @@ namespace quicr {
          *
          * @details Removes a server publish track handler state.
          *
-         * @param src_id            Connection or peering ID of the receiving publisher
-         * @param track_handler     Server publish track handler
+         * @param src_id Connection or peering ID of the receiving publisher
+         * @param track_handler Server publish track handler
          * @param send_publish_done Indicates to send publish done or not
+         * @pre @p track_handler must not be null.
+         * @pre @p track_handler must have a request identifier assigned by `BindPublisherTrack`.
          */
         void UnbindPublisherTrack(std::uint64_t src_id,
                                   const std::shared_ptr<PublishTrackHandler>& track_handler,
@@ -331,6 +414,8 @@ namespace quicr {
          * @brief Bind a server fetch publisher track handler
          *
          * @param track_handler The fetch publisher
+         * @pre @p track_handler must not be null.
+         * @pre @p track_handler must already carry the inbound fetch request identifier.
          */
         void BindFetchTrack(std::shared_ptr<PublishFetchHandler> track_handler);
 
@@ -338,6 +423,8 @@ namespace quicr {
          * @brief Unbind a server fetch publisher track handler
          *
          * @param track_handler The fetch publisher
+         * @pre @p track_handler must not be null.
+         * @pre @p track_handler must have a request identifier assigned by `BindFetchTrack`.
          */
         void UnbindFetchTrack(const std::shared_ptr<PublishFetchHandler>& track_handler);
 
@@ -345,72 +432,78 @@ namespace quicr {
         // --END SERVER RELAY METHODS ------------------------------------------------------------------------
 
       protected:
+        /// @brief Default construction is disabled; use a mode-specific constructor.
         Session() = delete;
 
         /**
          * @brief Client mode constructor
          *
          * @param cfg MoQ Client Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Client callbacks retained by the session; may be null.
+         * @param logger Optional logger retained by the session.
          */
         Session(const ClientConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ClientCallbacks> callbacks,
-                std::shared_ptr<Logger> logger)
-          : Session(cfg,
-                    std::move(transport),
-                    std::move(connection),
-                    std::move(callbacks),
-                    std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us),
-                    std::move(logger))
-        {
-        }
+                std::shared_ptr<Logger> logger);
 
         /**
          * @brief Server mode constructor
          *
          * @param cfg MoQ Server Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Server callbacks retained by the session; may be null.
+         * @param logger Optional logger retained by the session.
          */
         Session(const ServerConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ServerCallbacks> callbacks,
-                std::shared_ptr<Logger> logger)
-          : Session(cfg,
-                    std::move(transport),
-                    std::move(connection),
-                    std::move(callbacks),
-                    std::make_shared<timeq::threaded_tick_service>(cfg.tick_service_sleep_delay_us),
-                    std::move(logger))
-        {
-        }
+                std::shared_ptr<Logger> logger);
 
         /**
          * @brief Client mode constructor with explicit tick service
          *
-         * @param cfg            MoQ Instance Client Configuration
-         * @param tick_service   Shared pointer to the tick service to use
+         * @param cfg MoQ Instance Client Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Client callbacks retained by the session; may be null.
+         * @param clock Shared pointer to the tick service to use
+         * @param logger Optional logger retained by the session.
          */
         Session(const ClientConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ClientCallbacks> callbacks,
-                std::shared_ptr<timeq::tick_service> tick_service,
+                std::shared_ptr<Clock> clock,
                 std::shared_ptr<Logger> logger);
 
         /**
          * @brief Server mode constructor with explicit tick service
          *
-         * @param cfg            MoQ Server Configuration
-         * @param tick_service   Shared pointer to the tick service to use
+         * @param cfg MoQ Server Configuration
+         * @param transport Transport retained by the session.
+         * @param connection Connection retained by the session.
+         * @param callbacks Server callbacks retained by the session; may be null.
+         * @param clock Shared pointer to the tick service to use
+         * @param logger Optional logger retained by the session.
          */
         Session(const ServerConfig& cfg,
                 std::shared_ptr<Transport> transport,
                 std::shared_ptr<Connection> connection,
                 std::shared_ptr<ServerCallbacks> callbacks,
-                std::shared_ptr<timeq::tick_service> tick_service,
+                std::shared_ptr<Clock> clock,
                 std::shared_ptr<Logger> logger);
 
+        /**
+         * @brief Handle closure of a stream delegated by the connection.
+         * @param stream Closed stream and its associated request state.
+         * @param flag Event that closed the stream direction.
+         */
         void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override;
 
       private:
@@ -418,17 +511,19 @@ namespace quicr {
         // Transport Delegate/callback functions
         /*===================================================================*/
 
-        void OnConnectionStatus(Connection::Status status) override;
+        void OnConnectionStatus(const std::shared_ptr<Connection>& connection, Connection::Status status) override;
 
         bool OnRecvStream(const std::shared_ptr<Stream>& stream) override;
 
-        void OnRecvDgram() override;
+        void OnRecvDgram(const std::shared_ptr<Connection>& connection) override;
 
-        void OnConnectionMetricsSampled(MetricsTimeStamp sample_time,
+        void OnConnectionMetricsSampled(const std::shared_ptr<Connection>& connection,
+                                        MetricsTimeStamp sample_time,
 
                                         const QuicConnectionMetrics& quic_connection_metrics) override;
 
-        void OnStreamMetricsStampled(MetricsTimeStamp sample_time,
+        void OnStreamMetricsStampled(const std::shared_ptr<Connection>& connection,
+                                     MetricsTimeStamp sample_time,
                                      std::uint64_t stream_id,
                                      const QuicStreamMetrics& quic_stream_metrics,
                                      bool is_final) override;
@@ -439,15 +534,22 @@ namespace quicr {
 
         void Init();
 
-        void CheckReady();
+        void CheckReady(const std::shared_ptr<Connection>& connection);
+
+        std::shared_ptr<Connection> GetConnection(std::uint64_t connection_id) const;
+        std::shared_ptr<Connection> GetConnectionForStream(const std::shared_ptr<Stream>& stream) const;
 
         std::shared_ptr<Session> GetSharedPtr();
 
-        bool ProcessRequestMessage(const std::shared_ptr<Stream>& stream,
+        bool ProcessRequestMessage(const std::shared_ptr<Connection>& connection,
+                                   const std::shared_ptr<Stream>& stream,
                                    messages::ControlMessageType msg_type,
                                    BytesSpan msg_bytes);
 
-        bool ProcessCtrlMessage(messages::ControlMessageType msg_type, BytesSpan msg_bytes);
+        bool ProcessCtrlMessage(const std::shared_ptr<Connection>& connection,
+                                const std::shared_ptr<Stream>& stream,
+                                messages::ControlMessageType msg_type,
+                                BytesSpan msg_bytes);
 
         void SetStatus(Status status);
 
@@ -471,15 +573,20 @@ namespace quicr {
                 throw std::logic_error("Stream cannot be null");
             }
 
+            const auto connection = GetConnectionForStream(stream);
+            if (!connection) {
+                throw std::invalid_argument("Stream has no connection");
+            }
             auto result = quic_transport_->Enqueue(
-              current_connection_, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
+              connection, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
 
-            if (result != TransportError::kNone) {
-                throw TransportException(result);
+            if (!result) {
+                // TODO: Propagate better to callers and handle more specifically. Keeping the throw for now.
+                throw TransportException(TransportError::kInvalidStreamId);
             }
         }
 
-        void SendSetup();
+        void SendSetup(const std::shared_ptr<Connection>& connection, const std::string& connect_uri);
 
         /*===================================================================*/
         // Requests
@@ -514,13 +621,14 @@ namespace quicr {
                               ErrorCode error,
                               std::chrono::milliseconds retry_interval,
                               const std::string& reason,
-                              bool close_stream = true);
+                              bool close_stream = true,
+                              std::optional<Redirect> redirect = std::nullopt);
 
         /*===================================================================*/
         // Publish Namespace
         /*===================================================================*/
 
-        void SendPublishNamespace(const std::shared_ptr<Stream>& stream,
+        bool SendPublishNamespace(const std::shared_ptr<Stream>& stream,
                                   std::uint64_t request_id,
                                   const TrackNamespace& track_namespace);
 
@@ -528,19 +636,19 @@ namespace quicr {
         // Subscribe Namespace
         /*===================================================================*/
 
-        void SendSubscribeNamespace(const std::shared_ptr<Stream>& stream,
+        bool SendSubscribeNamespace(const std::shared_ptr<Stream>& stream,
                                     std::uint64_t request_id,
                                     const TrackNamespace& prefix,
                                     const messages::Filter& filter,
                                     messages::ControlMessageType type);
 
-        void SendUnsubscribeNamespace(const std::shared_ptr<Stream>& stream, const TrackNamespace& prefix);
+        void SendNamespaceMessage(messages::ControlMessageType type, const TrackNamespace& track_namespace);
 
         /*===================================================================*/
         // Subscribe
         /*===================================================================*/
 
-        void SendSubscribe(const std::shared_ptr<Stream>& stream,
+        bool SendSubscribe(const std::shared_ptr<Stream>& stream,
                            std::uint64_t request_id,
                            const FullTrackName& tfn,
                            TrackHash th,
@@ -559,7 +667,7 @@ namespace quicr {
         // Publish
         /*===================================================================*/
 
-        void SendPublish(const std::shared_ptr<Stream>& stream,
+        bool SendPublish(const std::shared_ptr<Stream>& stream,
                          std::uint64_t request_id,
                          const PublishAttributes& publish);
 
@@ -572,9 +680,10 @@ namespace quicr {
 
         std::shared_ptr<Stream> FindSubscribeNamespaceStream(const TrackNamespace& track_namespace) const;
 
-        std::optional<std::uint64_t> FindRequestIdByStream(std::uint64_t stream_id) QUICR_EXCLUDES(state_mutex_);
+        std::optional<std::uint64_t> FindRequestIdByStream(const Stream& stream) QUICR_EXCLUDES(state_mutex_);
 
-        std::shared_ptr<Stream> ResponseStream(const std::uint64_t request_id) const;
+        bool IsCurrentRequestStream(std::uint64_t request_id, const std::shared_ptr<Stream>& stream)
+          QUICR_EXCLUDES(state_mutex_);
 
         /*===================================================================*/
         // Track Status
@@ -590,7 +699,7 @@ namespace quicr {
                           std::optional<messages::GroupOrder> group_order,
                           const FetchResponse& response);
 
-        void SendFetch(const std::shared_ptr<Stream>& stream,
+        bool SendFetch(const std::shared_ptr<Stream>& stream,
                        std::uint64_t request_id,
                        const FullTrackName& tfn,
                        std::uint8_t priority,
@@ -617,16 +726,12 @@ namespace quicr {
 
         void RemoveSubscribeTrack(SubscribeTrackHandler& handler, bool remove_handler = true);
 
-        void RemoveSubscribeNamespace(SubscribeNamespaceHandler& handler,
-                                      bool remove_handler = true,
-                                      bool send_unsubscribe = true);
-
         void CloseRequestHandler(std::uint64_t request_id, const std::shared_ptr<Stream>& stream, StreamClosedFlag flag)
           QUICR_EXCLUDES(state_mutex_);
 
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th);
 
-        void RemoveAllTracksForConnectionClose();
+        void RemoveTracksForConnectionClose(const std::shared_ptr<Connection>& connection);
 
         [[nodiscard]] uint64_t GetNextRequestID();
 
@@ -653,7 +758,9 @@ namespace quicr {
         ///@{
 
         /// Dispatch one control message buffered on a control or request stream
-        bool RecvCtrlMessage(const std::shared_ptr<Stream>& stream, bool is_request_stream);
+        bool RecvCtrlMessage(const std::shared_ptr<Connection>& connection,
+                             const std::shared_ptr<Stream>& stream,
+                             bool is_request_stream);
 
         bool RecvSubgroupObject(Stream& stream, SubscribeTrackHandler& handler);
 
@@ -680,31 +787,91 @@ namespace quicr {
         /**
          * @brief Create a data stream for a track.
          *
-         * @param request_id  Track the stream carries, so that its metrics find the right handler.
+         * @param request_id Track the stream carries, so that its metrics find the right handler.
+         * @param priority QUIC stream priority; lower values are higher priority.
+         * @return Shared handle to the created stream.
          */
-        std::shared_ptr<Stream> CreateStream(std::uint64_t request_id, uint8_t priority);
+        std::shared_ptr<Stream> CreateStream(const std::shared_ptr<Connection>& connection,
+                                             std::uint64_t request_id,
+                                             uint8_t priority);
 
         /**
          * @brief Send published data.
          *
-         * @param stream  Stream to send on, ignored when the flags ask for a datagram.
+         * @param connection The connection to enqueue data on.
+         * @param stream Stream to send on, ignored when the flags ask for a datagram.
+         * @param bytes Immutable serialized object bytes.
+         * @param priority Object priority; lower values are higher priority.
+         * @param ttl_ms Maximum queue lifetime in milliseconds.
+         * @param flags Reliability and queue-handling options.
+         * @return Transport enqueue result.
          */
-        TransportError Enqueue(const std::shared_ptr<Stream>& stream,
-                               std::shared_ptr<const std::vector<uint8_t>> bytes,
-                               const uint8_t priority,
-                               const uint32_t ttl_ms,
-                               const Transport::EnqueueFlags flags);
+        bool Enqueue(const std::shared_ptr<Connection>& connection,
+                     const std::shared_ptr<Stream>& stream,
+                     std::shared_ptr<const std::vector<uint8_t>> bytes,
+                     const uint8_t priority,
+                     const uint32_t ttl_ms,
+                     const Transport::EnqueueFlags flags);
 
       private:
+        void SetConnectionAddedCallback(
+          std::function<void(const std::shared_ptr<Connection>&, const std::shared_ptr<Session>&)> callback)
+        {
+            connection_added_callback_ = std::move(callback);
+        }
+
+        enum class MigrationRequestType : std::uint8_t
+        {
+            kSubscribe,
+            kPublish,
+            kSubscribeNamespace,
+            kPublishNamespace,
+            kFetch,
+        };
+
+        struct PendingMigration
+        {
+            MigrationRequestType type;
+            std::shared_ptr<Stream> request_stream;
+        };
+
+        struct Migration
+        {
+            Redirect redirect;
+            std::shared_ptr<Connection> source_connection;
+            std::shared_ptr<Connection> candidate_connection;
+            std::map<std::uint64_t, PendingMigration> pending;
+        };
+
+        using MigrationKey = std::pair<std::uint64_t, std::optional<std::uint64_t>>;
+        using MigrationMap = std::map<MigrationKey, Migration>;
+
+        void Migrate(const std::shared_ptr<Connection>& source_connection, const Redirect& redirect);
+
+        void StartMigrationRequests(const std::shared_ptr<Connection>& connection);
+
+        void CompleteMigration(const std::shared_ptr<Connection>& connection,
+                               std::uint64_t request_id,
+                               MigrationRequestType type,
+                               std::optional<std::uint64_t> received_track_alias = std::nullopt);
+
+        bool FailMigration(const std::shared_ptr<Connection>& connection, std::uint64_t request_id);
+
+        bool MatchesRedirect(const TrackHandler& handler, const Redirect& redirect) const;
+
+        MigrationMap::iterator FindMigration(const Connection& candidate) QUICR_REQUIRES(state_mutex_);
+
         void ResetSubgroup(const std::shared_ptr<Stream>& stream);
 
-        const std::shared_ptr<Connection> current_connection_;
+      private:
+        mutable std::mutex connections_mutex_;
+        std::map<std::uint64_t, std::shared_ptr<Connection>> connections_ QUICR_GUARDED_BY(connections_mutex_);
+        MigrationMap migrations_ QUICR_GUARDED_BY(state_mutex_);
+        std::shared_ptr<Connection> default_connection_ QUICR_GUARDED_BY(state_mutex_);
+        std::function<void(const std::shared_ptr<Connection>&, const std::shared_ptr<Session>&)>
+          connection_added_callback_;
 
         const std::shared_ptr<Callbacks> callbacks_;
-
-        std::optional<std::uint64_t> rx_ctrl_stream_id_;
-
-        std::shared_ptr<Stream> tx_ctrl_stream_;
 
         /**
          * Next Connection request Id. This value is shifted left when setting Request Id.
@@ -728,13 +895,16 @@ namespace quicr {
         };
 
         /// Lookup the request each stream carries, by stream ID.
-        std::map<std::uint64_t, StreamRequest> request_by_stream QUICR_GUARDED_BY(state_mutex_);
+        using StreamKey = std::pair<std::uint64_t, std::uint64_t>;
+        std::map<StreamKey, StreamRequest> request_by_stream QUICR_GUARDED_BY(state_mutex_);
 
-        /// Active inbound publish namespace notifications (not handler based).
-        std::vector<std::uint64_t> recv_publish_namespaces;
+        std::vector<std::uint64_t>
+          recv_publish_namespaces; ///< Active inbound publish namespace notifications (not handler based).
 
-        /// Handlers by request ID
-        std::map<std::uint64_t, std::shared_ptr<TrackHandler>> request_handlers;
+        /// Inbound SUBSCRIBE_NAMESPACE request IDs. The prefix and request stream live in recv_req_id.
+        std::vector<std::uint64_t> recv_subscribe_namespaces;
+
+        std::map<std::uint64_t, std::shared_ptr<TrackHandler>> request_handlers; ///< Handlers by request ID
 
         /**
          * Data is received with a track alias that is set by the publisher. The map key
@@ -742,7 +912,8 @@ namespace quicr {
          * is matched to this track alias to find the subscriber handler that matches. The
          * subscribe handler has both received track alias and generated track alias.
          */
-        std::map<std::uint64_t, std::shared_ptr<SubscribeTrackHandler>> sub_by_recv_track_alias;
+        std::map<std::pair<std::uint64_t, std::uint64_t>, std::shared_ptr<SubscribeTrackHandler>>
+          sub_by_recv_track_alias;
 
         /**
          * Publish tracks by namespace and name. map[track namespace][track name] = track handler
@@ -751,12 +922,13 @@ namespace quicr {
         std::map<std::uint64_t, std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_name;
 
         /// Publish tracks to subscriber by source id of publisher - required for multi-publisher
-        std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias;
+        std::map<std::uint64_t, std::map<uint64_t, std::shared_ptr<PublishTrackHandler>>> pub_tracks_by_track_alias
+          QUICR_GUARDED_BY(state_mutex_);
 
-        /// Fetch Publishers by request ID.
-        std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> pub_fetch_tracks_by_request_id;
+        std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>>
+          pub_fetch_tracks_by_request_id; ///< Fetch Publishers by request ID.
 
-        std::mutex state_mutex_;
+        mutable std::mutex state_mutex_;
 
         const bool client_mode_;
 
@@ -770,16 +942,14 @@ namespace quicr {
 
         std::atomic<Status> status_{ Status::kConnecting };
 
-        bool local_setup_sent_{ false };
-        bool peer_setup_received_{ false };
-
-        const std::shared_ptr<timeq::tick_service> tick_service_;
+        const std::shared_ptr<Clock> clock_;
 
         const std::shared_ptr<Transport> quic_transport_; // **MUST** be last for proper order of destruction
 
         friend class PublishTrackHandler;
         friend class PublishFetchHandler;
         friend class SubscribeTrackHandler;
+        friend class SessionManager;
     };
 
 } // namespace quicr

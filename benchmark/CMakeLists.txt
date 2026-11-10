@@ -10,12 +10,11 @@ add_executable(quicr_benchmark
     extensions.cpp
     hash.cpp
     priority_queue.cpp
-    safe_time_queue.cpp
     stream_buffer.cpp
     uintvar.cpp
 )
 
-target_link_libraries(quicr_benchmark PRIVATE quicr benchmark::benchmark_main)
+target_link_libraries(quicr_benchmark PRIVATE quicr::quicr benchmark::benchmark_main timeq::timeq)
 target_include_directories(quicr_benchmark PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_compile_options(quicr_benchmark PRIVATE
@@ -32,9 +31,9 @@ if (WIN32)
     target_compile_definitions(quicr_benchmark PRIVATE NOMINMAX)
 endif()
 
-if(LINT)
+if(QUICR_LINT)
     include(Lint)
-    Lint(quicr_benchmark)
+    lint(quicr_benchmark)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")

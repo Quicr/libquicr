@@ -11,6 +11,7 @@ BUILD_DIR=build
 PACKAGE_LOCK_BUILD_DIR?=${BUILD_DIR}-package-lock
 export MERMAID_FILTER_THEME=neutral
 CLANG_FORMAT=clang-format -i
+FORMAT_DIRS=include src test examples benchmark tools c-bridge
 
 .PHONY: all clean cclean format fuzz c-bridge c-bridge-only cert licenses package-lock
 
@@ -20,13 +21,13 @@ all: ${BUILD_DIR}
 
 # Standard development CMake generation.
 ${BUILD_DIR}: CMakeLists.txt
-	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_C_BRIDGE=ON -DQUICR_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_MBEDTLS=OFF -DLINT=OFF .
+	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=TRUE -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_C_BRIDGE=ON -DQUICR_BUILD_EXAMPLES=ON -DQUICR_BUILD_TOOLS=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_MBEDTLS=OFF -DQUICR_LINT=OFF .
 
 # Run fuzzing tests.
 fuzz:
 	cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DQUICR_BUILD_FUZZ=ON .
 	cmake --build ${BUILD_DIR} --parallel 8
-	./${BUILD_DIR}/fuzz/ctrl_messages_fuzzer -max_total_time=10
+	./${BUILD_DIR}/test/fuzz/ctrl_messages_fuzzer -max_total_time=10
 
 # Run the tests.
 test: ${BUILD_DIR}
@@ -51,7 +52,7 @@ doc:
 
 # Build C Bridge only.
 c-bridge-only: CMakeLists.txt c-bridge/CMakeLists.txt
-	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=FALSE -DQUICR_BUILD_TESTS=OFF -DQUICR_BUILD_C_API=OFF -DQUICR_BUILD_C_BRIDGE=ON -DCMAKE_BUILD_TYPE=Release -DWITH_MBEDTLS=OFF -DLINT=OFF .
+	cmake -B${BUILD_DIR} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=FALSE -DQUICR_BUILD_TESTS=OFF -DQUICR_BUILD_C_BRIDGE=ON -DQUICR_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Release -DWITH_MBEDTLS=OFF -DQUICR_LINT=OFF .
 	cmake --build ${BUILD_DIR} --target quicr-bridge bridge_examples --parallel 8
 
 # Build with C Bridge enabled.
@@ -66,21 +67,17 @@ licenses:
 
 # Update the CPM package lock with all non-fuzz build configurations enabled.
 package-lock:
-	cmake -S . -B "${PACKAGE_LOCK_BUILD_DIR}" -DBUILD_TESTING=ON -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_BENCHMARKS=ON -DQUICR_BUILD_C_BRIDGE=ON -DQUICR_BUILD_EXAMPLES=ON -DQUICR_GENERATE_THIRD_PARTY_LICENSES=ON -DQUICR_BUILD_FUZZ=OFF -DLINT=OFF
+	rm -rf "${PACKAGE_LOCK_BUILD_DIR}"
+	mv package-lock.cmake package-lock.cmake.old
+	cmake -S . -B "${PACKAGE_LOCK_BUILD_DIR}" -DQUICR_INSTALL=OFF -DBUILD_TESTING=ON -DQUICR_BUILD_TESTS=ON -DQUICR_BUILD_BENCHMARKS=ON -DQUICR_BUILD_C_BRIDGE=ON -DQUICR_BUILD_EXAMPLES=ON -DQUICR_BUILD_TOOLS=ON -DQUICR_GENERATE_THIRD_PARTY_LICENSES=ON -DQUICR_BUILD_FUZZ=OFF -DQUICR_HAS_STD_FORMAT=OFF -DQUICR_LINT=OFF
 	cmake --build "${PACKAGE_LOCK_BUILD_DIR}" --target cpm-update-package-lock
-	@echo "Updated package-lock.cmake"
+	rm package-lock.cmake.old
 
 # Format code.
 format:
-	find include -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find src -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find src/moq -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find src/quic -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find test -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find cmd -iname "*.h" -or -iname "*.cpp" -or -iname "*.cc" -or -iname "*.hpp" | xargs ${CLANG_FORMAT}
-	find benchmark -name "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find tools -iname "*.h" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
-	find c-bridge -iname "*.h" -or -iname "*.c" -or -iname "*.cpp" | xargs ${CLANG_FORMAT}
+	find ${FORMAT_DIRS} -type f \
+		\( -iname "*.c" -o -iname "*.cc" -o -iname "*.cpp" -o -iname "*.h" -o -iname "*.hpp" \) \
+		-print0 | xargs -0 ${CLANG_FORMAT}
 
 lint:
 	reuse lint

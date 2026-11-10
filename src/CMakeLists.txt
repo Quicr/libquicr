@@ -7,11 +7,15 @@ else()
     add_library(quicr)
 endif()
 
+add_library(quicr::quicr ALIAS quicr)
+
 set_target_properties(quicr PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS OFF
 )
+
+target_compile_features(quicr PUBLIC cxx_std_20)
 
 target_compile_options(quicr PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wall -pedantic -Wextra -Wmissing-declarations -Werror=switch>
@@ -21,6 +25,14 @@ target_compile_options(quicr PRIVATE
 target_compile_options(quicr PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>
 )
 
+# Request, and check support for, clang's thread safety analysis.
+include(CheckThreadSafetyAnnotations)
+if(QUICR_HAS_THREAD_SAFETY_ANNOTATIONS)
+    target_compile_definitions(quicr PUBLIC
+        QUICR_HAS_THREAD_SAFETY_ANNOTATIONS
+        _LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS)
+endif()
+
 if(NOT QUICR_BUILD_FUZZ)
     target_compile_options(quicr PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>: -Wthread-safety -Werror=thread-safety>
@@ -28,10 +40,14 @@ if(NOT QUICR_BUILD_FUZZ)
 endif()
 
 target_sources(quicr PRIVATE
+    clock.cpp
+    connection.cpp
     ctrl_message_types.cpp
     joining_fetch_handler.cpp
     log.cpp
     message_serialisation.cpp
+    picoquic_connection.cpp
+    containers/priority_queue.h
     publish_fetch_handler.cpp
     publish_namespace_handler.cpp
     publish_track_handler.cpp
@@ -44,15 +60,10 @@ target_sources(quicr PRIVATE
     track_status_handler.cpp
     transport_picoquic.cpp
     transport.cpp
-    connection.cpp
-    picoquic_connection.cpp
-)
-
-target_link_libraries(quicr PUBLIC
-    timeq
 )
 
 target_link_libraries(quicr PRIVATE
+    timeq::timeq
     picoquic-core
     picoquic-log
     picohttp-core
@@ -61,16 +72,21 @@ target_link_libraries(quicr PRIVATE
 if (WIN32)
     target_compile_definitions(quicr PRIVATE NOMINMAX)
     target_link_libraries(quicr PRIVATE ws2_32)
-else()
 endif()
 
-if (NOT QUICR_HAS_STD_FORMAT)
+if (QUICR_HAS_STD_FORMAT)
+    target_compile_definitions(quicr PUBLIC QUICR_HAS_STD_FORMAT)
+else()
     target_link_libraries(quicr PUBLIC fmt::fmt)
 endif()
 
-target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(quicr PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 
-if(LINT)
+if(QUICR_LINT)
     include(Lint)
     lint(quicr)
 endif()

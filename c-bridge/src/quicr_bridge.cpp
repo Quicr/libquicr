@@ -288,7 +288,7 @@ class BridgePublishTrackHandler : public quicr::PublishTrackHandler
                               qbridge_object_published_callback_t callback,
                               qbridge_publish_status_callback_t status_cb,
                               void* data)
-      : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
+      : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_priority, default_ttl)
       , published_callback(callback)
       , status_callback(status_cb)
       , user_data(data)

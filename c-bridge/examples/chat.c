@@ -8,7 +8,7 @@
  * both send and receive messages. The application can act as both publisher
  * and subscriber simultaneously.
  *
- * Based on the qclient.cpp example from libquicr.
+ * Based on the moq-cli tool from libquicr.
  */
 
 #include <signal.h>

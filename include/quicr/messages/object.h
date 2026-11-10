@@ -8,6 +8,13 @@
 #include <optional>
 
 namespace quicr {
+    /**
+     * Extension values grouped by absolute extension type.
+     *
+     * Multiple values preserve duplicate wire entries for the same type.
+     * Even-numbered types contain the host-memory byte representation of a
+     * decoded unsigned integer; odd-numbered types contain opaque bytes.
+     */
     using Extensions = std::map<uint64_t, std::vector<std::vector<uint8_t>>>;
 
     /**
@@ -17,8 +24,8 @@ namespace quicr {
      */
     enum class TrackMode : uint8_t
     {
-        kDatagram,
-        kStream,
+        kDatagram, ///< Object is or should be carried in a datagram.
+        kStream,   ///< Object is or should be carried on a stream.
     };
 
     /**
@@ -26,11 +33,11 @@ namespace quicr {
      */
     enum struct ObjectStatus : uint8_t
     {
-        kAvailable = 0x0,
-        kDoesNotExist = 0x1,
-        kEndOfGroup = 0x3,
-        kEndOfTrack = 0x4,
-        kEndOfSubGroup = 0x5
+        kAvailable = 0x0,    ///< The object exists and has payload data.
+        kDoesNotExist = 0x1, ///< The requested object does not exist.
+        kEndOfGroup = 0x3,   ///< Marks the end of the group.
+        kEndOfTrack = 0x4,   ///< Marks the end of the track.
+        kEndOfSubGroup = 0x5 ///< Marks the end of the subgroup.
     };
 
     /**
@@ -47,9 +54,10 @@ namespace quicr {
         ObjectStatus status{ ObjectStatus::kAvailable }; ///< Status of the object at the publisher
         std::optional<uint8_t> priority;                 ///< Priority of the object, lower value is better
         std::optional<uint16_t> ttl;                     ///< Object time to live in milliseconds
-        std::optional<TrackMode> track_mode; ///< Track Mode of how the object was received or mode to use when sending
-        std::optional<Extensions> extensions;
-        std::optional<Extensions> immutable_extensions;
+        std::optional<TrackMode> track_mode;  ///< Track Mode of how the object was received or mode to use when sending
+        std::optional<Extensions> extensions; ///< Mutable object extensions, preserving duplicate values per type.
+        std::optional<Extensions>
+          immutable_extensions; ///< Immutable object extensions decoded from the immutable extension container.
     };
 
 }
