@@ -3059,7 +3059,9 @@ TEST_CASE("Integration - A forwarding subscriber is given subgroup bytes rather 
                                      .ttl = 10'000,
                                      .track_mode = TrackMode::kStream };
         std::optional<messages::StreamHeaderProperties> stream_mode;
-        stream_mode.emplace(true, mode, false, false, object_id == 0);
+        if (object_id == 0) {
+            stream_mode.emplace(true, mode, false, false, true);
+        }
         REQUIRE_EQ(publish_handler->PublishObject(headers, payload, stream_mode),
                    PublishTrackHandler::PublishObjectStatus::kOk);
     };
@@ -3331,7 +3333,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         auto publish_object = [&](uint64_t group_id,
                                   uint64_t subgroup_id,
                                   uint64_t object_id,
-                                  bool first_object = true,
+                                  std::optional<bool> first_object = true,
                                   std::optional<messages::SubgroupIdType> subgroup_id_mode = std::nullopt) {
             std::vector payload = { static_cast<uint8_t>(group_id),
                                     static_cast<uint8_t>(subgroup_id),
@@ -3347,25 +3349,24 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
                                       .extensions = std::nullopt,
                                       .immutable_extensions = std::nullopt };
             std::optional<messages::StreamHeaderProperties> stream_mode;
-            stream_mode.emplace(true,
-                                subgroup_id_mode.has_value() ? *subgroup_id_mode : messages::SubgroupIdType::kExplicit,
-                                false,
-                                false,
-                                first_object);
+            if (first_object.has_value()) {
+                stream_mode.emplace(
+                  true, subgroup_id_mode.value_or(messages::SubgroupIdType::kExplicit), false, false, *first_object);
+            }
             auto status = pub_handler->PublishObject(headers, payload, stream_mode);
             REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
         };
 
         // Subgroup 0.
         publish_object(0, 0, 0);
-        publish_object(0, 0, 1);
+        publish_object(0, 0, 1, std::nullopt);
         pub_handler->EndSubgroup(0, 0, true);
         // Subgroup 1.
         publish_object(0, 1, 2);
         pub_handler->EndSubgroup(0, 1, true);
         // Subgroup 2, replicating a relay mid-subgroup forward (non-original first object).
         publish_object(0, 2, 3, false);
-        publish_object(0, 2, 4);
+        publish_object(0, 2, 4, std::nullopt);
         // Subgroup 5, deriving its subgroup ID from its first object ID.
         publish_object(0, 5, 5, true, messages::SubgroupIdType::kSetFromFirstObject);
         // Let's end on a new group.

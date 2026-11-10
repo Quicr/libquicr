@@ -443,6 +443,8 @@ namespace quicr {
              *      it detects and rejects on send.
              */
             std::shared_ptr<Stream> stream;
+
+            messages::StreamHeaderProperties properties;            ///< Subgroup framing in use.
             uint64_t last_group_id{ 0 };                            ///< Last group encoded on the stream.
             uint64_t last_subgroup_id{ 0 };                         ///< Last subgroup encoded on the stream.
             std::optional<uint64_t> last_object_id{ std::nullopt }; ///< Last object used for delta encoding.
