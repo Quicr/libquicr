@@ -369,11 +369,11 @@ namespace quicr {
          * @brief End every subgroup still open on this track.
          *
          * @details Called by the session when the track is unbound, so that subgroups the application
-         *      never ended do not keep their streams open for the life of the connection. Each is
-         *      ended as completed, matching what a well-behaved application would have done.
+         *      never ended do not keep their streams open for the life of the connection.
+         * @param completed If all have finished, drain and close with FIN. If false, end abruptly with RESET.
          * @note Silently leaves bookkeeping unchanged if no live session exists.
          */
-        void EndAllSubgroups();
+        void EndAllSubgroups(bool completed);
 
         /**
          * @brief Set the publish status
@@ -466,7 +466,7 @@ namespace quicr {
       private:
         void EndSubgroupInternal(uint64_t group_id, uint64_t subgroup_id, bool completed);
 
-        void EndAllSubgroupsInternal();
+        void EndAllSubgroupsInternal(bool completed);
 
         // Update status without firing the callback.
         std::optional<Status> UpdateStatus(Status status) noexcept;

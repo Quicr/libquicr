@@ -1265,6 +1265,16 @@ namespace quicr {
         }
 
         // Notifications / callbacks.
+        QUICR_LOGGER_INFO(logger_,
+                          "Closing request handler conn_id: {} request_id: {} stream_id: {} closure: {}",
+                          stream->GetConnectionID(),
+                          request_id,
+                          stream->GetStreamId(),
+                          static_cast<int>(flag));
+
+        // Standard bidir response: FIN answers FIN, and any abrupt closure is cancellation.
+        const auto operation = flag == StreamClosedFlag::kFin ? StreamOperation::kFin : StreamOperation::kCancel;
+        const bool is_reset = operation == StreamOperation::kCancel;
 
         if (is_sub_ns) {
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
@@ -1274,55 +1284,67 @@ namespace quicr {
         }
 
         if (is_pub_ns) {
+            // The publisher has closed their request stream (PUBLISH_NAMESPACE_DONE).
+            quic_transport_->CloseStream(stream, operation);
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->PublishNamespaceDoneReceived(GetSharedPtr(), request_id);
             }
             return;
         }
 
-        const bool is_reset = flag == StreamClosedFlag::kReset;
-
+        // The peer we requested TRACK_STATUS from has closed the stream. Either they responded,
+        // or errored, which has already occurred by now. Close our side, and notify.
+        // TODO: Does setting this status mean anything. A better one might have already been set.
         if (const auto status_handler = handler->Get<TrackStatusHandler>()) {
+            quic_transport_->CloseStream(stream, operation);
             status_handler->SetRequestStream(nullptr);
             status_handler->SetStatus(is_reset ? TrackStatusHandler::Status::kDoneByReset
                                                : TrackStatusHandler::Status::kDoneByFin);
             return;
         }
 
-        QUICR_LOGGER_INFO(logger_,
-                          "Closing request handler conn_id: {} request_id: {} stream_id: {} reset: {}",
-                          stream->GetConnectionID(),
-                          request_id,
-                          stream->GetStreamId(),
-                          is_reset);
+        // We must check FETCH before SUBSCRIBE as it inherits.
+        if (const auto fetch_handler = handler->Get<FetchTrackHandler>()) {
+            // Fetch RESET is cancellation, but FIN does not mean it's complete yet.
+            quic_transport_->CloseStream(stream, operation);
+            fetch_handler->SetStatus(is_reset ? FetchTrackHandler::Status::kDoneByReset
+                                              : FetchTrackHandler::Status::kDoneByFin);
+            fetch_handler->SetRequestStream(nullptr);
+            // TODO: If the fetch data stream has FIN'd already, we should clean it up now?
+            // TODO: But if it hasn't, the data stream FIN observation will need to do the cleanup?
+            return;
+        }
 
         if (auto sub_handler = handler->Get<SubscribeTrackHandler>()) {
-            // TODO: Do we need this double status of doneBy -> notSubscribed.
+            // The publisher has closed their stream.
+            // In theory, if it's a FIN, we have received publish_done, but data streams might still
+            // be completing. If it's RESET, it's cancelled/over.
+            quic_transport_->CloseStream(stream, operation);
             sub_handler->SetStatus(is_reset ? SubscribeTrackHandler::Status::kDoneByReset
                                             : SubscribeTrackHandler::Status::kDoneByFin);
+            sub_handler->SetRequestStream(nullptr);
 
-            if (not sub_handler->IsPublisherInitiated()) {
-                try {
-                    quic_transport_->CloseStream(sub_handler->GetRequestStream(), StreamOperation::kCancel);
-                } catch (const std::exception& e) {
-                    QUICR_LOGGER_ERROR(logger_, "Failed to close subscribe request stream: {}", e.what());
-                }
-            }
+            // TODO(RichLogan): Why do we reset the status? I don't think we should.
+            // TODO: kDoneByFin should be something like "kFinished"or "kComplete".
+            // TODO: kDoneByReset should be something like "kCancelled".
             sub_handler->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
+                // TODO: If we have already received graceful PUBLISH_DONE, we should not fire this again.
+                // TODO: But if we haven't, we probably should fire with an ungraceful flag.
+                callbacks->PublishDoneReceived(GetSharedPtr(), request_id);
             }
 
             return;
         }
 
         if (auto pub_handler = handler->Get<PublishTrackHandler>()) {
-            // TODO: There is more complicated state here around PUBLISH_DONE and REQUEST_ERROR.
+            // The subscriber has closed the request stream.
             pub_handler->SetStatus(is_reset ? PublishTrackHandler::Status::kUnsubscribed
                                             : PublishTrackHandler::Status::kDoneByFin);
-            // TODO: is_reset should propagate down here?
-            pub_handler->EndAllSubgroups();
+            pub_handler->EndAllSubgroups(false);
+            quic_transport_->CloseStream(stream, operation);
+            pub_handler->SetRequestStream(nullptr);
 
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
@@ -1332,6 +1354,10 @@ namespace quicr {
         }
 
         if (auto ns_handler = handler->Get<SubscribeNamespaceHandler>()) {
+            // The namespace publisher has cancelled the request.
+            quic_transport_->CloseStream(stream, operation);
+            ns_handler->SetRequestStream(nullptr);
+            // TODO: All learnt namespaces should be effectively NAMESPACE_DONE'd?
             if (ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk) {
                 ns_handler->SetStatus(SubscribeNamespaceHandler::Status::kNotSubscribed);
             }
@@ -1339,13 +1365,10 @@ namespace quicr {
         }
 
         if (auto pub_ns_handler = handler->Get<PublishNamespaceHandler>()) {
+            // The namespace subscriber has cancelled the request.
+            quic_transport_->CloseStream(stream, operation);
+            pub_ns_handler->SetRequestStream(nullptr);
             pub_ns_handler->SetStatus(PublishNamespaceHandler::Status::kNotPublished);
-            return;
-        }
-
-        if (auto fetch_handler = handler->Get<FetchTrackHandler>()) {
-            fetch_handler->SetStatus(is_reset ? FetchTrackHandler::Status::kDoneByReset
-                                              : FetchTrackHandler::Status::kDoneByFin);
             return;
         }
     }
@@ -1416,9 +1439,8 @@ namespace quicr {
             removed->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
         }
 
-        // Close whatever the application left open, so its objects drain rather than the streams
-        // lingering for the life of the connection.
-        track_handler->EndAllSubgroups();
+        // Remaining open subgroups have not been declared complete.
+        track_handler->EndAllSubgroups(false);
     }
 
     void Session::PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
@@ -2305,10 +2327,6 @@ namespace quicr {
                 const auto req_it = request_by_stream.find({ connection_id, stream_id });
                 if (req_it != request_by_stream.end()) {
                     if (req_it->second.is_request_stream) {
-                        if (flag == StreamClosedFlag::kStopSending) {
-                            return;
-                        }
-
                         request_id = req_it->second.request_id;
                         request_by_stream.erase(req_it);
 
@@ -3151,7 +3169,7 @@ namespace quicr {
         const auto old_binding = handler->GetBinding();
         const auto old_connection_id = old_connection->GetID();
         if (const auto publisher = handler->Get<PublishTrackHandler>()) {
-            publisher->EndAllSubgroupsInternal();
+            publisher->EndAllSubgroupsInternal(false);
         }
 
         {
@@ -3449,7 +3467,7 @@ namespace quicr {
                 pub_tracks_by_name.erase(th.track_namespace_hash);
             }
 
-            track_handler->EndAllSubgroupsInternal();
+            track_handler->EndAllSubgroupsInternal(false);
 
             const auto request_stream = track_handler->GetRequestStream();
             if (send_publish_done && request_stream != nullptr) {

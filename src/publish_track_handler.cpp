@@ -413,13 +413,13 @@ namespace quicr {
         }
     }
 
-    void PublishTrackHandler::EndAllSubgroups()
+    void PublishTrackHandler::EndAllSubgroups(bool completed)
     {
         std::lock_guard lock(binding_operation_mutex_);
-        EndAllSubgroupsInternal();
+        EndAllSubgroupsInternal(completed);
     }
 
-    void PublishTrackHandler::EndAllSubgroupsInternal()
+    void PublishTrackHandler::EndAllSubgroupsInternal(bool completed)
     {
         // EndSubgroup erases as it goes, so gather first rather than iterating the map it mutates.
         std::vector<std::pair<std::uint64_t, std::uint64_t>> open;
@@ -430,7 +430,7 @@ namespace quicr {
         }
 
         for (const auto& [group_id, subgroup_id] : open) {
-            EndSubgroupInternal(group_id, subgroup_id, true);
+            EndSubgroupInternal(group_id, subgroup_id, completed);
         }
     }
 
