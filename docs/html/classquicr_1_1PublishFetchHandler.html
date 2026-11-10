@@ -216,9 +216,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a6d0a0e529002112fadb17d30140cb6fa"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1PublishTrackHandler.html#a6d0a0e529002112fadb17d30140cb6fa">EndSubgroup</a> (uint64_t group_id, uint64_t subgroup_id, bool completed=true)</td></tr>
 <tr class="memdesc:a6d0a0e529002112fadb17d30140cb6fa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Ends the subgroup as completed or not.  <a href="classquicr_1_1PublishTrackHandler.html#a6d0a0e529002112fadb17d30140cb6fa">More...</a><br /></td></tr>
 <tr class="separator:a6d0a0e529002112fadb17d30140cb6fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaf9425fa2a634c727d3891a7ce960522"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1PublishTrackHandler.html#aaf9425fa2a634c727d3891a7ce960522">EndAllSubgroups</a> ()</td></tr>
-<tr class="memdesc:aaf9425fa2a634c727d3891a7ce960522"><td class="mdescLeft">&#160;</td><td class="mdescRight">End every subgroup still open on this track.  <a href="classquicr_1_1PublishTrackHandler.html#aaf9425fa2a634c727d3891a7ce960522">More...</a><br /></td></tr>
-<tr class="separator:aaf9425fa2a634c727d3891a7ce960522"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1ab4212fb9928c27fab1610154d32603"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1PublishTrackHandler.html#a1ab4212fb9928c27fab1610154d32603">EndAllSubgroups</a> (bool completed)</td></tr>
+<tr class="memdesc:a1ab4212fb9928c27fab1610154d32603"><td class="mdescLeft">&#160;</td><td class="mdescRight">End every subgroup still open on this track.  <a href="classquicr_1_1PublishTrackHandler.html#a1ab4212fb9928c27fab1610154d32603">More...</a><br /></td></tr>
+<tr class="separator:a1ab4212fb9928c27fab1610154d32603"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa851280f5e409c344848d2e06b0ecd8b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1PublishTrackHandler.html#aa851280f5e409c344848d2e06b0ecd8b">SetStatus</a> (<a class="el" href="classquicr_1_1PublishTrackHandler.html#af50c21bea085782c5c0c8f2958a921f7">Status</a> status) noexcept</td></tr>
 <tr class="memdesc:aa851280f5e409c344848d2e06b0ecd8b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the publish status.  <a href="classquicr_1_1PublishTrackHandler.html#aa851280f5e409c344848d2e06b0ecd8b">More...</a><br /></td></tr>
 <tr class="separator:aa851280f5e409c344848d2e06b0ecd8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -691,8 +691,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aaf9425fa2a634c727d3891a7ce960522"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aaf9425fa2a634c727d3891a7ce960522">&#9670;&nbsp;</a></span>EndAllSubgroups()</h2>
+<a id="a1ab4212fb9928c27fab1610154d32603"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1ab4212fb9928c27fab1610154d32603">&#9670;&nbsp;</a></span>EndAllSubgroups()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -703,7 +703,8 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="memname">void quicr::PublishTrackHandler::EndAllSubgroups </td>
           <td>(</td>
-          <td class="paramname"></td><td>)</td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>completed</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -715,7 +716,13 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>End every subgroup still open on this track. </p>
-<p>Called by the session when the track is unbound, so that subgroups the application never ended do not keep their streams open for the life of the connection. Each is ended as completed, matching what a well-behaved application would have done. </p><dl class="section note"><dt>Note</dt><dd>Silently leaves bookkeeping unchanged if no live session exists. </dd></dl>
+<p>Called by the session when the track is unbound, so that subgroups the application never ended do not keep their streams open for the life of the connection. </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">completed</td><td>If all have finished, drain and close with FIN. If false, end abruptly with RESET. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section note"><dt>Note</dt><dd>Silently leaves bookkeeping unchanged if no live session exists. </dd></dl>
 
 </div>
 </div>

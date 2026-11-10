@@ -37,7 +37,7 @@ var classquicr_1_1PublishFetchHandler =
     ] ],
     [ "PublishFetchHandler", "classquicr_1_1PublishFetchHandler.html#a32bd5dd3badc34d5c6583fe2d2b4de96", null ],
     [ "CanPublish", "classquicr_1_1PublishFetchHandler.html#a4a4edc8d4b39306c6ccbb22a9e759f39", null ],
-    [ "EndAllSubgroups", "classquicr_1_1PublishFetchHandler.html#aaf9425fa2a634c727d3891a7ce960522", null ],
+    [ "EndAllSubgroups", "classquicr_1_1PublishFetchHandler.html#a1ab4212fb9928c27fab1610154d32603", null ],
     [ "EndSubgroup", "classquicr_1_1PublishFetchHandler.html#a6d0a0e529002112fadb17d30140cb6fa", null ],
     [ "ForwardPublishedData", "classquicr_1_1PublishFetchHandler.html#a7a4ef92cd663d7bd2ea96d66550bf567", null ],
     [ "Get", "classquicr_1_1PublishFetchHandler.html#aa425c98a270535a2e6d67f7600530536", null ],
