@@ -1,5 +1,6 @@
-libquicr — Media over QUIC (MoQ) library
-========================================
+<div align="center">
+	<img height="128px" src="https://github.com/moq-dev/moq/blob/main/.github/logo.svg" alt="libquicr">
+</div>
 
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B)](#requirements)
 [![MOQT draft-18](https://img.shields.io/badge/MOQT-draft--18-blue)](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18)
@@ -12,7 +13,8 @@ libquicr — Media over QUIC (MoQ) library
 [![REUSE status](https://api.reuse.software/badge/github.com/Quicr/libquicr)](https://api.reuse.software/info/github.com/Quicr/libquicr)
 [![License: BSD-2-Clause](https://img.shields.io/badge/License-BSD--2--Clause-blue.svg)](LICENSE)
 
----
+libquicr — Media over QUIC (MoQ) library
+========================================
 
 Media over QUIC (MoQ) is a protocol suite for low-latency delivery of live media and other
 time-sensitive data over QUIC.
@@ -52,44 +54,58 @@ track name; use the same values to publish and receive messages.
 
 ## CMake integration
 
-Fetch a pinned libquicr commit from another CMake project:
+Consume an installed libquicr package through its exported target:
+
+```cmake
+find_package(quicr CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE quicr::quicr)
+```
+
+For an installation outside standard search paths, add its prefix to `CMAKE_PREFIX_PATH` when
+configuring the consuming project. When the C bridge is installed, its exported target is
+`quicr::bridge`.
+
+<details>
+<summary>Installing or adding libquicr from source</summary>
+
+**Build and install**
+
+```bash
+cmake -S . -B build -DQUICR_INSTALL=ON
+cmake --build build
+cmake --install build --prefix "/path/to/install"
+```
+
+The local prefix avoids administrator permissions. Omit `--prefix` to use the configured
+`CMAKE_INSTALL_PREFIX`.
+
+**FetchContent**
 
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
     libquicr
     GIT_REPOSITORY https://github.com/Quicr/libquicr.git
-    GIT_TAG d010d77f3cf31af2668aa6dd37e29832f8d616a1
+    GIT_TAG 980a887a6ca64b5a422102a0507a0a93fa0df081
 )
 FetchContent_MakeAvailable(libquicr)
 ```
 
-<details>
-<summary>Vendored source and CPM alternatives</summary>
-
-For vendored source, use:
+**Vendored source**
 
 ```cmake
 add_subdirectory(path/to/libquicr)
 ```
 
-Projects already using [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake) can use:
+**[CPM.cmake](https://github.com/cpm-cmake/CPM.cmake)**
 
 ```cmake
-CPMAddPackage("gh:Quicr/libquicr#d010d77f3cf31af2668aa6dd37e29832f8d616a1")
+CPMAddPackage("gh:Quicr/libquicr#980a887a6ca64b5a422102a0507a0a93fa0df081")
 ```
+
+All source integration methods expose the `quicr::quicr` target shown above.
 
 </details>
-
-Link the library target after adding it:
-
-```cmake
-target_link_libraries(your_target PRIVATE quicr)
-```
-
-Installed-package support using `find_package` is planned in
-[PR #1033](https://github.com/Quicr/libquicr/pull/1033). Until versioned releases are available,
-pin remote integrations to a commit as shown above.
 
 See the [API guide](docs/api-guide.md) for session and handler usage.
 
@@ -177,9 +193,9 @@ and each fetched dependency is then pinned to its own tag or commit:
 
 | Dependency | Purpose | Declared in |
 | --- | --- | --- |
-| [picoquic](https://github.com/private-octopus/picoquic/commit/1d81a730ebbc0f4598f8127a7f43260a71a9ac7d) | QUIC transport | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
+| [picoquic](https://github.com/private-octopus/picoquic/tree/v2026.10.25.1d81a73) | QUIC transport | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
 | [picotls](https://github.com/Quicr/picotls/tree/057ed54) | TLS 1.3 implementation | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
-| [timeq](https://github.com/Quicr/timeq/tree/898d45c) | Timed task scheduling | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
+| [timeq](https://github.com/Quicr/timeq/tree/v1.0.0) | Timed task scheduling | [`cmake/QuicrDependencies.cmake`](cmake/QuicrDependencies.cmake) |
 | [fmt](https://github.com/fmtlib/fmt/tree/12.2.0) | Formatting fallback when `std::format` is unavailable | [`cmake/QuicrFormat.cmake`](cmake/QuicrFormat.cmake) |
 
 Optional [tests](test/README.md), [benchmarks](benchmark/README.md), [tools](tools/README.md), and
@@ -202,6 +218,7 @@ cmake -B build -DQUICR_BUILD_EXAMPLES=ON
 
 | Option | Default | Purpose |
 | --- | --- | --- |
+| `QUICR_INSTALL` | Standalone: `ON`; subproject: `OFF` | Enable install and CMake package rules |
 | `QUICR_BUILD_C_BRIDGE` | Standalone: `ON`; subproject: `OFF` | Build the C bridge |
 | `QUICR_BUILD_EXAMPLES` | `OFF` | Build examples |
 | `QUICR_BUILD_TOOLS` | `OFF` | Build testing and debugging tools |
@@ -211,7 +228,7 @@ cmake -B build -DQUICR_BUILD_EXAMPLES=ON
 | `QUICR_BUILD_SHARED` | `OFF` | Build libquicr as a shared library |
 | `QUICR_ENABLE_SANITIZERS` | `OFF` | Enable AddressSanitizer and UndefinedBehaviorSanitizer |
 | `QUICR_GENERATE_THIRD_PARTY_LICENSES` | `OFF` | Add the `third-party-licenses` target |
-| `LINT` | `OFF` | Run Clang-Tidy while compiling |
+| `QUICR_LINT` | `OFF` | Run Clang-Tidy while compiling a standalone build |
 | `WITH_MBEDTLS` | `OFF` | Select the picotls Mbed TLS backend |
 | `WITH_BROTLI` | `OFF` | Enable picotls Brotli TLS certificate compression |
 
@@ -273,8 +290,9 @@ See the [TLS provider guide](docs/tls.md) for provider selection and configurati
 
 ## C Bridge
 
-The optional C bridge provides a client-only C wrapper around the C++ library. See the
-[C bridge documentation](c-bridge/README.md) for build instructions and API details.
+The optional C bridge provides a client-only C wrapper around the C++ library. Enable it with
+`QUICR_BUILD_C_BRIDGE=ON`; also enable `QUICR_BUILD_EXAMPLES` to build its examples. See the
+[C bridge documentation](c-bridge/README.md) for API details.
 
 ## Documentation
 
