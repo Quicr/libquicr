@@ -1,5 +1,6 @@
 var NAVTREEINDEX9 =
 {
+"structquicr_1_1messages_1_1StreamHeaderProperties.html#a8bff5c90ba11abed1bfeb8caf62e15d0":[2,0,0,1,10,5],
 "structquicr_1_1messages_1_1StreamHeaderProperties.html#a951e3712027d2803e2d179639cbc5c32":[2,0,0,1,10,3],
 "structquicr_1_1messages_1_1StreamHeaderProperties.html#aa1835e7e77f96492c017bca3f54c0e17":[2,0,0,1,10,4],
 "structquicr_1_1messages_1_1StreamHeaderProperties.html#aadeba0f6b3571072bb8c293522ac569d":[2,0,0,1,10,0],

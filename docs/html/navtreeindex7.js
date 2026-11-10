@@ -174,8 +174,9 @@ var NAVTREEINDEX7 =
 "structquicr_1_1PublishResponse.html#ab1062073134c81d7ae3be9301496ddf4":[2,0,0,50,0],
 "structquicr_1_1PublishTrackHandler_1_1StreamInfo.html":[2,0,0,29,0],
 "structquicr_1_1PublishTrackHandler_1_1StreamInfo.html#a07968b7fc6665b789406a052bd720283":[2,0,0,29,0,0],
+"structquicr_1_1PublishTrackHandler_1_1StreamInfo.html#a0bdd6bd5608f01df45eb2fb8afa72c80":[2,0,0,29,0,3],
 "structquicr_1_1PublishTrackHandler_1_1StreamInfo.html#a0d9f6487b30b8fbb46a87705d92a804d":[2,0,0,29,0,2],
-"structquicr_1_1PublishTrackHandler_1_1StreamInfo.html#a6cb5a8563ab3748ded44bc3964311c8a":[2,0,0,29,0,3],
+"structquicr_1_1PublishTrackHandler_1_1StreamInfo.html#a6cb5a8563ab3748ded44bc3964311c8a":[2,0,0,29,0,4],
 "structquicr_1_1PublishTrackHandler_1_1StreamInfo.html#adee0ee3448dae9a2879cba529130d5f5":[2,0,0,29,0,1],
 "structquicr_1_1PublishTrackMetrics.html":[2,0,0,45],
 "structquicr_1_1PublishTrackMetrics.html#a1b904152d53e05c40a548bff30c2c68c":[2,0,0,45,1],
@@ -248,6 +249,5 @@ var NAVTREEINDEX7 =
 "structquicr_1_1Redirect.html":[2,0,0,11],
 "structquicr_1_1Redirect.html#a7e78621e32935f5286fdcfd3c44a58ba":[2,0,0,11,3],
 "structquicr_1_1Redirect.html#ac4a5e8703f7b709e70f2182a56d8ad11":[2,0,0,11,1],
-"structquicr_1_1Redirect.html#ad86bde5af6806eea69c2f2b31fb2d668":[2,0,0,11,0],
-"structquicr_1_1Redirect.html#adfef8fd9f7bc7b272253dd5bb44b49a2":[2,0,0,11,2]
+"structquicr_1_1Redirect.html#ad86bde5af6806eea69c2f2b31fb2d668":[2,0,0,11,0]
 };
