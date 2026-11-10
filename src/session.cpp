@@ -3525,7 +3525,7 @@ namespace quicr {
                 const auto setup_options = messages::Message::ParseField<messages::KeyValuePairs>(msg_bytes);
 
                 std::string endpoint_id = "Unknown Endpoint ID";
-                if (auto endpoint = setup_options.GetOptional<std::string>(messages::SetupOptionType::kEndpointId)) {
+                if (auto endpoint = setup_options.Get<std::string>(messages::SetupOptionType::kEndpointId)) {
                     endpoint_id = *endpoint;
                 }
 
