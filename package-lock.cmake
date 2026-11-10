@@ -10,7 +10,7 @@ CPMDeclarePackage(fmt
 )
 # timeq
 CPMDeclarePackage(timeq
-  GIT_TAG 898d45c
+  VERSION 1.0.0
   GITHUB_REPOSITORY quicr/timeq
   SYSTEM YES
   EXCLUDE_FROM_ALL YES
@@ -23,11 +23,10 @@ CPMDeclarePackage(picotls
   EXCLUDE_FROM_ALL YES
   OPTIONS
     "WITH_FUSION OFF"
-    "picotls_BUILD_TESTS OFF"
 )
 # picoquic
 CPMDeclarePackage(picoquic
-  GIT_TAG v2026.10.22.70b5fd5
+  VERSION 2026.10.25.1d81a73
   GITHUB_REPOSITORY private-octopus/picoquic
   SYSTEM YES
   EXCLUDE_FROM_ALL YES
@@ -35,13 +34,12 @@ CPMDeclarePackage(picoquic
     "BUILD_DEMO OFF"
     "BUILD_PQBENCH OFF"
     "BUILD_LOGREADER OFF"
-    "picoquic_BUILD_TESTS OFF"
     "PICOQUIC_FETCH_PTLS ON"
 )
-# doctest
-CPMDeclarePackage(doctest
-  VERSION 2.5.2
-  GITHUB_REPOSITORY doctest/doctest
+# cxxopts
+CPMDeclarePackage(cxxopts
+  VERSION 3.3.1
+  GITHUB_REPOSITORY jarro2783/cxxopts
   SYSTEM YES
   EXCLUDE_FROM_ALL YES
 )
@@ -52,24 +50,24 @@ CPMDeclarePackage(spdlog
   SYSTEM YES
   EXCLUDE_FROM_ALL YES
 )
-# benchmark
-CPMDeclarePackage(benchmark
-  VERSION 1.9.5
-  GITHUB_REPOSITORY google/benchmark
-  SYSTEM YES
-  EXCLUDE_FROM_ALL YES
-)
-# cxxopts
-CPMDeclarePackage(cxxopts
-  VERSION 3.3.1
-  GITHUB_REPOSITORY jarro2783/cxxopts
-  SYSTEM YES
-  EXCLUDE_FROM_ALL YES
-)
 # json
 CPMDeclarePackage(json
   VERSION 3.11.3
   GITHUB_REPOSITORY nlohmann/json
+  SYSTEM YES
+  EXCLUDE_FROM_ALL YES
+)
+# doctest
+CPMDeclarePackage(doctest
+  VERSION 2.5.2
+  GITHUB_REPOSITORY doctest/doctest
+  SYSTEM YES
+  EXCLUDE_FROM_ALL YES
+)
+# benchmark
+CPMDeclarePackage(benchmark
+  VERSION 1.9.5
+  GITHUB_REPOSITORY google/benchmark
   SYSTEM YES
   EXCLUDE_FROM_ALL YES
 )

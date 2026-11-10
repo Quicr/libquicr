@@ -1,0 +1,50 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: documentation
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install documentation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz pandoc
+          npm install --global @mermaid-js/mermaid-cli@12.2.0 mermaid-filter@1.4.7
+
+      - name: Generate documentation
+        run: make doc
+
+      - name: Verify documentation output
+        run: |
+          test -f docs/html/index.html
+          test -f docs/html/api-guide.html
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: docs/html
+          destination_dir: docs/html
+          commit_message: "docs: publish ${{ github.sha }}"

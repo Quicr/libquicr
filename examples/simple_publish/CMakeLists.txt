@@ -8,9 +8,9 @@ set_target_properties(simple_publish PROPERTIES
     CXX_EXTENSIONS OFF
 )
 
-target_link_libraries(simple_publish PRIVATE quicr)
+target_link_libraries(simple_publish PRIVATE quicr::quicr)
 
-if(LINT)
+if(QUICR_LINT)
     include(Lint)
-    Lint(simple_publish)
+    lint(simple_publish)
 endif()
