@@ -19,13 +19,25 @@ endif()
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
-CPMAddPackage("gh:quicr/timeq#898d45c")
+set(TIMEQ_INSTALL ${QUICR_INSTALL})
+
+CPMAddPackage(
+    URI "gh:quicr/timeq@1.0.0"
+    EXCLUDE_FROM_ALL YES
+)
+
+if(QUICR_INSTALL)
+    set_property(DIRECTORY "${timeq_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL NO)
+endif()
+
+if(NOT DEFINED WITH_BROTLI)
+    set(WITH_BROTLI OFF)
+endif()
 
 CPMAddPackage(
     URI "gh:quicr/picotls#057ed54"
     OPTIONS
         "WITH_FUSION OFF"
-        "picotls_BUILD_TESTS OFF"
 )
 
 if (WITH_MBEDTLS)
@@ -61,13 +73,17 @@ endif()
 
 CPMAddPackage(
     URI "gh:private-octopus/picoquic@2026.10.25.1d81a73"
+    EXCLUDE_FROM_ALL YES
     OPTIONS
         "BUILD_DEMO OFF"
         "BUILD_PQBENCH OFF"
         "BUILD_LOGREADER OFF"
-        "picoquic_BUILD_TESTS OFF"
         "PICOQUIC_FETCH_PTLS ON"
 )
+
+if(QUICR_INSTALL)
+    set_property(DIRECTORY "${picoquic_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL NO)
+endif()
 
 set(WARN_SUPPRESS_TARGET_LIST picoquic-core picoquic-log picohttp-core picotls-core picotls-openssl picotls-minicrypto)
 

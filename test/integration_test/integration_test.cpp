@@ -3698,6 +3698,71 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
     }
 }
 
+TEST_CASE("Integration - New group requests preserve server forwarding state")
+{
+    auto session_mgr = MakeTestSessionManager();
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    std::string scheme = "moq";
+    SUBCASE("Raw QUIC") {}
+    SUBCASE("WebTransport")
+    {
+        scheme = "https";
+    }
+
+    auto [subscriber, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, scheme);
+    const FullTrackName ftn{ TrackNamespace({ "paused-new-group" }), { 1 } };
+    const auto sub_handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
+    subscriber->SubscribeTrack(sub_handler);
+    REQUIRE(WaitFor([&]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+    const auto pub_handler = server->GetSubscriberPublishHandler(TrackHash(ftn).track_fullname_hash);
+    REQUIRE(pub_handler);
+    const auto session = pub_handler->GetSession().lock();
+    REQUIRE(session);
+    const auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(pub_handler->GetConnection());
+    REQUIRE(connection);
+    REQUIRE(pub_handler->GetRequestStreamId().has_value());
+    const auto stream = connection->GetStream(*pub_handler->GetRequestStreamId());
+    REQUIRE(stream);
+
+    for (const auto forward :
+         { std::optional<std::uint8_t>{}, std::optional<std::uint8_t>{ 0 }, std::optional<std::uint8_t>{ 1 } }) {
+        const auto acknowledgements = sub_handler->RequestUpdateOks();
+        sub_handler->Pause();
+        REQUIRE(WaitFor([&]() { return sub_handler->RequestUpdateOks() == acknowledgements + 1; }));
+        REQUIRE(WaitFor([&]() { return pub_handler->GetStatus() == PublishTrackHandler::Status::kPaused; }));
+
+        // Inject the wire update because RequestNewGroup always sends FORWARD=1.
+        const auto params = messages::Parameters{}
+                              .Add(messages::ParameterType::kNewGroupRequest, std::uint64_t{ 0 })
+                              .AddOptional(messages::ParameterType::kForward, forward);
+        auto msg = messages::Message{}.PrependType(messages::ControlMessageType::kRequestUpdate).ReserveLength();
+        msg.Append(UintVar{ 100 });
+        msg.Append(params);
+        const auto bytes = msg.ToBytes();
+        {
+            std::lock_guard lock(stream->rx_mutex);
+            stream->rx_data.Push(*bytes);
+        }
+        connection->OnRecvStream(stream);
+
+        REQUIRE(WaitFor([&]() { return sub_handler->RequestUpdateOks() == acknowledgements + 2; }));
+        const bool resumed = forward == 1;
+        CHECK_EQ(pub_handler->GetStatus(),
+                 resumed ? PublishTrackHandler::Status::kNewGroupRequested : PublishTrackHandler::Status::kPaused);
+        const Bytes payload{ 42 };
+        const ObjectHeaders headers{ .group_id = 1,
+                                     .object_id = 0,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable };
+        CHECK_EQ(pub_handler->PublishObject(headers, payload),
+                 resumed ? PublishTrackHandler::PublishObjectStatus::kOk
+                         : PublishTrackHandler::PublishObjectStatus::kPaused);
+        sub_handler->Resume();
+        REQUIRE(WaitFor([&]() { return sub_handler->RequestUpdateOks() == acknowledgements + 3; }));
+    }
+}
+
 TEST_CASE("Integration - Request updates reuse the handler's request stream")
 {
     auto session_mgr = MakeTestSessionManager();
