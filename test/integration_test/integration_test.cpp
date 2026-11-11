@@ -347,7 +347,7 @@ MakeTestClientConfig(const std::string& protocol_scheme,
     client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
     client_config.use_qmux = protocol_scheme == "qmux";
     const auto scheme = client_config.use_qmux ? std::string("moqt") : protocol_scheme;
-    client_config.connect_uri = quicr::format("{}://{}:{}/relay", scheme, host, port);
+    client_config.connect_uri = scheme + "://" + host + ":" + std::to_string(GetTestPort()) + "/relay";
     return client_config;
 }
 
@@ -420,6 +420,37 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     }
 
     return std::make_pair(session, callbacks);
+}
+
+// Check the request stream (assuming the first bidir stream) gets closed and cleaned, returning its ID.
+static std::uint64_t
+RequireRequestStreamClosed(const std::shared_ptr<Session>& session,
+                           const std::shared_ptr<TestClient>& callbacks,
+                           const std::shared_ptr<TestServer>& server)
+{
+    std::optional<std::uint64_t> request_stream_id;
+    REQUIRE(WaitFor([&] {
+        for (const auto& [stream_id, flags] : callbacks->GetStreamClosures()) {
+            if ((stream_id & 0x2) == 0 &&
+                (flags.contains(StreamClosedFlag::kFin) || flags.contains(StreamClosedFlag::kReset))) {
+                request_stream_id = stream_id;
+                return true;
+            }
+        }
+        return false;
+    }));
+    CAPTURE(*request_stream_id);
+    REQUIRE(WaitFor([&] { return server->WasStreamReset(*request_stream_id).has_value(); }));
+    const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
+    CHECK(WaitFor([&] { return connection->GetStream(*request_stream_id) == nullptr; }));
+
+    // Each direction ends exactly one way.
+    const auto ended_both_ways = [](const std::set<StreamClosedFlag>& flags) {
+        return flags.contains(StreamClosedFlag::kFin) && flags.contains(StreamClosedFlag::kReset);
+    };
+    CHECK_FALSE(ended_both_ways(*callbacks->CheckStreamState(*request_stream_id)));
+    CHECK_FALSE(ended_both_ways(*server->CheckStreamState(*request_stream_id)));
+    return *request_stream_id;
 }
 
 /// @brief Test subscribe handler that tracks received objects and exposes stream state
@@ -1755,7 +1786,7 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
-        const auto handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        const auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
 
         std::promise<TestServer::SubscribeDetails> sub_promise;
         std::future<TestServer::SubscribeDetails> sub_future = sub_promise.get_future();
@@ -1773,6 +1804,31 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
         REQUIRE(handler->GetRequestStreamId().has_value());
         const auto request_stream_id = handler->GetRequestStreamId().value();
 
+        const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
+        const auto request_stream = connection->GetStream(request_stream_id);
+        REQUIRE(request_stream != nullptr);
+        const auto publisher = server->GetSubscriberPublishHandler(TrackHash(ftn).track_fullname_hash);
+        REQUIRE(publisher != nullptr);
+
+        // Cancellation must close every open data stream as well as the request stream.
+        std::vector<std::shared_ptr<Stream>> data_streams;
+        const std::vector<std::uint8_t> payload(64, 0x5a);
+        for (std::uint64_t group_id = 0; group_id < 2; ++group_id) {
+            const ObjectHeaders headers{ .group_id = group_id,
+                                         .object_id = 0,
+                                         .subgroup_id = 0,
+                                         .payload_length = payload.size(),
+                                         .status = ObjectStatus::kAvailable,
+                                         .priority = 3,
+                                         .ttl = 10'000,
+                                         .track_mode = TrackMode::kStream };
+            REQUIRE_EQ(publisher->PublishObject(headers, payload), PublishTrackHandler::PublishObjectStatus::kOk);
+            REQUIRE(WaitFor([&] { return handler->GetReceivedCount() == group_id + 1; }));
+            const auto data_stream = publisher->GetSubgroupStream(group_id, 0);
+            REQUIRE(data_stream != nullptr);
+            data_streams.push_back(data_stream);
+        }
+
         // Unsubscribe.
         CHECK_NOTHROW(session->UnsubscribeTrack(handler));
 
@@ -1782,7 +1838,18 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 
         // We should see that the peer RESET their side in response.
         REQUIRE(WaitFor([&]() { return callbacks->CheckStreamState(request_stream_id).has_value(); }));
-        CHECK(callbacks->CheckStreamState(request_stream_id) == true);
+        CHECK(callbacks->CheckStreamState(request_stream_id)->contains(StreamClosedFlag::kReset));
+
+        CHECK(WaitFor([&] { return !request_stream->IsOpen(); }));
+        for (const auto& data_stream : data_streams) {
+            const auto data_stream_id = data_stream->GetStreamId();
+            CAPTURE(data_stream_id);
+            // Accept FIN or RESET for now. A follow-up PR will require RESET on cancellation,
+            // as specified by draft-18 section 5.1.1.
+            REQUIRE(WaitFor([&] { return callbacks->CheckStreamState(data_stream_id).has_value(); }));
+            CHECK(WaitFor([&] { return !data_stream->IsOpen(); }));
+            CHECK(WaitFor([&] { return connection->GetStream(data_stream_id) == nullptr; }));
+        }
 
         // Callback should fire.
         REQUIRE(unsub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
@@ -1875,18 +1942,51 @@ TEST_CASE("Integration - Rejected request closes both stream directions")
         const FullTrackName ftn{ TrackNamespace({ "missing" }), { 1 } };
         auto handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
         CHECK_NOTHROW(session->SubscribeTrack(handler));
-        REQUIRE(handler->GetRequestStreamId().has_value());
-        const auto request_stream_id = *handler->GetRequestStreamId();
 
         // Ensure we get REQUEST_ERROR from the peer before any stream closure.
         REQUIRE(WaitFor([&handler] { return handler->RequestErrorReceived(); }));
 
-        // The peer should now have FIN'd their side.
-        REQUIRE(WaitFor([&] { return callbacks->CheckStreamState(request_stream_id).has_value(); }));
-        CHECK(callbacks->CheckStreamState(request_stream_id) == false);
+        // The peer FINs their side, our remaining direction must close too, and the request must
+        // leave the transport.
+        const auto request_stream_id = RequireRequestStreamClosed(session, callbacks, server);
+        CHECK(callbacks->CheckStreamState(request_stream_id)->contains(StreamClosedFlag::kFin));
+    };
 
-        // We should now have RESET our side in response.
-        REQUIRE(WaitFor([&] { return server->WasStreamReset(request_stream_id).has_value(); }));
+    SUBCASE("Raw QUIC")
+    {
+        CAPTURE("Raw QUIC");
+        test_rejection("moq");
+    }
+
+    SUBCASE("WebTransport")
+    {
+        CAPTURE("WebTransport");
+        test_rejection("https");
+    }
+}
+
+TEST_CASE("Integration - Rejected publish ends the publish handler")
+{
+    auto test_rejection = [](const std::string& protocol_scheme) {
+        auto session_mgr = MakeTestSessionManager();
+        auto server = MakeTestServer(session_mgr);
+
+        // Setup to blanket reject the request.
+        server->SetPublishError(PublishErrorCode::kRejected, "Publish rejected");
+        const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto& session = client.first;
+        const auto& callbacks = client.second;
+
+        const FullTrackName ftn{ TrackNamespace({ "rejected" }), { 1 } };
+        const auto handler = TestPublishTrackHandler::Create(ftn, TrackMode::kStream, 1, 1, 5000, { 0, 0 });
+        CHECK_NOTHROW(session->PublishTrack(handler));
+
+        // The peer FINs their side after REQUEST_ERROR, and ours must close too.
+        const auto request_stream_id = RequireRequestStreamClosed(session, callbacks, server);
+        CHECK(callbacks->CheckStreamState(request_stream_id)->contains(StreamClosedFlag::kFin));
+
+        // The rejected publish must not be left pending.
+        CHECK(WaitFor([&] { return handler->GetStatus() == PublishTrackHandler::Status::kDoneByFin; }));
     };
 
     SUBCASE("Raw QUIC")
@@ -1991,7 +2091,9 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
     auto server = MakeTestServer(session_mgr);
 
     auto test_publish_namespace_done = [&](const std::string& protocol_scheme) {
-        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+        const auto& session = client.first;
+        const auto& callbacks = client.second;
 
         TrackNamespace ns(std::vector<std::string>{ "ns", "done" });
 
@@ -2013,12 +2115,20 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
         REQUIRE(handler->GetRequestId().has_value());
         const auto request_id = handler->GetRequestId().value();
 
+        const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
+        const auto request_stream = connection->GetStream(request_stream_id);
+        REQUIRE(request_stream != nullptr);
+
         // Done.
         CHECK_NOTHROW(session->PublishNamespaceDone(handler));
 
         // Request stream reset.
         REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));
         CHECK(server->WasStreamReset(request_stream_id) == true);
+
+        REQUIRE(WaitFor([&] { return callbacks->CheckStreamState(request_stream_id).has_value(); }));
+        CHECK(callbacks->CheckStreamState(request_stream_id)->contains(StreamClosedFlag::kReset));
+        CHECK(WaitFor([&] { return !request_stream->IsOpen(); }));
 
         // Callback fires.
         REQUIRE(done_future.wait_for(kDefaultTimeout) == std::future_status::ready);
@@ -2038,8 +2148,21 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
     }
 }
 
-TEST_CASE("Integration - Fetch")
+TEST_CASE("Integration - Rejected Fetch closes both request stream directions")
 {
+    class RejectedFetchHandler final : public FetchTrackHandler
+    {
+      public:
+        explicit RejectedFetchHandler(const FullTrackName& track)
+          : FetchTrackHandler(track, 0, { 0, 0 }, { 0, std::nullopt })
+        {
+        }
+
+        void RequestError(ErrorCode, std::string) override { request_error_received.store(true); }
+
+        std::atomic<bool> request_error_received{ false };
+    };
+
     auto session_mgr = MakeTestSessionManager();
     auto server =
       MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
@@ -2049,11 +2172,11 @@ TEST_CASE("Integration - Fetch")
         FullTrackName ftn;
         ftn.name_space = TrackNamespace({ "namespace" });
         ftn.name = { 1, 2, 3 };
-        const auto handler = FetchTrackHandler::Create(ftn, 0, { 0, 0 }, { 0, std::nullopt });
+        const auto handler = std::make_shared<RejectedFetchHandler>(ftn);
         session->FetchTrack(handler);
 
-        REQUIRE(handler->GetRequestStreamId().has_value());
-        REQUIRE(handler->GetRequestId().has_value());
+        REQUIRE(WaitFor([&] { return handler->request_error_received.load(); }));
+        RequireRequestStreamClosed(session, callbacks, server);
     };
 
     SUBCASE("Raw QUIC")
@@ -3216,7 +3339,9 @@ TEST_CASE("Integration - A forwarding subscriber is given subgroup bytes rather 
                                      .ttl = 10'000,
                                      .track_mode = TrackMode::kStream };
         std::optional<messages::StreamHeaderProperties> stream_mode;
-        stream_mode.emplace(true, mode, false, false, object_id == 0);
+        if (object_id == 0) {
+            stream_mode.emplace(true, mode, false, false, true);
+        }
         REQUIRE_EQ(publish_handler->PublishObject(headers, payload, stream_mode),
                    PublishTrackHandler::PublishObjectStatus::kOk);
     };
@@ -3488,7 +3613,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
         auto publish_object = [&](uint64_t group_id,
                                   uint64_t subgroup_id,
                                   uint64_t object_id,
-                                  bool first_object = true,
+                                  std::optional<bool> first_object = true,
                                   std::optional<messages::SubgroupIdType> subgroup_id_mode = std::nullopt) {
             std::vector payload = { static_cast<uint8_t>(group_id),
                                     static_cast<uint8_t>(subgroup_id),
@@ -3504,25 +3629,24 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
                                       .extensions = std::nullopt,
                                       .immutable_extensions = std::nullopt };
             std::optional<messages::StreamHeaderProperties> stream_mode;
-            stream_mode.emplace(true,
-                                subgroup_id_mode.has_value() ? *subgroup_id_mode : messages::SubgroupIdType::kExplicit,
-                                false,
-                                false,
-                                first_object);
+            if (first_object.has_value()) {
+                stream_mode.emplace(
+                  true, subgroup_id_mode.value_or(messages::SubgroupIdType::kExplicit), false, false, *first_object);
+            }
             auto status = pub_handler->PublishObject(headers, payload, stream_mode);
             REQUIRE_EQ(status, PublishTrackHandler::PublishObjectStatus::kOk);
         };
 
         // Subgroup 0.
         publish_object(0, 0, 0);
-        publish_object(0, 0, 1);
+        publish_object(0, 0, 1, std::nullopt);
         pub_handler->EndSubgroup(0, 0, true);
         // Subgroup 1.
         publish_object(0, 1, 2);
         pub_handler->EndSubgroup(0, 1, true);
         // Subgroup 2, replicating a relay mid-subgroup forward (non-original first object).
         publish_object(0, 2, 3, false);
-        publish_object(0, 2, 4);
+        publish_object(0, 2, 4, std::nullopt);
         // Subgroup 5, deriving its subgroup ID from its first object ID.
         publish_object(0, 5, 5, true, messages::SubgroupIdType::kSetFromFirstObject);
         // Let's end on a new group.
@@ -3792,10 +3916,11 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
         std::future<TestServer::SubscribeDetails> subscribe_future = subscribe_promise.get_future();
         server->SetSubscribePromise(std::move(subscribe_promise));
 
-        const auto sub_handler = SubscribeTrackHandler::Create(ftn, 0, std::nullopt);
+        const auto sub_handler = TestForwardingSubscribeHandler::Create(ftn, 0);
         CHECK_NOTHROW(subscriber->SubscribeTrack(sub_handler));
         REQUIRE(subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         (void)subscribe_future.get();
+        REQUIRE(WaitFor([&] { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
         // The server binds a publish track handler to serve this subscriber.
         const auto pub_handler = server->GetSubscriberPublishHandler(track_alias);
@@ -3816,8 +3941,11 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
 
         // Baseline: a new group opens a stream while the track is still bound.
         REQUIRE_EQ(pub_handler->PublishObject(header_for(0), payload), PublishTrackHandler::PublishObjectStatus::kOk);
+        REQUIRE(WaitFor([&] { return sub_handler->GetSubgroupCount() == 1; }));
 
         REQUIRE(server->UnbindSubscriberPublishTrack(track_alias));
+        REQUIRE(WaitFor([&] { return sub_handler->GetSubgroups().front().ended; }));
+        CHECK(sub_handler->GetSubgroups().front().reset);
 
         /*
          * Once unbound, the handler must refuse every publish rather than opening a stream on a
@@ -3839,6 +3967,71 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
     SUBCASE("WebTransport")
     {
         test_unbound_publish("https");
+    }
+}
+
+TEST_CASE("Integration - New group requests preserve server forwarding state")
+{
+    auto session_mgr = MakeTestSessionManager();
+    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    std::string scheme = "moq";
+    SUBCASE("Raw QUIC") {}
+    SUBCASE("WebTransport")
+    {
+        scheme = "https";
+    }
+
+    auto [subscriber, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, scheme);
+    const FullTrackName ftn{ TrackNamespace({ "paused-new-group" }), { 1 } };
+    const auto sub_handler = TestSubscribeHandler::Create(ftn, 0, std::nullopt);
+    subscriber->SubscribeTrack(sub_handler);
+    REQUIRE(WaitFor([&]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+    const auto pub_handler = server->GetSubscriberPublishHandler(TrackHash(ftn).track_fullname_hash);
+    REQUIRE(pub_handler);
+    const auto session = pub_handler->GetSession().lock();
+    REQUIRE(session);
+    const auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(pub_handler->GetConnection());
+    REQUIRE(connection);
+    REQUIRE(pub_handler->GetRequestStreamId().has_value());
+    const auto stream = connection->GetStream(*pub_handler->GetRequestStreamId());
+    REQUIRE(stream);
+
+    for (const auto forward :
+         { std::optional<std::uint8_t>{}, std::optional<std::uint8_t>{ 0 }, std::optional<std::uint8_t>{ 1 } }) {
+        const auto acknowledgements = sub_handler->RequestUpdateOks();
+        sub_handler->Pause();
+        REQUIRE(WaitFor([&]() { return sub_handler->RequestUpdateOks() == acknowledgements + 1; }));
+        REQUIRE(WaitFor([&]() { return pub_handler->GetStatus() == PublishTrackHandler::Status::kPaused; }));
+
+        // Inject the wire update because RequestNewGroup always sends FORWARD=1.
+        const auto params = messages::Parameters{}
+                              .Add(messages::ParameterType::kNewGroupRequest, std::uint64_t{ 0 })
+                              .AddOptional(messages::ParameterType::kForward, forward);
+        auto msg = messages::Message{}.PrependType(messages::ControlMessageType::kRequestUpdate).ReserveLength();
+        msg.Append(UintVar{ 100 });
+        msg.Append(params);
+        const auto bytes = msg.ToBytes();
+        {
+            std::lock_guard lock(stream->rx_mutex);
+            stream->rx_data.Push(*bytes);
+        }
+        connection->OnRecvStream(stream);
+
+        REQUIRE(WaitFor([&]() { return sub_handler->RequestUpdateOks() == acknowledgements + 2; }));
+        const bool resumed = forward == 1;
+        CHECK_EQ(pub_handler->GetStatus(),
+                 resumed ? PublishTrackHandler::Status::kNewGroupRequested : PublishTrackHandler::Status::kPaused);
+        const Bytes payload{ 42 };
+        const ObjectHeaders headers{ .group_id = 1,
+                                     .object_id = 0,
+                                     .subgroup_id = 0,
+                                     .payload_length = payload.size(),
+                                     .status = ObjectStatus::kAvailable };
+        CHECK_EQ(pub_handler->PublishObject(headers, payload),
+                 resumed ? PublishTrackHandler::PublishObjectStatus::kOk
+                         : PublishTrackHandler::PublishObjectStatus::kPaused);
+        sub_handler->Resume();
+        REQUIRE(WaitFor([&]() { return sub_handler->RequestUpdateOks() == acknowledgements + 3; }));
     }
 }
 
@@ -3974,7 +4167,7 @@ TEST_CASE("Integration - Subscription subgroup close")
         const auto closed_stream_ids = callbacks->GetClosedStreamIds();
         REQUIRE_EQ(closed_stream_ids.size(), 1);
         const auto stream_id = closed_stream_ids.front();
-        CHECK(callbacks->CheckStreamState(stream_id) == false);
+        CHECK(callbacks->CheckStreamState(stream_id)->contains(StreamClosedFlag::kFin));
         const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetDefaultConnection());
         CHECK(WaitFor([&] { return connection->GetStream(stream_id) == nullptr; }));
         CHECK_EQ(subscribe_handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
@@ -4045,7 +4238,7 @@ TEST_CASE("Integration - Track Status")
         const auto closed_stream_ids = subscriber_client->GetClosedStreamIds();
         REQUIRE_EQ(closed_stream_ids.size(), 1);
         const auto stream_id = closed_stream_ids.front();
-        CHECK(subscriber_client->CheckStreamState(stream_id) == false);
+        CHECK(subscriber_client->CheckStreamState(stream_id)->contains(StreamClosedFlag::kFin));
         REQUIRE(WaitFor([&] { return server->WasStreamReset(stream_id).has_value(); }));
         CHECK(server->WasStreamReset(stream_id) == false);
         const auto connection = std::static_pointer_cast<PicoQuicConnection>(subscriber->GetDefaultConnection());

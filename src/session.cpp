@@ -1266,6 +1266,16 @@ namespace quicr {
         }
 
         // Notifications / callbacks.
+        QUICR_LOGGER_INFO(logger_,
+                          "Closing request handler conn_id: {} request_id: {} stream_id: {} closure: {}",
+                          stream->GetConnectionID(),
+                          request_id,
+                          stream->GetStreamId(),
+                          static_cast<int>(flag));
+
+        // Standard bidir response: FIN answers FIN, and any abrupt closure is cancellation.
+        const auto operation = flag == StreamClosedFlag::kFin ? StreamOperation::kFin : StreamOperation::kCancel;
+        const bool is_reset = operation == StreamOperation::kCancel;
 
         if (is_sub_ns) {
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
@@ -1275,55 +1285,67 @@ namespace quicr {
         }
 
         if (is_pub_ns) {
+            // The publisher has closed their request stream (PUBLISH_NAMESPACE_DONE).
+            quic_transport_->CloseStream(stream, operation);
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->PublishNamespaceDoneReceived(GetSharedPtr(), request_id);
             }
             return;
         }
 
-        const bool is_reset = flag == StreamClosedFlag::kReset;
-
+        // The peer we requested TRACK_STATUS from has closed the stream. Either they responded,
+        // or errored, which has already occurred by now. Close our side, and notify.
+        // TODO: Does setting this status mean anything. A better one might have already been set.
         if (const auto status_handler = handler->Get<TrackStatusHandler>()) {
+            quic_transport_->CloseStream(stream, operation);
             status_handler->SetRequestStream(nullptr);
             status_handler->SetStatus(is_reset ? TrackStatusHandler::Status::kDoneByReset
                                                : TrackStatusHandler::Status::kDoneByFin);
             return;
         }
 
-        QUICR_LOGGER_INFO(logger_,
-                          "Closing request handler conn_id: {} request_id: {} stream_id: {} reset: {}",
-                          stream->GetConnectionID(),
-                          request_id,
-                          stream->GetStreamId(),
-                          is_reset);
+        // We must check FETCH before SUBSCRIBE as it inherits.
+        if (const auto fetch_handler = handler->Get<FetchTrackHandler>()) {
+            // Fetch RESET is cancellation, but FIN does not mean it's complete yet.
+            quic_transport_->CloseStream(stream, operation);
+            fetch_handler->SetStatus(is_reset ? FetchTrackHandler::Status::kDoneByReset
+                                              : FetchTrackHandler::Status::kDoneByFin);
+            fetch_handler->SetRequestStream(nullptr);
+            // TODO: If the fetch data stream has FIN'd already, we should clean it up now?
+            // TODO: But if it hasn't, the data stream FIN observation will need to do the cleanup?
+            return;
+        }
 
         if (auto sub_handler = handler->Get<SubscribeTrackHandler>()) {
-            // TODO: Do we need this double status of doneBy -> notSubscribed.
+            // The publisher has closed their stream.
+            // In theory, if it's a FIN, we have received publish_done, but data streams might still
+            // be completing. If it's RESET, it's cancelled/over.
+            quic_transport_->CloseStream(stream, operation);
             sub_handler->SetStatus(is_reset ? SubscribeTrackHandler::Status::kDoneByReset
                                             : SubscribeTrackHandler::Status::kDoneByFin);
+            sub_handler->SetRequestStream(nullptr);
 
-            if (not sub_handler->IsPublisherInitiated()) {
-                try {
-                    quic_transport_->CloseStream(sub_handler->GetRequestStream(), StreamOperation::kCancel);
-                } catch (const std::exception& e) {
-                    QUICR_LOGGER_ERROR(logger_, "Failed to close subscribe request stream: {}", e.what());
-                }
-            }
+            // TODO(RichLogan): Why do we reset the status? I don't think we should.
+            // TODO: kDoneByFin should be something like "kFinished"or "kComplete".
+            // TODO: kDoneByReset should be something like "kCancelled".
             sub_handler->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
 
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
+                // TODO: If we have already received graceful PUBLISH_DONE, we should not fire this again.
+                // TODO: But if we haven't, we probably should fire with an ungraceful flag.
+                callbacks->PublishDoneReceived(GetSharedPtr(), request_id);
             }
 
             return;
         }
 
         if (auto pub_handler = handler->Get<PublishTrackHandler>()) {
-            // TODO: There is more complicated state here around PUBLISH_DONE and REQUEST_ERROR.
+            // The subscriber has closed the request stream.
             pub_handler->SetStatus(is_reset ? PublishTrackHandler::Status::kUnsubscribed
                                             : PublishTrackHandler::Status::kDoneByFin);
-            // TODO: is_reset should propagate down here?
-            pub_handler->EndAllSubgroups();
+            pub_handler->EndAllSubgroups(false);
+            quic_transport_->CloseStream(stream, operation);
+            pub_handler->SetRequestStream(nullptr);
 
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
@@ -1333,6 +1355,10 @@ namespace quicr {
         }
 
         if (auto ns_handler = handler->Get<SubscribeNamespaceHandler>()) {
+            // The namespace publisher has cancelled the request.
+            quic_transport_->CloseStream(stream, operation);
+            ns_handler->SetRequestStream(nullptr);
+            // TODO: All learnt namespaces should be effectively NAMESPACE_DONE'd?
             if (ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk) {
                 ns_handler->SetStatus(SubscribeNamespaceHandler::Status::kNotSubscribed);
             }
@@ -1340,13 +1366,10 @@ namespace quicr {
         }
 
         if (auto pub_ns_handler = handler->Get<PublishNamespaceHandler>()) {
+            // The namespace subscriber has cancelled the request.
+            quic_transport_->CloseStream(stream, operation);
+            pub_ns_handler->SetRequestStream(nullptr);
             pub_ns_handler->SetStatus(PublishNamespaceHandler::Status::kNotPublished);
-            return;
-        }
-
-        if (auto fetch_handler = handler->Get<FetchTrackHandler>()) {
-            fetch_handler->SetStatus(is_reset ? FetchTrackHandler::Status::kDoneByReset
-                                              : FetchTrackHandler::Status::kDoneByFin);
             return;
         }
     }
@@ -1417,9 +1440,8 @@ namespace quicr {
             removed->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
         }
 
-        // Close whatever the application left open, so its objects drain rather than the streams
-        // lingering for the life of the connection.
-        track_handler->EndAllSubgroups();
+        // Remaining open subgroups have not been declared complete.
+        track_handler->EndAllSubgroups(false);
     }
 
     void Session::PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
@@ -2306,10 +2328,6 @@ namespace quicr {
                 const auto req_it = request_by_stream.find({ connection_id, stream_id });
                 if (req_it != request_by_stream.end()) {
                     if (req_it->second.is_request_stream) {
-                        if (flag == StreamClosedFlag::kStopSending) {
-                            return;
-                        }
-
                         request_id = req_it->second.request_id;
                         request_by_stream.erase(req_it);
 
@@ -3154,7 +3172,7 @@ namespace quicr {
         const auto old_binding = handler->GetBinding();
         const auto old_connection_id = old_connection->GetID();
         if (const auto publisher = handler->Get<PublishTrackHandler>()) {
-            publisher->EndAllSubgroupsInternal();
+            publisher->EndAllSubgroupsInternal(false);
         }
 
         {
@@ -3452,7 +3470,7 @@ namespace quicr {
                 pub_tracks_by_name.erase(th.track_namespace_hash);
             }
 
-            track_handler->EndAllSubgroupsInternal();
+            track_handler->EndAllSubgroupsInternal(false);
 
             const auto request_stream = track_handler->GetRequestStream();
             if (send_publish_done && request_stream != nullptr) {
@@ -3528,7 +3546,7 @@ namespace quicr {
                 const auto setup_options = messages::Message::ParseField<messages::KeyValuePairs>(msg_bytes);
 
                 std::string endpoint_id = "Unknown Endpoint ID";
-                if (auto endpoint = setup_options.GetOptional<std::string>(messages::SetupOptionType::kEndpointId)) {
+                if (auto endpoint = setup_options.Get<std::string>(messages::SetupOptionType::kEndpointId)) {
                     endpoint_id = *endpoint;
                 }
 
@@ -3686,28 +3704,22 @@ namespace quicr {
                     return true;
                 }
 
-                auto delivery_timeout = parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
+                auto delivery_timeout =
+                  parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout).value_or(0);
                 const auto rendezvous_timeout_ms =
-                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kRendezvousTimeout).value_or(0);
+                  parameters.Get<std::uint64_t>(messages::ParameterType::kRendezvousTimeout).value_or(0);
                 if (rendezvous_timeout_ms > std::chrono::milliseconds::max().count()) {
                     SendRequestError(
                       stream, request_id, ErrorCode::kNotSupported, 0ms, "Rendezvous timeout too large", true);
                     return true;
                 }
                 const auto rendezvous_timeout = std::chrono::milliseconds{ rendezvous_timeout_ms };
-                auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto group_order = parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
+                auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority).value_or(128);
+                auto group_order = messages::ResolveGroupOrder(parameters);
                 const auto publisher_default_group_order = messages::GroupOrder::kAscending;
-                auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
-                auto new_group_request_id =
-                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
-
-                messages::Filter filter;
-                if (parameters.Contains(messages::ParameterType::kSubscriptionFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kSubscriptionFilter);
-                } else if (parameters.Contains(messages::ParameterType::kTrackFilter)) {
-                    filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
-                }
+                auto forward = messages::ResolveForward(parameters, true);
+                auto new_group_request_id = parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                auto filter = messages::ResolveFilter(parameters);
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     callbacks
@@ -3849,9 +3861,9 @@ namespace quicr {
                         .value_or(messages::GroupOrder::kAscending);
 
                     if (client_mode_) {
-                        if (parameters.Contains(messages::ParameterType::kLargestObject)) {
-                            sub_handler->SetLatestLocation(
-                              parameters.Get<messages::Location>(messages::ParameterType::kLargestObject));
+                        if (auto largest =
+                              parameters.Get<messages::Location>(messages::ParameterType::kLargestObject)) {
+                            sub_handler->SetLatestLocation(*largest);
                         }
                         sub_handler->SupportNewGroupRequest(true);
                     }
@@ -3888,8 +3900,7 @@ namespace quicr {
 
                 if (auto status_handler = track_it->second->Get<TrackStatusHandler>()) {
                     TrackStatusResponse response = {
-                        .largest_location =
-                          parameters.GetOptional<messages::Location>(messages::ParameterType::kLargestObject),
+                        .largest_location = parameters.Get<messages::Location>(messages::ParameterType::kLargestObject),
                         .track_properties = Message::ParseField<messages::TrackExtensions>(msg_bytes),
                     };
                     {
@@ -4512,9 +4523,10 @@ namespace quicr {
                             end_location.object = end.object - 1;
                         }
 
-                        auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                        auto priority =
+                          parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority).value_or(128);
                         auto group_order =
-                          parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
+                          messages::ResolveGroupOrder(parameters).value_or(messages::GroupOrder::kAscending);
 
                         if (callbacks_) {
                             StandaloneFetchAttributes attrs = {
@@ -4595,9 +4607,10 @@ namespace quicr {
                             };
                         }
 
-                        auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
+                        auto priority =
+                          parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority).value_or(128);
                         auto group_order =
-                          parameters.GetOptional<messages::GroupOrder>(messages::ParameterType::kGroupOrder);
+                          messages::ResolveGroupOrder(parameters).value_or(messages::GroupOrder::kAscending);
 
                         if (callbacks_) {
                             JoiningFetchAttributes attrs = {
@@ -4672,8 +4685,8 @@ namespace quicr {
                                                  .track_alias = track_alias,
                                                  .auth_tokens = CollectAuthTokens(parameters),
                                                  .expires = ResolveExpires(parameters),
-                                                 .largest_object = parameters.GetOptional<Location>(
-                                                   messages::ParameterType::kLargestObject),
+                                                 .largest_object =
+                                                   parameters.Get<Location>(messages::ParameterType::kLargestObject),
                                                  .forward = ResolveForward(parameters, true),
                                                  .default_publisher_group_order = default_publisher_group_order,
                                                  .dynamic_groups = dynamic_groups,
@@ -4855,9 +4868,8 @@ namespace quicr {
                 [[maybe_unused]] auto delivery_timeout =
                   parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout);
                 [[maybe_unused]] auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority);
-                auto forward = parameters.Get<bool>(messages::ParameterType::kForward);
-                auto new_group_request_id =
-                  parameters.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                auto forward = parameters.Get<std::uint8_t>(messages::ParameterType::kForward);
+                auto new_group_request_id = parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
 
                 if (new_group_request_id.has_value()) {
                     if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
@@ -4884,24 +4896,29 @@ namespace quicr {
                 QUICR_LOGGER_DEBUG(logger_,
                                    "Received subscribe_update to recv request_id: {} forward: {} ngr: {}",
                                    request_id,
-                                   forward,
+                                   forward.value_or(true),
                                    new_group_request_id.has_value());
 
-                const auto status =
-                  forward ? PublishTrackHandler::Status::kNewGroupRequested : PublishTrackHandler::Status::kPaused;
-                std::vector<std::shared_ptr<PublishTrackHandler>> handlers;
+                std::vector<std::pair<std::shared_ptr<PublishTrackHandler>, PublishTrackHandler::Status>> handlers;
                 {
                     std::lock_guard _(state_mutex_);
                     const auto it = pub_tracks_by_track_alias.find(sub_ctx_it->second.track_hash.track_fullname_hash);
                     if (it != pub_tracks_by_track_alias.end()) {
                         for (const auto& [_, handler] : it->second) {
-                            if (handler->UpdateStatus(status)) {
-                                handlers.push_back(handler);
+                            const bool forward_state = messages::ResolveForward(
+                              parameters, handler->GetStatus() != PublishTrackHandler::Status::kPaused);
+                            const auto status = !forward_state ? PublishTrackHandler::Status::kPaused
+                                                : new_group_request_id.has_value()
+                                                  ? PublishTrackHandler::Status::kNewGroupRequested
+                                                  : PublishTrackHandler::Status::kOk;
+                            if ((forward.has_value() || new_group_request_id.has_value()) &&
+                                handler->UpdateStatus(status)) {
+                                handlers.emplace_back(handler, status);
                             }
                         }
                     }
                 }
-                for (const auto& handler : handlers) {
+                for (const auto& [handler, status] : handlers) {
                     handler->StatusChanged(status);
                 }
 
