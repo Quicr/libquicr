@@ -21,5 +21,6 @@ var structquicr_1_1TransportConfig =
     [ "time_queue_rx_size", "structquicr_1_1TransportConfig.html#a7a8db0df15bd8ca2ae0cdaf991662a6f", null ],
     [ "tls_cert_filename", "structquicr_1_1TransportConfig.html#a1aa5a2ab0f79a767264096a1759f972f", null ],
     [ "tls_key_filename", "structquicr_1_1TransportConfig.html#a63800a0d9ba3c1ac7a9bc35a041e39c7", null ],
+    [ "tls_root_trust_filename", "structquicr_1_1TransportConfig.html#a5576812c6268007307f7bcc22cb28eae", null ],
     [ "use_af_xdp", "structquicr_1_1TransportConfig.html#a3bb10f3647f5321203c26a9c4bfb9f79", null ]
 ];

@@ -126,8 +126,9 @@ var NAVTREEINDEX8 =
 "structquicr_1_1TransportConfig.html#a278b7a12f156cc2207a7a799940a9462":[2,0,0,13,3],
 "structquicr_1_1TransportConfig.html#a2a32c9664b923a242469223b414acbd4":[2,0,0,13,15],
 "structquicr_1_1TransportConfig.html#a3ac16713aa56e7ea71f54ad1027be573":[2,0,0,13,14],
-"structquicr_1_1TransportConfig.html#a3bb10f3647f5321203c26a9c4bfb9f79":[2,0,0,13,21],
+"structquicr_1_1TransportConfig.html#a3bb10f3647f5321203c26a9c4bfb9f79":[2,0,0,13,22],
 "structquicr_1_1TransportConfig.html#a3e26c04084430f4e28a3e4290ced5d7b":[2,0,0,13,16],
+"structquicr_1_1TransportConfig.html#a5576812c6268007307f7bcc22cb28eae":[2,0,0,13,21],
 "structquicr_1_1TransportConfig.html#a5aef738b4fa2af2e13ce0e0d0af4b2da":[2,0,0,13,1],
 "structquicr_1_1TransportConfig.html#a5e165c69813c5c155f061e58dd49b1e6":[2,0,0,13,2],
 "structquicr_1_1TransportConfig.html#a63800a0d9ba3c1ac7a9bc35a041e39c7":[2,0,0,13,20],
@@ -248,6 +249,5 @@ var NAVTREEINDEX8 =
 "structquicr_1_1messages_1_1StreamHeaderProperties.html":[2,0,0,1,10],
 "structquicr_1_1messages_1_1StreamHeaderProperties.html#a183a5778b2cc69da29e212952339192c":[2,0,0,1,10,7],
 "structquicr_1_1messages_1_1StreamHeaderProperties.html#a222d66e141c2bdc7f94a346c28667f3b":[2,0,0,1,10,2],
-"structquicr_1_1messages_1_1StreamHeaderProperties.html#a334f9c7327f12735cc204430042dc6b5":[2,0,0,1,10,6],
-"structquicr_1_1messages_1_1StreamHeaderProperties.html#a84c51ee13eb93600095293d849873cbc":[2,0,0,1,10,1]
+"structquicr_1_1messages_1_1StreamHeaderProperties.html#a334f9c7327f12735cc204430042dc6b5":[2,0,0,1,10,6]
 };

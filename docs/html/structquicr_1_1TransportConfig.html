@@ -160,6 +160,8 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:aaae625d7ee8fcfead6f13ee46f3f82e0"><td class="memItemLeft" align="right" valign="top">std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1TransportConfig.html#aaae625d7ee8fcfead6f13ee46f3f82e0">quic_shards</a> { 1 }</td></tr>
 <tr class="memdesc:aaae625d7ee8fcfead6f13ee46f3f82e0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of picoquic instances used in server mode.  <a href="structquicr_1_1TransportConfig.html#aaae625d7ee8fcfead6f13ee46f3f82e0">More...</a><br /></td></tr>
 <tr class="separator:aaae625d7ee8fcfead6f13ee46f3f82e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5576812c6268007307f7bcc22cb28eae"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1TransportConfig.html#a5576812c6268007307f7bcc22cb28eae">tls_root_trust_filename</a></td></tr>
+<tr class="separator:a5576812c6268007307f7bcc22cb28eae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3bb10f3647f5321203c26a9c4bfb9f79"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1TransportConfig.html#a3bb10f3647f5321203c26a9c4bfb9f79">use_af_xdp</a> { true }</td></tr>
 <tr class="memdesc:a3bb10f3647f5321203c26a9c4bfb9f79"><td class="mdescLeft">&#160;</td><td class="mdescRight">Whether to use AF_XDP transmit when available, falling back to sendmsg.  <a href="structquicr_1_1TransportConfig.html#a3bb10f3647f5321203c26a9c4bfb9f79">More...</a><br /></td></tr>
 <tr class="separator:a3bb10f3647f5321203c26a9c4bfb9f79"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -509,6 +511,21 @@ Public Attributes</h2></td></tr>
 <p>Protect this file with restrictive permissions and keep it outside source control. </p>
 <dl class="section examples"><dt>Examples</dt><dd><a class="el" href="simple_publish_2main_8cpp-example.html#a10">simple_publish/main.cpp</a>, and <a class="el" href="simple_subscribe_2main_8cpp-example.html#a16">simple_subscribe/main.cpp</a>.</dd>
 </dl>
+
+</div>
+</div>
+<a id="a5576812c6268007307f7bcc22cb28eae"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5576812c6268007307f7bcc22cb28eae">&#9670;&nbsp;</a></span>tls_root_trust_filename</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string quicr::TransportConfig::tls_root_trust_filename</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>PEM CA bundle for server certificate and hostname verification; empty disables verification. </p>
 
 </div>
 </div>

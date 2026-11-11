@@ -74,7 +74,7 @@ var NAVTREEINDEX =
 "namespacequicr.html#afa08da627c4aa379f61774da6ba93b61a7f27861ff1d3f550c6aa77150d7edabd",
 "parameters_8h.html#a5c37f6af5cd8f97458b6d20381eb8f68",
 "structquicr_1_1Redirect.html#adfef8fd9f7bc7b272253dd5bb44b49a2",
-"structquicr_1_1messages_1_1StreamHeaderProperties.html#a8bff5c90ba11abed1bfeb8caf62e15d0"
+"structquicr_1_1messages_1_1StreamHeaderProperties.html#a84c51ee13eb93600095293d849873cbc"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';
