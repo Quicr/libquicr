@@ -3762,12 +3762,11 @@ namespace quicr {
                           if (response.expires == std::nullopt) {
                               response.expires = std::chrono::milliseconds(kSubscribeExpires);
                           }
-                          if (response.track_properties.GetOptional<std::uint64_t>(
-                                ExtensionType::kDefaultPublisherPriority) == std::nullopt) {
+                          if (response.track_properties.Get<std::uint64_t>(ExtensionType::kDefaultPublisherPriority) ==
+                              std::nullopt) {
                               response.track_properties.Add(ExtensionType::kDefaultPublisherPriority, 1);
                           }
-                          if (response.track_properties.GetOptional<bool>(ExtensionType::kDynamicGroups) ==
-                              std::nullopt) {
+                          if (response.track_properties.Get<bool>(ExtensionType::kDynamicGroups) == std::nullopt) {
                               response.track_properties.Add(ExtensionType::kDynamicGroups, true);
                           }
 
@@ -3853,8 +3852,7 @@ namespace quicr {
 
                 if (auto sub_handler = sub_it->second->Get<SubscribeTrackHandler>()) {
                     const auto publisher_default_group_order =
-                      track_extensions
-                        .GetOptional<messages::GroupOrder>(messages::ExtensionType::kDefaultPublisherGroupOrder)
+                      track_extensions.Get<messages::GroupOrder>(messages::ExtensionType::kDefaultPublisherGroupOrder)
                         .value_or(messages::GroupOrder::kAscending);
 
                     if (client_mode_) {
@@ -4473,8 +4471,7 @@ namespace quicr {
 
                 if (auto h = fetch_it->second->Get<FetchTrackHandler>()) {
                     const auto publisher_default_group_order =
-                      track_extensions
-                        .GetOptional<messages::GroupOrder>(messages::ExtensionType::kDefaultPublisherGroupOrder)
+                      track_extensions.Get<messages::GroupOrder>(messages::ExtensionType::kDefaultPublisherGroupOrder)
                         .value_or(messages::GroupOrder::kAscending);
                     h->SetLatestLocation(end_location);
                     h->SetPublisherDefaultGroupOrder(publisher_default_group_order);

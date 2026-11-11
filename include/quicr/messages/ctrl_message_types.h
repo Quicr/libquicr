@@ -1069,15 +1069,17 @@ namespace quicr::messages {
         }
 
         /**
-         * Decodes a required mutable extension.
+         * Decodes a mutable extension, if present.
          * @tparam T Requested result type.
          * @param type Extension key.
-         * @return Decoded value.
-         * @throws std::out_of_range if absent.
+         * @return Decoded value or std::nullopt when absent.
          */
         template<typename T>
-        T Get(ExtensionType type) const
+        std::optional<T> Get(ExtensionType type) const
         {
+            if (!extensions.contains(static_cast<std::uint64_t>(type))) {
+                return std::nullopt;
+            }
             if constexpr (std::is_arithmetic_v<T>) {
                 if (static_cast<std::uint64_t>(type) % 2 == 0) {
                     std::uint64_t val = 0;
@@ -1097,27 +1099,17 @@ namespace quicr::messages {
         }
 
         /**
-         * @tparam T Requested result type.
-         * @param type Extension key.
-         * @return Decoded mutable extension, or std::nullopt when absent.
-         */
-        template<typename T>
-        std::optional<T> GetOptional(ExtensionType type) const
-        {
-            return extensions.contains(static_cast<std::uint64_t>(type)) ? std::make_optional(Get<T>(type))
-                                                                         : std::nullopt;
-        }
-
-        /**
-         * Decodes a required immutable extension.
+         * Decodes an immutable extension, if present.
          * @tparam T Requested result type.
          * @param type Nested extension key.
-         * @return Decoded value.
-         * @throws std::out_of_range if absent.
+         * @return Decoded value or std::nullopt when absent.
          */
         template<typename T>
-        T GetImmutable(ExtensionType type) const
+        std::optional<T> GetImmutable(ExtensionType type) const
         {
+            if (!immutable_extensions.contains(static_cast<std::uint64_t>(type))) {
+                return std::nullopt;
+            }
             if constexpr (std::is_arithmetic_v<T>) {
                 if (static_cast<std::uint64_t>(type) % 2 == 0) {
                     std::uint64_t val = 0;
@@ -1134,19 +1126,6 @@ namespace quicr::messages {
             }
 
             return FromBytes<T>(immutable_extensions.at(static_cast<std::uint64_t>(type)));
-        }
-
-        /**
-         * @tparam T Requested result type.
-         * @param type Nested extension key.
-         * @return Decoded immutable extension, or std::nullopt when absent.
-         */
-        template<typename T>
-        std::optional<T> GetImmutableOptional(ExtensionType type) const
-        {
-            return immutable_extensions.contains(static_cast<std::uint64_t>(type))
-                     ? std::make_optional(GetImmutable<T>(type))
-                     : std::nullopt;
         }
 
         /// @return Const iterator to the first mutable extension.

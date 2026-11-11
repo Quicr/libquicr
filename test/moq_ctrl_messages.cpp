@@ -585,29 +585,29 @@ TEST_CASE("TrackExtensions even-type round-trip preserves values")
     }
 }
 
-TEST_CASE("TrackExtensions GetOptional returns value when present and nullopt when absent")
+TEST_CASE("TrackExtensions Get returns value when present and nullopt when absent")
 {
     TrackExtensions ext;
     ext.Add(ExtensionType::kDeliveryTimeout, std::uint64_t{ 42 });
     ext.AddImmutable(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending);
 
     // Present keys return the value.
-    auto result = ext.GetOptional<std::uint64_t>(ExtensionType::kDeliveryTimeout);
+    auto result = ext.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout);
     REQUIRE(result.has_value());
     CHECK_EQ(result.value(), 42);
 
-    auto immutable_result = ext.GetImmutableOptional<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder);
+    auto immutable_result = ext.GetImmutable<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder);
     REQUIRE(immutable_result.has_value());
     CHECK_EQ(immutable_result.value(), GroupOrder::kAscending);
 
     ext.AddImmutable(ExtensionType::kDynamicGroups, true);
-    auto bool_result = ext.GetImmutableOptional<bool>(ExtensionType::kDynamicGroups);
+    auto bool_result = ext.GetImmutable<bool>(ExtensionType::kDynamicGroups);
     REQUIRE(bool_result.has_value());
     CHECK(bool_result.value());
 
     // Absent keys return nullopt.
-    CHECK_FALSE(ext.GetOptional<std::uint64_t>(ExtensionType::kMaxCacheDuration).has_value());
-    CHECK_FALSE(ext.GetImmutableOptional<bool>(ExtensionType::kDefaultPublisherPriority).has_value());
+    CHECK_FALSE(ext.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration).has_value());
+    CHECK_FALSE(ext.GetImmutable<bool>(ExtensionType::kDefaultPublisherPriority).has_value());
 }
 
 TEST_CASE("Parameters")
