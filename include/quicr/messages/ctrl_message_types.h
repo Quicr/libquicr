@@ -1031,8 +1031,7 @@ namespace quicr::messages {
                                             "with the keytype you want to use");
             }
 
-            extensions[static_cast<std::uint64_t>(type)] =
-              KeyValuePairs::EncodeValue(static_cast<std::uint64_t>(type), value);
+            extensions.Add(type, value);
 
             return *this;
         }
@@ -1063,8 +1062,7 @@ namespace quicr::messages {
         template<typename T>
         TrackExtensions& AddImmutable(ExtensionType type, const T& value)
         {
-            immutable_extensions[static_cast<std::uint64_t>(type)] =
-              KeyValuePairs::EncodeValue(static_cast<std::uint64_t>(type), value);
+            immutable_extensions.Add(type, value);
             return *this;
         }
 
@@ -1077,25 +1075,7 @@ namespace quicr::messages {
         template<typename T>
         std::optional<T> Get(ExtensionType type) const
         {
-            if (!extensions.contains(static_cast<std::uint64_t>(type))) {
-                return std::nullopt;
-            }
-            if constexpr (std::is_arithmetic_v<T>) {
-                if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    std::uint64_t val = 0;
-                    const auto& bytes = extensions.at(static_cast<std::uint64_t>(type));
-                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
-                    return static_cast<T>(val);
-                }
-            }
-
-            if constexpr (HasByteStreamOperators<T>) {
-                T result;
-                extensions.at(static_cast<std::uint64_t>(type)) >> result;
-                return result;
-            }
-
-            return FromBytes<T>(extensions.at(static_cast<std::uint64_t>(type)));
+            return extensions.Get<T>(type);
         }
 
         /**
@@ -1107,25 +1087,7 @@ namespace quicr::messages {
         template<typename T>
         std::optional<T> GetImmutable(ExtensionType type) const
         {
-            if (!immutable_extensions.contains(static_cast<std::uint64_t>(type))) {
-                return std::nullopt;
-            }
-            if constexpr (std::is_arithmetic_v<T>) {
-                if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    std::uint64_t val = 0;
-                    const auto& bytes = immutable_extensions.at(static_cast<std::uint64_t>(type));
-                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
-                    return static_cast<T>(val);
-                }
-            }
-
-            if constexpr (HasByteStreamOperators<T>) {
-                T result;
-                immutable_extensions.at(static_cast<std::uint64_t>(type)) >> result;
-                return result;
-            }
-
-            return FromBytes<T>(immutable_extensions.at(static_cast<std::uint64_t>(type)));
+            return immutable_extensions.Get<T>(type);
         }
 
         /// @return Const iterator to the first mutable extension.
@@ -1134,8 +1096,8 @@ namespace quicr::messages {
         /// @return Const iterator past the last mutable extension.
         auto end() const noexcept { return extensions.end(); }
 
-        std::map<std::uint64_t, Bytes> extensions;           ///< Mutable extensions keyed by absolute type.
-        std::map<std::uint64_t, Bytes> immutable_extensions; ///< Immutable nested extensions keyed by absolute type.
+        KeyValuePairs extensions;           ///< Mutable extensions keyed by absolute type.
+        KeyValuePairs immutable_extensions; ///< Immutable nested extensions keyed by absolute type.
     };
 
     /**
