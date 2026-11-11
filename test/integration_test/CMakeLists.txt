@@ -62,18 +62,37 @@ set(TEST_CERT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
 set(TEST_KEY "${TEST_CERT_DIRECTORY}/server-key.pem")
 set(TEST_CERT "${TEST_CERT_DIRECTORY}/server-cert.pem")
 
+set(TEST_OTHER_KEY "${TEST_CERT_DIRECTORY}/other-key.pem")
+set(TEST_OTHER_CERT "${TEST_CERT_DIRECTORY}/other-cert.pem")
+set(TEST_WRONG_HOST_CERT "${TEST_CERT_DIRECTORY}/wrong-host-cert.pem")
+
 add_custom_target(generate_test_certs
     COMMAND ${CMAKE_COMMAND} -E make_directory "${TEST_CERT_DIRECTORY}"
     COMMAND ${QUICR_OPENSSL_EXECUTABLE} genpkey -algorithm EC
         -pkeyopt ec_paramgen_curve:P-256 -out "${TEST_KEY}"
     COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 1
         -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org"
+        -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
         -key "${TEST_KEY}" -out "${TEST_CERT}"
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} genpkey -algorithm EC
+        -pkeyopt ec_paramgen_curve:P-256 -out "${TEST_OTHER_KEY}"
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 3650
+        -subj "/CN=other-root" -key "${TEST_OTHER_KEY}" -out "${TEST_OTHER_CERT}"
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 3650
+        -subj "/CN=wrong.example" -addext "subjectAltName=DNS:wrong.example"
+        -key "${TEST_KEY}" -out "${TEST_WRONG_HOST_CERT}"
     COMMENT "Creating integration test certificate"
     VERBATIM
 )
 
+file(WRITE "${TEST_CERT_DIRECTORY}/empty-roots.pem" "")
+file(WRITE "${TEST_CERT_DIRECTORY}/malformed-roots.pem" "not a PEM certificate\n")
+
 add_dependencies(quicr_integration_test generate_test_certs)
+
+if(NOT TARGET picotls-openssl AND NOT WITH_MBEDTLS)
+    target_compile_definitions(quicr_integration_test PRIVATE QUICR_TEST_NO_CERT_VERIFIER)
+endif()
 
 doctest_discover_tests(quicr_integration_test
     WORKING_DIRECTORY "${TEST_CERT_DIRECTORY}"

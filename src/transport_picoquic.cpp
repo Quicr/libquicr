@@ -1035,6 +1035,15 @@ PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
         throw PicoQuicException("Unable to create picoquic context");
     }
 
+    if (!is_server_mode && !tconfig_.tls_root_trust_filename.empty()) {
+        if (!quic_ctx->is_cert_store_not_empty) {
+            picoquic_free(quic_ctx);
+            throw InvalidConfigException("No trusted certificates loaded from TLS root trust file '" +
+                                         tconfig_.tls_root_trust_filename + "': missing, malformed, or unsupported");
+        }
+        picoquic_set_client_cert_verification_policy(quic_ctx, 1);
+    }
+
     picoquic_congestion_algorithm_t* selected_algorithm;
     switch (tconfig_.congestion_control) {
         case CongestionControl::kBbr:
@@ -1233,7 +1242,6 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
         };
 
         sockaddr_storage server_address;
-        char const* sni = "cisco.webex.com";
         int ret;
         int is_name = 0;
         ret = picoquic_get_server_address(server.host_or_ip.c_str(), server.port, &server_address, &is_name);
@@ -1243,9 +1251,7 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
             return 0;
         }
 
-        if (is_name) {
-            sni = server.host_or_ip.c_str();
-        }
+        char const* sni = server.host_or_ip.c_str();
 
         const bool use_webtransport = server.web_transport_options.has_value();
         picoquic_cnx_t* cnx = NULL;
@@ -1793,6 +1799,16 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
     }
     if (tcfg.ssl_keylog == true) {
         (void)picoquic_config_set_option(&config_, picoquic_option_SSLKEYLOG, "1");
+    }
+    if (is_server_mode && !tcfg.tls_root_trust_filename.empty()) {
+        picoquic_config_clear(&config_);
+        throw InvalidConfigException("TLS root trust file is not supported in server mode");
+    } else if (!tcfg.tls_root_trust_filename.empty()) {
+        if (picoquic_config_set_option(
+              &config_, picoquic_option_ROOT_TRUST_FILE, tcfg.tls_root_trust_filename.c_str()) != 0) {
+            picoquic_config_clear(&config_);
+            throw InvalidConfigException("Unable to configure TLS root trust file");
+        }
     }
 }
 
