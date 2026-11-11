@@ -1,6 +1,5 @@
 var NAVTREEINDEX3 =
 {
-"classquicr_1_1SubscribeNamespaceHandler.html#a1c1f66aa39d51705cca2b8eb866aef61":[2,0,0,30,11],
 "classquicr_1_1SubscribeNamespaceHandler.html#a22b58f83ec337645126d15a60a6ec703":[2,0,0,30,17],
 "classquicr_1_1SubscribeNamespaceHandler.html#a2886b9da25260535337c389bb868e89f":[2,0,0,30,21],
 "classquicr_1_1SubscribeNamespaceHandler.html#a2f1a1f4d40e85f2b657ffe91b1f3da79":[2,0,0,30,16],
@@ -233,14 +232,13 @@ var NAVTREEINDEX3 =
 "classquicr_1_1messages_1_1FetchObjectSerializationState.html#aab747f143abd17e7309df7965f28f3a1":[2,0,0,1,16,0],
 "classquicr_1_1messages_1_1FetchObjectSerializationState.html#ad923b1520f51d0877dd8d55095af0986":[2,0,0,1,16,1],
 "classquicr_1_1messages_1_1KeyValuePairs.html":[2,0,0,1,7],
-"classquicr_1_1messages_1_1KeyValuePairs.html#a3c23ffe831bd07f866f86cace89c1c52":[2,0,0,1,7,8],
+"classquicr_1_1messages_1_1KeyValuePairs.html#a3c23ffe831bd07f866f86cace89c1c52":[2,0,0,1,7,7],
 "classquicr_1_1messages_1_1KeyValuePairs.html#a446dc0de98a09b57489778876721aafe":[2,0,0,1,7,4],
 "classquicr_1_1messages_1_1KeyValuePairs.html#a574b12ae55f17cfbfb09133534c81dae":[2,0,0,1,7,0],
-"classquicr_1_1messages_1_1KeyValuePairs.html#a738a4aaa40e27dcbf47ac8fd39101445":[2,0,0,1,7,6],
+"classquicr_1_1messages_1_1KeyValuePairs.html#a7ce4ca208cddadd3d1e6d9257a659d44":[2,0,0,1,7,6],
 "classquicr_1_1messages_1_1KeyValuePairs.html#aa86bcf808c2c2056c8363915ecb779ad":[2,0,0,1,7,5],
 "classquicr_1_1messages_1_1KeyValuePairs.html#ab7e51d6975685b6e6584f8898668d8a9":[2,0,0,1,7,3],
 "classquicr_1_1messages_1_1KeyValuePairs.html#aba24843bb9a72191365de6e2bb3cad9d":[2,0,0,1,7,2],
-"classquicr_1_1messages_1_1KeyValuePairs.html#ac006b2caa83ea2fe323b13d5436ef5d2":[2,0,0,1,7,7],
 "classquicr_1_1messages_1_1KeyValuePairs.html#afd49017c90402587df5e169514ca54c9":[2,0,0,1,7,1],
 "classquicr_1_1messages_1_1Message.html":[2,0,0,1,9],
 "classquicr_1_1messages_1_1Message.html#a0e7aa0ee4e436c2db12d3065af219090":[2,0,0,1,9,4],
@@ -249,5 +247,7 @@ var NAVTREEINDEX3 =
 "classquicr_1_1messages_1_1Message.html#a9deb8814e0c0212579f676fdb009a680":[2,0,0,1,9,9],
 "classquicr_1_1messages_1_1Message.html#ab73bbb19f6912d86a1faf58d0adc0cec":[2,0,0,1,9,8],
 "classquicr_1_1messages_1_1Message.html#acfe8b3a9562c30352200e8929fd440e2":[2,0,0,1,9,0],
-"classquicr_1_1messages_1_1Message.html#ad71a3c3f33d199eb69a0fb7855dacb18":[2,0,0,1,9,7]
+"classquicr_1_1messages_1_1Message.html#ad71a3c3f33d199eb69a0fb7855dacb18":[2,0,0,1,9,7],
+"classquicr_1_1messages_1_1Message.html#af0b3bc95062b219a4c3c925f4d327173":[2,0,0,1,9,1],
+"classquicr_1_1messages_1_1Message.html#afb00bfcf5a9af55625bc7d8bcc2090f2":[2,0,0,1,9,2]
 };

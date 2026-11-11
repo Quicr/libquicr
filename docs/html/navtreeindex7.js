@@ -1,7 +1,5 @@
 var NAVTREEINDEX7 =
 {
-"parameters_8h.html#a5c37f6af5cd8f97458b6d20381eb8f68":[3,0,1,0,2,4,9],
-"parameters_8h.html#a60564b2ff75987d5a018e1e275e32e28":[3,0,1,0,2,4,7],
 "parameters_8h.html#a68f4a2f8cce52afc170bfe04479190ef":[3,0,1,0,2,4,10],
 "parameters_8h.html#a6b81342fff47c7d7ca6684c0f60e1e49":[3,0,1,0,2,4,3],
 "parameters_8h.html#a7b4201b5db9ed560aee9d86c297186bb":[3,0,1,0,2,4,18],
@@ -249,5 +247,7 @@ var NAVTREEINDEX7 =
 "structquicr_1_1Redirect.html":[2,0,0,11],
 "structquicr_1_1Redirect.html#a7e78621e32935f5286fdcfd3c44a58ba":[2,0,0,11,3],
 "structquicr_1_1Redirect.html#ac4a5e8703f7b709e70f2182a56d8ad11":[2,0,0,11,1],
-"structquicr_1_1Redirect.html#ad86bde5af6806eea69c2f2b31fb2d668":[2,0,0,11,0]
+"structquicr_1_1Redirect.html#ad86bde5af6806eea69c2f2b31fb2d668":[2,0,0,11,0],
+"structquicr_1_1Redirect.html#adfef8fd9f7bc7b272253dd5bb44b49a2":[2,0,0,11,2],
+"structquicr_1_1ServerConfig.html":[2,0,0,16]
 };

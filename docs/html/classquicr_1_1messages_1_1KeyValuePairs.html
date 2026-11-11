@@ -106,12 +106,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aba24843bb9a72191365de6e2bb3cad9d"><td class="memTemplParams" colspan="2">template&lt;typename T , KeyType K&gt; </td></tr>
 <tr class="memitem:aba24843bb9a72191365de6e2bb3cad9d"><td class="memTemplItemLeft" align="right" valign="top"><a class="el" href="classquicr_1_1messages_1_1KeyValuePairs.html">KeyValuePairs</a> &amp;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classquicr_1_1messages_1_1KeyValuePairs.html#aba24843bb9a72191365de6e2bb3cad9d">Add</a> (K type, const T &amp;value)</td></tr>
 <tr class="separator:aba24843bb9a72191365de6e2bb3cad9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a738a4aaa40e27dcbf47ac8fd39101445"><td class="memTemplParams" colspan="2">template&lt;typename T , KeyType K&gt; </td></tr>
-<tr class="memitem:a738a4aaa40e27dcbf47ac8fd39101445"><td class="memTemplItemLeft" align="right" valign="top">T&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classquicr_1_1messages_1_1KeyValuePairs.html#a738a4aaa40e27dcbf47ac8fd39101445">Get</a> (K type) const</td></tr>
-<tr class="separator:a738a4aaa40e27dcbf47ac8fd39101445"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac006b2caa83ea2fe323b13d5436ef5d2"><td class="memTemplParams" colspan="2">template&lt;typename T , KeyType K&gt; </td></tr>
-<tr class="memitem:ac006b2caa83ea2fe323b13d5436ef5d2"><td class="memTemplItemLeft" align="right" valign="top">std::optional&lt; T &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classquicr_1_1messages_1_1KeyValuePairs.html#ac006b2caa83ea2fe323b13d5436ef5d2">GetOptional</a> (K type) const</td></tr>
-<tr class="separator:ac006b2caa83ea2fe323b13d5436ef5d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7ce4ca208cddadd3d1e6d9257a659d44"><td class="memTemplParams" colspan="2">template&lt;typename T , KeyType K&gt; </td></tr>
+<tr class="memitem:a7ce4ca208cddadd3d1e6d9257a659d44"><td class="memTemplItemLeft" align="right" valign="top">std::optional&lt; T &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classquicr_1_1messages_1_1KeyValuePairs.html#a7ce4ca208cddadd3d1e6d9257a659d44">Get</a> (K type) const</td></tr>
+<tr class="separator:a7ce4ca208cddadd3d1e6d9257a659d44"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a446dc0de98a09b57489778876721aafe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1messages_1_1KeyValuePairs.html#a446dc0de98a09b57489778876721aafe">Contains</a> (std::uint64_t type) const</td></tr>
 <tr class="separator:a446dc0de98a09b57489778876721aafe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab7e51d6975685b6e6584f8898668d8a9"><td class="memItemLeft" align="right" valign="top">auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1messages_1_1KeyValuePairs.html#ab7e51d6975685b6e6584f8898668d8a9">begin</a> () const noexcept</td></tr>
@@ -380,8 +377,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a738a4aaa40e27dcbf47ac8fd39101445"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a738a4aaa40e27dcbf47ac8fd39101445">&#9670;&nbsp;</a></span>Get()</h2>
+<a id="a7ce4ca208cddadd3d1e6d9257a659d44"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7ce4ca208cddadd3d1e6d9257a659d44">&#9670;&nbsp;</a></span>Get()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -392,7 +389,7 @@ template&lt;typename T , KeyType K&gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">T quicr::messages::KeyValuePairs::Get </td>
+          <td class="memname">std::optional&lt;T&gt; quicr::messages::KeyValuePairs::Get </td>
           <td>(</td>
           <td class="paramtype">K&#160;</td>
           <td class="paramname"><em>type</em></td><td>)</td>
@@ -405,7 +402,7 @@ template&lt;typename T , KeyType K&gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Decodes a required value. </p><dl class="tparams"><dt>Template Parameters</dt><dd>
+<p>Decodes a value when present. </p><dl class="tparams"><dt>Template Parameters</dt><dd>
   <table class="tparams">
     <tr><td class="paramname">T</td><td>Requested result type. </td></tr>
     <tr><td class="paramname">K</td><td>Key type. </td></tr>
@@ -418,55 +415,7 @@ template&lt;typename T , KeyType K&gt; </div>
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>Decoded value. </dd></dl>
-<dl class="exception"><dt>Exceptions</dt><dd>
-  <table class="exception">
-    <tr><td class="paramname">std::out_of_range</td><td>if the key is absent. </td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
-<a id="ac006b2caa83ea2fe323b13d5436ef5d2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac006b2caa83ea2fe323b13d5436ef5d2">&#9670;&nbsp;</a></span>GetOptional()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T , KeyType K&gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::optional&lt;T&gt; quicr::messages::KeyValuePairs::GetOptional </td>
-          <td>(</td>
-          <td class="paramtype">K&#160;</td>
-          <td class="paramname"><em>type</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<dl class="tparams"><dt>Template Parameters</dt><dd>
-  <table class="tparams">
-    <tr><td class="paramname">T</td><td>Decoded value type. </td></tr>
-    <tr><td class="paramname">K</td><td>Parameter-key type. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">type</td><td>Key to decode. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>Decoded <code>type</code>, or std::nullopt when absent. </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>Decoded value, or std::nullopt when absent. </dd></dl>
 
 </div>
 </div>

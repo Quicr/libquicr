@@ -6,7 +6,6 @@ var classquicr_1_1messages_1_1KeyValuePairs =
     [ "begin", "classquicr_1_1messages_1_1KeyValuePairs.html#ab7e51d6975685b6e6584f8898668d8a9", null ],
     [ "Contains", "classquicr_1_1messages_1_1KeyValuePairs.html#a446dc0de98a09b57489778876721aafe", null ],
     [ "end", "classquicr_1_1messages_1_1KeyValuePairs.html#aa86bcf808c2c2056c8363915ecb779ad", null ],
-    [ "Get", "classquicr_1_1messages_1_1KeyValuePairs.html#a738a4aaa40e27dcbf47ac8fd39101445", null ],
-    [ "GetOptional", "classquicr_1_1messages_1_1KeyValuePairs.html#ac006b2caa83ea2fe323b13d5436ef5d2", null ],
+    [ "Get", "classquicr_1_1messages_1_1KeyValuePairs.html#a7ce4ca208cddadd3d1e6d9257a659d44", null ],
     [ "Pairs", "classquicr_1_1messages_1_1KeyValuePairs.html#a3c23ffe831bd07f866f86cace89c1c52", null ]
 ];
