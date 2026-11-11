@@ -353,12 +353,12 @@ MakeTestClientConfig(const std::string& protocol_scheme,
 
 static std::shared_ptr<TestServer>
 MakeTestServer(quicr::SessionManager& session_mgr,
+               bool enable_qmux = false,
                const std::optional<std::string>& qlog_path = std::nullopt,
                std::optional<std::size_t> max_connections = std::nullopt,
                std::optional<std::uint64_t> initial_max_stream_data = std::nullopt,
                std::optional<std::uint64_t> metrics_sample_ms = std::nullopt,
-               std::optional<std::uint16_t> server_port = std::nullopt,
-               bool enable_qmux = false)
+               std::optional<std::uint16_t> server_port = std::nullopt)
 {
     // Run the server.
     auto server_config = MakeTestServerConfig(server_port, enable_qmux);
@@ -759,8 +759,7 @@ DecodeForwardedObjects(const TestForwardingSubscribeHandler::Subgroup& subgroup)
 TEST_CASE("Integration - Connection")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server =
-      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
+    auto server = MakeTestServer(session_mgr, true);
 
     auto test_connection = [&](const std::string& protocol_scheme) {
         std::promise<SetupAttributes> client_attributes;
@@ -969,8 +968,7 @@ TEST_CASE("Integration - Server SETUP can arrive before client transport ready")
 TEST_CASE("Integration - Subscribe")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server =
-      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
+    auto server = MakeTestServer(session_mgr, true);
 
     auto test_subscribe = [&](const std::string& protocol_scheme) {
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -1116,9 +1114,9 @@ TEST_CASE("Integration - GOAWAY migration")
         const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
 
         auto old_relay =
-          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
+          MakeTestServer(session_mgr, false, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
         auto new_relay =
-          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
+          MakeTestServer(session_mgr, false, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
 
         // Connect the client to relay A and retain relay A's server-side session
         // so the test can originate GOAWAY from the peer.
@@ -1227,9 +1225,9 @@ TEST_CASE("Integration - QMUX GOAWAY keeps the session on its connection")
     const auto old_relay_port = GetTestPort();
     const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
     auto old_relay =
-      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port, true);
+      MakeTestServer(session_mgr, true, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
     auto new_relay =
-      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port, true);
+      MakeTestServer(session_mgr, true, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
 
     std::promise<std::shared_ptr<Session>> old_server_session_promise;
     auto old_server_session_future = old_server_session_promise.get_future();
@@ -1267,9 +1265,9 @@ TEST_CASE("Integration - request GOAWAY migrates part of a session")
         const auto old_relay_port = GetTestPort();
         const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
         auto old_relay =
-          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
+          MakeTestServer(session_mgr, false, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
         [[maybe_unused]] auto new_relay =
-          MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
+          MakeTestServer(session_mgr, false, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
 
         std::promise<std::shared_ptr<Session>> old_server_session_promise;
         auto old_server_session_future = old_server_session_promise.get_future();
@@ -1372,9 +1370,9 @@ TEST_CASE("Integration - REQUEST_ERROR redirect migration")
     const auto old_relay_port = GetTestPort();
     const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
     auto old_relay =
-      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
+      MakeTestServer(session_mgr, false, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
     auto new_relay =
-      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
+      MakeTestServer(session_mgr, false, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
 
     const FullTrackName redirected_name{ TrackNamespace(std::vector<std::string>{ "request-error", "replacement" }),
                                          { 2 } };
@@ -1423,7 +1421,7 @@ TEST_CASE("Integration - Datagram object roundtrip")
 {
     auto test_datagrams = [](const std::string& protocol_scheme, const std::string& subscriber_scheme = "") {
         auto session_mgr = MakeTestSessionManager();
-        auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, std::nullopt, std::nullopt, true);
+        auto server = MakeTestServer(session_mgr, true, std::nullopt, 2);
         auto [publisher, publisher_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
         auto [subscriber, subscriber_callbacks] = MakeTestClient(
           session_mgr, true, std::nullopt, subscriber_scheme.empty() ? protocol_scheme : subscriber_scheme);
@@ -1493,7 +1491,7 @@ TEST_CASE("Integration - Datagram object roundtrip")
 TEST_CASE("Integration - Subscribe metrics report received payload")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2);
 
     auto test_metrics = [&](const std::string& protocol_scheme) {
         auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kMetricsTestIntervalMs);
@@ -1567,7 +1565,7 @@ TEST_CASE("Integration - Subscribe metrics report received payload")
 TEST_CASE("Integration - Connection metrics reach the server callbacks")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, kMetricsTestIntervalMs);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2, std::nullopt, kMetricsTestIntervalMs);
 
     std::promise<TestServer::ConnectionMetricsDetails> metrics_promise;
     auto metrics_future = metrics_promise.get_future();
@@ -1716,7 +1714,7 @@ TEST_CASE("Integration - Publish metrics include a stream that closed during the
 TEST_CASE("Integration - Track metrics do not recount a stream's bytes each sample")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2);
 
     auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, "moq", kMetricsTestIntervalMs);
     auto [publisher, __] = MakeTestClient(session_mgr, true, std::nullopt, "moq");
@@ -1775,8 +1773,7 @@ TEST_CASE("Integration - Track metrics do not recount a stream's bytes each samp
 TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server =
-      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
+    auto server = MakeTestServer(session_mgr, true);
 
     auto test_unsubscribe = [&](const std::string& protocol_scheme) {
         const auto client = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -2006,7 +2003,7 @@ TEST_CASE("Integration - Cancelling a subgroup")
 {
     auto test_subgroup_cancel = [&](const std::string& protocol_scheme) {
         auto session_mgr = MakeTestSessionManager();
-        auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+        auto server = MakeTestServer(session_mgr, false, std::nullopt, 2);
         auto [subscriber_client, subscriber_callbacks] =
           MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
         auto [publisher_client, publisher_callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -2164,8 +2161,7 @@ TEST_CASE("Integration - Rejected Fetch closes both request stream directions")
     };
 
     auto session_mgr = MakeTestSessionManager();
-    auto server =
-      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
+    auto server = MakeTestServer(session_mgr, true);
 
     auto test_fetch = [&](const std::string& protocol_scheme) {
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -2397,7 +2393,7 @@ TEST_CASE("Qlog Generation")
         auto session_mgr = MakeTestSessionManager();
 
         // Enable qlog.
-        auto server = MakeTestServer(session_mgr, temp_dir.string());
+        auto server = MakeTestServer(session_mgr, false, temp_dir.string());
         auto [session, callbacks] = MakeTestClient(session_mgr, true, temp_dir.string(), protocol_scheme);
 
         // Check that above directory now has the two (server + client) qlog files.
@@ -2644,7 +2640,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
 TEST_CASE("Integration - Subscribe Tracks with ongoing match")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 4);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 4);
 
     auto test_ongoing_match = [&](const std::string& protocol_scheme) {
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -2867,8 +2863,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
 {
     auto session_mgr = MakeTestSessionManager();
 
-    auto server =
-      MakeTestServer(session_mgr, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
+    auto server = MakeTestServer(session_mgr, true);
     auto test_fetch_roundtrip = [&](const std::string& protocol_scheme) {
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
@@ -2973,7 +2968,7 @@ TEST_CASE("Integration - Subgroup and Stream Testing")
     auto session_mgr = MakeTestSessionManager();
 
     // Server needs to support 2 connections (subscriber + publisher)
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, std::nullopt, std::nullopt, true);
+    auto server = MakeTestServer(session_mgr, true, std::nullopt, 2);
 
     auto test_subgroups = [&](const std::string& protocol_scheme) {
         // Create subscriber and publisher clients
@@ -3276,7 +3271,7 @@ TEST_CASE("Integration - Small data callbacks assemble")
     auto session_mgr = MakeTestSessionManager();
 
     // Create with 1 byte window.
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2, 1);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2, 1);
     auto [subscriber, _] = MakeTestClient(session_mgr);
     auto [publisher, __] = MakeTestClient(session_mgr);
 
@@ -3313,7 +3308,7 @@ TEST_CASE("Integration - A forwarding subscriber is given subgroup bytes rather 
 {
     auto session_mgr = MakeTestSessionManager();
 
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr);
     auto [publisher, __] = MakeTestClient(session_mgr);
 
@@ -3392,7 +3387,7 @@ TEST_CASE("Integration - A forwarded subgroup framed from its first object is st
 {
     auto session_mgr = MakeTestSessionManager();
 
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr);
     auto [publisher, __] = MakeTestClient(session_mgr);
 
@@ -3443,7 +3438,7 @@ TEST_CASE("Integration - Invalid stream type is a PROTOCOL_VIOLATION")
 {
     auto session_mgr = MakeTestSessionManager();
 
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr);
     auto [publisher, __] = MakeTestClient(session_mgr);
 
@@ -3500,7 +3495,7 @@ TEST_CASE("Integration - Failed publish does not create subgroup state")
     auto session_mgr = MakeTestSessionManager();
 
     // Setup a subscriber and publisher.
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr);
     auto [publisher, __] = MakeTestClient(session_mgr);
     FullTrackName ftn;
@@ -3582,7 +3577,7 @@ TEST_CASE("Integration - Failed publish does not create subgroup state")
 TEST_CASE("Integration - New subgroup preserves object IDs")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2);
 
     auto test_subgroup_roll = [&](const std::string& protocol_scheme) {
         auto [subscriber_session, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -3694,7 +3689,7 @@ TEST_CASE("Integration - New subgroup preserves object IDs")
 TEST_CASE("Integration - Dynamic groups support roundtrip")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 4);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 4);
 
     auto test_dynamic_groups = [&](const std::string& protocol_scheme, bool dynamic_groups) {
         auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -3823,7 +3818,7 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
 TEST_CASE("Integration - Dedicated bidirectional request streams")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 4);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 4);
 
     auto test_dedicated_request_streams = [&](const std::string& protocol_scheme) {
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -3902,7 +3897,7 @@ TEST_CASE("Integration - Dedicated bidirectional request streams")
 TEST_CASE("Integration - Unbound publish track cannot create streams")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2);
 
     auto test_unbound_publish = [&](const std::string& protocol_scheme) {
         auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -3973,7 +3968,7 @@ TEST_CASE("Integration - Unbound publish track cannot create streams")
 TEST_CASE("Integration - New group requests preserve server forwarding state")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2);
     std::string scheme = "moq";
     SUBCASE("Raw QUIC") {}
     SUBCASE("WebTransport")
@@ -4038,7 +4033,7 @@ TEST_CASE("Integration - New group requests preserve server forwarding state")
 TEST_CASE("Integration - Request updates reuse the handler's request stream")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 4);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 4);
 
     auto test_request_update_stream = [&](const std::string& protocol_scheme) {
         auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -4095,7 +4090,7 @@ TEST_CASE("Integration - Stream data is delivered before its FIN callback")
     constexpr std::size_t object_count = 150;
     auto session_mgr = MakeTestSessionManager();
 
-    auto server = MakeTestServer(session_mgr, std::nullopt, 2);
+    auto server = MakeTestServer(session_mgr, false, std::nullopt, 2);
     auto [subscriber, _] = MakeTestClient(session_mgr, true, std::nullopt, "moq", 50);
     auto [publisher, __] = MakeTestClient(session_mgr);
 
@@ -4135,7 +4130,7 @@ TEST_CASE("Integration - Subscription subgroup close")
     const auto test_subgroup_release = [](const std::string& protocol_scheme) {
         auto session_mgr = MakeTestSessionManager();
 
-        auto server = MakeTestServer(session_mgr, std::nullopt, 2, std::nullopt, std::nullopt, std::nullopt, true);
+        auto server = MakeTestServer(session_mgr, true, std::nullopt, 2);
         auto [subscriber, callbacks] =
           MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme, kStreamSweepDisabledMs);
         auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
@@ -4208,7 +4203,7 @@ namespace quicr {
 TEST_CASE("Integration - Track Status")
 {
     SessionManager session_mgr = MakeTestSessionManager();
-    const auto server = MakeTestServer(session_mgr, std::nullopt, 4);
+    const auto server = MakeTestServer(session_mgr, false, std::nullopt, 4);
 
     auto test_track_status = [&](const std::string& protocol_scheme) {
         auto [subscriber, subscriber_client] =
@@ -4258,7 +4253,7 @@ TEST_CASE("Integration - Track Status")
 TEST_CASE("Integration - QMUX reconnect and verified transport")
 {
     auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr, std::nullopt, 8, std::nullopt, std::nullopt, std::nullopt, true);
+    auto server = MakeTestServer(session_mgr, true, std::nullopt, 8);
     for (int i = 0; i < 5; ++i) {
         auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, "qmux");
         REQUIRE_EQ(session->GetStatus(), Session::Status::kReady);
@@ -4278,8 +4273,7 @@ TEST_CASE("Integration - QMUX peer shutdown disconnects the client")
     std::shared_ptr<Session> session;
     {
         auto servers = MakeTestSessionManager();
-        auto server =
-          MakeTestServer(servers, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, true);
+        auto server = MakeTestServer(servers, true);
         session = MakeTestClient(clients, true, std::nullopt, "qmux").first;
         REQUIRE_EQ(session->GetStatus(), Session::Status::kReady);
     }
