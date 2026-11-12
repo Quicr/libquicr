@@ -11,6 +11,10 @@
 
 #include <doctest/doctest.h>
 
+#include <chrono>
+#include <future>
+#include <thread>
+
 class TestPublishTrackHandler : public quicr::PublishTrackHandler
 {
     TestPublishTrackHandler()
@@ -282,6 +286,9 @@ class TestTransport : public quicr::Transport
     std::shared_ptr<quicr::Stream> CreateDataStream(const std::shared_ptr<quicr::Connection>& connection,
                                                     uint8_t) override
     {
+        if (on_create_data_stream) {
+            on_create_data_stream();
+        }
         return std::make_shared<TestStream>(2 + 4 * created_streams++, connection);
     }
     std::shared_ptr<quicr::Stream> CreateControlStream(const std::shared_ptr<quicr::Connection>&) override
@@ -299,6 +306,7 @@ class TestTransport : public quicr::Transport
     int fail_enqueue{ -1 };
     int created_streams{ 0 };
     std::map<std::uint64_t, quicr::Bytes> stream_data;
+    std::function<void()> on_create_data_stream;
 
   private:
     void QueueDeferredReply(std::function<void()>&&) override {}
@@ -471,11 +479,9 @@ TEST_CASE("Publishing reports rejected subgroup enqueues")
     }
 }
 
-TEST_CASE("Fetch closure is terminal")
+static std::shared_ptr<quicr::PublishFetchHandler>
+BindTestFetch(const std::shared_ptr<quicr::Session>& session)
 {
-    using Status = quicr::PublishTrackHandler::PublishObjectStatus;
-    auto transport = std::make_shared<TestTransport>();
-    auto session = CreateTestSession(transport);
     auto handler = quicr::PublishFetchHandler::Create({ {}, {} }, 0, 0, quicr::messages::GroupOrder::kAscending, 1000);
     const auto request_stream = std::make_shared<TestStream>(0, session->GetDefaultConnection());
     auto request = quicr::messages::Message{}.PrependType(quicr::messages::ControlMessageType::kFetch).ReserveLength();
@@ -492,6 +498,15 @@ TEST_CASE("Fetch closure is terminal")
     }
     session->GetDefaultConnection()->OnRecvStream(request_stream);
     session->BindFetchTrack(handler);
+    return handler;
+}
+
+TEST_CASE("Fetch closure is terminal")
+{
+    using Status = quicr::PublishTrackHandler::PublishObjectStatus;
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = BindTestFetch(session);
     quicr::ObjectHeaders headers{};
     const quicr::Bytes payload{ 1 };
     headers.payload_length = payload.size();
@@ -519,4 +534,60 @@ TEST_CASE("Fetch closure is terminal")
     CHECK(handler->PublishObject(headers, payload) == Status::kFetchClosed);
     CHECK(transport->enqueue_count == attempts);
     CHECK(transport->created_streams == expected_streams);
+}
+
+TEST_CASE("Unbinding a fetch while its first object creates the stream does not deadlock")
+{
+    using namespace std::chrono_literals;
+    using Status = quicr::PublishTrackHandler::PublishObjectStatus;
+    struct Progress
+    {
+        std::promise<void> stream_creation_started;
+        std::promise<void> stream_creation_released;
+        std::promise<Status> published;
+        std::promise<void> unbound;
+    };
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = BindTestFetch(session);
+    quicr::ObjectHeaders headers{};
+    const quicr::Bytes payload{ 1 };
+    headers.payload_length = payload.size();
+
+    // The threads own the progress state, so they can be detached if they deadlock.
+    auto progress = std::make_shared<Progress>();
+    auto released = progress->stream_creation_released.get_future().share();
+    transport->on_create_data_stream = [progress, released] {
+        progress->stream_creation_started.set_value();
+        released.wait();
+    };
+
+    std::thread publisher([progress, handler, headers, payload] {
+        progress->published.set_value(handler->PublishObject(headers, payload));
+    });
+    bool finished = progress->stream_creation_started.get_future().wait_for(2s) == std::future_status::ready;
+
+    std::thread unbinder([progress, session, handler] {
+        session->UnbindFetchTrack(handler);
+        progress->unbound.set_value();
+    });
+    // Give the unbind time to reach its locks while the publish holds the binding lock.
+    std::this_thread::sleep_for(100ms);
+    progress->stream_creation_released.set_value();
+
+    auto published = progress->published.get_future();
+    finished = finished && published.wait_for(2s) == std::future_status::ready &&
+               progress->unbound.get_future().wait_for(2s) == std::future_status::ready;
+    if (finished) {
+        publisher.join();
+        unbinder.join();
+    } else {
+        publisher.detach();
+        unbinder.detach();
+    }
+
+    REQUIRE_MESSAGE(finished, "PublishObject and UnbindFetchTrack deadlocked");
+    CHECK(published.get() == Status::kOk);
+    CHECK(transport->created_streams == 1);
+    CHECK(handler->PublishObject(headers, payload) == Status::kFetchClosed);
 }

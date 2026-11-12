@@ -86,7 +86,7 @@ namespace quicr {
          *      once the transport reaches it, so objects already queued still go out. Does nothing if
          *      the fetch never sent an object, since there is no stream to close.
          */
-        void EndFetch();
+        void EndFetch() QUICR_REQUIRES(binding_operation_mutex_);
 
         messages::GroupOrder group_order_;
         messages::FetchObjectSerializationState serialization_state_;
