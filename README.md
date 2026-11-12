@@ -1,6 +1,6 @@
 <div align="center">
-	<img height="128px" src="https://github.com/moq-dev/moq/blob/main/.github/logo.svg" alt="libquicr">
-</div>
+	<img height="128px" src=".github/logo-light.svg#gh-light-mode-only" alt="libquicr">
+	<img height="128px" src=".github/logo-dark.svg#gh-dark-mode-only" alt="libquicr">
 
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B)](#requirements)
 [![MOQT draft-18](https://img.shields.io/badge/MOQT-draft--18-blue)](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18)
@@ -8,10 +8,10 @@
 [![Ubuntu](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml)
 [![macOS](https://github.com/Quicr/libquicr/actions/workflows/macos.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/macos.yml)
 [![Windows](https://github.com/Quicr/libquicr/actions/workflows/windows.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/windows.yml)
-[![Android](https://github.com/Quicr/libquicr/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/Quicr/libquicr/actions/workflows/android.yml)
 
 [![REUSE status](https://api.reuse.software/badge/github.com/Quicr/libquicr)](https://api.reuse.software/info/github.com/Quicr/libquicr)
 [![License: BSD-2-Clause](https://img.shields.io/badge/License-BSD--2--Clause-blue.svg)](LICENSE)
+</div>
 
 libquicr — Media over QUIC (MoQ) library
 ========================================
@@ -137,10 +137,10 @@ See the [API guide](docs/api-guide.md) for session and handler usage.
 
 | Platform | Build | Automated tests |
 | --- | --- | --- |
-| Linux | ✅ Supported | ✅ Tested in CI |
-| macOS | ✅ Supported | ✅ Tested in CI |
-| Windows | ✅ Supported | ✅ Tested in CI |
-| Android | ✅ Supported | Not in CI |
+| [Linux](https://github.com/Quicr/libquicr/actions/workflows/ubuntu.yml) | ✅ Supported | ✅ Tested in CI |
+| [macOS](https://github.com/Quicr/libquicr/actions/workflows/macos.yml) | ✅ Supported | ✅ Tested in CI |
+| [Windows](https://github.com/Quicr/libquicr/actions/workflows/windows.yml) | ✅ Supported | ✅ Tested in CI |
+| [Android](https://github.com/Quicr/libquicr/actions/workflows/android.yml) | ✅ Supported | Not in CI |
 | iOS | 🧪 Manually tested | Not in CI |
 | ESP32 | 🧪 Manually tested | Not in CI |
 
