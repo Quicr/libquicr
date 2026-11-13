@@ -312,5 +312,6 @@ npm install --global mermaid-filter
 
 ### Additional documentation
 
-* [API guide](docs/api-guide.md)
+* [C++ API guide](docs/api-guide.md)
+* [C API guide](docs/c-api-guide.md)
 * [MOQT implementation notes](docs/implementation.md)

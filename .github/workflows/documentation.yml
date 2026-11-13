@@ -39,6 +39,7 @@ jobs:
         run: |
           test -f docs/html/index.html
           test -f docs/html/api-guide.html
+          test -f docs/html/c-api-guide.html
 
       - name: Publish to gh-pages
         uses: peaceiris/actions-gh-pages@v4
