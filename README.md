@@ -1,4 +1,4 @@
-<img height="128px" src=".github/logo.svg" alt="libquicr">
+<img width="100%" src=".github/logo.svg" alt="libquicr">
 
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B)](#requirements)
 [![MOQT draft-18](https://img.shields.io/badge/MOQT-draft--18-blue)](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18)
