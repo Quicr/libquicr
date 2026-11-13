@@ -1,6 +1,4 @@
-<div align="center">
-	<img height="128px" src=".github/logo-light.svg#gh-light-mode-only" alt="libquicr">
-	<img height="128px" src=".github/logo-dark.svg#gh-dark-mode-only" alt="libquicr">
+<img width="100%" src=".github/logo.svg" alt="Quicr">
 
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B)](#requirements)
 [![MOQT draft-18](https://img.shields.io/badge/MOQT-draft--18-blue)](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18)
@@ -11,7 +9,6 @@
 
 [![REUSE status](https://api.reuse.software/badge/github.com/Quicr/libquicr)](https://api.reuse.software/info/github.com/Quicr/libquicr)
 [![License: BSD-2-Clause](https://img.shields.io/badge/License-BSD--2--Clause-blue.svg)](LICENSE)
-</div>
 
 libquicr — Media over QUIC (MoQ) library
 ========================================
