@@ -146,8 +146,8 @@ See the [API guide](docs/api-guide.md) for session and handler usage.
 | API | Status | Notes |
 | --- | --- | --- |
 | C++ API | ✅ Supported | Requires C++20 |
+| C API | ✅ Supported | C99-compatible with optional C11 convenience macros |
 | C bridge | ✅ Supported | Client-only API |
-| C API | 🚧 Planned | Replacement tracked in [PR #1046](https://github.com/Quicr/libquicr/pull/1046) |
 
 ### TLS backends
 
