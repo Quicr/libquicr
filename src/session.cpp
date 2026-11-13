@@ -3510,7 +3510,7 @@ namespace quicr {
 
     void Session::UnbindFetchTrack(const std::shared_ptr<PublishFetchHandler>& track_handler)
     {
-        std::lock_guard lock(state_mutex_);
+        std::scoped_lock _(track_handler->binding_operation_mutex_, state_mutex_);
 
         auto request_id = *track_handler->GetRequestId();
         QUICR_LOGGER_DEBUG(logger_,
