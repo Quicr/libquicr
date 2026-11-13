@@ -57,13 +57,13 @@ namespace quicr {
       uint64_t subgroup_id,
       std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        std::lock_guard lock(binding_operation_mutex_);
         auto session = GetSession().lock();
         std::shared_ptr<Stream> stream;
 
         if (!session) {
             return PublishObjectStatus::kInternalError;
         }
+        BindingOperationLock lock(binding_operation_mutex_, session->state_mutex_);
 
         const auto status = GetStatus();
         switch (status) {
@@ -174,12 +174,12 @@ namespace quicr {
       BytesSpan data,
       std::optional<messages::StreamHeaderProperties> stream_mode)
     {
-        std::lock_guard lock(binding_operation_mutex_);
         auto session = GetSession().lock();
 
         if (!session) {
             return PublishObjectStatus::kInternalError;
         }
+        BindingOperationLock lock(binding_operation_mutex_, session->state_mutex_);
 
         const auto status = GetStatus();
         switch (status) {
@@ -380,7 +380,11 @@ namespace quicr {
 
     void PublishTrackHandler::EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed)
     {
-        std::lock_guard lock(binding_operation_mutex_);
+        auto session = GetSession().lock();
+        if (!session) {
+            return;
+        }
+        BindingOperationLock lock(binding_operation_mutex_, session->state_mutex_);
         EndSubgroupInternal(group_id, subgroup_id, completed);
     }
 
@@ -423,7 +427,11 @@ namespace quicr {
 
     void PublishTrackHandler::EndAllSubgroups(bool completed)
     {
-        std::lock_guard lock(binding_operation_mutex_);
+        auto session = GetSession().lock();
+        if (!session) {
+            return;
+        }
+        BindingOperationLock lock(binding_operation_mutex_, session->state_mutex_);
         EndAllSubgroupsInternal(completed);
     }
 
@@ -504,7 +512,11 @@ namespace quicr {
 
     void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, [[maybe_unused]] bool reset)
     {
-        std::lock_guard lock(binding_operation_mutex_);
+        auto session = GetSession().lock();
+        if (!session) {
+            return;
+        }
+        BindingOperationLock lock(binding_operation_mutex_, session->state_mutex_);
         for (auto group_it = stream_info_by_group_.begin(); group_it != stream_info_by_group_.end();) {
             for (auto subgroup_it = group_it->second.begin(); subgroup_it != group_it->second.end();) {
                 if (subgroup_it->second.stream != nullptr && subgroup_it->second.stream->GetStreamId() == stream_id) {

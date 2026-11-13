@@ -9,7 +9,7 @@
 #include "quicr/messages/parameters.h"
 #include "quicr/reply.h"
 #include "quicr/track_name.h"
-#include "quicr/utilities/thread_safety.h"
+#include "quicr/utilities/binding_operation_lock.h"
 
 #include <cstdint>
 #include <memory>
@@ -187,7 +187,7 @@ namespace quicr {
          */
         const std::weak_ptr<Session>& GetSession() const noexcept;
 
-        std::mutex binding_operation_mutex_;
+        BindingOperationMutex binding_operation_mutex_;
 
         // --------------------------------------------------------------------------
         // Internal

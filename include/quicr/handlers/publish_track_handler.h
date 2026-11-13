@@ -450,15 +450,15 @@ namespace quicr {
             std::optional<uint64_t> last_object_id{ std::nullopt }; ///< Last object used for delta encoding.
         };
 
-        std::map<std::uint64_t, std::map<std::uint64_t, StreamInfo>>
-          stream_info_by_group_; ///< Open streams keyed first by group ID and then subgroup ID.
+        std::map<std::uint64_t, std::map<std::uint64_t, StreamInfo>> stream_info_by_group_
+          QUICR_GUARDED_BY(binding_operation_mutex_); ///< Open streams keyed first by group ID and then subgroup ID.
 
         /// Connection-scoped track alias required by object framing.
         std::optional<uint64_t> track_alias_;
         messages::Location largest_location_; ///< Largest/current location reported for the track.
 
         /// Reusable serialization scratch buffer; invalidated by the next publish/end operation.
-        Bytes object_msg_buffer_; // TODO(tievens): Review shrink/resize
+        Bytes object_msg_buffer_ QUICR_GUARDED_BY(binding_operation_mutex_); // TODO(tievens): Review shrink/resize
 
         bool support_new_group_request_{ true }; ///< Whether PUBLISH_OK may request dynamic groups.
 
@@ -466,9 +466,10 @@ namespace quicr {
         std::optional<uint64_t> pending_new_group_request_id_;
 
       private:
-        void EndSubgroupInternal(uint64_t group_id, uint64_t subgroup_id, bool completed);
+        void EndSubgroupInternal(uint64_t group_id, uint64_t subgroup_id, bool completed)
+          QUICR_REQUIRES(binding_operation_mutex_);
 
-        void EndAllSubgroupsInternal(bool completed);
+        void EndAllSubgroupsInternal(bool completed) QUICR_REQUIRES(binding_operation_mutex_);
 
         // Update status without firing the callback.
         std::optional<Status> UpdateStatus(Status status) noexcept;

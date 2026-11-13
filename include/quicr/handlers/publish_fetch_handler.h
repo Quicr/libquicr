@@ -86,13 +86,14 @@ namespace quicr {
          *      once the transport reaches it, so objects already queued still go out. Does nothing if
          *      the fetch never sent an object, since there is no stream to close.
          */
-        void EndFetch();
+        void EndFetch() QUICR_REQUIRES(binding_operation_mutex_);
 
         messages::GroupOrder group_order_;
-        messages::FetchObjectSerializationState serialization_state_;
-        bool sent_first_header_{ false };
-        bool closed_{ false };
-        std::shared_ptr<Stream> stream_; ///< Stream for the fetch, created on sent_first_header
+        messages::FetchObjectSerializationState serialization_state_ QUICR_GUARDED_BY(binding_operation_mutex_);
+        bool sent_first_header_ QUICR_GUARDED_BY(binding_operation_mutex_){ false };
+        bool closed_ QUICR_GUARDED_BY(binding_operation_mutex_){ false };
+        std::shared_ptr<Stream> stream_
+          QUICR_GUARDED_BY(binding_operation_mutex_); ///< Stream for the fetch, created on sent_first_header
 
         friend class Session;
     };
