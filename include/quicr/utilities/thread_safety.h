@@ -15,6 +15,9 @@
 /** @brief Marks a type or object as a named lockable capability. */
 #define QUICR_CAPABILITY(name) __attribute__((capability(name)))
 
+/** @brief Marks an RAII object that owns capabilities for its lifetime. */
+#define QUICR_SCOPED_CAPABILITY __attribute__((scoped_lockable))
+
 /** @brief Declares that a function acquires the listed capabilities. */
 #define QUICR_ACQUIRE(...) __attribute__((acquire_capability(__VA_ARGS__)))
 
@@ -41,6 +44,9 @@
 #else
 /** @brief No-op capability marker when thread-safety annotations are disabled. */
 #define QUICR_CAPABILITY(name)
+
+/** @brief No-op scoped capability marker when annotations are disabled. */
+#define QUICR_SCOPED_CAPABILITY
 
 /** @brief No-op acquire annotation when thread-safety annotations are disabled. */
 #define QUICR_ACQUIRE(...)

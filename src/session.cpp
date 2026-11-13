@@ -3165,11 +3165,12 @@ namespace quicr {
             return;
         }
 
-        std::lock_guard migration_lock(handler->binding_operation_mutex_);
+        BindingOperationLock migration_lock(handler->binding_operation_mutex_, state_mutex_);
         const auto old_binding = handler->GetBinding();
         const auto old_connection_id = old_connection->GetID();
         if (const auto publisher = handler->Get<PublishTrackHandler>()) {
-            publisher->EndAllSubgroupsInternal(false);
+            // We promise migration_lock is held.
+            [&]() QUICR_NO_THREAD_SAFETY_ANALYSIS { publisher->EndAllSubgroupsInternal(false); }();
         }
 
         {
@@ -3435,7 +3436,7 @@ namespace quicr {
     {
         std::optional<PublishTrackHandler::Status> changed_status;
         {
-            std::lock_guard binding_lock(track_handler->binding_operation_mutex_);
+            BindingOperationLock binding_lock(track_handler->binding_operation_mutex_, state_mutex_);
             std::lock_guard state_lock(state_mutex_);
 
             auto th = TrackHash(track_handler->GetFullTrackName());
@@ -3510,6 +3511,7 @@ namespace quicr {
 
     void Session::UnbindFetchTrack(const std::shared_ptr<PublishFetchHandler>& track_handler)
     {
+        BindingOperationLock binding_lock(track_handler->binding_operation_mutex_, state_mutex_);
         std::lock_guard lock(state_mutex_);
 
         auto request_id = *track_handler->GetRequestId();

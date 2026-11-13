@@ -11,16 +11,15 @@ namespace quicr {
       const BytesSpan data,
       [[maybe_unused]] std::optional<messages::StreamHeaderProperties> stream_mode)
     {
-        std::lock_guard lock(binding_operation_mutex_);
-
-        if (closed_) {
-            return PublishObjectStatus::kFetchClosed;
-        }
-
         auto session = GetSession().lock();
 
         if (!session) {
             return PublishObjectStatus::kInternalError;
+        }
+
+        BindingOperationLock lock(binding_operation_mutex_, session->state_mutex_);
+        if (closed_) {
+            return PublishObjectStatus::kFetchClosed;
         }
 
         bool is_stream_header_needed{ !sent_first_header_ };
@@ -94,8 +93,6 @@ namespace quicr {
 
     void PublishFetchHandler::EndFetch()
     {
-        std::lock_guard lock(binding_operation_mutex_);
-
         if (closed_) {
             return;
         }

@@ -271,7 +271,7 @@ namespace quicr {
          * @param track_handler Track handler used when published track
          * @pre @p track_handler must not be null.
          */
-        void UnpublishTrack(const std::shared_ptr<PublishTrackHandler>& track_handler);
+        void UnpublishTrack(const std::shared_ptr<PublishTrackHandler>& track_handler) QUICR_EXCLUDES(state_mutex_);
 
         /**
          * @brief Publish a track namespace
@@ -408,7 +408,7 @@ namespace quicr {
          */
         void UnbindPublisherTrack(std::uint64_t src_id,
                                   const std::shared_ptr<PublishTrackHandler>& track_handler,
-                                  bool send_publish_done = false);
+                                  bool send_publish_done = false) QUICR_EXCLUDES(state_mutex_);
 
         /**
          * @brief Bind a server fetch publisher track handler
@@ -426,7 +426,7 @@ namespace quicr {
          * @pre @p track_handler must not be null.
          * @pre @p track_handler must have a request identifier assigned by `BindFetchTrack`.
          */
-        void UnbindFetchTrack(const std::shared_ptr<PublishFetchHandler>& track_handler);
+        void UnbindFetchTrack(const std::shared_ptr<PublishFetchHandler>& track_handler) QUICR_EXCLUDES(state_mutex_);
 
         ///@}
         // --END SERVER RELAY METHODS ------------------------------------------------------------------------
@@ -504,7 +504,8 @@ namespace quicr {
          * @param stream Closed stream and its associated request state.
          * @param flag Event that closed the stream direction.
          */
-        void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override;
+        void OnStreamClosed(const std::shared_ptr<Stream>& stream, StreamClosedFlag flag) override
+          QUICR_EXCLUDES(state_mutex_);
 
       private:
         /*===================================================================*/
@@ -853,7 +854,8 @@ namespace quicr {
         void CompleteMigration(const std::shared_ptr<Connection>& connection,
                                std::uint64_t request_id,
                                MigrationRequestType type,
-                               std::optional<std::uint64_t> received_track_alias = std::nullopt);
+                               std::optional<std::uint64_t> received_track_alias = std::nullopt)
+          QUICR_EXCLUDES(state_mutex_);
 
         bool FailMigration(const std::shared_ptr<Connection>& connection, std::uint64_t request_id);
 
