@@ -3,10 +3,12 @@
 
 #include "quicr/quicr.h"
 
+#include <quicr/handlers/forwarding_subscribe_track_handler.h>
 #include <quicr/session.h>
 #include <quicr/session_callbacks.h>
 #include <quicr/session_manager.h>
 
+#include <chrono>
 #include <cstring>
 #include <functional>
 #include <iterator>
@@ -1804,6 +1806,15 @@ class PublishTrackHandlerAdapter : public quicr::PublishTrackHandler
         }
     }
 
+    void StreamClosed(std::uint64_t stream_id, bool reset) override
+    {
+        PublishTrackHandler::StreamClosed(stream_id, reset);
+
+        if (owner_ && callbacks_.stream_closed) {
+            SafeCallback(callbacks_.stream_closed, owner_, stream_id, reset, callbacks_.user_data);
+        }
+    }
+
   private:
     quicr_publish_track_handler* owner_;
     quicr_publish_track_handler_callbacks_t callbacks_;
@@ -1908,9 +1919,191 @@ class SubscribeTrackHandlerAdapter : public quicr::SubscribeTrackHandler
         }
     }
 
+    void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
+    {
+        if (callbacks_.subgroup_ended) {
+            SafeCallback(callbacks_.subgroup_ended, group_id, subgroup_id, reset, callbacks_.user_data);
+        }
+    }
+
+    void DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data) override
+    {
+        if (!callbacks_.datagram_received) {
+            SubscribeTrackHandler::DgramDataRecv(std::move(data));
+            return;
+        }
+
+        if (data) {
+            SafeCallback(callbacks_.datagram_received,
+                         ToCType<quicr_byte_span_t>(BytesSpan{ data->data(), data->size() }),
+                         callbacks_.user_data);
+        }
+    }
+
   private:
     quicr_subscribe_track_handler* owner_;
     quicr_subscribe_track_handler_callbacks_t callbacks_;
+};
+
+class ForwardingSubscribeTrackHandlerAdapter : public quicr::ForwardingSubscribeTrackHandler
+{
+  public:
+    ForwardingSubscribeTrackHandlerAdapter(quicr_subscribe_track_handler* owner,
+                                           const quicr_forwarding_subscribe_track_handler_callbacks_t& callbacks,
+                                           const FullTrackName& full_track_name,
+                                           std::uint8_t priority,
+                                           std::optional<messages::GroupOrder> group_order,
+                                           const messages::Filter& filter)
+      : ForwardingSubscribeTrackHandler(full_track_name, priority, group_order, filter)
+      , owner_(owner)
+      , callbacks_(callbacks)
+    {
+    }
+
+    void StatusChanged(Status status) override
+    {
+        const auto& callbacks = callbacks_.track_callbacks;
+        if (owner_ && callbacks.status_changed) {
+            SafeCallback(callbacks.status_changed,
+                         owner_,
+                         ToCType<quicr_subscribe_track_handler_status_t>(status),
+                         callbacks.user_data);
+        }
+    }
+
+    void MetricsSampled(const SubscribeTrackMetrics& metrics) override
+    {
+        const auto& callbacks = callbacks_.track_callbacks;
+        if (owner_ && callbacks.metrics_sampled) {
+            const auto c_metrics = ToCType<quicr_subscribe_track_metrics_t>(metrics);
+            SafeCallback(callbacks.metrics_sampled, owner_, &c_metrics, callbacks.user_data);
+        }
+    }
+
+    void ObjectReceived(const ObjectHeaders& headers,
+                        BytesSpan data,
+                        std::optional<messages::StreamHeaderProperties> properties) override
+    {
+        const auto& callbacks = callbacks_.track_callbacks;
+        if (!callbacks.object_received) {
+            return;
+        }
+
+        auto c_headers = ToCType<quicr_object_headers_t>(headers);
+        std::optional<CExtensionsView> extensions;
+        std::optional<CExtensionsView> immutable_extensions;
+        if (headers.extensions) {
+            extensions.emplace(*headers.extensions);
+            c_headers.extensions = extensions->Get();
+        }
+        if (headers.immutable_extensions) {
+            immutable_extensions.emplace(*headers.immutable_extensions);
+            c_headers.immutable_extensions = immutable_extensions->Get();
+        }
+
+        quicr_stream_header_properties_t c_properties;
+        if (properties) {
+            c_properties = ToCType<quicr_stream_header_properties_t>(*properties);
+        }
+
+        SafeCallback(callbacks.object_received,
+                     &c_headers,
+                     ToCType<quicr_byte_span_t>(data),
+                     properties ? &c_properties : nullptr,
+                     callbacks.user_data);
+    }
+
+    void ObjectStatusReceived(std::uint64_t group_id,
+                              std::uint64_t object_id,
+                              std::uint8_t priority,
+                              ObjectStatus status,
+                              std::optional<Extensions> extensions,
+                              std::optional<Extensions> immutable_extensions) override
+    {
+        const auto& callbacks = callbacks_.track_callbacks;
+        if (!callbacks.object_status_received) {
+            return;
+        }
+
+        quicr_object_headers_t headers{
+            .group_id = group_id,
+            .object_id = object_id,
+            .payload_length = 0,
+            .status = ToCType<quicr_object_status_t>(status),
+            .has_priority = true,
+            .priority = priority,
+        };
+
+        std::optional<CExtensionsView> c_extensions;
+        std::optional<CExtensionsView> c_immutable_extensions;
+        if (extensions) {
+            c_extensions.emplace(*extensions);
+            headers.extensions = c_extensions->Get();
+        }
+        if (immutable_extensions) {
+            c_immutable_extensions.emplace(*immutable_extensions);
+            headers.immutable_extensions = c_immutable_extensions->Get();
+        }
+
+        SafeCallback(callbacks.object_status_received, &headers, callbacks.user_data);
+    }
+
+    void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
+    {
+        const auto& callbacks = callbacks_.track_callbacks;
+        if (callbacks.subgroup_ended) {
+            SafeCallback(callbacks.subgroup_ended, group_id, subgroup_id, reset, callbacks.user_data);
+        }
+    }
+
+    void DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data) override
+    {
+        const auto& callbacks = callbacks_.track_callbacks;
+        if (!callbacks.datagram_received) {
+            SubscribeTrackHandler::DgramDataRecv(std::move(data));
+            return;
+        }
+
+        if (data) {
+            SafeCallback(callbacks.datagram_received,
+                         ToCType<quicr_byte_span_t>(BytesSpan{ data->data(), data->size() }),
+                         callbacks.user_data);
+        }
+    }
+
+    void SubgroupStarted(std::uint64_t group_id,
+                         std::uint64_t subgroup_id,
+                         std::optional<std::uint8_t> priority,
+                         messages::StreamHeaderProperties properties) override
+    {
+        if (!callbacks_.subgroup_started) {
+            return;
+        }
+
+        const auto c_properties = ToCType<quicr_stream_header_properties_t>(properties);
+        SafeCallback(callbacks_.subgroup_started,
+                     group_id,
+                     subgroup_id,
+                     priority.has_value(),
+                     priority.value_or(0),
+                     &c_properties,
+                     callbacks_.track_callbacks.user_data);
+    }
+
+    void StreamBytesForwarded(std::uint64_t group_id, std::uint64_t subgroup_id, Bytes&& data) override
+    {
+        if (callbacks_.stream_bytes_forwarded) {
+            SafeCallback(callbacks_.stream_bytes_forwarded,
+                         group_id,
+                         subgroup_id,
+                         ToCType<quicr_byte_span_t>(BytesSpan{ data.data(), data.size() }),
+                         callbacks_.track_callbacks.user_data);
+        }
+    }
+
+  private:
+    quicr_subscribe_track_handler* owner_;
+    quicr_forwarding_subscribe_track_handler_callbacks_t callbacks_;
 };
 
 class FetchTrackHandlerAdapter : public quicr::FetchTrackHandler
@@ -2008,6 +2201,27 @@ class FetchTrackHandlerAdapter : public quicr::FetchTrackHandler
             }
 
             SafeCallback(callbacks_.object_status_received, &headers, callbacks_.user_data);
+        }
+    }
+
+    void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
+    {
+        if (callbacks_.subgroup_ended) {
+            SafeCallback(callbacks_.subgroup_ended, group_id, subgroup_id, reset, callbacks_.user_data);
+        }
+    }
+
+    void DgramDataRecv(std::shared_ptr<const std::vector<uint8_t>> data) override
+    {
+        if (!callbacks_.datagram_received) {
+            FetchTrackHandler::DgramDataRecv(std::move(data));
+            return;
+        }
+
+        if (data) {
+            SafeCallback(callbacks_.datagram_received,
+                         ToCType<quicr_byte_span_t>(BytesSpan{ data->data(), data->size() }),
+                         callbacks_.user_data);
         }
     }
 
@@ -2311,6 +2525,46 @@ extern "C"
         });
     }
 
+    quicr_status_t quicr_session_disconnect(quicr_session_t* session)
+    {
+        return SafeCall([&] {
+            if (!session) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto session_impl = session->impl.lock();
+            if (!session_impl) {
+                return QUICR_STATUS_NOT_FOUND;
+            }
+
+            session_impl->Disconnect();
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_session_goaway(quicr_session_t* session,
+                                        const char* new_session_uri,
+                                        uint64_t timeout_ms,
+                                        const uint64_t* first_unprocessed_request_id)
+    {
+        return SafeCall([&] {
+            if (!session || timeout_ms > static_cast<uint64_t>(std::chrono::milliseconds::max().count())) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto session_impl = session->impl.lock();
+            if (!session_impl) {
+                return QUICR_STATUS_NOT_FOUND;
+            }
+
+            session_impl->GoAway(new_session_uri ? new_session_uri : "",
+                                 std::chrono::milliseconds{ timeout_ms },
+                                 first_unprocessed_request_id ? std::make_optional(*first_unprocessed_request_id)
+                                                              : std::nullopt);
+            return QUICR_STATUS_OK;
+        });
+    }
+
     /*=======================================================================*/
     // Handlers
     /*=======================================================================*/
@@ -2515,6 +2769,36 @@ extern "C"
         });
     }
 
+    quicr_status_t quicr_forwarding_subscribe_track_handler_create(
+      const quicr_forwarding_subscribe_track_handler_callbacks_t* callbacks,
+      const quicr_full_track_name_t* ftn,
+      uint8_t priority,
+      quicr_group_order_t group_order,
+      const quicr_filter_t* filter,
+      quicr_subscribe_track_handler_t** handler)
+    {
+        return SafeCall([&] {
+            if (!handler || !ftn) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *handler = nullptr;
+            auto result = std::make_unique<quicr_subscribe_track_handler>();
+            result->impl = std::make_shared<ForwardingSubscribeTrackHandlerAdapter>(
+              result.get(),
+              callbacks ? *callbacks : quicr_forwarding_subscribe_track_handler_callbacks_t{},
+              ToCppType<FullTrackName>(*ftn),
+              priority,
+              group_order == QUICR_GROUP_ORDER_UNSPECIFIED
+                ? std::nullopt
+                : std::make_optional(ToCppType<messages::GroupOrder>(group_order)),
+              filter ? ToCppType<messages::Filter>(*filter) : messages::Filter{});
+
+            *handler = result.release();
+            return QUICR_STATUS_OK;
+        });
+    }
+
     quicr_status_t quicr_subscribe_track_handler_destroy(quicr_subscribe_track_handler_t* handler)
     {
         if (!handler) {
@@ -2593,6 +2877,24 @@ extern "C"
 
             handler->impl->SupportNewGroupRequest(supported);
 
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_session_update_subscribe_track_handler(quicr_session_t* session,
+                                                                quicr_subscribe_track_handler_t* handler)
+    {
+        return SafeCall([&] {
+            if (!session || !handler || !handler->impl) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto session_impl = session->impl.lock();
+            if (!session_impl) {
+                return QUICR_STATUS_NOT_FOUND;
+            }
+
+            session_impl->UpdateTrackSubscription(handler->impl);
             return QUICR_STATUS_OK;
         });
     }
@@ -3423,6 +3725,29 @@ namespace {
             return QUICR_STATUS_OK;
         });
     }
+
+    template<typename CHandler>
+    quicr_status_t GoAwayHandler(quicr_session_t* session,
+                                 const char* new_session_uri,
+                                 uint64_t timeout_ms,
+                                 const CHandler* handler)
+    {
+        return SafeCall([&] {
+            if (!session || !handler || !handler->impl ||
+                timeout_ms > static_cast<uint64_t>(std::chrono::milliseconds::max().count())) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto session_impl = session->impl.lock();
+            if (!session_impl) {
+                return QUICR_STATUS_NOT_FOUND;
+            }
+
+            session_impl->GoAway(
+              new_session_uri ? new_session_uri : "", std::chrono::milliseconds{ timeout_ms }, handler->impl);
+            return QUICR_STATUS_OK;
+        });
+    }
 }
 
 /*=======================================================================*/
@@ -3601,4 +3926,58 @@ quicr_session_manager_remove_track_status_track_handler(quicr_session_manager_t*
                                                         const quicr_track_status_track_handler_t* handler)
 {
     return RemoveHandler(manager, session, handler);
+}
+
+quicr_status_t
+quicr_session_goaway_publish_track_handler(quicr_session_t* session,
+                                           const char* new_session_uri,
+                                           uint64_t timeout_ms,
+                                           const quicr_publish_track_handler_t* handler)
+{
+    return GoAwayHandler(session, new_session_uri, timeout_ms, handler);
+}
+
+quicr_status_t
+quicr_session_goaway_subscribe_track_handler(quicr_session_t* session,
+                                             const char* new_session_uri,
+                                             uint64_t timeout_ms,
+                                             const quicr_subscribe_track_handler_t* handler)
+{
+    return GoAwayHandler(session, new_session_uri, timeout_ms, handler);
+}
+
+quicr_status_t
+quicr_session_goaway_fetch_track_handler(quicr_session_t* session,
+                                         const char* new_session_uri,
+                                         uint64_t timeout_ms,
+                                         const quicr_fetch_track_handler_t* handler)
+{
+    return GoAwayHandler(session, new_session_uri, timeout_ms, handler);
+}
+
+quicr_status_t
+quicr_session_goaway_publish_namespace_handler(quicr_session_t* session,
+                                               const char* new_session_uri,
+                                               uint64_t timeout_ms,
+                                               const quicr_publish_namespace_handler_t* handler)
+{
+    return GoAwayHandler(session, new_session_uri, timeout_ms, handler);
+}
+
+quicr_status_t
+quicr_session_goaway_subscribe_namespace_handler(quicr_session_t* session,
+                                                 const char* new_session_uri,
+                                                 uint64_t timeout_ms,
+                                                 const quicr_subscribe_namespace_handler_t* handler)
+{
+    return GoAwayHandler(session, new_session_uri, timeout_ms, handler);
+}
+
+quicr_status_t
+quicr_session_goaway_track_status_handler(quicr_session_t* session,
+                                          const char* new_session_uri,
+                                          uint64_t timeout_ms,
+                                          const quicr_track_status_track_handler_t* handler)
+{
+    return GoAwayHandler(session, new_session_uri, timeout_ms, handler);
 }

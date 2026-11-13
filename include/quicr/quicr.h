@@ -483,6 +483,13 @@ extern "C"
 
     QUICR_C_API quicr_status_t quicr_session_get_status(const quicr_session_t* session, quicr_session_status_t* status);
 
+    QUICR_C_API quicr_status_t quicr_session_disconnect(quicr_session_t* session);
+
+    QUICR_C_API quicr_status_t quicr_session_goaway(quicr_session_t* session,
+                                                    const char* new_session_uri,
+                                                    uint64_t timeout_ms,
+                                                    const uint64_t* first_unprocessed_request_id);
+
     /*=======================================================================*/
     // Handlers
     /*=======================================================================*/
@@ -627,6 +634,7 @@ extern "C"
         void (*metrics_sampled)(quicr_publish_track_handler_t* handler,
                                 const quicr_publish_track_metrics_t* metrics,
                                 void* user_data);
+        void (*stream_closed)(quicr_publish_track_handler_t* handler, uint64_t stream_id, bool reset, void* user_data);
     } quicr_publish_track_handler_callbacks_t;
 
     QUICR_C_API quicr_status_t
@@ -717,6 +725,8 @@ extern "C"
                                 const quicr_stream_header_properties_t* properties,
                                 void* user_data);
         void (*object_status_received)(const quicr_object_headers_t* headers, void* user_data);
+        void (*subgroup_ended)(uint64_t group_id, uint64_t subgroup_id, bool reset, void* user_data);
+        void (*datagram_received)(quicr_byte_span_t data, void* user_data);
     } quicr_subscribe_track_handler_callbacks_t;
 
     typedef uint64_t quicr_filter_type_t;
@@ -773,6 +783,29 @@ extern "C"
                                          const quicr_filter_t* filter,
                                          quicr_subscribe_track_handler_t** handler);
 
+    typedef struct quicr_forwarding_subscribe_track_handler_callbacks
+    {
+        quicr_subscribe_track_handler_callbacks_t track_callbacks;
+        void (*subgroup_started)(uint64_t group_id,
+                                 uint64_t subgroup_id,
+                                 bool has_priority,
+                                 uint8_t priority,
+                                 const quicr_stream_header_properties_t* properties,
+                                 void* user_data);
+        void (*stream_bytes_forwarded)(uint64_t group_id,
+                                       uint64_t subgroup_id,
+                                       quicr_byte_span_t data,
+                                       void* user_data);
+    } quicr_forwarding_subscribe_track_handler_callbacks_t;
+
+    QUICR_C_API quicr_status_t quicr_forwarding_subscribe_track_handler_create(
+      const quicr_forwarding_subscribe_track_handler_callbacks_t* callbacks,
+      const quicr_full_track_name_t* ftn,
+      uint8_t priority,
+      quicr_group_order_t group_order,
+      const quicr_filter_t* filter,
+      quicr_subscribe_track_handler_t** handler);
+
     QUICR_C_API quicr_status_t quicr_subscribe_track_handler_destroy(quicr_subscribe_track_handler_t* handler);
 
     QUICR_C_API quicr_status_t quicr_subscribe_track_handler_get_status(const quicr_subscribe_track_handler_t* handler,
@@ -787,6 +820,9 @@ extern "C"
 
     QUICR_C_API quicr_status_t
     quicr_subscribe_track_handler_support_new_group_request(quicr_subscribe_track_handler_t* handler, bool supported);
+
+    QUICR_C_API quicr_status_t quicr_session_update_subscribe_track_handler(quicr_session_t* session,
+                                                                            quicr_subscribe_track_handler_t* handler);
 
     typedef struct quicr_fetch_track_handler quicr_fetch_track_handler_t;
     typedef quicr_subscribe_track_handler_status_t quicr_fetch_track_handler_status_t;
@@ -805,6 +841,8 @@ extern "C"
                                 const quicr_stream_header_properties_t* properties,
                                 void* user_data);
         void (*object_status_received)(const quicr_object_headers_t* headers, void* user_data);
+        void (*subgroup_ended)(uint64_t group_id, uint64_t subgroup_id, bool reset, void* user_data);
+        void (*datagram_received)(quicr_byte_span_t data, void* user_data);
     } quicr_fetch_track_handler_callbacks_t;
 
     QUICR_C_API quicr_status_t quicr_fetch_track_handler_create(const quicr_fetch_track_handler_callbacks_t* callbacks,
@@ -963,6 +1001,32 @@ extern "C"
                                                                     quicr_error_code_t* code,
                                                                     char* reason,
                                                                     size_t* reason_size);
+
+#if !defined(__cplusplus) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#define quicr_track_handler_destroy(handler)                                                                           \
+    _Generic((handler),                                                                                                \
+      quicr_publish_track_handler_t*: quicr_publish_track_handler_destroy,                                             \
+      quicr_subscribe_track_handler_t*: quicr_subscribe_track_handler_destroy,                                         \
+      quicr_fetch_track_handler_t*: quicr_fetch_track_handler_destroy,                                                 \
+      quicr_publish_namespace_handler_t*: quicr_publish_namespace_handler_destroy,                                     \
+      quicr_subscribe_namespace_handler_t*: quicr_subscribe_namespace_handler_destroy,                                 \
+      quicr_track_status_track_handler_t*: quicr_track_status_handler_destroy)(handler)
+
+#define quicr_track_handler_get_status(handler, status)                                                                \
+    _Generic((handler),                                                                                                \
+      quicr_publish_track_handler_t*: quicr_publish_track_handler_get_status,                                          \
+      const quicr_publish_track_handler_t*: quicr_publish_track_handler_get_status,                                    \
+      quicr_subscribe_track_handler_t*: quicr_subscribe_track_handler_get_status,                                      \
+      const quicr_subscribe_track_handler_t*: quicr_subscribe_track_handler_get_status,                                \
+      quicr_fetch_track_handler_t*: quicr_fetch_track_handler_get_status,                                              \
+      const quicr_fetch_track_handler_t*: quicr_fetch_track_handler_get_status,                                        \
+      quicr_publish_namespace_handler_t*: quicr_publish_namespace_handler_get_status,                                  \
+      const quicr_publish_namespace_handler_t*: quicr_publish_namespace_handler_get_status,                            \
+      quicr_subscribe_namespace_handler_t*: quicr_subscribe_namespace_handler_get_status,                              \
+      const quicr_subscribe_namespace_handler_t*: quicr_subscribe_namespace_handler_get_status,                        \
+      quicr_track_status_track_handler_t*: quicr_track_status_handler_get_status,                                      \
+      const quicr_track_status_track_handler_t*: quicr_track_status_handler_get_status)(handler, status)
+#endif
 
     /*=======================================================================*/
     // Attributes
@@ -1227,6 +1291,93 @@ extern "C"
     quicr_session_manager_remove_track_status_track_handler(quicr_session_manager_t* manager,
                                                             quicr_session_t* session,
                                                             const quicr_track_status_track_handler_t* handler);
+
+#if !defined(__cplusplus) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#define quicr_session_manager_add_handler(manager, session, handler)                                                   \
+    _Generic((handler),                                                                                                \
+      quicr_publish_track_handler_t*: quicr_session_manager_add_publish_track_handler,                                 \
+      const quicr_publish_track_handler_t*: quicr_session_manager_add_publish_track_handler,                           \
+      quicr_subscribe_track_handler_t*: quicr_session_manager_add_subscribe_track_handler,                             \
+      const quicr_subscribe_track_handler_t*: quicr_session_manager_add_subscribe_track_handler,                       \
+      quicr_fetch_track_handler_t*: quicr_session_manager_add_fetch_track_handler,                                     \
+      const quicr_fetch_track_handler_t*: quicr_session_manager_add_fetch_track_handler,                               \
+      quicr_publish_namespace_handler_t*: quicr_session_manager_add_publish_namespace_handler,                         \
+      const quicr_publish_namespace_handler_t*: quicr_session_manager_add_publish_namespace_handler,                   \
+      quicr_subscribe_namespace_handler_t*: quicr_session_manager_add_subscribe_namespace_handler,                     \
+      const quicr_subscribe_namespace_handler_t*: quicr_session_manager_add_subscribe_namespace_handler,               \
+      quicr_track_status_track_handler_t*: quicr_session_manager_add_track_status_track_handler,                       \
+      const quicr_track_status_track_handler_t*: quicr_session_manager_add_track_status_track_handler)(                \
+      manager, session, handler)
+
+#define quicr_session_manager_remove_handler(manager, session, handler)                                                \
+    _Generic((handler),                                                                                                \
+      quicr_publish_track_handler_t*: quicr_session_manager_remove_publish_track_handler,                              \
+      const quicr_publish_track_handler_t*: quicr_session_manager_remove_publish_track_handler,                        \
+      quicr_subscribe_track_handler_t*: quicr_session_manager_remove_subscribe_track_handler,                          \
+      const quicr_subscribe_track_handler_t*: quicr_session_manager_remove_subscribe_track_handler,                    \
+      quicr_fetch_track_handler_t*: quicr_session_manager_remove_fetch_track_handler,                                  \
+      const quicr_fetch_track_handler_t*: quicr_session_manager_remove_fetch_track_handler,                            \
+      quicr_publish_namespace_handler_t*: quicr_session_manager_remove_publish_namespace_handler,                      \
+      const quicr_publish_namespace_handler_t*: quicr_session_manager_remove_publish_namespace_handler,                \
+      quicr_subscribe_namespace_handler_t*: quicr_session_manager_remove_subscribe_namespace_handler,                  \
+      const quicr_subscribe_namespace_handler_t*: quicr_session_manager_remove_subscribe_namespace_handler,            \
+      quicr_track_status_track_handler_t*: quicr_session_manager_remove_track_status_track_handler,                    \
+      const quicr_track_status_track_handler_t*: quicr_session_manager_remove_track_status_track_handler)(             \
+      manager, session, handler)
+#endif
+
+    QUICR_C_API quicr_status_t quicr_session_goaway_publish_track_handler(quicr_session_t* session,
+                                                                          const char* new_session_uri,
+                                                                          uint64_t timeout_ms,
+                                                                          const quicr_publish_track_handler_t* handler);
+
+    QUICR_C_API quicr_status_t
+    quicr_session_goaway_subscribe_track_handler(quicr_session_t* session,
+                                                 const char* new_session_uri,
+                                                 uint64_t timeout_ms,
+                                                 const quicr_subscribe_track_handler_t* handler);
+
+    QUICR_C_API quicr_status_t quicr_session_goaway_fetch_track_handler(quicr_session_t* session,
+                                                                        const char* new_session_uri,
+                                                                        uint64_t timeout_ms,
+                                                                        const quicr_fetch_track_handler_t* handler);
+
+    QUICR_C_API quicr_status_t
+    quicr_session_goaway_publish_namespace_handler(quicr_session_t* session,
+                                                   const char* new_session_uri,
+                                                   uint64_t timeout_ms,
+                                                   const quicr_publish_namespace_handler_t* handler);
+
+    QUICR_C_API quicr_status_t
+    quicr_session_goaway_subscribe_namespace_handler(quicr_session_t* session,
+                                                     const char* new_session_uri,
+                                                     uint64_t timeout_ms,
+                                                     const quicr_subscribe_namespace_handler_t* handler);
+
+    QUICR_C_API quicr_status_t
+    quicr_session_goaway_track_status_handler(quicr_session_t* session,
+                                              const char* new_session_uri,
+                                              uint64_t timeout_ms,
+                                              const quicr_track_status_track_handler_t* handler);
+
+#if !defined(__cplusplus) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#define quicr_session_goaway_handler(session, new_session_uri, timeout_ms, handler)                                    \
+    _Generic((handler),                                                                                                \
+      quicr_publish_track_handler_t*: quicr_session_goaway_publish_track_handler,                                      \
+      const quicr_publish_track_handler_t*: quicr_session_goaway_publish_track_handler,                                \
+      quicr_subscribe_track_handler_t*: quicr_session_goaway_subscribe_track_handler,                                  \
+      const quicr_subscribe_track_handler_t*: quicr_session_goaway_subscribe_track_handler,                            \
+      quicr_fetch_track_handler_t*: quicr_session_goaway_fetch_track_handler,                                          \
+      const quicr_fetch_track_handler_t*: quicr_session_goaway_fetch_track_handler,                                    \
+      quicr_publish_namespace_handler_t*: quicr_session_goaway_publish_namespace_handler,                              \
+      const quicr_publish_namespace_handler_t*: quicr_session_goaway_publish_namespace_handler,                        \
+      quicr_subscribe_namespace_handler_t*: quicr_session_goaway_subscribe_namespace_handler,                          \
+      const quicr_subscribe_namespace_handler_t*: quicr_session_goaway_subscribe_namespace_handler,                    \
+      quicr_track_status_track_handler_t*: quicr_session_goaway_track_status_handler,                                  \
+      const quicr_track_status_track_handler_t*: quicr_session_goaway_track_status_handler)(                           \
+      session, new_session_uri, timeout_ms, handler)
+
+#endif
 
 #ifdef __cplusplus
 }

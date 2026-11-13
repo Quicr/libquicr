@@ -348,6 +348,10 @@ namespace quicr {
             throw std::invalid_argument("Cannot send request GOAWAY without a handler");
         }
 
+        if (handler->GetSession().lock() != GetSharedPtr()) {
+            throw std::invalid_argument("Handler is not registered with this session");
+        }
+
         if (timeout.count() < 0) {
             throw std::invalid_argument("GOAWAY timeout cannot be negative");
         }
@@ -1193,6 +1197,14 @@ namespace quicr {
 
     void Session::UpdateTrackSubscription(std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
+        if (!track_handler) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+
+        if (track_handler->GetSession().lock() != GetSharedPtr()) {
+            throw std::logic_error("Handler is not registered with this session");
+        }
+
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 

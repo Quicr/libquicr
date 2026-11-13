@@ -153,14 +153,14 @@ main()
         goto cleanup;
     }
 
-    if (quicr_session_manager_add_publish_track_handler(session_manager, session, handler) != QUICR_STATUS_OK) {
+    if (quicr_session_manager_add_handler(session_manager, session, handler) != QUICR_STATUS_OK) {
         goto cleanup;
     }
     handler_added = true;
 
     while (!quicr_publish_track_handler_can_publish(handler)) {
         quicr_publish_track_handler_status_t status;
-        if (quicr_publish_track_handler_get_status(handler, &status) != QUICR_STATUS_OK) {
+        if (quicr_track_handler_get_status(handler, &status) != QUICR_STATUS_OK) {
             goto cleanup;
         }
 
@@ -209,14 +209,13 @@ main()
     result = EXIT_SUCCESS;
 
 cleanup:
-    if (handler_added &&
-        quicr_session_manager_remove_publish_track_handler(session_manager, session, handler) != QUICR_STATUS_OK) {
+    if (handler_added && quicr_session_manager_remove_handler(session_manager, session, handler) != QUICR_STATUS_OK) {
         result = EXIT_FAILURE;
         quicr_session_manager_destroy(session_manager);
         session_manager = NULL;
     }
 
-    quicr_publish_track_handler_destroy(handler);
+    quicr_track_handler_destroy(handler);
     quicr_full_track_name_destroy(full_track_name);
     quicr_track_namespace_destroy(track_namespace);
     quicr_session_manager_destroy(session_manager);
