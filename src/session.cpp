@@ -375,7 +375,8 @@ namespace quicr {
         if (client_mode_) {
             setup_options.Add(SetupOptionType::kEndpointId, client_config_.endpoint_id);
 
-            const auto [host, port, protocol, path] = *detail::ParseConnectUri(connect_uri);
+            const auto [host, port, protocol, path] =
+              *detail::ParseConnectUri(connect_uri, connection->GetProtocol() == Connection::Protocol::kQmux);
             if (protocol != Connection::Protocol::kWebTransport) {
                 const auto authority = port > 0 ? host + ":" + std::to_string(port) : host;
                 setup_options.Add(SetupOptionType::kAuthority, authority);
@@ -2745,7 +2746,8 @@ namespace quicr {
             migrations_.erase(redirect_key);
         };
 
-        auto uri = detail::ParseConnectUri(redirect.uri);
+        const bool qmux = source_connection->GetProtocol() == Connection::Protocol::kQmux;
+        auto uri = detail::ParseConnectUri(redirect.uri, qmux);
         if (!uri.has_value()) {
             QUICR_LOGGER_ERROR(logger_, "Invalid redirect URI (uri='{}')", redirect.uri);
             release_redirect();
@@ -2768,6 +2770,7 @@ namespace quicr {
             .web_transport_options = protocol == Connection::Protocol::kWebTransport
                                        ? std::make_optional(WebTransportOptions{ .path = path })
                                        : std::nullopt,
+            .qmux = qmux,
         };
 
         std::shared_ptr<Connection> connection;

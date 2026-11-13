@@ -27,7 +27,7 @@ namespace quicr::detail {
         std::string path;
     };
 
-    inline std::optional<ParsedConnectUri> ParseConnectUri(const std::string& connect_uri)
+    inline std::optional<ParsedConnectUri> ParseConnectUri(const std::string& connect_uri, bool qmux)
     {
         if (connect_uri.empty() || connect_uri.size() > kMaxUriLength ||
             std::ranges::any_of(connect_uri, [](unsigned char ch) { return ch <= 0x20 || ch == 0x7f; })) {
@@ -36,13 +36,16 @@ namespace quicr::detail {
 
         // Support moq://, moqt://, and https:// (for WebTransport).
         std::string_view remainder;
-        Connection::Protocol protocol = Connection::Protocol::kNativeQuic;
+        Connection::Protocol protocol = qmux ? Connection::Protocol::kQmux : Connection::Protocol::kNativeQuic;
 
         if (connect_uri.starts_with("moq://")) {
             remainder = std::string_view(connect_uri).substr(6);
         } else if (connect_uri.starts_with("moqt://")) {
             remainder = std::string_view(connect_uri).substr(7);
         } else if (connect_uri.starts_with("https://")) {
+            if (qmux) {
+                throw std::invalid_argument("QMUX cannot be set with WT URI");
+            }
             remainder = std::string_view(connect_uri).substr(8);
             protocol = Connection::Protocol::kWebTransport;
         } else {
