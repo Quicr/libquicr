@@ -2564,13 +2564,13 @@ extern "C"
  */
 #define quicr_track_handler_destroy(handler)                                                                           \
     _Generic((handler),                                                                                                \
-      quicr_publish_track_handler_t*: quicr_publish_track_handler_destroy,                                             \
-      quicr_publish_fetch_handler_t*: quicr_publish_fetch_handler_destroy,                                             \
-      quicr_subscribe_track_handler_t*: quicr_subscribe_track_handler_destroy,                                         \
-      quicr_fetch_track_handler_t*: quicr_fetch_track_handler_destroy,                                                 \
-      quicr_publish_namespace_handler_t*: quicr_publish_namespace_handler_destroy,                                     \
-      quicr_subscribe_namespace_handler_t*: quicr_subscribe_namespace_handler_destroy,                                 \
-      quicr_track_status_track_handler_t*: quicr_track_status_handler_destroy)(handler)
+      quicr_publish_track_handler_t *: quicr_publish_track_handler_destroy,                                            \
+      quicr_publish_fetch_handler_t *: quicr_publish_fetch_handler_destroy,                                            \
+      quicr_subscribe_track_handler_t *: quicr_subscribe_track_handler_destroy,                                        \
+      quicr_fetch_track_handler_t *: quicr_fetch_track_handler_destroy,                                                \
+      quicr_publish_namespace_handler_t *: quicr_publish_namespace_handler_destroy,                                    \
+      quicr_subscribe_namespace_handler_t *: quicr_subscribe_namespace_handler_destroy,                                \
+      quicr_track_status_track_handler_t *: quicr_track_status_handler_destroy)(handler)
 
 /**
  * @brief Type-generic status getter for C11 and later C translation units.
@@ -2585,7 +2585,7 @@ extern "C"
  */
 #define quicr_track_handler_get_status(handler, status)                                                                \
     _Generic((handler),                                                                                                \
-      quicr_publish_track_handler_t*: quicr_publish_track_handler_get_status,                                          \
+      quicr_publish_track_handler_t *: quicr_publish_track_handler_get_status,                                         \
       const quicr_publish_track_handler_t*: quicr_publish_track_handler_get_status,                                    \
       quicr_publish_fetch_handler_t*: quicr_publish_fetch_handler_get_status,                                          \
       const quicr_publish_fetch_handler_t*: quicr_publish_fetch_handler_get_status,                                    \
@@ -3421,7 +3421,7 @@ extern "C"
  */
 #define quicr_session_manager_add_handler(manager, session, handler)                                                   \
     _Generic((handler),                                                                                                \
-      quicr_publish_track_handler_t*: quicr_session_manager_add_publish_track_handler,                                 \
+      quicr_publish_track_handler_t *: quicr_session_manager_add_publish_track_handler,                                \
       const quicr_publish_track_handler_t*: quicr_session_manager_add_publish_track_handler,                           \
       quicr_subscribe_track_handler_t*: quicr_session_manager_add_subscribe_track_handler,                             \
       const quicr_subscribe_track_handler_t*: quicr_session_manager_add_subscribe_track_handler,                       \
@@ -3449,7 +3449,7 @@ extern "C"
  */
 #define quicr_session_manager_remove_handler(manager, session, handler)                                                \
     _Generic((handler),                                                                                                \
-      quicr_publish_track_handler_t*: quicr_session_manager_remove_publish_track_handler,                              \
+      quicr_publish_track_handler_t *: quicr_session_manager_remove_publish_track_handler,                             \
       const quicr_publish_track_handler_t*: quicr_session_manager_remove_publish_track_handler,                        \
       quicr_subscribe_track_handler_t*: quicr_session_manager_remove_subscribe_track_handler,                          \
       const quicr_subscribe_track_handler_t*: quicr_session_manager_remove_subscribe_track_handler,                    \
@@ -3583,7 +3583,7 @@ extern "C"
  */
 #define quicr_session_goaway_handler(session, new_session_uri, timeout_ms, handler)                                    \
     _Generic((handler),                                                                                                \
-      quicr_publish_track_handler_t*: quicr_session_goaway_publish_track_handler,                                      \
+      quicr_publish_track_handler_t *: quicr_session_goaway_publish_track_handler,                                     \
       const quicr_publish_track_handler_t*: quicr_session_goaway_publish_track_handler,                                \
       quicr_subscribe_track_handler_t*: quicr_session_goaway_subscribe_track_handler,                                  \
       const quicr_subscribe_track_handler_t*: quicr_session_goaway_subscribe_track_handler,                            \
