@@ -143,6 +143,11 @@ namespace quicr {
         }
 
         /**
+         * @brief Whether this handler is registered with a live session.
+         */
+        bool IsRegistered() const;
+
+        /**
          * @brief Received an update for this handler's request.
          *
          * @details The session acknowledges the update with the returned reply: success sends
@@ -174,18 +179,10 @@ namespace quicr {
         virtual void RequestOkReceived(const messages::Parameters& params) = 0;
 
         /**
-         * @brief Sets the session used for control and data operations.
-         * @param transport Session retained weakly; passing null clears effective access.
-         * @note The caller must keep the session alive independently.
-         */
-        void SetTransport(std::shared_ptr<Session> transport);
-
-        /**
          * @brief Gets the non-owning session handle.
-         * @return Borrowed reference to the stored weak pointer, valid for this handler's lifetime.
-         * Callers must lock it before use.
+         * @return A weak pointer to the registered session.
          */
-        const std::weak_ptr<Session>& GetSession() const noexcept;
+        std::weak_ptr<Session> GetSession() const;
 
         std::mutex binding_operation_mutex_;
 
@@ -211,6 +208,10 @@ namespace quicr {
             request_id_ = binding.request_id;
             request_stream_ = std::move(binding.request_stream);
         }
+
+        void RegisterSession(const std::shared_ptr<Session>& session);
+
+        void UnregisterSession(const std::shared_ptr<Session>& session);
 
         /**
          * @brief Set the bidir request control stream.
@@ -265,7 +266,8 @@ namespace quicr {
 
         mutable std::mutex request_stream_mutex_; ///< Guards request_stream_
 
-        std::weak_ptr<Session> session_;
+        mutable std::mutex registration_mutex_;
+        std::weak_ptr<Session> registered_session_ QUICR_GUARDED_BY(registration_mutex_);
     };
 
 } // namespace moq

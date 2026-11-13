@@ -146,8 +146,8 @@ See the [API guide](docs/api-guide.md) for session and handler usage.
 | API | Status | Notes |
 | --- | --- | --- |
 | C++ API | ✅ Supported | Requires C++20 |
+| C API | ✅ Supported | Requires C11 |
 | C bridge | ✅ Supported | Client-only API |
-| C API | 🚧 Planned | Replacement tracked in [PR #1046](https://github.com/Quicr/libquicr/pull/1046) |
 
 ### TLS backends
 
@@ -312,5 +312,6 @@ npm install --global mermaid-filter
 
 ### Additional documentation
 
-* [API guide](docs/api-guide.md)
+* [C++ API guide](docs/api-guide.md)
+* [C API guide](docs/c-api-guide.md)
 * [MOQT implementation notes](docs/implementation.md)
