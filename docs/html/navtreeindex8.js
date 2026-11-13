@@ -1,6 +1,5 @@
 var NAVTREEINDEX8 =
 {
-"structquicr_1_1ServerConfig.html#a600aeb1938992178f439f50a73dec508":[2,0,0,16,1],
 "structquicr_1_1ServerConfig.html#a8eced9153335235a4fd396d34606b081":[2,0,0,16,5],
 "structquicr_1_1ServerConfig.html#ac61dcd9337d55b4694552338af12fe2e":[2,0,0,16,0],
 "structquicr_1_1ServerConfig.html#ad8895576bc8e8fba62da81e6096c1aea":[2,0,0,16,4],
@@ -249,5 +248,6 @@ var NAVTREEINDEX8 =
 "structquicr_1_1messages_1_1StreamHeaderProperties.html#a334f9c7327f12735cc204430042dc6b5":[2,0,0,1,10,6],
 "structquicr_1_1messages_1_1StreamHeaderProperties.html#a84c51ee13eb93600095293d849873cbc":[2,0,0,1,10,1],
 "structquicr_1_1messages_1_1StreamHeaderProperties.html#a8bff5c90ba11abed1bfeb8caf62e15d0":[2,0,0,1,10,5],
-"structquicr_1_1messages_1_1StreamHeaderProperties.html#a951e3712027d2803e2d179639cbc5c32":[2,0,0,1,10,3]
+"structquicr_1_1messages_1_1StreamHeaderProperties.html#a951e3712027d2803e2d179639cbc5c32":[2,0,0,1,10,3],
+"structquicr_1_1messages_1_1StreamHeaderProperties.html#aa1835e7e77f96492c017bca3f54c0e17":[2,0,0,1,10,4]
 };
