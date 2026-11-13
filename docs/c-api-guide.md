@@ -300,9 +300,13 @@ Fetch handlers can be paused, resumed, and used for new-group requests. The
 server session callbacks receive standalone fetches, joining fetches, and fetch
 cancellations and return synchronous accept-or-reject replies.
 
-The C API does not currently expose the C++ `PublishFetchHandler` and
-`BindFetchTrack()` serving path. Applications that require that path must use
-the C++ API until a C equivalent is added.
+To serve an accepted fetch, create a `quicr_publish_fetch_handler_t` with the
+request ID received by `standalone_fetch_received` or
+`joining_fetch_received`. Bind it to that callback's session with
+`quicr_session_bind_publish_fetch_handler()`, publish the requested objects, and
+call `quicr_session_unbind_publish_fetch_handler()` to drain queued objects and
+finish the response stream. The request's group order determines the order in
+which objects must be published. Destroy the handler after unbinding it.
 
 ## Namespace operations
 
@@ -336,9 +340,7 @@ Protocol rejection details are available through
 `quicr_track_status_handler_get_error()`.
 
 Receiving peers answer `track_status_received` with a
-`quicr_track_status_reply_t`. This handler-based API reflects the current
-implementation; the C++ guide's older request-ID description should be updated
-to match the current C++ `TrackStatusHandler` API.
+`quicr_track_status_reply_t`.
 
 ## Creating a server
 
@@ -378,9 +380,10 @@ hostname/SAN, and the intended trust model.
 
 ## Metrics and errors
 
-Publish, subscribe, and fetch metrics arrive through their handler callback
-tables. The C API currently exposes per-handler metrics but not the C++ session
-connection-metrics callback. Copy samples that must outlive the callback.
+Connection metrics arrive through `metrics_sampled` in the client and server
+session callback tables. Publish, subscribe, fetch, and publish-fetch metrics
+arrive through their handler callback tables. All metric pointers are borrowed
+for the callback; copy samples that must outlive it.
 
 Check every fallible call. `INVALID_ARGUMENT` covers bad pointers, values, or
 object state. `NOT_FOUND` is returned only where documented for missing results

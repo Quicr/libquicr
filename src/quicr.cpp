@@ -4,6 +4,7 @@
 #include "quicr/quicr.h"
 
 #include <quicr/handlers/forwarding_subscribe_track_handler.h>
+#include <quicr/handlers/publish_fetch_handler.h>
 #include <quicr/session.h>
 #include <quicr/session_callbacks.h>
 #include <quicr/session_manager.h>
@@ -174,6 +175,42 @@ namespace {
             .avg = metrics.avg,
             .value_sum = metrics.value_sum,
             .value_count = metrics.value_count,
+        };
+    }
+
+    template<>
+    quicr_connection_metrics_t ToCType<quicr_connection_metrics_t, ConnectionMetrics>(const ConnectionMetrics& metrics)
+    {
+        return {
+            .last_sample_time = metrics.last_sample_time,
+            .quic = {
+              .cwin_congested = metrics.quic.cwin_congested,
+              .prev_cwin_congested = metrics.quic.prev_cwin_congested,
+              .tx_congested = metrics.quic.tx_congested,
+              .tx_rate_bps = ToCType<quicr_min_max_avg_t>(metrics.quic.tx_rate_bps),
+              .rx_rate_bps = ToCType<quicr_min_max_avg_t>(metrics.quic.rx_rate_bps),
+              .tx_cwin_bytes = ToCType<quicr_min_max_avg_t>(metrics.quic.tx_cwin_bytes),
+              .tx_in_transit_bytes = ToCType<quicr_min_max_avg_t>(metrics.quic.tx_in_transit_bytes),
+              .rtt_us = ToCType<quicr_min_max_avg_t>(metrics.quic.rtt_us),
+              .srtt_us = ToCType<quicr_min_max_avg_t>(metrics.quic.srtt_us),
+              .tx_retransmits = metrics.quic.tx_retransmits,
+              .tx_lost_pkts = metrics.quic.tx_lost_pkts,
+              .tx_timer_losses = metrics.quic.tx_timer_losses,
+              .tx_spurious_losses = metrics.quic.tx_spurious_losses,
+              .rx_dgrams = metrics.quic.rx_dgrams,
+              .rx_dgrams_bytes = metrics.quic.rx_dgrams_bytes,
+              .tx_dgram_cb = metrics.quic.tx_dgram_cb,
+              .tx_dgram_ack = metrics.quic.tx_dgram_ack,
+              .tx_dgram_lost = metrics.quic.tx_dgram_lost,
+              .tx_dgram_spurious = metrics.quic.tx_dgram_spurious,
+            },
+            .rx_dgram_unknown_track_alias = metrics.rx_dgram_unknown_track_alias,
+            .rx_dgram_invalid_type = metrics.rx_dgram_invalid_type,
+            .rx_dgram_decode_failed = metrics.rx_dgram_decode_failed,
+            .rx_stream_buffer_error = metrics.rx_stream_buffer_error,
+            .rx_stream_unknown_track_alias = metrics.rx_stream_unknown_track_alias,
+            .rx_stream_invalid_type = metrics.rx_stream_invalid_type,
+            .invalid_ctrl_stream_msg = metrics.invalid_ctrl_stream_msg,
         };
     }
 
@@ -1362,6 +1399,12 @@ struct quicr_publish_track_handler
     std::shared_ptr<HandlerCallbackState> callback_state;
 };
 
+struct quicr_publish_fetch_handler
+{
+    std::shared_ptr<PublishFetchHandler> impl;
+    std::shared_ptr<HandlerCallbackState> callback_state;
+};
+
 struct quicr_subscribe_track_handler
 {
     std::shared_ptr<SubscribeTrackHandler> impl;
@@ -1537,6 +1580,16 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         auto* owner = GetSessionHandle(session);
         SafeCallback(
           [&] { callbacks.status_changed(owner, ToCType<quicr_session_status_t>(status), callbacks.user_data); });
+    }
+
+    void MetricsSampled(const std::shared_ptr<Session>& session, const ConnectionMetrics& metrics) override
+    {
+        if (!callbacks.metrics_sampled) {
+            return;
+        }
+
+        const auto c_metrics = ToCType<quicr_connection_metrics_t>(metrics);
+        SafeCallback(callbacks.metrics_sampled, GetSessionHandle(session), &c_metrics, callbacks.user_data);
     }
 
     Reply<const PublishResponse, PublishErrorCode> PublishReceived(
@@ -1874,6 +1927,56 @@ class PublishTrackHandlerAdapter : public quicr::PublishTrackHandler
     quicr_publish_track_handler* owner_;
     std::shared_ptr<HandlerCallbackState> callback_state_;
     quicr_publish_track_handler_callbacks_t callbacks_;
+};
+
+class PublishFetchHandlerAdapter : public quicr::PublishFetchHandler
+{
+  public:
+    PublishFetchHandlerAdapter(quicr_publish_fetch_handler* owner,
+                               const quicr_publish_fetch_handler_callbacks_t& callbacks,
+                               const FullTrackName& full_track_name,
+                               std::uint8_t priority,
+                               std::uint64_t request_id,
+                               messages::GroupOrder group_order,
+                               std::uint32_t default_ttl)
+      : PublishFetchHandler(full_track_name, priority, request_id, group_order, default_ttl)
+      , owner_(owner)
+      , callback_state_(owner->callback_state)
+      , callbacks_(callbacks)
+    {
+    }
+
+    void StatusChanged(Status status) override
+    {
+        if (owner_ && callbacks_.status_changed) {
+            callback_state_->Invoke(callbacks_.status_changed,
+                                    owner_,
+                                    ToCType<quicr_publish_track_handler_status_t>(status),
+                                    callbacks_.user_data);
+        }
+    }
+
+    void MetricsSampled(const PublishTrackMetrics& metrics) override
+    {
+        if (owner_ && callbacks_.metrics_sampled) {
+            const auto c_metrics = ToCType<quicr_publish_track_metrics_t>(metrics);
+            callback_state_->Invoke(callbacks_.metrics_sampled, owner_, &c_metrics, callbacks_.user_data);
+        }
+    }
+
+    void StreamClosed(std::uint64_t stream_id, bool reset) override
+    {
+        PublishTrackHandler::StreamClosed(stream_id, reset);
+
+        if (owner_ && callbacks_.stream_closed) {
+            callback_state_->Invoke(callbacks_.stream_closed, owner_, stream_id, reset, callbacks_.user_data);
+        }
+    }
+
+  private:
+    quicr_publish_fetch_handler* owner_;
+    std::shared_ptr<HandlerCallbackState> callback_state_;
+    quicr_publish_fetch_handler_callbacks_t callbacks_;
 };
 
 class SubscribeTrackHandlerAdapter : public quicr::SubscribeTrackHandler
@@ -2436,8 +2539,8 @@ extern "C"
                 cpp_entries.push_back(ToCppType<BytesSpan>(entries[i]));
             }
 
-            auto result =
-              std::make_unique<quicr_track_namespace_t>(TrackNamespace{ std::span<const BytesSpan>{ cpp_entries } });
+            auto result = std::make_unique<quicr_track_namespace_t>();
+            result->impl = TrackNamespace{ std::span<const BytesSpan>{ cpp_entries } };
             *track_namespace = result.release();
             return QUICR_STATUS_OK;
         });
@@ -2482,8 +2585,8 @@ extern "C"
             }
 
             *full_track_name = nullptr;
-            auto result = std::make_unique<quicr_full_track_name_t>(
-              FullTrackName{ track_namespace->Get(), ToCppType<Bytes>(track_name) });
+            auto result = std::make_unique<quicr_full_track_name_t>();
+            result->impl = FullTrackName{ track_namespace->Get(), ToCppType<Bytes>(track_name) };
             *full_track_name = result.release();
             return QUICR_STATUS_OK;
         });
@@ -2797,6 +2900,131 @@ extern "C"
 
             handler->impl->EndAllSubgroups(completed);
 
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_publish_fetch_handler_create(const quicr_publish_fetch_handler_callbacks_t* callbacks,
+                                                      const quicr_full_track_name_t* ftn,
+                                                      uint8_t priority,
+                                                      uint64_t request_id,
+                                                      quicr_group_order_t group_order,
+                                                      uint32_t default_ttl,
+                                                      quicr_publish_fetch_handler_t** handler)
+    {
+        return SafeCall([&] {
+            if (!handler || !ftn) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *handler = nullptr;
+            auto result = std::make_unique<quicr_publish_fetch_handler_t>();
+            result->callback_state = std::make_shared<HandlerCallbackState>();
+            result->impl = std::make_shared<PublishFetchHandlerAdapter>(
+              result.get(),
+              callbacks ? *callbacks : quicr_publish_fetch_handler_callbacks_t{},
+              ToCppType<FullTrackName>(*ftn),
+              priority,
+              request_id,
+              ToCppType<messages::GroupOrder>(group_order),
+              default_ttl);
+
+            *handler = result.release();
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_publish_fetch_handler_destroy(quicr_publish_fetch_handler_t* handler)
+    {
+        return DestroyHandler(handler);
+    }
+
+    bool quicr_publish_fetch_handler_can_publish(const quicr_publish_fetch_handler_t* handler)
+    {
+        return handler && handler->impl && handler->impl->CanPublish();
+    }
+
+    quicr_status_t quicr_publish_fetch_handler_get_status(const quicr_publish_fetch_handler_t* handler,
+                                                          quicr_publish_fetch_handler_status_t* status)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl || !status) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *status = ToCType<quicr_publish_track_handler_status_t>(handler->impl->GetStatus());
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_publish_fetch_handler_publish_object(quicr_publish_fetch_handler_t* handler,
+                                                              const quicr_object_headers_t* headers,
+                                                              quicr_byte_span_t data,
+                                                              quicr_publish_object_status_t* status)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl || !headers || (data.size != 0 && data.data == nullptr)) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto object_status =
+              handler->impl->PublishObject(ToCppType<ObjectHeaders>(*headers), ToCppType<BytesSpan>(data));
+            if (status) {
+                *status = ToCType<quicr_publish_object_status_t>(object_status);
+            }
+
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_session_bind_publish_fetch_handler(quicr_session_t* session,
+                                                            const quicr_publish_fetch_handler_t* handler)
+    {
+        return SafeCall([&] {
+            if (!session || !handler || !handler->impl || !handler->callback_state) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto session_impl = session->impl.lock();
+            if (!session_impl) {
+                return QUICR_STATUS_NOT_FOUND;
+            }
+
+            handler->callback_state->EnableCallbacks();
+            try {
+                session_impl->BindFetchTrack(handler->impl);
+            } catch (...) {
+                if (!handler->impl->IsRegistered()) {
+                    handler->callback_state->DisableCallbacks();
+                }
+                throw;
+            }
+
+            if (handler->impl->GetStatus() != PublishFetchHandler::Status::kOk) {
+                session_impl->UnbindFetchTrack(handler->impl);
+                handler->callback_state->DisableCallbacks();
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_session_unbind_publish_fetch_handler(quicr_session_t* session,
+                                                              const quicr_publish_fetch_handler_t* handler)
+    {
+        return SafeCall([&] {
+            if (!session || !handler || !handler->impl || !handler->callback_state || !handler->impl->IsRegistered()) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto session_impl = session->impl.lock();
+            if (!session_impl) {
+                return QUICR_STATUS_NOT_FOUND;
+            }
+
+            session_impl->UnbindFetchTrack(handler->impl);
+            handler->callback_state->DisableCallbacks();
             return QUICR_STATUS_OK;
         });
     }
