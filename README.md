@@ -1,6 +1,5 @@
 <div align="center">
-	<img height="128px" src=".github/logo-light.svg#gh-light-mode-only" alt="libquicr">
-	<img height="128px" src=".github/logo-dark.svg#gh-dark-mode-only" alt="libquicr">
+	<img height="128px" src=".github/logo.svg" alt="libquicr">
 
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B)](#requirements)
 [![MOQT draft-18](https://img.shields.io/badge/MOQT-draft--18-blue)](https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-18)
