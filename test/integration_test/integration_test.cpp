@@ -4042,12 +4042,12 @@ TEST_CASE("Integration - Subscription subgroup close")
 namespace quicr {
     static bool operator==(const messages::TrackExtensions& lhs, const messages::TrackExtensions& rhs)
     {
-        auto lhs_map = lhs.extensions;
-        auto rhs_map = rhs.extensions;
+        auto lhs_map = lhs.extensions.Pairs();
+        auto rhs_map = rhs.extensions.Pairs();
         constexpr auto immutable_key = static_cast<std::uint64_t>(messages::ExtensionType::kImmutable);
         lhs_map.erase(immutable_key);
         rhs_map.erase(immutable_key);
-        return lhs_map == rhs_map && lhs.immutable_extensions == rhs.immutable_extensions;
+        return lhs_map == rhs_map && lhs.immutable_extensions.Pairs() == rhs.immutable_extensions.Pairs();
     }
 
     static bool operator==(const TrackStatusResponse& lhs, const TrackStatusResponse& rhs)
