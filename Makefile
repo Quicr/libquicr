@@ -13,7 +13,7 @@ export MERMAID_FILTER_THEME=neutral
 CLANG_FORMAT=clang-format -i
 FORMAT_DIRS=include src test examples benchmark tools c-bridge
 
-.PHONY: all clean cclean format fuzz c-bridge c-bridge-only cert licenses package-lock
+.PHONY: all clean cclean format fuzz test c-bridge c-bridge-only cert licenses package-lock
 
 # Build.
 all: ${BUILD_DIR}
