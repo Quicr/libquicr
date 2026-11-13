@@ -420,6 +420,9 @@ extern "C"
      */
     typedef struct quicr_session quicr_session_t;
 
+    /** @brief Borrowed connection-metrics sample; the complete definition appears with the handler metric types. */
+    typedef struct quicr_connection_metrics quicr_connection_metrics_t;
+
     /** @brief Owned response builder used only while returning an accepted publish reply. */
     typedef struct quicr_publish_response quicr_publish_response_t;
 
@@ -477,7 +480,7 @@ extern "C"
     /** @brief Callback-scoped namespace-subscribe attributes. */
     typedef struct quicr_subscribe_namespace_attributes quicr_subscribe_namespace_attributes_t;
 
-    /** @brief Opaque namespace-subscription handler. */
+    /** @brief Opaque owned namespace-subscribe handler with the common lifecycle contract. */
     typedef struct quicr_subscribe_namespace_handler quicr_subscribe_namespace_handler_t;
 
     /**
@@ -834,6 +837,15 @@ extern "C"
                                                               const quicr_full_track_name_t* full_track_name,
                                                               const quicr_subscribe_attributes_t* attributes,
                                                               void* user_data);
+
+        /**
+         * @brief Borrowed connection-metrics sample.
+         *
+         * @param session Borrowed session associated with the sample.
+         * @param metrics Borrowed metrics valid only for the callback.
+         * @param user_data Callback table's opaque user data.
+         */
+        void (*metrics_sampled)(quicr_session_t* session, const quicr_connection_metrics_t* metrics, void* user_data);
     } quicr_session_client_callbacks_t;
 
     /**
@@ -1032,6 +1044,15 @@ extern "C"
         quicr_error_reply_t (*new_group_requested)(const quicr_full_track_name_t* full_track_name,
                                                    uint64_t group_id,
                                                    void* user_data);
+
+        /**
+         * @brief Borrowed connection-metrics sample.
+         *
+         * @param session Borrowed session associated with the sample.
+         * @param metrics Borrowed metrics valid only for the callback.
+         * @param user_data Callback table's opaque user data.
+         */
+        void (*metrics_sampled)(quicr_session_t* session, const quicr_connection_metrics_t* metrics, void* user_data);
     } quicr_session_server_callbacks_t;
 
     /**
@@ -1213,6 +1234,54 @@ extern "C"
         uint64_t value_sum;   ///< Sum of samples.
         uint64_t value_count; ///< Number of samples.
     } quicr_min_max_avg_t;
+
+    /**
+     * @brief QUIC connection counters and period aggregates.
+     */
+    typedef struct quicr_quic_connection_metrics
+    {
+        uint64_t cwin_congested;      ///< Number of congestion-window congestion events.
+        uint64_t prev_cwin_congested; ///< Congestion-window event count at the previous sample.
+        uint64_t tx_congested;        ///< Number of times transmission was considered congested.
+
+        quicr_min_max_avg_t tx_rate_bps;         ///< Transmit rate in bits per second.
+        quicr_min_max_avg_t rx_rate_bps;         ///< Estimated receive rate in bits per second.
+        quicr_min_max_avg_t tx_cwin_bytes;       ///< Congestion-window size in bytes.
+        quicr_min_max_avg_t tx_in_transit_bytes; ///< Bytes in transit.
+        quicr_min_max_avg_t rtt_us;              ///< Round-trip time in microseconds.
+        quicr_min_max_avg_t srtt_us;             ///< Smoothed round-trip time in microseconds.
+
+        uint64_t tx_retransmits;     ///< Retransmitted packets.
+        uint64_t tx_lost_pkts;       ///< Lost transmitted packets.
+        uint64_t tx_timer_losses;    ///< Packet losses detected by timer expiry.
+        uint64_t tx_spurious_losses; ///< Packets declared lost and later acknowledged.
+
+        uint64_t rx_dgrams;       ///< Datagrams received.
+        uint64_t rx_dgrams_bytes; ///< Datagram bytes received.
+
+        uint64_t tx_dgram_cb;       ///< Datagram-send-ready callbacks.
+        uint64_t tx_dgram_ack;      ///< Acknowledged datagrams.
+        uint64_t tx_dgram_lost;     ///< Lost datagrams.
+        uint64_t tx_dgram_spurious; ///< Late datagram acknowledgements.
+    } quicr_quic_connection_metrics_t;
+
+    /**
+     * @brief Application-facing metrics for one connection sample period.
+     *
+     * Callback instances are borrowed and valid only for the callback.
+     */
+    struct quicr_connection_metrics
+    {
+        uint64_t last_sample_time;              ///< Sample time in microseconds since the Unix epoch.
+        quicr_quic_connection_metrics_t quic;   ///< QUIC connection metrics.
+        uint64_t rx_dgram_unknown_track_alias;  ///< Datagrams with an unknown track alias.
+        uint64_t rx_dgram_invalid_type;         ///< Datagrams with an invalid object-datagram type.
+        uint64_t rx_dgram_decode_failed;        ///< Datagrams that failed to decode.
+        uint64_t rx_stream_buffer_error;        ///< Stream-buffer parsing errors.
+        uint64_t rx_stream_unknown_track_alias; ///< Stream headers with an unknown track alias.
+        uint64_t rx_stream_invalid_type;        ///< Stream messages with an invalid type.
+        uint64_t invalid_ctrl_stream_msg;       ///< Invalid control-stream messages.
+    };
 
     /**
      * @brief Per-period subscriber metrics.
@@ -1462,6 +1531,155 @@ extern "C"
      */
     QUICR_C_API quicr_status_t quicr_publish_track_handler_end_all_subgroups(quicr_publish_track_handler_t* handler,
                                                                              bool completed);
+
+    /**
+     * @brief Opaque owned server-side FETCH publisher.
+     *
+     * Create, bind to the session that received the FETCH, publish objects, unbind, then destroy. Destroying NULL
+     * succeeds. Destruction returns BUSY while bound or while a callback is active.
+     */
+    typedef struct quicr_publish_fetch_handler quicr_publish_fetch_handler_t;
+
+    /** @brief Publish-fetch status; uses all quicr_publish_track_handler_status_t values. */
+    typedef quicr_publish_track_handler_status_t quicr_publish_fetch_handler_status_t;
+
+    /**
+     * @brief Optional callbacks copied at publish-fetch creation.
+     *
+     * The callback threading, concurrency, user_data, borrowing, and destruction contracts match
+     * quicr_publish_track_handler_callbacks_t.
+     */
+    typedef struct quicr_publish_fetch_handler_callbacks
+    {
+        void* user_data; ///< Opaque callback value.
+
+        /**
+         * @brief Lifecycle transition.
+         *
+         * @param handler Borrowed publish-fetch handler receiving the transition.
+         * @param status New handler status.
+         * @param user_data Callback table's opaque user data.
+         */
+        void (*status_changed)(quicr_publish_fetch_handler_t* handler,
+                               quicr_publish_fetch_handler_status_t status,
+                               void* user_data);
+
+        /**
+         * @brief Borrowed metrics sample.
+         *
+         * @param handler Borrowed publish-fetch handler associated with the sample.
+         * @param metrics Borrowed metrics valid only for the callback.
+         * @param user_data Callback table's opaque user data.
+         */
+        void (*metrics_sampled)(quicr_publish_fetch_handler_t* handler,
+                                const quicr_publish_track_metrics_t* metrics,
+                                void* user_data);
+
+        /**
+         * @brief Stream closure; reset distinguishes reset from FIN.
+         *
+         * @param handler Borrowed publish-fetch handler whose stream closed.
+         * @param stream_id Closed stream identifier.
+         * @param reset True for reset, false for graceful FIN.
+         * @param user_data Callback table's opaque user data.
+         */
+        void (*stream_closed)(quicr_publish_fetch_handler_t* handler, uint64_t stream_id, bool reset, void* user_data);
+    } quicr_publish_fetch_handler_callbacks_t;
+
+    /**
+     * @brief Create a detached server-side FETCH publisher.
+     *
+     * @param callbacks Optional callback table.
+     * @param ftn Full track name to copy.
+     * @param priority Publisher and transport scheduling priority.
+     * @param request_id Identifier from standalone_fetch_received or joining_fetch_received.
+     * @param group_order Required ascending or descending object order.
+     * @param default_ttl Default object queue lifetime in milliseconds.
+     * @param handler Receives the owned handler and is set NULL on failure.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` for invalid required inputs or order; `OUT_OF_MEMORY` if allocation
+     * fails; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_publish_fetch_handler_create(const quicr_publish_fetch_handler_callbacks_t* callbacks,
+                                       const quicr_full_track_name_t* ftn,
+                                       uint8_t priority,
+                                       uint64_t request_id,
+                                       quicr_group_order_t group_order,
+                                       uint32_t default_ttl,
+                                       quicr_publish_fetch_handler_t** handler);
+
+    /**
+     * @brief Destroy a detached publish-fetch handler.
+     *
+     * @param handler Handler to destroy.
+     *
+     * @return `OK` when handler is NULL or destroyed; `BUSY` while bound, internally invalid, or in a callback.
+     */
+    QUICR_C_API quicr_status_t quicr_publish_fetch_handler_destroy(quicr_publish_fetch_handler_t* handler);
+
+    /**
+     * @brief Determine whether the handler can currently publish.
+     *
+     * @param handler Handler to inspect, or NULL.
+     *
+     * @return Whether the handler can publish; false for NULL.
+     */
+    QUICR_C_API bool quicr_publish_fetch_handler_can_publish(const quicr_publish_fetch_handler_t* handler);
+
+    /**
+     * @brief Read publish-fetch status.
+     *
+     * @param handler Handler to inspect.
+     * @param status Receives the current handler status.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler or status is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t quicr_publish_fetch_handler_get_status(const quicr_publish_fetch_handler_t* handler,
+                                                                      quicr_publish_fetch_handler_status_t* status);
+
+    /**
+     * @brief Publish one complete object on the FETCH response stream.
+     *
+     * headers are copied, and data is consumed or copied before return and may be empty. status may be NULL. FETCH
+     * framing ignores stream-header properties.
+     *
+     * @param handler Publish-fetch handler.
+     * @param headers Object metadata to copy.
+     * @param data Object payload.
+     * @param status Optional output receiving the publish outcome.
+     *
+     * @return `OK` when the call is valid; `INVALID_ARGUMENT` for invalid inputs; `OUT_OF_MEMORY` if allocation fails;
+     * otherwise `INTERNAL_ERROR`. Inspect status for the publish outcome.
+     */
+    QUICR_C_API quicr_status_t quicr_publish_fetch_handler_publish_object(quicr_publish_fetch_handler_t* handler,
+                                                                          const quicr_object_headers_t* headers,
+                                                                          quicr_byte_span_t data,
+                                                                          quicr_publish_object_status_t* status);
+
+    /**
+     * @brief Bind a detached publisher to the session that received its FETCH request.
+     *
+     * @param session Borrowed live session handle.
+     * @param handler Detached publish-fetch handler whose request ID belongs to session.
+     *
+     * @return `OK` when bound; `INVALID_ARGUMENT` for invalid inputs, request ID, registration, or state;
+     * `NOT_FOUND` if the session is not live; `OUT_OF_MEMORY` if allocation fails; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t quicr_session_bind_publish_fetch_handler(quicr_session_t* session,
+                                                                        const quicr_publish_fetch_handler_t* handler);
+
+    /**
+     * @brief Unbind a publish-fetch handler, drain queued objects, and finish its response stream.
+     *
+     * @param session Borrowed live session handle.
+     * @param handler Bound publish-fetch handler.
+     *
+     * @return `OK` when unbound; `INVALID_ARGUMENT` for invalid inputs, registration, or state; `NOT_FOUND` if the
+     * session is not live; `OUT_OF_MEMORY` if allocation fails; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t quicr_session_unbind_publish_fetch_handler(quicr_session_t* session,
+                                                                          const quicr_publish_fetch_handler_t* handler);
 
     /** @brief Opaque owned subscribe handler with the common create/add/remove/destroy contract. */
     typedef struct quicr_subscribe_track_handler quicr_subscribe_track_handler_t;
@@ -2086,9 +2304,6 @@ extern "C"
     quicr_publish_namespace_handler_unpublish_track(quicr_publish_namespace_handler_t* handler,
                                                     const quicr_publish_track_handler_t* track_handler);
 
-    /** @brief Opaque owned namespace-subscribe handler with the common lifecycle contract. */
-    typedef struct quicr_subscribe_namespace_handler quicr_subscribe_namespace_handler_t;
-
     /**
      * @name Namespace subscription modes
      * @{
@@ -2339,8 +2554,9 @@ extern "C"
 /**
  * @brief Type-generic handler destruction for C11 and later C translation units.
  *
- * Supported mutable pointer types are publish, subscribe, fetch, publish-namespace, subscribe-namespace, and
- * track-status handlers. C++ and pre-C11 builds do not define this macro. Arguments are evaluated once.
+ * Supported mutable pointer types are publish, publish-fetch, subscribe, fetch, publish-namespace,
+ * subscribe-namespace, and track-status handlers. C++ and pre-C11 builds do not define this macro. Arguments are
+ * evaluated once.
  *
  * @param handler Handler to destroy.
  *
@@ -2349,6 +2565,7 @@ extern "C"
 #define quicr_track_handler_destroy(handler)                                                                           \
     _Generic((handler),                                                                                                \
       quicr_publish_track_handler_t*: quicr_publish_track_handler_destroy,                                             \
+      quicr_publish_fetch_handler_t*: quicr_publish_fetch_handler_destroy,                                             \
       quicr_subscribe_track_handler_t*: quicr_subscribe_track_handler_destroy,                                         \
       quicr_fetch_track_handler_t*: quicr_fetch_track_handler_destroy,                                                 \
       quicr_publish_namespace_handler_t*: quicr_publish_namespace_handler_destroy,                                     \
@@ -2370,6 +2587,8 @@ extern "C"
     _Generic((handler),                                                                                                \
       quicr_publish_track_handler_t*: quicr_publish_track_handler_get_status,                                          \
       const quicr_publish_track_handler_t*: quicr_publish_track_handler_get_status,                                    \
+      quicr_publish_fetch_handler_t*: quicr_publish_fetch_handler_get_status,                                          \
+      const quicr_publish_fetch_handler_t*: quicr_publish_fetch_handler_get_status,                                    \
       quicr_subscribe_track_handler_t*: quicr_subscribe_track_handler_get_status,                                      \
       const quicr_subscribe_track_handler_t*: quicr_subscribe_track_handler_get_status,                                \
       quicr_fetch_track_handler_t*: quicr_fetch_track_handler_get_status,                                              \
