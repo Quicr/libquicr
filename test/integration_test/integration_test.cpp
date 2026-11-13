@@ -4042,12 +4042,18 @@ TEST_CASE("Integration - Subscription subgroup close")
 namespace quicr {
     static bool operator==(const messages::TrackExtensions& lhs, const messages::TrackExtensions& rhs)
     {
-        auto lhs_map = lhs.extensions;
-        auto rhs_map = rhs.extensions;
-        constexpr auto immutable_key = static_cast<std::uint64_t>(messages::ExtensionType::kImmutable);
-        lhs_map.erase(immutable_key);
-        rhs_map.erase(immutable_key);
-        return lhs_map == rhs_map && lhs.immutable_extensions == rhs.immutable_extensions;
+        const auto normalise = [](const messages::KeyValuePairs& pairs, bool omit_immutable) {
+            auto entries = pairs.Pairs();
+            if (omit_immutable) {
+                constexpr auto immutable_key = static_cast<std::uint64_t>(messages::ExtensionType::kImmutable);
+                std::erase_if(entries, [](const auto& entry) { return entry.first == immutable_key; });
+            }
+            std::stable_sort(
+              entries.begin(), entries.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+            return entries;
+        };
+        return normalise(lhs.extensions, true) == normalise(rhs.extensions, true) &&
+               normalise(lhs.immutable_extensions, false) == normalise(rhs.immutable_extensions, false);
     }
 
     static bool operator==(const TrackStatusResponse& lhs, const TrackStatusResponse& rhs)

@@ -12,7 +12,7 @@ namespace quicr::messages {
 
     inline GroupOrder ResolveDefaultPublisherGroupOrder(const TrackExtensions& properties)
     {
-        const auto value = properties.Get<std::uint8_t>(ExtensionType::kDefaultPublisherGroupOrder);
+        const auto value = properties.GetOne<std::uint8_t>(ExtensionType::kDefaultPublisherGroupOrder);
         if (!value.has_value()) {
             return GroupOrder::kAscending;
         }
@@ -25,7 +25,7 @@ namespace quicr::messages {
 
     inline bool ResolveDynamicGroups(const TrackExtensions& properties)
     {
-        const auto value = properties.Get<std::uint8_t>(ExtensionType::kDynamicGroups);
+        const auto value = properties.GetOne<std::uint8_t>(ExtensionType::kDynamicGroups);
         if (!value.has_value()) {
             return false;
         }
@@ -37,17 +37,17 @@ namespace quicr::messages {
 
     inline std::uint8_t ResolveDefaultPublisherPriority(const TrackExtensions& properties)
     {
-        return properties.Get<std::uint8_t>(ExtensionType::kDefaultPublisherPriority).value_or(128);
+        return properties.GetOne<std::uint8_t>(ExtensionType::kDefaultPublisherPriority).value_or(128);
     }
 
     inline std::optional<std::uint64_t> ResolveMaxCacheDuration(const TrackExtensions& properties)
     {
-        return properties.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration);
+        return properties.GetOne<std::uint64_t>(ExtensionType::kMaxCacheDuration);
     }
 
     inline std::optional<std::uint64_t> ResolveDeliveryTimeout(const TrackExtensions& properties)
     {
-        return properties.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout);
+        return properties.GetOne<std::uint64_t>(ExtensionType::kDeliveryTimeout);
     }
 
 } // namespace quicr::messages

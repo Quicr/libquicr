@@ -880,7 +880,7 @@ namespace quicr::messages {
     concept ByteParameter = std::is_convertible_v<T, std::uint8_t> ||
                             (std::is_enum_v<T> && std::same_as<std::underlying_type_t<T>, std::uint8_t>);
 
-    /// Draft 18 flat key-value pairs: a bounded, sorted KVP sequence without a leading count.
+    /// MoQ Key Value Pair container.
     class KeyValuePairs
     {
       public:
@@ -888,16 +888,16 @@ namespace quicr::messages {
         KeyValuePairs() = default;
 
         /** @param pairs Absolute keys and their stored value bytes. */
-        KeyValuePairs(const std::map<std::uint64_t, Bytes>& pairs)
+        KeyValuePairs(const std::vector<std::pair<std::uint64_t, Bytes>>& pairs)
           : pairs_(pairs)
         {
         }
 
         /**
-         * Encodes and replaces a value by key.
+         * Encodes and appends a value by key.
          * @tparam T Value type.
          * @tparam K uint64-compatible key type.
-         * @param type Key to insert or replace.
+         * @param type Key to append.
          * @param value Value to encode.
          * @return This collection.
          */
@@ -905,7 +905,7 @@ namespace quicr::messages {
         KeyValuePairs& Add(K type, const T& value)
         {
             const auto type_value = static_cast<std::uint64_t>(type);
-            pairs_[type_value] = EncodeValue(type_value, value);
+            pairs_.emplace_back(type_value, EncodeValue(type_value, value));
             return *this;
         }
 
@@ -915,35 +915,57 @@ namespace quicr::messages {
          * @tparam K Key type.
          * @param type Key to retrieve.
          * @return Decoded value, or std::nullopt when absent.
+         * @throws ProtocolViolationException if the key occurs more than once.
          */
         template<typename T, KeyType K>
-        std::optional<T> Get(K type) const
+        std::optional<T> GetOne(K type) const
         {
-            const auto it = pairs_.find(static_cast<std::uint64_t>(type));
-            if (it == pairs_.end()) {
+            const Bytes* found = nullptr;
+            for (const auto& [key, bytes] : pairs_) {
+                if (key != static_cast<std::uint64_t>(type)) {
+                    continue;
+                }
+                if (found != nullptr) {
+                    throw ProtocolViolationException("Unexpected duplicate key");
+                }
+                found = &bytes;
+            }
+            if (found == nullptr) {
                 return std::nullopt;
             }
-            const auto& bytes = it->second;
-            if constexpr (std::is_arithmetic_v<T>) {
-                if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    std::uint64_t val = 0;
-                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
-                    return static_cast<T>(val);
+            return DecodeValue<T>(static_cast<std::uint64_t>(type), *found);
+        }
+
+        /**
+         * Decodes all occurrences in stored order.
+         * @tparam T Requested result type.
+         * @tparam K Key type.
+         * @param type Key to retrieve.
+         * @return Decoded values.
+         */
+        template<typename T, KeyType K>
+        std::vector<T> GetAll(K type) const
+        {
+            std::vector<T> results;
+            for (const auto& [key, bytes] : pairs_) {
+                if (key == static_cast<std::uint64_t>(type)) {
+                    results.push_back(DecodeValue<T>(key, bytes));
                 }
             }
-
-            if constexpr (HasByteStreamOperators<T>) {
-                T result;
-                bytes >> result;
-                return result;
-            }
-
-            return FromBytes<T>(bytes);
+            return results;
         }
 
         /// @param type Numeric key to find.
         /// @return Whether numeric key @p type exists.
-        bool Contains(std::uint64_t type) const { return pairs_.contains(type); }
+        bool Contains(std::uint64_t type) const
+        {
+            for (const auto& pair : pairs_) {
+                if (pair.first == type) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         /// @return Const iterator to the first pair.
         auto begin() const noexcept { return pairs_.begin(); }
@@ -951,8 +973,8 @@ namespace quicr::messages {
         /// @return Const iterator past the final pair.
         auto end() const noexcept { return pairs_.end(); }
 
-        /// @return Read-only reference to the sorted underlying map.
-        const std::map<std::uint64_t, Bytes>& Pairs() const noexcept { return pairs_; }
+        /// @return Read-only reference to entries in insertion order.
+        const std::vector<std::pair<std::uint64_t, Bytes>>& Pairs() const noexcept { return pairs_; }
 
         /**
          * Converts a value to the internal KVP byte representation.
@@ -982,7 +1004,31 @@ namespace quicr::messages {
         }
 
       private:
-        std::map<std::uint64_t, Bytes> pairs_;
+        template<typename T>
+        static T DecodeValue(std::uint64_t type, BytesSpan bytes)
+        {
+            if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
+                if (type % 2 == 0) {
+                    std::uint64_t value = 0;
+                    auto* destination = reinterpret_cast<std::uint8_t*>(&value);
+                    std::copy_n(bytes.begin(), std::min(bytes.size(), sizeof(value)), destination);
+                    return static_cast<T>(value);
+                }
+            }
+            if constexpr (std::is_same_v<T, Bytes>) {
+                return Bytes(bytes.begin(), bytes.end());
+            } else if constexpr (std::is_same_v<T, BytesSpan>) {
+                return bytes;
+            } else if constexpr (HasByteStreamOperators<T>) {
+                T result;
+                bytes >> result;
+                return result;
+            } else {
+                return FromBytes<T>(bytes);
+            }
+        }
+
+        std::vector<std::pair<std::uint64_t, Bytes>> pairs_;
     };
 
     /**
@@ -1001,22 +1047,22 @@ namespace quicr::messages {
      */
     Bytes& operator<<(Bytes& buffer, const KeyValuePairs& msg);
 
-    /// Mutable and immutable track-scoped extension maps.
+    /// Mutable and immutable track-scoped extension sequences, stored as key value pairs.
     class TrackExtensions
     {
       public:
-        /// Creates empty extension maps.
+        /// Creates empty extension sequences.
         TrackExtensions() = default;
 
         /** @param ext Initial mutable extension values. */
-        TrackExtensions(const std::map<std::uint64_t, Bytes>& ext)
+        TrackExtensions(const std::vector<std::pair<std::uint64_t, Bytes>>& ext)
           : extensions(ext)
         {
         }
 
       public:
         /**
-         * Encodes and replaces a mutable extension.
+         * Encodes and appends a mutable extension.
          * @tparam T Value type.
          * @param type Extension key.
          * @param value Value to encode.
@@ -1031,8 +1077,7 @@ namespace quicr::messages {
                                             "with the keytype you want to use");
             }
 
-            extensions[static_cast<std::uint64_t>(type)] =
-              KeyValuePairs::EncodeValue(static_cast<std::uint64_t>(type), value);
+            extensions.Add(type, value);
 
             return *this;
         }
@@ -1054,7 +1099,7 @@ namespace quicr::messages {
         }
 
         /**
-         * Encodes and replaces an immutable extension.
+         * Encodes and appends an immutable extension.
          * @tparam T Value type.
          * @param type Nested extension key.
          * @param value Value to encode.
@@ -1063,8 +1108,7 @@ namespace quicr::messages {
         template<typename T>
         TrackExtensions& AddImmutable(ExtensionType type, const T& value)
         {
-            immutable_extensions[static_cast<std::uint64_t>(type)] =
-              KeyValuePairs::EncodeValue(static_cast<std::uint64_t>(type), value);
+            immutable_extensions.Add(type, value);
             return *this;
         }
 
@@ -1075,27 +1119,21 @@ namespace quicr::messages {
          * @return Decoded value or std::nullopt when absent.
          */
         template<typename T>
-        std::optional<T> Get(ExtensionType type) const
+        std::optional<T> GetOne(ExtensionType type) const
         {
-            if (!extensions.contains(static_cast<std::uint64_t>(type))) {
-                return std::nullopt;
-            }
-            if constexpr (std::is_arithmetic_v<T>) {
-                if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    std::uint64_t val = 0;
-                    const auto& bytes = extensions.at(static_cast<std::uint64_t>(type));
-                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
-                    return static_cast<T>(val);
-                }
-            }
+            return extensions.GetOne<T>(type);
+        }
 
-            if constexpr (HasByteStreamOperators<T>) {
-                T result;
-                extensions.at(static_cast<std::uint64_t>(type)) >> result;
-                return result;
-            }
-
-            return FromBytes<T>(extensions.at(static_cast<std::uint64_t>(type)));
+        /**
+         * Decodes a mutable extension, if present.
+         * @tparam T Requested result type.
+         * @param type Extension key.
+         * @return Decoded values in stored order, or an empty vector when absent.
+         */
+        template<typename T>
+        std::vector<T> GetAll(ExtensionType type) const
+        {
+            return extensions.GetAll<T>(type);
         }
 
         /**
@@ -1105,27 +1143,21 @@ namespace quicr::messages {
          * @return Decoded value or std::nullopt when absent.
          */
         template<typename T>
-        std::optional<T> GetImmutable(ExtensionType type) const
+        std::optional<T> GetImmutableOne(ExtensionType type) const
         {
-            if (!immutable_extensions.contains(static_cast<std::uint64_t>(type))) {
-                return std::nullopt;
-            }
-            if constexpr (std::is_arithmetic_v<T>) {
-                if (static_cast<std::uint64_t>(type) % 2 == 0) {
-                    std::uint64_t val = 0;
-                    const auto& bytes = immutable_extensions.at(static_cast<std::uint64_t>(type));
-                    std::memcpy(&val, bytes.data(), std::min(bytes.size(), sizeof(val)));
-                    return static_cast<T>(val);
-                }
-            }
+            return immutable_extensions.GetOne<T>(type);
+        }
 
-            if constexpr (HasByteStreamOperators<T>) {
-                T result;
-                immutable_extensions.at(static_cast<std::uint64_t>(type)) >> result;
-                return result;
-            }
-
-            return FromBytes<T>(immutable_extensions.at(static_cast<std::uint64_t>(type)));
+        /**
+         * Decodes an immutable extension, if present.
+         * @tparam T Requested result type.
+         * @param type Nested extension key.
+         * @return Decoded values in stored order, or an empty vector when absent.
+         */
+        template<typename T>
+        std::vector<T> GetImmutableAll(ExtensionType type) const
+        {
+            return immutable_extensions.GetAll<T>(type);
         }
 
         /// @return Const iterator to the first mutable extension.
@@ -1134,14 +1166,14 @@ namespace quicr::messages {
         /// @return Const iterator past the last mutable extension.
         auto end() const noexcept { return extensions.end(); }
 
-        std::map<std::uint64_t, Bytes> extensions;           ///< Mutable extensions keyed by absolute type.
-        std::map<std::uint64_t, Bytes> immutable_extensions; ///< Immutable nested extensions keyed by absolute type.
+        KeyValuePairs extensions;           ///< Mutable extensions keyed by absolute type.
+        KeyValuePairs immutable_extensions; ///< Immutable nested extensions keyed by absolute type.
     };
 
     /**
      * Parses KVPs through the end of the input span.
      * @param buffer Input span.
-     * @param msg Destination whose extension maps are replaced.
+     * @param msg Destination whose extension sequences are replaced.
      * @return An empty suffix.
      */
     BytesSpan operator>>(BytesSpan buffer, TrackExtensions& msg);

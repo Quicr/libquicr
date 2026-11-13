@@ -148,7 +148,7 @@ namespace quicr::messages {
 
         void SerializeKeyValuePairSequence(Bytes& buffer, std::vector<KeyValuePair<std::uint64_t>> kvps)
         {
-            std::ranges::sort(kvps, [](const auto& a, const auto& b) { return a.type < b.type; });
+            std::stable_sort(kvps.begin(), kvps.end(), [](const auto& a, const auto& b) { return a.type < b.type; });
 
             std::uint64_t prev_type = 0;
             for (const auto& kvp : kvps) {
@@ -157,7 +157,7 @@ namespace quicr::messages {
             }
         }
 
-        BytesSpan ParseKeyValuePairSequence(BytesSpan buffer, std::map<std::uint64_t, Bytes>& options)
+        BytesSpan ParseKeyValuePairSequence(BytesSpan buffer, std::vector<std::pair<std::uint64_t, Bytes>>& options)
         {
             options.clear();
             std::uint64_t prev_type = 0;
@@ -165,7 +165,7 @@ namespace quicr::messages {
                 KeyValuePair<std::uint64_t> kvp;
                 ParseKvp(buffer, kvp, prev_type);
                 prev_type = kvp.type;
-                options[kvp.type] = std::move(kvp.value);
+                options.emplace_back(kvp.type, std::move(kvp.value));
             }
 
             return buffer;
@@ -187,7 +187,7 @@ namespace quicr::messages {
 
     BytesSpan operator>>(BytesSpan buffer, KeyValuePairs& pairs)
     {
-        std::map<std::uint64_t, Bytes> parsed;
+        std::vector<std::pair<std::uint64_t, Bytes>> parsed;
         buffer = ParseKeyValuePairSequence(buffer, parsed);
         pairs = KeyValuePairs{ parsed };
         return buffer;
@@ -195,51 +195,28 @@ namespace quicr::messages {
 
     Bytes& operator<<(Bytes& buffer, const TrackExtensions& extensions)
     {
-        // Serialize immutable blob first.
         constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionType::kImmutable);
-        Bytes immutable_value_bytes;
-        if (!extensions.immutable_extensions.empty()) {
-            std::vector<KeyValuePair<std::uint64_t>> immutable_kvps;
-            immutable_kvps.reserve(extensions.immutable_extensions.size());
-            for (const auto& [imm_type, imm_value] : extensions.immutable_extensions) {
-                immutable_kvps.push_back(KeyValuePair<std::uint64_t>{ imm_type, imm_value });
-            }
-            SerializeKeyValuePairSequence(immutable_value_bytes, std::move(immutable_kvps));
+        auto pairs = extensions.extensions.Pairs();
+        std::erase_if(pairs, [](const auto& pair) { return pair.first == immutable_key; });
+        Bytes immutable_bytes;
+        immutable_bytes << extensions.immutable_extensions;
+        if (!immutable_bytes.empty()) {
+            pairs.emplace_back(immutable_key, std::move(immutable_bytes));
         }
-
-        // Build KVPs.
-        std::vector<KeyValuePair<std::uint64_t>> kvps;
-        for (const auto& [key, value] : extensions) {
-            if (key == immutable_key) {
-                continue;
-            }
-            kvps.push_back(KeyValuePair<std::uint64_t>{ key, value });
-        }
-
-        // Add in immutable.
-        if (!immutable_value_bytes.empty()) {
-            kvps.push_back(KeyValuePair<std::uint64_t>{ immutable_key, immutable_value_bytes });
-        }
-
-        SerializeKeyValuePairSequence(buffer, std::move(kvps));
-
-        return buffer;
+        return buffer << KeyValuePairs{ pairs };
     }
 
     BytesSpan operator>>(BytesSpan buffer, TrackExtensions& extensions)
     {
-        extensions.extensions.clear();
-        extensions.immutable_extensions.clear();
-        buffer = ParseKeyValuePairSequence(buffer, extensions.extensions);
-
-        // Immutable extensions.
-        if (extensions.extensions.contains(static_cast<std::uint64_t>(ExtensionType::kImmutable))) {
-            auto immutable_bytes = extensions.extensions.at(static_cast<std::uint64_t>(ExtensionType::kImmutable));
-            ParseKeyValuePairSequence(immutable_bytes, extensions.immutable_extensions);
+        extensions.immutable_extensions = {};
+        buffer = buffer >> extensions.extensions;
+        constexpr auto immutable_key = static_cast<std::uint64_t>(ExtensionType::kImmutable);
+        if (const auto immutable_bytes = extensions.extensions.GetOne<Bytes>(immutable_key)) {
+            BytesSpan(*immutable_bytes) >> extensions.immutable_extensions;
         }
-
         return buffer;
     }
+
 }
 namespace quicr {
     using namespace quicr::messages;

@@ -580,8 +580,8 @@ TEST_CASE("TrackExtensions even-type round-trip preserves values")
         span >> out;
 
         // Roundtrip.
-        CHECK_NOTHROW(out.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout));
-        CHECK_EQ(out.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout), value);
+        CHECK_NOTHROW(out.GetOne<std::uint64_t>(ExtensionType::kDeliveryTimeout));
+        CHECK_EQ(out.GetOne<std::uint64_t>(ExtensionType::kDeliveryTimeout), value);
     }
 }
 
@@ -592,22 +592,22 @@ TEST_CASE("TrackExtensions Get returns value when present and nullopt when absen
     ext.AddImmutable(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending);
 
     // Present keys return the value.
-    auto result = ext.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout);
+    auto result = ext.GetOne<std::uint64_t>(ExtensionType::kDeliveryTimeout);
     REQUIRE(result.has_value());
     CHECK_EQ(result.value(), 42);
 
-    auto immutable_result = ext.GetImmutable<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder);
+    auto immutable_result = ext.GetImmutableOne<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder);
     REQUIRE(immutable_result.has_value());
     CHECK_EQ(immutable_result.value(), GroupOrder::kAscending);
 
     ext.AddImmutable(ExtensionType::kDynamicGroups, true);
-    auto bool_result = ext.GetImmutable<bool>(ExtensionType::kDynamicGroups);
+    auto bool_result = ext.GetImmutableOne<bool>(ExtensionType::kDynamicGroups);
     REQUIRE(bool_result.has_value());
     CHECK(bool_result.value());
 
     // Absent keys return nullopt.
-    CHECK_FALSE(ext.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration).has_value());
-    CHECK_FALSE(ext.GetImmutable<bool>(ExtensionType::kDefaultPublisherPriority).has_value());
+    CHECK_FALSE(ext.GetOne<std::uint64_t>(ExtensionType::kMaxCacheDuration).has_value());
+    CHECK_FALSE(ext.GetImmutableOne<bool>(ExtensionType::kDefaultPublisherPriority).has_value());
 }
 
 TEST_CASE("Parameters")
@@ -729,4 +729,70 @@ TEST_CASE("Parameters - Filters")
 
     auto recv_filter = recv_params.GetFilter(FilterType::kTrackFilter);
     CHECK_EQ(recv_filter, filter);
+}
+
+TEST_CASE("KeyValuePairs preserves repeated keys and sorts only on the wire")
+{
+    KeyValuePairs pairs;
+    pairs.Add(std::uint64_t{ 8 }, std::uint64_t{ 42 });
+    pairs.Add(std::uint64_t{ 3 }, std::string{ "first" });
+    pairs.Add(std::uint64_t{ 3 }, std::string{ "second" });
+    pairs.Add(std::uint64_t{ 2 }, std::uint64_t{ 0 });
+    CHECK_EQ(pairs.begin()->first, 8);
+    CHECK(pairs.Contains(3));
+    CHECK_FALSE(pairs.Contains(99));
+    CHECK_FALSE(pairs.GetOne<std::string>(std::uint64_t{ 99 }).has_value());
+    CHECK(pairs.GetAll<std::string>(std::uint64_t{ 99 }).empty());
+    CHECK_THROWS_AS(pairs.GetOne<std::string>(std::uint64_t{ 3 }), ProtocolViolationException);
+    CHECK_EQ(pairs.GetOne<std::uint64_t>(std::uint64_t{ 2 }), 0);
+
+    Bytes buffer;
+    buffer << pairs;
+    KeyValuePairs parsed;
+    BytesSpan(buffer) >> parsed;
+    CHECK_EQ(parsed.begin()->first, 2);
+    CHECK_EQ(pairs.begin()->first, 8);
+    CHECK_EQ(parsed.GetAll<std::string>(std::uint64_t{ 3 }), (std::vector<std::string>{ "first", "second" }));
+    CHECK_EQ(parsed.GetAll<std::uint64_t>(std::uint64_t{ 8 }), (std::vector<std::uint64_t>{ 42 }));
+    CHECK_THROWS_AS(parsed.GetOne<std::string>(std::uint64_t{ 3 }), ProtocolViolationException);
+}
+
+TEST_CASE("TrackExtensions preserves mutable and immutable duplicate values")
+{
+    TrackExtensions extensions;
+    extensions.Add(ExtensionType::kDeliveryTimeout, std::uint64_t{ 42 });
+    extensions.Add(ExtensionType::kDeliveryTimeout, std::uint64_t{ 43 });
+    extensions.AddImmutable(ExtensionType::kDynamicGroups, false);
+    extensions.AddImmutable(ExtensionType::kDynamicGroups, true);
+
+    Bytes buffer;
+    buffer << extensions;
+    TrackExtensions parsed;
+    BytesSpan(buffer) >> parsed;
+    CHECK_EQ(parsed.GetAll<std::uint64_t>(ExtensionType::kDeliveryTimeout), (std::vector<std::uint64_t>{ 42, 43 }));
+    CHECK_EQ(parsed.GetImmutableAll<bool>(ExtensionType::kDynamicGroups), (std::vector<bool>{ false, true }));
+    CHECK_THROWS_AS(parsed.GetOne<std::uint64_t>(ExtensionType::kDeliveryTimeout), ProtocolViolationException);
+    CHECK_THROWS_AS(parsed.GetImmutableOne<bool>(ExtensionType::kDynamicGroups), ProtocolViolationException);
+
+    // Re-encoding a parsed value must replace its retained immutable wrapper.
+    Bytes encoded_again;
+    encoded_again << parsed;
+    CHECK_EQ(encoded_again, buffer);
+
+    // Parsing into a reused destination replaces both collections.
+    Bytes empty;
+    BytesSpan(empty) >> parsed;
+    CHECK(parsed.GetAll<std::uint64_t>(ExtensionType::kDeliveryTimeout).empty());
+    CHECK(parsed.GetImmutableAll<bool>(ExtensionType::kDynamicGroups).empty());
+}
+
+TEST_CASE("TrackExtensions rejects repeated immutable wrappers")
+{
+    KeyValuePairs pairs;
+    pairs.Add(ExtensionType::kImmutable, std::string{});
+    pairs.Add(ExtensionType::kImmutable, std::string{});
+    Bytes buffer;
+    buffer << pairs;
+    TrackExtensions parsed;
+    CHECK_THROWS_AS(BytesSpan(buffer) >> parsed, ProtocolViolationException);
 }
