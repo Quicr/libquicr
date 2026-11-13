@@ -98,6 +98,7 @@ endif()
 
 add_library(quicr::c ALIAS quicr_c)
 set_target_properties(quicr_c PROPERTIES EXPORT_NAME c)
+target_compile_features(quicr_c INTERFACE c_std_11)
 
 include(GenerateExportHeader)
 generate_export_header(quicr_c

@@ -146,7 +146,7 @@ See the [API guide](docs/api-guide.md) for session and handler usage.
 | API | Status | Notes |
 | --- | --- | --- |
 | C++ API | ✅ Supported | Requires C++20 |
-| C API | ✅ Supported | C99-compatible with optional C11 convenience macros |
+| C API | ✅ Supported | Requires C11 |
 | C bridge | ✅ Supported | Client-only API |
 
 ### TLS backends
