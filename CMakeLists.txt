@@ -44,6 +44,7 @@ option(QUICR_BUILD_C_BRIDGE "Build C Bridge API for quicr" ${quicr_IS_TOP_LEVEL}
 option(QUICR_BUILD_TOOLS "Build tools" OFF)
 option(QUICR_BUILD_EXAMPLES "Build examples" OFF)
 option(QUICR_ENABLE_SANITIZERS "Build with ASAN and UBSAN" OFF)
+option(QUICR_ENABLE_THREAD_SANITIZER "Build with TSAN" OFF)
 option(QUICR_GENERATE_THIRD_PARTY_LICENSES "Generate notices for distributed CPM dependencies" OFF)
 
 include(CMakeDependentOption)
@@ -55,6 +56,10 @@ cmake_dependent_option(QUICR_LINT "Perform linting with clang-tidy" OFF quicr_IS
 
 if(QUICR_LINT AND CMAKE_VERSION VERSION_LESS 3.26)
     message(FATAL_ERROR "QUICR_LINT requires CMake 3.26 or newer")
+endif()
+
+if(QUICR_ENABLE_SANITIZERS AND QUICR_ENABLE_THREAD_SANITIZER)
+    message(FATAL_ERROR "ASAN/UBSAN and TSAN cannot be enabled together")
 endif()
 
 if(QUICR_ENABLE_SANITIZERS)
@@ -69,6 +74,18 @@ if(QUICR_ENABLE_SANITIZERS)
         -fno-sanitize-recover=undefined
     )
     add_link_options(-fsanitize=address,undefined)
+endif()
+
+if(QUICR_ENABLE_THREAD_SANITIZER)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang|GNU" OR
+       NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        message(FATAL_ERROR "QUICR_ENABLE_THREAD_SANITIZER requires Clang or GCC")
+    endif()
+    add_compile_options(
+        -fsanitize=thread
+        -fno-omit-frame-pointer
+    )
+    add_link_options(-fsanitize=thread)
 endif()
 
 #=============================================================================#
