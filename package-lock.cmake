@@ -26,7 +26,7 @@ CPMDeclarePackage(picotls
 )
 # picoquic
 CPMDeclarePackage(picoquic
-  VERSION 2026.10.25.1d81a73
+  VERSION 2026.11.15.9a7237c
   GITHUB_REPOSITORY private-octopus/picoquic
   SYSTEM YES
   EXCLUDE_FROM_ALL YES

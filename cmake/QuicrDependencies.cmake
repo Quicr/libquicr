@@ -72,7 +72,7 @@ if (WIN32)
 endif()
 
 CPMAddPackage(
-    URI "gh:private-octopus/picoquic@2026.10.25.1d81a73"
+    URI "gh:private-octopus/picoquic@2026.11.15.9a7237c"
     EXCLUDE_FROM_ALL YES
     OPTIONS
         "BUILD_DEMO OFF"
