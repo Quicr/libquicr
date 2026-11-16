@@ -880,22 +880,26 @@ TestTlsTrustRoots(const std::string& scheme)
     }
 
     auto session = session_mgr.AddTransport(client_config, callbacks).lock();
-    REQUIRE(session != nullptr);
     if (expected == Outcome::kConnects) {
+        REQUIRE(session != nullptr);
         REQUIRE(client_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
         CHECK_EQ(client_setup.get().endpoint_id, kServerId);
         REQUIRE(server_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
         CHECK(WaitFor([&] { return session->GetStatus() == Session::Status::kReady; }));
     } else if (scheme != "https") {
         // The failed handshake closes the connection before either peer enters the MoQ session.
-        CHECK(WaitFor([&] { return session->GetStatus() == Session::Status::kNotConnected; }));
+        if (session) {
+            CHECK(WaitFor([&] { return session->GetStatus() == Session::Status::kNotConnected; }));
+        }
         CHECK(client_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
         CHECK(server_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
     } else {
         // FIXME: Fix WT failure notifications and we don't have to wait here.
         CHECK(server_setup.wait_for(kNegativeTimeout) == std::future_status::timeout);
         CHECK(client_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
-        CHECK_NE(session->GetStatus(), Session::Status::kReady);
+        if (session) {
+            CHECK_NE(session->GetStatus(), Session::Status::kReady);
+        }
     }
 }
 

@@ -105,6 +105,7 @@ namespace quicr {
         std::unique_lock lock(mutex_);
         std::condition_variable cv;
         bool cancelled = false;
+        std::shared_ptr<Session> created_session;
 
         transport->OnNewConnection = [&, clock = std::move(clock)](const auto& connection) {
             auto session = Session::Create(config, transport, connection, std::move(callbacks), clock, logger_);
@@ -121,6 +122,7 @@ namespace quicr {
                     return;
                 }
                 transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
+                created_session = session;
                 sessions_[connection->GetID()] = std::move(session);
                 cv.notify_all();
             }
@@ -129,7 +131,7 @@ namespace quicr {
         auto connection = transport->Start();
         if (!connection || !cv.wait_for(lock,
                                         std::chrono::milliseconds(config.transport_config.idle_timeout_ms),
-                                        [this, id = connection->GetID()] { return sessions_.contains(id); })) {
+                                        [&created_session] { return created_session != nullptr; })) {
             cancelled = true;
             lock.unlock();
             transport->Shutdown();
@@ -140,7 +142,7 @@ namespace quicr {
 
         transport->OnNewConnection = nullptr;
 
-        return sessions_.at(connection->GetID());
+        return created_session;
     }
 
     void SessionManager::AddTransport(const ServerConfig& config, std::shared_ptr<Session::ServerCallbacks> callbacks)
