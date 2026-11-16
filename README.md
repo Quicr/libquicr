@@ -128,7 +128,7 @@ See the [API guide](docs/api-guide.md) for session and handler usage.
 | --- | --- | --- | --- |
 | Native QUIC | ✅ Supported | `moq://` or `moqt://` | |
 | WebTransport over HTTP/3 | ✅ Supported | `https://` | |
-| QMUX over TLS/TCP | ✅ Supported | `moq://` or `moqt://` | ALPN: `moqt-18qx`, set `ClientConfig::use_qmux` / `TransportConfig::qmux_port` |
+| QMUX over TLS/TCP | ✅ Supported | `moq://` or `moqt://` | ALPN: `moqt-18qx` |
 
 ### Platforms
 
