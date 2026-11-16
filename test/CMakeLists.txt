@@ -62,6 +62,8 @@ include(doctest)
 
 doctest_discover_tests(quicr_test)
 
+add_subdirectory(c_api)
+
 find_program(QUICR_OPENSSL_EXECUTABLE openssl)
 if(QUICR_OPENSSL_EXECUTABLE)
     add_subdirectory(integration_test)

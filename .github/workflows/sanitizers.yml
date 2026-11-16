@@ -46,7 +46,7 @@ jobs:
         run: >
           cmake --build ${{ github.workspace }}/build
           --config ${{ env.BUILD_TYPE }}
-          --target quicr_integration_test generate_test_certs
+          --target quicr_integration_test quicr_c_integration_test generate_test_certs
           -j
 
       - name: Run integration tests

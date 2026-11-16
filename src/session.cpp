@@ -130,6 +130,16 @@ namespace quicr {
             }
         }
 
+        ErrorCode ToErrorCode(PublishNamespaceErrorCode error_code)
+        {
+            switch (error_code) {
+                case PublishNamespaceErrorCode::kRedirect:
+                    return ErrorCode::kRedirect;
+                case PublishNamespaceErrorCode::kOk:
+                case PublishNamespaceErrorCode::kInternalError:
+                    return ErrorCode::kInternalError;
+            }
+        }
     }
 
     TransportException::TransportException(TransportError error, std::source_location location)
@@ -4282,8 +4292,14 @@ namespace quicr {
                           }
 
                           if (!result) {
-                              // TODO: Send announce error.
-
+                              const auto& [code, reason, redirect] = result.error();
+                              self->SendRequestError(stream,
+                                                     request_id,
+                                                     ToErrorCode(code),
+                                                     0ms,
+                                                     reason.value_or("Internal error"),
+                                                     true,
+                                                     redirect);
                               return;
                           }
 

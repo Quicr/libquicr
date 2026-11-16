@@ -59,6 +59,31 @@ namespace quicr_test {
             }
         }
 
+        void ObjectStatusReceived(std::uint64_t group_id,
+                                  std::uint64_t object_id,
+                                  std::uint8_t priority,
+                                  quicr::ObjectStatus status,
+                                  std::optional<quicr::Extensions> extensions,
+                                  std::optional<quicr::Extensions> immutable_extensions) override
+        {
+            std::lock_guard lock(mutex_);
+            if (pub_handler_) {
+                pub_handler_->PublishObject(
+                  quicr::ObjectHeaders{
+                    .group_id = group_id,
+                    .object_id = object_id,
+                    .payload_length = 0,
+                    .status = status,
+                    .priority = priority,
+                    .ttl = std::nullopt,
+                    .track_mode = std::nullopt,
+                    .extensions = std::move(extensions),
+                    .immutable_extensions = std::move(immutable_extensions),
+                  },
+                  {});
+            }
+        }
+
         void StatusChanged([[maybe_unused]] Status status) override {}
 
         void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, [[maybe_unused]] bool reset) override

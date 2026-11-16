@@ -74,8 +74,9 @@ namespace quicr {
      */
     enum class PublishNamespaceErrorCode : uint8_t
     {
-        kOk = 0,       ///< Vestigial success value; do not return it as an error.
-        kInternalError ///< Unspecified application or endpoint failure.
+        kOk = 0,        ///< Vestigial success value; do not return it as an error.
+        kInternalError, ///< Unspecified application or endpoint failure.
+        kRedirect       ///< Retry the namespace publication using the supplied redirect.
     };
 
     /**
