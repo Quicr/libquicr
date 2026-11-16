@@ -1451,7 +1451,11 @@ namespace quicr {
 
     void Session::UnpublishTrack(const std::shared_ptr<PublishTrackHandler>& track_handler)
     {
-        track_handler->UnregisterSession(GetSharedPtr());
+        defer({
+            // Remaining open subgroups have not been declared complete.
+            track_handler->EndAllSubgroups(false);
+            track_handler->UnregisterSession(GetSharedPtr());
+        });
 
         // Generate track alias
         auto tfn = track_handler->GetFullTrackName();
@@ -1516,9 +1520,6 @@ namespace quicr {
             // We continue to use the kNotAnnounced state when removing. Might make sense to use kDestroyed instead
             removed->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
         }
-
-        // Remaining open subgroups have not been declared complete.
-        track_handler->EndAllSubgroups(false);
     }
 
     void Session::PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
