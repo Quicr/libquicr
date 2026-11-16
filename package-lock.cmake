@@ -26,8 +26,8 @@ CPMDeclarePackage(picotls
 )
 # picoquic
 CPMDeclarePackage(picoquic
-  VERSION 2026.11.15.9a7237c
-  GITHUB_REPOSITORY private-octopus/picoquic
+  GIT_TAG 986e055c6c9b8a806ec57867c82e9657fa090c3d
+  GITHUB_REPOSITORY RichLogan/picoquic
   SYSTEM YES
   EXCLUDE_FROM_ALL YES
   OPTIONS
