@@ -14,11 +14,10 @@
 #include "quicr/utilities/format.h"
 
 #include <chrono>
-#include <condition_variable>
 #include <future>
 #include <memory>
-#include <mutex>
 #include <new>
+#include <semaphore>
 #include <string>
 #include <thread>
 #include <variant>
@@ -26,9 +25,7 @@
 
 struct quicr_test_event
 {
-    std::mutex mutex;
-    std::condition_variable changed;
-    bool signaled{ false };
+    std::counting_semaphore<> signals{ 0 };
 };
 
 extern "C" quicr_test_event_t*
@@ -50,11 +47,7 @@ quicr_test_event_signal(quicr_test_event_t* event)
         return;
     }
 
-    {
-        const std::lock_guard lock(event->mutex);
-        event->signaled = true;
-    }
-    event->changed.notify_all();
+    event->signals.release();
 }
 
 extern "C" bool
@@ -64,13 +57,7 @@ quicr_test_event_wait(quicr_test_event_t* event, const uint32_t timeout_ms)
         return false;
     }
 
-    std::unique_lock lock(event->mutex);
-    const auto signaled =
-      event->changed.wait_for(lock, std::chrono::milliseconds(timeout_ms), [event]() { return event->signaled; });
-    if (signaled) {
-        event->signaled = false;
-    }
-    return signaled;
+    return event->signals.try_acquire_for(std::chrono::milliseconds(timeout_ms));
 }
 
 extern "C" void

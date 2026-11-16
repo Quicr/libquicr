@@ -3990,8 +3990,16 @@ namespace quicr {
                 const auto request_id = *stream_request_id;
 
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
-                auto track_it = request_handlers.find(request_id);
-                if (track_it == request_handlers.end()) {
+                std::shared_ptr<TrackHandler> track_handler;
+                {
+                    std::lock_guard lock(state_mutex_);
+                    const auto track_it = request_handlers.find(request_id);
+                    if (track_it != request_handlers.end()) {
+                        track_handler = track_it->second;
+                    }
+                }
+
+                if (!track_handler) {
                     QUICR_LOGGER_WARN(logger_,
                                       "Received REQUEST_OK to unknown track conn_id: {} request_id: {}, ignored",
                                       connection->GetID(),
@@ -3999,7 +4007,7 @@ namespace quicr {
                     return true;
                 }
 
-                if (auto status_handler = track_it->second->Get<TrackStatusHandler>()) {
+                if (auto status_handler = track_handler->Get<TrackStatusHandler>()) {
                     TrackStatusResponse response = {
                         .largest_location = parameters.Get<messages::Location>(messages::ParameterType::kLargestObject),
                         .track_properties = Message::ParseField<messages::TrackExtensions>(msg_bytes),
@@ -4014,20 +4022,20 @@ namespace quicr {
                     return true;
                 }
 
-                const auto migration_type =
-                  track_it->second->Get<PublishTrackHandler>()         ? MigrationRequestType::kPublish
-                  : track_it->second->Get<SubscribeNamespaceHandler>() ? MigrationRequestType::kSubscribeNamespace
-                                                                       : MigrationRequestType::kPublishNamespace;
+                const auto migration_type = track_handler->Get<PublishTrackHandler>() ? MigrationRequestType::kPublish
+                                            : track_handler->Get<SubscribeNamespaceHandler>()
+                                              ? MigrationRequestType::kSubscribeNamespace
+                                              : MigrationRequestType::kPublishNamespace;
                 CompleteMigration(connection, request_id, migration_type);
 
-                if (track_it->second->GetConnection() != connection) {
+                if (track_handler->GetConnection() != connection) {
                     QUICR_LOGGER_DEBUG(logger_,
                                        "Ignoring late REQUEST_OK from retired conn_id: {} request_id: {}",
                                        connection->GetID(),
                                        request_id);
                     return true;
                 }
-                track_it->second->RequestOkReceived(parameters);
+                track_handler->RequestOkReceived(parameters);
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {
