@@ -217,6 +217,7 @@ extern "C"
         QUICR_REQUEST_ERROR_UNINTERESTED = 11,               ///< Endpoint is no longer interested.
         QUICR_REQUEST_ERROR_PREFIX_OVERLAP = 12,             ///< Namespace prefixes conflict.
         QUICR_REQUEST_ERROR_INVALID_JOINING_REQUEST_ID = 13, ///< Joining request ID is invalid.
+        QUICR_REQUEST_ERROR_REDIRECT = 14,                   ///< Retry using the supplied redirect.
     };
     /** @} */
 
@@ -247,6 +248,7 @@ extern "C"
     {
         QUICR_PUBLISH_NAMESPACE_ERROR_OK = 0,             ///< Vestigial success value; do not use in a rejection.
         QUICR_PUBLISH_NAMESPACE_ERROR_INTERNAL_ERROR = 1, ///< Unspecified endpoint failure.
+        QUICR_PUBLISH_NAMESPACE_ERROR_REDIRECT = 2,       ///< Retry using the supplied namespace redirect.
     };
     /** @} */
 
@@ -263,6 +265,7 @@ extern "C"
         QUICR_FETCH_ERROR_INVALID_RANGE = 1,  ///< Requested range is invalid.
         QUICR_FETCH_ERROR_NO_OBJECTS = 2,     ///< No objects are available.
         QUICR_FETCH_ERROR_INTERNAL_ERROR = 3, ///< Unspecified endpoint failure.
+        QUICR_FETCH_ERROR_REDIRECT = 4,       ///< Retry using the supplied redirect.
     };
     /** @} */
 
@@ -288,6 +291,7 @@ extern "C"
         QUICR_ERROR_UNINTERESTED = 0x20,               ///< Endpoint is uninterested.
         QUICR_ERROR_PREFIX_OVERLAP = 0x30,             ///< Namespace prefixes conflict.
         QUICR_ERROR_INVALID_JOINING_REQUEST_ID = 0x32, ///< Joining request ID is invalid.
+        QUICR_ERROR_REDIRECT = 0x34,                   ///< Retry using the accompanying redirect.
     };
     /** @} */
 
@@ -496,12 +500,31 @@ extern "C"
     } quicr_track_namespace_list_t;
 
     /**
+     * @brief Alternate endpoint and track name returned with a redirect rejection.
+     *
+     * All fields are borrowed and copied before callback return. A NULL or empty connect_uri reuses the current
+     * session URI. A NULL track_namespace and track_name preserve the corresponding parts of the original request.
+     * Namespace-scoped requests must leave track_name NULL.
+     */
+    typedef struct quicr_redirect
+    {
+        const char* connect_uri;                        ///< Target URI, or NULL to reuse the current URI.
+        const quicr_track_namespace_t* track_namespace; ///< Target namespace, or NULL to reuse the requested one.
+        const quicr_byte_span_t* track_name;            ///< Target track name, or NULL to reuse the requested one.
+    } quicr_redirect_t;
+
+    /**
      * @brief General request rejection.
      */
     typedef struct quicr_request_error
     {
         quicr_request_error_code_t code; ///< Rejection code.
         const char* reason; ///< Optional borrowed UTF-8 reason; NULL means no reason and is copied on return.
+        /**
+         * Borrowed redirect copied before callback return. Required exactly when code is
+         * `QUICR_REQUEST_ERROR_REDIRECT`.
+         */
+        const quicr_redirect_t* redirect;
     } quicr_request_error_t;
 
     /**
@@ -520,6 +543,11 @@ extern "C"
     {
         quicr_publish_namespace_error_code_t code; ///< Rejection code.
         const char* reason;                        ///< Optional borrowed reason copied before callback return.
+        /**
+         * Borrowed redirect copied before callback return. Required exactly when code is
+         * `QUICR_PUBLISH_NAMESPACE_ERROR_REDIRECT`.
+         */
+        const quicr_redirect_t* redirect;
     } quicr_publish_namespace_error_t;
 
     /**
@@ -529,6 +557,11 @@ extern "C"
     {
         quicr_fetch_error_code_t code; ///< Rejection code.
         const char* reason;            ///< Optional borrowed reason copied before callback return.
+        /**
+         * Borrowed redirect copied before callback return. Required exactly when code is
+         * `QUICR_FETCH_ERROR_REDIRECT`.
+         */
+        const quicr_redirect_t* redirect;
     } quicr_fetch_error_t;
 
     /**
@@ -538,6 +571,11 @@ extern "C"
     {
         quicr_error_code_t code; ///< Protocol error code.
         const char* reason;      ///< Optional borrowed reason copied before callback return.
+        /**
+         * Borrowed redirect copied before callback return. Required exactly when code is `QUICR_ERROR_REDIRECT`;
+         * redirect is not valid for callbacks whose protocol response does not support redirection.
+         */
+        const quicr_redirect_t* redirect;
     } quicr_error_t;
 
     /**

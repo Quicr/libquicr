@@ -4658,6 +4658,10 @@ namespace quicr {
                                               error_code = ErrorCode::kInvalidRange;
                                               break;
 
+                                          case FetchErrorCode::kRedirect:
+                                              error_code = ErrorCode::kRedirect;
+                                              break;
+
                                           default:
                                               break;
                                       }
@@ -4741,6 +4745,10 @@ namespace quicr {
                                       switch (code) {
                                           case FetchErrorCode::kInvalidRange:
                                               error_code = ErrorCode::kInvalidRange;
+                                              break;
+
+                                          case FetchErrorCode::kRedirect:
+                                              error_code = ErrorCode::kRedirect;
                                               break;
 
                                           default:

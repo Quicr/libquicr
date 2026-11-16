@@ -91,6 +91,7 @@ namespace quicr {
         kInvalidRange,  ///< Requested fetch range is invalid.
         kNoObjects,     ///< No objects are available in the requested range.
         kInternalError, ///< Unspecified application or endpoint failure.
+        kRedirect,      ///< The fetch should be retried using the supplied redirect.
         // TODO: Expand reasons.
     };
 

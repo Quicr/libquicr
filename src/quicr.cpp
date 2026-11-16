@@ -936,10 +936,37 @@ namespace {
         return Unexpected<Error<E>>(code, ErrorReason(reason));
     }
 
+    template<typename E>
+    Unexpected<Error<E>> MakeRedirectableError(E code,
+                                               const char* reason,
+                                               const quicr_redirect_t* redirect,
+                                               E redirect_code,
+                                               E internal_error_code)
+    {
+        if ((code == redirect_code) != (redirect != nullptr)) {
+            return MakeError(internal_error_code, "Redirect details do not match the error code");
+        }
+
+        if (!redirect) {
+            return MakeError(code, reason);
+        }
+
+        return Unexpected<Error<E>>(
+          code,
+          ErrorReason(reason),
+          Redirect{
+            .uri = ErrorReason(redirect->connect_uri),
+            .track_namespace =
+              redirect->track_namespace ? ToCppType<TrackNamespace>(*redirect->track_namespace) : TrackNamespace{},
+            .track_name =
+              redirect->track_name ? std::optional<Bytes>{ ToCppType<Bytes>(*redirect->track_name) } : std::nullopt,
+          });
+    }
+
     template<>
     RequestErrorCode ToCppType<RequestErrorCode, quicr_request_error_code_t>(const quicr_request_error_code_t& code)
     {
-        if (code < QUICR_REQUEST_ERROR_INTERNAL_ERROR || code > QUICR_REQUEST_ERROR_INVALID_JOINING_REQUEST_ID) {
+        if (code < QUICR_REQUEST_ERROR_INTERNAL_ERROR || code > QUICR_REQUEST_ERROR_REDIRECT) {
             return RequestErrorCode::kInternalError;
         }
         return static_cast<RequestErrorCode>(code);
@@ -958,7 +985,7 @@ namespace {
     PublishNamespaceErrorCode ToCppType<PublishNamespaceErrorCode, quicr_publish_namespace_error_code_t>(
       const quicr_publish_namespace_error_code_t& code)
     {
-        if (code > QUICR_PUBLISH_NAMESPACE_ERROR_INTERNAL_ERROR) {
+        if (code > QUICR_PUBLISH_NAMESPACE_ERROR_REDIRECT) {
             return PublishNamespaceErrorCode::kInternalError;
         }
         return static_cast<PublishNamespaceErrorCode>(code);
@@ -967,7 +994,7 @@ namespace {
     template<>
     FetchErrorCode ToCppType<FetchErrorCode, quicr_fetch_error_code_t>(const quicr_fetch_error_code_t& code)
     {
-        if (code > QUICR_FETCH_ERROR_INTERNAL_ERROR) {
+        if (code > QUICR_FETCH_ERROR_REDIRECT) {
             return FetchErrorCode::kInternalError;
         }
         return static_cast<FetchErrorCode>(code);
@@ -990,6 +1017,7 @@ namespace {
             case QUICR_ERROR_UNINTERESTED:
             case QUICR_ERROR_PREFIX_OVERLAP:
             case QUICR_ERROR_INVALID_JOINING_REQUEST_ID:
+            case QUICR_ERROR_REDIRECT:
                 return static_cast<ErrorCode>(code);
             default:
                 return ErrorCode::kInternalError;
@@ -1108,7 +1136,12 @@ namespace {
             return {};
         }
         if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            return MakeError(ToCppType<PublishNamespaceErrorCode>(reply.error.code), reply.error.reason);
+            const auto code = ToCppType<PublishNamespaceErrorCode>(reply.error.code);
+            return MakeRedirectableError(code,
+                                         reply.error.reason,
+                                         reply.error.redirect,
+                                         PublishNamespaceErrorCode::kRedirect,
+                                         PublishNamespaceErrorCode::kInternalError);
         }
         return MakeError(PublishNamespaceErrorCode::kInternalError, "Invalid publish namespace reply result");
     }
@@ -1121,7 +1154,12 @@ namespace {
             return ToCppType<FetchResponse>(reply.response);
         }
         if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            return MakeError(ToCppType<FetchErrorCode>(reply.error.code), reply.error.reason);
+            const auto code = ToCppType<FetchErrorCode>(reply.error.code);
+            return MakeRedirectableError(code,
+                                         reply.error.reason,
+                                         reply.error.redirect,
+                                         FetchErrorCode::kRedirect,
+                                         FetchErrorCode::kInternalError);
         }
         return MakeError(FetchErrorCode::kInternalError, "Invalid fetch reply result");
     }
@@ -1134,7 +1172,12 @@ namespace {
             return {};
         }
         if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            return MakeError(ToCppType<FetchErrorCode>(reply.error.code), reply.error.reason);
+            const auto code = ToCppType<FetchErrorCode>(reply.error.code);
+            return MakeRedirectableError(code,
+                                         reply.error.reason,
+                                         reply.error.redirect,
+                                         FetchErrorCode::kRedirect,
+                                         FetchErrorCode::kInternalError);
         }
         return MakeError(FetchErrorCode::kInternalError, "Invalid fetch cancellation reply result");
     }
@@ -1148,7 +1191,12 @@ namespace {
             return ToCppType<TrackStatusResponse>(reply.response);
         }
         if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            return MakeError(ToCppType<RequestErrorCode>(reply.error.code), reply.error.reason);
+            const auto code = ToCppType<RequestErrorCode>(reply.error.code);
+            return MakeRedirectableError(code,
+                                         reply.error.reason,
+                                         reply.error.redirect,
+                                         RequestErrorCode::kRedirect,
+                                         RequestErrorCode::kInternalError);
         }
         return MakeError(RequestErrorCode::kInternalError, "Invalid track status reply result");
     }
@@ -1161,7 +1209,12 @@ namespace {
             return ToCppType<SubscribeResponse>(reply.response);
         }
         if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            return MakeError(ToCppType<RequestErrorCode>(reply.error.code), reply.error.reason);
+            const auto code = ToCppType<RequestErrorCode>(reply.error.code);
+            return MakeRedirectableError(code,
+                                         reply.error.reason,
+                                         reply.error.redirect,
+                                         RequestErrorCode::kRedirect,
+                                         RequestErrorCode::kInternalError);
         }
         return MakeError(RequestErrorCode::kInternalError, "Invalid subscribe reply result");
     }
@@ -1176,7 +1229,12 @@ namespace {
                                   : std::vector<TrackNamespace>{};
         }
         if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            return MakeError(ToCppType<RequestErrorCode>(reply.error.code), reply.error.reason);
+            const auto code = ToCppType<RequestErrorCode>(reply.error.code);
+            return MakeRedirectableError(code,
+                                         reply.error.reason,
+                                         reply.error.redirect,
+                                         RequestErrorCode::kRedirect,
+                                         RequestErrorCode::kInternalError);
         }
         return MakeError(RequestErrorCode::kInternalError, "Invalid track namespaces reply result");
     }
@@ -1188,7 +1246,9 @@ namespace {
             return {};
         }
         if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            return MakeError(ToCppType<ErrorCode>(reply.error.code), reply.error.reason);
+            const auto code = ToCppType<ErrorCode>(reply.error.code);
+            return MakeRedirectableError(
+              code, reply.error.reason, reply.error.redirect, ErrorCode::kRedirect, ErrorCode::kInternalError);
         }
         return MakeError(ErrorCode::kInternalError, "Invalid protocol reply result");
     }
@@ -1201,6 +1261,9 @@ namespace {
             return {};
         }
         if (reply.result == QUICR_REPLY_RESULT_REJECT) {
+            if (reply.error.redirect || reply.error.code == QUICR_ERROR_REDIRECT) {
+                return MakeError(ErrorCode::kInternalError, "Redirect is not valid in a setup reply");
+            }
             return MakeError(ToCppType<ErrorCode>(reply.error.code), reply.error.reason);
         }
         return MakeError(ErrorCode::kInternalError, "Invalid setup reply result");

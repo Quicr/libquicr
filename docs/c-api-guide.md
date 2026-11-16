@@ -166,6 +166,11 @@ track-namespaces replies. On `REJECT`, use `error`. Response-less replies use
 `error` only when rejecting. Reply strings, nested extensions, and namespace
 lists are borrowed and copied before the callback returns.
 
+To redirect a request, reject it with the reply type's redirect error code and
+set `error.redirect`. A NULL or empty `connect_uri` reuses the current session
+URI; NULL `track_namespace` and `track_name` fields preserve those parts of the
+original request. Namespace-scoped requests leave `track_name` NULL.
+
 An accepted `publish_received` reply is special. Create its response from a
 subscribe handler with `quicr_publish_response_create()`, optionally configure
 priority, order, filter, forwarding, timeouts, or new-group request ID, and
