@@ -32,6 +32,8 @@ extern "C"
 
     bool quicr_test_event_wait(quicr_test_event_t* event, uint32_t timeout_ms);
 
+    void quicr_test_sleep_ms(uint32_t duration_ms);
+
     quicr_c_test_result_t quicr_test_c_connection(const char* connect_uri);
 
     quicr_c_test_result_t quicr_test_c_publish_subscribe(const char* connect_uri,

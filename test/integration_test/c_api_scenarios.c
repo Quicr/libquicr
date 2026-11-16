@@ -21,6 +21,21 @@
         }                                                                                                              \
     } while (0)
 
+static quicr_status_t
+destroy_publish_namespace_handler_when_idle(quicr_publish_namespace_handler_t* handler)
+{
+    quicr_status_t status = QUICR_STATUS_BUSY;
+    for (uint32_t elapsed_ms = 0U; elapsed_ms < QUICR_TEST_TIMEOUT_MS; ++elapsed_ms) {
+        status = quicr_publish_namespace_handler_destroy(handler);
+        if (status != QUICR_STATUS_BUSY) {
+            break;
+        }
+        quicr_test_sleep_ms(1U);
+    }
+
+    return status;
+}
+
 typedef struct connection_context
 {
     quicr_test_event_t* ready;
@@ -1369,7 +1384,7 @@ quicr_test_c_server_fetch(const char* connect_uri, const uint16_t server_port)
     SCENARIO_REQUIRE(quicr_session_manager_remove_handler(client_manager, client_session, rejected_namespace) ==
                      QUICR_STATUS_OK);
     rejected_namespace_registered = false;
-    SCENARIO_REQUIRE(quicr_track_handler_destroy(rejected_namespace) == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(destroy_publish_namespace_handler_when_idle(rejected_namespace) == QUICR_STATUS_OK);
     rejected_namespace = NULL;
 
     SCENARIO_REQUIRE(quicr_publish_namespace_handler_create(
@@ -1398,8 +1413,8 @@ cleanup:
     }
     (void)quicr_track_handler_destroy(accepted_fetch);
     (void)quicr_track_handler_destroy(rejected_fetch);
-    (void)quicr_track_handler_destroy(accepted_namespace);
-    (void)quicr_track_handler_destroy(rejected_namespace);
+    (void)destroy_publish_namespace_handler_when_idle(accepted_namespace);
+    (void)destroy_publish_namespace_handler_when_idle(rejected_namespace);
     (void)quicr_track_handler_destroy(context.publish_fetch_handler);
     quicr_full_track_name_destroy(full_track_name);
     quicr_track_namespace_destroy(track_namespace);

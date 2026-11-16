@@ -20,6 +20,7 @@
 #include <mutex>
 #include <new>
 #include <string>
+#include <thread>
 #include <variant>
 #include <vector>
 
@@ -70,6 +71,12 @@ quicr_test_event_wait(quicr_test_event_t* event, const uint32_t timeout_ms)
         event->signaled = false;
     }
     return signaled;
+}
+
+extern "C" void
+quicr_test_sleep_ms(const uint32_t duration_ms)
+{
+    std::this_thread::sleep_for(std::chrono::milliseconds(duration_ms));
 }
 
 namespace {
