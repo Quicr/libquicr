@@ -9,6 +9,6 @@ var classquicr_1_1messages_1_1TrackExtensions =
     [ "end", "classquicr_1_1messages_1_1TrackExtensions.html#a62fe8749f848b07d5786cf3b11447f0d", null ],
     [ "Get", "classquicr_1_1messages_1_1TrackExtensions.html#a8bace89fbefa9c660dd61aa6b707a45e", null ],
     [ "GetImmutable", "classquicr_1_1messages_1_1TrackExtensions.html#a608d966c4304336276f3a4fcd8ecf2e5", null ],
-    [ "extensions", "classquicr_1_1messages_1_1TrackExtensions.html#a7657588bf43e253c9626896461794fa1", null ],
-    [ "immutable_extensions", "classquicr_1_1messages_1_1TrackExtensions.html#ae3c6ccf03788c660dc4cde7fa04caeab", null ]
+    [ "extensions", "classquicr_1_1messages_1_1TrackExtensions.html#a687b5f6d1f03161a47404147ace2cb58", null ],
+    [ "immutable_extensions", "classquicr_1_1messages_1_1TrackExtensions.html#ae0768f3b7df92ceff281ed0a840e1b10", null ]
 ];
