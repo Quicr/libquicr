@@ -347,7 +347,7 @@ MakeTestClientConfig(const std::string& protocol_scheme,
     client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
     client_config.use_qmux = protocol_scheme == "qmux";
     const auto scheme = client_config.use_qmux ? std::string("moqt") : protocol_scheme;
-    client_config.connect_uri = scheme + "://" + host + ":" + std::to_string(GetTestPort()) + "/relay";
+    client_config.connect_uri = quicr::format("{}://{}:{}/relay", scheme, host, port);
     return client_config;
 }
 
