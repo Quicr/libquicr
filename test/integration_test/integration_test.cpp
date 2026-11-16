@@ -2408,54 +2408,91 @@ TEST_CASE("Integration - Raw Subscribe Tracks")
     }
 }
 
-TEST_CASE("Integration - Subscribe Namespace notifications")
+static void
+CheckNamespaceNotification(const std::string& protocol_scheme,
+                           const TrackNamespace& prefix,
+                           const std::optional<TrackNamespace>& published_namespace,
+                           bool expect_notification)
 {
-    const auto check_notification = [](const std::string& protocol_scheme,
-                                       const TrackNamespace& prefix,
-                                       const std::optional<TrackNamespace>& published_namespace,
-                                       bool expect_notification) {
-        auto session_mgr = MakeTestSessionManager();
-        auto server = MakeTestServer(session_mgr);
-        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
+    auto session_mgr = MakeTestSessionManager();
+    auto server = MakeTestServer(session_mgr);
+    auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
 
-        std::promise<TestServer::SubscribeNamespaceDetails> server_promise;
-        auto server_future = server_promise.get_future();
-        server->SetSubscribeNamespacePromise(std::move(server_promise));
+    std::promise<TestServer::SubscribeNamespaceDetails> server_promise;
+    auto server_future = server_promise.get_future();
+    server->SetSubscribeNamespacePromise(std::move(server_promise));
 
-        std::promise<TrackNamespace> publish_promise;
-        auto publish_future = publish_promise.get_future();
-        callbacks->SetPublishNamespaceReceivedPromise(std::move(publish_promise));
+    std::promise<TrackNamespace> publish_promise;
+    auto publish_future = publish_promise.get_future();
+    callbacks->SetPublishNamespaceReceivedPromise(std::move(publish_promise));
 
-        if (published_namespace) {
-            server->AddKnownPublishedNamespace(*published_namespace);
-        }
-
-        auto handler = TestSubscribeNamespaceHandler::Create(prefix);
-        auto namespace_future = handler->NamespaceFuture();
-        session->SubscribeNamespace(handler);
-
-        REQUIRE_EQ(server_future.wait_for(kDefaultTimeout), std::future_status::ready);
-        CHECK_EQ(server_future.get().prefix_namespace, prefix);
-        REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; }));
-
-        if (expect_notification) {
-            REQUIRE_EQ(namespace_future.wait_for(kDefaultTimeout), std::future_status::ready);
-            CHECK_EQ(namespace_future.get(), *published_namespace);
-        } else {
-            CHECK_EQ(namespace_future.wait_for(kNegativeTimeout), std::future_status::timeout);
-        }
-        CHECK_EQ(publish_future.wait_for(kNegativeTimeout), std::future_status::timeout);
-    };
-
-    for (const std::string protocol_scheme : { "moq", "https" }) {
-        CAPTURE(protocol_scheme);
-        const TrackNamespace prefix(std::vector<std::string>{ "foo", "bar" });
-        check_notification(protocol_scheme, prefix, TrackNamespace({ "foo", "bar", "baz" }), true);
-        check_notification(protocol_scheme, prefix, prefix, true);
-        check_notification(
-          protocol_scheme, TrackNamespace(std::vector<std::string>{}), TrackNamespace({ "foo", "bar", "baz" }), true);
-        check_notification(protocol_scheme, prefix, TrackNamespace({ "other" }), false);
+    if (published_namespace) {
+        server->AddKnownPublishedNamespace(*published_namespace);
     }
+
+    auto handler = TestSubscribeNamespaceHandler::Create(prefix);
+    auto namespace_future = handler->NamespaceFuture();
+    session->SubscribeNamespace(handler);
+
+    REQUIRE_EQ(server_future.wait_for(kDefaultTimeout), std::future_status::ready);
+    CHECK_EQ(server_future.get().prefix_namespace, prefix);
+    REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk; }));
+
+    if (expect_notification) {
+        REQUIRE_EQ(namespace_future.wait_for(kDefaultTimeout), std::future_status::ready);
+        CHECK_EQ(namespace_future.get(), *published_namespace);
+    } else {
+        CHECK_EQ(namespace_future.wait_for(kNegativeTimeout), std::future_status::timeout);
+    }
+    CHECK_EQ(publish_future.wait_for(kNegativeTimeout), std::future_status::timeout);
+}
+
+TEST_CASE("Integration - Subscribe Namespace notifies for descendant namespace - QUIC")
+{
+    const TrackNamespace prefix(std::vector<std::string>{ "foo", "bar" });
+    CheckNamespaceNotification("moq", prefix, TrackNamespace({ "foo", "bar", "baz" }), true);
+}
+
+TEST_CASE("Integration - Subscribe Namespace notifies for descendant namespace - WebTransport")
+{
+    const TrackNamespace prefix(std::vector<std::string>{ "foo", "bar" });
+    CheckNamespaceNotification("https", prefix, TrackNamespace({ "foo", "bar", "baz" }), true);
+}
+
+TEST_CASE("Integration - Subscribe Namespace notifies for exact namespace - QUIC")
+{
+    const TrackNamespace prefix(std::vector<std::string>{ "foo", "bar" });
+    CheckNamespaceNotification("moq", prefix, prefix, true);
+}
+
+TEST_CASE("Integration - Subscribe Namespace notifies for exact namespace - WebTransport")
+{
+    const TrackNamespace prefix(std::vector<std::string>{ "foo", "bar" });
+    CheckNamespaceNotification("https", prefix, prefix, true);
+}
+
+TEST_CASE("Integration - Subscribe Namespace with empty prefix notifies for any namespace - QUIC")
+{
+    CheckNamespaceNotification(
+      "moq", TrackNamespace(std::vector<std::string>{}), TrackNamespace({ "foo", "bar", "baz" }), true);
+}
+
+TEST_CASE("Integration - Subscribe Namespace with empty prefix notifies for any namespace - WebTransport")
+{
+    CheckNamespaceNotification(
+      "https", TrackNamespace(std::vector<std::string>{}), TrackNamespace({ "foo", "bar", "baz" }), true);
+}
+
+TEST_CASE("Integration - Subscribe Namespace ignores non-matching namespace - QUIC")
+{
+    const TrackNamespace prefix(std::vector<std::string>{ "foo", "bar" });
+    CheckNamespaceNotification("moq", prefix, TrackNamespace({ "other" }), false);
+}
+
+TEST_CASE("Integration - Subscribe Namespace ignores non-matching namespace - WebTransport")
+{
+    const TrackNamespace prefix(std::vector<std::string>{ "foo", "bar" });
+    CheckNamespaceNotification("https", prefix, TrackNamespace({ "other" }), false);
 }
 
 TEST_CASE("Integration - Subscribe Tracks with matching namespace")
