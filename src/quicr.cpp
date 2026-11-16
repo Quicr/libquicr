@@ -3614,7 +3614,9 @@ extern "C"
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            extensions->GetMutable().extensions[type] = ToCppType<Bytes>(value);
+            auto pairs = extensions->Get().extensions.Pairs();
+            pairs[type] = ToCppType<Bytes>(value);
+            extensions->GetMutable().extensions = messages::KeyValuePairs{ pairs };
             return QUICR_STATUS_OK;
         });
     }
@@ -3628,19 +3630,21 @@ extern "C"
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            extensions->GetMutable().immutable_extensions[type] = ToCppType<Bytes>(value);
+            auto pairs = extensions->Get().immutable_extensions.Pairs();
+            pairs[type] = ToCppType<Bytes>(value);
+            extensions->GetMutable().immutable_extensions = messages::KeyValuePairs{ pairs };
             return QUICR_STATUS_OK;
         });
     }
 
     size_t quicr_track_extensions_count(const quicr_track_extensions_t* extensions)
     {
-        return extensions ? extensions->Get().extensions.size() : 0;
+        return extensions ? extensions->Get().extensions.Pairs().size() : 0;
     }
 
     size_t quicr_track_extensions_immutable_count(const quicr_track_extensions_t* extensions)
     {
-        return extensions ? extensions->Get().immutable_extensions.size() : 0;
+        return extensions ? extensions->Get().immutable_extensions.Pairs().size() : 0;
     }
 
     quicr_status_t quicr_track_extensions_entry(const quicr_track_extensions_t* extensions,
@@ -3649,11 +3653,11 @@ extern "C"
                                                 quicr_byte_span_t* value)
     {
         return SafeCall([&] {
-            if (!extensions || !type || !value || index >= extensions->Get().extensions.size()) {
+            if (!extensions || !type || !value || index >= extensions->Get().extensions.Pairs().size()) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            const auto& entries = extensions->Get().extensions;
+            const auto& entries = extensions->Get().extensions.Pairs();
             const auto entry = std::next(entries.begin(), static_cast<std::ptrdiff_t>(index));
             *type = entry->first;
             *value = ToCType<quicr_byte_span_t>(BytesSpan{ entry->second });
@@ -3667,11 +3671,11 @@ extern "C"
                                                           quicr_byte_span_t* value)
     {
         return SafeCall([&] {
-            if (!extensions || !type || !value || index >= extensions->Get().immutable_extensions.size()) {
+            if (!extensions || !type || !value || index >= extensions->Get().immutable_extensions.Pairs().size()) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            const auto& entries = extensions->Get().immutable_extensions;
+            const auto& entries = extensions->Get().immutable_extensions.Pairs();
             const auto entry = std::next(entries.begin(), static_cast<std::ptrdiff_t>(index));
             *type = entry->first;
             *value = ToCType<quicr_byte_span_t>(BytesSpan{ entry->second });
