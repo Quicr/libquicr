@@ -72,9 +72,7 @@ if (WIN32)
 endif()
 
 CPMAddPackage(
-    NAME picoquic
-    GITHUB_REPOSITORY RichLogan/picoquic
-    GIT_TAG 986e055c6c9b8a806ec57867c82e9657fa090c3d
+    URI "gh:private-octopus/picoquic@2026.11.16.e71ab16"
     EXCLUDE_FROM_ALL YES
     OPTIONS
         "BUILD_DEMO OFF"
