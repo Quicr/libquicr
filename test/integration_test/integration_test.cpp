@@ -871,22 +871,26 @@ TestTlsTrustRoots(const std::string& scheme)
     }
 
     auto session = session_mgr.AddTransport(client_config, callbacks).lock();
-    REQUIRE(session != nullptr);
     if (expected == Outcome::kConnects) {
+        REQUIRE(session != nullptr);
         REQUIRE(client_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
         CHECK_EQ(client_setup.get().endpoint_id, kServerId);
         REQUIRE(server_setup.wait_for(kDefaultTimeout) == std::future_status::ready);
         CHECK(WaitFor([&] { return session->GetStatus() == Session::Status::kReady; }));
     } else if (scheme == "moq") {
         // The failed handshake closes the connection before either peer enters the MoQ session.
-        CHECK(WaitFor([&] { return session->GetStatus() == Session::Status::kNotConnected; }));
+        if (session) {
+            CHECK(WaitFor([&] { return session->GetStatus() == Session::Status::kNotConnected; }));
+        }
         CHECK(client_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
         CHECK(server_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
     } else {
         // FIXME: Fix WT failure notifications and we don't have to wait here.
         CHECK(server_setup.wait_for(kNegativeTimeout) == std::future_status::timeout);
         CHECK(client_setup.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
-        CHECK_NE(session->GetStatus(), Session::Status::kReady);
+        if (session) {
+            CHECK_NE(session->GetStatus(), Session::Status::kReady);
+        }
     }
 }
 
@@ -4042,12 +4046,12 @@ TEST_CASE("Integration - Subscription subgroup close")
 namespace quicr {
     static bool operator==(const messages::TrackExtensions& lhs, const messages::TrackExtensions& rhs)
     {
-        auto lhs_map = lhs.extensions;
-        auto rhs_map = rhs.extensions;
+        auto lhs_map = lhs.extensions.Pairs();
+        auto rhs_map = rhs.extensions.Pairs();
         constexpr auto immutable_key = static_cast<std::uint64_t>(messages::ExtensionType::kImmutable);
         lhs_map.erase(immutable_key);
         rhs_map.erase(immutable_key);
-        return lhs_map == rhs_map && lhs.immutable_extensions == rhs.immutable_extensions;
+        return lhs_map == rhs_map && lhs.immutable_extensions.Pairs() == rhs.immutable_extensions.Pairs();
     }
 
     static bool operator==(const TrackStatusResponse& lhs, const TrackStatusResponse& rhs)

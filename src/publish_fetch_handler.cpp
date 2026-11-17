@@ -94,8 +94,6 @@ namespace quicr {
 
     void PublishFetchHandler::EndFetch()
     {
-        std::lock_guard lock(binding_operation_mutex_);
-
         if (closed_) {
             return;
         }
