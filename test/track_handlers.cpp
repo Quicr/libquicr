@@ -282,7 +282,8 @@ class TestTransport : public quicr::Transport
     std::shared_ptr<quicr::Stream> CreateDataStream(const std::shared_ptr<quicr::Connection>& connection,
                                                     uint8_t) override
     {
-        return std::make_shared<TestStream>(2 + 4 * created_streams++, connection);
+        last_data_stream = std::make_shared<TestStream>(2 + 4 * created_streams++, connection);
+        return last_data_stream;
     }
     std::shared_ptr<quicr::Stream> CreateControlStream(const std::shared_ptr<quicr::Connection>&) override
     {
@@ -298,6 +299,7 @@ class TestTransport : public quicr::Transport
     int enqueue_count{ 0 };
     int fail_enqueue{ -1 };
     int created_streams{ 0 };
+    std::shared_ptr<quicr::Stream> last_data_stream;
     std::map<std::uint64_t, quicr::Bytes> stream_data;
 
   private:
@@ -311,6 +313,13 @@ class TestStreamPublishTrackHandler : public quicr::PublishTrackHandler
       : PublishTrackHandler({ {}, {} }, quicr::TrackMode::kStream, 0, 0, 1000)
     {
     }
+
+    void SubgroupCancelled(std::uint64_t group_id, std::uint64_t subgroup_id) override
+    {
+        cancelled.emplace_back(group_id, subgroup_id);
+    }
+
+    std::vector<std::pair<std::uint64_t, std::uint64_t>> cancelled;
 };
 
 static std::shared_ptr<quicr::Session>
@@ -469,6 +478,51 @@ TEST_CASE("Publishing reports rejected subgroup enqueues")
         CHECK(handler->ForwardPublishedData(false, 0, 0, std::make_shared<quicr::Bytes>(payload)) ==
               Status::kSubgroupClosed);
     }
+}
+
+TEST_CASE("A subgroup the subscriber cancels is reported and not reopened")
+{
+    using Status = quicr::PublishTrackHandler::PublishObjectStatus;
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>();
+    session->PublishTrack(handler);
+    handler->SetStatus(quicr::PublishTrackHandler::Status::kOk);
+    quicr::ObjectHeaders headers{};
+    const quicr::Bytes payload{ 1 };
+    headers.payload_length = payload.size();
+    REQUIRE(handler->PublishObject(headers, payload) == Status::kOk);
+    REQUIRE(transport->created_streams == 1);
+
+    session->GetDefaultConnection()->OnStreamClosed(transport->last_data_stream, quicr::StreamClosedFlag::kStopSending);
+    CHECK(handler->cancelled == std::vector<std::pair<std::uint64_t, std::uint64_t>>{ { 0, 0 } });
+
+    // The transport has reset the stream, so it rejects the subgroup's next object; no new stream is opened for it.
+    transport->fail_enqueue = transport->enqueue_count + 1;
+    headers.object_id++;
+    CHECK(handler->PublishObject(headers, payload) == Status::kSubgroupClosed);
+    CHECK(transport->created_streams == 1);
+}
+
+TEST_CASE("A peer stopping a stream whose publisher is gone is ignored")
+{
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>();
+    session->PublishTrack(handler);
+    handler->SetStatus(quicr::PublishTrackHandler::Status::kOk);
+    quicr::ObjectHeaders headers{};
+    const quicr::Bytes payload{ 1 };
+    headers.payload_length = payload.size();
+    REQUIRE(handler->PublishObject(headers, payload) == quicr::PublishTrackHandler::PublishObjectStatus::kOk);
+    const auto stream = transport->last_data_stream;
+
+    session->UnpublishTrack(handler);
+    const std::weak_ptr<quicr::PublishTrackHandler> released = handler;
+    handler.reset();
+    REQUIRE(released.expired());
+
+    CHECK_NOTHROW(session->GetDefaultConnection()->OnStreamClosed(stream, quicr::StreamClosedFlag::kStopSending));
 }
 
 TEST_CASE("Fetch closure is terminal")
