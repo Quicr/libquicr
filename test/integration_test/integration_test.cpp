@@ -950,8 +950,8 @@ TEST_CASE("Integration - Subscribe")
         CHECK_EQ(handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
 
         // Pause/resume should cause request updates and oks to roundtrip.
-        handler->Pause();
-        handler->Resume();
+        REQUIRE(handler->Pause());
+        REQUIRE(handler->Resume());
         REQUIRE(WaitFor([&handler]() { return handler->RequestUpdateOks() == 2; }));
 
         // Test is complete, unsubscribe while we are connected.
@@ -2157,9 +2157,9 @@ TEST_CASE("Integration - Handlers with no transport")
     // Subscribe.
     {
         const auto handler = SubscribeTrackHandler::Create(FullTrackName(), 0, std::nullopt);
-        handler->Pause();
-        handler->Resume();
-        handler->RequestNewGroup();
+        CHECK_FALSE(handler->Pause());
+        CHECK_FALSE(handler->Resume());
+        CHECK_FALSE(handler->RequestNewGroup());
     }
 
     // Publish.
@@ -2181,9 +2181,9 @@ TEST_CASE("Integration - Handlers with no transport")
     // Fetch.
     {
         const auto handler = FetchTrackHandler::Create(FullTrackName(), 0, { 0, 0 }, { 0, std::nullopt });
-        handler->Pause();
-        handler->Resume();
-        handler->RequestNewGroup();
+        CHECK_FALSE(handler->Pause());
+        CHECK_FALSE(handler->Resume());
+        CHECK_FALSE(handler->RequestNewGroup());
     }
 }
 
@@ -3549,7 +3549,7 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
 
         // If there is support, check a request will make it back to the publisher.
         if (dynamic_groups) {
-            sub_handler->RequestNewGroup();
+            REQUIRE(sub_handler->RequestNewGroup());
             const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
             CHECK(received);
         }
@@ -3610,7 +3610,7 @@ TEST_CASE("Integration - Dynamic groups support roundtrip")
         CHECK(sub_handler->IsNewGroupRequestSupported());
 
         // Request a new group; it should make it back to the publisher.
-        sub_handler->RequestNewGroup();
+        REQUIRE(sub_handler->RequestNewGroup());
         const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
         CHECK(received);
     };
@@ -3815,7 +3815,7 @@ TEST_CASE("Integration - New group requests preserve server forwarding state")
     for (const auto forward :
          { std::optional<std::uint8_t>{}, std::optional<std::uint8_t>{ 0 }, std::optional<std::uint8_t>{ 1 } }) {
         const auto acknowledgements = sub_handler->RequestUpdateOks();
-        sub_handler->Pause();
+        REQUIRE(sub_handler->Pause());
         REQUIRE(WaitFor([&]() { return sub_handler->RequestUpdateOks() == acknowledgements + 1; }));
         REQUIRE(WaitFor([&]() { return pub_handler->GetStatus() == PublishTrackHandler::Status::kPaused; }));
 
@@ -3846,7 +3846,7 @@ TEST_CASE("Integration - New group requests preserve server forwarding state")
         CHECK_EQ(pub_handler->PublishObject(headers, payload),
                  resumed ? PublishTrackHandler::PublishObjectStatus::kOk
                          : PublishTrackHandler::PublishObjectStatus::kPaused);
-        sub_handler->Resume();
+        REQUIRE(sub_handler->Resume());
         REQUIRE(WaitFor([&]() { return sub_handler->RequestUpdateOks() == acknowledgements + 3; }));
     }
 }
@@ -3887,7 +3887,7 @@ TEST_CASE("Integration - Request updates reuse the handler's request stream")
         // one.
         const auto stream_id_before = sub_handler->GetRequestStreamId().value();
 
-        CHECK_NOTHROW(sub_handler->RequestNewGroup());
+        REQUIRE(sub_handler->RequestNewGroup());
 
         const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
         CHECK(received);

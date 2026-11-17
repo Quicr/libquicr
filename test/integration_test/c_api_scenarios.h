@@ -50,6 +50,8 @@ extern "C"
 
     int quicr_test_c_joining_server_wait(quicr_test_joining_server_t* server, uint32_t timeout_ms);
 
+    int quicr_test_c_joining_server_send_namespace(quicr_test_joining_server_t* server);
+
     void quicr_test_c_joining_server_destroy(quicr_test_joining_server_t* server);
 
 #ifdef __cplusplus

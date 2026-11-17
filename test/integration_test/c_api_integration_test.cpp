@@ -10,9 +10,13 @@
 #include "test_server.h"
 
 #include "quicr/config.h"
+#include "quicr/handlers/publish_namespace_handler.h"
+#include "quicr/handlers/publish_track_handler.h"
+#include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/session_manager.h"
 #include "quicr/utilities/format.h"
 
+#include <atomic>
 #include <chrono>
 #include <future>
 #include <memory>
@@ -89,10 +93,38 @@ namespace {
           : SubscribeTrackHandler(full_track_name,
                                   0,
                                   quicr::messages::GroupOrder::kAscending,
-                                  std::monostate{},
+                                  quicr::messages::SubscriptionFilter{
+                                    .type = quicr::messages::SubscriptionFilterType::kAbsoluteRange,
+                                    .start_location = { 2, 3 },
+                                    .end_group_delta = 4,
+                                  },
                                   joining_fetch)
         {
         }
+    };
+
+    class NamespaceNotificationHandler final : public quicr::SubscribeNamespaceHandler
+    {
+      public:
+        static std::shared_ptr<NamespaceNotificationHandler> Create(const quicr::TrackNamespace& prefix)
+        {
+            return std::shared_ptr<NamespaceNotificationHandler>(new NamespaceNotificationHandler(prefix));
+        }
+
+        std::size_t NamespacesReceived() const noexcept { return namespaces_received_.load(); }
+        std::size_t NamespacesDone() const noexcept { return namespaces_done_.load(); }
+
+      private:
+        explicit NamespaceNotificationHandler(const quicr::TrackNamespace& prefix)
+          : SubscribeNamespaceHandler(prefix, Mode::kNamespaces)
+        {
+        }
+
+        void NamespaceReceived(const quicr::TrackNamespace&) override { ++namespaces_received_; }
+        void NamespaceDoneReceived(const quicr::TrackNamespace&) override { ++namespaces_done_; }
+
+        std::atomic<std::size_t> namespaces_received_{ 0 };
+        std::atomic<std::size_t> namespaces_done_{ 0 };
     };
 
     void CheckResult(const quicr_c_test_result_t result)
@@ -173,8 +205,80 @@ TEST_CASE("C sessions and track handlers interoperate with the C++ relay")
             quicr::TrackNamespace(std::vector<std::string>{ "c-api", "joining" }),
             { 1, 2, 3 },
         };
+        const auto namespace_handler =
+          quicr::SubscribeNamespaceHandler::Create(joining_track.name_space,
+                                                   quicr::SubscribeNamespaceHandler::Mode::kTracks,
+                                                   quicr::messages::TrackFilter{
+                                                     .property_type = 5,
+                                                     .max_tracks_selected = 6,
+                                                     .timeout = 7,
+                                                   });
+        joining_session->SubscribeNamespace(namespace_handler);
+        const auto notification_handler = NamespaceNotificationHandler::Create(joining_track.name_space);
+        joining_session->SubscribeNamespace(notification_handler);
         const auto joining_handler = JoiningSubscribeHandler::Create(joining_track);
         joining_client_manager.AddHandler(joining_session, joining_handler);
+
+        for (std::size_t attempt = 0;
+             attempt < 10000 && namespace_handler->GetStatus() != quicr::SubscribeNamespaceHandler::Status::kError;
+             ++attempt) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+        REQUIRE(namespace_handler->GetStatus() == quicr::SubscribeNamespaceHandler::Status::kError);
+        REQUIRE(namespace_handler->GetError().has_value());
+        CHECK(namespace_handler->GetError()->reason_code == quicr::ErrorCode::kGoingAway);
+
+        for (std::size_t attempt = 0;
+             attempt < 10000 && notification_handler->GetStatus() != quicr::SubscribeNamespaceHandler::Status::kOk;
+             ++attempt) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        REQUIRE(notification_handler->GetStatus() == quicr::SubscribeNamespaceHandler::Status::kOk);
+
+        for (std::size_t attempt = 0;
+             attempt < 10000 && joining_handler->GetStatus() != quicr::SubscribeTrackHandler::Status::kOk;
+             ++attempt) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+        REQUIRE(joining_handler->GetStatus() == quicr::SubscribeTrackHandler::Status::kOk);
+        REQUIRE(quicr_test_c_joining_server_send_namespace(joining_server));
+
+        for (std::size_t attempt = 0; attempt < 10000 && (notification_handler->NamespacesReceived() != 1 ||
+                                                          notification_handler->NamespacesDone() != 1);
+             ++attempt) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+        CHECK(notification_handler->NamespacesReceived() == 1);
+        CHECK(notification_handler->NamespacesDone() == 1);
+
+        const auto publish_handler =
+          quicr::PublishTrackHandler::Create(joining_track, quicr::TrackMode::kStream, 0, 0, 1000, { 0, 0 });
+        joining_client_manager.AddHandler(joining_session, publish_handler);
+        for (std::size_t attempt = 0;
+             attempt < 10000 && publish_handler->GetStatus() != quicr::PublishTrackHandler::Status::kOk;
+             ++attempt) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+        REQUIRE(publish_handler->GetStatus() == quicr::PublishTrackHandler::Status::kOk);
+        joining_client_manager.RemoveHandler(joining_session, publish_handler);
+
+        const auto publish_namespace_handler = quicr::PublishNamespaceHandler::Create(joining_track.name_space);
+        joining_session->PublishNamespace(publish_namespace_handler);
+        for (std::size_t attempt = 0;
+             attempt < 10000 && publish_namespace_handler->GetStatus() != quicr::PublishNamespaceHandler::Status::kOk;
+             ++attempt) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+        REQUIRE(publish_namespace_handler->GetStatus() == quicr::PublishNamespaceHandler::Status::kOk);
+        joining_session->PublishNamespaceDone(publish_namespace_handler);
+
+        joining_session->UnsubscribeNamespace(notification_handler);
+        joining_client_manager.RemoveHandler(joining_session, joining_handler);
         CHECK(quicr_test_c_joining_server_wait(joining_server, 10000U));
     }
 

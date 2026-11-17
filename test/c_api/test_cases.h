@@ -29,6 +29,7 @@ extern "C"
     quicr_c_test_result_t quicr_c_test_names(void);
     quicr_c_test_result_t quicr_c_test_extensions(void);
     quicr_c_test_result_t quicr_c_test_initializers(void);
+    quicr_c_test_result_t quicr_c_test_optional_attribute_getters(void);
     quicr_c_test_result_t quicr_c_test_responses(void);
     quicr_c_test_result_t quicr_c_test_handlers(void);
     quicr_c_test_result_t quicr_c_test_generic_handlers(void);

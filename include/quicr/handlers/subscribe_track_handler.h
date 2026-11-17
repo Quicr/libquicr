@@ -255,27 +255,30 @@ namespace quicr {
         /**
          * @brief Pause receiving data
          * @details Sends a REQUEST_UPDATE with forwarding disabled and immediately changes local
-         * state to `kPaused`. It silently does nothing without a live session/request stream, when
-         * already paused, or in `kNotConnected`. No `StatusChanged` callback is made.
+         * state to `kPaused`. No `StatusChanged` callback is made.
+         * @return True when the state change and request update are applied; false without a live
+         * session/request stream, when already paused, or in `kNotConnected`.
          */
-        void Pause() noexcept;
+        bool Pause() noexcept;
 
         /**
          * @brief Resume receiving data
          * @details Sends a REQUEST_UPDATE with forwarding enabled and immediately changes local
-         * state to `kOk`. It silently does nothing unless currently paused and attached to a live
-         * session/request stream. No `StatusChanged` callback is made.
+         * state to `kOk`. No `StatusChanged` callback is made.
+         * @return True when the state change and request update are applied; false unless currently
+         * paused and attached to a live session/request stream.
          */
-        void Resume() noexcept;
+        bool Resume() noexcept;
 
         /**
          * @brief Generate a new group request for this subscription
          *
          * @param group_id Value of group requested or zero if unknown
-         * @details Silently does nothing unless status is `kOk`, new-group requests are enabled,
-         * and both the session and request stream are available. Local status is unchanged.
+         * @details Local status is unchanged.
+         * @return True when the request update is sent; false unless status is `kOk` or `kPaused`,
+         * new-group requests are enabled, and both the session and request stream are available.
          */
-        void RequestNewGroup(uint64_t group_id = 0) noexcept;
+        bool RequestNewGroup(uint64_t group_id = 0) noexcept;
 
         /**
          * @brief Indicate if subscribe handler should send new group requests or not
@@ -431,8 +434,8 @@ namespace quicr {
          * @details Notification of the subscribe status
          *
          * @param status Indicates status of the subscribe
-         * @note The default implementation does nothing. Depending on the initiating operation,
-         * some direct local state changes (including `Pause()` and `Resume()`) do not invoke it.
+         * @note The default implementation does nothing. `Pause()` and `Resume()` change local
+         * status directly without invoking this callback.
          */
         virtual void StatusChanged([[maybe_unused]] Status status) {}
 
