@@ -100,7 +100,8 @@ typedef struct server_fetch_context
 
 typedef struct rejection_context
 {
-    quicr_test_event_t* session_ready;
+    quicr_test_event_t* publish_session_ready;
+    quicr_test_event_t* subscribe_session_ready;
     quicr_test_event_t* publish_rejected;
     quicr_test_event_t* subscribe_rejected;
     quicr_test_event_t* track_status_rejected;
@@ -430,11 +431,11 @@ track_status_changed(quicr_track_status_track_handler_t* handler,
 static void
 rejection_session_status_changed(quicr_session_t* session, quicr_session_status_t status, void* user_data)
 {
-    rejection_context_t* context = user_data;
+    quicr_test_event_t* session_ready = user_data;
     (void)session;
 
-    if (context != NULL && status == QUICR_SESSION_STATUS_READY) {
-        quicr_test_event_signal(context->session_ready);
+    if (status == QUICR_SESSION_STATUS_READY) {
+        quicr_test_event_signal(session_ready);
     }
 }
 
@@ -944,7 +945,9 @@ quicr_test_c_connection(const char* connect_uri)
     quicr_client_config_init(&config);
     config.endpoint_id = "c-api-client";
     config.connect_uri = connect_uri;
+#ifndef QUICR_TEST_NO_CERT_VERIFIER
     config.transport_config.tls_root_trust_filename = "server-cert.pem";
+#endif
     config.transport_config.metrics_sample_ms = 10U;
 
     quicr_session_client_callbacks_t callbacks = {
@@ -1372,12 +1375,14 @@ quicr_test_c_rejections(const char* connect_uri)
     bool subscribe_registered = false;
     bool track_status_registered = false;
 
-    context.session_ready = quicr_test_event_create();
+    context.publish_session_ready = quicr_test_event_create();
+    context.subscribe_session_ready = quicr_test_event_create();
     context.publish_rejected = quicr_test_event_create();
     context.subscribe_rejected = quicr_test_event_create();
     context.track_status_rejected = quicr_test_event_create();
-    SCENARIO_REQUIRE(context.session_ready != NULL && context.publish_rejected != NULL &&
-                     context.subscribe_rejected != NULL && context.track_status_rejected != NULL);
+    SCENARIO_REQUIRE(context.publish_session_ready != NULL && context.subscribe_session_ready != NULL &&
+                     context.publish_rejected != NULL && context.subscribe_rejected != NULL &&
+                     context.track_status_rejected != NULL);
     SCENARIO_REQUIRE(quicr_session_manager_create(NULL, &manager) == QUICR_STATUS_OK);
 
     quicr_client_config_t publish_config;
@@ -1390,17 +1395,23 @@ quicr_test_c_rejections(const char* connect_uri)
     subscribe_config.endpoint_id = "c-api-rejected-subscriber";
     subscribe_config.connect_uri = connect_uri;
 
-    const quicr_session_client_callbacks_t session_callbacks = {
-        .user_data = &context,
+    const quicr_session_client_callbacks_t publish_session_callbacks = {
+        .user_data = context.publish_session_ready,
         .setup_received = accept_track_setup,
         .status_changed = rejection_session_status_changed,
     };
-    SCENARIO_REQUIRE(quicr_session_manager_add_client(manager, &publish_config, &session_callbacks, &publish_session) ==
-                     QUICR_STATUS_OK);
+    const quicr_session_client_callbacks_t subscribe_session_callbacks = {
+        .user_data = context.subscribe_session_ready,
+        .setup_received = accept_track_setup,
+        .status_changed = rejection_session_status_changed,
+    };
     SCENARIO_REQUIRE(quicr_session_manager_add_client(
-                       manager, &subscribe_config, &session_callbacks, &subscribe_session) == QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(quicr_test_event_wait(context.session_ready, QUICR_TEST_TIMEOUT_MS));
-    SCENARIO_REQUIRE(quicr_test_event_wait(context.session_ready, QUICR_TEST_TIMEOUT_MS));
+                       manager, &publish_config, &publish_session_callbacks, &publish_session) == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(
+      quicr_session_manager_add_client(manager, &subscribe_config, &subscribe_session_callbacks, &subscribe_session) ==
+      QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_test_event_wait(context.publish_session_ready, QUICR_TEST_TIMEOUT_MS));
+    SCENARIO_REQUIRE(quicr_test_event_wait(context.subscribe_session_ready, QUICR_TEST_TIMEOUT_MS));
     SCENARIO_REQUIRE(create_track_name(&full_track_name) == QUICR_STATUS_OK);
 
     const quicr_publish_track_handler_callbacks_t publish_callbacks = {
@@ -1470,7 +1481,8 @@ cleanup:
     quicr_test_event_destroy(context.track_status_rejected);
     quicr_test_event_destroy(context.subscribe_rejected);
     quicr_test_event_destroy(context.publish_rejected);
-    quicr_test_event_destroy(context.session_ready);
+    quicr_test_event_destroy(context.subscribe_session_ready);
+    quicr_test_event_destroy(context.publish_session_ready);
     return result;
 }
 
