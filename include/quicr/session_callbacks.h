@@ -271,17 +271,23 @@ namespace quicr {
          * @brief Callback notification for new subscribe received that doesn't match an existing publish track
          *
          * @details Client mode only. When a new subscribe is received that doesn't match any existing publish
-         *      track, this method signals the application that there is a new subscribe full track name. The
-         *      application should `PublishTrack()` within this callback (or afterwards).
+         *      track, this method signals the application that there is a new subscribe full track name. To
+         *      serve it, `BindPublisherTrack()` within this callback, or before completing a deferred reply.
+         *      That attaches a publish handler to this subscribe. `PublishTrack()` is a separate publisher-
+         *      initiated request and does not answer this subscribe. A successful reply is answered with
+         *      SUBSCRIBE_OK when a publish track is registered. Returning an error sends REQUEST_ERROR with
+         *      that reason. A successful reply that did not register a track is rejected as not existing.
          *
-         *      Defaults to accepting.
+         *      Defaults to accepting without publishing a track, which the session then rejects as not existing.
          *
+         * @param request_id Request ID of the inbound subscribe
          * @param track_full_name Track full name
          * @param session Session that received the request.
          * @param subscribe_attributes Subscribe attributes received
          * @return Immediate or deferred acceptance, or rejection reason.
          */
         virtual Reply<void, ErrorCode> UnpublishedSubscribeReceived(const std::shared_ptr<Session>& session,
+                                                                    std::uint64_t request_id,
                                                                     const FullTrackName& track_full_name,
                                                                     const SubscribeAttributes& subscribe_attributes);
     };

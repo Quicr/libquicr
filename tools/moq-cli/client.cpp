@@ -14,16 +14,24 @@
 #include <quicr/session_manager.h>
 #include <quicr/utilities/defer.h>
 
+#include <algorithm>
 #include <atomic>
+#include <condition_variable>
 #include <csignal>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <mutex>
 #include <regex>
 #include <set>
 #include <thread>
 
 using namespace std::chrono_literals;
+
+void
+PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
+                   const std::shared_ptr<quicr::PublishTrackHandler> track_handler,
+                   std::atomic_bool& stop);
 
 /**
  * @brief Defines an object received from an announcer that lives in the cache.
@@ -307,7 +315,47 @@ class MyClient : public quicr::Session::ClientCallbacks
     MyClient() = default;
 
   public:
+    struct AnnounceTrack
+    {
+        quicr::FullTrackName full_track_name;
+        std::shared_ptr<quicr::PublishTrackHandler> handler;
+        bool start_sending{ false };
+        bool started{ false };
+    };
+
     static std::shared_ptr<MyClient> Create() { return std::shared_ptr<MyClient>(new MyClient()); }
+
+    void ArmAnnounce(quicr::TrackNamespace track_namespace,
+                     std::shared_ptr<quicr::Session> session,
+                     std::atomic_bool& stop,
+                     std::vector<AnnounceTrack> tracks)
+    {
+        std::lock_guard lock(announce_mutex_);
+        announce_namespace_ = std::move(track_namespace);
+        announce_session_ = std::move(session);
+        announce_stop_ = &stop;
+        announce_tracks_ = std::move(tracks);
+        announce_closed_ = false;
+        announce_armed_ = true;
+    }
+
+    void FinishAnnounce()
+    {
+        std::vector<std::thread> threads;
+        {
+            std::unique_lock lock(announce_mutex_);
+            announce_armed_ = false;
+            announce_closed_ = true;
+            announce_cv_.wait(lock, [&] { return announce_in_flight_ == 0; });
+            threads.swap(announce_threads_);
+        }
+
+        for (auto& thread : threads) {
+            if (thread.joinable()) {
+                thread.join();
+            }
+        }
+    }
 
     // -- quicr::Session::Callbacks (base, used in client mode) ---------------------------------
 
@@ -340,13 +388,108 @@ class MyClient : public quicr::Session::ClientCallbacks
     }
 
     quicr::Reply<void, quicr::ErrorCode> UnpublishedSubscribeReceived(
-      [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
+      const std::shared_ptr<quicr::Session>& session,
+      std::uint64_t request_id,
       const quicr::FullTrackName& track_full_name,
       [[maybe_unused]] const quicr::SubscribeAttributes& subscribe_attributes) override
     {
+        std::shared_ptr<quicr::PublishTrackHandler> handler;
+        std::shared_ptr<quicr::Session> publish_session;
+        std::atomic_bool* stop = nullptr;
+        bool start_sending = false;
+
+        {
+            std::lock_guard lock(announce_mutex_);
+            if (!announce_armed_) {
+                QUICR_LOGGER_INFO(qclient_vars::logger,
+                                  "Received subscribe for a track that is not currently published: {}",
+                                  track_full_name.NameStr());
+                return quicr::Unexpected<quicr::Error<quicr::ErrorCode>>(quicr::ErrorCode::kDoesNotExist,
+                                                                         "Track does not exist");
+            }
+
+            if (track_full_name.name_space != announce_namespace_) {
+                QUICR_LOGGER_INFO(qclient_vars::logger,
+                                  "Subscribe for {} does not match --pub_namespace, track does not exist",
+                                  track_full_name.NamespaceStr());
+                return quicr::Unexpected<quicr::Error<quicr::ErrorCode>>(quicr::ErrorCode::kDoesNotExist,
+                                                                         "Track does not exist");
+            }
+
+            auto track_it =
+              std::find_if(announce_tracks_.begin(), announce_tracks_.end(), [&](const AnnounceTrack& track) {
+                  return track.full_track_name.name == track_full_name.name;
+              });
+            if (track_it == announce_tracks_.end()) {
+                QUICR_LOGGER_INFO(qclient_vars::logger,
+                                  "Subscribe for {} does not match --pub_name, track does not exist",
+                                  track_full_name.NameStr());
+                return quicr::Unexpected<quicr::Error<quicr::ErrorCode>>(quicr::ErrorCode::kDoesNotExist,
+                                                                         "Track does not exist");
+            }
+
+            if (track_it->started) {
+                return {};
+            }
+
+            track_it->started = true;
+            handler = track_it->handler;
+            start_sending = track_it->start_sending;
+            stop = announce_stop_;
+            publish_session = announce_session_;
+            ++announce_in_flight_;
+        }
+
         QUICR_LOGGER_INFO(qclient_vars::logger,
-                          "Received subscribe for a track that is not currently published: {}",
+                          "Subscribe matched namespace {} name {}, publishing track",
+                          track_full_name.NamespaceStr(),
                           track_full_name.NameStr());
+
+        try {
+            // Answer this subscribe. PublishTrack() would open a new PUBLISH, which the peer rejects
+            // and whose stream close marks the handler finished before any objects are sent.
+            const auto connection = session->GetDefaultConnection();
+            if (!connection) {
+                throw std::runtime_error("Session has no connection");
+            }
+            session->BindPublisherTrack(connection->GetID(), request_id, handler, false);
+            handler->SetStatus(quicr::PublishTrackHandler::Status::kPendingAnnounceResponse);
+        } catch (const std::exception& e) {
+            {
+                std::lock_guard lock(announce_mutex_);
+                for (auto& track : announce_tracks_) {
+                    if (track.handler == handler) {
+                        track.started = false;
+                    }
+                }
+                --announce_in_flight_;
+                announce_cv_.notify_all();
+            }
+            QUICR_LOGGER_ERROR(qclient_vars::logger, "Failed to publish track for subscribe: {}", e.what());
+            return quicr::Unexpected<quicr::Error<quicr::ErrorCode>>(quicr::ErrorCode::kInternalError,
+                                                                     std::string(e.what()));
+        }
+
+        bool closed = false;
+        {
+            std::lock_guard lock(announce_mutex_);
+            --announce_in_flight_;
+            closed = announce_closed_;
+            if (!closed && start_sending && stop != nullptr) {
+                announce_threads_.emplace_back([publish_session, handler, stop] {
+                    PublishWithHandler(publish_session, handler, *stop);
+                    publish_session->UnpublishTrack(handler);
+                    std::this_thread::sleep_for(100ms);
+                    stop->store(true, std::memory_order_release);
+                });
+            }
+            announce_cv_.notify_all();
+        }
+
+        if (closed) {
+            publish_session->UnpublishTrack(handler);
+        }
+
         return {};
     }
 
@@ -547,6 +690,17 @@ class MyClient : public quicr::Session::ClientCallbacks
 
         return quicr::FetchResponse{ largest_location, resolved_group_order };
     }
+
+    std::mutex announce_mutex_;
+    std::condition_variable announce_cv_;
+    bool announce_armed_{ false };
+    bool announce_closed_{ false };
+    int announce_in_flight_{ 0 };
+    quicr::TrackNamespace announce_namespace_;
+    std::shared_ptr<quicr::Session> announce_session_;
+    std::atomic_bool* announce_stop_{ nullptr };
+    std::vector<AnnounceTrack> announce_tracks_;
+    std::vector<std::thread> announce_threads_;
 };
 
 class MySubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
@@ -584,7 +738,8 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
 
     const auto& full_track_name = track_handler->GetFullTrackName();
 
-    bool published_track{ false };
+    // A matching announce subscribe publishes the track before this loop starts.
+    bool published_track = track_handler->GetRequestId().has_value();
     bool sending{ false };
     uint64_t group_id{ 0 };
     uint64_t object_id{ 0 };
@@ -792,10 +947,34 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
     QUICR_LOGGER_INFO(qclient_vars::logger, "Publisher done track");
 }
 
+bool
+WaitForNamespaceOk(const std::shared_ptr<MyPublisherNamespaceHandler>& ns_handler, const std::atomic_bool& stop)
+{
+    while (!stop.load(std::memory_order_acquire)) {
+        switch (ns_handler->GetStatus()) {
+            case MyPublisherNamespaceHandler::Status::kOk:
+                return true;
+            case MyPublisherNamespaceHandler::Status::kPublishNotAuthorized:
+            case MyPublisherNamespaceHandler::Status::kError:
+            case MyPublisherNamespaceHandler::Status::kNotConnected:
+                QUICR_LOGGER_ERROR(qclient_vars::logger,
+                                   "Publish namespace failed with status {}",
+                                   static_cast<int>(ns_handler->GetStatus()));
+                return false;
+            default:
+                break;
+        }
+        std::this_thread::sleep_for(100ms);
+    }
+
+    return false;
+}
+
 void
 DoPublisher(const std::string prefix_str,
             const std::vector<std::string>& names,
             const std::shared_ptr<quicr::Session>& session,
+            const std::shared_ptr<MyClient>& client,
             bool use_announce,
             std::atomic_bool& stop)
 {
@@ -822,39 +1001,48 @@ DoPublisher(const std::string prefix_str,
 
     const quicr::TrackNamespace prefix = quicr::example::MakeTrackNamespace(prefix_str);
 
-    auto ns_handler = MyPublisherNamespaceHandler::Create(prefix);
-    session->PublishNamespace(ns_handler);
-
-    std::this_thread::sleep_for(1s);
-
-    if (ns_handler->GetStatus() != MyPublisherNamespaceHandler::Status::kOk) {
-        QUICR_LOGGER_ERROR(qclient_vars::logger, "Did not get Publish Namespace OK for prefix, exiting...");
-        return;
-    }
-
-    std::vector<std::weak_ptr<quicr::PublishTrackHandler>> handlers;
+    std::vector<MyClient::AnnounceTrack> tracks;
+    tracks.reserve(names.size());
     for (const auto& name : names) {
         quicr::FullTrackName full_track_name = quicr::example::MakeFullTrackName(prefix_str, name);
         auto handler = MyPublishTrackHandler::Create(full_track_name, quicr::TrackMode::kStream, 200, 3000);
         handler->SetPublisherPriority(qclient_vars::publisher_priority);
-        handlers.push_back(handler);
-        ns_handler->PublishTrack(handler);
+        tracks.push_back(MyClient::AnnounceTrack{ std::move(full_track_name), handler, true });
     }
 
-    std::vector<std::thread> pub_threads;
-    for (const auto& w_handler : handlers) {
-        auto handler = w_handler.lock();
-        if (!handler) {
-            continue;
+    client->ArmAnnounce(prefix, session, stop, std::move(tracks));
+    defer({
+        stop.store(true, std::memory_order_release);
+        client->FinishAnnounce();
+    });
+
+    auto ns_handler = MyPublisherNamespaceHandler::Create(prefix);
+    session->PublishNamespace(ns_handler);
+
+    if (!WaitForNamespaceOk(ns_handler, stop)) {
+        QUICR_LOGGER_ERROR(qclient_vars::logger, "Did not get Publish Namespace OK for prefix, exiting...");
+        return;
+    }
+
+    std::string name_list;
+    for (const auto& name : names) {
+        if (!name_list.empty()) {
+            name_list += ',';
         }
-
-        pub_threads.emplace_back(&PublishWithHandler, session, handler, std::ref(stop));
+        name_list += name;
     }
 
-    for (auto&& thread : pub_threads) {
-        thread.join();
+    QUICR_LOGGER_INFO(qclient_vars::logger,
+                      "Announced namespace {}, waiting for a subscribe that matches namespace {} name {}",
+                      prefix_str,
+                      prefix_str,
+                      name_list);
+
+    while (!stop.load(std::memory_order_acquire)) {
+        std::this_thread::sleep_for(100ms);
     }
 
+    client->FinishAnnounce();
     session->PublishNamespaceDone(ns_handler);
 }
 
@@ -865,7 +1053,8 @@ DoPublisher(const std::string prefix_str,
 void
 DoSubgroupTest(const quicr::FullTrackName& full_track_name,
                const std::shared_ptr<quicr::Session>& session,
-               [[maybe_unused]] bool use_announce,
+               const std::shared_ptr<MyClient>& client,
+               bool use_announce,
                std::atomic_bool& stop)
 {
     auto track_handler = MyPublishTrackHandler::Create(
@@ -879,17 +1068,44 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
 
     QUICR_LOGGER_INFO(qclient_vars::logger, "Started subgroup/stream test publisher");
 
-    bool published_track{ false };
-
-    // Wait for connection and publish track
-    while (not stop.load(std::memory_order_acquire)) {
-        if ((!published_track) && (session->GetStatus() == quicr::Session::Status::kReady)) {
-            QUICR_LOGGER_INFO(qclient_vars::logger, "Publish track for subgroup test");
-            session->PublishTrack(track_handler);
-            published_track = true;
-            break;
+    defer({
+        if (use_announce) {
+            client->FinishAnnounce();
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    });
+
+    std::shared_ptr<MyPublisherNamespaceHandler> announce_ns;
+    if (use_announce) {
+        announce_ns = MyPublisherNamespaceHandler::Create(full_track_name.name_space);
+        client->ArmAnnounce(full_track_name.name_space,
+                            session,
+                            stop,
+                            { MyClient::AnnounceTrack{ full_track_name, track_handler, false } });
+
+        session->PublishNamespace(announce_ns);
+        if (!WaitForNamespaceOk(announce_ns, stop)) {
+            QUICR_LOGGER_ERROR(qclient_vars::logger, "Did not get Publish Namespace OK for prefix, exiting...");
+            return;
+        }
+
+        QUICR_LOGGER_INFO(qclient_vars::logger, "Waiting for subscribe before publishing subgroup test track");
+        while (!stop.load(std::memory_order_acquire) && !track_handler->GetRequestId().has_value()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        if (!track_handler->GetRequestId().has_value()) {
+            session->PublishNamespaceDone(announce_ns);
+            return;
+        }
+    } else {
+        // Wait for connection and publish track
+        while (not stop.load(std::memory_order_acquire)) {
+            if (session->GetStatus() == quicr::Session::Status::kReady) {
+                QUICR_LOGGER_INFO(qclient_vars::logger, "Publish track for subgroup test");
+                session->PublishTrack(track_handler);
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
     }
 
     // Wait for track handler to be ready
@@ -1059,6 +1275,10 @@ DoSubgroupTest(const quicr::FullTrackName& full_track_name,
     session->UnpublishTrack(track_handler);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
+    if (announce_ns) {
+        session->PublishNamespaceDone(announce_ns);
+    }
+
     QUICR_LOGGER_INFO(qclient_vars::logger, "Subgroup test publisher done after {} iterations", iteration);
 }
 
@@ -1189,7 +1409,8 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
 
     if (cli_opts.count("use_announce")) {
         use_announce = true;
-        QUICR_LOGGER_INFO(qclient_vars::logger, "Publisher will use announce flow");
+        QUICR_LOGGER_INFO(qclient_vars::logger,
+                          "Publisher will announce the namespace and publish after a matching subscribe");
     }
 
     if (cli_opts.count("clock") && cli_opts["clock"].as<bool>() == true) {
@@ -1360,7 +1581,9 @@ main(int argc, char* argv[])
         ("t,transport", "Session protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"));
 
     options.add_options("Publisher")
-        ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>())
+        ("use_announce",
+         "Announce the namespace, then publish a track only after a matching subscribe",
+         cxxopts::value<bool>())
         ("track_alias", "Track alias to use", cxxopts::value<uint64_t>())
         ("pub_namespace", "Track namespace", cxxopts::value<std::string>())
         ("pub_name", "Track name", cxxopts::value<std::vector<std::string>>())
@@ -1416,7 +1639,8 @@ main(int argc, char* argv[])
     try {
         quicr::SessionManager session_mgr(qclient_vars::tick_service, qclient_vars::logger);
 
-        auto w_session = session_mgr.AddTransport(config, MyClient::Create());
+        auto client = MyClient::Create();
+        auto w_session = session_mgr.AddTransport(config, client);
 
         auto session = w_session.lock();
         if (!session) {
@@ -1469,12 +1693,14 @@ main(int argc, char* argv[])
             if (qclient_vars::subgroup_test) {
                 const auto& pub_track_name = quicr::example::MakeFullTrackName(
                   result["pub_namespace"].as<std::string>(), result["pub_name"].as<std::string>());
-                pub_thread = std::thread(DoSubgroupTest, pub_track_name, session, use_announce, std::ref(stop_threads));
+                pub_thread =
+                  std::thread(DoSubgroupTest, pub_track_name, session, client, use_announce, std::ref(stop_threads));
             } else {
                 pub_thread = std::thread(DoPublisher,
                                          result["pub_namespace"].as<std::string>(),
                                          result["pub_name"].as<std::vector<std::string>>(),
                                          session,
+                                         client,
                                          use_announce,
                                          std::ref(stop_threads));
             }
