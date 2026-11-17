@@ -1657,10 +1657,12 @@ namespace quicr {
 
         const auto request_stream = track_handler->GetRequestStream();
         if (request_stream == nullptr) {
-            QUICR_LOGGER_ERROR(logger_,
-                               "PublishNamespaceDone missing request context conn_id: {} prefix_hash: {}",
-                               track_handler->GetConnectionId(),
-                               prefix_hash);
+            if (track_handler->GetRequestId().has_value()) {
+                QUICR_LOGGER_ERROR(logger_,
+                                   "PublishNamespaceDone missing request context conn_id: {} prefix_hash: {}",
+                                   track_handler->GetConnectionId(),
+                                   prefix_hash);
+            }
             return;
         }
 
@@ -3557,24 +3559,23 @@ namespace quicr {
               th.track_name_hash);
 
             request_handlers.erase(*track_handler->GetRequestId());
-            pub_tracks_by_name[th.track_namespace_hash].erase(th.track_name_hash);
+            if (auto namespace_it = pub_tracks_by_name.find(th.track_namespace_hash);
+                namespace_it != pub_tracks_by_name.end()) {
+                namespace_it->second.erase(th.track_name_hash);
+                if (namespace_it->second.empty()) {
+                    pub_tracks_by_name.erase(namespace_it);
+                }
+            }
 
-            pub_tracks_by_track_alias[th.track_fullname_hash].erase(src_id);
-            if (pub_tracks_by_track_alias[th.track_fullname_hash].empty()) {
-                pub_tracks_by_track_alias.erase(th.track_fullname_hash);
+            if (auto alias_it = pub_tracks_by_track_alias.find(th.track_fullname_hash);
+                alias_it != pub_tracks_by_track_alias.end()) {
+                alias_it->second.erase(src_id);
+                if (alias_it->second.empty()) {
+                    pub_tracks_by_track_alias.erase(alias_it);
+                }
             }
 
             changed_status = track_handler->UpdateStatus(PublishTrackHandler::Status::kNoSubscribers);
-
-            if (pub_tracks_by_name.count(th.track_namespace_hash) == 0) {
-                QUICR_LOGGER_DEBUG(logger_,
-                                   "Server publish track conn_id: {} full_name_hash: {} namespace_hash: {} unbind",
-                                   track_handler->GetConnectionId(),
-                                   th.track_fullname_hash,
-                                   th.track_namespace_hash);
-
-                pub_tracks_by_name.erase(th.track_namespace_hash);
-            }
 
             track_handler->EndAllSubgroupsInternal(false);
 
@@ -4388,7 +4389,7 @@ namespace quicr {
 
                     const SubscribeNamespaceAttributes attributes{
                         .request_id = request_id,
-                        .filter_type = messages::FilterType::kTrackFilter,
+                        .filter_type = messages::GetFilterType(filter),
                         .filter = filter,
                     };
 

@@ -155,6 +155,7 @@ CheckTransportDefaults(const quicr_transport_config_t* config)
 {
     QUICR_C_TEST_CHECK(EmptyString(config->tls_cert_filename));
     QUICR_C_TEST_CHECK(EmptyString(config->tls_key_filename));
+    QUICR_C_TEST_CHECK(EmptyString(config->tls_root_trust_filename));
     QUICR_C_TEST_CHECK(config->time_queue_init_queue_size == 1000);
     QUICR_C_TEST_CHECK(config->time_queue_max_duration == 2000);
     QUICR_C_TEST_CHECK(config->time_queue_bucket_interval == 500);
@@ -181,6 +182,9 @@ CheckTransportDefaults(const quicr_transport_config_t* config)
 quicr_c_test_result_t
 quicr_c_test_initializers(void)
 {
+    QUICR_C_TEST_CHECK(QUICR_REQUEST_ERROR_GOING_AWAY == 15);
+    QUICR_C_TEST_CHECK(QUICR_ERROR_GOING_AWAY == 0x6);
+
     quicr_transport_config_t transport;
     Poison(&transport, sizeof(transport));
     quicr_transport_config_init(&transport);
@@ -264,6 +268,36 @@ quicr_c_test_initializers(void)
 }
 
 quicr_c_test_result_t
+quicr_c_test_optional_attribute_getters(void)
+{
+    uint64_t scalar = UINT64_MAX;
+    quicr_location_t location = { UINT64_MAX, UINT64_MAX };
+    quicr_group_order_t group_order = QUICR_GROUP_ORDER_UNSPECIFIED;
+
+    QUICR_C_TEST_CHECK(!quicr_publish_attributes_expires(NULL, &scalar));
+    QUICR_C_TEST_CHECK(scalar == UINT64_MAX);
+    QUICR_C_TEST_CHECK(!quicr_publish_attributes_largest_object(NULL, &location));
+    QUICR_C_TEST_CHECK(location.group == UINT64_MAX && location.object == UINT64_MAX);
+    QUICR_C_TEST_CHECK(!quicr_publish_attributes_max_cache_duration(NULL, &scalar));
+    QUICR_C_TEST_CHECK(scalar == UINT64_MAX);
+    QUICR_C_TEST_CHECK(!quicr_publish_attributes_delivery_timeout(NULL, &scalar));
+    QUICR_C_TEST_CHECK(scalar == UINT64_MAX);
+    QUICR_C_TEST_CHECK(!quicr_subscribe_attributes_group_order(NULL, &group_order));
+    QUICR_C_TEST_CHECK(group_order == QUICR_GROUP_ORDER_UNSPECIFIED);
+    QUICR_C_TEST_CHECK(!quicr_subscribe_attributes_new_group_request_id(NULL, &scalar));
+    QUICR_C_TEST_CHECK(scalar == UINT64_MAX);
+
+    QUICR_C_TEST_CHECK(!quicr_publish_attributes_expires(NULL, NULL));
+    QUICR_C_TEST_CHECK(!quicr_publish_attributes_largest_object(NULL, NULL));
+    QUICR_C_TEST_CHECK(!quicr_publish_attributes_max_cache_duration(NULL, NULL));
+    QUICR_C_TEST_CHECK(!quicr_publish_attributes_delivery_timeout(NULL, NULL));
+    QUICR_C_TEST_CHECK(!quicr_subscribe_attributes_group_order(NULL, NULL));
+    QUICR_C_TEST_CHECK(!quicr_subscribe_attributes_new_group_request_id(NULL, NULL));
+
+    return QUICR_C_TEST_SUCCESS;
+}
+
+quicr_c_test_result_t
 quicr_c_test_responses(void)
 {
     quicr_track_namespace_t* track_namespace = NULL;
@@ -301,8 +335,7 @@ quicr_c_test_responses(void)
     };
     QUICR_C_TEST_CHECK(quicr_publish_response_set_filter(response, &filter) == QUICR_STATUS_OK);
 
-    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_destroy(handler) == QUICR_STATUS_OK);
-    handler = NULL;
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_destroy(handler) == QUICR_STATUS_BUSY);
     QUICR_C_TEST_CHECK(quicr_publish_response_set_forward(response, false) == QUICR_STATUS_OK);
 
     QUICR_C_TEST_CHECK(quicr_publish_response_set_subscriber_priority(NULL, 0) == QUICR_STATUS_INVALID_ARGUMENT);
@@ -337,6 +370,7 @@ quicr_c_test_responses(void)
 
     QUICR_C_TEST_CHECK(quicr_publish_response_create(NULL, &response) == QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_publish_response_create(handler, NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_destroy(handler) == QUICR_STATUS_OK);
     return QUICR_C_TEST_SUCCESS;
 }
 
@@ -392,6 +426,54 @@ quicr_c_test_handlers(void)
     QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_status(publish, &publish_status) == QUICR_STATUS_OK);
     QUICR_C_TEST_CHECK(!quicr_publish_track_handler_can_publish(publish));
 
+    uint8_t priority = 0;
+    uint32_t ttl = 0;
+    quicr_track_mode_t track_mode = QUICR_TRACK_MODE_DATAGRAM;
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_publisher_priority(publish, &priority) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(priority == 1);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_publisher_priority(publish, 3) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_publisher_priority(publish, &priority) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(priority == 3);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_publish_object_priority(publish, &priority) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(priority == 2);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_publish_object_priority(publish, 4) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_publish_object_priority(publish, &priority) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(priority == 4);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_default_ttl(publish, &ttl) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(ttl == 1000);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_default_ttl(publish, 2000) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_default_ttl(publish, &ttl) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(ttl == 2000);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_default_track_mode(publish, &track_mode) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(track_mode == QUICR_TRACK_MODE_STREAM);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_default_track_mode(publish, QUICR_TRACK_MODE_DATAGRAM) ==
+                       QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_default_track_mode(publish, &track_mode) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(track_mode == QUICR_TRACK_MODE_DATAGRAM);
+
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_publisher_priority(NULL, &priority) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_publisher_priority(publish, NULL) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_publisher_priority(NULL, 0) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_publish_object_priority(NULL, &priority) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_publish_object_priority(publish, NULL) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_publish_object_priority(NULL, 0) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_default_ttl(NULL, &ttl) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_default_ttl(publish, NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_default_ttl(NULL, 0) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_default_track_mode(NULL, &track_mode) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_default_track_mode(publish, NULL) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_default_track_mode(NULL, QUICR_TRACK_MODE_STREAM) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_default_track_mode(publish, UINT8_MAX) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+
     quicr_object_headers_t headers;
     quicr_object_headers_init(&headers);
     quicr_publish_object_status_t object_status = QUICR_PUBLISH_OBJECT_STATUS_OK;
@@ -415,6 +497,12 @@ quicr_c_test_handlers(void)
                        QUICR_STATUS_OK);
     quicr_subscribe_track_handler_status_t subscribe_status;
     QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_get_status(subscribe, &subscribe_status) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_pause(subscribe) == QUICR_STATUS_NOT_APPLIED);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_resume(subscribe) == QUICR_STATUS_NOT_APPLIED);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_request_new_group(subscribe, 0) == QUICR_STATUS_NOT_APPLIED);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_pause(NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_resume(NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_request_new_group(NULL, 0) == QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_destroy(subscribe) == QUICR_STATUS_OK);
 
     quicr_subscribe_track_handler_t* forwarding = NULL;
@@ -431,6 +519,12 @@ quicr_c_test_handlers(void)
                        QUICR_STATUS_OK);
     quicr_fetch_track_handler_status_t fetch_status;
     QUICR_C_TEST_CHECK(quicr_fetch_track_handler_get_status(fetch, &fetch_status) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_pause(fetch) == QUICR_STATUS_NOT_APPLIED);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_resume(fetch) == QUICR_STATUS_NOT_APPLIED);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_request_new_group(fetch, 0) == QUICR_STATUS_NOT_APPLIED);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_pause(NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_resume(NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_request_new_group(NULL, 0) == QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_fetch_track_handler_destroy(fetch) == QUICR_STATUS_OK);
 
     quicr_publish_namespace_handler_t* publish_namespace = NULL;
@@ -544,6 +638,12 @@ quicr_c_test_generic_handlers(void)
     QUICR_C_TEST_CHECK(quicr_session_manager_add_handler(NULL, NULL, subscribe_namespace) ==
                        QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_session_manager_add_handler(NULL, NULL, track_status) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_session_bind_publish_track_handler(NULL, 1U, 2U, publish, false) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_session_unbind_publish_track_handler(NULL, 1U, publish, false) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_session_send_namespace(NULL, names.track_namespace) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_session_send_namespace_done(NULL, names.track_namespace) == QUICR_STATUS_INVALID_ARGUMENT);
 
     QUICR_C_TEST_CHECK(quicr_track_handler_destroy(publish) == QUICR_STATUS_OK);
     QUICR_C_TEST_CHECK(quicr_track_handler_destroy(publish_fetch) == QUICR_STATUS_OK);

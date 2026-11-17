@@ -38,6 +38,7 @@ extern "C"
         QUICR_STATUS_BUFFER_TOO_SMALL = 5, ///< The supplied output buffer is too small; retry with the reported size.
         QUICR_STATUS_BUSY = 6, ///< The object is registered or a callback is active. Remove it first, return from the
                                ///< callback if applicable, then retry the same operation.
+        QUICR_STATUS_NOT_APPLIED = 7, ///< The request was valid but current state prevented applying the operation.
     };
     /** @} */
 
@@ -218,6 +219,7 @@ extern "C"
         QUICR_REQUEST_ERROR_PREFIX_OVERLAP = 12,             ///< Namespace prefixes conflict.
         QUICR_REQUEST_ERROR_INVALID_JOINING_REQUEST_ID = 13, ///< Joining request ID is invalid.
         QUICR_REQUEST_ERROR_REDIRECT = 14,                   ///< Retry using the supplied redirect.
+        QUICR_REQUEST_ERROR_GOING_AWAY = 15,                 ///< The request is going away.
     };
     /** @} */
 
@@ -284,6 +286,7 @@ extern "C"
         QUICR_ERROR_NOT_SUPPORTED = 0x3,               ///< Operation is unsupported.
         QUICR_ERROR_MALFORMED_AUTH_TOKEN = 0x4,        ///< Token is malformed.
         QUICR_ERROR_EXPIRED_AUTH_TOKEN = 0x5,          ///< Token expired.
+        QUICR_ERROR_GOING_AWAY = 0x6,                  ///< The request is going away.
         QUICR_ERROR_DOES_NOT_EXIST = 0x10,             ///< Resource does not exist.
         QUICR_ERROR_INVALID_RANGE = 0x11,              ///< Range is invalid.
         QUICR_ERROR_MALFORMED_TRACK = 0x12,            ///< Track data is malformed.
@@ -320,16 +323,17 @@ extern "C"
      */
     typedef struct quicr_transport_config
     {
-        const char* tls_cert_filename;                 ///< TLS certificate path; NULL is converted to an empty string.
-        const char* tls_key_filename;                  ///< TLS private-key path; NULL is converted to an empty string.
-        uint32_t time_queue_init_queue_size;           ///< Initial time-queue capacity; default 1000.
-        uint32_t time_queue_max_duration;              ///< Maximum duration in milliseconds; default 2000.
-        uint32_t time_queue_bucket_interval;           ///< Bucket width in milliseconds; default 500.
-        uint32_t time_queue_rx_size;                   ///< Receive queue capacity; default 1000.
-        bool debug;                                    ///< Enable debug behavior; default false.
-        uint64_t quic_cwin_minimum;                    ///< Minimum congestion window in bytes; default 131072.
-        uint32_t quic_wifi_shadow_rtt_us;              ///< Wi-Fi shadow RTT in microseconds; default 20000.
-        uint64_t idle_timeout_ms;                      ///< Idle timeout in milliseconds; default 30000.
+        const char* tls_cert_filename;       ///< TLS certificate path; NULL is converted to an empty string.
+        const char* tls_key_filename;        ///< TLS private-key path; NULL is converted to an empty string.
+        const char* tls_root_trust_filename; ///< PEM CA bundle path; NULL or empty disables server verification.
+        uint32_t time_queue_init_queue_size; ///< Initial time-queue capacity; default 1000.
+        uint32_t time_queue_max_duration;    ///< Maximum duration in milliseconds; default 2000.
+        uint32_t time_queue_bucket_interval; ///< Bucket width in milliseconds; default 500.
+        uint32_t time_queue_rx_size;         ///< Receive queue capacity; default 1000.
+        bool debug;                          ///< Enable debug behavior; default false.
+        uint64_t quic_cwin_minimum;          ///< Minimum congestion window in bytes; default 131072.
+        uint32_t quic_wifi_shadow_rtt_us;    ///< Wi-Fi shadow RTT in microseconds; default 20000.
+        uint64_t idle_timeout_ms;            ///< Idle timeout in milliseconds; default 30000.
         quicr_congestion_control_t congestion_control; ///< Congestion-control selection; default BBR.
         const char* quic_qlog_path;       ///< QLOG path; NULL is converted to empty, which disables output.
         uint8_t quic_priority_limit;      ///< Pacing/CC bypass limit; default 0.
@@ -1074,6 +1078,44 @@ extern "C"
          * @param user_data Callback table's opaque user data.
          */
         void (*metrics_sampled)(quicr_session_t* session, const quicr_connection_metrics_t* metrics, void* user_data);
+
+        /**
+         * @brief Peer finished a publisher-initiated track publication.
+         *
+         * @param session Borrowed session handle.
+         * @param request_id Completed PUBLISH request identifier.
+         * @param user_data Callback table's opaque user data.
+         */
+        void (*publish_done_received)(quicr_session_t* session, uint64_t request_id, void* user_data);
+
+        /**
+         * @brief Peer cancelled a track subscription.
+         *
+         * @param session Borrowed session handle.
+         * @param request_id Cancelled SUBSCRIBE request identifier.
+         * @param user_data Callback table's opaque user data.
+         */
+        void (*unsubscribe_received)(quicr_session_t* session, uint64_t request_id, void* user_data);
+
+        /**
+         * @brief Peer finished a namespace publication.
+         *
+         * @param session Borrowed session handle.
+         * @param request_id Completed PUBLISH_NAMESPACE request identifier.
+         * @param user_data Callback table's opaque user data.
+         */
+        void (*publish_namespace_done_received)(quicr_session_t* session, uint64_t request_id, void* user_data);
+
+        /**
+         * @brief Peer cancelled a namespace subscription.
+         *
+         * @param session Borrowed session handle.
+         * @param track_namespace Borrowed unsubscribed namespace prefix.
+         * @param user_data Callback table's opaque user data.
+         */
+        void (*unsubscribe_namespace_received)(quicr_session_t* session,
+                                               const quicr_track_namespace_t* track_namespace,
+                                               void* user_data);
     } quicr_session_server_callbacks_t;
 
     /**
@@ -1113,6 +1155,35 @@ extern "C"
                                                     const char* new_session_uri,
                                                     uint64_t timeout_ms,
                                                     const uint64_t* first_unprocessed_request_id);
+
+    /**
+     * @brief Notify matching namespace subscribers that a namespace is active.
+     *
+     * Sends NAMESPACE on every inbound namespace-subscription request whose prefix matches. The namespace is copied
+     * during the call, and each subscriber receives the suffix relative to its requested prefix.
+     *
+     * @param session Borrowed live server session handle.
+     * @param track_namespace Fully qualified active namespace to copy.
+     *
+     * @return `OK` when the notifications are sent; `INVALID_ARGUMENT` for NULL; `NOT_FOUND` if the session is not
+     * live; `OUT_OF_MEMORY` if allocation fails; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t quicr_session_send_namespace(quicr_session_t* session,
+                                                            const quicr_track_namespace_t* track_namespace);
+
+    /**
+     * @brief Notify matching namespace subscribers that a namespace is no longer active.
+     *
+     * Sends NAMESPACE_DONE using the same matching and relative-suffix rules as quicr_session_send_namespace().
+     *
+     * @param session Borrowed live server session handle.
+     * @param track_namespace Fully qualified ended namespace to copy.
+     *
+     * @return `OK` when the notifications are sent; `INVALID_ARGUMENT` for NULL; `NOT_FOUND` if the session is not
+     * live; `OUT_OF_MEMORY` if allocation fails; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t quicr_session_send_namespace_done(quicr_session_t* session,
+                                                                 const quicr_track_namespace_t* track_namespace);
 
     /*=======================================================================*/
     // Handlers
@@ -1477,6 +1548,99 @@ extern "C"
                                                                       quicr_publish_track_handler_status_t* status);
 
     /**
+     * @brief Read the publisher priority used for future object headers.
+     *
+     * @param handler Handler to inspect.
+     * @param priority Receives the publisher priority.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler or priority is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_publish_track_handler_get_publisher_priority(const quicr_publish_track_handler_t* handler, uint8_t* priority);
+
+    /**
+     * @brief Set the publisher priority used for future object headers.
+     *
+     * @param handler Handler to update.
+     * @param priority New publisher priority.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_publish_track_handler_set_publisher_priority(quicr_publish_track_handler_t* handler, uint8_t priority);
+
+    /**
+     * @brief Read the transport scheduling priority used for future objects.
+     *
+     * @param handler Handler to inspect.
+     * @param priority Receives the publish-object priority.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler or priority is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_publish_track_handler_get_publish_object_priority(const quicr_publish_track_handler_t* handler,
+                                                            uint8_t* priority);
+
+    /**
+     * @brief Set the transport scheduling priority used for future objects.
+     *
+     * @param handler Handler to update.
+     * @param priority New publish-object priority.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_publish_track_handler_set_publish_object_priority(quicr_publish_track_handler_t* handler, uint8_t priority);
+
+    /**
+     * @brief Read the default TTL used when object headers omit one.
+     *
+     * @param handler Handler to inspect.
+     * @param ttl Receives the default TTL in milliseconds.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler or ttl is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t quicr_publish_track_handler_get_default_ttl(const quicr_publish_track_handler_t* handler,
+                                                                           uint32_t* ttl);
+
+    /**
+     * @brief Set the default TTL used when object headers omit one.
+     *
+     * @param handler Handler to update.
+     * @param ttl New default TTL in milliseconds.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t quicr_publish_track_handler_set_default_ttl(quicr_publish_track_handler_t* handler,
+                                                                           uint32_t ttl);
+
+    /**
+     * @brief Read the default transport mode used for future objects.
+     *
+     * @param handler Handler to inspect.
+     * @param track_mode Receives DATAGRAM or STREAM.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler or track_mode is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_publish_track_handler_get_default_track_mode(const quicr_publish_track_handler_t* handler,
+                                                       quicr_track_mode_t* track_mode);
+
+    /**
+     * @brief Set the default transport mode used for future objects.
+     *
+     * @param handler Handler to update.
+     * @param track_mode DATAGRAM or STREAM.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` for NULL or an invalid mode; otherwise `INTERNAL_ERROR`.
+     *
+     * @warning Changing modes while subgroup streams are open does not close or migrate them.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_publish_track_handler_set_default_track_mode(quicr_publish_track_handler_t* handler,
+                                                       quicr_track_mode_t track_mode);
+
+    /**
      * @name Publish-object result statuses
      * @{
      */
@@ -1555,6 +1719,51 @@ extern "C"
      */
     QUICR_C_API quicr_status_t quicr_publish_track_handler_end_all_subgroups(quicr_publish_track_handler_t* handler,
                                                                              bool completed);
+
+    /**
+     * @brief Bind a detached publisher to an inbound server-side SUBSCRIBE request.
+     *
+     * Call this from or after subscribe_received with that callback's request ID. src_id identifies the publisher
+     * origin used for relay alias bookkeeping; for a directly connected subscriber, use its connection ID when
+     * available. request_id identifies the subscriber request and supplies its request stream when locally known.
+     * When ephemeral is true, the binding is omitted from persistent full-name and alias lookup tables but remains
+     * bound by request ID until explicitly unbound. The handler's callbacks remain enabled while bound.
+     *
+     * @param session Borrowed live server session handle that received the SUBSCRIBE.
+     * @param src_id Connection or peering identifier for the publisher origin.
+     * @param request_id Inbound SUBSCRIBE request identifier.
+     * @param handler Detached publish handler to bind.
+     * @param ephemeral Whether to omit persistent full-name and alias indexing.
+     *
+     * @return `OK` when bound; `INVALID_ARGUMENT` for invalid inputs, registration, or state; `NOT_FOUND` if the
+     * session is not live; `OUT_OF_MEMORY` if allocation fails; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t quicr_session_bind_publish_track_handler(quicr_session_t* session,
+                                                                        uint64_t src_id,
+                                                                        uint64_t request_id,
+                                                                        const quicr_publish_track_handler_t* handler,
+                                                                        bool ephemeral);
+
+    /**
+     * @brief Unbind a server-side publisher and disable its callbacks.
+     *
+     * src_id must identify the publisher-origin alias entry used when binding. When send_publish_done is true,
+     * PUBLISH_DONE is sent with SUBSCRIPTION_ENDED if the binding has a local request stream; peer-only bindings
+     * without one are still removed without sending. After successful return, destroy may briefly report BUSY until
+     * any callback already in progress has returned.
+     *
+     * @param session Borrowed live server session handle.
+     * @param src_id Connection or peering identifier supplied when binding.
+     * @param handler Bound publish handler to remove.
+     * @param send_publish_done Whether to finish a locally known subscriber request with PUBLISH_DONE.
+     *
+     * @return `OK` when unbound; `INVALID_ARGUMENT` for invalid inputs, registration, or state; `NOT_FOUND` if the
+     * session is not live; `OUT_OF_MEMORY` if allocation fails; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t quicr_session_unbind_publish_track_handler(quicr_session_t* session,
+                                                                          uint64_t src_id,
+                                                                          const quicr_publish_track_handler_t* handler,
+                                                                          bool send_publish_done);
 
     /**
      * @brief Opaque owned server-side FETCH publisher.
@@ -1988,12 +2197,12 @@ extern "C"
                                                                         quicr_subscribe_track_handler_status_t* status);
 
     /**
-     * @brief Pause delivery asynchronously; status_changed reports PAUSED.
+     * @brief Pause delivery asynchronously without invoking status_changed.
      *
      * @param handler Subscribe handler.
      *
-     * @return `OK` when pausing starts; `INVALID_ARGUMENT` for an invalid handler or state; `OUT_OF_MEMORY` if
-     * allocation fails; otherwise `INTERNAL_ERROR`.
+     * @return `OK` when pausing starts; `NOT_APPLIED` when current state or connectivity prevents it;
+     * `INVALID_ARGUMENT` for an invalid handler pointer; otherwise `INTERNAL_ERROR`.
      */
     QUICR_C_API quicr_status_t quicr_subscribe_track_handler_pause(quicr_subscribe_track_handler_t* handler);
 
@@ -2002,8 +2211,8 @@ extern "C"
      *
      * @param handler Subscribe handler.
      *
-     * @return `OK` when resumed; `INVALID_ARGUMENT` for an invalid handler or state; `OUT_OF_MEMORY` if allocation
-     * fails; otherwise `INTERNAL_ERROR`.
+     * @return `OK` when resumed without invoking status_changed; `NOT_APPLIED` when current state or connectivity
+     * prevents it; `INVALID_ARGUMENT` for an invalid handler pointer; otherwise `INTERNAL_ERROR`.
      */
     QUICR_C_API quicr_status_t quicr_subscribe_track_handler_resume(quicr_subscribe_track_handler_t* handler);
 
@@ -2013,8 +2222,8 @@ extern "C"
      * @param handler Subscribe handler.
      * @param group_id Requested group identifier.
      *
-     * @return `OK` when requested; `INVALID_ARGUMENT` for an invalid handler, state, or group; `OUT_OF_MEMORY` if
-     * allocation fails; otherwise `INTERNAL_ERROR`.
+     * @return `OK` when requested; `NOT_APPLIED` when current state, capability, or connectivity prevents it;
+     * `INVALID_ARGUMENT` for an invalid handler pointer; otherwise `INTERNAL_ERROR`.
      */
     QUICR_C_API quicr_status_t quicr_subscribe_track_handler_request_new_group(quicr_subscribe_track_handler_t* handler,
                                                                                uint64_t group_id);
@@ -2168,8 +2377,8 @@ extern "C"
      *
      * @param handler Fetch handler.
      *
-     * @return `OK` when pausing starts; `INVALID_ARGUMENT` for an invalid handler or state; `OUT_OF_MEMORY` if
-     * allocation fails; otherwise `INTERNAL_ERROR`.
+     * @return `OK` when pausing starts without invoking status_changed; `NOT_APPLIED` when current state or
+     * connectivity prevents it; `INVALID_ARGUMENT` for an invalid handler pointer; otherwise `INTERNAL_ERROR`.
      */
     QUICR_C_API quicr_status_t quicr_fetch_track_handler_pause(quicr_fetch_track_handler_t* handler);
 
@@ -2178,8 +2387,8 @@ extern "C"
      *
      * @param handler Fetch handler.
      *
-     * @return `OK` when resumed; `INVALID_ARGUMENT` for an invalid handler or state; `OUT_OF_MEMORY` if allocation
-     * fails; otherwise `INTERNAL_ERROR`.
+     * @return `OK` when resumed without invoking status_changed; `NOT_APPLIED` when current state or connectivity
+     * prevents it; `INVALID_ARGUMENT` for an invalid handler pointer; otherwise `INTERNAL_ERROR`.
      */
     QUICR_C_API quicr_status_t quicr_fetch_track_handler_resume(quicr_fetch_track_handler_t* handler);
 
@@ -2189,8 +2398,8 @@ extern "C"
      * @param handler Fetch handler.
      * @param group_id Requested group identifier.
      *
-     * @return `OK` when requested; `INVALID_ARGUMENT` for an invalid handler, state, or group; `OUT_OF_MEMORY` if
-     * allocation fails; otherwise `INTERNAL_ERROR`.
+     * @return `OK` when requested; `NOT_APPLIED` when current state, capability, or connectivity prevents it;
+     * `INVALID_ARGUMENT` for an invalid handler pointer; otherwise `INTERNAL_ERROR`.
      */
     QUICR_C_API quicr_status_t quicr_fetch_track_handler_request_new_group(quicr_fetch_track_handler_t* handler,
                                                                            uint64_t group_id);
@@ -2840,27 +3049,24 @@ extern "C"
      * @brief Read optional publication expiration in protocol-defined milliseconds.
      *
      * @param attributes Publish attributes to inspect.
-     * @param has_expires Receives whether expiration is present.
-     * @param expires Receives expiration, or zero when absent.
+     * @param expires Receives expiration when present.
      *
-     * @return `OK` on success; `INVALID_ARGUMENT` for NULL; otherwise `INTERNAL_ERROR`.
+     * @return true when expiration is present and written; false when absent or either argument is NULL.
+     *         On false, `expires` is not modified.
      */
-    QUICR_C_API quicr_status_t quicr_publish_attributes_expires(const quicr_publish_attributes_t* attributes,
-                                                                bool* has_expires,
-                                                                uint64_t* expires);
+    QUICR_C_API bool quicr_publish_attributes_expires(const quicr_publish_attributes_t* attributes, uint64_t* expires);
 
     /**
      * @brief Read the optional largest object.
      *
      * @param attributes Publish attributes to inspect.
-     * @param has_largest_object Receives whether a location is present.
-     * @param largest_object Receives the location, or a zero location when absent.
+     * @param largest_object Receives the location when present.
      *
-     * @return `OK` on success; `INVALID_ARGUMENT` for NULL; otherwise `INTERNAL_ERROR`.
+     * @return true when a location is present and written; false when absent or either argument is NULL.
+     *         On false, `largest_object` is not modified.
      */
-    QUICR_C_API quicr_status_t quicr_publish_attributes_largest_object(const quicr_publish_attributes_t* attributes,
-                                                                       bool* has_largest_object,
-                                                                       quicr_location_t* largest_object);
+    QUICR_C_API bool quicr_publish_attributes_largest_object(const quicr_publish_attributes_t* attributes,
+                                                             quicr_location_t* largest_object);
 
     /**
      * @brief Read the forward flag.
@@ -2914,27 +3120,25 @@ extern "C"
      * @brief Read the optional maximum cache duration in milliseconds.
      *
      * @param attributes Publish attributes to inspect.
-     * @param has_max_cache_duration Receives whether the duration is present.
-     * @param max_cache_duration Receives the duration, or zero when absent.
+     * @param max_cache_duration Receives the duration when present.
      *
-     * @return `OK` on success; `INVALID_ARGUMENT` for NULL; otherwise `INTERNAL_ERROR`.
+     * @return true when a duration is present and written; false when absent or either argument is NULL.
+     *         On false, `max_cache_duration` is not modified.
      */
-    QUICR_C_API quicr_status_t quicr_publish_attributes_max_cache_duration(const quicr_publish_attributes_t* attributes,
-                                                                           bool* has_max_cache_duration,
-                                                                           uint64_t* max_cache_duration);
+    QUICR_C_API bool quicr_publish_attributes_max_cache_duration(const quicr_publish_attributes_t* attributes,
+                                                                 uint64_t* max_cache_duration);
 
     /**
      * @brief Read the optional delivery timeout in milliseconds.
      *
      * @param attributes Publish attributes to inspect.
-     * @param has_delivery_timeout Receives whether the timeout is present.
-     * @param delivery_timeout Receives the timeout, or zero when absent.
+     * @param delivery_timeout Receives the timeout when present.
      *
-     * @return `OK` on success; `INVALID_ARGUMENT` for NULL; otherwise `INTERNAL_ERROR`.
+     * @return true when a timeout is present and written; false when absent or either argument is NULL.
+     *         On false, `delivery_timeout` is not modified.
      */
-    QUICR_C_API quicr_status_t quicr_publish_attributes_delivery_timeout(const quicr_publish_attributes_t* attributes,
-                                                                         bool* has_delivery_timeout,
-                                                                         uint64_t* delivery_timeout);
+    QUICR_C_API bool quicr_publish_attributes_delivery_timeout(const quicr_publish_attributes_t* attributes,
+                                                               uint64_t* delivery_timeout);
 
     /**
      * @brief Read the subscriber priority.
@@ -2949,14 +3153,13 @@ extern "C"
      * @brief Read the optional group order.
      *
      * @param attributes Subscribe attributes to inspect.
-     * @param has_group_order Receives whether a group order is present.
-     * @param group_order Receives the group order, or ASCENDING when absent.
+     * @param group_order Receives the group order when present.
      *
-     * @return `OK` on success; `INVALID_ARGUMENT` for NULL; otherwise `INTERNAL_ERROR`.
+     * @return true when a group order is present and written; false when absent or either argument is NULL.
+     *         On false, `group_order` is not modified.
      */
-    QUICR_C_API quicr_status_t quicr_subscribe_attributes_group_order(const quicr_subscribe_attributes_t* attributes,
-                                                                      bool* has_group_order,
-                                                                      quicr_group_order_t* group_order);
+    QUICR_C_API bool quicr_subscribe_attributes_group_order(const quicr_subscribe_attributes_t* attributes,
+                                                            quicr_group_order_t* group_order);
 
     /**
      * @brief Read the publisher default group order.
@@ -2989,6 +3192,17 @@ extern "C"
     QUICR_C_API uint64_t quicr_subscribe_attributes_expires(const quicr_subscribe_attributes_t* attributes);
 
     /**
+     * @brief Copy the subscription filter.
+     *
+     * @param attributes Subscribe attributes to inspect.
+     * @param filter Receives a self-contained tagged filter value.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` for NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t quicr_subscribe_attributes_filter(const quicr_subscribe_attributes_t* attributes,
+                                                                 quicr_filter_t* filter);
+
+    /**
      * @brief Read the forward flag.
      *
      * @param attributes Subscribe attributes to inspect, or NULL.
@@ -3001,15 +3215,13 @@ extern "C"
      * @brief Read the optional new-group request ID.
      *
      * @param attributes Subscribe attributes to inspect.
-     * @param has_new_group_request_id Receives whether an ID is present.
-     * @param new_group_request_id Receives the ID, or zero when absent.
+     * @param new_group_request_id Receives the ID when present.
      *
-     * @return `OK` on success; `INVALID_ARGUMENT` for NULL; otherwise `INTERNAL_ERROR`.
+     * @return true when an ID is present and written; false when absent or either argument is NULL.
+     *         On false, `new_group_request_id` is not modified.
      */
-    QUICR_C_API quicr_status_t
-    quicr_subscribe_attributes_new_group_request_id(const quicr_subscribe_attributes_t* attributes,
-                                                    bool* has_new_group_request_id,
-                                                    uint64_t* new_group_request_id);
+    QUICR_C_API bool quicr_subscribe_attributes_new_group_request_id(const quicr_subscribe_attributes_t* attributes,
+                                                                     uint64_t* new_group_request_id);
 
     /**
      * @brief Determine whether the publisher initiated this subscription.
@@ -3048,6 +3260,30 @@ extern "C"
      */
     QUICR_C_API uint64_t
     quicr_subscribe_namespace_attributes_request_id(const quicr_subscribe_namespace_attributes_t* attributes);
+
+    /**
+     * @brief Read the namespace subscription filter discriminator.
+     *
+     * @param attributes Namespace-subscribe attributes to inspect.
+     * @param filter_type Receives the filter discriminator.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` for NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_subscribe_namespace_attributes_filter_type(const quicr_subscribe_namespace_attributes_t* attributes,
+                                                     quicr_filter_type_t* filter_type);
+
+    /**
+     * @brief Copy the namespace subscription filter.
+     *
+     * @param attributes Namespace-subscribe attributes to inspect.
+     * @param filter Receives a self-contained tagged filter value.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` for NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_subscribe_namespace_attributes_filter(const quicr_subscribe_namespace_attributes_t* attributes,
+                                                quicr_filter_t* filter);
 
     /*=======================================================================*/
     // Responses

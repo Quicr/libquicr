@@ -28,6 +28,11 @@ TEST_CASE("C API initializers")
     CheckResult(quicr_c_test_initializers());
 }
 
+TEST_CASE("C API optional attribute getters")
+{
+    CheckResult(quicr_c_test_optional_attribute_getters());
+}
+
 TEST_CASE("C API responses")
 {
     CheckResult(quicr_c_test_responses());
