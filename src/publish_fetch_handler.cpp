@@ -45,7 +45,7 @@ namespace quicr {
             eflags.clear_tx_queue = true;
             eflags.use_reset = false;
 
-            stream_ = session->CreateStream(*this);
+            stream_ = session->CreateStream(std::static_pointer_cast<PublishFetchHandler>(shared_from_this()));
 
             messages::FetchHeader fetch_hdr;
             fetch_hdr.request_id = *request_id;

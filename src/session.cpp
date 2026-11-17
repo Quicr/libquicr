@@ -2494,19 +2494,22 @@ namespace quicr {
         return false;
     }
 
-    std::shared_ptr<Stream> Session::CreateStream(PublishTrackHandler& handler)
+    std::shared_ptr<Stream> Session::CreateStream(const std::shared_ptr<PublishTrackHandler>& handler)
     {
-        const auto connection = handler.GetConnection();
+        if (handler == nullptr) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+        const auto connection = handler->GetConnection();
         if (!connection) {
             throw std::invalid_argument("Connection cannot be null");
         }
-        const auto stream = quic_transport_->CreateDataStream(connection, handler.GetPublishObjectPriority());
-        stream->tx_handler = handler.Get<PublishTrackHandler>();
+        const auto stream = quic_transport_->CreateDataStream(connection, handler->GetPublishObjectPriority());
+        stream->tx_handler = handler;
 
         // Streams report their own metrics, so the session needs to know which track each belongs to.
         std::lock_guard _(state_mutex_);
         request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = { .request_id =
-                                                                                      handler.GetRequestId().value(),
+                                                                                      handler->GetRequestId().value(),
                                                                                     .is_request_stream = false };
 
         return stream;

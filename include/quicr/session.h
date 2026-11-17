@@ -790,7 +790,7 @@ namespace quicr {
          * @param handler The handler for the track.
          * @return Shared handle to the created stream.
          */
-        std::shared_ptr<Stream> CreateStream(PublishTrackHandler& handler);
+        std::shared_ptr<Stream> CreateStream(const std::shared_ptr<PublishTrackHandler>& handler);
 
         /**
          * @brief Send published data.
