@@ -321,7 +321,7 @@ session->FetchTrack(fetch);
 ```
 
 Received fetch objects use the subscribe handler callbacks inherited by
-`FetchTrackHandler`. Use `CancelFetchTrack(fetch)` to cancel local fetch state.
+`FetchTrackHandler`. Use `CancelFetchTrack(fetch)` to cancel the fetch.
 
 A joining fetch is configured on a custom `SubscribeTrackHandler` and combines a
 historical fetch range with the live subscription.
@@ -331,9 +331,10 @@ Applications serving fetches answer `StandaloneFetchReceived()` or
 request ID, and bind it with `BindFetchTrack()`. After publishing the requested
 range, call `UnbindFetchTrack()` to drain and finish the fetch stream.
 
-`FetchCancelReceived()` exists in the callback interface, but FETCH_CANCEL send
-and receive handling is not currently wired. `CancelFetchTrack()` only removes
-local fetch state.
+If the requester cancels a fetch that is pending or still being served, the
+session resets the request stream and any data stream, and calls
+`FetchCancelReceived()`. A bound `PublishFetchHandler` then returns
+`kFetchClosed` from `PublishObject()`.
 
 ## Namespace operations
 
@@ -366,9 +367,9 @@ Use `UnsubscribeNamespace(handler)` to end either mode.
 
 ## Ending requests
 
-`UnsubscribeTrack()`, `PublishNamespaceDone()`, and `UnsubscribeNamespace()`
-cancel their request whether it is pending or established: the session resets
-the request stream and unbinds the handler.
+`UnsubscribeTrack()`, `CancelFetchTrack()`, `PublishNamespaceDone()`, and
+`UnsubscribeNamespace()` cancel their request whether it is pending or
+established: the session resets the request stream and unbinds the handler.
 Calling them again has no effect.
 
 ## Track status

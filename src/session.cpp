@@ -831,7 +831,7 @@ namespace quicr {
         const auto request_stream = quic_transport_->CreateRequestStream(connection);
         handler->SetRequestStream(request_stream);
         request_by_stream[{ request_stream->GetConnectionID(), request_stream->GetStreamId() }] = {
-            .request_id = handler->GetRequestId().value(), .is_request_stream = true
+            .request_id = handler->GetRequestId().value(), .request_type = message_type
         };
 
         SendSubscribeNamespace(
@@ -1001,7 +1001,7 @@ namespace quicr {
         const auto request_stream = quic_transport_->CreateRequestStream(connection);
         handler->SetRequestStream(request_stream);
         request_by_stream[{ request_stream->GetConnectionID(), request_stream->GetStreamId() }] = {
-            .request_id = request_id, .is_request_stream = true
+            .request_id = request_id, .request_type = ControlMessageType::kTrackStatus
         };
         request_handlers[request_id] = std::move(handler);
 
@@ -1123,7 +1123,7 @@ namespace quicr {
             const auto request_stream = quic_transport_->CreateRequestStream(connection);
             track_handler->SetRequestStream(request_stream);
             request_by_stream[{ request_stream->GetConnectionID(), request_stream->GetStreamId() }] = {
-                .request_id = track_handler->GetRequestId().value(), .is_request_stream = true
+                .request_id = track_handler->GetRequestId().value(), .request_type = ControlMessageType::kSubscribe
             };
 
             SendSubscribe(request_stream,
@@ -1158,7 +1158,7 @@ namespace quicr {
                 const auto fetch_stream = quic_transport_->CreateRequestStream(connection);
                 joining_fetch_handler->SetRequestStream(fetch_stream);
                 request_by_stream[{ fetch_stream->GetConnectionID(), fetch_stream->GetStreamId() }] = {
-                    .request_id = fetch_rid, .is_request_stream = true
+                    .request_id = fetch_rid, .request_type = ControlMessageType::kFetch
                 };
                 request_handlers[fetch_rid] = std::move(joining_fetch_handler);
                 SendJoiningFetch(fetch_stream,
@@ -1243,12 +1243,17 @@ namespace quicr {
         }
         recv_req_id.erase(request_id);
 
-        const auto req_it = request_handlers.find(request_id);
-        if (req_it == request_handlers.end()) {
+        std::shared_ptr<TrackHandler> handler;
+        if (const auto req_it = request_handlers.find(request_id); req_it != request_handlers.end()) {
+            handler = std::move(req_it->second);
+            request_handlers.erase(req_it);
+        } else if (const auto fetch_it = pub_fetch_tracks_by_request_id.find(request_id);
+                   fetch_it != pub_fetch_tracks_by_request_id.end()) {
+            handler = std::move(fetch_it->second);
+            pub_fetch_tracks_by_request_id.erase(fetch_it);
+        } else {
             return nullptr;
         }
-        auto handler = std::move(req_it->second);
-        request_handlers.erase(req_it);
 
         // TODO: With Tomas' change, possibly we call UnregisterSession or Binding and have the handler reset its own
         // state there, rather than all this switching on type and session reaching in.
@@ -1258,7 +1263,8 @@ namespace quicr {
                 sub_by_recv_track_alias.erase({ handler->GetConnectionId(), *alias });
                 sub_handler->SetReceivedTrackAlias(std::nullopt);
             }
-        } else if (const auto pub_handler = handler->Get<PublishTrackHandler>()) {
+        } else if (const auto pub_handler = handler->Get<PublishTrackHandler>();
+                   pub_handler && !handler->Get<PublishFetchHandler>()) {
             const auto th = TrackHash(pub_handler->GetFullTrackName());
             pub_tracks_by_track_alias.erase(th.track_fullname_hash);
             if (const auto pub_ns_it = pub_tracks_by_name.find(th.track_namespace_hash);
@@ -1275,7 +1281,8 @@ namespace quicr {
 
     void Session::OnRemoteRequestClose(std::uint64_t request_id,
                                        const std::shared_ptr<Stream>& stream,
-                                       StreamClosedFlag flag)
+                                       StreamClosedFlag flag,
+                                       std::optional<ControlMessageType> request_type)
     {
         std::shared_ptr<TrackHandler> handler;
         bool is_pub_ns = false;
@@ -1331,6 +1338,20 @@ namespace quicr {
             quic_transport_->CloseStream(stream, operation);
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->PublishNamespaceDoneReceived(GetSharedPtr(), request_id);
+            }
+            return;
+        }
+
+        if (request_type == ControlMessageType::kFetch && is_reset &&
+            (request_id & 1) == static_cast<std::uint64_t>(client_mode_)) {
+            // FETCH cancel.
+            if (const auto fetch_publisher = handler ? handler->Get<PublishFetchHandler>() : nullptr) {
+                std::lock_guard _(fetch_publisher->binding_operation_mutex_);
+                fetch_publisher->EndFetch(false);
+            }
+            quic_transport_->CloseStream(stream, operation);
+            if (callbacks_) {
+                callbacks_->FetchCancelReceived(GetSharedPtr(), request_id);
             }
             return;
         }
@@ -1527,7 +1548,7 @@ namespace quicr {
         const auto ctrl_stream = quic_transport_->CreateRequestStream(connection);
         track_handler->SetRequestStream(ctrl_stream);
         request_by_stream[{ ctrl_stream->GetConnectionID(), ctrl_stream->GetStreamId() }] = {
-            .request_id = track_handler->GetRequestId().value(), .is_request_stream = true
+            .request_id = track_handler->GetRequestId().value(), .request_type = ControlMessageType::kPublish
         };
 
         const PublishAttributes publish{ .track_full_name = { tfn },
@@ -1594,8 +1615,7 @@ namespace quicr {
                 ns_handler->SetRequestId(request_id);
 
                 request_by_stream[{ request_stream->GetConnectionID(), request_stream->GetStreamId() }] = {
-                    .request_id = request_id,
-                    .is_request_stream = true,
+                    .request_id = request_id, .request_type = ControlMessageType::kPublishNamespace
                 };
                 request_handlers[request_id] = ns_handler;
             }
@@ -1672,7 +1692,7 @@ namespace quicr {
         const auto request_stream = quic_transport_->CreateRequestStream(connection);
         track_handler->SetRequestStream(request_stream);
         request_by_stream[{ request_stream->GetConnectionID(), request_stream->GetStreamId() }] = {
-            .request_id = request_id, .is_request_stream = true
+            .request_id = request_id, .request_type = ControlMessageType::kFetch
         };
 
         SendFetch(request_stream, request_id, tfn, priority, group_order, start_location, end_location);
@@ -1682,24 +1702,21 @@ namespace quicr {
     {
         track_handler->UnregisterSession(GetSharedPtr());
 
-        std::lock_guard<std::mutex> _(state_mutex_);
-
-        const auto sub_id = track_handler->GetRequestId();
-        if (!sub_id.has_value()) {
-            return;
+        std::shared_ptr<Stream> stream;
+        {
+            std::lock_guard lock(state_mutex_);
+            stream = track_handler->GetRequestStream();
+            if (const auto request_id = track_handler->GetRequestId()) {
+                DetachRequestHandler(*request_id, stream);
+                track_handler->SetRequestId(std::nullopt);
+            }
         }
 
-        request_handlers.erase(track_handler->GetRequestId().value());
-
-        track_handler->SetRequestId(std::nullopt);
-
-        if (track_handler->GetStatus() == FetchTrackHandler::Status::kDoneByFin ||
-            track_handler->GetStatus() == FetchTrackHandler::Status::kDoneByReset) {
-            return;
+        // Draft-18 section 5.2: STOP_SENDING on the request is mandatory; the peer resets data.
+        quic_transport_->CloseStream(stream, StreamOperation::kCancel);
+        if (track_handler->GetStatus() != FetchTrackHandler::Status::kCancelled) {
+            track_handler->SetStatus(FetchTrackHandler::Status::kCancelled);
         }
-
-        // TODO: Cancel using QUIC here when FETCH migrated.
-        track_handler->SetStatus(FetchTrackHandler::Status::kNotConnected);
     }
 
     std::shared_ptr<PublishTrackHandler> Session::GetPubTrackHandler(TrackHash& th)
@@ -2386,15 +2403,20 @@ namespace quicr {
 
         try {
             std::optional<std::uint64_t> request_id;
+            std::optional<messages::ControlMessageType> request_type;
             bool awaiting_migration = false;
             {
                 std::lock_guard _(state_mutex_);
                 const auto req_it = request_by_stream.find({ connection_id, stream_id });
-                if (req_it != request_by_stream.end() && req_it->second.is_request_stream) {
-                    if (flag == StreamClosedFlag::kFin && !req_it->second.fin_cancels) {
+                if (req_it != request_by_stream.end() && req_it->second.request_type.has_value()) {
+                    if (flag == StreamClosedFlag::kFin &&
+                        ((req_it->second.request_type == messages::ControlMessageType::kTrackStatus &&
+                          (req_it->second.request_id & 1) == static_cast<std::uint64_t>(client_mode_)) ||
+                         pub_fetch_tracks_by_request_id.contains(req_it->second.request_id))) {
                         return;
                     }
                     request_id = req_it->second.request_id;
+                    request_type = req_it->second.request_type;
                     request_by_stream.erase(req_it);
 
                     const auto handler_it = request_handlers.find(*request_id);
@@ -2418,7 +2440,7 @@ namespace quicr {
                                        *request_id);
                     return;
                 }
-                OnRemoteRequestClose(*request_id, stream, flag);
+                OnRemoteRequestClose(*request_id, stream, flag, request_type);
                 return;
             }
             // If this was a data stream, notify the handler.
@@ -2580,8 +2602,7 @@ namespace quicr {
         // Streams report their own metrics, so the session needs to know which track each belongs to.
         std::lock_guard _(state_mutex_);
         request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = { .request_id =
-                                                                                      handler->GetRequestId().value(),
-                                                                                    .is_request_stream = false };
+                                                                                      handler->GetRequestId().value() };
 
         return stream;
     }
@@ -2993,6 +3014,7 @@ namespace quicr {
             }
 
             MigrationRequestType type;
+            ControlMessageType request_type;
             if (const auto subscribe = handler->Get<SubscribeTrackHandler>()) {
                 if (subscribe->IsPublisherInitiated()) {
                     continue;
@@ -3000,12 +3022,20 @@ namespace quicr {
                 type = handler->Get<FetchTrackHandler>() || handler->Get<JoiningFetchHandler>()
                          ? MigrationRequestType::kFetch
                          : MigrationRequestType::kSubscribe;
+                request_type =
+                  type == MigrationRequestType::kFetch ? ControlMessageType::kFetch : ControlMessageType::kSubscribe;
             } else if (handler->Get<PublishTrackHandler>()) {
                 type = MigrationRequestType::kPublish;
+                request_type = ControlMessageType::kPublish;
             } else if (handler->Get<SubscribeNamespaceHandler>()) {
                 type = MigrationRequestType::kSubscribeNamespace;
+                request_type =
+                  handler->Get<SubscribeNamespaceHandler>()->GetMode() == SubscribeNamespaceHandler::Mode::kNamespaces
+                    ? ControlMessageType::kSubscribeNamespace
+                    : ControlMessageType::kSubscribeTracks;
             } else if (handler->Get<PublishNamespaceHandler>()) {
                 type = MigrationRequestType::kPublishNamespace;
+                request_type = ControlMessageType::kPublishNamespace;
             } else {
                 continue;
             }
@@ -3022,8 +3052,8 @@ namespace quicr {
             {
                 std::lock_guard lock(state_mutex_);
                 request_by_stream[{ connection->GetID(), request_stream->GetStreamId() }] = { .request_id = *request_id,
-                                                                                              .is_request_stream =
-                                                                                                true };
+                                                                                              .request_type =
+                                                                                                request_type };
                 migrations_.at(migration_key).pending[*request_id] = {
                     .type = type,
                     .request_stream = request_stream,
@@ -3437,7 +3467,7 @@ namespace quicr {
         if (stream->IsOpen()) {
             std::lock_guard lock(state_mutex_);
             const auto request = request_by_stream.find({ stream->GetConnectionID(), stream->GetStreamId() });
-            is_current = request != request_by_stream.end() && request->second.is_request_stream &&
+            is_current = request != request_by_stream.end() && request->second.request_type.has_value() &&
                          request->second.request_id == request_id;
         }
 
@@ -3740,7 +3770,7 @@ namespace quicr {
                     std::lock_guard _(state_mutex_);
                     recv_req_id[request_id] = { .track_full_name = tfn, .track_hash = th, .stream = stream };
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                        .request_id = request_id, .is_request_stream = true
+                        .request_id = request_id, .request_type = msg_type
                     };
                 }
 
@@ -4194,7 +4224,7 @@ namespace quicr {
                 {
                     std::lock_guard _(state_mutex_);
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                        .request_id = request_id, .is_request_stream = true, .fin_cancels = false
+                        .request_id = request_id, .request_type = messages::ControlMessageType::kTrackStatus
                     };
                 }
 
@@ -4261,7 +4291,7 @@ namespace quicr {
                                                 .stream = stream };
                     recv_publish_namespaces.push_back(request_id);
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                        .request_id = request_id, .is_request_stream = true
+                        .request_id = request_id, .request_type = msg_type
                     };
                 }
 
@@ -4333,7 +4363,7 @@ namespace quicr {
                 {
                     std::lock_guard _(state_mutex_);
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                        .request_id = request_id, .is_request_stream = true
+                        .request_id = request_id, .request_type = msg_type
                     };
                 }
 
@@ -4598,7 +4628,7 @@ namespace quicr {
                                 .stream = stream,
                             };
                             request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                                .request_id = request_id, .is_request_stream = true
+                                .request_id = request_id, .request_type = messages::ControlMessageType::kFetch
                             };
                         }
 
@@ -4694,7 +4724,7 @@ namespace quicr {
                                 .stream = stream,
                             };
                             request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                                .request_id = request_id, .is_request_stream = true
+                                .request_id = request_id, .request_type = messages::ControlMessageType::kFetch
                             };
                         }
 
@@ -4797,7 +4827,7 @@ namespace quicr {
                                                 .track_hash = th,
                                                 .stream = stream };
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                        .request_id = request_id, .is_request_stream = true
+                        .request_id = request_id, .request_type = msg_type
                     };
                 }
 

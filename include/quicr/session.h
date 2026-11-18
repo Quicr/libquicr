@@ -741,7 +741,9 @@ namespace quicr {
         // Local cleanup in response to remote closure.
         void OnRemoteRequestClose(std::uint64_t request_id,
                                   const std::shared_ptr<Stream>& stream,
-                                  StreamClosedFlag flag) QUICR_EXCLUDES(state_mutex_);
+                                  StreamClosedFlag flag,
+                                  std::optional<messages::ControlMessageType> request_type)
+          QUICR_EXCLUDES(state_mutex_);
 
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th);
 
@@ -896,16 +898,8 @@ namespace quicr {
         {
             std::uint64_t request_id;
 
-            /**
-             * Whether this is the request's own bidirectional stream, whose close ends the request.
-             *
-             * @details A track's data streams are mapped here too, but only so that their metrics
-             *      find the right handler; they come and go while the request stays open.
-             */
-            bool is_request_stream;
-
-            // True if a FIN cancels this request.
-            bool fin_cancels{ true };
+            /// If this stream is a request stream, its type.
+            std::optional<messages::ControlMessageType> request_type;
         };
 
         /// Lookup the request each stream carries, by stream ID.

@@ -319,6 +319,10 @@ TestServer::StandaloneFetchReceived(const std::shared_ptr<quicr::Session>& sessi
                                   500);
 
     session->BindFetchTrack(pub_fetch_handler);
+    {
+        std::lock_guard lock(state_mutex_);
+        last_fetch_publisher_ = pub_fetch_handler;
+    }
     for (size_t i = 0; i < fetch_response_data_.size(); ++i) {
         pub_fetch_handler->PublishObject(fetch_response_data_[i].headers, fetch_response_data_[i].payload);
     }
