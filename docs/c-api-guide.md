@@ -152,41 +152,41 @@ Optional publish and subscribe attribute getters return `true` and write their
 output only when the value is present. They return `false` for an absent value
 or invalid input and leave the output unchanged.
 
-Callbacks that answer peer requests return tagged reply structures. Initialize
-the whole reply and write only the active member:
+Callbacks that answer peer requests receive a borrowed `quicr_reply_t`.
+Complete it exactly once before returning:
 
 ```c
-return (quicr_subscribe_reply_t){
-    .result = QUICR_REPLY_RESULT_REJECT,
-    .error = {
-        .code = QUICR_REQUEST_ERROR_UNAUTHORIZED,
-        .reason = "not permitted",
-    },
-};
+(void)quicr_reply_reject(
+    reply,
+    QUICR_REQUEST_ERROR_UNAUTHORIZED,
+    "not permitted",
+    NULL);
 ```
 
-On `ACCEPT`, use `response` for subscribe, fetch, track-status, and
-track-namespaces replies. On `REJECT`, use `error`. Response-less replies use
-`error` only when rejecting. Reply strings, nested extensions, and namespace
-lists are borrowed and copied before the callback returns.
+Use `quicr_reply_accept()` for response-less acceptance, or the
+response-specific accept function for publish, subscribe, fetch, track-status,
+and namespace-list responses. The responder is callback-scoped and must not be
+retained or destroyed. Reply strings, redirects, nested extensions, namespace
+lists, and response objects are currently borrowed through synchronous return
+processing; their backing must not be callback-local.
 
-To redirect a request, reject it with the reply type's redirect error code and
-set `error.redirect`. A NULL or empty `connect_uri` reuses the current session
+To redirect a request, pass its redirect error code and redirect details to
+`quicr_reply_reject()`. A NULL or empty `connect_uri` reuses the current session
 URI; NULL `track_namespace` and `track_name` fields preserve those parts of the
 original request. Namespace-scoped requests leave `track_name` NULL.
 
 An accepted `publish_received` reply is special. Create its response from a
 subscribe handler with `quicr_publish_response_create()`, optionally configure
 priority, order, filter, forwarding, timeouts, or new-group request ID, and
-return its pointer as the active `response` member. The library consumes it
-synchronously but does not take ownership. Destroy it after the callback
-returns. The subscribe handler remains pinned while a response or pending
-session adoption references it, so handler destruction returns
-`QUICR_STATUS_BUSY` until that reference is released or registration completes.
+pass it to `quicr_reply_accept_publish()`. The library does not take ownership.
+Destroy it after the callback returns. The subscribe handler remains pinned
+while a response or pending session adoption references it, so handler
+destruction returns `QUICR_STATUS_BUSY` until that reference is released or
+registration completes.
 
-C reply callbacks are synchronous. The C API does not expose the C++
-`Reply::Defer()` facility, so applications must return a reply before the
-callback completes.
+C reply callbacks and responders are synchronous. The C API does not expose the C++
+`Reply::Defer()` facility, so applications must complete the responder before
+the callback returns.
 
 ## Creating a client session
 
@@ -370,8 +370,8 @@ it, and wait for its status callback. Read the optional result with
 Protocol rejection details are available through
 `quicr_track_status_handler_get_error()`.
 
-Receiving peers answer `track_status_received` with a
-`quicr_track_status_reply_t`.
+Receiving peers answer `track_status_received` with
+`quicr_reply_accept_track_status()` or `quicr_reply_reject()`.
 
 ## Creating a server
 
