@@ -44,7 +44,7 @@ namespace quicr::detail {
             remainder = std::string_view(connect_uri).substr(7);
         } else if (connect_uri.starts_with("https://")) {
             if (qmux) {
-                throw std::invalid_argument("QMUX cannot be set with WT URI");
+                return std::nullopt;
             }
             remainder = std::string_view(connect_uri).substr(8);
             protocol = Connection::Protocol::kWebTransport;

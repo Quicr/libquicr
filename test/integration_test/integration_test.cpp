@@ -1195,13 +1195,22 @@ TEST_CASE("Integration - QMUX GOAWAY keeps the session on its connection")
     const auto handler = TestSubscribeHandler::Create(ftn, 7, std::nullopt);
     session->SubscribeTrack(handler);
     REQUIRE(WaitFor([&handler] { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+
     const auto connection = handler->GetConnection();
 
     std::promise<TestServer::SubscribeDetails> new_subscribe_promise;
     auto new_subscribe_future = new_subscribe_promise.get_future();
     new_relay->SetSubscribePromise(std::move(new_subscribe_promise));
 
-    old_server_session->GoAway(quicr::format("moqt://{}:{}/relay", kIp, new_relay_port), std::chrono::seconds{ 5 });
+    SUBCASE("QMUX redirect")
+    {
+        old_server_session->GoAway(quicr::format("moqt://{}:{}/relay", kIp, new_relay_port), std::chrono::seconds{ 5 });
+    }
+    SUBCASE("Incompatible WebTransport redirect")
+    {
+        old_server_session->GoAway(quicr::format("https://{}:{}/relay", kIp, new_relay_port),
+                                   std::chrono::seconds{ 5 });
+    }
 
     // For now, don't migrate.
     CHECK(new_subscribe_future.wait_for(kNegativeTimeout) == std::future_status::timeout);

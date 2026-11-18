@@ -41,5 +41,5 @@ TEST_CASE("Connect URI parsing preserves QMUX and rejects WebTransport over QMUX
         CHECK(qmux->path == "/path");
     }
 
-    CHECK_THROWS_AS(detail::ParseConnectUri("https://relay.example:443/relay", true), std::invalid_argument);
+    CHECK_FALSE(detail::ParseConnectUri("https://relay.example:443/relay", true));
 }
