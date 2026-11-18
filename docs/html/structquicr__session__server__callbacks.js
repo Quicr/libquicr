@@ -1,6 +1,6 @@
 var structquicr__session__server__callbacks =
 [
-    [ "fetch_cancel_received", "structquicr__session__server__callbacks.html#a4459501b74dc00df3ed81dfab8902c75", null ],
+    [ "fetch_cancel_received", "structquicr__session__server__callbacks.html#a8aa7860c4dfd86976cc1c6bf83729f3e", null ],
     [ "joining_fetch_received", "structquicr__session__server__callbacks.html#a422acf3e0b61e748ccf184d8d4debf4e", null ],
     [ "metrics_sampled", "structquicr__session__server__callbacks.html#a31c14bcc874b061df4de4dea44ed4218", null ],
     [ "new_group_requested", "structquicr__session__server__callbacks.html#a25f55f412db5d785539b470c0ad57f64", null ],

@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['fetch_5fcancel_5freceived_169',['fetch_cancel_received',['../structquicr__session__server__callbacks.html#a4459501b74dc00df3ed81dfab8902c75',1,'quicr_session_server_callbacks::fetch_cancel_received()'],['../structquicr__session__client__callbacks.html#a1a1a31dbc59dc9a38cbd70e9799d9257',1,'quicr_session_client_callbacks::fetch_cancel_received()']]],
+  ['fetch_5fcancel_5freceived_169',['fetch_cancel_received',['../structquicr__session__server__callbacks.html#a8aa7860c4dfd86976cc1c6bf83729f3e',1,'quicr_session_server_callbacks::fetch_cancel_received()'],['../structquicr__session__client__callbacks.html#a81f66a865f9624164242153055ea377f',1,'quicr_session_client_callbacks::fetch_cancel_received()']]],
   ['fetch_5ftrack_5fhandler_2eh_170',['fetch_track_handler.h',['../fetch__track__handler_8h.html',1,'']]],
   ['fetchcancelreceived_171',['FetchCancelReceived',['../structquicr_1_1Session_1_1Callbacks.html#a5d63592b3c58052a1387e414934c64a6',1,'quicr::Session::Callbacks']]],
   ['fetchendlocation_172',['FetchEndLocation',['../structquicr_1_1messages_1_1FetchEndLocation.html',1,'quicr::messages']]],

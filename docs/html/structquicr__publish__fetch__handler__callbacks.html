@@ -106,9 +106,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:af2d01256e4819ff3ead2058b2800f54d"><td class="memItemLeft" align="right" valign="top">void(*&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr__publish__fetch__handler__callbacks.html#af2d01256e4819ff3ead2058b2800f54d">metrics_sampled</a> )(<a class="el" href="quicr_8h.html#af0efaa1df4fc320f494e3ff0963b3eae">quicr_publish_fetch_handler_t</a> *handler, const <a class="el" href="quicr_8h.html#ae84c40d55372e856c4c5e24d3e4579c5">quicr_publish_track_metrics_t</a> *metrics, void *<a class="el" href="structquicr__publish__fetch__handler__callbacks.html#a676277ad7ea8a46ed06f82e8c3744b0a">user_data</a>)</td></tr>
 <tr class="memdesc:af2d01256e4819ff3ead2058b2800f54d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Borrowed metrics sample.  <a href="structquicr__publish__fetch__handler__callbacks.html#af2d01256e4819ff3ead2058b2800f54d">More...</a><br /></td></tr>
 <tr class="separator:af2d01256e4819ff3ead2058b2800f54d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a02e93f621c3c250735c34a1474f60a0c"><td class="memItemLeft" align="right" valign="top">void(*&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr__publish__fetch__handler__callbacks.html#a02e93f621c3c250735c34a1474f60a0c">stream_closed</a> )(<a class="el" href="quicr_8h.html#af0efaa1df4fc320f494e3ff0963b3eae">quicr_publish_fetch_handler_t</a> *handler, uint64_t stream_id, bool reset, void *<a class="el" href="structquicr__publish__fetch__handler__callbacks.html#a676277ad7ea8a46ed06f82e8c3744b0a">user_data</a>)</td></tr>
-<tr class="memdesc:a02e93f621c3c250735c34a1474f60a0c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Stream closure; reset distinguishes reset from FIN.  <a href="structquicr__publish__fetch__handler__callbacks.html#a02e93f621c3c250735c34a1474f60a0c">More...</a><br /></td></tr>
-<tr class="separator:a02e93f621c3c250735c34a1474f60a0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a28a1c8620d0f8c8cea90db32eea88dd3"><td class="memItemLeft" align="right" valign="top">void(*&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr__publish__fetch__handler__callbacks.html#a28a1c8620d0f8c8cea90db32eea88dd3">subgroup_cancelled</a> )(<a class="el" href="quicr_8h.html#af0efaa1df4fc320f494e3ff0963b3eae">quicr_publish_fetch_handler_t</a> *handler, uint64_t group_id, uint64_t subgroup_id, void *<a class="el" href="structquicr__publish__fetch__handler__callbacks.html#a676277ad7ea8a46ed06f82e8c3744b0a">user_data</a>)</td></tr>
+<tr class="memdesc:a28a1c8620d0f8c8cea90db32eea88dd3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification that the subscriber cancelled a subgroup.  <a href="structquicr__publish__fetch__handler__callbacks.html#a28a1c8620d0f8c8cea90db32eea88dd3">More...</a><br /></td></tr>
+<tr class="separator:a28a1c8620d0f8c8cea90db32eea88dd3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Optional callbacks copied at publish-fetch creation. </p>
@@ -162,24 +162,24 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a02e93f621c3c250735c34a1474f60a0c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a02e93f621c3c250735c34a1474f60a0c">&#9670;&nbsp;</a></span>stream_closed</h2>
+<a id="a28a1c8620d0f8c8cea90db32eea88dd3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a28a1c8620d0f8c8cea90db32eea88dd3">&#9670;&nbsp;</a></span>subgroup_cancelled</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void(* quicr_publish_fetch_handler_callbacks::stream_closed) (<a class="el" href="quicr_8h.html#af0efaa1df4fc320f494e3ff0963b3eae">quicr_publish_fetch_handler_t</a> *handler, uint64_t stream_id, bool reset, void *<a class="el" href="structquicr__publish__fetch__handler__callbacks.html#a676277ad7ea8a46ed06f82e8c3744b0a">user_data</a>)</td>
+          <td class="memname">void(* quicr_publish_fetch_handler_callbacks::subgroup_cancelled) (<a class="el" href="quicr_8h.html#af0efaa1df4fc320f494e3ff0963b3eae">quicr_publish_fetch_handler_t</a> *handler, uint64_t group_id, uint64_t subgroup_id, void *<a class="el" href="structquicr__publish__fetch__handler__callbacks.html#a676277ad7ea8a46ed06f82e8c3744b0a">user_data</a>)</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Stream closure; reset distinguishes reset from FIN. </p>
+<p>Notification that the subscriber cancelled a subgroup. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">handler</td><td>Borrowed publish-fetch handler whose stream closed. </td></tr>
-    <tr><td class="paramname">stream_id</td><td>Closed stream identifier. </td></tr>
-    <tr><td class="paramname">reset</td><td>True for reset, false for graceful FIN. </td></tr>
+    <tr><td class="paramname">handler</td><td>Borrowed publish-fetch handler for the cancelled subgroup. </td></tr>
+    <tr><td class="paramname">group_id</td><td>Group containing the cancelled subgroup. </td></tr>
+    <tr><td class="paramname">subgroup_id</td><td>Cancelled subgroup identifier. </td></tr>
     <tr><td class="paramname">user_data</td><td>Callback table's opaque user data. </td></tr>
   </table>
   </dd>

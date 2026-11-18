@@ -103,7 +103,6 @@ var annotated_dup =
     [ "quicr_error_reply", "structquicr__error__reply.html", "structquicr__error__reply" ],
     [ "quicr_extension_entry", "structquicr__extension__entry.html", "structquicr__extension__entry" ],
     [ "quicr_extensions", "structquicr__extensions.html", "structquicr__extensions" ],
-    [ "quicr_fetch_cancel_reply", "structquicr__fetch__cancel__reply.html", "structquicr__fetch__cancel__reply" ],
     [ "quicr_fetch_end_location", "structquicr__fetch__end__location.html", "structquicr__fetch__end__location" ],
     [ "quicr_fetch_error", "structquicr__fetch__error.html", "structquicr__fetch__error" ],
     [ "quicr_fetch_reply", "structquicr__fetch__reply.html", "structquicr__fetch__reply" ],

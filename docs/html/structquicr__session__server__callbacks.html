@@ -121,9 +121,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a422acf3e0b61e748ccf184d8d4debf4e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="quicr_8h.html#a03a93c395f2146be399f5dfb4cf67edc">quicr_fetch_reply_t</a>(*&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr__session__server__callbacks.html#a422acf3e0b61e748ccf184d8d4debf4e">joining_fetch_received</a> )(<a class="el" href="quicr_8h.html#aa0c1e4a1fc618777b4edc0d6ac0121bd">quicr_session_t</a> *session, uint64_t request_id, const <a class="el" href="quicr_8h.html#a1dc8e31539781d7e466db5a2822a73b4">quicr_full_track_name_t</a> *full_track_name, const <a class="el" href="quicr_8h.html#a49e14b434409a77d9b14b9d47dc1a06e">quicr_joining_fetch_attributes_t</a> *attributes, void *<a class="el" href="structquicr__session__server__callbacks.html#a6ec6647af4ca1fd019968f1c7e7ef9c6">user_data</a>)</td></tr>
 <tr class="memdesc:a422acf3e0b61e748ccf184d8d4debf4e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Inbound joining fetch.  <a href="structquicr__session__server__callbacks.html#a422acf3e0b61e748ccf184d8d4debf4e">More...</a><br /></td></tr>
 <tr class="separator:a422acf3e0b61e748ccf184d8d4debf4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4459501b74dc00df3ed81dfab8902c75"><td class="memItemLeft" align="right" valign="top"><a class="el" href="quicr_8h.html#ae7e3f4f2dd375a18d46cf7a2a591b8b6">quicr_fetch_cancel_reply_t</a>(*&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr__session__server__callbacks.html#a4459501b74dc00df3ed81dfab8902c75">fetch_cancel_received</a> )(<a class="el" href="quicr_8h.html#aa0c1e4a1fc618777b4edc0d6ac0121bd">quicr_session_t</a> *session, uint64_t request_id, void *<a class="el" href="structquicr__session__server__callbacks.html#a6ec6647af4ca1fd019968f1c7e7ef9c6">user_data</a>)</td></tr>
-<tr class="memdesc:a4459501b74dc00df3ed81dfab8902c75"><td class="mdescLeft">&#160;</td><td class="mdescRight">Inbound fetch cancellation.  <a href="structquicr__session__server__callbacks.html#a4459501b74dc00df3ed81dfab8902c75">More...</a><br /></td></tr>
-<tr class="separator:a4459501b74dc00df3ed81dfab8902c75"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8aa7860c4dfd86976cc1c6bf83729f3e"><td class="memItemLeft" align="right" valign="top">void(*&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr__session__server__callbacks.html#a8aa7860c4dfd86976cc1c6bf83729f3e">fetch_cancel_received</a> )(<a class="el" href="quicr_8h.html#aa0c1e4a1fc618777b4edc0d6ac0121bd">quicr_session_t</a> *session, uint64_t request_id, void *<a class="el" href="structquicr__session__server__callbacks.html#a6ec6647af4ca1fd019968f1c7e7ef9c6">user_data</a>)</td></tr>
+<tr class="memdesc:a8aa7860c4dfd86976cc1c6bf83729f3e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Inbound fetch cancellation.  <a href="structquicr__session__server__callbacks.html#a8aa7860c4dfd86976cc1c6bf83729f3e">More...</a><br /></td></tr>
+<tr class="separator:a8aa7860c4dfd86976cc1c6bf83729f3e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab7d2670a0e6d8c39fbd9caf2642653c4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="quicr_8h.html#a8bd8b6965b8bea51e1ecfaeb1a52bf93">quicr_track_status_reply_t</a>(*&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr__session__server__callbacks.html#ab7d2670a0e6d8c39fbd9caf2642653c4">track_status_received</a> )(<a class="el" href="quicr_8h.html#aa0c1e4a1fc618777b4edc0d6ac0121bd">quicr_session_t</a> *session, const <a class="el" href="quicr_8h.html#a1dc8e31539781d7e466db5a2822a73b4">quicr_full_track_name_t</a> *full_track_name, void *<a class="el" href="structquicr__session__server__callbacks.html#a6ec6647af4ca1fd019968f1c7e7ef9c6">user_data</a>)</td></tr>
 <tr class="memdesc:ab7d2670a0e6d8c39fbd9caf2642653c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Inbound track-status query.  <a href="structquicr__session__server__callbacks.html#ab7d2670a0e6d8c39fbd9caf2642653c4">More...</a><br /></td></tr>
 <tr class="separator:ab7d2670a0e6d8c39fbd9caf2642653c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -147,14 +147,14 @@ Public Attributes</h2></td></tr>
 <div class="textblock"><p>Server-session callbacks copied when a server is added. </p>
 <p>The concurrency, borrowing, reply, and user_data contracts are identical to quicr_session_client_callbacks_t. The same callback table and user_data may be used concurrently by sessions accepted on different transports; synchronize application state accordingly. </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
-<a id="a4459501b74dc00df3ed81dfab8902c75"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4459501b74dc00df3ed81dfab8902c75">&#9670;&nbsp;</a></span>fetch_cancel_received</h2>
+<a id="a8aa7860c4dfd86976cc1c6bf83729f3e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8aa7860c4dfd86976cc1c6bf83729f3e">&#9670;&nbsp;</a></span>fetch_cancel_received</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="quicr_8h.html#ae7e3f4f2dd375a18d46cf7a2a591b8b6">quicr_fetch_cancel_reply_t</a>(* quicr_session_server_callbacks::fetch_cancel_received) (<a class="el" href="quicr_8h.html#aa0c1e4a1fc618777b4edc0d6ac0121bd">quicr_session_t</a> *session, uint64_t request_id, void *<a class="el" href="structquicr__session__server__callbacks.html#a6ec6647af4ca1fd019968f1c7e7ef9c6">user_data</a>)</td>
+          <td class="memname">void(* quicr_session_server_callbacks::fetch_cancel_received) (<a class="el" href="quicr_8h.html#aa0c1e4a1fc618777b4edc0d6ac0121bd">quicr_session_t</a> *session, uint64_t request_id, void *<a class="el" href="structquicr__session__server__callbacks.html#a6ec6647af4ca1fd019968f1c7e7ef9c6">user_data</a>)</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -164,11 +164,10 @@ Public Attributes</h2></td></tr>
   <table class="params">
     <tr><td class="paramname">session</td><td>Borrowed session handle. </td></tr>
     <tr><td class="paramname">request_id</td><td>Cancelled fetch request identifier. </td></tr>
-    <tr><td class="paramname">user_data</td><td>Callback table's opaque user data.</td></tr>
+    <tr><td class="paramname">user_data</td><td>Callback table's opaque user data. </td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>An initialized ACCEPT or REJECT reply. </dd></dl>
 
 </div>
 </div>
