@@ -110,7 +110,8 @@ Notification callbacks return `void`, for example:
 - handler `ObjectReceived()` and `StatusChanged()` callbacks.
 
 Callbacks that answer a peer request return `quicr::Reply<T, E>`. Return a value
-to accept or an `Unexpected<Error<E>>` to reject:
+to accept or an `Unexpected<Error<E>>` to reject. The session answers a
+rejection with REQUEST_ERROR and closes the request stream with FIN:
 
 ```cpp
 quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode>
@@ -179,7 +180,8 @@ SubscribeReply SubscribeReceived(
 
 Each deferred reply starts a detached thread and resolves once. Capture owned
 state, not temporary references. An exception escaping the action is swallowed
-and leaves the request unanswered until the peer times it out.
+and leaves the request unanswered until the peer times it out. If the peer
+cancels the request before the reply resolves, the result is discarded.
 
 ## Creating a client session
 
@@ -319,7 +321,10 @@ session->FetchTrack(fetch);
 ```
 
 Received fetch objects use the subscribe handler callbacks inherited by
-`FetchTrackHandler`. Use `CancelFetchTrack(fetch)` to cancel local fetch state.
+`FetchTrackHandler`. The fetch ends when its data stream does: the session then
+closes the request and the handler's status becomes `kDoneByFin` or
+`kDoneByReset`. Use `CancelFetchTrack(fetch)` to abandon it before then, which
+also makes the publisher reset the data stream.
 
 A joining fetch is configured on a custom `SubscribeTrackHandler` and combines a
 historical fetch range with the live subscription.
@@ -329,9 +334,11 @@ Applications serving fetches answer `StandaloneFetchReceived()` or
 request ID, and bind it with `BindFetchTrack()`. After publishing the requested
 range, call `UnbindFetchTrack()` to drain and finish the fetch stream.
 
-`FetchCancelReceived()` exists in the callback interface, but FETCH_CANCEL send
-and receive handling is not currently wired. `CancelFetchTrack()` only removes
-local fetch state.
+If the requester cancels a fetch that is pending or still being served, the
+session resets the request stream and any data stream, and calls
+`FetchCancelReceived()`. A bound `PublishFetchHandler` then returns
+`kFetchClosed` from `PublishObject()`. The callback is not made once the fetch
+has been unbound.
 
 ## Namespace operations
 
@@ -361,6 +368,16 @@ session->SubscribeNamespace(namespaces);
   requests are delivered through session callbacks.
 
 Use `UnsubscribeNamespace(handler)` to end either mode.
+
+## Ending requests
+
+`UnsubscribeTrack()`, `CancelFetchTrack()`, `PublishNamespaceDone()`, and
+`UnsubscribeNamespace()` cancel their request whether it is pending or
+established: the session resets the request stream and unbinds the handler.
+Calling them again has no effect.
+
+A peer FIN on a request stream also cancels the request, except where it follows
+REQUEST_ERROR or PUBLISH_DONE, or ends a TRACK_STATUS request.
 
 ## Track status
 

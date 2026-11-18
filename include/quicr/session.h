@@ -732,9 +732,16 @@ namespace quicr {
         // Other member functions
         /*===================================================================*/
 
-        void RemoveSubscribeTrack(SubscribeTrackHandler& handler, bool remove_handler = true);
+        // Central method for removing session bookkeeping for any request.
+        // Does not close streams or notify.
+        std::shared_ptr<TrackHandler> DetachRequestHandler(std::uint64_t request_id,
+                                                           const std::shared_ptr<Stream>& stream)
+          QUICR_REQUIRES(state_mutex_);
 
-        void CloseRequestHandler(std::uint64_t request_id, const std::shared_ptr<Stream>& stream, StreamClosedFlag flag)
+        void OnRemoteRequestClose(std::uint64_t request_id,
+                                  const std::shared_ptr<Stream>& stream,
+                                  StreamClosedFlag flag,
+                                  std::optional<messages::ControlMessageType> request_type)
           QUICR_EXCLUDES(state_mutex_);
 
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th);
@@ -897,6 +904,12 @@ namespace quicr {
              *      find the right handler; they come and go while the request stays open.
              */
             bool is_request_stream;
+
+            // Inbound request type.
+            std::optional<messages::ControlMessageType> request_type{ std::nullopt };
+
+            // Some requests have a terminal message before stream closure. True if this was received.
+            bool peer_finished{ false };
         };
 
         /// Lookup the request each stream carries, by stream ID.

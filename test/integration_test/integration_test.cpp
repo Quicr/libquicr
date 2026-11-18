@@ -1717,7 +1717,14 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
             data_streams.push_back(data_stream);
         }
 
-        // Unsubscribe.
+        // Pausing must not prevent cancellation and detachment of the request.
+        handler->Pause();
+        REQUIRE_EQ(handler->GetStatus(), SubscribeTrackHandler::Status::kPaused);
+        CHECK_NOTHROW(session->UnsubscribeTrack(handler));
+        CHECK_FALSE(handler->GetRequestId().has_value());
+        CHECK_FALSE(handler->GetReceivedTrackAlias().has_value());
+        CHECK_FALSE(handler->GetRequestStreamId().has_value());
+        CHECK_EQ(handler->GetStatus(), SubscribeTrackHandler::Status::kNotSubscribed);
         CHECK_NOTHROW(session->UnsubscribeTrack(handler));
 
         // The peer should see that we closed our SUBSCRIBE request stream with RESET.
@@ -1757,7 +1764,7 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
     }
 }
 
-TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client UnsubscribeTrack")
+TEST_CASE("Integration - UnsubscribeReceived when client UnsubscribeTrack")
 {
     auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);
@@ -4067,4 +4074,45 @@ TEST_CASE("Integration - Track Status")
     {
         test_track_status("https");
     }
+}
+
+TEST_CASE("Integration - FETCH cancellation resets all its streams")
+{
+    auto session_mgr = MakeTestSessionManager();
+    auto server = MakeTestServer(session_mgr);
+    std::string scheme = "moq";
+    SUBCASE("Raw QUIC") {}
+    SUBCASE("WebTransport")
+    {
+        scheme = "https";
+    }
+    auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, scheme);
+    const FullTrackName ftn{ .name_space = TrackNamespace({ "fetch-cancel" }), .name = { 1 } };
+    const std::vector<uint8_t> payload{ 0x42 };
+    const ObjectHeaders headers{ .group_id = 0, .object_id = 0, .subgroup_id = 0, .payload_length = 1 };
+    server->SetFetchResponseData({ { headers, payload } });
+    auto fetch = TestFetchTrackHandler::Create(ftn, 0, { 0, 0 }, { 1, 0 });
+    session->FetchTrack(fetch);
+    const auto request_id = fetch->GetRequestStreamId();
+    REQUIRE(request_id);
+    REQUIRE(WaitFor([&] { return fetch->GetReceivedCount() == 1; }));
+    const auto publisher = server->GetLastFetchPublisher();
+    REQUIRE(publisher);
+    const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
+    std::shared_ptr<Stream> data;
+    for (const auto& stream : connection->GetStreams()) {
+        if (!stream->IsBidirectional() && stream->rx_parse.fetch) {
+            data = stream;
+        }
+    }
+    REQUIRE(data);
+    session->CancelFetchTrack(fetch);
+    REQUIRE(WaitFor([&] { return callbacks->CheckStreamState(*request_id).has_value(); }));
+    CHECK(callbacks->CheckStreamState(*request_id)->contains(StreamClosedFlag::kReset));
+    REQUIRE(WaitFor([&] { return callbacks->CheckStreamState(data->GetStreamId()).has_value(); }));
+    CHECK(callbacks->CheckStreamState(data->GetStreamId())->contains(StreamClosedFlag::kReset));
+    REQUIRE(WaitFor([&] { return connection->GetStream(*request_id) == nullptr; }));
+    REQUIRE(WaitFor([&] { return connection->GetStream(data->GetStreamId()) == nullptr; }));
+    CHECK(publisher->PublishObject(headers, payload) == PublishTrackHandler::PublishObjectStatus::kFetchClosed);
+    CHECK_NOTHROW(session->CancelFetchTrack(fetch));
 }

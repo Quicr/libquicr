@@ -92,7 +92,7 @@ namespace quicr {
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
 
-    void PublishFetchHandler::EndFetch()
+    void PublishFetchHandler::EndFetch(bool completed)
     {
         if (closed_) {
             return;
@@ -106,6 +106,12 @@ namespace quicr {
 
         auto session = GetSession().lock();
         if (!session) {
+            return;
+        }
+
+        if (!completed) {
+            session->ResetSubgroup(stream_);
+            stream_.reset();
             return;
         }
 
