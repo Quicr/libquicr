@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include "integration_test_support.h"
 #include "picoquic_connection.h"
 #include "quicr/config.h"
 #include "quicr/handlers/fetch_track_handler.h"
@@ -37,9 +38,6 @@
 using namespace quicr;
 using namespace quicr_test;
 
-const std::string kIp = "127.0.0.1";
-constexpr uint16_t kDefaultPort = 12345;
-const std::string kServerId = "test-server";
 constexpr std::uint64_t kMetricsTestIntervalMs = 250;
 constexpr auto kMetricsTestTimeout = std::chrono::seconds(2);
 
@@ -92,25 +90,6 @@ MakeTestSessionManager()
 {
     static auto logger = std::make_shared<TestLogger>();
     return SessionManager(logger);
-}
-
-static uint16_t
-GetTestPort()
-{
-    const char* env_port = std::getenv("LIBQUICR_TEST_PORT");
-    if (env_port == nullptr) {
-        return kDefaultPort;
-    }
-
-    try {
-        const auto parsed_port = std::stoul(env_port);
-        if (parsed_port > 0 && parsed_port <= std::numeric_limits<uint16_t>::max()) {
-            return static_cast<uint16_t>(parsed_port);
-        }
-    } catch (...) {
-    }
-
-    return kDefaultPort;
 }
 
 /// @brief Get test timeout from environment or use default
@@ -319,31 +298,6 @@ class TestSubscribeNamespaceHandler : public SubscribeNamespaceHandler
 
     std::promise<TrackNamespace> namespace_received_;
 };
-
-static ServerConfig
-MakeTestServerConfig(std::optional<std::uint16_t> server_port = std::nullopt)
-{
-    ServerConfig server_config;
-    server_config.server_bind_ip = kIp;
-    server_config.server_port = server_port.value_or(GetTestPort());
-    server_config.endpoint_id = kServerId;
-    server_config.transport_config.debug = true;
-    server_config.transport_config.tls_cert_filename = "server-cert.pem";
-    server_config.transport_config.tls_key_filename = "server-key.pem";
-    server_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
-    return server_config;
-}
-
-static ClientConfig
-MakeTestClientConfig(const std::string& protocol_scheme, const std::string& host = kIp)
-{
-    ClientConfig client_config;
-    client_config.transport_config.debug = true;
-    client_config.endpoint_id = "client";
-    client_config.transport_config.time_queue_max_duration = 10000; // Support TTLs up to 10 seconds
-    client_config.connect_uri = protocol_scheme + "://" + host + ":" + std::to_string(GetTestPort()) + "/relay";
-    return client_config;
-}
 
 static std::shared_ptr<TestServer>
 MakeTestServer(quicr::SessionManager& session_mgr,
@@ -4084,11 +4038,14 @@ TEST_CASE("Integration - Track Status")
         CHECK_FALSE(handler->GetResponse().has_value());
         CHECK_FALSE(handler->GetError().has_value());
 
-        subscriber->RequestTrackStatus(handler);
+        session_mgr.AddHandler(subscriber, handler);
+        CHECK(handler->IsRegistered());
         REQUIRE(WaitFor([&] { return handler->GetStatus() == TrackStatusHandler::Status::kOk; }));
         REQUIRE(handler->GetResponse().has_value());
         CHECK(handler->GetResponse().value() == expected);
         CHECK_FALSE(handler->GetError().has_value());
+        session_mgr.RemoveHandler(subscriber, handler);
+        CHECK_FALSE(handler->IsRegistered());
 
         REQUIRE(WaitFor(
           [subscriber_client = subscriber_client] { return !subscriber_client->GetClosedStreamIds().empty(); }));

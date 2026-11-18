@@ -130,6 +130,16 @@ namespace quicr {
             }
         }
 
+        ErrorCode ToErrorCode(PublishNamespaceErrorCode error_code)
+        {
+            switch (error_code) {
+                case PublishNamespaceErrorCode::kRedirect:
+                    return ErrorCode::kRedirect;
+                case PublishNamespaceErrorCode::kOk:
+                case PublishNamespaceErrorCode::kInternalError:
+                    return ErrorCode::kInternalError;
+            }
+        }
     }
 
     TransportException::TransportException(TransportError error, std::source_location location)
@@ -346,6 +356,10 @@ namespace quicr {
     {
         if (!handler) {
             throw std::invalid_argument("Cannot send request GOAWAY without a handler");
+        }
+
+        if (handler->GetSession().lock() != GetSharedPtr()) {
+            throw std::invalid_argument("Handler is not registered with this session");
         }
 
         if (timeout.count() < 0) {
@@ -784,6 +798,12 @@ namespace quicr {
             throw std::logic_error("Session has no default connection");
         }
 
+        if (!handler) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+
+        handler->RegisterSession(GetSharedPtr());
+
         const auto& prefix = handler->GetPrefix();
         handler->SetConnectionId(connection->GetID());
 
@@ -798,7 +818,6 @@ namespace quicr {
         std::lock_guard<std::mutex> lock(state_mutex_);
 
         handler->SetRequestId(GetNextRequestID());
-        handler->SetTransport(GetSharedPtr());
 
         if (auto [_, is_new] = request_handlers.try_emplace(handler->GetRequestId().value(), handler); !is_new) {
             QUICR_LOGGER_WARN(logger_, "Namespace already subscribed to (prefix_hash={})", th.track_namespace_hash);
@@ -824,6 +843,8 @@ namespace quicr {
         if (handler == nullptr) {
             throw std::invalid_argument("Handler must not be null");
         }
+
+        handler->UnregisterSession(GetSharedPtr());
 
         const auto& prefix = handler->GetPrefix();
         [[maybe_unused]] auto th = TrackHash({ prefix, {} });
@@ -961,6 +982,8 @@ namespace quicr {
             throw std::logic_error("Session has no default connection");
         }
 
+        handler->RegisterSession(GetSharedPtr());
+
         const auto ftn = handler->GetFullTrackName();
         QUICR_LOGGER_INFO(logger_,
                           "Requesting track status conn_id: {} tfn: {} ({})",
@@ -974,7 +997,6 @@ namespace quicr {
         const auto request_id = GetNextRequestID();
         handler->SetRequestId(request_id);
         handler->SetConnectionId(connection->GetID());
-        handler->SetTransport(GetSharedPtr());
 
         const auto request_stream = quic_transport_->CreateRequestStream(connection);
         handler->SetRequestStream(request_stream);
@@ -986,8 +1008,52 @@ namespace quicr {
         SendTrackStatus(request_stream, request_id, ftn);
     }
 
+    void Session::CancelTrackStatus(const std::shared_ptr<TrackStatusHandler>& handler)
+    {
+        if (!handler) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+
+        handler->UnregisterSession(GetSharedPtr());
+
+        if (handler->GetStatus() != TrackStatusHandler::Status::kPendingResponse) {
+            return;
+        }
+
+        const auto request_id = handler->GetRequestId();
+        const auto request_stream = handler->GetRequestStream();
+        {
+            std::lock_guard lock(state_mutex_);
+            if (!request_id) {
+                return;
+            }
+
+            const auto handler_it = request_handlers.find(*request_id);
+            if (handler_it == request_handlers.end() || handler_it->second.get() != handler.get()) {
+                return;
+            }
+
+            request_handlers.erase(handler_it);
+            if (request_stream) {
+                request_by_stream.erase({ request_stream->GetConnectionID(), request_stream->GetStreamId() });
+            }
+        }
+
+        if (request_stream) {
+            quic_transport_->CloseStream(request_stream, StreamOperation::kCancel);
+        }
+
+        handler->SetRequestId(std::nullopt);
+        handler->SetRequestStream(nullptr);
+        handler->SetStatus(TrackStatusHandler::Status::kDoneByReset);
+    }
+
     void Session::SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
+        if (!track_handler) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+
         const auto connection = track_handler->IsPublisherInitiated() ? nullptr : GetDefaultConnection();
         if (!track_handler->IsPublisherInitiated() && !connection) {
             throw std::logic_error("Session has no default connection");
@@ -1024,12 +1090,14 @@ namespace quicr {
             }
 
             // The relay may have adopted this handler before PublishReceived returned. A second
-            // call would SetTransport again while a peer thread is already using the session.
+            // call would attach the handler again while a peer thread is already using the session.
             const auto existing = request_handlers.find(*track_handler->GetRequestId());
             if (existing != request_handlers.end() && existing->second.get() == track_handler.get()) {
                 return;
             }
         }
+
+        track_handler->RegisterSession(GetSharedPtr());
 
         if (not proposed_track_alias.has_value()) {
             track_handler->SetTrackAlias(th.track_fullname_hash);
@@ -1055,8 +1123,6 @@ namespace quicr {
         const auto& filter = track_handler->GetFilter();
         auto delivery_timeout = track_handler->GetDeliveryTimeout();
         auto rendezvous_timeout = track_handler->GetRendezvousTimeout();
-
-        track_handler->SetTransport(GetSharedPtr());
 
         if (!track_handler->IsPublisherInitiated()) {
             if (auto [_, is_new] = request_handlers.try_emplace(*track_handler->GetRequestId(), track_handler);
@@ -1101,7 +1167,7 @@ namespace quicr {
                                   *track_handler->GetRequestId());
                 joining_fetch_handler->SetRequestId(fetch_rid);
                 joining_fetch_handler->SetConnectionId(connection->GetID());
-                joining_fetch_handler->SetTransport(GetSharedPtr());
+                joining_fetch_handler->RegisterSession(GetSharedPtr());
 
                 const auto fetch_stream = quic_transport_->CreateRequestStream(connection);
                 joining_fetch_handler->SetRequestStream(fetch_stream);
@@ -1124,6 +1190,8 @@ namespace quicr {
 
     void Session::UnsubscribeTrack(const std::shared_ptr<SubscribeTrackHandler>& track_handler)
     {
+        track_handler->UnregisterSession(GetSharedPtr());
+
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
@@ -1139,6 +1207,14 @@ namespace quicr {
 
     void Session::UpdateTrackSubscription(std::shared_ptr<SubscribeTrackHandler> track_handler)
     {
+        if (!track_handler) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+
+        if (track_handler->GetSession().lock() != GetSharedPtr()) {
+            throw std::logic_error("Handler is not registered with this session");
+        }
+
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
@@ -1375,6 +1451,12 @@ namespace quicr {
 
     void Session::UnpublishTrack(const std::shared_ptr<PublishTrackHandler>& track_handler)
     {
+        defer({
+            // Remaining open subgroups have not been declared complete.
+            track_handler->EndAllSubgroups(false);
+            track_handler->UnregisterSession(GetSharedPtr());
+        });
+
         // Generate track alias
         auto tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
@@ -1438,9 +1520,6 @@ namespace quicr {
             // We continue to use the kNotAnnounced state when removing. Might make sense to use kDestroyed instead
             removed->SetStatus(PublishTrackHandler::Status::kNotAnnounced);
         }
-
-        // Remaining open subgroups have not been declared complete.
-        track_handler->EndAllSubgroups(false);
     }
 
     void Session::PublishTrack(std::shared_ptr<PublishTrackHandler> track_handler)
@@ -1449,6 +1528,12 @@ namespace quicr {
         if (!connection) {
             throw std::logic_error("Session has no default connection");
         }
+
+        if (!track_handler) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+
+        track_handler->RegisterSession(GetSharedPtr());
 
         const auto tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
@@ -1500,9 +1585,6 @@ namespace quicr {
                           th.track_namespace_hash,
                           th.track_name_hash);
 
-        // Set this transport as the one for the publisher to use.
-        track_handler->SetTransport(GetSharedPtr());
-
         // Hold ref to track handler
         pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         pub_tracks_by_track_alias[th.track_fullname_hash][connection->GetID()] = track_handler;
@@ -1518,11 +1600,16 @@ namespace quicr {
             throw std::logic_error("Session has no default connection");
         }
 
+        if (!ns_handler) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+
+        ns_handler->RegisterSession(GetSharedPtr());
+
         auto prefix_hash = hash(ns_handler->GetPrefix());
         QUICR_LOGGER_INFO(logger_, "Publish namespace conn_id: {} hash: {}", connection->GetID(), prefix_hash);
 
         ns_handler->SetConnectionId(connection->GetID());
-        ns_handler->SetTransport(GetSharedPtr());
 
         if (!passive) {
             QUICR_LOGGER_INFO(logger_, "Publishing to namespace hash: {} sending ANNOUNCE message", prefix_hash);
@@ -1554,6 +1641,8 @@ namespace quicr {
 
     void Session::PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& track_handler)
     {
+        track_handler->UnregisterSession(GetSharedPtr());
+
         const auto& prefix = track_handler->GetPrefix();
         const auto prefix_hash = hash(prefix);
 
@@ -1582,6 +1671,12 @@ namespace quicr {
             throw std::logic_error("Session has no default connection");
         }
 
+        if (!track_handler) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+
+        track_handler->RegisterSession(GetSharedPtr());
+
         const auto& tfn = track_handler->GetFullTrackName();
         auto th = TrackHash(tfn);
 
@@ -1593,7 +1688,6 @@ namespace quicr {
 
         track_handler->SetRequestId(GetNextRequestID());
         track_handler->SetConnectionId(connection->GetID());
-        track_handler->SetTransport(GetSharedPtr());
 
         QUICR_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {}", *track_handler->GetRequestId());
 
@@ -1618,6 +1712,8 @@ namespace quicr {
 
     void Session::CancelFetchTrack(std::shared_ptr<FetchTrackHandler> track_handler)
     {
+        track_handler->UnregisterSession(GetSharedPtr());
+
         std::lock_guard<std::mutex> _(state_mutex_);
 
         const auto sub_id = track_handler->GetRequestId();
@@ -1724,6 +1820,8 @@ namespace quicr {
             } else if (const auto h = handler->Get<PublishNamespaceHandler>()) {
                 h->SetStatus(PublishNamespaceHandler::Status::kNotConnected);
             }
+
+            handler->UnregisterSession(GetSharedPtr());
         }
     }
 
@@ -3389,6 +3487,12 @@ namespace quicr {
                                      const std::shared_ptr<PublishTrackHandler>& track_handler,
                                      bool ephemeral)
     {
+        if (!track_handler) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+
+        track_handler->RegisterSession(GetSharedPtr());
+
         std::optional<PublishTrackHandler::Status> changed_status;
         {
             std::lock_guard _(state_mutex_);
@@ -3412,9 +3516,6 @@ namespace quicr {
                 track_handler->SetRequestStream(req_it->second.stream);
                 track_handler->SetConnectionId(req_it->second.stream->GetConnectionID());
             }
-
-            // Set this transport as the one for the publisher to use.
-            track_handler->SetTransport(GetSharedPtr());
 
             if (!ephemeral) {
                 // Hold onto track handler
@@ -3480,10 +3581,17 @@ namespace quicr {
         if (changed_status) {
             track_handler->StatusChanged(*changed_status);
         }
+        track_handler->UnregisterSession(GetSharedPtr());
     }
 
     void Session::BindFetchTrack(std::shared_ptr<PublishFetchHandler> track_handler)
     {
+        if (!track_handler) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+
+        track_handler->RegisterSession(GetSharedPtr());
+
         const std::uint64_t request_id = *track_handler->GetRequestId();
         std::lock_guard lock(state_mutex_);
 
@@ -3500,8 +3608,6 @@ namespace quicr {
         track_handler->SetStatus(PublishFetchHandler::Status::kOk);
         track_handler->SetConnectionId(request_it->second.stream->GetConnectionID());
         track_handler->SetRequestStream(request_it->second.stream);
-
-        track_handler->SetTransport(GetSharedPtr());
 
         // Hold ref to track handler
         pub_fetch_tracks_by_request_id[request_id] = track_handler;
@@ -3522,6 +3628,7 @@ namespace quicr {
         // Drain before closing: the fetch's objects are queued on its stream, and unbinding is the
         // normal end of a completed fetch rather than an abort.
         track_handler->EndFetch();
+        track_handler->UnregisterSession(GetSharedPtr());
     }
 
     // -- Private --
@@ -3883,8 +3990,16 @@ namespace quicr {
                 const auto request_id = *stream_request_id;
 
                 const auto parameters = messages::Message::ParseField<messages::Parameters>(msg_bytes);
-                auto track_it = request_handlers.find(request_id);
-                if (track_it == request_handlers.end()) {
+                std::shared_ptr<TrackHandler> track_handler;
+                {
+                    std::lock_guard lock(state_mutex_);
+                    const auto track_it = request_handlers.find(request_id);
+                    if (track_it != request_handlers.end()) {
+                        track_handler = track_it->second;
+                    }
+                }
+
+                if (!track_handler) {
                     QUICR_LOGGER_WARN(logger_,
                                       "Received REQUEST_OK to unknown track conn_id: {} request_id: {}, ignored",
                                       connection->GetID(),
@@ -3892,7 +4007,7 @@ namespace quicr {
                     return true;
                 }
 
-                if (auto status_handler = track_it->second->Get<TrackStatusHandler>()) {
+                if (auto status_handler = track_handler->Get<TrackStatusHandler>()) {
                     TrackStatusResponse response = {
                         .largest_location = parameters.Get<messages::Location>(messages::ParameterType::kLargestObject),
                         .track_properties = Message::ParseField<messages::TrackExtensions>(msg_bytes),
@@ -3907,20 +4022,20 @@ namespace quicr {
                     return true;
                 }
 
-                const auto migration_type =
-                  track_it->second->Get<PublishTrackHandler>()         ? MigrationRequestType::kPublish
-                  : track_it->second->Get<SubscribeNamespaceHandler>() ? MigrationRequestType::kSubscribeNamespace
-                                                                       : MigrationRequestType::kPublishNamespace;
+                const auto migration_type = track_handler->Get<PublishTrackHandler>() ? MigrationRequestType::kPublish
+                                            : track_handler->Get<SubscribeNamespaceHandler>()
+                                              ? MigrationRequestType::kSubscribeNamespace
+                                              : MigrationRequestType::kPublishNamespace;
                 CompleteMigration(connection, request_id, migration_type);
 
-                if (track_it->second->GetConnection() != connection) {
+                if (track_handler->GetConnection() != connection) {
                     QUICR_LOGGER_DEBUG(logger_,
                                        "Ignoring late REQUEST_OK from retired conn_id: {} request_id: {}",
                                        connection->GetID(),
                                        request_id);
                     return true;
                 }
-                track_it->second->RequestOkReceived(parameters);
+                track_handler->RequestOkReceived(parameters);
                 return true;
             }
             case messages::ControlMessageType::kGoaway: {
@@ -4185,8 +4300,14 @@ namespace quicr {
                           }
 
                           if (!result) {
-                              // TODO: Send announce error.
-
+                              const auto& [code, reason, redirect] = result.error();
+                              self->SendRequestError(stream,
+                                                     request_id,
+                                                     ToErrorCode(code),
+                                                     0ms,
+                                                     reason.value_or("Internal error"),
+                                                     true,
+                                                     redirect);
                               return;
                           }
 
@@ -4545,6 +4666,10 @@ namespace quicr {
                                               error_code = ErrorCode::kInvalidRange;
                                               break;
 
+                                          case FetchErrorCode::kRedirect:
+                                              error_code = ErrorCode::kRedirect;
+                                              break;
+
                                           default:
                                               break;
                                       }
@@ -4628,6 +4753,10 @@ namespace quicr {
                                       switch (code) {
                                           case FetchErrorCode::kInvalidRange:
                                               error_code = ErrorCode::kInvalidRange;
+                                              break;
+
+                                          case FetchErrorCode::kRedirect:
+                                              error_code = ErrorCode::kRedirect;
                                               break;
 
                                           default:

@@ -58,14 +58,18 @@ namespace quicr {
       std::shared_ptr<const std::vector<uint8_t>> data)
     {
         std::lock_guard lock(binding_operation_mutex_);
-        auto session = GetSession().lock();
-        std::shared_ptr<Stream> stream;
 
+        const auto status = GetStatus();
+        if (status == Status::kUnsubscribed || status == Status::kDoneByFin || status == Status::kNoSubscribers) {
+            publish_track_metrics_.objects_dropped_not_ok++;
+            return PublishObjectStatus::kNoSubscribers;
+        }
+
+        auto session = GetSession().lock();
         if (!session) {
             return PublishObjectStatus::kInternalError;
         }
 
-        const auto status = GetStatus();
         switch (status) {
             case Status::kOk:
                 break;
@@ -73,14 +77,6 @@ namespace quicr {
             case Status::kPaused:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kPaused;
-
-            case Status::kUnsubscribed:
-                [[fallthrough]];
-            case Status::kDoneByFin:
-                [[fallthrough]];
-            case Status::kNoSubscribers:
-                publish_track_metrics_.objects_dropped_not_ok++;
-                return PublishObjectStatus::kNoSubscribers;
 
             case Status::kPendingAnnounceResponse:
                 [[fallthrough]];
@@ -112,6 +108,7 @@ namespace quicr {
                 return PublishObjectStatus::kInternalError;
         }
 
+        std::shared_ptr<Stream> stream;
         publish_track_metrics_.bytes_published += data->size();
 
         if (!GetRequestId().has_value()) {
@@ -175,13 +172,18 @@ namespace quicr {
       std::optional<messages::StreamHeaderProperties> stream_mode)
     {
         std::lock_guard lock(binding_operation_mutex_);
-        auto session = GetSession().lock();
 
+        const auto status = GetStatus();
+        if (status == Status::kUnsubscribed || status == Status::kDoneByFin || status == Status::kNoSubscribers) {
+            publish_track_metrics_.objects_dropped_not_ok++;
+            return PublishObjectStatus::kNoSubscribers;
+        }
+
+        auto session = GetSession().lock();
         if (!session) {
             return PublishObjectStatus::kInternalError;
         }
 
-        const auto status = GetStatus();
         switch (status) {
             case Status::kOk:
                 break;
@@ -189,14 +191,6 @@ namespace quicr {
             case Status::kPaused:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kPaused;
-
-            case Status::kUnsubscribed:
-                [[fallthrough]];
-            case Status::kDoneByFin:
-                [[fallthrough]];
-            case Status::kNoSubscribers:
-                publish_track_metrics_.objects_dropped_not_ok++;
-                return PublishObjectStatus::kNoSubscribers;
 
             case Status::kPendingAnnounceResponse:
                 [[fallthrough]];
