@@ -1165,24 +1165,6 @@ namespace {
     }
 
     template<>
-    Reply<void, FetchErrorCode> ToCppType<Reply<void, FetchErrorCode>, quicr_fetch_cancel_reply_t>(
-      const quicr_fetch_cancel_reply_t& reply)
-    {
-        if (reply.result == QUICR_REPLY_RESULT_ACCEPT) {
-            return {};
-        }
-        if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            const auto code = ToCppType<FetchErrorCode>(reply.error.code);
-            return MakeRedirectableError(code,
-                                         reply.error.reason,
-                                         reply.error.redirect,
-                                         FetchErrorCode::kRedirect,
-                                         FetchErrorCode::kInternalError);
-        }
-        return MakeError(FetchErrorCode::kInternalError, "Invalid fetch cancellation reply result");
-    }
-
-    template<>
     Reply<TrackStatusResponse, RequestErrorCode>
     ToCppType<Reply<TrackStatusResponse, RequestErrorCode>, quicr_track_status_reply_t>(
       const quicr_track_status_reply_t& reply)
@@ -1741,20 +1723,14 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
           CallbackInternalError<FetchErrorCode>());
     }
 
-    Reply<void, FetchErrorCode> FetchCancelReceived(const std::shared_ptr<Session>& session,
-                                                    std::uint64_t request_id) override
+    void FetchCancelReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id) override
     {
         if (!callbacks.fetch_cancel_received) {
             return Session::Callbacks::FetchCancelReceived(session, request_id);
         }
 
         return SafeCallback(
-          [&] {
-              const auto reply =
-                callbacks.fetch_cancel_received(GetSessionHandle(session), request_id, callbacks.user_data);
-              return ToCppType<Reply<void, FetchErrorCode>>(reply);
-          },
-          CallbackInternalError<FetchErrorCode>());
+          [&] { callbacks.fetch_cancel_received(GetSessionHandle(session), request_id, callbacks.user_data); });
     }
 
     Reply<TrackStatusResponse, RequestErrorCode> TrackStatusReceived(const std::shared_ptr<Session>& session,
@@ -1977,12 +1953,10 @@ class PublishTrackHandlerAdapter : public quicr::PublishTrackHandler
         }
     }
 
-    void StreamClosed(std::uint64_t stream_id, bool reset) override
+    void SubgroupCancelled(std::uint64_t group_id, std::uint64_t subgroup_id) override
     {
-        PublishTrackHandler::StreamClosed(stream_id, reset);
-
-        if (owner_ && callbacks_.stream_closed) {
-            callback_state_->Invoke(callbacks_.stream_closed, owner_, stream_id, reset, callbacks_.user_data);
+        if (owner_ && callbacks_.subgroup_cancelled) {
+            callback_state_->Invoke(callbacks_.subgroup_cancelled, owner_, group_id, subgroup_id, callbacks_.user_data);
         }
     }
 
@@ -2027,12 +2001,10 @@ class PublishFetchHandlerAdapter : public quicr::PublishFetchHandler
         }
     }
 
-    void StreamClosed(std::uint64_t stream_id, bool reset) override
+    void SubgroupCancelled(std::uint64_t group_id, std::uint64_t subgroup_id) override
     {
-        PublishTrackHandler::StreamClosed(stream_id, reset);
-
-        if (owner_ && callbacks_.stream_closed) {
-            callback_state_->Invoke(callbacks_.stream_closed, owner_, stream_id, reset, callbacks_.user_data);
+        if (owner_ && callbacks_.subgroup_cancelled) {
+            callback_state_->Invoke(callbacks_.subgroup_cancelled, owner_, group_id, subgroup_id, callbacks_.user_data);
         }
     }
 

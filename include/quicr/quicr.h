@@ -643,15 +643,6 @@ extern "C"
     } quicr_fetch_reply_t;
 
     /**
-     * @brief Fetch-cancel reply.
-     */
-    typedef struct quicr_fetch_cancel_reply
-    {
-        quicr_reply_result_t result; ///< ACCEPT or REJECT.
-        quicr_fetch_error_t error;   ///< Used only on REJECT.
-    } quicr_fetch_cancel_reply_t;
-
-    /**
      * @brief Track-status reply.
      */
     typedef struct quicr_track_status_reply
@@ -841,12 +832,8 @@ extern "C"
          * @param session Borrowed session handle.
          * @param request_id Cancelled fetch request identifier.
          * @param user_data Callback table's opaque user data.
-         *
-         * @return An initialized ACCEPT or REJECT reply.
          */
-        quicr_fetch_cancel_reply_t (*fetch_cancel_received)(quicr_session_t* session,
-                                                            uint64_t request_id,
-                                                            void* user_data);
+        void (*fetch_cancel_received)(quicr_session_t* session, uint64_t request_id, void* user_data);
 
         /**
          * @brief Inbound track-status query.
@@ -1001,12 +988,8 @@ extern "C"
          * @param session Borrowed session handle.
          * @param request_id Cancelled fetch request identifier.
          * @param user_data Callback table's opaque user data.
-         *
-         * @return An initialized ACCEPT or REJECT reply.
          */
-        quicr_fetch_cancel_reply_t (*fetch_cancel_received)(quicr_session_t* session,
-                                                            uint64_t request_id,
-                                                            void* user_data);
+        void (*fetch_cancel_received)(quicr_session_t* session, uint64_t request_id, void* user_data);
 
         /**
          * @brief Inbound track-status query.
@@ -1426,14 +1409,17 @@ extern "C"
                                 void* user_data);
 
         /**
-         * @brief Stream closure; reset distinguishes reset from FIN.
+         * @brief Notification that the subscriber cancelled a subgroup.
          *
-         * @param handler Borrowed publish handler whose stream closed.
-         * @param stream_id Closed stream identifier.
-         * @param reset True for reset, false for graceful FIN.
+         * @param handler Borrowed publish handler for the cancelled subgroup.
+         * @param group_id Group containing the cancelled subgroup.
+         * @param subgroup_id Cancelled subgroup identifier.
          * @param user_data Callback table's opaque user data.
          */
-        void (*stream_closed)(quicr_publish_track_handler_t* handler, uint64_t stream_id, bool reset, void* user_data);
+        void (*subgroup_cancelled)(quicr_publish_track_handler_t* handler,
+                                   uint64_t group_id,
+                                   uint64_t subgroup_id,
+                                   void* user_data);
     } quicr_publish_track_handler_callbacks_t;
 
     /**
@@ -1614,14 +1600,17 @@ extern "C"
                                 void* user_data);
 
         /**
-         * @brief Stream closure; reset distinguishes reset from FIN.
+         * @brief Notification that the subscriber cancelled a subgroup.
          *
-         * @param handler Borrowed publish-fetch handler whose stream closed.
-         * @param stream_id Closed stream identifier.
-         * @param reset True for reset, false for graceful FIN.
+         * @param handler Borrowed publish-fetch handler for the cancelled subgroup.
+         * @param group_id Group containing the cancelled subgroup.
+         * @param subgroup_id Cancelled subgroup identifier.
          * @param user_data Callback table's opaque user data.
          */
-        void (*stream_closed)(quicr_publish_fetch_handler_t* handler, uint64_t stream_id, bool reset, void* user_data);
+        void (*subgroup_cancelled)(quicr_publish_fetch_handler_t* handler,
+                                   uint64_t group_id,
+                                   uint64_t subgroup_id,
+                                   void* user_data);
     } quicr_publish_fetch_handler_callbacks_t;
 
     /**
