@@ -738,6 +738,7 @@ namespace quicr {
                                                            const std::shared_ptr<Stream>& stream)
           QUICR_REQUIRES(state_mutex_);
 
+        // Local cleanup in response to remote closure.
         void OnRemoteRequestClose(std::uint64_t request_id,
                                   const std::shared_ptr<Stream>& stream,
                                   StreamClosedFlag flag,
