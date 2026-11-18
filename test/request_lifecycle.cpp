@@ -590,8 +590,13 @@ TEST_CASE("Request lifecycle - Received Track Status FIN - Preserve deferred res
     SUBCASE("Cancel after FIN")
     {
         cancelled = true;
-        // TODO: Replace direct injection with the public TRACK_STATUS cancellation API when available.
-        server.PeerClose(request.stream->GetStreamId(), StreamClosedFlag::kStopSending);
+        client.session->CancelTrackStatus(query);
+        CHECK(client.transport->Closed(request.stream->GetStreamId(), StreamOperation::kCancel));
+        CHECK_FALSE(query->GetRequestStreamId());
+        CHECK(query->GetStatus() == TrackStatusHandler::Status::kDoneByReset);
+        CHECK_NOTHROW(client.session->CancelTrackStatus(query));
+        REQUIRE_FALSE(client.transport->closes.empty());
+        server.ReceiveClose(client.transport->closes.back());
         CHECK(server.transport->Closed(request.stream->GetStreamId(), StreamOperation::kCancel));
     }
     std::exchange(callbacks->status_reply, {})(TrackStatusResponse{});
