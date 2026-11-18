@@ -13,7 +13,6 @@ add_executable(quicr_test
     picoquic_connection.cpp
     priority_queue.cpp
     reply.cpp
-    request_lifecycle.cpp
     track_handlers.cpp
     track_namespace.cpp
     metrics.cpp
