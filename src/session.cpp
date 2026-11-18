@@ -3989,7 +3989,6 @@ namespace quicr {
                         request_handlers.erase(request_id);
                         status_handler->SetRequestStream(nullptr);
                     }
-                    quic_transport_->CloseStream(stream, StreamOperation::kFin);
                     status_handler->ResponseReceived(std::move(response));
                     return true;
                 }
@@ -4147,7 +4146,6 @@ namespace quicr {
                         request_handlers.erase(request_id);
                         status_handler->SetRequestStream(nullptr);
                     }
-                    quic_transport_->CloseStream(stream, StreamOperation::kFin);
                     status_handler->RequestError(error_code, reason_str);
                     return true;
                 }
