@@ -1,33 +1,34 @@
-# Media over QUIC (MoQ) Publisher/Subscriber API
+# Media over QUIC (MoQ) Publisher/Subscriber APIs
 
-LibQuicR provides client and server APIs for publishing and subscribing to
-Media over QUIC tracks. \ref quicr::SessionManager owns transports and their
-\ref quicr::Session objects. Configure a client with \ref quicr::ClientConfig
-or a server with \ref quicr::ServerConfig, then provide the corresponding
-session callback implementation.
+LibQuicR provides native C++ and C APIs for client and server sessions,
+publishing, subscribing, fetches, namespace operations, and track-status
+queries.
 
-## Sessions
+## C++ API
 
-Class | Description
-------|------------
-\ref quicr::SessionManager | Creates transports, owns sessions, and registers track and namespace handlers.
-\ref quicr::Session | Represents one MoQ protocol session and exposes its current status and operations.
-\ref quicr::Session::ClientCallbacks | Receives setup and protocol callbacks for a client session.
-\ref quicr::Session::ServerCallbacks | Receives setup and protocol callbacks for an accepted server session.
+\ref quicr::SessionManager owns transports and their \ref quicr::Session
+objects. Configure a client with \ref quicr::ClientConfig or a server with
+\ref quicr::ServerConfig, provide the corresponding session callbacks, and
+register track or namespace handlers through
+\ref quicr::SessionManager::AddHandler.
 
-## Track handlers
+\ref quicr::SubscribeTrackHandler receives objects and subscription status.
+\ref quicr::PublishTrackHandler publishes objects and reports publication
+status.
 
-Create a handler for one \ref quicr::FullTrackName and register it with
-\ref quicr::SessionManager::AddHandler. Override the handler callbacks needed
-by the application.
+See the [C++ API Guide](api-guide.html) and
+[Examples](examples.html) for details.
 
-Class | Description
-------|------------
-\ref quicr::SubscribeTrackHandler | Receives objects and subscription status for a subscribed track.
-\ref quicr::PublishTrackHandler | Publishes objects and reports publication status for a track.
+## C API
 
-See the [API Guide](api-guide.html) for more details and the
-[Examples](examples.html) for complete applications.
+The native C API is declared in `<quicr/quicr.h>` and linked through the CMake
+target `quicr::c`. It provides opaque manager, session, name, extension, and
+handler types with callback tables and explicit ownership operations.
+
+See the [C API Guide](c-api-guide.html) for ownership, callback, reply, handler
+lifecycle, and shutdown requirements.
 
 @example simple_publish/main.cpp
 @example simple_subscribe/main.cpp
+@example simple_publish/main.c
+@example simple_subscribe/main.c

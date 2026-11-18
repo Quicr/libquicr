@@ -59,6 +59,31 @@ namespace quicr_test {
             }
         }
 
+        void ObjectStatusReceived(std::uint64_t group_id,
+                                  std::uint64_t object_id,
+                                  std::uint8_t priority,
+                                  quicr::ObjectStatus status,
+                                  std::optional<quicr::Extensions> extensions,
+                                  std::optional<quicr::Extensions> immutable_extensions) override
+        {
+            std::lock_guard lock(mutex_);
+            if (pub_handler_) {
+                pub_handler_->PublishObject(
+                  quicr::ObjectHeaders{
+                    .group_id = group_id,
+                    .object_id = object_id,
+                    .payload_length = 0,
+                    .status = status,
+                    .priority = priority,
+                    .ttl = std::nullopt,
+                    .track_mode = std::nullopt,
+                    .extensions = std::move(extensions),
+                    .immutable_extensions = std::move(immutable_extensions),
+                  },
+                  {});
+            }
+        }
+
         void StatusChanged([[maybe_unused]] Status status) override {}
 
         void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, [[maybe_unused]] bool reset) override
@@ -113,8 +138,23 @@ namespace quicr_test {
             return subgroup_it->second.stream;
         }
 
+        void SubgroupCancelled(std::uint64_t group_id, std::uint64_t subgroup_id) override
+        {
+            std::lock_guard lock(cancelled_mutex_);
+            cancelled_.emplace_back(group_id, subgroup_id);
+        }
+
+        /// @returns Every subgroup the subscriber has cancelled, in order.
+        std::vector<std::pair<std::uint64_t, std::uint64_t>> GetCancelledSubgroups() const
+        {
+            std::lock_guard lock(cancelled_mutex_);
+            return cancelled_;
+        }
+
       private:
         std::weak_ptr<TestServer> server_;
+        mutable std::mutex cancelled_mutex_;
+        std::vector<std::pair<std::uint64_t, std::uint64_t>> cancelled_;
     };
 
     class TestServer final
@@ -381,12 +421,7 @@ namespace quicr_test {
         {
         }
 
-        quicr::Reply<void, quicr::FetchErrorCode> FetchCancelReceived(
-          const std::shared_ptr<quicr::Session>& session,
-          [[maybe_unused]] std::uint64_t request_id) override
-        {
-            return {};
-        }
+        void FetchCancelReceived(const std::shared_ptr<quicr::Session>&, std::uint64_t) override {}
 
         quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> PublishReceived(
           const std::shared_ptr<quicr::Session>& session,

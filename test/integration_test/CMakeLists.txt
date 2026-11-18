@@ -10,6 +10,8 @@ CPMAddPackage("gh:gabime/spdlog@1.17.0")
 # Add the integration test executable
 add_executable(quicr_integration_test
     integration_test.cpp
+    integration_test_support.h
+    integration_test_support.cpp
     test_server.h
     test_server.cpp
     test_client.h
@@ -90,11 +92,61 @@ file(WRITE "${TEST_CERT_DIRECTORY}/malformed-roots.pem" "not a PEM certificate\n
 
 add_dependencies(quicr_integration_test generate_test_certs)
 
+add_executable(quicr_c_integration_test
+    c_api_integration_test.cpp
+    c_api_scenarios.c
+    integration_test_support.h
+    integration_test_support.cpp
+    test_server.h
+    test_server.cpp
+    test_client.h
+    test_client.cpp
+)
+target_include_directories(quicr_c_integration_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/src
+    $<TARGET_PROPERTY:picoquic-core,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:picoquic-log,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:picohttp-core,INTERFACE_INCLUDE_DIRECTORIES>
+)
+target_link_libraries(quicr_c_integration_test PRIVATE
+    quicr::c
+    quicr::quicr
+    doctest::doctest
+    spdlog::spdlog
+    timeq::timeq
+)
+set_target_properties(quicr_c_integration_test PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED YES
+    C_EXTENSIONS OFF
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS OFF
+)
+target_compile_options(quicr_c_integration_test PRIVATE
+    $<$<COMPILE_LANG_AND_ID:C,Clang,AppleClang,GNU>:-Wall;-Wextra;-Wpedantic>
+    $<$<COMPILE_LANG_AND_ID:CXX,Clang,AppleClang,GNU>:-Wall;-Wextra;-Wpedantic>
+)
+if(QUICR_ENABLE_SANITIZERS)
+    target_sources(quicr_c_integration_test PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}/../sanitizer_options.cpp"
+    )
+endif()
+if(WIN32)
+    target_compile_definitions(quicr_c_integration_test PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS)
+endif()
+add_dependencies(quicr_c_integration_test generate_test_certs)
+
 if(NOT TARGET picotls-openssl AND NOT WITH_MBEDTLS)
     target_compile_definitions(quicr_integration_test PRIVATE QUICR_TEST_NO_CERT_VERIFIER)
+    target_compile_definitions(quicr_c_integration_test PRIVATE QUICR_TEST_NO_CERT_VERIFIER)
 endif()
 
 doctest_discover_tests(quicr_integration_test
+    WORKING_DIRECTORY "${TEST_CERT_DIRECTORY}"
+)
+doctest_discover_tests(quicr_c_integration_test
     WORKING_DIRECTORY "${TEST_CERT_DIRECTORY}"
 )
 
@@ -107,4 +159,5 @@ set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
 if(QUICR_LINT)
     include(Lint)
     lint(quicr_integration_test)
+    lint(quicr_c_integration_test)
 endif()

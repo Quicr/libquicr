@@ -74,8 +74,9 @@ namespace quicr {
      */
     enum class PublishNamespaceErrorCode : uint8_t
     {
-        kOk = 0,       ///< Vestigial success value; do not return it as an error.
-        kInternalError ///< Unspecified application or endpoint failure.
+        kOk = 0,        ///< Vestigial success value; do not return it as an error.
+        kInternalError, ///< Unspecified application or endpoint failure.
+        kRedirect       ///< Retry the namespace publication using the supplied redirect.
     };
 
     /**
@@ -90,6 +91,7 @@ namespace quicr {
         kInvalidRange,  ///< Requested fetch range is invalid.
         kNoObjects,     ///< No objects are available in the requested range.
         kInternalError, ///< Unspecified application or endpoint failure.
+        kRedirect,      ///< The fetch should be retried using the supplied redirect.
         // TODO: Expand reasons.
     };
 
@@ -236,14 +238,12 @@ namespace quicr {
           const JoiningFetchAttributes& attributes);
 
         /**
-         * @brief Callback notification on receiving a FetchCancel message.
+         * @brief Callback notification that the peer cancelled a FETCH
          *
-         * @param request_id Request ID received.
+         * @param request_id Request ID of the cancelled FETCH.
          * @param session Session that received the cancellation.
-         * @return Immediate or deferred acknowledgment, or error.
          */
-        virtual Reply<void, FetchErrorCode> FetchCancelReceived(const std::shared_ptr<Session>& session,
-                                                                std::uint64_t request_id);
+        virtual void FetchCancelReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id);
 
         /**
          * @brief Callback notification for track status message received

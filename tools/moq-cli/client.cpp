@@ -423,12 +423,10 @@ class MyClient : public quicr::Session::ClientCallbacks
                              { joining_start, std::nullopt });
     }
 
-    quicr::Reply<void, quicr::FetchErrorCode> FetchCancelReceived(
-      [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-      std::uint64_t request_id) override
+    void FetchCancelReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
+                             std::uint64_t request_id) override
     {
         QUICR_LOGGER_INFO(qclient_vars::logger, "Fetch cancelled for request_id: {}", request_id);
-        return {};
     }
 
     quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusReceived(

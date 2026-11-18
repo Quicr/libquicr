@@ -351,6 +351,14 @@ namespace quicr {
         void RequestTrackStatus(std::shared_ptr<TrackStatusHandler> handler);
 
         /**
+         * @brief Cancel a pending track status request
+         *
+         * @param handler           Handler for the pending query.
+         * @throws std::invalid_argument if handler is null.
+         */
+        void CancelTrackStatus(const std::shared_ptr<TrackStatusHandler>& handler);
+
+        /**
          * @brief Send GOAWAY on this session's control stream.
          *
          * @param new_session_uri URI the peer should migrate to, or empty to reuse the current URI.
@@ -787,13 +795,10 @@ namespace quicr {
         /**
          * @brief Create a data stream for a track.
          *
-         * @param request_id Track the stream carries, so that its metrics find the right handler.
-         * @param priority QUIC stream priority; lower values are higher priority.
+         * @param handler The handler for the track.
          * @return Shared handle to the created stream.
          */
-        std::shared_ptr<Stream> CreateStream(const std::shared_ptr<Connection>& connection,
-                                             std::uint64_t request_id,
-                                             uint8_t priority);
+        std::shared_ptr<Stream> CreateStream(const std::shared_ptr<PublishTrackHandler>& handler);
 
         /**
          * @brief Send published data.

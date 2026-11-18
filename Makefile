@@ -49,6 +49,9 @@ doc:
 	@echo "Creating implementation doc HTML"
 	@pandoc docs/api-guide.md -f markdown --to=html5 -o docs/html/api-guide.html --filter=mermaid-filter \
  			--template=docs/pandoc-theme/elegant_bootstrap_menu.html --toc
+	@echo "Creating C API guide HTML"
+	@pandoc docs/c-api-guide.md -f markdown --to=html5 -o docs/html/c-api-guide.html \
+			--template=docs/pandoc-theme/elegant_bootstrap_menu.html --toc
 
 # Build C Bridge only.
 c-bridge-only: CMakeLists.txt c-bridge/CMakeLists.txt
