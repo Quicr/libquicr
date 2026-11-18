@@ -46,10 +46,7 @@ namespace quicr {
         return Unexpected<Error<FetchErrorCode>>(FetchErrorCode::kInternalError, "Fetch is not supported");
     }
 
-    Reply<void, FetchErrorCode> Session::Callbacks::FetchCancelReceived(const std::shared_ptr<Session>&, std::uint64_t)
-    {
-        return {};
-    }
+    void Session::Callbacks::FetchCancelReceived(const std::shared_ptr<Session>&, std::uint64_t) {}
 
     Reply<TrackStatusResponse, RequestErrorCode> Session::Callbacks::TrackStatusReceived(
       const std::shared_ptr<Session>&,
