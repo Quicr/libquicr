@@ -42,6 +42,9 @@ typedef struct connection_context
     quicr_test_event_t* removed;
     quicr_test_event_t* metrics;
     bool setup_received;
+    quicr_status_t wrong_reply_kind_status;
+    quicr_status_t reply_accept_status;
+    quicr_status_t duplicate_reply_status;
 } connection_context_t;
 
 typedef struct track_context
@@ -127,8 +130,11 @@ struct quicr_test_joining_server
     uint64_t relay_request_id;
 };
 
-static quicr_error_reply_t
-accept_setup(quicr_session_t* session, const quicr_setup_attributes_t* attributes, void* user_data)
+static void
+accept_setup(quicr_session_t* session,
+             const quicr_setup_attributes_t* attributes,
+             quicr_reply_t* reply,
+             void* user_data)
 {
     connection_context_t* context = user_data;
     (void)session;
@@ -136,23 +142,27 @@ accept_setup(quicr_session_t* session, const quicr_setup_attributes_t* attribute
 
     if (context != NULL) {
         context->setup_received = true;
+        const quicr_fetch_response_t response = { 0 };
+        context->wrong_reply_kind_status = quicr_reply_accept_fetch(reply, &response);
+        context->reply_accept_status = quicr_reply_accept(reply);
+        context->duplicate_reply_status = quicr_reply_reject(reply, QUICR_ERROR_INTERNAL_ERROR, "duplicate", NULL);
+        return;
     }
 
-    quicr_error_reply_t reply = { 0 };
-    reply.result = QUICR_REPLY_RESULT_ACCEPT;
-    return reply;
+    (void)quicr_reply_accept(reply);
 }
 
-static quicr_error_reply_t
-accept_track_setup(quicr_session_t* session, const quicr_setup_attributes_t* attributes, void* user_data)
+static void
+accept_track_setup(quicr_session_t* session,
+                   const quicr_setup_attributes_t* attributes,
+                   quicr_reply_t* reply,
+                   void* user_data)
 {
     (void)session;
     (void)attributes;
     (void)user_data;
 
-    quicr_error_reply_t reply = { 0 };
-    reply.result = QUICR_REPLY_RESULT_ACCEPT;
-    return reply;
+    (void)quicr_reply_accept(reply);
 }
 
 static void
@@ -562,41 +572,35 @@ server_fetch_object_status_received(const quicr_object_headers_t* headers, void*
     }
 }
 
-static quicr_fetch_reply_t
+static void
 server_standalone_fetch_received(quicr_session_t* session,
                                  uint64_t request_id,
                                  const quicr_full_track_name_t* full_track_name,
                                  const quicr_standalone_fetch_attributes_t* attributes,
+                                 quicr_reply_t* reply,
                                  void* user_data)
 {
     static const uint8_t payload[] = { 4U, 5U, 6U };
     server_fetch_context_t* context = user_data;
     (void)attributes;
 
-    quicr_fetch_reply_t reply = { 0 };
     if (context == NULL) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_FETCH_ERROR_INTERNAL_ERROR;
-        reply.error.reason = "missing test context";
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_FETCH_ERROR_INTERNAL_ERROR, "missing test context", NULL);
+        return;
     }
 
     ++context->fetch_request_count;
     if (context->fetch_request_count == 1U) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_FETCH_ERROR_INVALID_RANGE;
-        reply.error.reason = "intentional rejection";
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_FETCH_ERROR_INVALID_RANGE, "intentional rejection", NULL);
+        return;
     }
 
     const quicr_status_t create_status = quicr_publish_fetch_handler_create(
       NULL, full_track_name, 0U, request_id, QUICR_GROUP_ORDER_ASCENDING, 1000U, &context->publish_fetch_handler);
     if (create_status != QUICR_STATUS_OK ||
         quicr_session_bind_publish_fetch_handler(session, context->publish_fetch_handler) != QUICR_STATUS_OK) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_FETCH_ERROR_INTERNAL_ERROR;
-        reply.error.reason = "failed to bind response";
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_FETCH_ERROR_INTERNAL_ERROR, "failed to bind response", NULL);
+        return;
     }
 
     quicr_object_headers_t headers;
@@ -609,25 +613,24 @@ server_standalone_fetch_received(quicr_session_t* session,
     if (quicr_publish_fetch_handler_publish_object(context->publish_fetch_handler, &headers, data, &publish_status) !=
           QUICR_STATUS_OK ||
         publish_status != QUICR_PUBLISH_OBJECT_STATUS_OK) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_FETCH_ERROR_INTERNAL_ERROR;
-        reply.error.reason = "failed to publish response";
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_FETCH_ERROR_INTERNAL_ERROR, "failed to publish response", NULL);
+        return;
     }
 
-    reply.result = QUICR_REPLY_RESULT_ACCEPT;
-    reply.response.has_largest_location = true;
-    reply.response.largest_location.group = 1U;
-    reply.response.largest_location.object = 2U;
-    reply.response.publisher_default_group_order = QUICR_GROUP_ORDER_ASCENDING;
-    return reply;
+    const quicr_fetch_response_t response = {
+        .largest_location = { .group = 1U, .object = 2U },
+        .publisher_default_group_order = QUICR_GROUP_ORDER_ASCENDING,
+        .has_largest_location = true,
+    };
+    (void)quicr_reply_accept_fetch(reply, &response);
 }
 
-static quicr_fetch_reply_t
+static void
 joining_fetch_rejected(quicr_session_t* session,
                        uint64_t request_id,
                        const quicr_full_track_name_t* full_track_name,
                        const quicr_joining_fetch_attributes_t* attributes,
+                       quicr_reply_t* reply,
                        void* user_data)
 {
     quicr_test_joining_server_t* server = user_data;
@@ -640,11 +643,7 @@ joining_fetch_rejected(quicr_session_t* session,
         quicr_test_event_signal(server->joining_received);
     }
 
-    quicr_fetch_reply_t reply = { 0 };
-    reply.result = QUICR_REPLY_RESULT_REJECT;
-    reply.error.code = QUICR_FETCH_ERROR_INVALID_RANGE;
-    reply.error.reason = "intentional joining-fetch rejection";
-    return reply;
+    (void)quicr_reply_reject(reply, QUICR_FETCH_ERROR_INVALID_RANGE, "intentional joining-fetch rejection", NULL);
 }
 
 static bool
@@ -675,40 +674,37 @@ validate_joining_subscribe_attributes(const quicr_subscribe_attributes_t* attrib
            filter.subscription.end_group_delta == 4U;
 }
 
-static quicr_subscribe_reply_t
+static void
 joining_subscribe_received(quicr_session_t* session,
                            uint64_t request_id,
                            const quicr_full_track_name_t* full_track_name,
                            const quicr_subscribe_attributes_t* attributes,
+                           quicr_reply_t* reply,
                            void* user_data)
 {
     quicr_test_joining_server_t* server = user_data;
-    quicr_subscribe_reply_t reply = {
-        .result = QUICR_REPLY_RESULT_REJECT,
-        .error = {
-          .code = QUICR_REQUEST_ERROR_INTERNAL_ERROR,
-          .reason = "failed to prepare relay publisher",
-        },
-    };
     if (server == NULL || !validate_joining_subscribe_attributes(attributes)) {
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_REQUEST_ERROR_INTERNAL_ERROR, "failed to prepare relay publisher", NULL);
+        return;
     }
 
     if (quicr_publish_track_handler_create(
           NULL, full_track_name, QUICR_TRACK_MODE_STREAM, 0U, 0U, 1000U, NULL, &server->relay_publish_handler) !=
         QUICR_STATUS_OK) {
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_REQUEST_ERROR_INTERNAL_ERROR, "failed to prepare relay publisher", NULL);
+        return;
     }
     if (quicr_session_bind_publish_track_handler(session, 17U, request_id, server->relay_publish_handler, true) !=
         QUICR_STATUS_OK) {
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_REQUEST_ERROR_INTERNAL_ERROR, "failed to prepare relay publisher", NULL);
+        return;
     }
 
     server->relay_session = session;
     server->relay_request_id = request_id;
     quicr_test_event_signal(server->subscribe_received);
-    reply.result = QUICR_REPLY_RESULT_ACCEPT;
-    return reply;
+    const quicr_subscribe_response_t response = { 0 };
+    (void)quicr_reply_accept_subscribe(reply, &response);
 }
 
 static bool
@@ -737,11 +733,12 @@ validate_joining_publish_attributes(const quicr_publish_attributes_t* attributes
            !quicr_publish_attributes_delivery_timeout(attributes, NULL);
 }
 
-static quicr_publish_reply_t
+static void
 joining_publish_received(quicr_session_t* session,
                          uint64_t request_id,
                          const quicr_publish_attributes_t* attributes,
                          const quicr_subscribe_namespace_handler_t* handler,
+                         quicr_reply_t* reply,
                          void* user_data)
 {
     quicr_test_joining_server_t* server = user_data;
@@ -750,29 +747,23 @@ joining_publish_received(quicr_session_t* session,
     (void)request_id;
     (void)handler;
 
-    quicr_publish_reply_t reply = {
-        .result = QUICR_REPLY_RESULT_REJECT,
-        .error = {
-          .code = QUICR_PUBLISH_ERROR_INTERNAL_ERROR,
-          .reason = "failed to create publish response",
-        },
-    };
     if (server == NULL || full_track_name == NULL || !validate_joining_publish_attributes(attributes)) {
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_PUBLISH_ERROR_INTERNAL_ERROR, "failed to create publish response", NULL);
+        return;
     }
 
     if (quicr_subscribe_track_handler_create(
           NULL, full_track_name, 0U, QUICR_GROUP_ORDER_UNSPECIFIED, NULL, &server->received_publish_handler) !=
         QUICR_STATUS_OK) {
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_PUBLISH_ERROR_INTERNAL_ERROR, "failed to create publish response", NULL);
+        return;
     }
     if (quicr_publish_response_create(server->received_publish_handler, &server->publish_response) != QUICR_STATUS_OK) {
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_PUBLISH_ERROR_INTERNAL_ERROR, "failed to create publish response", NULL);
+        return;
     }
 
-    reply.result = QUICR_REPLY_RESULT_ACCEPT;
-    reply.response = server->publish_response;
-    return reply;
+    (void)quicr_reply_accept_publish(reply, server->publish_response);
 }
 
 static void
@@ -823,10 +814,11 @@ joining_unsubscribe_namespace_received(quicr_session_t* session,
     }
 }
 
-static quicr_track_namespaces_reply_t
+static void
 joining_subscribe_tracks_received(quicr_session_t* session,
                                   const quicr_track_namespace_t* prefix_namespace,
                                   const quicr_subscribe_namespace_attributes_t* attributes,
+                                  quicr_reply_t* reply,
                                   void* user_data)
 {
     quicr_test_joining_server_t* server = user_data;
@@ -847,17 +839,14 @@ joining_subscribe_tracks_received(quicr_session_t* session,
         quicr_test_event_signal(server->subscribe_tracks_received);
     }
 
-    quicr_track_namespaces_reply_t reply = { 0 };
-    reply.result = QUICR_REPLY_RESULT_REJECT;
-    reply.error.code = QUICR_REQUEST_ERROR_GOING_AWAY;
-    reply.error.reason = "going away conversion test";
-    return reply;
+    (void)quicr_reply_reject(reply, QUICR_REQUEST_ERROR_GOING_AWAY, "going away conversion test", NULL);
 }
 
-static quicr_publish_namespace_reply_t
+static void
 server_publish_namespace_received(quicr_session_t* session,
                                   const quicr_track_namespace_t* track_namespace,
                                   const quicr_publish_namespace_attributes_t* attributes,
+                                  quicr_reply_t* reply,
                                   void* user_data)
 {
     server_fetch_context_t* context = user_data;
@@ -865,24 +854,20 @@ server_publish_namespace_received(quicr_session_t* session,
     (void)track_namespace;
     (void)attributes;
 
-    quicr_publish_namespace_reply_t reply = { 0 };
     if (context == NULL) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_PUBLISH_NAMESPACE_ERROR_INTERNAL_ERROR;
-        reply.error.reason = "intentional namespace rejection";
-        return reply;
+        (void)quicr_reply_reject(
+          reply, QUICR_PUBLISH_NAMESPACE_ERROR_INTERNAL_ERROR, "intentional namespace rejection", NULL);
+        return;
     }
 
     quicr_test_event_signal(context->namespace_request);
     if (++context->namespace_request_count == 1U) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_PUBLISH_NAMESPACE_ERROR_INTERNAL_ERROR;
-        reply.error.reason = "intentional namespace rejection";
-        return reply;
+        (void)quicr_reply_reject(
+          reply, QUICR_PUBLISH_NAMESPACE_ERROR_INTERNAL_ERROR, "intentional namespace rejection", NULL);
+        return;
     }
 
-    reply.result = QUICR_REPLY_RESULT_ACCEPT;
-    return reply;
+    (void)quicr_reply_accept(reply);
 }
 
 static void
@@ -960,6 +945,9 @@ quicr_test_c_connection(const char* connect_uri)
     memset(&callbacks, 0, sizeof(callbacks));
     SCENARIO_REQUIRE(quicr_test_event_wait(context.ready, QUICR_TEST_TIMEOUT_MS));
     SCENARIO_REQUIRE(context.setup_received);
+    SCENARIO_REQUIRE(context.wrong_reply_kind_status == QUICR_STATUS_INVALID_ARGUMENT);
+    SCENARIO_REQUIRE(context.reply_accept_status == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(context.duplicate_reply_status == QUICR_STATUS_INVALID_ARGUMENT);
     SCENARIO_REQUIRE(quicr_session_get_status(session, &status) == QUICR_STATUS_OK);
     SCENARIO_REQUIRE(status == QUICR_SESSION_STATUS_READY);
     SCENARIO_REQUIRE(quicr_test_event_wait(context.metrics, QUICR_TEST_TIMEOUT_MS));

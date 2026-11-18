@@ -306,6 +306,15 @@ quicr_c_test_responses(void)
     quicr_publish_response_t* response = NULL;
     const uint8_t track_name[] = { 'r' };
 
+    QUICR_C_TEST_CHECK(quicr_reply_accept(NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_reply_accept_publish(NULL, NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_reply_accept_subscribe(NULL, NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_reply_accept_fetch(NULL, NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_reply_accept_track_status(NULL, NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_reply_accept_track_namespaces(NULL, NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_reply_reject(NULL, QUICR_ERROR_INTERNAL_ERROR, NULL, NULL) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+
     QUICR_C_TEST_CHECK(quicr_track_namespace_create(NULL, 0, &track_namespace) == QUICR_STATUS_OK);
     QUICR_C_TEST_CHECK(
       quicr_full_track_name_create(track_namespace,
@@ -347,21 +356,6 @@ quicr_c_test_responses(void)
                        QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_publish_response_set_object_delivery_timeout(response, UINT64_MAX) ==
                        QUICR_STATUS_INVALID_ARGUMENT);
-
-    const quicr_redirect_t redirect = {
-        .connect_uri = "moq://redirect.example:443/relay",
-        .track_namespace = track_namespace,
-        .track_name = NULL,
-    };
-    const quicr_publish_namespace_reply_t redirect_reply = {
-        .result = QUICR_REPLY_RESULT_REJECT,
-        .error = {
-          .code = QUICR_PUBLISH_NAMESPACE_ERROR_REDIRECT,
-          .reason = "use another relay",
-          .redirect = &redirect,
-        },
-    };
-    QUICR_C_TEST_CHECK(redirect_reply.error.redirect->track_namespace == track_namespace);
 
     quicr_publish_response_destroy(response);
     quicr_publish_response_destroy(NULL);
