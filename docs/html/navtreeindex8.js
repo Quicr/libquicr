@@ -1,6 +1,5 @@
 var NAVTREEINDEX8 =
 {
-"structquicr_1_1ServerConfig.html#a600aeb1938992178f439f50a73dec508":[2,0,0,16,1],
 "structquicr_1_1ServerConfig.html#a8eced9153335235a4fd396d34606b081":[2,0,0,16,5],
 "structquicr_1_1ServerConfig.html#ac61dcd9337d55b4694552338af12fe2e":[2,0,0,16,0],
 "structquicr_1_1ServerConfig.html#ad8895576bc8e8fba62da81e6096c1aea":[2,0,0,16,4],
@@ -14,8 +13,8 @@ var NAVTREEINDEX8 =
 "structquicr_1_1Session_1_1Callbacks.html#a16c8538aabf8587bdcce2b69e1762f3b":[2,0,0,49,0,3],
 "structquicr_1_1Session_1_1Callbacks.html#a2ba5531e39e38f31c8227293e9c76431":[2,0,0,49,0,4],
 "structquicr_1_1Session_1_1Callbacks.html#a47c5c4100bf0c3b32652384ba6c2f54a":[2,0,0,49,0,7],
+"structquicr_1_1Session_1_1Callbacks.html#a5d63592b3c58052a1387e414934c64a6":[2,0,0,49,0,1],
 "structquicr_1_1Session_1_1Callbacks.html#a7dbf8b73fd7a1b270f07bfa52a2d0e5d":[2,0,0,49,0,2],
-"structquicr_1_1Session_1_1Callbacks.html#a8d9dd2c91782683c352f15913cd4ce8a":[2,0,0,49,0,1],
 "structquicr_1_1Session_1_1Callbacks.html#ab2c89f5b6c0785c0f6a5f52c576e0028":[2,0,0,49,0,8],
 "structquicr_1_1Session_1_1Callbacks.html#ab91321513b0d8b88f4e977ee1621bed3":[2,0,0,49,0,10],
 "structquicr_1_1Session_1_1Callbacks.html#abda3b8ff4bb6b2a4b9929931f4cb5d20":[2,0,0,49,0,5],
@@ -26,10 +25,10 @@ var NAVTREEINDEX8 =
 "structquicr_1_1Session_1_1ClientCallbacks.html#a16c8538aabf8587bdcce2b69e1762f3b":[2,0,0,49,1,3],
 "structquicr_1_1Session_1_1ClientCallbacks.html#a2ba5531e39e38f31c8227293e9c76431":[2,0,0,49,1,4],
 "structquicr_1_1Session_1_1ClientCallbacks.html#a47c5c4100bf0c3b32652384ba6c2f54a":[2,0,0,49,1,7],
+"structquicr_1_1Session_1_1ClientCallbacks.html#a5d63592b3c58052a1387e414934c64a6":[2,0,0,49,1,1],
 "structquicr_1_1Session_1_1ClientCallbacks.html#a7dbf8b73fd7a1b270f07bfa52a2d0e5d":[2,0,0,49,1,2],
 "structquicr_1_1Session_1_1ClientCallbacks.html#a7fb1f92b0af60277636152fd615390e7":[2,0,0,49,1,11],
 "structquicr_1_1Session_1_1ClientCallbacks.html#a893d2c9c2c4fae079f960c605fec1df4":[2,0,0,49,1,0],
-"structquicr_1_1Session_1_1ClientCallbacks.html#a8d9dd2c91782683c352f15913cd4ce8a":[2,0,0,49,1,1],
 "structquicr_1_1Session_1_1ClientCallbacks.html#ab2c89f5b6c0785c0f6a5f52c576e0028":[2,0,0,49,1,8],
 "structquicr_1_1Session_1_1ClientCallbacks.html#ab91321513b0d8b88f4e977ee1621bed3":[2,0,0,49,1,10],
 "structquicr_1_1Session_1_1ClientCallbacks.html#abda3b8ff4bb6b2a4b9929931f4cb5d20":[2,0,0,49,1,5],
@@ -45,9 +44,9 @@ var NAVTREEINDEX8 =
 "structquicr_1_1Session_1_1ServerCallbacks.html#a3ce93f51b7d52ffa7e611821e4a46f5b":[2,0,0,49,3,14],
 "structquicr_1_1Session_1_1ServerCallbacks.html#a47c5c4100bf0c3b32652384ba6c2f54a":[2,0,0,49,3,10],
 "structquicr_1_1Session_1_1ServerCallbacks.html#a5b9a54479d362a53b87852ff15ad1aa4":[2,0,0,49,3,17],
+"structquicr_1_1Session_1_1ServerCallbacks.html#a5d63592b3c58052a1387e414934c64a6":[2,0,0,49,3,1],
 "structquicr_1_1Session_1_1ServerCallbacks.html#a7dbf8b73fd7a1b270f07bfa52a2d0e5d":[2,0,0,49,3,2],
 "structquicr_1_1Session_1_1ServerCallbacks.html#a845df661466001ce9108840d5de2cecb":[2,0,0,49,3,15],
-"structquicr_1_1Session_1_1ServerCallbacks.html#a8d9dd2c91782683c352f15913cd4ce8a":[2,0,0,49,3,1],
 "structquicr_1_1Session_1_1ServerCallbacks.html#a980e77e63750146c240c03ae609934fd":[2,0,0,49,3,5],
 "structquicr_1_1Session_1_1ServerCallbacks.html#ab2c89f5b6c0785c0f6a5f52c576e0028":[2,0,0,49,3,11],
 "structquicr_1_1Session_1_1ServerCallbacks.html#ab56bc29c62cc088ca4d53498583bf5e1":[2,0,0,49,3,6],
@@ -249,5 +248,6 @@ var NAVTREEINDEX8 =
 "structquicr_1_1messages_1_1StreamHeaderProperties.html#a334f9c7327f12735cc204430042dc6b5":[2,0,0,1,10,6],
 "structquicr_1_1messages_1_1StreamHeaderProperties.html#a84c51ee13eb93600095293d849873cbc":[2,0,0,1,10,1],
 "structquicr_1_1messages_1_1StreamHeaderProperties.html#a8bff5c90ba11abed1bfeb8caf62e15d0":[2,0,0,1,10,5],
-"structquicr_1_1messages_1_1StreamHeaderProperties.html#a951e3712027d2803e2d179639cbc5c32":[2,0,0,1,10,3]
+"structquicr_1_1messages_1_1StreamHeaderProperties.html#a951e3712027d2803e2d179639cbc5c32":[2,0,0,1,10,3],
+"structquicr_1_1messages_1_1StreamHeaderProperties.html#aa1835e7e77f96492c017bca3f54c0e17":[2,0,0,1,10,4]
 };

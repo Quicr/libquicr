@@ -1,7 +1,7 @@
 var structquicr_1_1Session_1_1ServerCallbacks =
 [
     [ "~ServerCallbacks", "structquicr_1_1Session_1_1ServerCallbacks.html#af230ff0328ca71ab902c25a04197ef41", null ],
-    [ "FetchCancelReceived", "structquicr_1_1Session_1_1ServerCallbacks.html#a8d9dd2c91782683c352f15913cd4ce8a", null ],
+    [ "FetchCancelReceived", "structquicr_1_1Session_1_1ServerCallbacks.html#a5d63592b3c58052a1387e414934c64a6", null ],
     [ "JoiningFetchReceived", "structquicr_1_1Session_1_1ServerCallbacks.html#a7dbf8b73fd7a1b270f07bfa52a2d0e5d", null ],
     [ "MetricsSampled", "structquicr_1_1Session_1_1ServerCallbacks.html#a16c8538aabf8587bdcce2b69e1762f3b", null ],
     [ "NewGroupRequested", "structquicr_1_1Session_1_1ServerCallbacks.html#afb4435b4bef3aa5e1d0bfb222de68764", null ],

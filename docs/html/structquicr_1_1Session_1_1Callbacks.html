@@ -134,9 +134,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7dbf8b73fd7a1b270f07bfa52a2d0e5d"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classquicr_1_1Reply.html">Reply</a>&lt; const <a class="el" href="structquicr_1_1FetchResponse.html">FetchResponse</a>, <a class="el" href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303">FetchErrorCode</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1Session_1_1Callbacks.html#a7dbf8b73fd7a1b270f07bfa52a2d0e5d">JoiningFetchReceived</a> (const std::shared_ptr&lt; <a class="el" href="classquicr_1_1Session.html">Session</a> &gt; &amp;session, std::uint64_t request_id, const <a class="el" href="structquicr_1_1FullTrackName.html">FullTrackName</a> &amp;track_full_name, const <a class="el" href="structquicr_1_1JoiningFetchAttributes.html">JoiningFetchAttributes</a> &amp;attributes)</td></tr>
 <tr class="memdesc:a7dbf8b73fd7a1b270f07bfa52a2d0e5d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Event to run on receiving a Joining Fetch request.  <a href="structquicr_1_1Session_1_1Callbacks.html#a7dbf8b73fd7a1b270f07bfa52a2d0e5d">More...</a><br /></td></tr>
 <tr class="separator:a7dbf8b73fd7a1b270f07bfa52a2d0e5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8d9dd2c91782683c352f15913cd4ce8a"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classquicr_1_1Reply.html">Reply</a>&lt; void, <a class="el" href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303">FetchErrorCode</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1Session_1_1Callbacks.html#a8d9dd2c91782683c352f15913cd4ce8a">FetchCancelReceived</a> (const std::shared_ptr&lt; <a class="el" href="classquicr_1_1Session.html">Session</a> &gt; &amp;session, std::uint64_t request_id)</td></tr>
-<tr class="memdesc:a8d9dd2c91782683c352f15913cd4ce8a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification on receiving a FetchCancel message.  <a href="structquicr_1_1Session_1_1Callbacks.html#a8d9dd2c91782683c352f15913cd4ce8a">More...</a><br /></td></tr>
-<tr class="separator:a8d9dd2c91782683c352f15913cd4ce8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5d63592b3c58052a1387e414934c64a6"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1Session_1_1Callbacks.html#a5d63592b3c58052a1387e414934c64a6">FetchCancelReceived</a> (const std::shared_ptr&lt; <a class="el" href="classquicr_1_1Session.html">Session</a> &gt; &amp;session, std::uint64_t request_id)</td></tr>
+<tr class="memdesc:a5d63592b3c58052a1387e414934c64a6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification that the peer cancelled a FETCH.  <a href="structquicr_1_1Session_1_1Callbacks.html#a5d63592b3c58052a1387e414934c64a6">More...</a><br /></td></tr>
+<tr class="separator:a5d63592b3c58052a1387e414934c64a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab91321513b0d8b88f4e977ee1621bed3"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classquicr_1_1Reply.html">Reply</a>&lt; <a class="el" href="structquicr_1_1TrackStatusResponse.html">TrackStatusResponse</a>, <a class="el" href="namespacequicr.html#a628ee3e91ccfe1930405fa2623d96c0a">RequestErrorCode</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1Session_1_1Callbacks.html#ab91321513b0d8b88f4e977ee1621bed3">TrackStatusReceived</a> (const std::shared_ptr&lt; <a class="el" href="classquicr_1_1Session.html">Session</a> &gt; &amp;session, const <a class="el" href="structquicr_1_1FullTrackName.html">FullTrackName</a> &amp;track_full_name)</td></tr>
 <tr class="memdesc:ab91321513b0d8b88f4e977ee1621bed3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback notification for track status message received.  <a href="structquicr_1_1Session_1_1Callbacks.html#ab91321513b0d8b88f4e977ee1621bed3">More...</a><br /></td></tr>
 <tr class="separator:ab91321513b0d8b88f4e977ee1621bed3"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -177,8 +177,8 @@ Public Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a8d9dd2c91782683c352f15913cd4ce8a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8d9dd2c91782683c352f15913cd4ce8a">&#9670;&nbsp;</a></span>FetchCancelReceived()</h2>
+<a id="a5d63592b3c58052a1387e414934c64a6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5d63592b3c58052a1387e414934c64a6">&#9670;&nbsp;</a></span>FetchCancelReceived()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -187,7 +187,7 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual <a class="el" href="classquicr_1_1Reply.html">Reply</a>&lt;void, <a class="el" href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303">FetchErrorCode</a>&gt; quicr::Session::Callbacks::FetchCancelReceived </td>
+          <td class="memname">virtual void quicr::Session::Callbacks::FetchCancelReceived </td>
           <td>(</td>
           <td class="paramtype">const std::shared_ptr&lt; <a class="el" href="classquicr_1_1Session.html">Session</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>session</em>, </td>
@@ -211,15 +211,14 @@ Public Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Callback notification on receiving a FetchCancel message. </p>
+<p>Callback notification that the peer cancelled a FETCH. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">request_id</td><td>Request ID received. </td></tr>
+    <tr><td class="paramname">request_id</td><td>Request ID of the cancelled FETCH. </td></tr>
     <tr><td class="paramname">session</td><td><a class="el" href="classquicr_1_1Session.html" title="MoQ Session endpoint supporting connection-explicit operations.">Session</a> that received the cancellation. </td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>Immediate or deferred acknowledgment, or error. </dd></dl>
 
 </div>
 </div>

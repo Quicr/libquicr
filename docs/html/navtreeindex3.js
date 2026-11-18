@@ -1,6 +1,5 @@
 var NAVTREEINDEX3 =
 {
-"classquicr_1_1SubscribeNamespaceHandler.html#a1c1f66aa39d51705cca2b8eb866aef61":[2,0,0,30,11],
 "classquicr_1_1SubscribeNamespaceHandler.html#a22b58f83ec337645126d15a60a6ec703":[2,0,0,30,17],
 "classquicr_1_1SubscribeNamespaceHandler.html#a2886b9da25260535337c389bb868e89f":[2,0,0,30,21],
 "classquicr_1_1SubscribeNamespaceHandler.html#a2f1a1f4d40e85f2b657ffe91b1f3da79":[2,0,0,30,16],
@@ -249,5 +248,6 @@ var NAVTREEINDEX3 =
 "classquicr_1_1messages_1_1Message.html#ab73bbb19f6912d86a1faf58d0adc0cec":[2,0,0,1,9,8],
 "classquicr_1_1messages_1_1Message.html#acfe8b3a9562c30352200e8929fd440e2":[2,0,0,1,9,0],
 "classquicr_1_1messages_1_1Message.html#ad71a3c3f33d199eb69a0fb7855dacb18":[2,0,0,1,9,7],
-"classquicr_1_1messages_1_1Message.html#af0b3bc95062b219a4c3c925f4d327173":[2,0,0,1,9,1]
+"classquicr_1_1messages_1_1Message.html#af0b3bc95062b219a4c3c925f4d327173":[2,0,0,1,9,1],
+"classquicr_1_1messages_1_1Message.html#afb00bfcf5a9af55625bc7d8bcc2090f2":[2,0,0,1,9,2]
 };

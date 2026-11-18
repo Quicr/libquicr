@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['fetchcancelreceived_1214',['FetchCancelReceived',['../structquicr_1_1Session_1_1Callbacks.html#a8d9dd2c91782683c352f15913cd4ce8a',1,'quicr::Session::Callbacks']]],
+  ['fetchcancelreceived_1214',['FetchCancelReceived',['../structquicr_1_1Session_1_1Callbacks.html#a5d63592b3c58052a1387e414934c64a6',1,'quicr::Session::Callbacks']]],
   ['fetchobjectserializationstate_1215',['FetchObjectSerializationState',['../classquicr_1_1messages_1_1FetchObjectSerializationState.html#aab747f143abd17e7309df7965f28f3a1',1,'quicr::messages::FetchObjectSerializationState']]],
   ['fetchserializationproperties_1216',['FetchSerializationProperties',['../structquicr_1_1messages_1_1FetchSerializationProperties.html#a12f70199355d879329edefb3296ed6e9',1,'quicr::messages::FetchSerializationProperties::FetchSerializationProperties(std::uint64_t value)'],['../structquicr_1_1messages_1_1FetchSerializationProperties.html#a555285f9cc45f6361a07dd405d99a2f9',1,'quicr::messages::FetchSerializationProperties::FetchSerializationProperties(SubgroupIdMode subgroup_id_mode, bool object_id_delta_present, bool group_id_delta_present, bool priority_present, bool properties_present, bool datagram) noexcept']]],
   ['fetchtrack_1217',['FetchTrack',['../classquicr_1_1Session.html#a72146cc45859f9704c3cf94bc46fd95b',1,'quicr::Session']]],
