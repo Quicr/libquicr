@@ -3764,6 +3764,10 @@ extern "C"
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
+            }
+
             return handler->impl->Pause() ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;
         });
     }
@@ -3773,6 +3777,10 @@ extern "C"
         return SafeCall([&] {
             if (!handler || !handler->impl) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
             }
 
             return handler->impl->Resume() ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;
@@ -3785,6 +3793,10 @@ extern "C"
         return SafeCall([&] {
             if (!handler || !handler->impl) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
             }
 
             return handler->impl->RequestNewGroup(group_id) ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;
@@ -3878,6 +3890,10 @@ extern "C"
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
+            }
+
             return handler->impl->Pause() ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;
         });
     }
@@ -3889,6 +3905,10 @@ extern "C"
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
+            }
+
             return handler->impl->Resume() ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;
         });
     }
@@ -3898,6 +3918,10 @@ extern "C"
         return SafeCall([&] {
             if (!handler || !handler->impl) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
             }
 
             return handler->impl->RequestNewGroup(group_id) ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;

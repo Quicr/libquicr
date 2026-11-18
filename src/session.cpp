@@ -1657,12 +1657,10 @@ namespace quicr {
 
         const auto request_stream = track_handler->GetRequestStream();
         if (request_stream == nullptr) {
-            if (track_handler->GetRequestId().has_value()) {
-                QUICR_LOGGER_ERROR(logger_,
-                                   "PublishNamespaceDone missing request context conn_id: {} prefix_hash: {}",
-                                   track_handler->GetConnectionId(),
-                                   prefix_hash);
-            }
+            QUICR_LOGGER_ERROR(logger_,
+                               "PublishNamespaceDone missing request context conn_id: {} prefix_hash: {}",
+                               track_handler->GetConnectionId(),
+                               prefix_hash);
             return;
         }
 

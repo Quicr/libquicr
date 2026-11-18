@@ -98,7 +98,6 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
         auto& pub_handler = sub_it->second;
         if (pub_handler) {
             sub_track_handler->SetPublishHandler(pub_handler);
-            sub_track_handler->Resume();
         }
     }
 

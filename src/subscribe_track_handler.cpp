@@ -70,11 +70,15 @@ namespace quicr {
         }
     }
 
-    bool SubscribeTrackHandler::Pause() noexcept
+    bool SubscribeTrackHandler::Pause()
     {
         auto session = GetSession().lock();
+        if (!session) {
+            throw std::runtime_error("Handlers must be registered to a session to perform track actions");
+        }
+
         const auto request_stream = GetRequestStream();
-        if (!session || status_ == Status::kPaused || status_ == Status::kNotConnected || request_stream == nullptr) {
+        if (status_ == Status::kPaused || status_ == Status::kNotConnected || request_stream == nullptr) {
             return false;
         }
 
@@ -85,11 +89,15 @@ namespace quicr {
         return true;
     }
 
-    bool SubscribeTrackHandler::Resume() noexcept
+    bool SubscribeTrackHandler::Resume()
     {
         auto session = GetSession().lock();
+        if (!session) {
+            throw std::runtime_error("Handlers must be registered to a session to perform track actions");
+        }
+
         const auto request_stream = GetRequestStream();
-        if (!session || request_stream == nullptr) {
+        if (request_stream == nullptr) {
             return false;
         }
 
@@ -104,11 +112,15 @@ namespace quicr {
         return true;
     }
 
-    bool SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
+    bool SubscribeTrackHandler::RequestNewGroup(uint64_t group_id)
     {
         auto session = GetSession().lock();
+        if (!session) {
+            throw std::runtime_error("Handlers must be registered to a session to perform track actions");
+        }
+
         const auto request_stream = GetRequestStream();
-        if (!session || (status_ != Status::kOk && status_ != Status::kPaused) || !support_new_group_request_ ||
+        if ((status_ != Status::kOk && status_ != Status::kPaused) || !support_new_group_request_ ||
             request_stream == nullptr) {
             return false;
         }

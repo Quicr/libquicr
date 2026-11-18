@@ -2236,9 +2236,9 @@ TEST_CASE("Integration - Handlers with no transport")
     // Subscribe.
     {
         const auto handler = SubscribeTrackHandler::Create(FullTrackName(), 0, std::nullopt);
-        CHECK_FALSE(handler->Pause());
-        CHECK_FALSE(handler->Resume());
-        CHECK_FALSE(handler->RequestNewGroup());
+        CHECK_THROWS(handler->Pause());
+        CHECK_THROWS(handler->Resume());
+        CHECK_THROWS(handler->RequestNewGroup());
     }
 
     // Publish.
@@ -2260,9 +2260,9 @@ TEST_CASE("Integration - Handlers with no transport")
     // Fetch.
     {
         const auto handler = FetchTrackHandler::Create(FullTrackName(), 0, { 0, 0 }, { 0, std::nullopt });
-        CHECK_FALSE(handler->Pause());
-        CHECK_FALSE(handler->Resume());
-        CHECK_FALSE(handler->RequestNewGroup());
+        CHECK_THROWS(handler->Pause());
+        CHECK_THROWS(handler->Resume());
+        CHECK_THROWS(handler->RequestNewGroup());
     }
 }
 
