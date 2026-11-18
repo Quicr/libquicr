@@ -1994,6 +1994,8 @@ TEST_CASE("Integration - Cancelling a subgroup")
         // If the subscriber cancels the subgroup, everything else should work.
         // TODO: Replace with subgroup cancel API if it exists.
         server->MockStreamClosed(track_alias, subgroup_stream, StreamClosedFlag::kStopSending);
+        CHECK(server_pub_handler->GetCancelledSubgroups() ==
+              std::vector<std::pair<std::uint64_t, std::uint64_t>>{ { 0, 0 } });
 
         // Everything else should continue as normal: request + publishing.
         CHECK(server_pub_handler->CanPublish());

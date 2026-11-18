@@ -16,6 +16,7 @@
 
 namespace quicr {
 
+    class PublishTrackHandler;
     class SubscribeTrackHandler;
 
     /**
@@ -117,6 +118,9 @@ namespace quicr {
          *      condition as `rx_is_new`.
          */
         std::weak_ptr<SubscribeTrackHandler> rx_handler;
+
+        /// Handler transmitting data on this stream, if any.
+        std::weak_ptr<PublishTrackHandler> tx_handler;
 
         /// Indicates if new stream, on read set to false
         bool rx_is_new{ true };

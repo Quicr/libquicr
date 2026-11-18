@@ -267,7 +267,7 @@ namespace quicr {
             if (subgroup_it == group_it->second.end()) {
                 const auto properties = stream_mode ? *stream_mode : GetStreamMode().value();
                 is_stream_header_needed = true;
-                stream = session->CreateStream(GetConnection(), *GetRequestId(), GetPublishObjectPriority());
+                stream = session->CreateStream(std::static_pointer_cast<PublishTrackHandler>(shared_from_this()));
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] = subgroup_map.emplace(
@@ -502,25 +502,24 @@ namespace quicr {
         return messages::Parameters{};
     }
 
-    void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, [[maybe_unused]] bool reset)
+    void PublishTrackHandler::SubgroupCancelled(std::uint64_t, std::uint64_t) {}
+
+    void PublishTrackHandler::StreamStopped(const std::shared_ptr<Stream>& stream)
     {
-        std::lock_guard lock(binding_operation_mutex_);
-        for (auto group_it = stream_info_by_group_.begin(); group_it != stream_info_by_group_.end();) {
-            for (auto subgroup_it = group_it->second.begin(); subgroup_it != group_it->second.end();) {
-                if (subgroup_it->second.stream != nullptr && subgroup_it->second.stream->GetStreamId() == stream_id) {
-                    // TODO: Don't reopen closed subgroups on subsequent publishes.
-                    subgroup_it = group_it->second.erase(subgroup_it);
-
-                    if (group_it->second.empty()) {
-                        group_it = stream_info_by_group_.erase(group_it);
+        std::optional<std::pair<std::uint64_t, std::uint64_t>> cancelled;
+        {
+            // Translate stream ID to group and subgroup IDs.
+            std::lock_guard _(binding_operation_mutex_);
+            for (const auto& [group_id, subgroups] : stream_info_by_group_) {
+                for (const auto& [subgroup_id, stream_info] : subgroups) {
+                    if (stream_info.stream == stream) {
+                        cancelled.emplace(group_id, subgroup_id);
                     }
-
-                    return;
                 }
-
-                ++subgroup_it;
             }
-            ++group_it;
+        }
+        if (cancelled.has_value()) {
+            SubgroupCancelled(cancelled->first, cancelled->second);
         }
     }
 } // namespace quicr

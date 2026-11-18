@@ -2320,32 +2320,23 @@ namespace quicr {
 
         try {
             std::optional<std::uint64_t> request_id;
-            std::shared_ptr<PublishTrackHandler> publish_handler;
             bool awaiting_migration = false;
             {
                 std::lock_guard _(state_mutex_);
                 const auto req_it = request_by_stream.find({ connection_id, stream_id });
-                if (req_it != request_by_stream.end()) {
-                    if (req_it->second.is_request_stream) {
-                        request_id = req_it->second.request_id;
-                        request_by_stream.erase(req_it);
+                if (req_it != request_by_stream.end() && req_it->second.is_request_stream) {
+                    request_id = req_it->second.request_id;
+                    request_by_stream.erase(req_it);
 
-                        const auto handler_it = request_handlers.find(*request_id);
-                        const bool handler_uses_connection = handler_it != request_handlers.end() &&
-                                                             handler_it->second &&
-                                                             handler_it->second->GetConnectionId() == connection_id;
+                    const auto handler_it = request_handlers.find(*request_id);
+                    const bool handler_uses_connection = handler_it != request_handlers.end() && handler_it->second &&
+                                                         handler_it->second->GetConnectionId() == connection_id;
 
-                        awaiting_migration =
-                          handler_uses_connection && std::ranges::any_of(migrations_, [&](const auto& item) {
-                              return item.second.source_connection == connection &&
-                                     MatchesRedirect(*handler_it->second, item.second.redirect);
-                          });
-                    } else {
-                        const auto handler_it = request_handlers.find(req_it->second.request_id);
-                        if (handler_it != request_handlers.end() && handler_it->second->GetConnection() == connection) {
-                            publish_handler = handler_it->second->Get<PublishTrackHandler>();
-                        }
-                    }
+                    awaiting_migration =
+                      handler_uses_connection && std::ranges::any_of(migrations_, [&](const auto& item) {
+                          return item.second.source_connection == connection &&
+                                 MatchesRedirect(*handler_it->second, item.second.redirect);
+                      });
                 }
             }
 
@@ -2362,8 +2353,10 @@ namespace quicr {
                 return;
             }
             // If this was a data stream, notify the handler.
-            if (publish_handler) {
-                publish_handler->StreamClosed(stream_id, flag != StreamClosedFlag::kFin);
+            if (const auto publish_handler = stream->tx_handler.lock()) {
+                if (flag == StreamClosedFlag::kStopSending && publish_handler->GetConnection() == connection) {
+                    publish_handler->StreamStopped(stream);
+                }
                 return;
             }
         } catch (const std::exception& e) {
@@ -2501,18 +2494,24 @@ namespace quicr {
         return false;
     }
 
-    std::shared_ptr<Stream> Session::CreateStream(const std::shared_ptr<Connection>& connection,
-                                                  std::uint64_t request_id,
-                                                  uint8_t priority)
+    std::shared_ptr<Stream> Session::CreateStream(const std::shared_ptr<PublishTrackHandler>& handler)
     {
+        if (handler == nullptr) {
+            throw std::invalid_argument("Handler cannot be null");
+        }
+
+        const auto connection = handler->GetConnection();
         if (!connection) {
             throw std::invalid_argument("Connection cannot be null");
         }
-        const auto stream = quic_transport_->CreateDataStream(connection, priority);
+
+        const auto stream = quic_transport_->CreateDataStream(connection, handler->GetPublishObjectPriority());
+        stream->tx_handler = handler;
 
         // Streams report their own metrics, so the session needs to know which track each belongs to.
         std::lock_guard _(state_mutex_);
-        request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = { .request_id = request_id,
+        request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = { .request_id =
+                                                                                      handler->GetRequestId().value(),
                                                                                     .is_request_stream = false };
 
         return stream;

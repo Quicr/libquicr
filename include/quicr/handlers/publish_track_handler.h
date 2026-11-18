@@ -177,6 +177,14 @@ namespace quicr {
          */
         Reply<messages::Parameters, ErrorCode> RequestUpdateReceived(const messages::Parameters& params) override;
 
+        /**
+         * @brief Notification that the subscriber asked to stop receiving a subgroup.
+         * @remarks Runs on the callback thread.
+         * @param group_id Group the cancelled subgroup belongs to.
+         * @param subgroup_id The cancelled subgroup.
+         */
+        virtual void SubgroupCancelled(std::uint64_t group_id, std::uint64_t subgroup_id);
+
         ///@}
 
         // --------------------------------------------------------------------------
@@ -252,15 +260,6 @@ namespace quicr {
          * object component is the most recently published object ID.
          */
         constexpr messages::Location GetLargestLocation() const noexcept { return largest_location_; }
-
-        /**
-         * @brief Notification that a stream has been closed.
-         * @param stream_id The ID of the stream being closed.
-         * @param reset True if stream closed by reset
-         * @details Removes matching subgroup bookkeeping. The default implementation does not
-         * change publication status and currently ignores `reset`.
-         */
-        virtual void StreamClosed(std::uint64_t stream_id, bool reset = false);
 
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
@@ -469,6 +468,9 @@ namespace quicr {
         void EndSubgroupInternal(uint64_t group_id, uint64_t subgroup_id, bool completed);
 
         void EndAllSubgroupsInternal(bool completed);
+
+        // Subscriber requested STOP_SENDING on this stream.
+        void StreamStopped(const std::shared_ptr<Stream>& stream);
 
         // Update status without firing the callback.
         std::optional<Status> UpdateStatus(Status status) noexcept;

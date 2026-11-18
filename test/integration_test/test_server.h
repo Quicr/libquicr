@@ -113,8 +113,23 @@ namespace quicr_test {
             return subgroup_it->second.stream;
         }
 
+        void SubgroupCancelled(std::uint64_t group_id, std::uint64_t subgroup_id) override
+        {
+            std::lock_guard lock(cancelled_mutex_);
+            cancelled_.emplace_back(group_id, subgroup_id);
+        }
+
+        /// @returns Every subgroup the subscriber has cancelled, in order.
+        std::vector<std::pair<std::uint64_t, std::uint64_t>> GetCancelledSubgroups() const
+        {
+            std::lock_guard lock(cancelled_mutex_);
+            return cancelled_;
+        }
+
       private:
         std::weak_ptr<TestServer> server_;
+        mutable std::mutex cancelled_mutex_;
+        std::vector<std::pair<std::uint64_t, std::uint64_t>> cancelled_;
     };
 
     class TestServer final
