@@ -904,8 +904,8 @@ namespace quicr {
              */
             bool is_request_stream;
 
-            // Inbound request type.
-            std::optional<messages::ControlMessageType> request_type{ std::nullopt };
+            // True if a FIN cancels this request.
+            bool fin_cancels{ true };
         };
 
         /// Lookup the request each stream carries, by stream ID.

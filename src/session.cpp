@@ -2391,8 +2391,7 @@ namespace quicr {
                 std::lock_guard _(state_mutex_);
                 const auto req_it = request_by_stream.find({ connection_id, stream_id });
                 if (req_it != request_by_stream.end() && req_it->second.is_request_stream) {
-                    if (flag == StreamClosedFlag::kFin &&
-                        req_it->second.request_type == messages::ControlMessageType::kTrackStatus) {
+                    if (flag == StreamClosedFlag::kFin && !req_it->second.fin_cancels) {
                         return;
                     }
                     request_id = req_it->second.request_id;
@@ -3741,7 +3740,7 @@ namespace quicr {
                     std::lock_guard _(state_mutex_);
                     recv_req_id[request_id] = { .track_full_name = tfn, .track_hash = th, .stream = stream };
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                        .request_id = request_id, .is_request_stream = true, .request_type = msg_type
+                        .request_id = request_id, .is_request_stream = true
                     };
                 }
 
@@ -4197,7 +4196,7 @@ namespace quicr {
                 {
                     std::lock_guard _(state_mutex_);
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                        .request_id = request_id, .is_request_stream = true, .request_type = msg_type
+                        .request_id = request_id, .is_request_stream = true, .fin_cancels = false
                     };
                 }
 
@@ -4264,7 +4263,7 @@ namespace quicr {
                                                 .stream = stream };
                     recv_publish_namespaces.push_back(request_id);
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                        .request_id = request_id, .is_request_stream = true, .request_type = msg_type
+                        .request_id = request_id, .is_request_stream = true
                     };
                 }
 
@@ -4336,7 +4335,7 @@ namespace quicr {
                 {
                     std::lock_guard _(state_mutex_);
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                        .request_id = request_id, .is_request_stream = true, .request_type = msg_type
+                        .request_id = request_id, .is_request_stream = true
                     };
                 }
 
@@ -4601,7 +4600,7 @@ namespace quicr {
                                 .stream = stream,
                             };
                             request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                                .request_id = request_id, .is_request_stream = true, .request_type = msg_type
+                                .request_id = request_id, .is_request_stream = true
                             };
                         }
 
@@ -4697,7 +4696,7 @@ namespace quicr {
                                 .stream = stream,
                             };
                             request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                                .request_id = request_id, .is_request_stream = true, .request_type = msg_type
+                                .request_id = request_id, .is_request_stream = true
                             };
                         }
 
@@ -4800,7 +4799,7 @@ namespace quicr {
                                                 .track_hash = th,
                                                 .stream = stream };
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                        .request_id = request_id, .is_request_stream = true, .request_type = msg_type
+                        .request_id = request_id, .is_request_stream = true
                     };
                 }
 
