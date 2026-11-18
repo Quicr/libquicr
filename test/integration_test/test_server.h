@@ -223,6 +223,12 @@ namespace quicr_test {
             std::vector<uint8_t> payload;
         };
 
+        std::shared_ptr<quicr::PublishFetchHandler> GetLastFetchPublisher() const
+        {
+            std::lock_guard lock(state_mutex_);
+            return last_fetch_publisher_;
+        }
+
         struct JoiningFetchDetails
         {
             std::uint64_t connection_id;
@@ -498,6 +504,7 @@ namespace quicr_test {
         std::map<std::uint64_t, std::set<quicr::StreamClosedFlag>> closed_streams_;
         std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;
         std::vector<FetchResponseData> fetch_response_data_;
+        std::shared_ptr<quicr::PublishFetchHandler> last_fetch_publisher_;
 
         std::vector<quicr::TrackNamespace> known_published_namespaces_;
         std::vector<AvailableTrack> known_published_tracks_;
