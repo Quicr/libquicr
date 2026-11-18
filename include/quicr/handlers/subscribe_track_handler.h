@@ -254,31 +254,43 @@ namespace quicr {
 
         /**
          * @brief Pause receiving data
+         *
          * @details Sends a REQUEST_UPDATE with forwarding disabled and immediately changes local
-         * state to `kPaused`. No `StatusChanged` callback is made.
+         *          state to `kPaused`. No `StatusChanged` callback is made.
+         *
          * @return True when the state change and request update are applied; false without a live
-         * session/request stream, when already paused, or in `kNotConnected`.
+         *         session/request stream, when already paused, or in `kNotConnected`.
+         *
+         * @throws std::runtime_error If the handler was not registered to a session.
          */
-        bool Pause() noexcept;
+        bool Pause();
 
         /**
          * @brief Resume receiving data
+         *
          * @details Sends a REQUEST_UPDATE with forwarding enabled and immediately changes local
-         * state to `kOk`. No `StatusChanged` callback is made.
+         *          state to `kOk`. No `StatusChanged` callback is made.
+         *
          * @return True when the state change and request update are applied; false unless currently
-         * paused and attached to a live session/request stream.
+         *         paused and attached to a live session/request stream.
+         *
+         * @throws std::runtime_error If the handler was not registered to a session.
          */
-        bool Resume() noexcept;
+        bool Resume();
 
         /**
          * @brief Generate a new group request for this subscription
          *
-         * @param group_id Value of group requested or zero if unknown
          * @details Local status is unchanged.
+         *
+         * @param group_id Value of group requested or zero if unknown
+         *
          * @return True when the request update is sent; false unless status is `kOk` or `kPaused`,
-         * new-group requests are enabled, and both the session and request stream are available.
+         *         new-group requests are enabled, and both the session and request stream are available.
+         *
+         * @throws std::runtime_error If the handler was not registered to a session.
          */
-        bool RequestNewGroup(uint64_t group_id = 0) noexcept;
+        bool RequestNewGroup(uint64_t group_id = 0);
 
         /**
          * @brief Indicate if subscribe handler should send new group requests or not
