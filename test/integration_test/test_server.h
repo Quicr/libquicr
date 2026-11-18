@@ -396,12 +396,7 @@ namespace quicr_test {
         {
         }
 
-        quicr::Reply<void, quicr::FetchErrorCode> FetchCancelReceived(
-          const std::shared_ptr<quicr::Session>& session,
-          [[maybe_unused]] std::uint64_t request_id) override
-        {
-            return {};
-        }
+        void FetchCancelReceived(const std::shared_ptr<quicr::Session>&, std::uint64_t) override {}
 
         quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> PublishReceived(
           const std::shared_ptr<quicr::Session>& session,
