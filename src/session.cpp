@@ -1302,10 +1302,10 @@ namespace quicr {
         bool is_pub_ns = false;
         bool is_sub_ns = false;
         TrackNamespace sub_ns_prefix;
-        bool fetch_outstanding = false;
+        bool request_known = false;
         {
             std::lock_guard _(state_mutex_);
-            fetch_outstanding = request_type == ControlMessageType::kFetch && recv_req_id.contains(request_id);
+            request_known = recv_req_id.contains(request_id);
 
             // Incoming SUBSCRIBE_NAMESPACE and PUBLISH_NAMESPACE requests are not handler based.
             // Closing the bidirectional request stream ends the subscription.
@@ -1365,7 +1365,7 @@ namespace quicr {
                 fetch_publisher->EndFetch(false);
             }
             quic_transport_->CloseStream(stream, operation);
-            if (callbacks_ && fetch_outstanding) {
+            if (callbacks_ && request_known) {
                 callbacks_->FetchCancelReceived(GetSharedPtr(), request_id);
             }
             return;
