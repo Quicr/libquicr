@@ -70,7 +70,7 @@ var classquicr_1_1PublishTrackHandler =
     [ "SetTrackAlias", "classquicr_1_1PublishTrackHandler.html#ab39d832445848b00b64276fb2fd09b9b", null ],
     [ "SetTransport", "classquicr_1_1PublishTrackHandler.html#a032d5674786be5cca2fc6a9111da3fab", null ],
     [ "StatusChanged", "classquicr_1_1PublishTrackHandler.html#a85d2310272db252df775a681cc8b8884", null ],
-    [ "StreamClosed", "classquicr_1_1PublishTrackHandler.html#af9479af1284b36c647b0ce2f906d989d", null ],
+    [ "SubgroupCancelled", "classquicr_1_1PublishTrackHandler.html#a8a6a70447d47a44fea3b2e66dac99642", null ],
     [ "Session", "classquicr_1_1PublishTrackHandler.html#afbdd63a566878ce30072e785ca7e7740", null ],
     [ "binding_operation_mutex_", "classquicr_1_1PublishTrackHandler.html#a5f7b89a0ff6b85b1734489d165ad5fa8", null ],
     [ "default_track_mode_", "classquicr_1_1PublishTrackHandler.html#aba40df071ecc19a0812773e6c3467119", null ],

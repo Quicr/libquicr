@@ -1,5 +1,6 @@
 var NAVTREEINDEX2 =
 {
+"classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98d":[2,0,0,28,0],
 "classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98da1a92f7a65f6718e345298f8e4c4093b1":[2,0,0,28,0,2],
 "classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98da2b6a0c617df7bf8017558bbaf79c8351":[2,0,0,28,0,4],
 "classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98da32a54fa8629fe6e9cb3e265e959258d8":[2,0,0,28,0,1],
@@ -51,6 +52,7 @@ var NAVTREEINDEX2 =
 "classquicr_1_1PublishTrackHandler.html#a84b841fe2b3128993a2ccaba645c1ced":[2,0,0,29,42],
 "classquicr_1_1PublishTrackHandler.html#a85260f12fb002196d13fe1097c7dbad7":[2,0,0,29,24],
 "classquicr_1_1PublishTrackHandler.html#a85d2310272db252df775a681cc8b8884":[2,0,0,29,36],
+"classquicr_1_1PublishTrackHandler.html#a8a6a70447d47a44fea3b2e66dac99642":[2,0,0,29,37],
 "classquicr_1_1PublishTrackHandler.html#a939b754029bc7b3ca168a6b9ff9e93d6":[2,0,0,29,41],
 "classquicr_1_1PublishTrackHandler.html#aa0e5f4b4173834d38929f71dace54c8c":[2,0,0,29,23],
 "classquicr_1_1PublishTrackHandler.html#aa3685dcc42fbf6b38c093e400a612ec2":[2,0,0,29,13],
@@ -103,7 +105,6 @@ var NAVTREEINDEX2 =
 "classquicr_1_1PublishTrackHandler.html#af50c21bea085782c5c0c8f2958a921f7aff16fc8910e7b8824595b49422049053":[2,0,0,29,2,7],
 "classquicr_1_1PublishTrackHandler.html#af79af534e92140d0b5a98fb84c60a199":[2,0,0,29,48],
 "classquicr_1_1PublishTrackHandler.html#af8e8ab14fbe693f39e4d96769b02ac27":[2,0,0,29,45],
-"classquicr_1_1PublishTrackHandler.html#af9479af1284b36c647b0ce2f906d989d":[2,0,0,29,37],
 "classquicr_1_1PublishTrackHandler.html#afbdd63a566878ce30072e785ca7e7740":[2,0,0,29,38],
 "classquicr_1_1PublishTrackHandler.html#afcd52216e91ae4fdffd9ba512da725cb":[2,0,0,29,50],
 "classquicr_1_1PublishTrackHandler.html#afceb8d996dfbc2604e7ca67d0a7dc145":[2,0,0,29,14],
@@ -248,6 +249,5 @@ var NAVTREEINDEX2 =
 "classquicr_1_1SubscribeNamespaceHandler.html#a06cb6f83135afc089906278243f3325c":[2,0,0,30,28],
 "classquicr_1_1SubscribeNamespaceHandler.html#a100537c7b846f971d6980ddb259de05a":[2,0,0,30,6],
 "classquicr_1_1SubscribeNamespaceHandler.html#a120ceb0902f07b9e3532102a7142ee3c":[2,0,0,30,9],
-"classquicr_1_1SubscribeNamespaceHandler.html#a1a0011bf40fce001f9737dca3c504efa":[2,0,0,30,20],
-"classquicr_1_1SubscribeNamespaceHandler.html#a1c1f66aa39d51705cca2b8eb866aef61":[2,0,0,30,11]
+"classquicr_1_1SubscribeNamespaceHandler.html#a1a0011bf40fce001f9737dca3c504efa":[2,0,0,30,20]
 };

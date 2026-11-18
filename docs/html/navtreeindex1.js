@@ -1,5 +1,6 @@
 var NAVTREEINDEX1 =
 {
+"classquicr_1_1ForwardingSubscribeTrackHandler.html#a3c07d9be23f528614085804ebae6961a":[2,0,0,25,34],
 "classquicr_1_1ForwardingSubscribeTrackHandler.html#a44a22b00ede78da103f109a335f54dfb":[2,0,0,25,11],
 "classquicr_1_1ForwardingSubscribeTrackHandler.html#a48a9122ce8b00ccca8d221c9e2d4708f":[2,0,0,25,7],
 "classquicr_1_1ForwardingSubscribeTrackHandler.html#a4d3caf487d1cd837d1d3c46f0d681b95":[2,0,0,25,22],
@@ -176,6 +177,7 @@ var NAVTREEINDEX1 =
 "classquicr_1_1PublishFetchHandler.html#a7badee3f42ce90a77e39f1fbcfff7b43":[2,0,0,27,27],
 "classquicr_1_1PublishFetchHandler.html#a84b841fe2b3128993a2ccaba645c1ced":[2,0,0,27,42],
 "classquicr_1_1PublishFetchHandler.html#a85d2310272db252df775a681cc8b8884":[2,0,0,27,36],
+"classquicr_1_1PublishFetchHandler.html#a8a6a70447d47a44fea3b2e66dac99642":[2,0,0,27,37],
 "classquicr_1_1PublishFetchHandler.html#a939b754029bc7b3ca168a6b9ff9e93d6":[2,0,0,27,41],
 "classquicr_1_1PublishFetchHandler.html#a9a75af05a9bf432732eef0a2c42c0f27":[2,0,0,27,24],
 "classquicr_1_1PublishFetchHandler.html#aa0e5f4b4173834d38929f71dace54c8c":[2,0,0,27,23],
@@ -230,7 +232,6 @@ var NAVTREEINDEX1 =
 "classquicr_1_1PublishFetchHandler.html#af526226917cdce1e8e598920bc99b6b6":[2,0,0,27,13],
 "classquicr_1_1PublishFetchHandler.html#af79af534e92140d0b5a98fb84c60a199":[2,0,0,27,48],
 "classquicr_1_1PublishFetchHandler.html#af8e8ab14fbe693f39e4d96769b02ac27":[2,0,0,27,45],
-"classquicr_1_1PublishFetchHandler.html#af9479af1284b36c647b0ce2f906d989d":[2,0,0,27,37],
 "classquicr_1_1PublishFetchHandler.html#afbdd63a566878ce30072e785ca7e7740":[2,0,0,27,38],
 "classquicr_1_1PublishFetchHandler.html#afcd52216e91ae4fdffd9ba512da725cb":[2,0,0,27,50],
 "classquicr_1_1PublishFetchHandler.html#afceb8d996dfbc2604e7ca67d0a7dc145":[2,0,0,27,14],
@@ -248,6 +249,5 @@ var NAVTREEINDEX1 =
 "classquicr_1_1PublishNamespaceHandler.html#a2f1a1f4d40e85f2b657ffe91b1f3da79":[2,0,0,28,12],
 "classquicr_1_1PublishNamespaceHandler.html#a30af9738e364ef53cb8b13b88bccc350":[2,0,0,28,11],
 "classquicr_1_1PublishNamespaceHandler.html#a51018e21bc4eddce4cc5f6faaf2800f6":[2,0,0,28,25],
-"classquicr_1_1PublishNamespaceHandler.html#a54647210b596ee9e9f4850d996c7802e":[2,0,0,28,22],
-"classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98d":[2,0,0,28,0]
+"classquicr_1_1PublishNamespaceHandler.html#a54647210b596ee9e9f4850d996c7802e":[2,0,0,28,22]
 };

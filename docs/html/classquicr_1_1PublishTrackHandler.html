@@ -200,9 +200,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:afceb8d996dfbc2604e7ca67d0a7dc145"><td class="memItemLeft" align="right" valign="top">constexpr <a class="el" href="structquicr_1_1messages_1_1Location.html">messages::Location</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1PublishTrackHandler.html#afceb8d996dfbc2604e7ca67d0a7dc145">GetLargestLocation</a> () const noexcept</td></tr>
 <tr class="memdesc:afceb8d996dfbc2604e7ca67d0a7dc145"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gets the largest/current location observed by publication.  <a href="classquicr_1_1PublishTrackHandler.html#afceb8d996dfbc2604e7ca67d0a7dc145">More...</a><br /></td></tr>
 <tr class="separator:afceb8d996dfbc2604e7ca67d0a7dc145"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af9479af1284b36c647b0ce2f906d989d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1PublishTrackHandler.html#af9479af1284b36c647b0ce2f906d989d">StreamClosed</a> (std::uint64_t stream_id, bool reset=false)</td></tr>
-<tr class="memdesc:af9479af1284b36c647b0ce2f906d989d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification that a stream has been closed.  <a href="classquicr_1_1PublishTrackHandler.html#af9479af1284b36c647b0ce2f906d989d">More...</a><br /></td></tr>
-<tr class="separator:af9479af1284b36c647b0ce2f906d989d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4a4edc8d4b39306c6ccbb22a9e759f39"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1PublishTrackHandler.html#a4a4edc8d4b39306c6ccbb22a9e759f39">CanPublish</a> () const noexcept</td></tr>
 <tr class="memdesc:a4a4edc8d4b39306c6ccbb22a9e759f39"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check if the state allows publishing or not.  <a href="classquicr_1_1PublishTrackHandler.html#a4a4edc8d4b39306c6ccbb22a9e759f39">More...</a><br /></td></tr>
 <tr class="separator:a4a4edc8d4b39306c6ccbb22a9e759f39"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -263,6 +260,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7badee3f42ce90a77e39f1fbcfff7b43"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classquicr_1_1Reply.html">Reply</a>&lt; <a class="el" href="namespacequicr_1_1messages.html#ae3085a8b393b6b12a488019656437241">messages::Parameters</a>, <a class="el" href="namespacequicr.html#afa08da627c4aa379f61774da6ba93b61">ErrorCode</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1PublishTrackHandler.html#a7badee3f42ce90a77e39f1fbcfff7b43">RequestUpdateReceived</a> (const <a class="el" href="namespacequicr_1_1messages.html#ae3085a8b393b6b12a488019656437241">messages::Parameters</a> &amp;params) override</td></tr>
 <tr class="memdesc:a7badee3f42ce90a77e39f1fbcfff7b43"><td class="mdescLeft">&#160;</td><td class="mdescRight">Applies subscriber forwarding and new-group update parameters.  <a href="classquicr_1_1PublishTrackHandler.html#a7badee3f42ce90a77e39f1fbcfff7b43">More...</a><br /></td></tr>
 <tr class="separator:a7badee3f42ce90a77e39f1fbcfff7b43"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8a6a70447d47a44fea3b2e66dac99642"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1PublishTrackHandler.html#a8a6a70447d47a44fea3b2e66dac99642">SubgroupCancelled</a> (std::uint64_t group_id, std::uint64_t subgroup_id)</td></tr>
+<tr class="memdesc:a8a6a70447d47a44fea3b2e66dac99642"><td class="mdescLeft">&#160;</td><td class="mdescRight">Notification that the subscriber asked to stop receiving a subgroup.  <a href="classquicr_1_1PublishTrackHandler.html#a8a6a70447d47a44fea3b2e66dac99642">More...</a><br /></td></tr>
+<tr class="separator:a8a6a70447d47a44fea3b2e66dac99642"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -1759,8 +1759,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="af9479af1284b36c647b0ce2f906d989d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af9479af1284b36c647b0ce2f906d989d">&#9670;&nbsp;</a></span>StreamClosed()</h2>
+<a id="a8a6a70447d47a44fea3b2e66dac99642"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8a6a70447d47a44fea3b2e66dac99642">&#9670;&nbsp;</a></span>SubgroupCancelled()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1769,16 +1769,16 @@ template&lt;typename T &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void quicr::PublishTrackHandler::StreamClosed </td>
+          <td class="memname">virtual void quicr::PublishTrackHandler::SubgroupCancelled </td>
           <td>(</td>
           <td class="paramtype">std::uint64_t&#160;</td>
-          <td class="paramname"><em>stream_id</em>, </td>
+          <td class="paramname"><em>group_id</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>reset</em> = <code>false</code>&#160;</td>
+          <td class="paramtype">std::uint64_t&#160;</td>
+          <td class="paramname"><em>subgroup_id</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1793,15 +1793,15 @@ template&lt;typename T &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p>Notification that a stream has been closed. </p>
+<p>Notification that the subscriber asked to stop receiving a subgroup. </p>
+<dl class="section remark"><dt>Remarks</dt><dd>Runs on the callback thread. </dd></dl>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">stream_id</td><td>The ID of the stream being closed. </td></tr>
-    <tr><td class="paramname">reset</td><td>True if stream closed by reset</td></tr>
+    <tr><td class="paramname">group_id</td><td>Group the cancelled subgroup belongs to. </td></tr>
+    <tr><td class="paramname">subgroup_id</td><td>The cancelled subgroup. </td></tr>
   </table>
   </dd>
 </dl>
-<p>Removes matching subgroup bookkeeping. The default implementation does not change publication status and currently ignores <code>reset</code>. </p>
 
 </div>
 </div>
