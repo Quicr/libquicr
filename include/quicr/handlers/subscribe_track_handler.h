@@ -212,7 +212,7 @@ namespace quicr {
          * @param track_alias MoQ track alias for track namespace+name that
          *                          is relative to the QUIC connection session
          */
-        void SetReceivedTrackAlias(uint64_t track_alias) { received_track_alias_ = track_alias; }
+        void SetReceivedTrackAlias(std::optional<uint64_t> track_alias) { received_track_alias_ = track_alias; }
 
         /**
          * @brief Set the new group request Id
