@@ -2499,10 +2499,12 @@ namespace quicr {
         if (handler == nullptr) {
             throw std::invalid_argument("Handler cannot be null");
         }
+
         const auto connection = handler->GetConnection();
         if (!connection) {
             throw std::invalid_argument("Connection cannot be null");
         }
+
         const auto stream = quic_transport_->CreateDataStream(connection, handler->GetPublishObjectPriority());
         stream->tx_handler = handler;
 
