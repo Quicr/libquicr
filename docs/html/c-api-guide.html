@@ -1,0 +1,372 @@
+<!doctype html>
+<html >
+<head>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <!--[if lt IE 9]>
+                <script src="http://css3-mediaqueries-js.googlecode.com/svn/trunk/css3-mediaqueries.js"></script>
+        <![endif]-->
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="Content-Style-Type" content="text/css" />
+
+    <!-- <link rel="stylesheet" type="text/css" href="template.css" /> -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/gh/diversen/pandoc-bootstrap-adaptive-template@959c3622/template.css" />
+
+    <link href="https://vjs.zencdn.net/5.4.4/video-js.css" rel="stylesheet" />
+
+    <script src="https://code.jquery.com/jquery-2.2.1.min.js"></script>
+    <!-- <script type='text/javascript' src='menu/js/jquery.cookie.js'></script> -->
+    <!-- <script type='text/javascript' src='menu/js/jquery.hoverIntent.minified.js'></script> -->
+    <!-- <script type='text/javascript' src='menu/js/jquery.dcjqaccordion.2.7.min.js'></script> -->
+
+    <!-- <link href="menu/css/skins/blue.css" rel="stylesheet" type="text/css" /> -->
+    <!-- <link href="menu/css/skins/graphite.css" rel="stylesheet" type="text/css" /> -->
+    <!-- <link href="menu/css/skins/grey.css" rel="stylesheet" type="text/css" /> -->
+  
+    <!-- <script src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script> -->
+        
+  
+    <!-- <script src="script.js"></script> -->
+  
+    <!-- <script src="jquery.sticky-kit.js "></script> -->
+    <script type='text/javascript' src='https://cdn.jsdelivr.net/gh/diversen/pandoc-bootstrap-adaptive-template@959c3622/menu/js/jquery.cookie.js'></script>
+    <script type='text/javascript' src='https://cdn.jsdelivr.net/gh/diversen/pandoc-bootstrap-adaptive-template@959c3622/menu/js/jquery.hoverIntent.minified.js'></script>
+    <script type='text/javascript' src='https://cdn.jsdelivr.net/gh/diversen/pandoc-bootstrap-adaptive-template@959c3622/menu/js/jquery.dcjqaccordion.2.7.min.js'></script>
+
+    <link href="https://cdn.jsdelivr.net/gh/diversen/pandoc-bootstrap-adaptive-template@959c3622/menu/css/skins/blue.css" rel="stylesheet" type="text/css" />
+    <link href="https://cdn.jsdelivr.net/gh/diversen/pandoc-bootstrap-adaptive-template@959c3622/menu/css/skins/graphite.css" rel="stylesheet" type="text/css" />
+    <link href="https://cdn.jsdelivr.net/gh/diversen/pandoc-bootstrap-adaptive-template@959c3622/menu/css/skins/grey.css" rel="stylesheet" type="text/css" />
+    <link href="https://cdn.jsdelivr.net/gh/ryangrose/easy-pandoc-templates@948e28e5/css/elegant_bootstrap.css" rel="stylesheet" type="text/css" />
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+    <script src="https://cdn.jsdelivr.net/gh/diversen/pandoc-bootstrap-adaptive-template@959c3622/script.js"></script>
+  
+    <script src="https://cdn.jsdelivr.net/gh/diversen/pandoc-bootstrap-adaptive-template@959c3622/jquery.sticky-kit.js"></script>
+    <meta name="generator" content="pandoc" />
+  <title>QuicR C API Guide</title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <style type="text/css">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+
+    
+    <div class="navbar navbar-static-top">
+    <div class="navbar-inner">
+      <div class="container">
+          <span class="doc-title">QuicR C API Guide</span>
+          <span class="nav pull-right doc-info">
+            <a class="navbar-link" href="/libquicr">[Home]</a>
+          </span>
+      </div>
+    </div>
+  </div>
+    <div class="container">
+    <div class="row">
+            <div id="TOC" class="span3">
+        <div class="well toc">
+
+        <ul>
+        <li><a href="#api-overview">API overview</a>
+        <ul>
+        <li><a href="#names-aliases-and-objects">Names, aliases, and objects</a>
+        <ul>
+        <li><a href="#full-track-names">Full track names</a></li>
+        <li><a href="#track-aliases">Track aliases</a></li>
+        <li><a href="#objects-and-delivery-modes">Objects and delivery modes</a></li>
+        </ul></li>
+        <li><a href="#ownership-and-threading">Ownership and threading</a></li>
+        <li><a href="#session-callbacks-and-replies">Session callbacks and replies</a></li>
+        <li><a href="#creating-a-client-session">Creating a client session</a></li>
+        <li><a href="#subscribing-to-a-track">Subscribing to a track</a></li>
+        <li><a href="#publishing-a-track">Publishing a track</a></li>
+        <li><a href="#fetch">Fetch</a></li>
+        <li><a href="#namespace-operations">Namespace operations</a></li>
+        <li><a href="#track-status">Track status</a></li>
+        <li><a href="#creating-a-server">Creating a server</a></li>
+        <li><a href="#metrics-and-errors">Metrics and errors</a></li>
+        <li><a href="#shutdown">Shutdown</a></li>
+        </ul></li>
+        </ul>
+
+        </div>
+      </div>
+            <div class="span9">
+
+      
+      <h1 id="api-overview">API overview</h1>
+<p>The native libquicr C API is declared by <code>&lt;quicr/quicr.h&gt;</code>. It is a direct C interface to the same sessions and handlers as the C++ API and is distinct from the legacy c-bridge. The current wire implementation uses the <code>moqt-18</code> ALPN and draft-18 message encodings.</p>
+<p>With CMake, link the C target:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode cmake"><code class="sourceCode cmake"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="kw">target_link_libraries</span>(my_application <span class="ot">PRIVATE</span> quicr::c)</span></code></pre></div>
+<p>The API has the same main layers as the C++ API:</p>
+<ul>
+<li><code>quicr_session_manager_t</code> owns transports and active sessions.</li>
+<li><code>quicr_session_t</code> represents one MOQT connection in client or server mode.</li>
+<li>Handlers represent long-lived track, namespace, fetch, and status requests.</li>
+<li>Callback tables deliver events and answer peer requests.</li>
+</ul>
+<p>C11-or-later C translation units also receive type-generic handler operations implemented with <code>_Generic</code>. The corresponding typed functions are available in other language modes.</p>
+<p>Most fallible functions return <code>quicr_status_t</code>. <code>QUICR_STATUS_OK</code> means the API call itself succeeded. Asynchronous handler status and <code>quicr_publish_object_status_t</code> report protocol outcomes separately.</p>
+<h2 id="names-aliases-and-objects">Names, aliases, and objects</h2>
+<h3 id="full-track-names">Full track names</h3>
+<p>A <code>quicr_track_namespace_t</code> is an ordered tuple of binary entries. A <code>quicr_full_track_name_t</code> combines a copied namespace with a binary track name:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a>quicr_byte_span_t entries[] = {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a>    { (<span class="dt">const</span> <span class="dt">uint8_t</span> *)<span class="st">&quot;conference&quot;</span>, <span class="dv">10</span> },</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a>    { (<span class="dt">const</span> <span class="dt">uint8_t</span> *)<span class="st">&quot;1234&quot;</span>, <span class="dv">4</span> },</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a>};</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a>quicr_track_namespace_t *ns = NULL;</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true"></a>quicr_full_track_name_t *ftn = NULL;</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true"></a>quicr_track_namespace_create(entries, <span class="dv">2</span>, &amp;ns);</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true"></a>quicr_full_track_name_create(</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true"></a>    ns, (quicr_byte_span_t){ (<span class="dt">const</span> <span class="dt">uint8_t</span> *)<span class="st">&quot;video&quot;</span>, <span class="dv">5</span> }, &amp;ftn);</span></code></pre></div>
+<p>The namespace and full track name are independent after creation. Entry and track-name accessors return borrowed spans valid until their owning object is destroyed. Destroy each owned object with its matching destroy function.</p>
+<h3 id="track-aliases">Track aliases</h3>
+<p>Track aliases are 64-bit, session-scoped identifiers used on the wire. The library derives aliases for locally created handlers. The C API does not currently expose the C++ handler methods that override proposed aliases. Inbound publish attributes expose the peer’s alias through <code>quicr_publish_attributes_track_alias()</code>.</p>
+<h3 id="objects-and-delivery-modes">Objects and delivery modes</h3>
+<p><code>quicr_object_headers_t</code> describes an object using group, subgroup, and object identifiers plus payload length, status, priority, TTL, delivery mode, and extensions. Initialize it before setting fields:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a>quicr_object_headers_t headers;</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true"></a>quicr_object_headers_init(&amp;headers);</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true"></a>headers.group_id = <span class="dv">7</span>;</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true"></a>headers.object_id = <span class="dv">12</span>;</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true"></a>headers.payload_length = payload.size;</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true"></a>headers.status = QUICR_OBJECT_STATUS_AVAILABLE;</span></code></pre></div>
+<p><code>QUICR_TRACK_MODE_DATAGRAM</code> sends one object in a QUIC DATAGRAM. <code>QUICR_TRACK_MODE_STREAM</code> sends objects on subgroup streams. Datagram objects must fit in one negotiated datagram after MOQT and QUIC framing; use stream mode for larger objects or reliable delivery.</p>
+<p><code>quicr_object_headers_t</code> points to borrowed <code>quicr_extensions_t</code> views. Publish calls copy their nested bytes before returning. Received views remain valid only for the callback.</p>
+<p><code>quicr_track_extensions_t</code> is an owned collection. Create it, add or replace mutable and immutable entries, inspect entries, then destroy it. Values are copied on insertion. Entry spans remain valid until mutation or destruction.</p>
+<h2 id="ownership-and-threading">Ownership and threading</h2>
+<p><code>quicr_session_manager_t</code> owns transports, sessions, session handles, and handler registrations. A <code>quicr_session_t *</code> is borrowed from its manager and must never be freed. A client session remains valid from a successful <code>quicr_session_manager_add_client()</code> until <code>session_removed</code> or manager destruction. A server session is valid from <code>new_server_session</code> through <code>session_removed</code>; the handle passed to <code>session_removed</code> becomes invalid when that callback returns.</p>
+<p>Unlike C++ shared pointers, C handler objects remain application-owned while registered. Every handler follows the same lifecycle:</p>
+<ol type="1">
+<li>Create a detached handler.</li>
+<li>Add it to one live session.</li>
+<li>Use it and receive callbacks.</li>
+<li>Remove it from the session.</li>
+<li>Destroy it.</li>
+</ol>
+<p>C11 callers can use <code>quicr_session_manager_add_handler()</code>, <code>quicr_session_manager_remove_handler()</code>, <code>quicr_track_handler_get_status()</code>, and <code>quicr_track_handler_destroy()</code>. Typed functions provide the same operations for each handler family.</p>
+<p>Registration does not transfer ownership. Destroying a registered handler returns <code>QUICR_STATUS_BUSY</code>. Removal prevents new callbacks, but a callback already in flight may still make destruction return <code>BUSY</code>; return from the callback and retry. A NULL handler can be destroyed successfully.</p>
+<p>Session and handler callbacks may run synchronously on an API caller thread, including while session locks are held, or on a transport notification thread. Callbacks can run concurrently across objects or transports. Return promptly and synchronize shared application state. Do not re-enter operations on the same manager, session, or handler unless a specific API permits it.</p>
+<p>Unless a declaration says otherwise, input bytes and strings are copied before the call returns. <code>user_data</code> is only passed through; keep it valid for the callback table’s documented lifetime.</p>
+<h2 id="session-callbacks-and-replies">Session callbacks and replies</h2>
+<p>All callback fields are optional. Callback pointer arguments, byte spans, attributes, headers, properties, and metrics are borrowed only until return. Copy anything needed later. Never destroy a callback-owning object from its callback.</p>
+<p>Set the callback table’s <code>user_data</code> field to recover application state. Session callback data must remain valid until <code>session_removed</code> or manager destruction. Handler callback data must remain valid until successful handler destruction.</p>
+<p>Setup, publish-namespace, and fetch attributes expose documented fields directly. Publish and subscribe attributes are callback-scoped opaque objects; inspect them with <code>quicr_publish_attributes_*()</code> and <code>quicr_subscribe_attributes_*()</code>. Returned token values, full track names, and track extensions remain borrowed for that callback only.</p>
+<p>Callbacks that answer peer requests return tagged reply structures. Initialize the whole reply and write only the active member:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true"></a><span class="cf">return</span> (quicr_subscribe_reply_t){</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true"></a>    .result = QUICR_REPLY_RESULT_REJECT,</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true"></a>    .error = {</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true"></a>        .code = QUICR_REQUEST_ERROR_UNAUTHORIZED,</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true"></a>        .reason = <span class="st">&quot;not permitted&quot;</span>,</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true"></a>    },</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true"></a>};</span></code></pre></div>
+<p>On <code>ACCEPT</code>, use <code>response</code> for subscribe, fetch, track-status, and track-namespaces replies. On <code>REJECT</code>, use <code>error</code>. Response-less replies use <code>error</code> only when rejecting. Reply strings, nested extensions, and namespace lists are borrowed and copied before the callback returns.</p>
+<p>To redirect a request, reject it with the reply type’s redirect error code and set <code>error.redirect</code>. A NULL or empty <code>connect_uri</code> reuses the current session URI; NULL <code>track_namespace</code> and <code>track_name</code> fields preserve those parts of the original request. Namespace-scoped requests leave <code>track_name</code> NULL.</p>
+<p>An accepted <code>publish_received</code> reply is special. Create its response from a subscribe handler with <code>quicr_publish_response_create()</code>, optionally configure priority, order, filter, forwarding, timeouts, or new-group request ID, and return its pointer as the active <code>response</code> member. The library consumes it synchronously but does not take ownership. Destroy it after the callback returns.</p>
+<p>C reply callbacks are synchronous. The C API does not expose the C++ <code>Reply::Defer()</code> facility, so applications must return a reply before the callback completes.</p>
+<h2 id="creating-a-client-session">Creating a client session</h2>
+<p>Initialize configuration, create a manager, and add a client:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a>quicr_session_manager_t *manager = NULL;</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true"></a>quicr_session_t *session = NULL;</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true"></a>quicr_session_manager_callbacks_t manager_callbacks = { <span class="dv">0</span> };</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true"></a>quicr_session_manager_create(&amp;manager_callbacks, &amp;manager);</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true"></a>quicr_client_config_t config;</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true"></a>quicr_client_config_init(&amp;config);</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true"></a>config.endpoint_id = <span class="st">&quot;camera-1&quot;</span>;</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true"></a>config.connect_uri = <span class="st">&quot;moqt://relay.example:33435&quot;</span>;</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true"></a>quicr_session_client_callbacks_t callbacks = { <span class="dv">0</span> };</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true"></a>quicr_session_manager_add_client(</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true"></a>    manager, &amp;config, &amp;callbacks, &amp;session);</span></code></pre></div>
+<p>The initializers overwrite the whole structure and initialize nested transport settings. Configuration strings are nullable and borrowed during the add call; the implementation copies or consumes them before returning. Callback tables are also copied.</p>
+<p><code>moq://</code> and <code>moqt://</code> select native QUIC. An <code>https://</code> URI selects WebTransport. Wait for <code>QUICR_SESSION_STATUS_READY</code> before starting track operations. Prefer <code>status_changed</code>; polling <code>quicr_session_get_status()</code> is also supported.</p>
+<h2 id="subscribing-to-a-track">Subscribing to a track</h2>
+<p><code>quicr_filter_t</code> is a tagged union. Set <code>type</code> and only its matching member:</p>
+<ul>
+<li><code>QUICR_FILTER_TYPE_NONE</code> has no active union member.</li>
+<li><code>QUICR_FILTER_TYPE_SUBSCRIPTION_FILTER</code> uses <code>subscription</code>, initialized by <code>quicr_subscription_filter_init()</code>.</li>
+<li><code>QUICR_FILTER_TYPE_TRACK_FILTER</code> uses <code>track</code>, initialized by <code>quicr_track_filter_init()</code>.</li>
+</ul>
+<p>Handler creation copies the filter. Subscription filters select next-group, largest-object, absolute-start, or absolute-range delivery. Track filters carry a property type, track limit, and timeout.</p>
+<p>Supply only the callbacks the application needs. Received data is borrowed:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true"></a><span class="dt">static</span> <span class="dt">void</span> object_received(<span class="dt">const</span> quicr_object_headers_t *headers,</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true"></a>                            quicr_byte_span_t data,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true"></a>                            <span class="dt">const</span> quicr_stream_header_properties_t *properties,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true"></a>                            <span class="dt">void</span> *user_data)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true"></a>{</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true"></a>    (<span class="dt">void</span>)headers;</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true"></a>    (<span class="dt">void</span>)properties;</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true"></a>    consume_or_copy(data, user_data);</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true"></a>}</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true"></a>quicr_subscribe_track_handler_callbacks_t callbacks = {</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true"></a>    .user_data = app,</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true"></a>    .object_received = object_received,</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true"></a>};</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true"></a>quicr_subscribe_track_handler_t *subscriber = NULL;</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true"></a>quicr_subscribe_track_handler_create(</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true"></a>    &amp;callbacks, ftn, <span class="dv">127</span>, QUICR_GROUP_ORDER_ASCENDING, NULL, &amp;subscriber);</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true"></a>quicr_session_manager_add_subscribe_track_handler(</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true"></a>    manager, session, subscriber);</span></code></pre></div>
+<p>The callback table can also receive lifecycle status, metrics, status-only objects, subgroup endings, and raw datagrams. A forwarding subscribe handler adds subgroup-start and encoded-stream-byte callbacks. The C API does not currently expose the C++ partial-object callback.</p>
+<p>Registered subscribe handlers can be paused, resumed, updated, and used for new-group requests. Remove the handler before destroying it.</p>
+<h2 id="publishing-a-track">Publishing a track</h2>
+<p>Create and register a publish handler, then wait until it can publish:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true"></a>quicr_publish_track_handler_t *publisher = NULL;</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true"></a>quicr_publish_track_handler_create(</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true"></a>    NULL, ftn, QUICR_TRACK_MODE_STREAM, <span class="dv">127</span>, <span class="dv">127</span>, <span class="dv">5000</span>, NULL, &amp;publisher);</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true"></a>quicr_session_manager_add_publish_track_handler(</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true"></a>    manager, session, publisher);</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true"></a></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true"></a><span class="cf">while</span> (!quicr_publish_track_handler_can_publish(publisher)) {</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true"></a>    <span class="co">/* Wait or react to status_changed; also stop on terminal status. */</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true"></a>}</span></code></pre></div>
+<p>Use <code>quicr_publish_track_handler_can_publish()</code> rather than testing only for handler status <code>OK</code>. Inspect the API status and publish outcome separately:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true"></a>quicr_publish_object_status_t outcome;</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true"></a>quicr_status_t call = quicr_publish_track_handler_publish_object(</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true"></a>    publisher, &amp;headers, payload, NULL, &amp;outcome);</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true"></a><span class="cf">if</span> (call != QUICR_STATUS_OK ||</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true"></a>    outcome != QUICR_PUBLISH_OBJECT_STATUS_OK) {</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true"></a>    <span class="co">/* Handle API or publication failure. */</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true"></a>}</span></code></pre></div>
+<p>The stream-header properties argument is optional. For stream mode, finish open subgroups with <code>quicr_publish_track_handler_end_subgroup()</code> or <code>quicr_publish_track_handler_end_all_subgroups()</code> before removal when completion matters.</p>
+<h2 id="fetch">Fetch</h2>
+<p>A standalone fetch uses <code>quicr_fetch_track_handler_create()</code> with an inclusive start and end range. Fetch handlers receive objects through the same complete object, status-only object, subgroup, datagram, and metrics callbacks as subscribe handlers. Register, remove, and destroy them through the common handler lifecycle.</p>
+<p>Fetch handlers can be paused, resumed, and used for new-group requests. The server session callbacks receive standalone fetches, joining fetches, and fetch cancellations and return synchronous accept-or-reject replies.</p>
+<p>To serve an accepted fetch, create a <code>quicr_publish_fetch_handler_t</code> with the request ID received by <code>standalone_fetch_received</code> or <code>joining_fetch_received</code>. Bind it to that callback’s session with <code>quicr_session_bind_publish_fetch_handler()</code>, publish the requested objects, and call <code>quicr_session_unbind_publish_fetch_handler()</code> to drain queued objects and finish the response stream. The request’s group order determines the order in which objects must be published. Destroy the handler after unbinding it.</p>
+<h2 id="namespace-operations">Namespace operations</h2>
+<p>Create a <code>quicr_publish_namespace_handler_t</code> to publish a namespace. It can associate application-owned publish-track handlers through <code>quicr_publish_namespace_handler_publish_track()</code>. The association does not transfer C object ownership; call the matching <code>unpublish_track()</code> before destroying either object.</p>
+<p>Namespace subscriptions use <code>quicr_subscribe_namespace_handler_t</code>:</p>
+<ul>
+<li><code>QUICR_SUBSCRIBE_NAMESPACE_MODE_NAMESPACES</code> receives matching namespace announcements.</li>
+<li><code>QUICR_SUBSCRIBE_NAMESPACE_MODE_TRACKS</code> receives matching track publications.</li>
+</ul>
+<p>The callbacks report matching namespaces becoming available or ending. Register, remove, and destroy namespace handlers through the common lifecycle.</p>
+<p>Server callbacks answer inbound namespace publications, namespace-prefix subscriptions, and track-prefix subscriptions. Accepted namespace-list replies are copied before the callback returns.</p>
+<h2 id="track-status">Track status</h2>
+<p>Create a <code>quicr_track_status_track_handler_t</code> for a full track name, register it, and wait for its status callback. Read the optional result with <code>quicr_track_status_handler_get_response()</code>. The caller may provide owned <code>quicr_track_extensions_t</code> storage when copied response extensions are needed. Protocol rejection details are available through <code>quicr_track_status_handler_get_error()</code>.</p>
+<p>Receiving peers answer <code>track_status_received</code> with a <code>quicr_track_status_reply_t</code>.</p>
+<h2 id="creating-a-server">Creating a server</h2>
+<p>Initialize a server configuration, provide manager and session callback tables, and add the server transport:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true"></a>quicr_server_config_t config;</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true"></a>quicr_server_config_init(&amp;config);</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true"></a>config.endpoint_id = <span class="st">&quot;relay-1&quot;</span>;</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true"></a>config.bind_ip = <span class="st">&quot;::&quot;</span>;</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true"></a>config.port = <span class="dv">33435</span>;</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true"></a>config.transport_config.tls_cert_filename = certificate_path;</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true"></a>config.transport_config.tls_key_filename = private_key_path;</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true"></a></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true"></a>quicr_session_manager_callbacks_t manager_callbacks = {</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true"></a>    .user_data = app,</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true"></a>    .new_server_session = new_server_session,</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true"></a>    .session_removed = session_removed,</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true"></a>};</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true"></a>quicr_session_server_callbacks_t session_callbacks = { <span class="dv">0</span> };</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true"></a>quicr_session_manager_t *manager = NULL;</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true"></a></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true"></a>quicr_session_manager_create(&amp;manager_callbacks, &amp;manager);</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true"></a>quicr_session_manager_add_server(</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true"></a>    manager, &amp;config, &amp;session_callbacks);</span></code></pre></div>
+<p>Accepted sessions arrive through <code>new_server_session</code>. Server callbacks answer incoming SETUP, SUBSCRIBE, PUBLISH, namespace, fetch, track-status, and group requests. The same callback table may serve several sessions concurrently, so synchronize application state.</p>
+<p>Certificate and key material remain external files. Validate deployed certificates for validity dates, key strength, signature algorithm, hostname/SAN, and the intended trust model.</p>
+<h2 id="metrics-and-errors">Metrics and errors</h2>
+<p>Connection metrics arrive through <code>metrics_sampled</code> in the client and server session callback tables. Publish, subscribe, fetch, and publish-fetch metrics arrive through their handler callback tables. All metric pointers are borrowed for the callback; copy samples that must outlive it.</p>
+<p>Check every fallible call. <code>INVALID_ARGUMENT</code> covers bad pointers, values, or object state. <code>NOT_FOUND</code> is returned only where documented for missing results or live state. <code>BUSY</code> means a handler cannot yet be destroyed. Allocation failures and unexpected C++ exceptions map to <code>OUT_OF_MEMORY</code> and <code>INTERNAL_ERROR</code>.</p>
+<p>Each publish-namespace, subscribe-namespace, and track-status <code>get_error()</code> function copies an error code and optional NUL-terminated reason. Query or retry the reason buffer size like this:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true"></a>quicr_error_code_t code;</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true"></a><span class="dt">size_t</span> size = <span class="dv">0</span>;</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true"></a>quicr_status_t status =</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true"></a>    quicr_subscribe_namespace_handler_get_error(handler, &amp;code, NULL, &amp;size);</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true"></a><span class="cf">if</span> (status == QUICR_STATUS_OK &amp;&amp; size != <span class="dv">0</span>) {</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true"></a>    <span class="dt">char</span> *reason = malloc(size);</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true"></a>    status = quicr_subscribe_namespace_handler_get_error(</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true"></a>        handler, &amp;code, reason, &amp;size);</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true"></a>    <span class="co">/* BUFFER_TOO_SMALL reports the new required size in size. */</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true"></a>    free(reason);</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true"></a>}</span></code></pre></div>
+<p>When no protocol error is stored, these getters return <code>QUICR_STATUS_NOT_FOUND</code>. When a reason buffer is supplied, <code>reason_size</code> is both input capacity and output required size, including the terminating NUL.</p>
+<h2 id="shutdown">Shutdown</h2>
+<p><code>quicr_session_goaway()</code> sends GOAWAY with an optional copied replacement URI, a drain timeout, and an optional first-unprocessed request ID. For a cutoff derived from a registered handler, C11 code can call <code>quicr_session_goaway_handler()</code>. Other language modes use the corresponding typed handler function. GOAWAY drains or redirects work; <code>quicr_session_disconnect()</code> explicitly closes the connection.</p>
+<p>Order cleanup so no borrowed object outlives its owner:</p>
+<ol type="1">
+<li>Finish stream subgroups and protocol work when needed.</li>
+<li>Remove every registered handler from its session.</li>
+<li>Destroy handlers, retrying after in-flight callbacks when the result is <code>QUICR_STATUS_BUSY</code>.</li>
+<li>Destroy publish responses, extension collections, full track names, and namespaces owned by the application.</li>
+<li>Disconnect sessions when an explicit close is required.</li>
+<li>Destroy the manager last.</li>
+</ol>
+<p>Manager destruction shuts down its transports and invalidates all session handles, but it does not destroy application-owned handler C objects. Keep callback <code>user_data</code> alive until the corresponding final lifetime point.</p>
+<p>Complete client examples are in <code>examples/simple_publish/main.c</code> and <code>examples/simple_subscribe/main.c</code>.</p>
+            </div>
+    </div>
+  </div>
+  <script src="https://vjs.zencdn.net/5.4.4/video.js"></script>
+
+</body>
+</html>

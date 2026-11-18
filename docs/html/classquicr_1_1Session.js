@@ -40,6 +40,7 @@ var classquicr_1_1Session =
     [ "BindFetchTrack", "classquicr_1_1Session.html#ae9d5e6ae1effbfef552953b8b798d66b", null ],
     [ "BindPublisherTrack", "classquicr_1_1Session.html#a4f768b4ab799855083276de4159ea5d6", null ],
     [ "CancelFetchTrack", "classquicr_1_1Session.html#a2acd7f9f4bfd1ad49a22e470017e05a4", null ],
+    [ "CancelTrackStatus", "classquicr_1_1Session.html#af8b17ebf7b58cbd4408b129ce5f2a9c0", null ],
     [ "Disconnect", "classquicr_1_1Session.html#ae36b1734e2d710c525995ecea8e61945", null ],
     [ "FetchTrack", "classquicr_1_1Session.html#a72146cc45859f9704c3cf94bc46fd95b", null ],
     [ "GetDefaultConnection", "classquicr_1_1Session.html#a4e1dcf7d4ade51684fd194b15dbf2d4e", null ],

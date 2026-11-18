@@ -25,9 +25,9 @@
 var NAVTREE =
 [
   [ "LibQuicR", "index.html", [
-    [ "Media over QUIC (MoQ) Publisher/Subscriber API", "index.html", [
-      [ "Sessions", "index.html#autotoc_md1", null ],
-      [ "Track handlers", "index.html#autotoc_md2", null ]
+    [ "Media over QUIC (MoQ) Publisher/Subscriber APIs", "index.html", [
+      [ "C++ API", "index.html#autotoc_md1", null ],
+      [ "C API", "index.html#autotoc_md2", null ]
     ] ],
     [ "Namespaces", "namespaces.html", [
       [ "Namespace List", "namespaces.html", "namespaces_dup" ],
@@ -55,7 +55,10 @@ var NAVTREE =
     [ "Files", "files.html", [
       [ "File List", "files.html", "files_dup" ],
       [ "File Members", "globals.html", [
-        [ "All", "globals.html", null ],
+        [ "All", "globals.html", "globals_dup" ],
+        [ "Functions", "globals_func.html", null ],
+        [ "Typedefs", "globals_type.html", null ],
+        [ "Enumerator", "globals_eval.html", null ],
         [ "Macros", "globals_defs.html", null ]
       ] ]
     ] ],
@@ -65,16 +68,18 @@ var NAVTREE =
 
 var NAVTREEINDEX =
 [
-"annotated.html",
+"",
 "classquicr_1_1ForwardingSubscribeTrackHandler.html#a44a22b00ede78da103f109a335f54dfb",
 "classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98da1a92f7a65f6718e345298f8e4c4093b1",
-"classquicr_1_1SubscribeNamespaceHandler.html#a22b58f83ec337645126d15a60a6ec703",
-"classquicr_1_1messages_1_1Message.html#afea7f5791fbf3f92c421555e24141326",
-"functions_func_g.html",
-"namespacequicr.html#afa08da627c4aa379f61774da6ba93b61acf1352147c4a48f0403e882668260188",
-"parameters_8h.html#a7b4201b5db9ed560aee9d86c297186bb",
-"structquicr_1_1ServerConfig.html#a8eced9153335235a4fd396d34606b081",
-"structquicr_1_1messages_1_1StreamHeaderProperties.html#aadeba0f6b3571072bb8c293522ac569d"
+"classquicr_1_1SubscribeNamespaceHandler.html#a1a0011bf40fce001f9737dca3c504efa",
+"classquicr_1_1messages_1_1Message.html#af0b3bc95062b219a4c3c925f4d327173",
+"functions_func_e.html",
+"namespacequicr.html#afa08da627c4aa379f61774da6ba93b61a428619f5cc217376ae939f57c8dc15ba",
+"parameters_8h.html#a2947177aa07039fc26c47a7a25327eeaa0e6a5f48386d5e64047e2d726ec952a4",
+"quicr_8h.html#ae7e3f4f2dd375a18d46cf7a2a591b8b6",
+"structquicr_1_1Session_1_1Callbacks.html#a2ba5531e39e38f31c8227293e9c76431",
+"structquicr_1_1messages_1_1StreamSubGroupObject.html#a9462eb635f25ad7e455da1a3c924f469",
+"structquicr__stream__header__properties.html#a4a9da8814b52d7bf4833331d7fd4371a"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';

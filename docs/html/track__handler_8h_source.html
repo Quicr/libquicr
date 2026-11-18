@@ -183,79 +183,84 @@ $(document).ready(function(){initNavTree('track__handler_8h_source.html',''); in
 <div class="line"><a name="l00142"></a><span class="lineno">  142</span>&#160;            <span class="keywordflow">return</span> { connection_id_, request_id_, request_stream_ };</div>
 <div class="line"><a name="l00143"></a><span class="lineno">  143</span>&#160;        }</div>
 <div class="line"><a name="l00144"></a><span class="lineno">  144</span>&#160; </div>
-<div class="line"><a name="l00158"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a99cb48b649fd59874c1417dd984277c5">  158</a></span>&#160;        <span class="keyword">virtual</span> <a class="code" href="classquicr_1_1Reply.html">Reply&lt;messages::Parameters, ErrorCode&gt;</a> <a class="code" href="classquicr_1_1TrackHandler.html#a99cb48b649fd59874c1417dd984277c5">RequestUpdateReceived</a>(<span class="keyword">const</span> <a class="code" href="classquicr_1_1messages_1_1ParameterList.html">messages::Parameters</a>&amp; params) = 0;</div>
-<div class="line"><a name="l00159"></a><span class="lineno">  159</span>&#160; </div>
-<div class="line"><a name="l00166"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a5c86b5813da3a2db45239f99e0c1337b">  166</a></span>&#160;        <span class="keyword">virtual</span> <span class="keywordtype">void</span> <a class="code" href="classquicr_1_1TrackHandler.html#a5c86b5813da3a2db45239f99e0c1337b">RequestError</a>(<a class="code" href="namespacequicr.html#afa08da627c4aa379f61774da6ba93b61">ErrorCode</a> error_code, std::string reason);</div>
-<div class="line"><a name="l00167"></a><span class="lineno">  167</span>&#160; </div>
-<div class="line"><a name="l00168"></a><span class="lineno">  168</span>&#160;      <span class="keyword">protected</span>:</div>
-<div class="line"><a name="l00174"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a448ebbcbf3b1c69f9b11c3e14e768a5d">  174</a></span>&#160;        <span class="keyword">virtual</span> <span class="keywordtype">void</span> <a class="code" href="classquicr_1_1TrackHandler.html#a448ebbcbf3b1c69f9b11c3e14e768a5d">RequestOkReceived</a>(<span class="keyword">const</span> <a class="code" href="classquicr_1_1messages_1_1ParameterList.html">messages::Parameters</a>&amp; params) = 0;</div>
-<div class="line"><a name="l00175"></a><span class="lineno">  175</span>&#160; </div>
-<div class="line"><a name="l00181"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a032d5674786be5cca2fc6a9111da3fab">  181</a></span>&#160;        <span class="keywordtype">void</span> <a class="code" href="classquicr_1_1TrackHandler.html#a032d5674786be5cca2fc6a9111da3fab">SetTransport</a>(std::shared_ptr&lt;Session&gt; transport);</div>
-<div class="line"><a name="l00182"></a><span class="lineno">  182</span>&#160; </div>
-<div class="line"><a name="l00188"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a22b58f83ec337645126d15a60a6ec703">  188</a></span>&#160;        <span class="keyword">const</span> std::weak_ptr&lt;Session&gt;&amp; <a class="code" href="classquicr_1_1TrackHandler.html#a22b58f83ec337645126d15a60a6ec703">GetSession</a>() const noexcept;</div>
-<div class="line"><a name="l00189"></a><span class="lineno">  189</span>&#160; </div>
-<div class="line"><a name="l00190"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a5f7b89a0ff6b85b1734489d165ad5fa8">  190</a></span>&#160;        std::mutex <a class="code" href="classquicr_1_1TrackHandler.html#a5f7b89a0ff6b85b1734489d165ad5fa8">binding_operation_mutex_</a>;</div>
-<div class="line"><a name="l00191"></a><span class="lineno">  191</span>&#160; </div>
-<div class="line"><a name="l00192"></a><span class="lineno">  192</span>&#160;        <span class="comment">// --------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00193"></a><span class="lineno">  193</span>&#160;        <span class="comment">// Internal</span></div>
-<div class="line"><a name="l00194"></a><span class="lineno">  194</span>&#160;        <span class="comment">// --------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00195"></a><span class="lineno">  195</span>&#160;      private:</div>
-<div class="line"><a name="l00201"></a><span class="lineno">  201</span>&#160;        <span class="keywordtype">void</span> SetConnectionId(uint64_t connection_id)</div>
-<div class="line"><a name="l00202"></a><span class="lineno">  202</span>&#160;        {</div>
-<div class="line"><a name="l00203"></a><span class="lineno">  203</span>&#160;            std::lock_guard lock(request_stream_mutex_);</div>
-<div class="line"><a name="l00204"></a><span class="lineno">  204</span>&#160;            connection_id_ = connection_id;</div>
-<div class="line"><a name="l00205"></a><span class="lineno">  205</span>&#160;        };</div>
-<div class="line"><a name="l00206"></a><span class="lineno">  206</span>&#160; </div>
-<div class="line"><a name="l00207"></a><span class="lineno">  207</span>&#160;        <span class="keywordtype">void</span> SetBinding(Binding binding)</div>
-<div class="line"><a name="l00208"></a><span class="lineno">  208</span>&#160;        {</div>
-<div class="line"><a name="l00209"></a><span class="lineno">  209</span>&#160;            std::lock_guard lock(request_stream_mutex_);</div>
-<div class="line"><a name="l00210"></a><span class="lineno">  210</span>&#160;            connection_id_ = binding.connection_id;</div>
-<div class="line"><a name="l00211"></a><span class="lineno">  211</span>&#160;            request_id_ = binding.request_id;</div>
-<div class="line"><a name="l00212"></a><span class="lineno">  212</span>&#160;            request_stream_ = std::move(binding.request_stream);</div>
-<div class="line"><a name="l00213"></a><span class="lineno">  213</span>&#160;        }</div>
-<div class="line"><a name="l00214"></a><span class="lineno">  214</span>&#160; </div>
-<div class="line"><a name="l00219"></a><span class="lineno">  219</span>&#160;        <span class="keywordtype">void</span> SetRequestStream(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; request_stream)</div>
-<div class="line"><a name="l00220"></a><span class="lineno">  220</span>&#160;        {</div>
-<div class="line"><a name="l00221"></a><span class="lineno">  221</span>&#160;            std::lock_guard lock(request_stream_mutex_);</div>
-<div class="line"><a name="l00222"></a><span class="lineno">  222</span>&#160;            request_stream_ = request_stream;</div>
-<div class="line"><a name="l00223"></a><span class="lineno">  223</span>&#160;        }</div>
-<div class="line"><a name="l00224"></a><span class="lineno">  224</span>&#160; </div>
-<div class="line"><a name="l00234"></a><span class="lineno">  234</span>&#160;        std::shared_ptr&lt;Stream&gt; GetRequestStream()<span class="keyword"> const</span></div>
-<div class="line"><a name="l00235"></a><span class="lineno">  235</span>&#160;<span class="keyword">        </span>{</div>
-<div class="line"><a name="l00236"></a><span class="lineno">  236</span>&#160;            std::lock_guard lock(request_stream_mutex_);</div>
-<div class="line"><a name="l00237"></a><span class="lineno">  237</span>&#160;            <span class="keywordflow">return</span> request_stream_;</div>
-<div class="line"><a name="l00238"></a><span class="lineno">  238</span>&#160;        }</div>
-<div class="line"><a name="l00239"></a><span class="lineno">  239</span>&#160; </div>
-<div class="line"><a name="l00240"></a><span class="lineno">  240</span>&#160;        <span class="comment">// --------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00241"></a><span class="lineno">  241</span>&#160;        <span class="comment">// Member variables</span></div>
-<div class="line"><a name="l00242"></a><span class="lineno">  242</span>&#160;        <span class="comment">// --------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00243"></a><span class="lineno">  243</span>&#160;        std::uint64_t connection_id_{ 0 }; <span class="comment">// QUIC transport connection ID</span></div>
-<div class="line"><a name="l00244"></a><span class="lineno">  244</span>&#160; </div>
-<div class="line"><a name="l00251"></a><span class="lineno">  251</span>&#160;        std::optional&lt;uint64_t&gt; request_id_;</div>
-<div class="line"><a name="l00252"></a><span class="lineno">  252</span>&#160; </div>
-<div class="line"><a name="l00264"></a><span class="lineno">  264</span>&#160;        std::shared_ptr&lt;Stream&gt; request_stream_ <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(request_stream_mutex_);</div>
-<div class="line"><a name="l00265"></a><span class="lineno">  265</span>&#160; </div>
-<div class="line"><a name="l00266"></a><span class="lineno">  266</span>&#160;        <span class="keyword">mutable</span> std::mutex request_stream_mutex_; </div>
-<div class="line"><a name="l00267"></a><span class="lineno">  267</span>&#160; </div>
-<div class="line"><a name="l00268"></a><span class="lineno">  268</span>&#160;        std::weak_ptr&lt;Session&gt; session_;</div>
-<div class="line"><a name="l00269"></a><span class="lineno">  269</span>&#160;    };</div>
-<div class="line"><a name="l00270"></a><span class="lineno">  270</span>&#160; </div>
-<div class="line"><a name="l00271"></a><span class="lineno">  271</span>&#160;} <span class="comment">// namespace moq</span></div>
+<div class="line"><a name="l00148"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a7b2ed97a924d86a55bb608ac453d7d26">  148</a></span>&#160;        <span class="keywordtype">bool</span> <a class="code" href="classquicr_1_1TrackHandler.html#a7b2ed97a924d86a55bb608ac453d7d26">IsRegistered</a>() <span class="keyword">const</span>;</div>
+<div class="line"><a name="l00149"></a><span class="lineno">  149</span>&#160; </div>
+<div class="line"><a name="l00163"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a99cb48b649fd59874c1417dd984277c5">  163</a></span>&#160;        <span class="keyword">virtual</span> <a class="code" href="classquicr_1_1Reply.html">Reply&lt;messages::Parameters, ErrorCode&gt;</a> <a class="code" href="classquicr_1_1TrackHandler.html#a99cb48b649fd59874c1417dd984277c5">RequestUpdateReceived</a>(<span class="keyword">const</span> <a class="code" href="classquicr_1_1messages_1_1ParameterList.html">messages::Parameters</a>&amp; params) = 0;</div>
+<div class="line"><a name="l00164"></a><span class="lineno">  164</span>&#160; </div>
+<div class="line"><a name="l00171"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a5c86b5813da3a2db45239f99e0c1337b">  171</a></span>&#160;        <span class="keyword">virtual</span> <span class="keywordtype">void</span> <a class="code" href="classquicr_1_1TrackHandler.html#a5c86b5813da3a2db45239f99e0c1337b">RequestError</a>(<a class="code" href="namespacequicr.html#afa08da627c4aa379f61774da6ba93b61">ErrorCode</a> error_code, std::string reason);</div>
+<div class="line"><a name="l00172"></a><span class="lineno">  172</span>&#160; </div>
+<div class="line"><a name="l00173"></a><span class="lineno">  173</span>&#160;      <span class="keyword">protected</span>:</div>
+<div class="line"><a name="l00179"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a448ebbcbf3b1c69f9b11c3e14e768a5d">  179</a></span>&#160;        <span class="keyword">virtual</span> <span class="keywordtype">void</span> <a class="code" href="classquicr_1_1TrackHandler.html#a448ebbcbf3b1c69f9b11c3e14e768a5d">RequestOkReceived</a>(<span class="keyword">const</span> <a class="code" href="classquicr_1_1messages_1_1ParameterList.html">messages::Parameters</a>&amp; params) = 0;</div>
+<div class="line"><a name="l00180"></a><span class="lineno">  180</span>&#160; </div>
+<div class="line"><a name="l00185"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a07ee797d13fac505d517241c7a1105ef">  185</a></span>&#160;        std::weak_ptr&lt;Session&gt; <a class="code" href="classquicr_1_1TrackHandler.html#a07ee797d13fac505d517241c7a1105ef">GetSession</a>() <span class="keyword">const</span>;</div>
+<div class="line"><a name="l00186"></a><span class="lineno">  186</span>&#160; </div>
+<div class="line"><a name="l00187"></a><span class="lineno"><a class="line" href="classquicr_1_1TrackHandler.html#a5f7b89a0ff6b85b1734489d165ad5fa8">  187</a></span>&#160;        std::mutex <a class="code" href="classquicr_1_1TrackHandler.html#a5f7b89a0ff6b85b1734489d165ad5fa8">binding_operation_mutex_</a>;</div>
+<div class="line"><a name="l00188"></a><span class="lineno">  188</span>&#160; </div>
+<div class="line"><a name="l00189"></a><span class="lineno">  189</span>&#160;        <span class="comment">// --------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00190"></a><span class="lineno">  190</span>&#160;        <span class="comment">// Internal</span></div>
+<div class="line"><a name="l00191"></a><span class="lineno">  191</span>&#160;        <span class="comment">// --------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00192"></a><span class="lineno">  192</span>&#160;      <span class="keyword">private</span>:</div>
+<div class="line"><a name="l00198"></a><span class="lineno">  198</span>&#160;        <span class="keywordtype">void</span> SetConnectionId(uint64_t connection_id)</div>
+<div class="line"><a name="l00199"></a><span class="lineno">  199</span>&#160;        {</div>
+<div class="line"><a name="l00200"></a><span class="lineno">  200</span>&#160;            std::lock_guard lock(request_stream_mutex_);</div>
+<div class="line"><a name="l00201"></a><span class="lineno">  201</span>&#160;            connection_id_ = connection_id;</div>
+<div class="line"><a name="l00202"></a><span class="lineno">  202</span>&#160;        };</div>
+<div class="line"><a name="l00203"></a><span class="lineno">  203</span>&#160; </div>
+<div class="line"><a name="l00204"></a><span class="lineno">  204</span>&#160;        <span class="keywordtype">void</span> SetBinding(Binding binding)</div>
+<div class="line"><a name="l00205"></a><span class="lineno">  205</span>&#160;        {</div>
+<div class="line"><a name="l00206"></a><span class="lineno">  206</span>&#160;            std::lock_guard lock(request_stream_mutex_);</div>
+<div class="line"><a name="l00207"></a><span class="lineno">  207</span>&#160;            connection_id_ = binding.connection_id;</div>
+<div class="line"><a name="l00208"></a><span class="lineno">  208</span>&#160;            request_id_ = binding.request_id;</div>
+<div class="line"><a name="l00209"></a><span class="lineno">  209</span>&#160;            request_stream_ = std::move(binding.request_stream);</div>
+<div class="line"><a name="l00210"></a><span class="lineno">  210</span>&#160;        }</div>
+<div class="line"><a name="l00211"></a><span class="lineno">  211</span>&#160; </div>
+<div class="line"><a name="l00212"></a><span class="lineno">  212</span>&#160;        <span class="keywordtype">void</span> RegisterSession(<span class="keyword">const</span> std::shared_ptr&lt;Session&gt;&amp; session);</div>
+<div class="line"><a name="l00213"></a><span class="lineno">  213</span>&#160; </div>
+<div class="line"><a name="l00214"></a><span class="lineno">  214</span>&#160;        <span class="keywordtype">void</span> UnregisterSession(<span class="keyword">const</span> std::shared_ptr&lt;Session&gt;&amp; session);</div>
+<div class="line"><a name="l00215"></a><span class="lineno">  215</span>&#160; </div>
+<div class="line"><a name="l00220"></a><span class="lineno">  220</span>&#160;        <span class="keywordtype">void</span> SetRequestStream(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; request_stream)</div>
+<div class="line"><a name="l00221"></a><span class="lineno">  221</span>&#160;        {</div>
+<div class="line"><a name="l00222"></a><span class="lineno">  222</span>&#160;            std::lock_guard lock(request_stream_mutex_);</div>
+<div class="line"><a name="l00223"></a><span class="lineno">  223</span>&#160;            request_stream_ = request_stream;</div>
+<div class="line"><a name="l00224"></a><span class="lineno">  224</span>&#160;        }</div>
+<div class="line"><a name="l00225"></a><span class="lineno">  225</span>&#160; </div>
+<div class="line"><a name="l00235"></a><span class="lineno">  235</span>&#160;        std::shared_ptr&lt;Stream&gt; GetRequestStream()<span class="keyword"> const</span></div>
+<div class="line"><a name="l00236"></a><span class="lineno">  236</span>&#160;<span class="keyword">        </span>{</div>
+<div class="line"><a name="l00237"></a><span class="lineno">  237</span>&#160;            std::lock_guard lock(request_stream_mutex_);</div>
+<div class="line"><a name="l00238"></a><span class="lineno">  238</span>&#160;            <span class="keywordflow">return</span> request_stream_;</div>
+<div class="line"><a name="l00239"></a><span class="lineno">  239</span>&#160;        }</div>
+<div class="line"><a name="l00240"></a><span class="lineno">  240</span>&#160; </div>
+<div class="line"><a name="l00241"></a><span class="lineno">  241</span>&#160;        <span class="comment">// --------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00242"></a><span class="lineno">  242</span>&#160;        <span class="comment">// Member variables</span></div>
+<div class="line"><a name="l00243"></a><span class="lineno">  243</span>&#160;        <span class="comment">// --------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00244"></a><span class="lineno">  244</span>&#160;        std::uint64_t connection_id_{ 0 }; <span class="comment">// QUIC transport connection ID</span></div>
+<div class="line"><a name="l00245"></a><span class="lineno">  245</span>&#160; </div>
+<div class="line"><a name="l00252"></a><span class="lineno">  252</span>&#160;        std::optional&lt;uint64_t&gt; request_id_;</div>
+<div class="line"><a name="l00253"></a><span class="lineno">  253</span>&#160; </div>
+<div class="line"><a name="l00265"></a><span class="lineno">  265</span>&#160;        std::shared_ptr&lt;Stream&gt; request_stream_ <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(request_stream_mutex_);</div>
+<div class="line"><a name="l00266"></a><span class="lineno">  266</span>&#160; </div>
+<div class="line"><a name="l00267"></a><span class="lineno">  267</span>&#160;        <span class="keyword">mutable</span> std::mutex request_stream_mutex_; </div>
+<div class="line"><a name="l00268"></a><span class="lineno">  268</span>&#160; </div>
+<div class="line"><a name="l00269"></a><span class="lineno">  269</span>&#160;        <span class="keyword">mutable</span> std::mutex registration_mutex_;</div>
+<div class="line"><a name="l00270"></a><span class="lineno">  270</span>&#160;        std::weak_ptr&lt;Session&gt; registered_session_ <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(registration_mutex_);</div>
+<div class="line"><a name="l00271"></a><span class="lineno">  271</span>&#160;    };</div>
+<div class="line"><a name="l00272"></a><span class="lineno">  272</span>&#160; </div>
+<div class="line"><a name="l00273"></a><span class="lineno">  273</span>&#160;} <span class="comment">// namespace moq</span></div>
 <div class="ttc" id="aattributes_8h_html"><div class="ttname"><a href="attributes_8h.html">attributes.h</a></div></div>
 <div class="ttc" id="aclassquicr_1_1Reply_html"><div class="ttname"><a href="classquicr_1_1Reply.html">quicr::Reply</a></div><div class="ttdoc">The reply to a callback, which may be answered immediately or deferred.</div><div class="ttdef"><b>Definition:</b> reply.h:31</div></div>
 <div class="ttc" id="aclassquicr_1_1Session_html"><div class="ttname"><a href="classquicr_1_1Session.html">quicr::Session</a></div><div class="ttdoc">MoQ Session endpoint supporting connection-explicit operations.</div><div class="ttdef"><b>Definition:</b> session.h:68</div></div>
 <div class="ttc" id="aclassquicr_1_1SubscribeTrackHandler_html"><div class="ttname"><a href="classquicr_1_1SubscribeTrackHandler.html">quicr::SubscribeTrackHandler</a></div><div class="ttdoc">MOQ track handler for subscribed track.</div><div class="ttdef"><b>Definition:</b> subscribe_track_handler.h:25</div></div>
 <div class="ttc" id="aclassquicr_1_1TrackHandler_html"><div class="ttname"><a href="classquicr_1_1TrackHandler.html">quicr::TrackHandler</a></div><div class="ttdoc">Common request state for track-related handlers.</div><div class="ttdef"><b>Definition:</b> track_handler.h:36</div></div>
-<div class="ttc" id="aclassquicr_1_1TrackHandler_html_a032d5674786be5cca2fc6a9111da3fab"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a032d5674786be5cca2fc6a9111da3fab">quicr::TrackHandler::SetTransport</a></div><div class="ttdeci">void SetTransport(std::shared_ptr&lt; Session &gt; transport)</div><div class="ttdoc">Sets the session used for control and data operations.</div></div>
 <div class="ttc" id="aclassquicr_1_1TrackHandler_html_a06ad7d39dc26879af012f832ca7fa767"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a06ad7d39dc26879af012f832ca7fa767">quicr::TrackHandler::GetConnection</a></div><div class="ttdeci">std::shared_ptr&lt; Connection &gt; GetConnection() const</div></div>
+<div class="ttc" id="aclassquicr_1_1TrackHandler_html_a07ee797d13fac505d517241c7a1105ef"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a07ee797d13fac505d517241c7a1105ef">quicr::TrackHandler::GetSession</a></div><div class="ttdeci">std::weak_ptr&lt; Session &gt; GetSession() const</div><div class="ttdoc">Gets the non-owning session handle.</div></div>
 <div class="ttc" id="aclassquicr_1_1TrackHandler_html_a100537c7b846f971d6980ddb259de05a"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a100537c7b846f971d6980ddb259de05a">quicr::TrackHandler::GetBinding</a></div><div class="ttdeci">Binding GetBinding() const</div><div class="ttdef"><b>Definition:</b> track_handler.h:139</div></div>
-<div class="ttc" id="aclassquicr_1_1TrackHandler_html_a22b58f83ec337645126d15a60a6ec703"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a22b58f83ec337645126d15a60a6ec703">quicr::TrackHandler::GetSession</a></div><div class="ttdeci">const std::weak_ptr&lt; Session &gt; &amp; GetSession() const noexcept</div><div class="ttdoc">Gets the non-owning session handle.</div></div>
 <div class="ttc" id="aclassquicr_1_1TrackHandler_html_a2f1a1f4d40e85f2b657ffe91b1f3da79"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a2f1a1f4d40e85f2b657ffe91b1f3da79">quicr::TrackHandler::GetRequestStreamId</a></div><div class="ttdeci">std::optional&lt; uint64_t &gt; GetRequestStreamId() const</div><div class="ttdoc">Get the stream ID of the request control stream.</div></div>
 <div class="ttc" id="aclassquicr_1_1TrackHandler_html_a30af9738e364ef53cb8b13b88bccc350"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a30af9738e364ef53cb8b13b88bccc350">quicr::TrackHandler::GetRequestId</a></div><div class="ttdeci">std::optional&lt; uint64_t &gt; GetRequestId() const noexcept</div><div class="ttdoc">Get the request ID.</div><div class="ttdef"><b>Definition:</b> track_handler.h:107</div></div>
 <div class="ttc" id="aclassquicr_1_1TrackHandler_html_a448ebbcbf3b1c69f9b11c3e14e768a5d"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a448ebbcbf3b1c69f9b11c3e14e768a5d">quicr::TrackHandler::RequestOkReceived</a></div><div class="ttdeci">virtual void RequestOkReceived(const messages::Parameters &amp;params)=0</div><div class="ttdoc">Handles REQUEST_OK for this handler's request.</div></div>
 <div class="ttc" id="aclassquicr_1_1TrackHandler_html_a5c86b5813da3a2db45239f99e0c1337b"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a5c86b5813da3a2db45239f99e0c1337b">quicr::TrackHandler::RequestError</a></div><div class="ttdeci">virtual void RequestError(ErrorCode error_code, std::string reason)</div><div class="ttdoc">Handles a REQUEST_ERROR for this handler.</div></div>
-<div class="ttc" id="aclassquicr_1_1TrackHandler_html_a5f7b89a0ff6b85b1734489d165ad5fa8"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a5f7b89a0ff6b85b1734489d165ad5fa8">quicr::TrackHandler::binding_operation_mutex_</a></div><div class="ttdeci">std::mutex binding_operation_mutex_</div><div class="ttdef"><b>Definition:</b> track_handler.h:190</div></div>
+<div class="ttc" id="aclassquicr_1_1TrackHandler_html_a5f7b89a0ff6b85b1734489d165ad5fa8"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a5f7b89a0ff6b85b1734489d165ad5fa8">quicr::TrackHandler::binding_operation_mutex_</a></div><div class="ttdeci">std::mutex binding_operation_mutex_</div><div class="ttdef"><b>Definition:</b> track_handler.h:187</div></div>
 <div class="ttc" id="aclassquicr_1_1TrackHandler_html_a68fe874d736e6bd0e20abdbb672be219"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a68fe874d736e6bd0e20abdbb672be219">quicr::TrackHandler::TrackHandler</a></div><div class="ttdeci">TrackHandler()=delete</div><div class="ttdoc">A track identity is mandatory.</div></div>
+<div class="ttc" id="aclassquicr_1_1TrackHandler_html_a7b2ed97a924d86a55bb608ac453d7d26"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a7b2ed97a924d86a55bb608ac453d7d26">quicr::TrackHandler::IsRegistered</a></div><div class="ttdeci">bool IsRegistered() const</div><div class="ttdoc">Whether this handler is registered with a live session.</div></div>
 <div class="ttc" id="aclassquicr_1_1TrackHandler_html_a84b841fe2b3128993a2ccaba645c1ced"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a84b841fe2b3128993a2ccaba645c1ced">quicr::TrackHandler::full_track_name_</a></div><div class="ttdeci">FullTrackName full_track_name_</div><div class="ttdoc">Full track identity retained for the handler's lifetime.</div><div class="ttdef"><b>Definition:</b> track_handler.h:72</div></div>
 <div class="ttc" id="aclassquicr_1_1TrackHandler_html_a99cb48b649fd59874c1417dd984277c5"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#a99cb48b649fd59874c1417dd984277c5">quicr::TrackHandler::RequestUpdateReceived</a></div><div class="ttdeci">virtual Reply&lt; messages::Parameters, ErrorCode &gt; RequestUpdateReceived(const messages::Parameters &amp;params)=0</div><div class="ttdoc">Received an update for this handler's request.</div></div>
 <div class="ttc" id="aclassquicr_1_1TrackHandler_html_aa3685dcc42fbf6b38c093e400a612ec2"><div class="ttname"><a href="classquicr_1_1TrackHandler.html#aa3685dcc42fbf6b38c093e400a612ec2">quicr::TrackHandler::GetFullTrackName</a></div><div class="ttdeci">FullTrackName GetFullTrackName() const noexcept</div><div class="ttdoc">Get the full track name.</div><div class="ttdef"><b>Definition:</b> track_handler.h:125</div></div>

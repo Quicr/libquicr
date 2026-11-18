@@ -231,6 +231,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:abed27312a39889f335d1d10003c2e299"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1Session.html#abed27312a39889f335d1d10003c2e299">RequestTrackStatus</a> (std::shared_ptr&lt; <a class="el" href="classquicr_1_1TrackStatusHandler.html">TrackStatusHandler</a> &gt; handler)</td></tr>
 <tr class="memdesc:abed27312a39889f335d1d10003c2e299"><td class="mdescLeft">&#160;</td><td class="mdescRight">Request track status.  <a href="classquicr_1_1Session.html#abed27312a39889f335d1d10003c2e299">More...</a><br /></td></tr>
 <tr class="separator:abed27312a39889f335d1d10003c2e299"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af8b17ebf7b58cbd4408b129ce5f2a9c0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1Session.html#af8b17ebf7b58cbd4408b129ce5f2a9c0">CancelTrackStatus</a> (const std::shared_ptr&lt; <a class="el" href="classquicr_1_1TrackStatusHandler.html">TrackStatusHandler</a> &gt; &amp;handler)</td></tr>
+<tr class="memdesc:af8b17ebf7b58cbd4408b129ce5f2a9c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Cancel a pending track status request.  <a href="classquicr_1_1Session.html#af8b17ebf7b58cbd4408b129ce5f2a9c0">More...</a><br /></td></tr>
+<tr class="separator:af8b17ebf7b58cbd4408b129ce5f2a9c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a292467d8ea713d33fd08ecb364b29cac"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1Session.html#a292467d8ea713d33fd08ecb364b29cac">GoAway</a> (const std::string &amp;new_session_uri, std::chrono::milliseconds timeout, std::optional&lt; std::uint64_t &gt; first_unprocessed_request_id=std::nullopt)</td></tr>
 <tr class="memdesc:a292467d8ea713d33fd08ecb364b29cac"><td class="mdescLeft">&#160;</td><td class="mdescRight">Send GOAWAY on this session's control stream.  <a href="classquicr_1_1Session.html#a292467d8ea713d33fd08ecb364b29cac">More...</a><br /></td></tr>
 <tr class="separator:a292467d8ea713d33fd08ecb364b29cac"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -867,6 +870,38 @@ Protected Member Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section pre"><dt>Precondition</dt><dd><code>track_handler</code> must not be null. </dd></dl>
+
+</div>
+</div>
+<a id="af8b17ebf7b58cbd4408b129ce5f2a9c0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af8b17ebf7b58cbd4408b129ce5f2a9c0">&#9670;&nbsp;</a></span>CancelTrackStatus()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void quicr::Session::CancelTrackStatus </td>
+          <td>(</td>
+          <td class="paramtype">const std::shared_ptr&lt; <a class="el" href="classquicr_1_1TrackStatusHandler.html">TrackStatusHandler</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>handler</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Cancel a pending track status request. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">handler</td><td>Handler for the pending query. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="exception"><dt>Exceptions</dt><dd>
+  <table class="exception">
+    <tr><td class="paramname">std::invalid_argument</td><td>if handler is null. </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>

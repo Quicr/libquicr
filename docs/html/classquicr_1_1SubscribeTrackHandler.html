@@ -253,6 +253,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a06ad7d39dc26879af012f832ca7fa767"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a100537c7b846f971d6980ddb259de05a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structquicr_1_1TrackHandler_1_1Binding.html">Binding</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1TrackHandler.html#a100537c7b846f971d6980ddb259de05a">GetBinding</a> () const</td></tr>
 <tr class="separator:a100537c7b846f971d6980ddb259de05a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7b2ed97a924d86a55bb608ac453d7d26"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1TrackHandler.html#a7b2ed97a924d86a55bb608ac453d7d26">IsRegistered</a> () const</td></tr>
+<tr class="memdesc:a7b2ed97a924d86a55bb608ac453d7d26"><td class="mdescLeft">&#160;</td><td class="mdescRight">Whether this handler is registered with a live session.  <a href="classquicr_1_1TrackHandler.html#a7b2ed97a924d86a55bb608ac453d7d26">More...</a><br /></td></tr>
+<tr class="separator:a7b2ed97a924d86a55bb608ac453d7d26"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5c86b5813da3a2db45239f99e0c1337b"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1TrackHandler.html#a5c86b5813da3a2db45239f99e0c1337b">RequestError</a> (<a class="el" href="namespacequicr.html#afa08da627c4aa379f61774da6ba93b61">ErrorCode</a> error_code, std::string reason)</td></tr>
 <tr class="memdesc:a5c86b5813da3a2db45239f99e0c1337b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Handles a REQUEST_ERROR for this handler.  <a href="classquicr_1_1TrackHandler.html#a5c86b5813da3a2db45239f99e0c1337b">More...</a><br /></td></tr>
 <tr class="separator:a5c86b5813da3a2db45239f99e0c1337b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -305,12 +308,9 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a360cc2e877f2b0ba9990283517fdae24"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1SubscribeTrackHandler.html#a360cc2e877f2b0ba9990283517fdae24">SetStatus</a> (<a class="el" href="classquicr_1_1SubscribeTrackHandler.html#a9de21a18d0ef99ddba39efc9833d74ee">Status</a> status) noexcept</td></tr>
 <tr class="memdesc:a360cc2e877f2b0ba9990283517fdae24"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the subscribe status.  <a href="classquicr_1_1SubscribeTrackHandler.html#a360cc2e877f2b0ba9990283517fdae24">More...</a><br /></td></tr>
 <tr class="separator:a360cc2e877f2b0ba9990283517fdae24"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a032d5674786be5cca2fc6a9111da3fab"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1TrackHandler.html#a032d5674786be5cca2fc6a9111da3fab">SetTransport</a> (std::shared_ptr&lt; <a class="el" href="classquicr_1_1Session.html">Session</a> &gt; transport)</td></tr>
-<tr class="memdesc:a032d5674786be5cca2fc6a9111da3fab"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the session used for control and data operations.  <a href="classquicr_1_1TrackHandler.html#a032d5674786be5cca2fc6a9111da3fab">More...</a><br /></td></tr>
-<tr class="separator:a032d5674786be5cca2fc6a9111da3fab"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a22b58f83ec337645126d15a60a6ec703"><td class="memItemLeft" align="right" valign="top">const std::weak_ptr&lt; <a class="el" href="classquicr_1_1Session.html">Session</a> &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1TrackHandler.html#a22b58f83ec337645126d15a60a6ec703">GetSession</a> () const noexcept</td></tr>
-<tr class="memdesc:a22b58f83ec337645126d15a60a6ec703"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gets the non-owning session handle.  <a href="classquicr_1_1TrackHandler.html#a22b58f83ec337645126d15a60a6ec703">More...</a><br /></td></tr>
-<tr class="separator:a22b58f83ec337645126d15a60a6ec703"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a07ee797d13fac505d517241c7a1105ef"><td class="memItemLeft" align="right" valign="top">std::weak_ptr&lt; <a class="el" href="classquicr_1_1Session.html">Session</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1TrackHandler.html#a07ee797d13fac505d517241c7a1105ef">GetSession</a> () const</td></tr>
+<tr class="memdesc:a07ee797d13fac505d517241c7a1105ef"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gets the non-owning session handle.  <a href="classquicr_1_1TrackHandler.html#a07ee797d13fac505d517241c7a1105ef">More...</a><br /></td></tr>
+<tr class="separator:a07ee797d13fac505d517241c7a1105ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -1079,8 +1079,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a22b58f83ec337645126d15a60a6ec703"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a22b58f83ec337645126d15a60a6ec703">&#9670;&nbsp;</a></span>GetSession()</h2>
+<a id="a07ee797d13fac505d517241c7a1105ef"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a07ee797d13fac505d517241c7a1105ef">&#9670;&nbsp;</a></span>GetSession()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1089,7 +1089,7 @@ template&lt;typename T &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const std::weak_ptr&lt;<a class="el" href="classquicr_1_1Session.html">Session</a>&gt;&amp; quicr::TrackHandler::GetSession </td>
+          <td class="memname">std::weak_ptr&lt;<a class="el" href="classquicr_1_1Session.html">Session</a>&gt; quicr::TrackHandler::GetSession </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td> const</td>
@@ -1097,13 +1097,13 @@ template&lt;typename T &gt; </div>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">noexcept</span><span class="mlabel">inherited</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">inherited</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
 
 <p>Gets the non-owning session handle. </p>
-<dl class="section return"><dt>Returns</dt><dd>Borrowed reference to the stored weak pointer, valid for this handler's lifetime. Callers must lock it before use. </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>A weak pointer to the registered session. </dd></dl>
 
 </div>
 </div>
@@ -1245,6 +1245,33 @@ template&lt;typename T &gt; </div>
 
 <p>Check if the subscribe is publisher initiated or not. </p>
 <dl class="section return"><dt>Returns</dt><dd>True if publisher initiated, false if initiated by the relay/server </dd></dl>
+
+</div>
+</div>
+<a id="a7b2ed97a924d86a55bb608ac453d7d26"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7b2ed97a924d86a55bb608ac453d7d26">&#9670;&nbsp;</a></span>IsRegistered()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool quicr::TrackHandler::IsRegistered </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inherited</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Whether this handler is registered with a live session. </p>
 
 </div>
 </div>
@@ -2064,41 +2091,6 @@ template&lt;typename T &gt; </div>
   </table>
   </dd>
 </dl>
-
-</div>
-</div>
-<a id="a032d5674786be5cca2fc6a9111da3fab"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a032d5674786be5cca2fc6a9111da3fab">&#9670;&nbsp;</a></span>SetTransport()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void quicr::TrackHandler::SetTransport </td>
-          <td>(</td>
-          <td class="paramtype">std::shared_ptr&lt; <a class="el" href="classquicr_1_1Session.html">Session</a> &gt;&#160;</td>
-          <td class="paramname"><em>transport</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">inherited</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Sets the session used for control and data operations. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">transport</td><td><a class="el" href="classquicr_1_1Session.html" title="MoQ Session endpoint supporting connection-explicit operations.">Session</a> retained weakly; passing null clears effective access. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section note"><dt>Note</dt><dd>The caller must keep the session alive independently. </dd></dl>
 
 </div>
 </div>

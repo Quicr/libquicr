@@ -156,6 +156,14 @@ var menudata={children:[
 {text:"Files",url:"files.html",children:[
 {text:"File List",url:"files.html"},
 {text:"File Members",url:"globals.html",children:[
-{text:"All",url:"globals.html"},
+{text:"All",url:"globals.html",children:[
+{text:"d",url:"globals.html#index_d"},
+{text:"q",url:"globals_q.html#index_q"}]},
+{text:"Functions",url:"globals_func.html",children:[
+{text:"q",url:"globals_func.html#index_q"}]},
+{text:"Typedefs",url:"globals_type.html",children:[
+{text:"q",url:"globals_type.html#index_q"}]},
+{text:"Enumerator",url:"globals_eval.html",children:[
+{text:"q",url:"globals_eval.html#index_q"}]},
 {text:"Macros",url:"globals_defs.html"}]}]},
 {text:"Examples",url:"examples.html"}]}

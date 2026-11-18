@@ -8,7 +8,7 @@ var searchData=
   ['addtransport_5',['AddTransport',['../classquicr_1_1SessionManager.html#aaed80d57bfe76238b1d7f0785a80bb36',1,'quicr::SessionManager::AddTransport(const ClientConfig &amp;config, std::shared_ptr&lt; Session::ClientCallbacks &gt; callbacks=nullptr)'],['../classquicr_1_1SessionManager.html#ad14f422027b6794b61fcd097968683e3',1,'quicr::SessionManager::AddTransport(const ServerConfig &amp;config, std::shared_ptr&lt; Session::ServerCallbacks &gt; callbacks=nullptr)']]],
   ['addvalue_6',['AddValue',['../structquicr_1_1MinMaxAvg.html#ad3c0f78cd86d6d1784d6df9c06c27e63',1,'quicr::MinMaxAvg']]],
   ['advance_7',['Advance',['../classquicr_1_1Cache.html#adc01bbccee0a9e74809c691a9899d664',1,'quicr::Cache']]],
-  ['alias_5ftype_8',['alias_type',['../structquicr_1_1messages_1_1Token.html#aebaa71f1c803b1368004797f4642aab2',1,'quicr::messages::Token']]],
+  ['alias_5ftype_8',['alias_type',['../structquicr_1_1messages_1_1Token.html#aebaa71f1c803b1368004797f4642aab2',1,'quicr::messages::Token::alias_type()'],['../structquicr__token.html#a724242e8f0856712915a775f6699fd8a',1,'quicr_token::alias_type()']]],
   ['aliastype_9',['AliasType',['../structquicr_1_1messages_1_1Token.html#a4cac451bfb342703c2f8fcfa07962f9f',1,'quicr::messages::Token']]],
   ['anyhasvalue_10',['AnyHasValue',['../classquicr_1_1StreamBuffer.html#abccd30615a310d94b0c61f9102a0d1b8',1,'quicr::StreamBuffer']]],
   ['anyhasvalueb_11',['AnyHasValueB',['../classquicr_1_1StreamBuffer.html#a7b640496010e407d3f173a4168c1ac74',1,'quicr::StreamBuffer']]],
@@ -23,5 +23,5 @@ var searchData=
   ['attributes_2eh_20',['attributes.h',['../attributes_8h.html',1,'']]],
   ['auth_5ftokens_21',['auth_tokens',['../structquicr_1_1PublishAttributes.html#a2252ef8c7178189f5543fb14ffbef077',1,'quicr::PublishAttributes']]],
   ['available_22',['Available',['../classquicr_1_1StreamBuffer.html#a4cf408dac7cb133f693724cfb218cace',1,'quicr::StreamBuffer']]],
-  ['avg_23',['avg',['../structquicr_1_1MinMaxAvg.html#a6d61fe9d36b0defb038738e980ff6096',1,'quicr::MinMaxAvg']]]
+  ['avg_23',['avg',['../structquicr__min__max__avg.html#a8794ae5887bf1d6a898e6ce1eaf07308',1,'quicr_min_max_avg::avg()'],['../structquicr_1_1MinMaxAvg.html#a6d61fe9d36b0defb038738e980ff6096',1,'quicr::MinMaxAvg::avg()']]]
 ];

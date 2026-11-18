@@ -1,0 +1,25 @@
+var structquicr__transport__config =
+[
+    [ "callback_queue_size", "structquicr__transport__config.html#afd1927ecf42f4908196145760fd9e6ad", null ],
+    [ "congestion_control", "structquicr__transport__config.html#ac930ab4d70e31f3d07728d865b968fee", null ],
+    [ "debug", "structquicr__transport__config.html#a929d6e9cba49b4a3bbabfe882729608f", null ],
+    [ "idle_timeout_ms", "structquicr__transport__config.html#a227c3bdd47c864cc114ae287d69381d1", null ],
+    [ "initial_max_stream_data", "structquicr__transport__config.html#a3e1f855ff71a8c8d8ea18a24d353e977", null ],
+    [ "initial_max_stream_id", "structquicr__transport__config.html#a61772f43bf6d93a3486aa4a0348215fd", null ],
+    [ "max_connections", "structquicr__transport__config.html#a677d2b6a5da989ad9a320fa34bec3504", null ],
+    [ "metrics_sample_ms", "structquicr__transport__config.html#aaa784baa78e22da5f10517720367df3e", null ],
+    [ "quic_cwin_minimum", "structquicr__transport__config.html#a29941dc586b31daa6e9e21019101bd0f", null ],
+    [ "quic_priority_limit", "structquicr__transport__config.html#af3d4f2a037b4e8eaef7ce2746c3d8d29", null ],
+    [ "quic_qlog_path", "structquicr__transport__config.html#a8792ea5aaa5a1e2275174d806d99f95d", null ],
+    [ "quic_shards", "structquicr__transport__config.html#a36da26c1effe3b3b3c1dfbed0c14189f", null ],
+    [ "quic_wifi_shadow_rtt_us", "structquicr__transport__config.html#a96eb4ada431143d0fa2acf9bcd02df04", null ],
+    [ "socket_buffer_size", "structquicr__transport__config.html#a7eefab1a07355b601839f8aceb2e5652", null ],
+    [ "ssl_keylog", "structquicr__transport__config.html#a5f4a25e6c7cd28b3eedbd17f447df840", null ],
+    [ "time_queue_bucket_interval", "structquicr__transport__config.html#a69504e057597ca572aa673dc8df1a6df", null ],
+    [ "time_queue_init_queue_size", "structquicr__transport__config.html#a4326ce8ba40693e4f3880d8594b4135e", null ],
+    [ "time_queue_max_duration", "structquicr__transport__config.html#ae1b5e2b69873536b1a5d98d3dc3646f7", null ],
+    [ "time_queue_rx_size", "structquicr__transport__config.html#abbc1a26a1c477ca1cc4e4f1a687c729a", null ],
+    [ "tls_cert_filename", "structquicr__transport__config.html#a87f83ad47b8243edfe77744a7d9eeaee", null ],
+    [ "tls_key_filename", "structquicr__transport__config.html#a8acd345e16c949216636ccdac5a8576d", null ],
+    [ "use_af_xdp", "structquicr__transport__config.html#a0bac85679a9d1274d09a902a8d805866", null ]
+];

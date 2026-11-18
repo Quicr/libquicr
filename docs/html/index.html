@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.9.1"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>LibQuicR: Media over QUIC (MoQ) Publisher/Subscriber API</title>
+<title>LibQuicR: Media over QUIC (MoQ) Publisher/Subscriber APIs</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -83,36 +83,19 @@ $(document).ready(function(){initNavTree('index.html',''); initResizable(); });
 
 <div class="PageDoc"><div class="header">
   <div class="headertitle">
-<div class="title">Media over QUIC (MoQ) Publisher/Subscriber API </div>  </div>
+<div class="title">Media over QUIC (MoQ) Publisher/Subscriber APIs </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p><a class="anchor" id="md_docs_api_main"></a> LibQuicR provides client and server APIs for publishing and subscribing to Media over QUIC tracks. <a class="el" href="classquicr_1_1SessionManager.html">quicr::SessionManager</a> owns transports and their <a class="el" href="classquicr_1_1Session.html">quicr::Session</a> objects. Configure a client with <a class="el" href="structquicr_1_1ClientConfig.html">quicr::ClientConfig</a> or a server with <a class="el" href="structquicr_1_1ServerConfig.html">quicr::ServerConfig</a>, then provide the corresponding session callback implementation.</p>
+<div class="textblock"><p><a class="anchor" id="md_docs_api_main"></a> LibQuicR provides native C++ and C APIs for client and server sessions, publishing, subscribing, fetches, namespace operations, and track-status queries.</p>
 <h1><a class="anchor" id="autotoc_md1"></a>
-Sessions</h1>
-<table class="markdownTable">
-<tr class="markdownTableHead">
-<th class="markdownTableHeadNone">Class   </th><th class="markdownTableHeadNone">Description    </th></tr>
-<tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1SessionManager.html">quicr::SessionManager</a>   </td><td class="markdownTableBodyNone">Creates transports, owns sessions, and registers track and namespace handlers.    </td></tr>
-<tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1Session.html">quicr::Session</a>   </td><td class="markdownTableBodyNone">Represents one MoQ protocol session and exposes its current status and operations.    </td></tr>
-<tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a class="el" href="structquicr_1_1Session_1_1ClientCallbacks.html">quicr::Session::ClientCallbacks</a>   </td><td class="markdownTableBodyNone">Receives setup and protocol callbacks for a client session.    </td></tr>
-<tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a class="el" href="structquicr_1_1Session_1_1ServerCallbacks.html">quicr::Session::ServerCallbacks</a>   </td><td class="markdownTableBodyNone">Receives setup and protocol callbacks for an accepted server session.   </td></tr>
-</table>
+C++ API</h1>
+<p><a class="el" href="classquicr_1_1SessionManager.html">quicr::SessionManager</a> owns transports and their <a class="el" href="classquicr_1_1Session.html">quicr::Session</a> objects. Configure a client with <a class="el" href="structquicr_1_1ClientConfig.html">quicr::ClientConfig</a> or a server with <a class="el" href="structquicr_1_1ServerConfig.html">quicr::ServerConfig</a>, provide the corresponding session callbacks, and register track or namespace handlers through <a class="el" href="classquicr_1_1SessionManager.html#a078d1d3d7069175e82430d4fc12a61c4">quicr::SessionManager::AddHandler</a>.</p>
+<p><a class="el" href="classquicr_1_1SubscribeTrackHandler.html">quicr::SubscribeTrackHandler</a> receives objects and subscription status. <a class="el" href="classquicr_1_1PublishTrackHandler.html">quicr::PublishTrackHandler</a> publishes objects and reports publication status.</p>
+<p>See the <a href="api-guide.html">C++ API Guide</a> and <a href="examples.html">Examples</a> for details.</p>
 <h1><a class="anchor" id="autotoc_md2"></a>
-Track handlers</h1>
-<p>Create a handler for one <a class="el" href="structquicr_1_1FullTrackName.html">quicr::FullTrackName</a> and register it with <a class="el" href="classquicr_1_1SessionManager.html#a078d1d3d7069175e82430d4fc12a61c4">quicr::SessionManager::AddHandler</a>. Override the handler callbacks needed by the application.</p>
-<table class="markdownTable">
-<tr class="markdownTableHead">
-<th class="markdownTableHeadNone">Class   </th><th class="markdownTableHeadNone">Description    </th></tr>
-<tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1SubscribeTrackHandler.html">quicr::SubscribeTrackHandler</a>   </td><td class="markdownTableBodyNone">Receives objects and subscription status for a subscribed track.    </td></tr>
-<tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a class="el" href="classquicr_1_1PublishTrackHandler.html">quicr::PublishTrackHandler</a>   </td><td class="markdownTableBodyNone">Publishes objects and reports publication status for a track.   </td></tr>
-</table>
-<p>See the <a href="api-guide.html">API Guide</a> for more details and the <a href="examples.html">Examples</a> for complete applications. </p>
+C API</h1>
+<p>The native C API is declared in <code>&lt;<a class="el" href="quicr_8h.html">quicr/quicr.h</a>&gt;</code> and linked through the CMake target <code>quicr::c</code>. It provides opaque manager, session, name, extension, and handler types with callback tables and explicit ownership operations.</p>
+<p>See the <a href="c-api-guide.html">C API Guide</a> for ownership, callback, reply, handler lifecycle, and shutdown requirements. </p>
 </div></div><!-- PageDoc -->
 </div><!-- contents -->
 </div><!-- doc-content -->

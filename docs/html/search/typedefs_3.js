@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['extensions_1744',['Extensions',['../namespacequicr.html#af2fbc7f6069e6820560002a3e7c9c54f',1,'quicr']]]
+  ['extensions_2464',['Extensions',['../namespacequicr.html#af2fbc7f6069e6820560002a3e7c9c54f',1,'quicr']]]
 ];

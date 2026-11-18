@@ -390,13 +390,18 @@ Enumerations</h2></td></tr>
 <tr class="separator:a21405367847bb22caf39602b63f151c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a059feab29099b199f6eaa2717c9fdb37"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacequicr.html#a059feab29099b199f6eaa2717c9fdb37">PublishNamespaceErrorCode</a> : uint8_t { <a class="el" href="namespacequicr.html#a059feab29099b199f6eaa2717c9fdb37ae69fa9a656f76dd8a4d89f21992b2d3a">kOk</a> = 0
 , <a class="el" href="namespacequicr.html#a059feab29099b199f6eaa2717c9fdb37afcd417a134c251034b0d61b07c826394">kInternalError</a>
+, <a class="el" href="namespacequicr.html#a059feab29099b199f6eaa2717c9fdb37a5c48d581fa169cd2d25a74ed834acb4f">kRedirect</a>
  }</td></tr>
 <tr class="memdesc:a059feab29099b199f6eaa2717c9fdb37"><td class="mdescLeft">&#160;</td><td class="mdescRight">Why a publish namespace was rejected, carried by the error of a <code>Reply</code>.  <a href="namespacequicr.html#a059feab29099b199f6eaa2717c9fdb37">More...</a><br /></td></tr>
 <tr class="separator:a059feab29099b199f6eaa2717c9fdb37"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0f08ea5e7fecd892a48562314a273303"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303">FetchErrorCode</a> : uint8_t { <a class="el" href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303ae69fa9a656f76dd8a4d89f21992b2d3a">kOk</a> = 0
+<tr class="memitem:a0f08ea5e7fecd892a48562314a273303"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303">FetchErrorCode</a> : uint8_t { <br />
+&#160;&#160;<a class="el" href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303ae69fa9a656f76dd8a4d89f21992b2d3a">kOk</a> = 0
 , <a class="el" href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303a6ab6f82eb5ca31ff76473f45f033181f">kInvalidRange</a>
 , <a class="el" href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303ada399a39a66c015047bf13bedacd8639">kNoObjects</a>
 , <a class="el" href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303afcd417a134c251034b0d61b07c826394">kInternalError</a>
+, <br />
+&#160;&#160;<a class="el" href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303a5c48d581fa169cd2d25a74ed834acb4f">kRedirect</a>
+<br />
  }</td></tr>
 <tr class="memdesc:a0f08ea5e7fecd892a48562314a273303"><td class="mdescLeft">&#160;</td><td class="mdescRight">Why a fetch was rejected, carried by the error of a <code>Reply</code>.  <a href="namespacequicr.html#a0f08ea5e7fecd892a48562314a273303">More...</a><br /></td></tr>
 <tr class="separator:a0f08ea5e7fecd892a48562314a273303"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -741,6 +746,8 @@ Functions</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="a0f08ea5e7fecd892a48562314a273303afcd417a134c251034b0d61b07c826394"></a>kInternalError&#160;</td><td class="fielddoc"><p>Unspecified application or endpoint failure. </p>
 </td></tr>
+<tr><td class="fieldname"><a id="a0f08ea5e7fecd892a48562314a273303a5c48d581fa169cd2d25a74ed834acb4f"></a>kRedirect&#160;</td><td class="fielddoc"><p>The fetch should be retried using the supplied redirect. </p>
+</td></tr>
 </table>
 
 </div>
@@ -842,6 +849,8 @@ Functions</h2></td></tr>
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a059feab29099b199f6eaa2717c9fdb37ae69fa9a656f76dd8a4d89f21992b2d3a"></a>kOk&#160;</td><td class="fielddoc"><p>Vestigial success value; do not return it as an error. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a059feab29099b199f6eaa2717c9fdb37afcd417a134c251034b0d61b07c826394"></a>kInternalError&#160;</td><td class="fielddoc"><p>Unspecified application or endpoint failure. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a059feab29099b199f6eaa2717c9fdb37a5c48d581fa169cd2d25a74ed834acb4f"></a>kRedirect&#160;</td><td class="fielddoc"><p>Retry the namespace publication using the supplied redirect. </p>
 </td></tr>
 </table>
 

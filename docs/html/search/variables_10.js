@@ -1,9 +1,9 @@
 var searchData=
 [
-  ['quic_1626',['quic',['../structquicr_1_1ConnectionMetrics.html#a1ab84c81e8a08167ff2a2ae08aa117e9',1,'quicr::ConnectionMetrics::quic()'],['../structquicr_1_1PublishTrackMetrics.html#a7e0e7bf91f7f7ff1268bc05bda6d6639',1,'quicr::PublishTrackMetrics::quic()']]],
-  ['quic_5fcwin_5fminimum_1627',['quic_cwin_minimum',['../structquicr_1_1TransportConfig.html#add5a1dd2919991646d1fb2c84371afb0',1,'quicr::TransportConfig']]],
-  ['quic_5fpriority_5flimit_1628',['quic_priority_limit',['../structquicr_1_1TransportConfig.html#a199ad1d621bf7fa4a986865209d59767',1,'quicr::TransportConfig']]],
-  ['quic_5fqlog_5fpath_1629',['quic_qlog_path',['../structquicr_1_1TransportConfig.html#add35c8e996859ea96c68e977a14a5118',1,'quicr::TransportConfig']]],
-  ['quic_5fshards_1630',['quic_shards',['../structquicr_1_1TransportConfig.html#aaae625d7ee8fcfead6f13ee46f3f82e0',1,'quicr::TransportConfig']]],
-  ['quic_5fwifi_5fshadow_5frtt_5fus_1631',['quic_wifi_shadow_rtt_us',['../structquicr_1_1TransportConfig.html#af08d5fd496af789717564643d5c820a4',1,'quicr::TransportConfig']]]
+  ['quic_2323',['quic',['../structquicr_1_1ConnectionMetrics.html#a1ab84c81e8a08167ff2a2ae08aa117e9',1,'quicr::ConnectionMetrics::quic()'],['../structquicr_1_1PublishTrackMetrics.html#a7e0e7bf91f7f7ff1268bc05bda6d6639',1,'quicr::PublishTrackMetrics::quic()'],['../structquicr__connection__metrics.html#adc0dbd2bcbc8d71235527005b1fd8783',1,'quicr_connection_metrics::quic()'],['../structquicr__publish__track__metrics.html#ad5aafcd4e37047f8daf513dffbd21b2c',1,'quicr_publish_track_metrics::quic()']]],
+  ['quic_5fcwin_5fminimum_2324',['quic_cwin_minimum',['../structquicr_1_1TransportConfig.html#add5a1dd2919991646d1fb2c84371afb0',1,'quicr::TransportConfig::quic_cwin_minimum()'],['../structquicr__transport__config.html#a29941dc586b31daa6e9e21019101bd0f',1,'quicr_transport_config::quic_cwin_minimum()']]],
+  ['quic_5fpriority_5flimit_2325',['quic_priority_limit',['../structquicr_1_1TransportConfig.html#a199ad1d621bf7fa4a986865209d59767',1,'quicr::TransportConfig::quic_priority_limit()'],['../structquicr__transport__config.html#af3d4f2a037b4e8eaef7ce2746c3d8d29',1,'quicr_transport_config::quic_priority_limit()']]],
+  ['quic_5fqlog_5fpath_2326',['quic_qlog_path',['../structquicr_1_1TransportConfig.html#add35c8e996859ea96c68e977a14a5118',1,'quicr::TransportConfig::quic_qlog_path()'],['../structquicr__transport__config.html#a8792ea5aaa5a1e2275174d806d99f95d',1,'quicr_transport_config::quic_qlog_path()']]],
+  ['quic_5fshards_2327',['quic_shards',['../structquicr_1_1TransportConfig.html#aaae625d7ee8fcfead6f13ee46f3f82e0',1,'quicr::TransportConfig::quic_shards()'],['../structquicr__transport__config.html#a36da26c1effe3b3b3c1dfbed0c14189f',1,'quicr_transport_config::quic_shards()']]],
+  ['quic_5fwifi_5fshadow_5frtt_5fus_2328',['quic_wifi_shadow_rtt_us',['../structquicr_1_1TransportConfig.html#af08d5fd496af789717564643d5c820a4',1,'quicr::TransportConfig::quic_wifi_shadow_rtt_us()'],['../structquicr__transport__config.html#a96eb4ada431143d0fa2acf9bcd02df04',1,'quicr_transport_config::quic_wifi_shadow_rtt_us()']]]
 ];

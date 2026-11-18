@@ -24,6 +24,7 @@ var dir_63c2ae21967f3a5a594ee14d8245c5a5 =
     [ "errors.h", "errors_8h.html", "errors_8h" ],
     [ "log.h", "log_8h.html", "log_8h" ],
     [ "metrics.h", "metrics_8h.html", "metrics_8h" ],
+    [ "quicr.h", "quicr_8h.html", "quicr_8h" ],
     [ "reply.h", "reply_8h.html", [
       [ "Reply", "classquicr_1_1Reply.html", "classquicr_1_1Reply" ]
     ] ],

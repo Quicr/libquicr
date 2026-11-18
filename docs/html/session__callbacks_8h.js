@@ -8,7 +8,8 @@ var session__callbacks_8h =
       [ "kOk", "session__callbacks_8h.html#a0f08ea5e7fecd892a48562314a273303ae69fa9a656f76dd8a4d89f21992b2d3a", null ],
       [ "kInvalidRange", "session__callbacks_8h.html#a0f08ea5e7fecd892a48562314a273303a6ab6f82eb5ca31ff76473f45f033181f", null ],
       [ "kNoObjects", "session__callbacks_8h.html#a0f08ea5e7fecd892a48562314a273303ada399a39a66c015047bf13bedacd8639", null ],
-      [ "kInternalError", "session__callbacks_8h.html#a0f08ea5e7fecd892a48562314a273303afcd417a134c251034b0d61b07c826394", null ]
+      [ "kInternalError", "session__callbacks_8h.html#a0f08ea5e7fecd892a48562314a273303afcd417a134c251034b0d61b07c826394", null ],
+      [ "kRedirect", "session__callbacks_8h.html#a0f08ea5e7fecd892a48562314a273303a5c48d581fa169cd2d25a74ed834acb4f", null ]
     ] ],
     [ "PublishErrorCode", "session__callbacks_8h.html#a21405367847bb22caf39602b63f151c1", [
       [ "kInternalError", "session__callbacks_8h.html#a21405367847bb22caf39602b63f151c1afcd417a134c251034b0d61b07c826394", null ],
@@ -18,7 +19,8 @@ var session__callbacks_8h =
     ] ],
     [ "PublishNamespaceErrorCode", "session__callbacks_8h.html#a059feab29099b199f6eaa2717c9fdb37", [
       [ "kOk", "session__callbacks_8h.html#a059feab29099b199f6eaa2717c9fdb37ae69fa9a656f76dd8a4d89f21992b2d3a", null ],
-      [ "kInternalError", "session__callbacks_8h.html#a059feab29099b199f6eaa2717c9fdb37afcd417a134c251034b0d61b07c826394", null ]
+      [ "kInternalError", "session__callbacks_8h.html#a059feab29099b199f6eaa2717c9fdb37afcd417a134c251034b0d61b07c826394", null ],
+      [ "kRedirect", "session__callbacks_8h.html#a059feab29099b199f6eaa2717c9fdb37a5c48d581fa169cd2d25a74ed834acb4f", null ]
     ] ],
     [ "RequestErrorCode", "session__callbacks_8h.html#a628ee3e91ccfe1930405fa2623d96c0a", [
       [ "kInternalError", "session__callbacks_8h.html#a628ee3e91ccfe1930405fa2623d96c0aafcd417a134c251034b0d61b07c826394", null ],
