@@ -161,12 +161,14 @@ namespace quicr {
                 throw std::logic_error("Request handler is missing a request ID");
             }
 
-            return std::make_shared<Request>(*binding.request_id,
-                                             type,
-                                             binding.request_stream,
-                                             handler->GetFullTrackName(),
-                                             std::vector<std::shared_ptr<TrackHandler>>{ handler },
-                                             is_locally_initiated);
+            return std::shared_ptr<Request>(new Request{
+              *binding.request_id,
+              type,
+              binding.request_stream,
+              handler->GetFullTrackName(),
+              std::vector<std::shared_ptr<TrackHandler>>{ handler },
+              is_locally_initiated,
+            });
         }
 
         std::uint64_t ValidateRequest(const std::shared_ptr<Request>& request)
