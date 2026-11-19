@@ -50,6 +50,9 @@ namespace quicr::messages {
     {
         uint64_t size = 0;
         buffer = buffer >> size;
+        if (size > buffer.size()) {
+            throw ProtocolViolationException("Length-prefixed value exceeds remaining bytes");
+        }
         value.assign(buffer.begin(), std::next(buffer.begin(), size));
         return buffer.subspan(value.size());
     }
