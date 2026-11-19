@@ -52,3 +52,10 @@ in this mode, simply interrupt the program (`Ctrl+C`)
 ```
 moq-cli --sub_namespace clock --sub_name second
 ```
+### Over QMUX
+
+```
+moq-cli --transport qmux --url moqt://relay.example.com:4434 --sub_namespace chat --sub_name general
+```
+
+QMUX carries native MoQ over TLS/TCP and needs an explicit port in the URL.

@@ -423,12 +423,10 @@ class MyClient : public quicr::Session::ClientCallbacks
                              { joining_start, std::nullopt });
     }
 
-    quicr::Reply<void, quicr::FetchErrorCode> FetchCancelReceived(
-      [[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
-      std::uint64_t request_id) override
+    void FetchCancelReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
+                             std::uint64_t request_id) override
     {
         QUICR_LOGGER_INFO(qclient_vars::logger, "Fetch cancelled for request_id: {}", request_id);
-        return {};
     }
 
     quicr::Reply<quicr::TrackStatusResponse, quicr::RequestErrorCode> TrackStatusReceived(
@@ -633,8 +631,10 @@ PublishWithHandler(const std::shared_ptr<quicr::Session>& session,
 
             if (qclient_vars::publish_clock) {
                 QUICR_LOGGER_INFO(qclient_vars::logger, " Publishing clock timestamp every second");
-            } else {
+            } else if (!qclient_vars::watch_path.has_value()) {
                 QUICR_LOGGER_INFO(qclient_vars::logger, " Type message and press enter to send");
+                QUICR_LOGGER_INFO(qclient_vars::logger,
+                                  " Send EOF to stop input (Ctrl+D on macOS/Linux; Ctrl+Z then Enter on Windows)");
             }
 
             QUICR_LOGGER_INFO(qclient_vars::logger,
@@ -1306,18 +1306,19 @@ InitConfig(cxxopts::ParseResult& cli_opts, bool& enable_pub, bool& enable_sub, b
         } else if (!config.connect_uri.starts_with("https://")) {
             QUICR_LOGGER_WARN(qclient_vars::logger, "WebTransport requires https:// URL scheme");
         }
-    } else if (transport_type == "quic") {
-        // Convert URL scheme to moq:// for raw QUIC if needed
+    } else if (transport_type == "quic" || transport_type == "qmux") {
+        // Convert URL scheme to moq:// for native MoQ if needed
         if (config.connect_uri.starts_with("https://")) {
             size_t scheme_end = config.connect_uri.find("://");
             if (scheme_end != std::string::npos) {
                 config.connect_uri = "moq://" + config.connect_uri.substr(scheme_end + 3);
-                QUICR_LOGGER_INFO(qclient_vars::logger, "Using raw QUIC with URL: {}", config.connect_uri);
+                QUICR_LOGGER_INFO(qclient_vars::logger, "Using native MoQ with URL: {}", config.connect_uri);
             }
         }
+        config.use_qmux = transport_type == "qmux";
     } else {
         QUICR_LOGGER_ERROR(
-          qclient_vars::logger, "Invalid transport type: {}. Valid options: quic, webtransport", transport_type);
+          qclient_vars::logger, "Invalid transport type: {}. Valid options: quic, webtransport, qmux", transport_type);
         exit(-1);
     }
 
@@ -1355,7 +1356,7 @@ main(int argc, char* argv[])
         ("e,endpoint_id", "This client endpoint ID", cxxopts::value<std::string>()->default_value("moq-cli"))
         ("q,qlog", "Enable qlog using path", cxxopts::value<std::string>())
         ("s,ssl_keylog", "Enable SSL Keylog for transport debugging")
-        ("t,transport", "Session protocol: quic, webtransport", cxxopts::value<std::string>()->default_value("quic"));
+        ("t,transport", "Session protocol: quic, webtransport, qmux", cxxopts::value<std::string>()->default_value("quic"));
 
     options.add_options("Publisher")
         ("use_announce", "Use Announce flow instead of publish flow", cxxopts::value<bool>())
@@ -1403,11 +1404,7 @@ main(int argc, char* argv[])
     }
 
     std::signal(SIGINT, HandleSignal);
-
-#ifndef _WIN32
-    std::signal(SIGHUP, HandleSignal);
-    std::signal(SIGQUIT, HandleSignal);
-#endif
+    std::signal(SIGTERM, HandleSignal);
 
     bool enable_pub{ false };
     bool enable_sub{ false };

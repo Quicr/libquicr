@@ -13,22 +13,22 @@
 namespace quicr {
 
     /**
-     * @brief safe_queue is a thread safe basic queue
+     * @brief Thread-safe FIFO queue with optional bounded, drop-oldest insertion.
      *
-     * @details This class is a thread safe wrapper for std::queue<T>.
-     * 		Not all operators or methods are implemented.
+     * All queue mutations and value access are serialized by an internal mutex. `Empty()` is a lock-free atomic
+     * snapshot and may be stale immediately after it returns. Waiting can be permanently disabled with
+     * `StopWaiting()`.
      *
-     * @todo Implement any operators or methods needed
+     * @tparam T Stored value type.
      */
     template<typename T>
     class SafeQueue
     {
       public:
         /**
-         * @brief safe_queue constructor
+         * @brief Constructs an empty queue.
          *
-         * @param limit     Limit number of messages in queue before push blocks. Zero
-         *                  is unlimited.
+         * @param limit Maximum retained element count; zero means unlimited. Insertion never blocks.
          */
         SafeQueue(uint32_t limit = 5'000)
           : stop_waiting_{ false }
@@ -36,19 +36,19 @@ namespace quicr {
         {
         }
 
+        /** @brief Wakes current waiters before destroying the queue; callers must ensure no operation remains active.
+         */
         ~SafeQueue() { StopWaiting(); }
 
         /**
-         * @brief inserts element at the end of queue
+         * @brief Copies an element to the back of the queue.
          *
-         * @details Inserts element at the end of queue. If queue is at max size,
-         *    the front element will be popped/removed to make room.
-         *    In this sense, the queue is sliding forward with every new message
-         *    added to queue.
+         * If the configured nonzero limit has already been reached, the oldest element is discarded and the new
+         * element is still inserted. The call never waits for capacity.
          *
          * @param elem The element to insert.
-         * @return True if successfully pushed, false if not.  The cause for false is
-         * that the queue is full.
+         * @return `true` if no element was evicted; `false` if the oldest element was evicted to make room.
+         * @throws Any exception thrown while copying or allocating storage for `T`.
          */
         bool Push(T const& elem)
         {
@@ -71,6 +71,12 @@ namespace quicr {
             return rval;
         }
 
+        /**
+         * @brief Moves an element to the back, evicting the oldest element when at a nonzero limit.
+         * @param elem Element to move into the queue.
+         * @return `true` if no element was evicted; `false` if insertion evicted the oldest element.
+         * @throws Any exception thrown while moving or allocating storage for `T`.
+         */
         bool Push(T&& elem)
         {
             bool rval = true;
@@ -95,7 +101,8 @@ namespace quicr {
         /**
          * @brief Remove the first object from queue (oldest object)
          *
-         * @return std::nullopt if queue is empty, otherwise reference to object
+         * @return `std::nullopt` if empty; otherwise a copy of the removed value.
+         * @throws Any exception thrown while copying `T`.
          */
         std::optional<T> Pop()
         {
@@ -106,7 +113,8 @@ namespace quicr {
         /**
          * @brief Get first object without removing from queue
          *
-         * @return std::nullopt if queue is empty, otherwise reference to object
+         * @return `std::nullopt` if empty; otherwise a copy of the oldest value. The queue is unchanged.
+         * @throws Any exception thrown while copying `T`.
          */
         std::optional<T> Front()
         {
@@ -120,8 +128,7 @@ namespace quicr {
         }
 
         /**
-         * @brief Remove (aka pop) the first object from queue
-         *
+         * @brief Removes the oldest object, or does nothing when empty.
          */
         void PopFront()
         {
@@ -134,11 +141,11 @@ namespace quicr {
          * @brief Block waiting for data in queue, then remove the first object from
          * queue (oldest object)
          *
-         * @details This will block if the queue is empty. Due to concurrency, it's
-         * possible that when unblocked the queue might still be empty. In this case,
-         * try again.
+         * Waits until an element is available or `StopWaiting()` is called. The predicate is checked while holding
+         * the queue mutex, so spurious wakeups do not produce an empty result.
          *
-         * @return std::nullopt if queue is empty, otherwise reference to object
+         * @return `std::nullopt` after waiting is stopped; otherwise a copy of and removal of the oldest value.
+         * @throws Any exception thrown while copying `T`.
          */
         std::optional<T> BlockPop()
         {
@@ -155,7 +162,7 @@ namespace quicr {
         /**
          * @brief Size of the queue
          *
-         * @return size of the queue
+         * @return Number of retained elements at the instant the mutex is held.
          */
         size_t Size()
         {
@@ -164,7 +171,8 @@ namespace quicr {
         }
 
         /**
-         * @brief Clear the queue
+         * @brief Removes all elements without changing the limit or stopped-waiting state.
+         * @note This does not wake a thread waiting in `BlockPop()`.
          */
         void Clear()
         {
@@ -177,12 +185,13 @@ namespace quicr {
         /**
          * @brief Check if queue is empty
          *
-         * @returns True if empty, false if not
+         * @returns Atomic snapshot of whether the queue is empty.
          */
         bool Empty() const { return empty_; }
 
         /**
-         * @brief Put the queue in a state such that threads will not wait
+         * @brief Permanently causes current and future `BlockPop()` calls to return without waiting.
+         * @details Wakes all current waiters. It does not clear the queue and does not prevent later insertions.
          */
         void StopWaiting()
         {
@@ -191,6 +200,12 @@ namespace quicr {
             cv_.notify_all();
         }
 
+        /**
+         * @brief Changes the maximum retained element count.
+         * @param limit New limit; zero means unlimited.
+         * @note Existing elements are not removed when lowering the limit. A later insertion evicts at most one
+         * oldest element, so the queue can remain above the new limit until enough insertions or removals occur.
+         */
         void SetLimit(uint32_t limit)
         {
             std::lock_guard<std::mutex> _(mutex_);

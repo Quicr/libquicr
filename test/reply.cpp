@@ -16,13 +16,10 @@ namespace {
       public:
         quicr::TransportStatus Status() const override { return quicr::TransportStatus::kReady; }
         std::shared_ptr<quicr::Connection> Start() override { return nullptr; }
+        std::shared_ptr<quicr::Connection> Connect(const quicr::TransportRemote&) override { return nullptr; }
         void Close(const std::shared_ptr<quicr::Connection>&, quicr::AppReasonForClose) override {}
-        void CloseStream(const std::shared_ptr<quicr::Connection>&,
-                         const std::shared_ptr<quicr::Stream>&,
-                         quicr::StreamOperation) override
-        {
-        }
-        bool GetPeerAddrInfo(const std::shared_ptr<quicr::Connection>&, sockaddr_storage*) override { return false; }
+        void CloseStream(const std::shared_ptr<quicr::Stream>&, quicr::StreamOperation) override {}
+
         bool Enqueue(const std::shared_ptr<quicr::Connection>&,
                      const std::shared_ptr<quicr::Stream>&,
                      std::shared_ptr<const std::vector<uint8_t>>,
@@ -32,29 +29,35 @@ namespace {
         {
             return true;
         }
+
         void EnqueueDatagram(const std::shared_ptr<quicr::Connection>&,
                              std::shared_ptr<const std::vector<uint8_t>>,
                              uint8_t,
                              uint32_t) override
         {
         }
+
         std::shared_ptr<const std::vector<uint8_t>> Dequeue(const std::shared_ptr<quicr::Connection>&) override
         {
             return nullptr;
         }
+
         int CloseWebTransportSession(const std::shared_ptr<quicr::Connection>&, uint32_t, const char*) override
         {
             return 0;
         }
+
         int DrainWebTransportSession(const std::shared_ptr<quicr::Connection>&) override { return 0; }
         std::shared_ptr<quicr::Stream> CreateDataStream(const std::shared_ptr<quicr::Connection>&, uint8_t) override
         {
             return nullptr;
         }
+
         std::shared_ptr<quicr::Stream> CreateControlStream(const std::shared_ptr<quicr::Connection>&) override
         {
             return nullptr;
         }
+
         std::shared_ptr<quicr::Stream> CreateRequestStream(const std::shared_ptr<quicr::Connection>&) override
         {
             return nullptr;

@@ -3,6 +3,7 @@
 
 #include "quicr/session_manager.h"
 
+#include "connect_uri.h"
 #include "quicr/clock.h"
 #include "quicr/handlers/fetch_track_handler.h"
 #include "quicr/handlers/publish_fetch_handler.h"
@@ -10,95 +11,14 @@
 #include "quicr/handlers/publish_track_handler.h"
 #include "quicr/handlers/subscribe_namespace_handler.h"
 #include "quicr/handlers/subscribe_track_handler.h"
+#include "quicr/handlers/track_status_handler.h"
 #include "quicr/log.h"
 #include "quicr/session.h"
 #include "quicr/transport.h"
 
+#include <algorithm>
+
 namespace quicr {
-
-    namespace {
-        static std::optional<std::tuple<std::string, uint16_t, TransportProtocol, std::string>> ParseConnectUri(
-          const std::string& connect_uri)
-        {
-            // Support moq://, moqt://, https:// (for WebTransport)
-            std::string proto;
-            TransportProtocol transport_proto = TransportProtocol::kQuic;
-
-            const std::string moq_proto = "moq://";
-            const std::string moqt_proto = "moqt://";
-            const std::string https_proto = "https://";
-
-            auto it = connect_uri.begin();
-
-            if (auto moq_it = std::search(it, connect_uri.end(), moq_proto.begin(), moq_proto.end());
-                moq_it != connect_uri.end()) {
-                proto = moq_proto;
-                transport_proto = TransportProtocol::kQuic;
-                it = moq_it;
-            } else if (auto moqt_it = std::search(it, connect_uri.end(), moqt_proto.begin(), moqt_proto.end());
-                       moqt_it != connect_uri.end()) {
-                proto = moqt_proto;
-                transport_proto = TransportProtocol::kQuic;
-                it = moqt_it;
-            } else if (auto https_it = std::search(it, connect_uri.end(), https_proto.begin(), https_proto.end());
-                       https_it != connect_uri.end()) {
-                proto = https_proto;
-                transport_proto = TransportProtocol::kWebTransport;
-                it = https_it;
-            } else {
-                return std::nullopt;
-            }
-
-            // move to end of proto://
-            std::advance(it, proto.length());
-
-            std::string address_str;
-            std::string path_str;
-            uint16_t port = 0; // 0 indicates no port specified
-
-            // Find first ':' (port) or '/' (path)
-            auto colon_it = std::find(it, connect_uri.end(), ':');
-            auto slash_it = std::find(it, connect_uri.end(), '/');
-
-            // Determine where address ends
-            auto address_end_it = std::min(colon_it, slash_it);
-
-            // Parse address (everything before ':' or '/' or end)
-            address_str.assign(it, address_end_it);
-
-            if (address_str.empty()) {
-                return std::nullopt;
-            }
-
-            it = address_end_it;
-
-            // Parse port if present (: comes before /)
-            if (it != connect_uri.end() && *it == ':') {
-                ++it; // skip ':'
-
-                // Find where port ends (at '/' or end of string)
-                auto port_end_it = std::find(it, connect_uri.end(), '/');
-
-                std::string port_str(it, port_end_it);
-                if (!port_str.empty()) {
-                    try {
-                        port = static_cast<uint16_t>(std::stoi(port_str));
-                    } catch (...) {
-                        return std::nullopt; // Invalid port number
-                    }
-                }
-
-                it = port_end_it;
-            }
-
-            // Parse path if present (starts with '/')
-            if (it != connect_uri.end() && *it == '/') {
-                path_str.assign(it, connect_uri.end()); // Include the leading '/'
-            }
-
-            return std::make_tuple(address_str, port, transport_proto, path_str);
-        }
-    }
 
     void SessionManager::Callbacks::OnNewServerSession(const std::shared_ptr<Session>&) {}
 
@@ -129,19 +49,28 @@ namespace quicr {
         on_connection_closed_ = [this](const auto& connection) {
             connection->SetDelegate(nullptr);
 
-            std::lock_guard<std::mutex> lock(mutex_);
+            std::shared_ptr<Session> removed_session;
+            bool session_has_other_connections = false;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
 
-            auto it = sessions_.find(connection->GetID());
-            if (it == sessions_.end()) {
-                QUICR_LOGGER_ERROR(logger_,
-                                   "Received Close for connection that has no associated session (conn_id={})",
-                                   connection->GetID());
-                return;
+                auto it = sessions_.find(connection->GetID());
+                if (it == sessions_.end()) {
+                    QUICR_LOGGER_DEBUG(logger_,
+                                       "Received Close for connection that has no associated session (conn_id={})",
+                                       connection->GetID());
+                    return;
+                }
+
+                removed_session = it->second;
+                sessions_.erase(it);
+                session_has_other_connections =
+                  std::ranges::any_of(sessions_, [&](const auto& item) { return item.second == removed_session; });
             }
 
-            callbacks_->OnSessionRemoved(it->second);
-
-            sessions_.erase(it);
+            if (!session_has_other_connections) {
+                callbacks_->OnSessionRemoved(removed_session);
+            }
         };
     }
 
@@ -156,7 +85,7 @@ namespace quicr {
                                                         std::shared_ptr<Session::ClientCallbacks> callbacks)
     {
         TransportRemote relay;
-        auto parse_result = ParseConnectUri(config.connect_uri);
+        auto parse_result = detail::ParseConnectUri(config.connect_uri, config.use_qmux);
         if (!parse_result) {
             return {};
         }
@@ -164,8 +93,10 @@ namespace quicr {
         auto [address, port, protocol, path] = parse_result.value();
         relay.host_or_ip = address;
         relay.port = port;
-        relay.proto = protocol;
-        relay.path = path;
+        if (protocol == Connection::Protocol::kWebTransport) {
+            relay.web_transport_options = WebTransportOptions{ .path = std::move(path) };
+        }
+        relay.qmux = config.use_qmux;
 
         auto clock = clock_ ? clock_ : Clock::Create(config.tick_service_sleep_delay_us);
         auto transport = Transport::MakeClientTransport(relay, config.transport_config, clock, logger_);
@@ -175,9 +106,14 @@ namespace quicr {
         std::unique_lock lock(mutex_);
         std::condition_variable cv;
         bool cancelled = false;
+        std::shared_ptr<Session> created_session;
 
         transport->OnNewConnection = [&, clock = std::move(clock)](const auto& connection) {
             auto session = Session::Create(config, transport, connection, std::move(callbacks), clock, logger_);
+            session->SetConnectionAddedCallback([this](const auto& added_connection, const auto& owning_session) {
+                std::lock_guard lock(mutex_);
+                sessions_[added_connection->GetID()] = owning_session;
+            });
             connection->SetDelegate(session);
 
             {
@@ -187,6 +123,7 @@ namespace quicr {
                     return;
                 }
                 transports_.try_emplace(reinterpret_cast<std::uintptr_t>(transport.get()), transport);
+                created_session = session;
                 sessions_[connection->GetID()] = std::move(session);
                 cv.notify_all();
             }
@@ -195,7 +132,7 @@ namespace quicr {
         auto connection = transport->Start();
         if (!connection || !cv.wait_for(lock,
                                         std::chrono::milliseconds(config.transport_config.idle_timeout_ms),
-                                        [this, id = connection->GetID()] { return sessions_.contains(id); })) {
+                                        [&created_session] { return created_session != nullptr; })) {
             cancelled = true;
             lock.unlock();
             transport->Shutdown();
@@ -206,7 +143,7 @@ namespace quicr {
 
         transport->OnNewConnection = nullptr;
 
-        return sessions_.at(connection->GetID());
+        return created_session;
     }
 
     void SessionManager::AddTransport(const ServerConfig& config, std::shared_ptr<Session::ServerCallbacks> callbacks)
@@ -214,12 +151,7 @@ namespace quicr {
         TransportRemote server;
         server.host_or_ip = config.server_bind_ip;
         server.port = config.server_port;
-        // Note: server.proto is ignored in server mode - the server automatically
-        // supports both raw QUIC (moq-00) and WebTransport (h3) simultaneously.
-        // The transport mode is determined per-connection based on ALPN negotiation.
-        // Any value can be set here; it won't affect server behavior.
-        server.proto = TransportProtocol::kQuic; // Ignored by server
-        server.path = "/relay";
+        server.web_transport_options = WebTransportOptions{ .path = "/relay" };
 
         auto clock = clock_ ? clock_ : Clock::Create(config.tick_service_sleep_delay_us);
         auto transport = Transport::MakeServerTransport(server, config.transport_config, clock, logger_);
@@ -229,6 +161,10 @@ namespace quicr {
             const auto& connection) {
               auto transport = wtransport.lock();
               auto session = Session::Create(config, transport, connection, callbacks, clock, logger_);
+              session->SetConnectionAddedCallback([this](const auto& added_connection, const auto& owning_session) {
+                  std::lock_guard lock(mutex_);
+                  sessions_[added_connection->GetID()] = owning_session;
+              });
               connection->SetDelegate(session);
 
               {
@@ -254,8 +190,8 @@ namespace quicr {
 
     void SessionManager::AddHandler(const std::shared_ptr<Session>& session, std::shared_ptr<TrackHandler> handler)
     {
-        if (!session) {
-            throw std::invalid_argument("Session cannot be null");
+        if (!session || !handler) {
+            throw std::invalid_argument("Session and handler cannot be null");
         }
 
         if (auto h = std::dynamic_pointer_cast<PublishTrackHandler>(handler)) {
@@ -268,6 +204,8 @@ namespace quicr {
             session->SubscribeTrack(std::move(h));
         } else if (auto h = std::dynamic_pointer_cast<SubscribeNamespaceHandler>(handler)) {
             session->SubscribeNamespace(std::move(h));
+        } else if (auto h = std::dynamic_pointer_cast<TrackStatusHandler>(handler)) {
+            session->RequestTrackStatus(std::move(h));
         } else {
             throw std::invalid_argument("Unknown track handler type");
         }
@@ -276,8 +214,8 @@ namespace quicr {
     void SessionManager::RemoveHandler(const std::shared_ptr<Session>& session,
                                        const std::shared_ptr<TrackHandler>& handler)
     {
-        if (!session) {
-            throw std::invalid_argument("Session cannot be null");
+        if (!session || !handler) {
+            throw std::invalid_argument("Session and handler cannot be null");
         }
 
         if (auto h = std::dynamic_pointer_cast<PublishTrackHandler>(handler)) {
@@ -290,6 +228,8 @@ namespace quicr {
             session->UnsubscribeTrack(h);
         } else if (auto h = std::dynamic_pointer_cast<SubscribeNamespaceHandler>(handler)) {
             session->UnsubscribeNamespace(h);
+        } else if (auto h = std::dynamic_pointer_cast<TrackStatusHandler>(handler)) {
+            session->CancelTrackStatus(h);
         } else {
             throw std::invalid_argument("Unknown track handler type");
         }

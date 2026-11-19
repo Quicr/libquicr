@@ -585,29 +585,29 @@ TEST_CASE("TrackExtensions even-type round-trip preserves values")
     }
 }
 
-TEST_CASE("TrackExtensions GetOptional returns value when present and nullopt when absent")
+TEST_CASE("TrackExtensions Get returns value when present and nullopt when absent")
 {
     TrackExtensions ext;
     ext.Add(ExtensionType::kDeliveryTimeout, std::uint64_t{ 42 });
     ext.AddImmutable(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending);
 
     // Present keys return the value.
-    auto result = ext.GetOptional<std::uint64_t>(ExtensionType::kDeliveryTimeout);
+    auto result = ext.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout);
     REQUIRE(result.has_value());
     CHECK_EQ(result.value(), 42);
 
-    auto immutable_result = ext.GetImmutableOptional<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder);
+    auto immutable_result = ext.GetImmutable<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder);
     REQUIRE(immutable_result.has_value());
     CHECK_EQ(immutable_result.value(), GroupOrder::kAscending);
 
     ext.AddImmutable(ExtensionType::kDynamicGroups, true);
-    auto bool_result = ext.GetImmutableOptional<bool>(ExtensionType::kDynamicGroups);
+    auto bool_result = ext.GetImmutable<bool>(ExtensionType::kDynamicGroups);
     REQUIRE(bool_result.has_value());
     CHECK(bool_result.value());
 
     // Absent keys return nullopt.
-    CHECK_FALSE(ext.GetOptional<std::uint64_t>(ExtensionType::kMaxCacheDuration).has_value());
-    CHECK_FALSE(ext.GetImmutableOptional<bool>(ExtensionType::kDefaultPublisherPriority).has_value());
+    CHECK_FALSE(ext.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration).has_value());
+    CHECK_FALSE(ext.GetImmutable<bool>(ExtensionType::kDefaultPublisherPriority).has_value());
 }
 
 TEST_CASE("Parameters")
@@ -626,6 +626,32 @@ TEST_CASE("Parameters")
     CHECK(params.Contains(ParameterType::kLargestObject));
 
     CHECK_EQ(params.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), std::uint64_t(5000));
+}
+
+TEST_CASE("Absent parameters remain distinct from explicit zero values")
+{
+    Parameters params;
+    CHECK_FALSE(params.Find(ParameterType::kForward).has_value());
+    CHECK_FALSE(params.Get<std::uint8_t>(ParameterType::kForward).has_value());
+    CHECK_FALSE(params.Get<Location>(ParameterType::kLargestObject).has_value());
+    CHECK_FALSE(ResolveGroupOrder(params).has_value());
+    CHECK_FALSE(ResolveExpires(params).has_value());
+    CHECK(ResolveForward(params, true));
+    CHECK_FALSE(ResolveForward(params, false));
+    CHECK(std::holds_alternative<std::monostate>(ResolveFilter(params)));
+    CHECK(std::holds_alternative<std::monostate>(params.GetFilter(FilterType::kSubscriptionFilter)));
+
+    params.Add(ParameterType::kForward, std::uint8_t{ 0 });
+    params.Add(ParameterType::kExpires, std::uint64_t{ 0 });
+    CHECK(params.Get<std::uint8_t>(ParameterType::kForward).has_value());
+    CHECK_FALSE(ResolveForward(params, true));
+    CHECK_FALSE(ResolveExpires(params).has_value());
+
+    params.Remove(ParameterType::kForward);
+    params.Add(ParameterType::kForward, std::uint8_t{ 2 });
+    CHECK_THROWS_AS(ResolveForward(params, true), ProtocolViolationException);
+    params.Add(ParameterType::kGroupOrder, std::uint8_t{ 0 });
+    CHECK_THROWS_AS(ResolveGroupOrder(params), ProtocolViolationException);
 }
 
 TEST_CASE("Filters")
@@ -662,18 +688,25 @@ TEST_CASE("Filters")
     };
     serialise_filter(FilterType::kTrackFilter, filter);
 
+    for (const auto type : { SubscriptionFilterType::kNextGroupStart, SubscriptionFilterType::kLargestObject }) {
+        filter = SubscriptionFilter{ .type = type };
+        serialise_filter(FilterType::kSubscriptionFilter, filter);
+    }
+
     filter = SubscriptionFilter{
-        { .start = 1 },
+        .type = SubscriptionFilterType::kAbsoluteStart,
+        .start_location = { 1, 2 },
     };
     serialise_filter(FilterType::kSubscriptionFilter, filter);
 
-    filter = SubscriptionFilter{
-        {
-          .start = 1,
-          .end = 2,
-        },
-    };
-    serialise_filter(FilterType::kSubscriptionFilter, filter);
+    for (const auto delta : { std::uint64_t{ 0 }, std::uint64_t{ 2 }, std::numeric_limits<std::uint64_t>::max() - 1 }) {
+        filter = SubscriptionFilter{
+            .type = SubscriptionFilterType::kAbsoluteRange,
+            .start_location = { 1, 2 },
+            .end_group_delta = delta,
+        };
+        serialise_filter(FilterType::kSubscriptionFilter, filter);
+    }
 }
 
 TEST_CASE("Parameters - Filters")

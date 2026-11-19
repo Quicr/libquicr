@@ -157,6 +157,7 @@ namespace {
             if (strlen(c_config->tls_key_filename) > 0) {
                 config.transport_config.tls_key_filename = c_config->tls_key_filename;
             }
+            config.transport_config.tls_root_trust_filename = c_config->tls_root_trust_filename;
             config.transport_config.debug = c_config->debug_logs;
             config.transport_config.time_queue_max_duration = 50000; // Set to 50 seconds to handle TTLs up to 50000ms
         }

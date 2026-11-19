@@ -17,6 +17,7 @@
 #include <democlient.h>
 #include <h3zero_uri.h>
 #include <pico_webtransport.h>
+#include <picoqmux.h>
 #include <picoquic.h>
 #include <picoquic_bbr.h>
 #include <picoquic_c4.h>
@@ -53,7 +54,14 @@
 #include <vector>
 
 #ifdef _WIN32
-#include <windows.h>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #else
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -67,6 +75,7 @@
 using namespace quicr;
 
 constexpr const char* kMoqtAlpn = "moqt-18";
+constexpr const char* kMoqtQmuxAlpn = "moqt-18qx";
 
 class TickServiceAdaptor : public timeq::tick_service
 {
@@ -211,7 +220,7 @@ try {
                 // OnRecvStreamBytes adopts a remote-initiated stream, so re-read the handle here.
                 if (const auto rx_stream = stream ? stream : connection->GetStream(stream_id)) {
                     rx_stream->rx_closed = true;
-                    transport->OnStreamClosed(connection, rx_stream, StreamClosedFlag::kFin);
+                    transport->OnStreamClosed(rx_stream, StreamClosedFlag::kFin);
                     if (rx_stream->IsFullyClosed()) {
                         transport->EraseStreamState(connection, stream_id);
                     }
@@ -230,7 +239,7 @@ try {
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto tx_stream = stream ? stream : connection->GetStream(stream_id)) {
                     tx_stream->MarkTxClosed();
-                    transport->OnStreamClosed(connection, tx_stream, StreamClosedFlag::kStopSending);
+                    transport->OnStreamClosed(tx_stream, StreamClosedFlag::kStopSending);
                     if (tx_stream->IsFullyClosed()) {
                         transport->EraseStreamState(connection, stream_id);
                     }
@@ -246,7 +255,7 @@ try {
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto rx_stream = stream ? stream : connection->GetStream(stream_id)) {
                     rx_stream->rx_closed = true;
-                    transport->OnStreamClosed(connection, rx_stream, StreamClosedFlag::kReset);
+                    transport->OnStreamClosed(rx_stream, StreamClosedFlag::kReset);
                     if (rx_stream->IsFullyClosed()) {
                         picoquic_reset_stream_ctx(pq_cnx, stream_id);
                         transport->EraseStreamState(connection, stream_id);
@@ -357,7 +366,7 @@ try {
                     break;
             }
 
-            if (not transport->is_server_mode) {
+            if (!transport->is_server_mode && transport->Status() == TransportStatus::kShutdown) {
                 // TODO: Fix picoquic. Apparently picoquic is not processing return values for this callback
                 return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
             }
@@ -375,7 +384,7 @@ try {
             } else {
                 // Client - for raw QUIC connections only, WebTransport connections use DefaultWebTransportCallback
                 auto connection = transport->GetConnection(conn_id);
-                if (connection && connection->GetAPI() == Connection::API::kNativeQuic) {
+                if (connection && connection->GetProtocol() != Connection::Protocol::kWebTransport) {
                     transport->SetStatus(TransportStatus::kReady);
                     transport->OnConnectionStatus(connection, TransportStatus::kReady);
                 }
@@ -759,7 +768,7 @@ try {
                 picoquic_reset_stream_ctx(cnx, stream_id);
 
                 stream->rx_closed = true;
-                transport->OnStreamClosed(connection, stream, StreamClosedFlag::kFin);
+                transport->OnStreamClosed(stream, StreamClosedFlag::kFin);
                 if (stream->IsFullyClosed()) {
                     ClearStreamForWT(connection, stream_id);
                 }
@@ -858,7 +867,7 @@ try {
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto stream = GetStreamForWT(connection, stream_id)) {
                     stream->rx_closed = true;
-                    transport->OnStreamClosed(connection, stream, StreamClosedFlag::kReset);
+                    transport->OnStreamClosed(stream, StreamClosedFlag::kReset);
                     if (stream->IsFullyClosed()) {
                         ClearStreamForWT(connection, stream_id);
                     }
@@ -889,7 +898,7 @@ try {
             if (auto connection = transport->GetConnection(conn_id)) {
                 if (const auto stream = GetStreamForWT(connection, stream_id)) {
                     stream->MarkTxClosed();
-                    transport->OnStreamClosed(connection, stream, StreamClosedFlag::kStopSending);
+                    transport->OnStreamClosed(stream, StreamClosedFlag::kStopSending);
                     if (stream->IsFullyClosed()) {
                         ClearStreamForWT(connection, stream_id);
                     }
@@ -1000,11 +1009,25 @@ PicoQuicTransport::Status() const
 }
 
 picoquic_quic_t*
-PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
+PicoQuicTransport::CreateQuicInstance(uint64_t current_time, bool qmux)
 {
     picoquic_quic_t* quic_ctx = nullptr;
 
-    if (is_server_mode) {
+    if (qmux) {
+        quic_ctx = picoqmux_create(static_cast<uint32_t>(tconfig_.max_connections),
+                                   config_.server_cert_file,
+                                   config_.server_key_file,
+                                   config_.root_trust_file,
+                                   kMoqtQmuxAlpn,
+                                   PqEventCb,
+                                   this,
+                                   nullptr,
+                                   current_time,
+                                   nullptr,
+                                   nullptr,
+                                   nullptr,
+                                   0);
+    } else if (is_server_mode) {
         quic_ctx = picoquic_create_and_configure(&config_, NULL, &wt_config_->server_params, current_time, NULL);
 
         if (quic_ctx == NULL) {
@@ -1014,7 +1037,7 @@ PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
         picoquic_set_alpn_select_fn(quic_ctx, PqAlpnSelectCb);
         picoquic_use_unique_log_names(quic_ctx, 1);
     } else {
-        if (connection_api == Connection::API::kWebTransport) {
+        if (serverInfo_.web_transport_options.has_value()) {
             QUICR_LOGGER_INFO(logger, "Client configured for WebTransport over QUIC");
             quic_ctx = picoquic_create_and_configure(&config_, NULL, NULL, current_time, NULL);
         } else {
@@ -1028,26 +1051,40 @@ PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
         throw PicoQuicException("Unable to create picoquic context");
     }
 
-    picoquic_congestion_algorithm_t* selected_algorithm;
-    switch (tconfig_.congestion_control) {
-        case CongestionControl::kBbr:
-            selected_algorithm = picoquic_bbr_algorithm;
-            break;
-        case CongestionControl::kC4:
-            selected_algorithm = c4_algorithm;
-            break;
-        case CongestionControl::kCubic:
-            selected_algorithm = picoquic_cubic_algorithm;
-            break;
-        case CongestionControl::kNewReno:
-            selected_algorithm = picoquic_newreno_algorithm;
-            break;
-        default:
+    if (!is_server_mode && !tconfig_.tls_root_trust_filename.empty()) {
+        if (!quic_ctx->is_cert_store_not_empty) {
             picoquic_free(quic_ctx);
-            throw InvalidConfigException("Invalid congestion control algorithm");
+            throw InvalidConfigException("No trusted certificates loaded from TLS root trust file '" +
+                                         tconfig_.tls_root_trust_filename + "': missing, malformed, or unsupported");
+        }
+        picoquic_set_client_cert_verification_policy(quic_ctx, 1);
+    } else if (!is_server_mode && qmux) {
+        picoquic_set_null_verifier(quic_ctx);
     }
-    picoquic_set_default_congestion_algorithm(quic_ctx, selected_algorithm);
-    QUICR_LOGGER_INFO(logger, "Using {} congestion control", quic_ctx->default_congestion_alg->congestion_algorithm_id);
+
+    if (!qmux) {
+        picoquic_congestion_algorithm_t* selected_algorithm;
+        switch (tconfig_.congestion_control) {
+            case CongestionControl::kBbr:
+                selected_algorithm = picoquic_bbr_algorithm;
+                break;
+            case CongestionControl::kC4:
+                selected_algorithm = c4_algorithm;
+                break;
+            case CongestionControl::kCubic:
+                selected_algorithm = picoquic_cubic_algorithm;
+                break;
+            case CongestionControl::kNewReno:
+                selected_algorithm = picoquic_newreno_algorithm;
+                break;
+            default:
+                picoquic_free(quic_ctx);
+                throw InvalidConfigException("Invalid congestion control algorithm");
+        }
+        picoquic_set_default_congestion_algorithm(quic_ctx, selected_algorithm);
+        QUICR_LOGGER_INFO(
+          logger, "Using {} congestion control", quic_ctx->default_congestion_alg->congestion_algorithm_id);
+    }
 
     if (config_.enable_sslkeylog) {
         if (std::getenv("SSLKEYLOGFILE") == nullptr) {
@@ -1060,7 +1097,7 @@ PicoQuicTransport::CreateQuicInstance(uint64_t current_time)
     picoquic_set_default_tp(quic_ctx, &local_tp_options_);
 
     // Must run after set_default_tp; WebTransport requires reset_stream_at in transport parameters.
-    if (is_server_mode || connection_api == Connection::API::kWebTransport) {
+    if (!qmux && (is_server_mode || serverInfo_.web_transport_options.has_value())) {
         picowt_set_default_transport_parameters(quic_ctx);
     }
 
@@ -1106,16 +1143,18 @@ PicoQuicTransport::Start()
     if (is_server_mode) {
         QUICR_LOGGER_DEBUG(logger, "Start: As Server, configuring WebTransport Path Params");
 
-        // Store path items in the class member to ensure memory persists after Start() returns.
-        // Extended CONNECT is refused unless the path names the WebTransport protocol.
-        picohttp_server_path_item_t path_item{};
-        path_item.path = serverInfo_.path.c_str();
-        path_item.path_length = serverInfo_.path.size();
-        path_item.path_callback = DefaultWebTransportCallback;
-        path_item.path_app_ctx = this;
-        path_item.connect_protocol = H3ZERO_WEBTRANSPORT_H3_PROTOCOL;
-        path_item.connect_protocol_length = sizeof(H3ZERO_WEBTRANSPORT_H3_PROTOCOL) - 1;
-        wt_config_->path_items = { path_item };
+        // Store path items in the class member to ensure memory persists after Start() returns
+        wt_config_->path_items = { {
+          .path = wt_config_->path.c_str(),
+          .path_length = wt_config_->path.size(),
+          .path_callback = DefaultWebTransportCallback,
+          .path_app_ctx = this,
+          .connect_protocol = H3ZERO_WEBTRANSPORT_H3_PROTOCOL,
+          .connect_protocol_length = sizeof(H3ZERO_WEBTRANSPORT_H3_PROTOCOL) - 1,
+          .origin_validator = nullptr,
+          .origin_validator_ctx = nullptr,
+          .connect_error_status = 0,
+        } };
 
         // Store server_params in class member so it persists for the ALPN callback
         // The ALPN callback uses path_table[0].path_app_ctx to get the transport pointer for raw QUIC
@@ -1142,8 +1181,8 @@ PicoQuicTransport::Start()
         local_tp_options_.initial_max_stream_data_bidi_local = tconfig_.initial_max_stream_data;
         local_tp_options_.initial_max_stream_data_bidi_remote = tconfig_.initial_max_stream_data;
     }
-    local_tp_options_.initial_max_stream_id_bidir = tconfig_.initial_max_stream_id;
-    local_tp_options_.initial_max_stream_id_unidir = tconfig_.initial_max_stream_id;
+    local_tp_options_.initial_max_streams_bidi = tconfig_.initial_max_stream_id;
+    local_tp_options_.initial_max_streams_uni = tconfig_.initial_max_stream_id;
 
     QUICR_LOGGER_INFO(logger, "Setting idle timeout to {}ms", tconfig_.idle_timeout_ms);
 
@@ -1156,8 +1195,13 @@ PicoQuicTransport::Start()
         shard->transport = this;
         shard->index = i;
         shard->quic_ctx = CreateQuicInstance(current_time);
-        shard->picoquic_runner_queue.SetLimit(tconfig_.callback_queue_size);
         shards_.push_back(std::move(shard));
+        // TODO: Shard should manage lifetime better and then this can go.
+        auto& active_shard = *shards_.back();
+        if (tconfig_.qmux_port != 0 || (!is_server_mode && serverInfo_.qmux)) {
+            active_shard.qmux_ctx = CreateQuicInstance(current_time, true);
+        }
+        active_shard.picoquic_runner_queue.SetLimit(tconfig_.callback_queue_size);
     }
 
     std::ostringstream log_msg;
@@ -1170,7 +1214,7 @@ PicoQuicTransport::Start()
     } else {
         QUICR_LOGGER_INFO(logger, "Connecting to server {}:{}", serverInfo_.host_or_ip, serverInfo_.port);
 
-        if (ClientLoop()) {
+        if (serverInfo_.qmux || ClientLoop()) {
             return StartClient();
         }
     }
@@ -1178,14 +1222,243 @@ PicoQuicTransport::Start()
     return nullptr;
 }
 
-bool
-PicoQuicTransport::GetPeerAddrInfo(const std::shared_ptr<Connection>& connection, sockaddr_storage* addr)
+std::shared_ptr<Connection>
+quicr::PicoQuicTransport::Connect(const TransportRemote& server)
 {
-    std::lock_guard<std::mutex> _(state_mutex_);
+    {
+        std::lock_guard lock(state_mutex_);
+        if (connections_.size() >= tconfig_.max_connections) {
+            QUICR_LOGGER_WARN(logger,
+                              "Cannot connect to {}:{}: maximum connection count ({}) reached",
+                              server.host_or_ip,
+                              server.port,
+                              tconfig_.max_connections);
+            return nullptr;
+        }
+    }
 
-    std::memcpy(addr, &std::static_pointer_cast<PicoQuicConnection>(connection)->peer_addr, sizeof(sockaddr_storage));
+    auto& shard = *shards_.front();
 
-    return true;
+    // Use shared state to avoid lifetime issues if timeout occurs before lambda executes
+    struct SharedState
+    {
+        std::condition_variable cv;
+        std::mutex mtx;
+        std::uint64_t conn_id{ 0 };
+        bool cancelled{ false };
+        std::shared_ptr<PicoQuicConnection> connection;
+    };
+    auto state = std::make_shared<SharedState>();
+    std::unique_lock lock(state->mtx);
+
+    auto create_connection = [this, state, server, &shard]() {
+        auto notify_caller = [this, state](uint64_t id) {
+            std::lock_guard _(state->mtx);
+            if (state->cancelled) {
+                return;
+            }
+
+            // On success, notify OnNewConnection before any further network thread work.
+            if (id > 1 && OnNewConnection) {
+                cbNotifyQueue_.Push(
+                  [callback = OnNewConnection, connection = state->connection] { callback(connection); });
+            }
+            state->conn_id = id;
+
+            // Notify calling thread of connection Id
+            state->cv.notify_all();
+        };
+
+        sockaddr_storage server_address;
+        int ret;
+        int is_name = 0;
+        ret = picoquic_get_server_address(server.host_or_ip.c_str(), server.port, &server_address, &is_name);
+        if (ret != 0 || server_address.ss_family == 0) {
+            QUICR_LOGGER_ERROR(logger, "Failed to resolve server: {} port: {}", server.host_or_ip, server.port);
+            notify_caller(1);
+            return 0;
+        }
+
+        char const* sni = server.host_or_ip.c_str();
+
+        const bool use_webtransport = server.web_transport_options.has_value();
+        picoquic_cnx_t* cnx = NULL;
+        if (server.qmux) {
+            cnx = picoqmux_create_qmux_cnx(shard.qmux_ctx,
+                                           picoquic_current_time(),
+                                           1,
+                                           0,
+                                           sni,
+                                           kMoqtQmuxAlpn,
+                                           reinterpret_cast<struct sockaddr*>(&server_address));
+            if (cnx == nullptr) {
+                QUICR_LOGGER_ERROR(logger, "Could not create QMUX connection client context");
+                notify_caller(1);
+                return PICOQUIC_ERROR_DISCONNECTED;
+            }
+            picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
+            state->connection = CreateConnection(cnx, Connection::Protocol::kQmux);
+            QUICR_LOGGER_INFO(logger, "Client connection using QMUX/TLS/TCP (ALPN: {})", kMoqtQmuxAlpn);
+        } else if (!use_webtransport) {
+            cnx = picoquic_create_cnx(shard.quic_ctx,
+                                      picoquic_null_connection_id,
+                                      picoquic_null_connection_id,
+                                      reinterpret_cast<struct sockaddr*>(&server_address),
+                                      picoquic_current_time(),
+                                      0,
+                                      sni,
+                                      config_.alpn,
+                                      1);
+            if (cnx == nullptr) {
+                QUICR_LOGGER_ERROR(logger, "Could not create picoquic connection client context");
+                notify_caller(1);
+                return PICOQUIC_ERROR_DISCONNECTED;
+            }
+
+            picoquic_set_transport_parameters(cnx, &local_tp_options_);
+            picoquic_set_feedback_loss_notification(cnx, 1);
+            picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
+            picoquic_set_callback(cnx, PqEventCb, this);
+
+            if (auto ret = picoquic_start_client_cnx(cnx)) {
+                QUICR_LOGGER_ERROR(logger, "Could not activate connection ret: {}", ret);
+                notify_caller(1);
+                return PICOQUIC_ERROR_DISCONNECTED;
+            }
+
+            QUICR_LOGGER_INFO(logger, "StartClient: Creating connection context");
+            state->connection = CreateConnection(cnx);
+
+        } else {
+            h3zero_callback_ctx_t* h3_ctx = nullptr;
+            h3zero_stream_ctx_t* control_stream_ctx = nullptr;
+            uint64_t current_time = picoquic_current_time();
+
+            ret = picowt_prepare_client_cnx(
+              shard.quic_ctx, (struct sockaddr*)&server_address, &cnx, &h3_ctx, &control_stream_ctx, current_time, sni);
+            if (ret != 0) {
+                QUICR_LOGGER_ERROR(logger, "picowt_prepare_client_cnx failed with ret: {}", ret);
+                notify_caller(1);
+                return ret;
+            }
+
+            picoquic_set_transport_parameters(cnx, &local_tp_options_);
+            // Must run after set_transport_parameters; picowt_prepare_client_cnx sets WT params that local_tp_options_
+            // overwrites.
+            picowt_set_transport_parameters(cnx);
+            picoquic_set_feedback_loss_notification(cnx, 1);
+            picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
+
+            // Create connection context and store per-connection WebTransport context first
+            state->connection = CreateConnection(cnx, Connection::Protocol::kWebTransport);
+            state->connection->wt_h3_ctx = h3_ctx;
+            state->connection->wt_control_stream_ctx = control_stream_ctx;
+            state->connection->wt_h3_ctx_owned = true; // Client owns this and must free it
+            state->connection->wt_authority = server.host_or_ip + ":" + std::to_string(server.port);
+            const auto& webtransport_path = server.web_transport_options->path;
+
+            const auto fail_webtransport = [&](const char* message, int error) {
+                QUICR_LOGGER_ERROR(logger, "{} ret: {}", message, error);
+                CloseInternal(state->connection, AppReasonForClose::kInternalError);
+                state->connection.reset();
+                notify_caller(1);
+                return error;
+            };
+
+            QUICR_LOGGER_INFO(logger,
+                              "StartClient:Webtransport Connect: Control Stream ID: {}, "
+                              "authority: {}, path: {}",
+                              control_stream_ctx->stream_id,
+                              state->connection->wt_authority,
+                              webtransport_path);
+
+            // Initiate the WebTransport connect
+            ret = picowt_connect(cnx,
+                                 h3_ctx,
+                                 control_stream_ctx,
+                                 state->connection->wt_authority.c_str(),
+                                 webtransport_path.c_str(),
+                                 DefaultWebTransportCallback,
+                                 this,
+                                 quicr::format("\"{}\"", kMoqtAlpn).c_str());
+            if (ret != 0) {
+                return fail_webtransport("Failed to initiate WebTransport connect", ret);
+            }
+
+            ret = picoquic_start_client_cnx(cnx);
+
+            if (ret != 0) {
+                return fail_webtransport("Failed to initiate WebTransport client connection", ret);
+            }
+
+            picoquic_connection_id_t icid = picoquic_get_initial_cnxid(cnx);
+            std::string icid_str;
+            icid_str.reserve(icid.id_len * 2);
+            for (uint8_t i = 0; i < icid.id_len; i++) {
+                char hex_chars[3];
+                snprintf(hex_chars, sizeof(hex_chars), "%02x", icid.id[i]);
+                icid_str += hex_chars;
+            }
+            QUICR_LOGGER_INFO(logger, "WebTransport Initial connection ID: {}", icid_str);
+            QUICR_LOGGER_INFO(logger,
+                              "StartClient:Webtransport (after connect): Control Stream ID: {}, "
+                              "authority: {}, path: {}",
+                              control_stream_ctx->stream_id,
+                              state->connection->wt_authority,
+                              webtransport_path);
+        }
+
+        if (tconfig_.quic_priority_limit > 0) {
+            QUICR_LOGGER_INFO(
+              logger, "Setting priority bypass limit to {}", static_cast<int>(tconfig_.quic_priority_limit));
+            picoquic_set_priority_limit_for_bypass(cnx, tconfig_.quic_priority_limit);
+        } else {
+            QUICR_LOGGER_INFO(logger, "No priority bypass");
+        }
+
+        notify_caller(reinterpret_cast<uint64_t>(cnx));
+
+        return 0;
+    };
+
+    if (server.qmux) {
+        if (shard.quic_network_thread_ctx != nullptr) {
+            QUICR_LOGGER_ERROR(logger, "QMUX cannot open a connection on a running network thread");
+            return nullptr;
+        }
+        lock.unlock();
+        if (create_connection() != 0 || !ClientLoop()) {
+            SetStatus(TransportStatus::kDisconnected);
+            return nullptr;
+        }
+        lock.lock();
+    } else {
+        RunPqFunction(0, std::move(create_connection));
+    }
+
+    QUICR_LOGGER_DEBUG(logger, "Waiting for client connection context");
+
+    if (!state->cv.wait_for(
+          lock, std::chrono::milliseconds(tconfig_.idle_timeout_ms), [&state]() { return state->conn_id > 0; })) {
+        state->cancelled = true;
+    }
+
+    QUICR_LOGGER_DEBUG(logger, "Got client connection context conn_id: {}", state->conn_id);
+    if (state->conn_id <= 1) {
+        QUICR_LOGGER_DEBUG(logger, "Client connection to {}:{} failed", server.host_or_ip, server.port);
+        bool no_connections = true;
+        {
+            std::lock_guard state_lock(state_mutex_);
+            no_connections = connections_.empty();
+        }
+
+        if (no_connections) {
+            SetStatus(TransportStatus::kDisconnected);
+        }
+        return nullptr;
+    }
+
+    return state->connection;
 }
 
 void
@@ -1245,8 +1518,9 @@ PicoQuicTransport::Enqueue(const std::shared_ptr<Connection>& connection,
 {
     const auto pq_connection = std::static_pointer_cast<PicoQuicConnection>(connection);
     const auto pq_stream = std::static_pointer_cast<PicoQuicStream>(stream);
-    if (pq_connection == nullptr || pq_stream == nullptr || pq_stream->tx_data == nullptr) {
-        throw std::invalid_argument("Connection and sendable stream must be non-null");
+    if (pq_connection == nullptr || pq_stream == nullptr || pq_stream->tx_data == nullptr ||
+        stream->GetConnection() != connection) {
+        throw std::invalid_argument("Connection and sendable stream must be valid");
     }
 
     QUICR_LOGGER_TRACE(logger,
@@ -1403,7 +1677,7 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
             picoquic_mark_active_stream(pq_conn->pq_cnx, stream_id, 0, NULL);
         }
 
-        if (received || pq_conn->GetAPI() != Connection::API::kWebTransport) {
+        if (received || pq_conn->GetProtocol() != Connection::Protocol::kWebTransport) {
             picoquic_unlink_app_stream_ctx(pq_conn->pq_cnx, stream_id);
         }
 
@@ -1431,10 +1705,6 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
             break;
     }
 
-    if (not is_server_mode) {
-        SetStatus(TransportStatus::kShutdown);
-    }
-
     // Cleanup client-owned WebTransport h3_ctx before closing connection
     // Server-side h3_ctx is managed by h3zero library and shared across connections
     if (pq_conn->wt_h3_ctx_owned && pq_conn->wt_h3_ctx) {
@@ -1448,6 +1718,9 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
     picoquic_close(pq_conn->pq_cnx, static_cast<uint64_t>(app_reason));
 
     connections_.erase(connection->GetID());
+    if (!is_server_mode && connections_.empty()) {
+        SetStatus(TransportStatus::kShutdown);
+    }
 
     lock.unlock();
 
@@ -1475,7 +1748,7 @@ PicoQuicTransport::GetConnection(const std::uint64_t& conn_id)
 }
 
 const std::shared_ptr<PicoQuicConnection>&
-PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::API api)
+PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::Protocol protocol)
 {
     std::lock_guard _(state_mutex_);
     sockaddr* addr;
@@ -1485,28 +1758,31 @@ PicoQuicTransport::CreateConnection(picoquic_cnx_t* pq_cnx, Connection::API api)
         const char* negotiated_alpn = picoquic_tls_get_negotiated_alpn(pq_cnx);
         if (negotiated_alpn) {
             if (strcmp(negotiated_alpn, webtransport_alpn) == 0) {
-                api = Connection::API::kWebTransport;
+                protocol = Connection::Protocol::kWebTransport;
                 QUICR_LOGGER_INFO(logger, "Server connection using WebTransport (ALPN: {})", negotiated_alpn);
+            } else if (strcmp(negotiated_alpn, kMoqtQmuxAlpn) == 0) {
+                protocol = Connection::Protocol::kQmux;
+                QUICR_LOGGER_INFO(logger, "Server connection using QMUX/TLS/TCP (ALPN: {})", negotiated_alpn);
             } else if (strcmp(negotiated_alpn, kMoqtAlpn) == 0) {
-                api = Connection::API::kNativeQuic;
+                protocol = Connection::Protocol::kNativeQuic;
                 QUICR_LOGGER_INFO(logger, "Server connection using raw QUIC (ALPN: {})", negotiated_alpn);
             } else {
-                api = Connection::API::kNativeQuic; // Default fallback
+                protocol = Connection::Protocol::kNativeQuic; // Default fallback
                 QUICR_LOGGER_WARN(logger, "Unknown ALPN: {}, defaulting to raw QUIC", negotiated_alpn);
             }
         } else {
-            api = Connection::API::kNativeQuic; // Default fallback
+            protocol = Connection::Protocol::kNativeQuic; // Default fallback
             QUICR_LOGGER_WARN(logger, "No ALPN negotiated, defaulting to raw QUIC");
         }
     }
 
     auto [conn_it, is_new] = connections_.try_emplace(reinterpret_cast<std::uint64_t>(pq_cnx),
-                                                      std::make_shared<PicoQuicConnection>(pq_cnx, api));
+                                                      std::make_shared<PicoQuicConnection>(pq_cnx, protocol));
     const auto& connection = conn_it->second;
 
     const auto* cnx_quic_ctx = picoquic_get_quic_ctx(pq_cnx);
     for (const auto& shard : shards_) {
-        if (shard->quic_ctx == cnx_quic_ctx) {
+        if (shard->quic_ctx == cnx_quic_ctx || shard->qmux_ctx == cnx_quic_ctx) {
             std::static_pointer_cast<PicoQuicConnection>(connection)->shard_idx = shard->index;
             break;
         }
@@ -1554,17 +1830,24 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
                                      const TransportConfig& tcfg,
                                      bool is_server_mode,
                                      std::shared_ptr<Clock> clock,
-                                     std::shared_ptr<Logger> logger,
-                                     Connection::API connection_api)
+                                     std::shared_ptr<Logger> logger)
   : logger(std::move(logger))
   , is_server_mode(is_server_mode)
-  , connection_api(connection_api)
   , stop_(false)
   , transportStatus_(TransportStatus::kConnecting)
   , serverInfo_(server)
   , tconfig_(tcfg)
   , clock_(std::move(clock))
 {
+    if (tcfg.qmux_port != 0 && (!is_server_mode || tcfg.quic_shards != 1)) {
+        throw InvalidConfigException("QMUX listening requires server mode with one shard");
+    }
+    if (server.qmux && server.web_transport_options.has_value()) {
+        throw InvalidConfigException("QMUX and WebTransport are mutually exclusive");
+    }
+    if (server.qmux && !is_server_mode && server.port == 0) {
+        throw InvalidConfigException("QMUX requires an explicit TCP port");
+    }
     debug = tcfg.debug;
 
     picoquic_config_init(&config_);
@@ -1582,6 +1865,16 @@ PicoQuicTransport::PicoQuicTransport(const TransportRemote& server,
     }
     if (tcfg.ssl_keylog == true) {
         (void)picoquic_config_set_option(&config_, picoquic_option_SSLKEYLOG, "1");
+    }
+    if (is_server_mode && !tcfg.tls_root_trust_filename.empty()) {
+        picoquic_config_clear(&config_);
+        throw InvalidConfigException("TLS root trust file is not supported in server mode");
+    } else if (!tcfg.tls_root_trust_filename.empty()) {
+        if (picoquic_config_set_option(
+              &config_, picoquic_option_ROOT_TRUST_FILE, tcfg.tls_root_trust_filename.c_str()) != 0) {
+            picoquic_config_clear(&config_);
+            throw InvalidConfigException("Unable to configure TLS root trust file");
+        }
     }
 }
 
@@ -1644,7 +1937,7 @@ PicoQuicTransport::SendNextDatagram(const std::shared_ptr<PicoQuicConnection>& c
         return;
     }
 
-    const bool is_webtransport = connection->GetAPI() == Connection::API::kWebTransport;
+    const bool is_webtransport = connection->GetProtocol() == Connection::Protocol::kWebTransport;
 
     // Helper lambda to get datagram buffer based on transport mode
     auto provide_buffer = [is_webtransport, bytes_ctx](size_t length, bool more_data) -> uint8_t* {
@@ -1732,9 +2025,9 @@ PicoQuicTransport::SendStreamBytes(const std::shared_ptr<PicoQuicConnection>& co
         }();
 
         if (should_reset) {
-            CloseStream(connection, stream, StreamOperation::kReset);
+            CloseStream(stream, StreamOperation::kReset);
         } else if (stream_ctx.close_on_empty && empty) {
-            CloseStream(connection, stream, StreamOperation::kFin);
+            CloseStream(stream, StreamOperation::kFin);
         }
     });
 
@@ -1870,16 +2163,17 @@ PicoQuicTransport::HandleNewConnection(const std::shared_ptr<PicoQuicConnection>
                       connection->peer_port,
                       connection->GetID());
 
-    TransportRemote remote{ .host_or_ip = connection->peer_addr_text,
-                            .port = connection->peer_port,
-                            .proto = TransportProtocol::kQuic };
+    TransportRemote remote{
+        .host_or_ip = connection->peer_addr_text,
+        .port = connection->peer_port,
+    };
 
     picoquic_enable_keep_alive(connection->pq_cnx, tconfig_.idle_timeout_ms * 500);
     picoquic_set_feedback_loss_notification(connection->pq_cnx, 1);
 
 #if 0
     // Setup WebTransport for server connections if needed
-    if (connection->GetAPI() == Connection::API::kWebTransport) {
+    if (connection->GetProtocol() == Connection::API::kWebTransport) {
         if (auto wt_ret = SetupWebTransportConnection(connection->pq_cnx); wt_ret != 0) {
             QUICR_LOGGER_ERROR(logger, "Failed to setup WebTransport connection for server");
         }
@@ -1934,8 +2228,8 @@ try {
     }
 
     // Handle control stream message processing for WebTransport mode
-    if (connection->GetAPI() == Connection::API::kWebTransport && connection->wt_control_stream_ctx != nullptr &&
-        stream_id == connection->wt_control_stream_ctx->stream_id) {
+    if (connection->GetProtocol() == Connection::Protocol::kWebTransport &&
+        connection->wt_control_stream_ctx != nullptr && stream_id == connection->wt_control_stream_ctx->stream_id) {
 
         QUICR_LOGGER_DEBUG(logger,
                            "OnRecvStreamBytes: Received data on control stream {} for conn_id={}, len={}",
@@ -2027,7 +2321,7 @@ try {
 
         // Picowt owns the app stream context slot in WebTransport mode; that path looks the stream up
         // through the connection's WebTransport mapping instead.
-        if (connection->GetAPI() != Connection::API::kWebTransport) {
+        if (connection->GetProtocol() != Connection::Protocol::kWebTransport) {
             picoquic_set_app_stream_ctx(connection->pq_cnx, stream_id, stream.get());
         }
     }
@@ -2097,15 +2391,17 @@ PicoQuicTransport::NotifyDgramRecv(const std::shared_ptr<PicoQuicConnection>& co
 }
 
 void
-PicoQuicTransport::OnStreamClosed(std::shared_ptr<PicoQuicConnection> connection,
-                                  std::shared_ptr<PicoQuicStream> stream,
-                                  StreamClosedFlag flag)
+PicoQuicTransport::OnStreamClosed(std::shared_ptr<PicoQuicStream> stream, StreamClosedFlag flag)
 {
+    const auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(stream->GetConnection());
+    if (!connection) {
+        return;
+    }
     QUICR_LOGGER_DEBUG(logger, "Stream {} closed for connection {}", stream->GetStreamId(), connection->GetID());
     cbNotifyQueue_.Push([=, this, connection = std::move(connection), stream = std::move(stream)]() {
         // Let a pending read of this stream be delivered first, by re-queuing behind it.
         if (stream->rx_notify_pending.load()) {
-            OnStreamClosed(connection, stream, flag);
+            OnStreamClosed(stream, flag);
             return;
         }
         connection->OnStreamClosed(stream, flag);
@@ -2200,29 +2496,31 @@ PicoQuicTransport::CheckConnsForCongestion(std::size_t shard_idx)
         int congested_count{ 0 };
         uint16_t cwin_congested_count = connection->metrics.cwin_congested - connection->metrics.prev_cwin_congested;
 
-        picoquic_path_quality_t path_quality;
-        picoquic_get_path_quality(connection->pq_cnx, connection->pq_cnx->path[0]->unique_path_id, &path_quality);
+        if (!connection->pq_cnx->is_qmux) {
+            picoquic_path_quality_t path_quality;
+            picoquic_get_path_quality(connection->pq_cnx, connection->pq_cnx->path[0]->unique_path_id, &path_quality);
 
-        /*
-         * Update metrics
-         */
-        connection->metrics.tx_lost_pkts = path_quality.lost;
-        connection->metrics.tx_cwin_bytes.AddValue(path_quality.cwin);
-        connection->metrics.tx_in_transit_bytes.AddValue(path_quality.bytes_in_transit);
-        connection->metrics.tx_spurious_losses = path_quality.spurious_losses;
-        connection->metrics.tx_timer_losses = path_quality.timer_losses;
-        connection->metrics.rtt_us.AddValue(path_quality.rtt_sample);
-        connection->metrics.srtt_us.AddValue(path_quality.rtt);
-        connection->metrics.tx_rate_bps.AddValue(path_quality.pacing_rate * 8);
-        connection->metrics.rx_rate_bps.AddValue(path_quality.receive_rate_estimate * 8);
+            /*
+             * Update metrics
+             */
+            connection->metrics.tx_lost_pkts = path_quality.lost;
+            connection->metrics.tx_cwin_bytes.AddValue(path_quality.cwin);
+            connection->metrics.tx_in_transit_bytes.AddValue(path_quality.bytes_in_transit);
+            connection->metrics.tx_spurious_losses = path_quality.spurious_losses;
+            connection->metrics.tx_timer_losses = path_quality.timer_losses;
+            connection->metrics.rtt_us.AddValue(path_quality.rtt_sample);
+            connection->metrics.srtt_us.AddValue(path_quality.rtt);
+            connection->metrics.tx_rate_bps.AddValue(path_quality.pacing_rate * 8);
+            connection->metrics.rx_rate_bps.AddValue(path_quality.receive_rate_estimate * 8);
 
-        // Is CWIN congested?
-        if (cwin_congested_count > 5 || (path_quality.cwin < kPqCcLowCwin && path_quality.bytes_in_transit)) {
+            // Is CWIN congested?
+            if (cwin_congested_count > 5 || (path_quality.cwin < kPqCcLowCwin && path_quality.bytes_in_transit)) {
 
-            // congested_count++; /* TODO(tievens): DO NOT react to this right now, causing issue with low latency
-            // wired networks */
+                // congested_count++; /* TODO(tievens): DO NOT react to this right now, causing issue with low latency
+                // wired networks */
+            }
+            connection->metrics.prev_cwin_congested = connection->metrics.cwin_congested;
         }
-        connection->metrics.prev_cwin_congested = connection->metrics.cwin_congested;
 
         // One pass over the connection's streams, reaching each stream's context through the stream.
         for (const auto& stream_handle : connection->GetStreams()) {
@@ -2342,8 +2640,13 @@ PicoQuicTransport::Server()
           MakeThreadConfig(serverInfo_.port, tconfig_.socket_buffer_size, shards_.size(), tconfig_.use_af_xdp);
 
         QUICR_LOGGER_DEBUG(logger, "Starting picoquic network thread for shard {}", shard->index);
-        shard->quic_network_thread_ctx = picoquic_start_network_thread(
-          shard->quic_ctx, &shard->quic_network_thread_params, PqLoopCb, shard.get(), &shard->quic_loop_return_value);
+        shard->quic_network_thread_params.qmux_port = tconfig_.qmux_port;
+        shard->quic_network_thread_ctx = picoquic_start_network_thread_qmux(shard->quic_ctx,
+                                                                            shard->qmux_ctx,
+                                                                            &shard->quic_network_thread_params,
+                                                                            PqLoopCb,
+                                                                            shard.get(),
+                                                                            &shard->quic_loop_return_value);
 
         if (shard->quic_ctx == NULL || shard->quic_network_thread_ctx == NULL) {
             QUICR_LOGGER_ERROR(logger, "Failed to start picoquic network thread for shard {}", shard->index);
@@ -2370,189 +2673,7 @@ PicoQuicTransport::Server()
 std::shared_ptr<Connection>
 PicoQuicTransport::StartClient()
 {
-    // Use shared state to avoid lifetime issues if timeout occurs before lambda executes
-    struct SharedState
-    {
-        std::condition_variable cv;
-        std::mutex mtx;
-        std::uint64_t conn_id{ 0 };
-        bool cancelled{ false };
-        std::shared_ptr<PicoQuicConnection> connection;
-    };
-    auto state = std::make_shared<SharedState>();
-    std::unique_lock lock(state->mtx);
-
-    RunPqFunction(0, [this, state]() {
-        auto notify_caller = [this, state](uint64_t id) {
-            std::lock_guard _(state->mtx);
-            if (state->cancelled) {
-                return;
-            }
-
-            // On success, notify OnNewConnection before any further network thread work.
-            if (id > 1 && OnNewConnection) {
-                cbNotifyQueue_.Push(
-                  [callback = OnNewConnection, connection = state->connection] { callback(connection); });
-            }
-            state->conn_id = id;
-
-            // Notify calling thread of connection Id
-            state->cv.notify_all();
-        };
-
-        sockaddr_storage server_address;
-        char const* sni = "cisco.webex.com";
-        int ret;
-        int is_name = 0;
-        ret = picoquic_get_server_address(serverInfo_.host_or_ip.c_str(), serverInfo_.port, &server_address, &is_name);
-        if (ret != 0 || server_address.ss_family == 0) {
-            QUICR_LOGGER_ERROR(
-              logger, "Failed to resolve server: {} port: {}", serverInfo_.host_or_ip, serverInfo_.port);
-            notify_caller(1);
-            return 0;
-        }
-
-        if (is_name) {
-            sni = serverInfo_.host_or_ip.c_str();
-        }
-
-        picoquic_cnx_t* cnx = NULL;
-        if (connection_api == Connection::API::kNativeQuic) {
-            cnx = picoquic_create_cnx(shards_[0]->quic_ctx,
-                                      picoquic_null_connection_id,
-                                      picoquic_null_connection_id,
-                                      reinterpret_cast<struct sockaddr*>(&server_address),
-                                      picoquic_current_time(),
-                                      0,
-                                      sni,
-                                      config_.alpn,
-                                      1);
-            if (cnx == nullptr) {
-                QUICR_LOGGER_ERROR(logger, "Could not create picoquic connection client context");
-                notify_caller(1);
-                return PICOQUIC_ERROR_DISCONNECTED;
-            }
-
-            picoquic_set_transport_parameters(cnx, &local_tp_options_);
-            picoquic_set_feedback_loss_notification(cnx, 1);
-            picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
-            picoquic_set_callback(cnx, PqEventCb, this);
-
-            if (auto ret = picoquic_start_client_cnx(cnx)) {
-                QUICR_LOGGER_ERROR(logger, "Could not activate connection ret: {}", ret);
-                notify_caller(1);
-                return PICOQUIC_ERROR_DISCONNECTED;
-            }
-
-            QUICR_LOGGER_INFO(logger, "StartClient: Creating connection context");
-            state->connection = CreateConnection(cnx);
-
-        } else if (connection_api == Connection::API::kWebTransport) {
-            h3zero_callback_ctx_t* h3_ctx = nullptr;
-            h3zero_stream_ctx_t* control_stream_ctx = nullptr;
-            uint64_t current_time = picoquic_current_time();
-
-            ret = picowt_prepare_client_cnx(shards_[0]->quic_ctx,
-                                            (struct sockaddr*)&server_address,
-                                            &cnx,
-                                            &h3_ctx,
-                                            &control_stream_ctx,
-                                            current_time,
-                                            sni);
-            if (ret != 0) {
-                QUICR_LOGGER_ERROR(logger, "picowt_prepare_client_cnx failed with ret: {}", ret);
-                notify_caller(1);
-                return ret;
-            }
-
-            picoquic_set_transport_parameters(cnx, &local_tp_options_);
-            // Must run after set_transport_parameters; picowt_prepare_client_cnx sets WT params that local_tp_options_
-            // overwrites.
-            picowt_set_transport_parameters(cnx);
-            picoquic_set_feedback_loss_notification(cnx, 1);
-            picoquic_enable_keep_alive(cnx, tconfig_.idle_timeout_ms * 500);
-
-            // Create connection context and store per-connection WebTransport context first
-            state->connection = CreateConnection(cnx, Connection::API::kWebTransport);
-            state->connection->wt_h3_ctx = h3_ctx;
-            state->connection->wt_control_stream_ctx = control_stream_ctx;
-            state->connection->wt_h3_ctx_owned = true; // Client owns this and must free it
-            state->connection->wt_authority = serverInfo_.host_or_ip + ":" + std::to_string(serverInfo_.port);
-
-            QUICR_LOGGER_INFO(logger,
-                              "StartClient:Webtransport Connect: Control Stream ID: {}, "
-                              "authority: {}, path: {}",
-                              control_stream_ctx->stream_id,
-                              state->connection->wt_authority,
-                              wt_config_->path);
-
-            // Initiate the WebTransport connect
-            ret = picowt_connect(cnx,
-                                 h3_ctx,
-                                 control_stream_ctx,
-                                 state->connection->wt_authority.c_str(),
-                                 wt_config_->path.c_str(),
-                                 DefaultWebTransportCallback,
-                                 this,
-                                 quicr::format("\"{}\"", kMoqtAlpn).c_str());
-            if (ret != 0) {
-                QUICR_LOGGER_ERROR(logger, "Failed to initiate WebTransport connect");
-                notify_caller(1);
-                return ret;
-            }
-
-            ret = picoquic_start_client_cnx(cnx);
-
-            if (ret != 0) {
-                QUICR_LOGGER_ERROR(logger, "Failed to initiate WebTransport client connection");
-                notify_caller(1);
-                return ret;
-            }
-
-            picoquic_connection_id_t icid = picoquic_get_initial_cnxid(cnx);
-            std::string icid_str;
-            icid_str.reserve(icid.id_len * 2);
-            for (uint8_t i = 0; i < icid.id_len; i++) {
-                char hex_chars[3];
-                snprintf(hex_chars, sizeof(hex_chars), "%02x", icid.id[i]);
-                icid_str += hex_chars;
-            }
-            QUICR_LOGGER_INFO(logger, "WebTransport Initial connection ID: {}", icid_str);
-            QUICR_LOGGER_INFO(logger,
-                              "StartClient:Webtransport (after connect): Control Stream ID: {}, "
-                              "authority: {}, path: {}",
-                              control_stream_ctx->stream_id,
-                              state->connection->wt_authority,
-                              wt_config_->path);
-        }
-
-        if (tconfig_.quic_priority_limit > 0) {
-            QUICR_LOGGER_INFO(
-              logger, "Setting priority bypass limit to {}", static_cast<int>(tconfig_.quic_priority_limit));
-            picoquic_set_priority_limit_for_bypass(cnx, tconfig_.quic_priority_limit);
-        } else {
-            QUICR_LOGGER_INFO(logger, "No priority bypass");
-        }
-
-        notify_caller(reinterpret_cast<uint64_t>(cnx));
-
-        return 0;
-    });
-
-    QUICR_LOGGER_DEBUG(logger, "Waiting for client connection context");
-
-    if (!state->cv.wait_for(lock, std::chrono::milliseconds(3000), [&state]() { return state->conn_id > 0; })) {
-        state->cancelled = true;
-    }
-
-    QUICR_LOGGER_DEBUG(logger, "Got client connection context conn_id: {}", state->conn_id);
-    if (state->conn_id <= 1) {
-        QUICR_LOGGER_DEBUG(logger, "Client connection to {}:{} failed", serverInfo_.host_or_ip, serverInfo_.port);
-        SetStatus(TransportStatus::kDisconnected);
-        return nullptr;
-    }
-
-    return state->connection;
+    return Connect(serverInfo_);
 }
 
 bool
@@ -2568,8 +2689,12 @@ PicoQuicTransport::ClientLoop()
     socket_buffer_size = tconfig_.socket_buffer_size;
 #endif
     shard.quic_network_thread_params = MakeThreadConfig(0, socket_buffer_size, 1, tconfig_.use_af_xdp);
-    shard.quic_network_thread_ctx = picoquic_start_network_thread(
-      shard.quic_ctx, &shard.quic_network_thread_params, PqLoopCb, &shard, &shard.quic_loop_return_value);
+    shard.quic_network_thread_ctx = picoquic_start_network_thread_qmux(shard.quic_ctx,
+                                                                       shard.qmux_ctx,
+                                                                       &shard.quic_network_thread_params,
+                                                                       PqLoopCb,
+                                                                       &shard,
+                                                                       &shard.quic_loop_return_value);
 
     if (shard.quic_ctx == nullptr || shard.quic_network_thread_ctx == nullptr) {
         QUICR_LOGGER_ERROR(logger, "Failed to create picoquic network thread");
@@ -2638,6 +2763,10 @@ PicoQuicTransport::Shutdown()
     }
 
     for (auto& shard : shards_) {
+        if (shard->qmux_ctx != nullptr) {
+            picoquic_free(shard->qmux_ctx);
+            shard->qmux_ctx = nullptr;
+        }
         if (shard->quic_ctx != nullptr) {
             picoquic_free(shard->quic_ctx);
             shard->quic_ctx = nullptr;
@@ -2783,7 +2912,7 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
     h3zero_stream_ctx_t* wt_stream_ctx = nullptr;
 
     // Handle WebTransport and raw QUIC differently
-    if (pq_conn->GetAPI() == Connection::API::kWebTransport) {
+    if (pq_conn->GetProtocol() == Connection::Protocol::kWebTransport) {
         // For WebTransport, create stream using picowt_create_local_stream
         // Use per-connection WebTransport context instead of global wt_context_
         if (!pq_conn->wt_h3_ctx || !pq_conn->wt_control_stream_ctx) {
@@ -2819,7 +2948,7 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
     const auto stream = pq_conn->AddStream(stream_id, MakeStreamTxQueue());
     stream->wt_stream_ctx = wt_stream_ctx;
 
-    if (pq_conn->GetAPI() == Connection::API::kWebTransport) {
+    if (pq_conn->GetProtocol() == Connection::Protocol::kWebTransport) {
         pq_conn->wt_stream_to_stream[stream_id] = stream;
     } else {
         // Picoquic takes the app stream context as an opaque void*, so it gets a raw pointer. The
@@ -2834,36 +2963,38 @@ PicoQuicTransport::CreateStreamInternal(const std::shared_ptr<Connection>& conne
 }
 
 void
-PicoQuicTransport::CloseStream(const std::shared_ptr<Connection>& connection,
-                               const std::shared_ptr<Stream>& stream,
-                               StreamOperation operation)
+PicoQuicTransport::CloseStream(const std::shared_ptr<Stream>& stream, StreamOperation operation)
 {
     // Holders keep handles for the life of a subgroup, so being handed one the transport has already
     // torn down is expected rather than an error.
     if (stream == nullptr || !stream->IsOpen()) {
         return;
     }
-
-    const auto conn = std::static_pointer_cast<PicoQuicConnection>(connection);
+    const auto conn = std::dynamic_pointer_cast<PicoQuicConnection>(stream->GetConnection());
     if (conn == nullptr) {
         return;
     }
 
-    const auto pq_stream = std::static_pointer_cast<PicoQuicStream>(stream);
+    const auto pq_stream = std::dynamic_pointer_cast<PicoQuicStream>(stream);
+    if (!pq_stream) {
+        return;
+    }
     CheckCloseStream(pq_stream->GetStreamId(), is_server_mode, operation);
 
     // Capturing the handle keeps the stream alive until the queued function runs.
     RunPqFunction(conn->shard_idx, [=, this]() {
-        CloseStream(conn, pq_stream, operation);
+        CloseStream(pq_stream, operation);
         return 0;
     });
 }
 
 void
-PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connection,
-                               const std::shared_ptr<PicoQuicStream>& stream,
-                               StreamOperation operation)
+PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicStream>& stream, StreamOperation operation)
 {
+    const auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(stream->GetConnection());
+    if (!connection) {
+        return;
+    }
     const auto stream_id = stream->GetStreamId();
 
     if (!stream->IsOpen()) {
@@ -2882,7 +3013,7 @@ PicoQuicTransport::CloseStream(const std::shared_ptr<PicoQuicConnection>& connec
 
     if (operation == StreamOperation::kReset || operation == StreamOperation::kCancel) {
         stream->MarkTxClosed();
-        if (connection->GetAPI() == Connection::API::kWebTransport) {
+        if (connection->GetProtocol() == Connection::Protocol::kWebTransport) {
             if (stream->wt_stream_ctx != nullptr) {
                 picowt_reset_stream(connection->pq_cnx, stream->wt_stream_ctx, 0);
             }
@@ -2921,7 +3052,7 @@ PicoQuicTransport::EraseStreamState(const std::shared_ptr<PicoQuicConnection>& c
      */
     const auto stream = connection->RemoveStream(stream_id);
 
-    if (connection->GetAPI() == Connection::API::kWebTransport) {
+    if (connection->GetProtocol() == Connection::Protocol::kWebTransport) {
         if (stream != nullptr && stream->wt_stream_ctx != nullptr && connection->wt_h3_ctx != nullptr) {
             h3zero_delete_stream(connection->pq_cnx, connection->wt_h3_ctx, stream->wt_stream_ctx);
         }
@@ -3039,8 +3170,9 @@ PicoQuicTransport::MarkStreamActive(const std::shared_ptr<PicoQuicConnection>& c
      * For raw QUIC it is our own stream, handed over as an opaque void*; the context owns the stream
      * and the transport unlinks this pointer before the stream is destroyed.
      */
-    void* stream_ctx =
-      connection->GetAPI() == Connection::API::kWebTransport ? static_cast<void*>(stream->wt_stream_ctx) : stream.get();
+    void* stream_ctx = connection->GetProtocol() == Connection::Protocol::kWebTransport
+                         ? static_cast<void*>(stream->wt_stream_ctx)
+                         : stream.get();
 
     picoquic_mark_active_stream(connection->pq_cnx, stream->GetStreamId(), 1, stream_ctx);
 }
@@ -3048,7 +3180,7 @@ PicoQuicTransport::MarkStreamActive(const std::shared_ptr<PicoQuicConnection>& c
 void
 PicoQuicTransport::MarkDgramReady(const std::shared_ptr<PicoQuicConnection>& connection)
 {
-    if (connection->GetAPI() == Connection::API::kWebTransport && connection->wt_control_stream_ctx) {
+    if (connection->GetProtocol() == Connection::Protocol::kWebTransport && connection->wt_control_stream_ctx) {
         // WebTransport requires using h3zero_set_datagram_ready to set the ready_to_send_datagrams
         // flag on the stream prefix, which triggers the picohttp_callback_provide_datagram callback
         h3zero_set_datagram_ready(connection->pq_cnx, connection->wt_control_stream_ctx->stream_id);
@@ -3061,13 +3193,11 @@ PicoQuicTransport::MarkDgramReady(const std::shared_ptr<PicoQuicConnection>& con
 const char*
 PicoQuicTransport::GetAlpn() const
 {
-    switch (connection_api) {
-        case Connection::API::kWebTransport:
-            return webtransport_alpn;
-        case Connection::API::kNativeQuic:
-        default:
-            return kMoqtAlpn;
+    if (serverInfo_.web_transport_options.has_value()) {
+        return webtransport_alpn;
     }
+
+    return kMoqtAlpn;
 }
 
 int
@@ -3075,13 +3205,13 @@ PicoQuicTransport::InitializeWebTransportContext()
 {
     // For clients: only initialize if connection_api is kWebTransport
     // For servers: always initialize to support both QUIC and WebTransport connections
-    if (!is_server_mode && connection_api != Connection::API::kWebTransport) {
+    if (!is_server_mode && !serverInfo_.web_transport_options.has_value()) {
         return 0; // Not WebTransport mode, nothing to do
     }
 
     if (!wt_config_) {
         wt_config_ = WebTransportConfig{};
-        wt_config_->path = serverInfo_.path; // Only accept WebTransport connections to /relay path
+        wt_config_->path = serverInfo_.web_transport_options.value_or(WebTransportOptions{}).path;
         wt_config_->path_callback = DefaultWebTransportCallback;
         wt_config_->path_app_ctx = this; // Default app context is this transport instance
     }
@@ -3310,16 +3440,15 @@ PicoQuicTransport::SetWebTransportPathCallback(const std::string& path,
 h3zero_stream_ctx_t*
 PicoQuicTransport::CreateWebTransportStream(picoquic_cnx_t* cnx, bool is_bidir)
 {
-    if (connection_api != Connection::API::kWebTransport) {
-        QUICR_LOGGER_ERROR(logger, "CreateWebTransportStream called but not in WebTransport mode");
-        return nullptr;
-    }
-
     // Get per-connection WebTransport context
     auto conn_id = reinterpret_cast<std::uint64_t>(cnx);
     auto connection = GetConnection(conn_id);
     if (!connection) {
         QUICR_LOGGER_ERROR(logger, "CreateWebTransportStream: Connection context not found for conn_id {}", conn_id);
+        return nullptr;
+    }
+    if (connection->GetProtocol() != Connection::Protocol::kWebTransport) {
+        QUICR_LOGGER_ERROR(logger, "CreateWebTransportStream called but not in WebTransport mode");
         return nullptr;
     }
 
@@ -3357,17 +3486,16 @@ PicoQuicTransport::CreateWebTransportStream(picoquic_cnx_t* cnx, bool is_bidir)
 int
 PicoQuicTransport::SendWebTransportCloseSession(picoquic_cnx_t* cnx, uint32_t error_code, const char* error_msg)
 {
-    if (connection_api != Connection::API::kWebTransport) {
-        QUICR_LOGGER_ERROR(logger, "SendWebTransportCloseSession called but not in WebTransport mode");
-        return -1;
-    }
-
     // Get per-connection WebTransport context
     auto conn_id = reinterpret_cast<std::uint64_t>(cnx);
     auto connection = GetConnection(conn_id);
     if (!connection) {
         QUICR_LOGGER_ERROR(
           logger, "SendWebTransportCloseSession: Connection context not found for conn_id {}", conn_id);
+        return -1;
+    }
+    if (connection->GetProtocol() != Connection::Protocol::kWebTransport) {
+        QUICR_LOGGER_ERROR(logger, "SendWebTransportCloseSession called but not in WebTransport mode");
         return -1;
     }
 
@@ -3392,17 +3520,16 @@ PicoQuicTransport::SendWebTransportCloseSession(picoquic_cnx_t* cnx, uint32_t er
 int
 PicoQuicTransport::SendWebTransportDrainSession(picoquic_cnx_t* cnx)
 {
-    if (connection_api != Connection::API::kWebTransport) {
-        QUICR_LOGGER_ERROR(logger, "SendWebTransportDrainSession called but not in WebTransport mode");
-        return -1;
-    }
-
     // Get per-connection WebTransport context
     auto conn_id = reinterpret_cast<std::uint64_t>(cnx);
     auto connection = GetConnection(conn_id);
     if (!connection) {
         QUICR_LOGGER_ERROR(
           logger, "SendWebTransportDrainSession: Connection context not found for conn_id {}", conn_id);
+        return -1;
+    }
+    if (connection->GetProtocol() != Connection::Protocol::kWebTransport) {
+        QUICR_LOGGER_ERROR(logger, "SendWebTransportDrainSession called but not in WebTransport mode");
         return -1;
     }
 
@@ -3444,16 +3571,15 @@ PicoQuicTransport::DrainWebTransportSession(const std::shared_ptr<Connection>& c
 void
 PicoQuicTransport::DeregisterWebTransport(picoquic_cnx_t* cnx)
 {
-    if (!is_server_mode && connection_api != Connection::API::kWebTransport) {
-        QUICR_LOGGER_WARN(logger, "DeregisterWebTransport called but not in WebTransport mode");
-        return;
-    }
-
     // Get per-connection WebTransport context
     auto conn_id = reinterpret_cast<std::uint64_t>(cnx);
     auto connection = GetConnection(conn_id);
     if (!connection) {
         QUICR_LOGGER_WARN(logger, "DeregisterWebTransport: Connection context not found for conn_id {}", conn_id);
+        return;
+    }
+    if (connection->GetProtocol() != Connection::Protocol::kWebTransport) {
+        QUICR_LOGGER_WARN(logger, "DeregisterWebTransport called but not in WebTransport mode");
         return;
     }
 

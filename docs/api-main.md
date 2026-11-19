@@ -1,42 +1,34 @@
-# Media over QUIC (MoQ) Publisher/Subscriber API
+# Media over QUIC (MoQ) Publisher/Subscriber APIs
 
-This library provides a publisher and subscriber API using MoQ. It provides
-a class for [Client](#quicr::Client) and [Server](#quicr::Server) that
-will handle all MoQ protocol state machine functions. Both classes contain virtual methods (e.g., callbacks)
-that **SHOULD** be implemented.
+LibQuicR provides native C++ and C APIs for client and server sessions,
+publishing, subscribing, fetches, namespace operations, and track-status
+queries.
 
-Subscriptions and publications are handled via [Subscribe Track Handler](#quicr::SubscribeTrackHandler)
-and [Publish Track Handler](#quicr::PublishTrackHandler). Both classes contain virtual methods
-(e.g., callbacks) that **SHOULD** be implemented.
+## C++ API
 
-## Client
+\ref quicr::SessionManager owns transports and their \ref quicr::Session
+objects. Configure a client with \ref quicr::ClientConfig or a server with
+\ref quicr::ServerConfig, provide the corresponding session callbacks, and
+register track or namespace handlers through
+\ref quicr::SessionManager::AddHandler.
 
- Class                        | Description
-------------------------------|-----------------------------------------------------------
- quicr::Client       | Client handler, which is specific to a QUIC IP connection
- quicr::ClientConfig | Client configuration
+\ref quicr::SubscribeTrackHandler receives objects and subscription status.
+\ref quicr::PublishTrackHandler publishes objects and reports publication
+status.
 
-## Server
+See the [C++ API Guide](api-guide.html) and
+[Examples](examples.html) for details.
 
- Class                        | Description
-------------------------------|------------------------------------------------------------------------
- quicr::Server       | Server handler, which is specific to the QUIC IP listening IP and port
- quicr::ServerConfig | Server configuration
+## C API
 
-## Track Handlers
+The native C API is declared in `<quicr/quicr.h>` and linked through the CMake
+target `quicr::c`. It provides opaque manager, session, name, extension, and
+handler types with callback tables and explicit ownership operations.
 
-Both client and server provide quicr::Transport::PublishTrack() and quicr::Transport::SubscribeTrack()
-methods to start a new subscription and/or publication. Use the below handler classes when calling
-the methods. Each track handler is constructed for a single full track name (e.g., namespace and name).
+See the [C API Guide](c-api-guide.html) for ownership, callback, reply, handler
+lifecycle, and shutdown requirements.
 
- Class                          | Description
---------------------------------|------------------------------------------------------------------------
- quicr::SubscribeTrackHandler     | Subscribe track handler for subscribe related operations and callbacks
- quicr::PublishTrackHandler       | Publish track handler for publish related operations and callbacks
-
-
-See [API Guide](api-guide.html) for more details on the API. See [Examples](examples.html) for detailed example of how to get started
-using the APIs. 
-
-@example server.cpp
-@example client.cpp
+@example simple_publish/main.cpp
+@example simple_subscribe/main.cpp
+@example simple_publish/main.c
+@example simple_subscribe/main.c

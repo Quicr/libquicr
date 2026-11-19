@@ -57,14 +57,19 @@ namespace quicr {
       uint64_t subgroup_id,
       std::shared_ptr<const std::vector<uint8_t>> data)
     {
-        auto session = GetSession().lock();
-        std::shared_ptr<Stream> stream;
+        std::lock_guard lock(binding_operation_mutex_);
 
+        const auto status = GetStatus();
+        if (status == Status::kUnsubscribed || status == Status::kDoneByFin || status == Status::kNoSubscribers) {
+            publish_track_metrics_.objects_dropped_not_ok++;
+            return PublishObjectStatus::kNoSubscribers;
+        }
+
+        auto session = GetSession().lock();
         if (!session) {
             return PublishObjectStatus::kInternalError;
         }
 
-        const auto status = GetStatus();
         switch (status) {
             case Status::kOk:
                 break;
@@ -72,14 +77,6 @@ namespace quicr {
             case Status::kPaused:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kPaused;
-
-            case Status::kUnsubscribed:
-                [[fallthrough]];
-            case Status::kDoneByFin:
-                [[fallthrough]];
-            case Status::kNoSubscribers:
-                publish_track_metrics_.objects_dropped_not_ok++;
-                return PublishObjectStatus::kNoSubscribers;
 
             case Status::kPendingAnnounceResponse:
                 [[fallthrough]];
@@ -111,6 +108,7 @@ namespace quicr {
                 return PublishObjectStatus::kInternalError;
         }
 
+        std::shared_ptr<Stream> stream;
         publish_track_metrics_.bytes_published += data->size();
 
         if (!GetRequestId().has_value()) {
@@ -136,7 +134,8 @@ namespace quicr {
                     // Disable creating stream and doing pipeline on new stream considering delta and subgroups needs
                     // first object parsed
 #if 0
-                    auto stream = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
+                    auto stream =
+                      session->CreateStream(GetConnection(), *GetRequestId(), GetPublishObjectPriority());
                     stream_info_by_group_[group_id][subgroup_id] = { stream, group_id, subgroup_id };
 #endif
 
@@ -158,7 +157,7 @@ namespace quicr {
             }
         }
 
-        auto result = session->Enqueue(stream, data, GetPublishObjectPriority(), default_ttl_, eflags);
+        auto result = session->Enqueue(GetConnection(), stream, data, GetPublishObjectPriority(), default_ttl_, eflags);
 
         if (!result) {
             return PublishObjectStatus::kSubgroupClosed;
@@ -172,13 +171,19 @@ namespace quicr {
       BytesSpan data,
       std::optional<messages::StreamHeaderProperties> stream_mode)
     {
-        auto session = GetSession().lock();
+        std::lock_guard lock(binding_operation_mutex_);
 
+        const auto status = GetStatus();
+        if (status == Status::kUnsubscribed || status == Status::kDoneByFin || status == Status::kNoSubscribers) {
+            publish_track_metrics_.objects_dropped_not_ok++;
+            return PublishObjectStatus::kNoSubscribers;
+        }
+
+        auto session = GetSession().lock();
         if (!session) {
             return PublishObjectStatus::kInternalError;
         }
 
-        const auto status = GetStatus();
         switch (status) {
             case Status::kOk:
                 break;
@@ -186,14 +191,6 @@ namespace quicr {
             case Status::kPaused:
                 publish_track_metrics_.objects_dropped_not_ok++;
                 return PublishObjectStatus::kPaused;
-
-            case Status::kUnsubscribed:
-                [[fallthrough]];
-            case Status::kDoneByFin:
-                [[fallthrough]];
-            case Status::kNoSubscribers:
-                publish_track_metrics_.objects_dropped_not_ok++;
-                return PublishObjectStatus::kNoSubscribers;
 
             case Status::kPendingAnnounceResponse:
                 [[fallthrough]];
@@ -248,6 +245,7 @@ namespace quicr {
         uint64_t group_id_delta{ 0 };
         uint64_t object_id_delta{ 0 };
         std::shared_ptr<Stream> stream;
+        std::optional<messages::StreamHeaderProperties> subgroup_properties;
 
         if (default_track_mode_ == TrackMode::kStream) {
             // If this is the first time this group/subgroup has been seen, then a new stream is required
@@ -261,15 +259,22 @@ namespace quicr {
 
             subgroup_it = group_it->second.find(object_headers.subgroup_id);
             if (subgroup_it == group_it->second.end()) {
+                const auto properties = stream_mode ? *stream_mode : GetStreamMode().value();
                 is_stream_header_needed = true;
-                stream = session->CreateStream(*GetRequestId(), GetPublishObjectPriority());
+                stream = session->CreateStream(std::static_pointer_cast<PublishTrackHandler>(shared_from_this()));
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
-                auto [it, _] =
-                  subgroup_map.emplace(object_headers.subgroup_id,
-                                       StreamInfo{ stream, object_headers.group_id, object_headers.subgroup_id });
+                auto [it, _] = subgroup_map.emplace(
+                  object_headers.subgroup_id,
+                  StreamInfo{ stream, properties, object_headers.group_id, object_headers.subgroup_id });
                 subgroup_it = std::move(it);
             }
+
+            const auto& properties = subgroup_it->second.properties;
+            if (stream_mode && stream_mode->GetType() != properties.GetType()) {
+                throw std::invalid_argument("Cannot change framing on an open subgroup stream");
+            }
+            subgroup_properties.emplace(properties);
 
             if (subgroup_it->second.last_object_id.has_value()) {
                 group_id_delta = subgroup_it->second.last_group_id > object_headers.group_id
@@ -326,7 +331,7 @@ namespace quicr {
                 // use stream per subgroup, group change
                 eflags.use_reliable = true;
 
-                const auto properties = stream_mode.value_or(*GetStreamMode());
+                const auto& properties = subgroup_properties.value();
                 if (is_stream_header_needed) {
                     messages::StreamHeaderSubGroup subgroup_hdr;
                     subgroup_hdr.properties.emplace(properties);
@@ -353,7 +358,8 @@ namespace quicr {
         }
 
         auto result =
-          session->Enqueue(stream,
+          session->Enqueue(GetConnection(),
+                           stream,
                            std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
                            GetPublishObjectPriority(),
                            ttl,
@@ -367,6 +373,12 @@ namespace quicr {
     }
 
     void PublishTrackHandler::EndSubgroup(uint64_t group_id, uint64_t subgroup_id, bool completed)
+    {
+        std::lock_guard lock(binding_operation_mutex_);
+        EndSubgroupInternal(group_id, subgroup_id, completed);
+    }
+
+    void PublishTrackHandler::EndSubgroupInternal(uint64_t group_id, uint64_t subgroup_id, bool completed)
     {
         auto session = GetSession().lock();
 
@@ -391,7 +403,8 @@ namespace quicr {
             eflags.use_reliable = true;
             eflags.close_stream = true;
 
-            session->Enqueue(subgroup_it->second.stream, {}, GetPublishObjectPriority(), default_ttl_, eflags);
+            session->Enqueue(
+              GetConnection(), subgroup_it->second.stream, {}, GetPublishObjectPriority(), default_ttl_, eflags);
         } else {
             session->ResetSubgroup(subgroup_it->second.stream);
         }
@@ -402,7 +415,13 @@ namespace quicr {
         }
     }
 
-    void PublishTrackHandler::EndAllSubgroups()
+    void PublishTrackHandler::EndAllSubgroups(bool completed)
+    {
+        std::lock_guard lock(binding_operation_mutex_);
+        EndAllSubgroupsInternal(completed);
+    }
+
+    void PublishTrackHandler::EndAllSubgroupsInternal(bool completed)
     {
         // EndSubgroup erases as it goes, so gather first rather than iterating the map it mutates.
         std::vector<std::pair<std::uint64_t, std::uint64_t>> open;
@@ -413,7 +432,7 @@ namespace quicr {
         }
 
         for (const auto& [group_id, subgroup_id] : open) {
-            EndSubgroup(group_id, subgroup_id, true);
+            EndSubgroupInternal(group_id, subgroup_id, completed);
         }
     }
 
@@ -437,7 +456,7 @@ namespace quicr {
             // TODO: SUBSCRIPTION_FILTER
             // TODO: EXPIRES
 
-            const auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+            const auto ngr = params.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
             if (ngr.has_value()) {
                 if (!support_new_group_request_) {
                     throw messages::ProtocolViolationException("Must not request new group on non-dynamic track");
@@ -466,35 +485,35 @@ namespace quicr {
         // TODO: SUBGROUP_DELIVERY_TIMEOUT
         // TODO: SUBSCRIBER_PRIORITY
         // TODO: SUBSCRIPTION_FILTER
-        if (auto forward = params.GetOptional<bool>(messages::ParameterType::kForward); forward) {
-            SetStatus(*forward ? Status::kOk : Status::kPaused);
+        if (params.Contains(messages::ParameterType::kForward)) {
+            SetStatus(messages::ResolveForward(params, true) ? Status::kOk : Status::kPaused);
         }
 
-        if (auto ngr = params.GetOptional<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
+        if (auto ngr = params.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest); ngr) {
             SetStatus(Status::kNewGroupRequested);
         }
 
         return messages::Parameters{};
     }
 
-    void PublishTrackHandler::StreamClosed(std::uint64_t stream_id, [[maybe_unused]] bool reset)
+    void PublishTrackHandler::SubgroupCancelled(std::uint64_t, std::uint64_t) {}
+
+    void PublishTrackHandler::StreamStopped(const std::shared_ptr<Stream>& stream)
     {
-        for (auto group_it = stream_info_by_group_.begin(); group_it != stream_info_by_group_.end();) {
-            for (auto subgroup_it = group_it->second.begin(); subgroup_it != group_it->second.end();) {
-                if (subgroup_it->second.stream != nullptr && subgroup_it->second.stream->GetStreamId() == stream_id) {
-                    // TODO: Don't reopen closed subgroups on subsequent publishes.
-                    subgroup_it = group_it->second.erase(subgroup_it);
-
-                    if (group_it->second.empty()) {
-                        group_it = stream_info_by_group_.erase(group_it);
+        std::optional<std::pair<std::uint64_t, std::uint64_t>> cancelled;
+        {
+            // Translate stream ID to group and subgroup IDs.
+            std::lock_guard _(binding_operation_mutex_);
+            for (const auto& [group_id, subgroups] : stream_info_by_group_) {
+                for (const auto& [subgroup_id, stream_info] : subgroups) {
+                    if (stream_info.stream == stream) {
+                        cancelled.emplace(group_id, subgroup_id);
                     }
-
-                    return;
                 }
-
-                ++subgroup_it;
             }
-            ++group_it;
+        }
+        if (cancelled.has_value()) {
+            SubgroupCancelled(cancelled->first, cancelled->second);
         }
     }
 } // namespace quicr
