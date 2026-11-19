@@ -730,3 +730,19 @@ TEST_CASE("Parameters - Filters")
     auto recv_filter = recv_params.GetFilter(FilterType::kTrackFilter);
     CHECK_EQ(recv_filter, filter);
 }
+
+TEST_CASE("Length prefix overflows are rejected")
+{
+    SUBCASE("Bytes")
+    {
+        const Bytes wire{ 0x05, 0x01, 0x02 };
+        Bytes value;
+        CHECK_THROWS_AS(BytesSpan(wire) >> value, ProtocolViolationException);
+    }
+    SUBCASE("Parameters")
+    {
+        const Bytes param_wire{ 0x01, 0x03, 0x05, 0x03, 0x01 };
+        Parameters params;
+        CHECK_THROWS_AS(BytesSpan(param_wire) >> params, ProtocolViolationException);
+    }
+}
