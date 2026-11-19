@@ -105,6 +105,7 @@ namespace quicr::messages {
      * @param buffer Input span.
      * @param value Destination for the parsed bytes.
      * @return Unconsumed suffix.
+     * @throws ProtocolViolationException if the length exceeds the remaining bytes.
      */
     BytesSpan operator>>(BytesSpan buffer, Bytes& value);
 
