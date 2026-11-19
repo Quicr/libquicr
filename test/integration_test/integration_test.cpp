@@ -1108,6 +1108,8 @@ TEST_CASE("Integration - GOAWAY migration")
         const auto old_connection = original_handler->GetConnection();
         REQUIRE(old_connection != nullptr);
         CHECK_EQ(original_handler->GetConnectionId(), old_connection->GetID());
+        const auto original_request_id = original_handler->GetRequestId();
+        REQUIRE(original_request_id.has_value());
 
         const FullTrackName publish_name{ TrackNamespace(std::vector<std::string>{ "goaway", "published" }),
                                           { 4, 5, 6 } };
@@ -1145,6 +1147,7 @@ TEST_CASE("Integration - GOAWAY migration")
         const auto new_connection = original_handler->GetConnection();
         REQUIRE(new_connection != nullptr);
         CHECK_NE(new_connection, old_connection);
+        CHECK_EQ(original_handler->GetRequestId(), original_request_id);
         REQUIRE(WaitFor([&publish_handler, &new_connection] {
             return publish_handler->GetConnection() == new_connection && publish_handler->CanPublish();
         }));
@@ -1159,6 +1162,9 @@ TEST_CASE("Integration - GOAWAY migration")
 
         // Relay A is released only after the handler has cut over.
         CHECK(WaitFor([&old_connection] { return old_connection->GetStatus() != Connection::Status::kReady; }));
+        CHECK_EQ(original_handler->GetConnection(), new_connection);
+        CHECK_EQ(original_handler->GetRequestId(), original_request_id);
+        CHECK_EQ(original_handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
     };
 
     SUBCASE("Raw QUIC")
@@ -1228,7 +1234,7 @@ TEST_CASE("Integration - request GOAWAY migrates part of a session")
         const auto new_relay_port = static_cast<std::uint16_t>(old_relay_port + 1);
         auto old_relay =
           MakeTestServer(session_mgr, false, std::nullopt, std::nullopt, std::nullopt, std::nullopt, old_relay_port);
-        [[maybe_unused]] auto new_relay =
+        auto new_relay =
           MakeTestServer(session_mgr, false, std::nullopt, std::nullopt, std::nullopt, std::nullopt, new_relay_port);
 
         std::promise<std::shared_ptr<Session>> old_server_session_promise;
@@ -1264,13 +1270,21 @@ TEST_CASE("Integration - request GOAWAY migrates part of a session")
         }));
         REQUIRE_EQ(migrating_handler->GetConnection(), old_connection);
         REQUIRE_EQ(staying_handler->GetConnection(), old_connection);
+        const auto migrating_request_id = migrating_handler->GetRequestId();
+        REQUIRE(migrating_request_id.has_value());
 
         const auto server_handler =
           old_relay->GetSubscriberPublishHandler(TrackHash(migrating_name).track_fullname_hash);
         REQUIRE(server_handler != nullptr);
 
+        std::promise<TestServer::SubscribeDetails> new_subscribe_promise;
+        auto new_subscribe_future = new_subscribe_promise.get_future();
+        new_relay->SetSubscribePromise(std::move(new_subscribe_promise));
+
         const auto redirect_uri = quicr::format("{}://{}:{}/relay", protocol_scheme, kIp, new_relay_port);
         old_server_session->GoAway(redirect_uri, std::chrono::seconds{ 5 }, server_handler);
+        REQUIRE(new_subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(new_subscribe_future.get().request_id, *migrating_request_id);
         REQUIRE(WaitFor([&migrating_handler, &old_connection] {
             const auto connection = migrating_handler->GetConnection();
             return connection != nullptr && connection != old_connection &&
@@ -1278,6 +1292,7 @@ TEST_CASE("Integration - request GOAWAY migrates part of a session")
         }));
 
         CHECK_EQ(staying_handler->GetConnection(), old_connection);
+        CHECK_EQ(migrating_handler->GetRequestId(), migrating_request_id);
         CHECK_EQ(staying_handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
         CHECK_EQ(old_connection->GetStatus(), Connection::Status::kReady);
         CHECK_EQ(session->GetDefaultConnection(), old_connection);
