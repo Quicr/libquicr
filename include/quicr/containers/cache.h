@@ -47,7 +47,7 @@ namespace quicr {
         Cache(size_t duration, size_t interval, std::shared_ptr<Clock> clock)
           : duration_{ duration }
           , interval_{ interval }
-          , total_buckets_{ duration_ / interval_ }
+          , total_buckets_{ duration_ / interval_ + 1 }
           , clock_(std::move(clock))
         {
             if (duration == 0 || duration % interval != 0 || duration == interval) {
@@ -89,7 +89,8 @@ namespace quicr {
          * @brief Copies a value into the cache.
          * @param key Lookup key.
          * @param value Value copied into shared storage.
-         * @param ttl Lifetime in milliseconds; zero means the configured maximum duration.
+         * @param ttl Lifetime in milliseconds; zero means the configured maximum duration. The entry is removed at
+         * the first bucket boundary at or after its TTL, so it lives for at least `ttl` and less than `ttl + interval`.
          * @throws std::invalid_argument If `ttl` exceeds the configured duration.
          * @warning Reinserting an existing key does not remove its earlier expiration-bucket entry; that older entry
          * may erase the replacement before its requested TTL.
@@ -228,21 +229,23 @@ namespace quicr {
         /**
          * @brief Applies elapsed bucket intervals and removes keys in expired buckets.
          * @note A jump spanning the full duration clears the cache. Derived classes must externally synchronize calls.
+         * @return The tick-service time, in milliseconds, that expiration was advanced to.
          */
-        void Advance()
+        TickType Advance()
         {
             const TickType new_ticks =
               static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(clock_->Get()).count());
-            const TickType delta = current_ticks_ ? (new_ticks - current_ticks_) / interval_ : 0;
-            current_ticks_ = new_ticks;
+            const TickType delta = (new_ticks - bucket_start_tick_) / interval_;
 
             if (delta == 0) {
-                return;
+                return new_ticks;
             }
+
+            bucket_start_tick_ += delta * interval_;
 
             if (delta >= static_cast<TickType>(total_buckets_)) {
                 Clear();
-                return;
+                return new_ticks;
             }
 
             for (TickType i = 0; i < delta; ++i) {
@@ -255,6 +258,7 @@ namespace quicr {
             }
 
             bucket_index_ = (bucket_index_ + delta) % total_buckets_;
+            return new_ticks;
         }
 
         /**
@@ -273,10 +277,9 @@ namespace quicr {
                 ttl = duration_;
             }
 
-            ttl /= interval_;
-
-            Advance();
-            const std::size_t future_index = (bucket_index_ + ttl - 1) % total_buckets_;
+            const TickType now = Advance();
+            const TickType intervals_until_clear = (now - bucket_start_tick_ + ttl + interval_ - 1) / interval_;
+            const std::size_t future_index = (bucket_index_ + intervals_until_clear - 1) % total_buckets_;
 
             buckets_[future_index].push_back(key);
             cache_[key] = std::make_shared<T>(value);
@@ -288,12 +291,14 @@ namespace quicr {
         /// Interval at which buckets are cleared, in milliseconds.
         const size_t interval_;
 
-        const size_t total_buckets_; ///< Number of expiration buckets, calculated as duration divided by interval.
+        /// Number of expiration buckets: one per interval of the duration, plus a spare so that a maximum TTL inserted
+        /// mid-interval does not wrap onto the current bucket.
+        const size_t total_buckets_;
 
         std::uint32_t bucket_index_{ 0 }; ///< Index of the current expiration bucket.
 
-        /// Last observed tick-service time in milliseconds.
-        TickType current_ticks_{ 0 };
+        /// Tick-service time, in milliseconds, at which the current bucket began.
+        TickType bucket_start_tick_{ 0 };
 
         std::map<std::uint64_t, BucketType> buckets_; ///< Expiration bucket index to keys scheduled for removal.
 
