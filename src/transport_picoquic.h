@@ -80,6 +80,7 @@ namespace quicr {
             std::atomic<std::thread::id> thread_id{};
 
             picoquic_quic_t* quic_ctx{ nullptr };
+            picoquic_quic_t* qmux_ctx{ nullptr };
             picoquic_network_thread_ctx_t* quic_network_thread_ctx{ nullptr };
             picoquic_packet_loop_param_t quic_network_thread_params{};
             int quic_loop_return_value{ 0 };
@@ -321,7 +322,7 @@ namespace quicr {
         std::shared_ptr<Connection> StartClient();
 
         /// Create a picoquic instance for the current config.
-        picoquic_quic_t* CreateQuicInstance(uint64_t current_time);
+        picoquic_quic_t* CreateQuicInstance(uint64_t current_time, bool qmux = false);
 
         void Server();
         bool ClientLoop();

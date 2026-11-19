@@ -41,6 +41,7 @@ namespace quicr {
         {
             kNativeQuic,   ///< Native MoQ over QUIC.
             kWebTransport, ///< MoQ over a WebTransport session.
+            kQmux,         ///< Native MoQ over QMUX and TLS/TCP.
         };
 
         /// @brief Connection lifecycle state.

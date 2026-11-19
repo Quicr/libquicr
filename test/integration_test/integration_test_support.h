@@ -16,8 +16,11 @@ namespace quicr_test {
 
     std::uint16_t GetTestPort();
 
-    quicr::ServerConfig MakeTestServerConfig(std::optional<std::uint16_t> server_port = std::nullopt);
+    quicr::ServerConfig MakeTestServerConfig(std::optional<std::uint16_t> server_port = std::nullopt,
+                                             bool enable_qmux = false);
 
-    quicr::ClientConfig MakeTestClientConfig(const std::string& protocol_scheme, const std::string& host = kIp);
+    quicr::ClientConfig MakeTestClientConfig(const std::string& protocol_scheme,
+                                             const std::string& host = kIp,
+                                             std::uint16_t port = GetTestPort());
 
 } // namespace quicr_test

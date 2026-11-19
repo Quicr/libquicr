@@ -30,11 +30,12 @@ namespace quicr_test {
         return kDefaultPort;
     }
 
-    quicr::ServerConfig MakeTestServerConfig(const std::optional<std::uint16_t> server_port)
+    quicr::ServerConfig MakeTestServerConfig(const std::optional<std::uint16_t> server_port, bool enable_qmux)
     {
         quicr::ServerConfig server_config;
         server_config.server_bind_ip = kIp;
         server_config.server_port = server_port.value_or(GetTestPort());
+        server_config.transport_config.qmux_port = enable_qmux ? server_config.server_port : 0;
         server_config.endpoint_id = kServerId;
         server_config.transport_config.debug = true;
         server_config.transport_config.tls_cert_filename = "server-cert.pem";
@@ -43,13 +44,17 @@ namespace quicr_test {
         return server_config;
     }
 
-    quicr::ClientConfig MakeTestClientConfig(const std::string& protocol_scheme, const std::string& host)
+    quicr::ClientConfig MakeTestClientConfig(const std::string& protocol_scheme,
+                                             const std::string& host,
+                                             std::uint16_t port)
     {
         quicr::ClientConfig client_config;
         client_config.transport_config.debug = true;
         client_config.endpoint_id = "client";
         client_config.transport_config.time_queue_max_duration = 10000;
-        client_config.connect_uri = protocol_scheme + "://" + host + ":" + std::to_string(GetTestPort()) + "/relay";
+        client_config.use_qmux = protocol_scheme == "qmux";
+        const auto scheme = client_config.use_qmux ? std::string("moqt") : protocol_scheme;
+        client_config.connect_uri = scheme + "://" + host + ":" + std::to_string(port) + "/relay";
         return client_config;
     }
 
