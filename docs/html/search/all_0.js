@@ -7,7 +7,7 @@ var searchData=
   ['addoptional_4',['AddOptional',['../classquicr_1_1messages_1_1TrackExtensions.html#acbfed85ce8dfd453088e0db05e8ceade',1,'quicr::messages::TrackExtensions::AddOptional()'],['../classquicr_1_1messages_1_1ParameterList.html#a82b34c688efe78e64feec61811fd174e',1,'quicr::messages::ParameterList::AddOptional()']]],
   ['addtransport_5',['AddTransport',['../classquicr_1_1SessionManager.html#aaed80d57bfe76238b1d7f0785a80bb36',1,'quicr::SessionManager::AddTransport(const ClientConfig &amp;config, std::shared_ptr&lt; Session::ClientCallbacks &gt; callbacks=nullptr)'],['../classquicr_1_1SessionManager.html#ad14f422027b6794b61fcd097968683e3',1,'quicr::SessionManager::AddTransport(const ServerConfig &amp;config, std::shared_ptr&lt; Session::ServerCallbacks &gt; callbacks=nullptr)']]],
   ['addvalue_6',['AddValue',['../structquicr_1_1MinMaxAvg.html#ad3c0f78cd86d6d1784d6df9c06c27e63',1,'quicr::MinMaxAvg']]],
-  ['advance_7',['Advance',['../classquicr_1_1Cache.html#adc01bbccee0a9e74809c691a9899d664',1,'quicr::Cache']]],
+  ['advance_7',['Advance',['../classquicr_1_1Cache.html#ae718373eba27b30c69000ba6a3c0b3c0',1,'quicr::Cache']]],
   ['alias_5ftype_8',['alias_type',['../structquicr_1_1messages_1_1Token.html#aebaa71f1c803b1368004797f4642aab2',1,'quicr::messages::Token::alias_type()'],['../structquicr__token.html#a724242e8f0856712915a775f6699fd8a',1,'quicr_token::alias_type()']]],
   ['aliastype_9',['AliasType',['../structquicr_1_1messages_1_1Token.html#a4cac451bfb342703c2f8fcfa07962f9f',1,'quicr::messages::Token']]],
   ['anyhasvalue_10',['AnyHasValue',['../classquicr_1_1StreamBuffer.html#abccd30615a310d94b0c61f9102a0d1b8',1,'quicr::StreamBuffer']]],

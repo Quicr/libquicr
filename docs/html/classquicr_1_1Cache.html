@@ -149,9 +149,9 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:adc01bbccee0a9e74809c691a9899d664"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1Cache.html#adc01bbccee0a9e74809c691a9899d664">Advance</a> ()</td></tr>
-<tr class="memdesc:adc01bbccee0a9e74809c691a9899d664"><td class="mdescLeft">&#160;</td><td class="mdescRight">Applies elapsed bucket intervals and removes keys in expired buckets.  <a href="classquicr_1_1Cache.html#adc01bbccee0a9e74809c691a9899d664">More...</a><br /></td></tr>
-<tr class="separator:adc01bbccee0a9e74809c691a9899d664"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae718373eba27b30c69000ba6a3c0b3c0"><td class="memItemLeft" align="right" valign="top">TickType&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1Cache.html#ae718373eba27b30c69000ba6a3c0b3c0">Advance</a> ()</td></tr>
+<tr class="memdesc:ae718373eba27b30c69000ba6a3c0b3c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Applies elapsed bucket intervals and removes keys in expired buckets.  <a href="classquicr_1_1Cache.html#ae718373eba27b30c69000ba6a3c0b3c0">More...</a><br /></td></tr>
+<tr class="separator:ae718373eba27b30c69000ba6a3c0b3c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad2f9083d049cb1abd85a6e2a0a00a08e"><td class="memTemplParams" colspan="2">template&lt;typename Value &gt; </td></tr>
 <tr class="memitem:ad2f9083d049cb1abd85a6e2a0a00a08e"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classquicr_1_1Cache.html#ad2f9083d049cb1abd85a6e2a0a00a08e">InternalInsert</a> (const K &amp;key, Value value, size_t ttl)</td></tr>
 <tr class="memdesc:ad2f9083d049cb1abd85a6e2a0a00a08e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Shared insertion implementation.  <a href="classquicr_1_1Cache.html#ad2f9083d049cb1abd85a6e2a0a00a08e">More...</a><br /></td></tr>
@@ -166,14 +166,13 @@ Protected Attributes</h2></td></tr>
 <tr class="memdesc:ae9cc71e97b86f62e3dc528ce0b168d5f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Interval at which buckets are cleared, in milliseconds.  <a href="classquicr_1_1Cache.html#ae9cc71e97b86f62e3dc528ce0b168d5f">More...</a><br /></td></tr>
 <tr class="separator:ae9cc71e97b86f62e3dc528ce0b168d5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0379c483f2c80fa069c4e475e01f59aa"><td class="memItemLeft" align="right" valign="top">const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1Cache.html#a0379c483f2c80fa069c4e475e01f59aa">total_buckets_</a></td></tr>
-<tr class="memdesc:a0379c483f2c80fa069c4e475e01f59aa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of expiration buckets, calculated as duration divided by interval.  <a href="classquicr_1_1Cache.html#a0379c483f2c80fa069c4e475e01f59aa">More...</a><br /></td></tr>
 <tr class="separator:a0379c483f2c80fa069c4e475e01f59aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a885e251176f5e5ef0cf4e723d887392d"><td class="memItemLeft" align="right" valign="top">std::uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1Cache.html#a885e251176f5e5ef0cf4e723d887392d">bucket_index_</a> { 0 }</td></tr>
 <tr class="memdesc:a885e251176f5e5ef0cf4e723d887392d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Index of the current expiration bucket.  <a href="classquicr_1_1Cache.html#a885e251176f5e5ef0cf4e723d887392d">More...</a><br /></td></tr>
 <tr class="separator:a885e251176f5e5ef0cf4e723d887392d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3914bc9a1e0fdc35b6b7b5695a5283e7"><td class="memItemLeft" align="right" valign="top">TickType&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1Cache.html#a3914bc9a1e0fdc35b6b7b5695a5283e7">current_ticks_</a> { 0 }</td></tr>
-<tr class="memdesc:a3914bc9a1e0fdc35b6b7b5695a5283e7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Last observed tick-service time in milliseconds.  <a href="classquicr_1_1Cache.html#a3914bc9a1e0fdc35b6b7b5695a5283e7">More...</a><br /></td></tr>
-<tr class="separator:a3914bc9a1e0fdc35b6b7b5695a5283e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a910ae1149fe030293894f6c086cb14b4"><td class="memItemLeft" align="right" valign="top">TickType&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1Cache.html#a910ae1149fe030293894f6c086cb14b4">bucket_start_tick_</a> { 0 }</td></tr>
+<tr class="memdesc:a910ae1149fe030293894f6c086cb14b4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Tick-service time, in milliseconds, at which the current bucket began.  <a href="classquicr_1_1Cache.html#a910ae1149fe030293894f6c086cb14b4">More...</a><br /></td></tr>
+<tr class="separator:a910ae1149fe030293894f6c086cb14b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab8d999a1bf31f3ec7995163c3aaea40a"><td class="memItemLeft" align="right" valign="top">std::map&lt; std::uint64_t, BucketType &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1Cache.html#ab8d999a1bf31f3ec7995163c3aaea40a">buckets_</a></td></tr>
 <tr class="memdesc:ab8d999a1bf31f3ec7995163c3aaea40a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Expiration bucket index to keys scheduled for removal.  <a href="classquicr_1_1Cache.html#ab8d999a1bf31f3ec7995163c3aaea40a">More...</a><br /></td></tr>
 <tr class="separator:ab8d999a1bf31f3ec7995163c3aaea40a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -361,8 +360,8 @@ template&lt;typename K , typename T &gt; </div>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="adc01bbccee0a9e74809c691a9899d664"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adc01bbccee0a9e74809c691a9899d664">&#9670;&nbsp;</a></span>Advance()</h2>
+<a id="ae718373eba27b30c69000ba6a3c0b3c0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae718373eba27b30c69000ba6a3c0b3c0">&#9670;&nbsp;</a></span>Advance()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -373,7 +372,7 @@ template&lt;typename K , typename T &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void <a class="el" href="classquicr_1_1Cache.html">quicr::Cache</a>&lt; K, T &gt;::Advance </td>
+          <td class="memname">TickType <a class="el" href="classquicr_1_1Cache.html">quicr::Cache</a>&lt; K, T &gt;::Advance </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
@@ -388,6 +387,7 @@ template&lt;typename K , typename T &gt; </div>
 
 <p>Applies elapsed bucket intervals and removes keys in expired buckets. </p>
 <dl class="section note"><dt>Note</dt><dd>A jump spanning the full duration clears the cache. Derived classes must externally synchronize calls. </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>The tick-service time, in milliseconds, that expiration was advanced to. </dd></dl>
 
 </div>
 </div>
@@ -708,7 +708,7 @@ template&lt;typename K , typename T &gt; </div>
   <table class="params">
     <tr><td class="paramname">key</td><td>Lookup key. </td></tr>
     <tr><td class="paramname">value</td><td>Value copied into shared storage. </td></tr>
-    <tr><td class="paramname">ttl</td><td>Lifetime in milliseconds; zero means the configured maximum duration. </td></tr>
+    <tr><td class="paramname">ttl</td><td>Lifetime in milliseconds; zero means the configured maximum duration. The entry is removed at the first bucket boundary at or after its TTL, so it lives for at least <code>ttl</code> and less than <code>ttl + interval</code>. </td></tr>
   </table>
   </dd>
 </dl>
@@ -769,7 +769,7 @@ template&lt;typename K , typename T &gt; </div>
   <table class="params">
     <tr><td class="paramname">key</td><td>Lookup key. </td></tr>
     <tr><td class="paramname">value</td><td>Value copied into shared storage. </td></tr>
-    <tr><td class="paramname">ttl</td><td>Lifetime in milliseconds; zero means the configured maximum duration. </td></tr>
+    <tr><td class="paramname">ttl</td><td>Lifetime in milliseconds; zero means the configured maximum duration. The entry is removed at the first bucket boundary at or after its TTL, so it lives for at least <code>ttl</code> and less than <code>ttl + interval</code>. </td></tr>
   </table>
   </dd>
 </dl>
@@ -1004,6 +1004,32 @@ template&lt;typename K , typename T &gt; </div>
 
 </div>
 </div>
+<a id="a910ae1149fe030293894f6c086cb14b4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a910ae1149fe030293894f6c086cb14b4">&#9670;&nbsp;</a></span>bucket_start_tick_</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename K , typename T &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">TickType <a class="el" href="classquicr_1_1Cache.html">quicr::Cache</a>&lt; K, T &gt;::bucket_start_tick_ { 0 }</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Tick-service time, in milliseconds, at which the current bucket began. </p>
+
+</div>
+</div>
 <a id="ab8d999a1bf31f3ec7995163c3aaea40a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab8d999a1bf31f3ec7995163c3aaea40a">&#9670;&nbsp;</a></span>buckets_</h2>
 
@@ -1082,32 +1108,6 @@ template&lt;typename K , typename T &gt; </div>
 
 </div>
 </div>
-<a id="a3914bc9a1e0fdc35b6b7b5695a5283e7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3914bc9a1e0fdc35b6b7b5695a5283e7">&#9670;&nbsp;</a></span>current_ticks_</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename K , typename T &gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">TickType <a class="el" href="classquicr_1_1Cache.html">quicr::Cache</a>&lt; K, T &gt;::current_ticks_ { 0 }</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Last observed tick-service time in milliseconds. </p>
-
-</div>
-</div>
 <a id="a3e57d43f8e70502bad5e68f6375bad3b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a3e57d43f8e70502bad5e68f6375bad3b">&#9670;&nbsp;</a></span>duration_</h2>
 
@@ -1181,8 +1181,7 @@ template&lt;typename K , typename T &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Number of expiration buckets, calculated as duration divided by interval. </p>
+<p>Number of expiration buckets: one per interval of the duration, plus a spare so that a maximum TTL inserted mid-interval does not wrap onto the current bucket. </p>
 
 </div>
 </div>

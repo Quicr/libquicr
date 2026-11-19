@@ -12,6 +12,5 @@ var searchData=
   ['connection_2167',['connection',['../structquicr_1_1QuicMetricsSample.html#ab58348d7eafcb927302342021fe5de54',1,'quicr::QuicMetricsSample']]],
   ['connection_5fid_2168',['connection_id',['../structquicr_1_1TrackHandler_1_1Binding.html#a9345e57bd9448d4c9bb458626408c7ef',1,'quicr::TrackHandler::Binding']]],
   ['count_2169',['count',['../structquicr__track__namespace__list.html#a547ef7faa37532ba607c5df3f69ed0ca',1,'quicr_track_namespace_list::count()'],['../structquicr__extension__entry.html#a3206e9c3caca8a7e0dbc03e9133b09e8',1,'quicr_extension_entry::count()'],['../structquicr__extensions.html#a5f8d322744b59297977f207bf2047cbb',1,'quicr_extensions::count()']]],
-  ['current_5fticks_5f_2170',['current_ticks_',['../classquicr_1_1Cache.html#a3914bc9a1e0fdc35b6b7b5695a5283e7',1,'quicr::Cache']]],
-  ['cwin_5fcongested_2171',['cwin_congested',['../structquicr_1_1QuicConnectionMetrics.html#abf5e8d6a1d4ce19c7c1acb615c3151d4',1,'quicr::QuicConnectionMetrics::cwin_congested()'],['../structquicr__quic__connection__metrics.html#a9be05a7fc2c09276233d42d3cf813bda',1,'quicr_quic_connection_metrics::cwin_congested()']]]
+  ['cwin_5fcongested_2170',['cwin_congested',['../structquicr_1_1QuicConnectionMetrics.html#abf5e8d6a1d4ce19c7c1acb615c3151d4',1,'quicr::QuicConnectionMetrics::cwin_congested()'],['../structquicr__quic__connection__metrics.html#a9be05a7fc2c09276233d42d3cf813bda',1,'quicr_quic_connection_metrics::cwin_congested()']]]
 ];
