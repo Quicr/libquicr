@@ -165,6 +165,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a3bb10f3647f5321203c26a9c4bfb9f79"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1TransportConfig.html#a3bb10f3647f5321203c26a9c4bfb9f79">use_af_xdp</a> { true }</td></tr>
 <tr class="memdesc:a3bb10f3647f5321203c26a9c4bfb9f79"><td class="mdescLeft">&#160;</td><td class="mdescRight">Whether to use AF_XDP transmit when available, falling back to sendmsg.  <a href="structquicr_1_1TransportConfig.html#a3bb10f3647f5321203c26a9c4bfb9f79">More...</a><br /></td></tr>
 <tr class="separator:a3bb10f3647f5321203c26a9c4bfb9f79"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a39037544d2ed64eed8503856557557d6"><td class="memItemLeft" align="right" valign="top">uint16_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1TransportConfig.html#a39037544d2ed64eed8503856557557d6">qmux_port</a> { 0 }</td></tr>
+<tr class="memdesc:a39037544d2ed64eed8503856557557d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">QMUX/TLS/TCP listening port, 0 is disabled.  <a href="structquicr_1_1TransportConfig.html#a39037544d2ed64eed8503856557557d6">More...</a><br /></td></tr>
+<tr class="separator:a39037544d2ed64eed8503856557557d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Configuration shared by client and server QUIC transports. </p>
@@ -294,6 +297,22 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Metrics sampling interval in milliseconds. </p>
+
+</div>
+</div>
+<a id="a39037544d2ed64eed8503856557557d6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a39037544d2ed64eed8503856557557d6">&#9670;&nbsp;</a></span>qmux_port</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint16_t quicr::TransportConfig::qmux_port { 0 }</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>QMUX/TLS/TCP listening port, 0 is disabled. </p>
 
 </div>
 </div>

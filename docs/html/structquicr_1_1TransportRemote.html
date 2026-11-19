@@ -101,11 +101,14 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:a7cb3c16713f6b1949b4166fc38235701"><td class="mdescLeft">&#160;</td><td class="mdescRight">IPv4/IPv6 address or fully qualified host name.  <a href="structquicr_1_1TransportRemote.html#a7cb3c16713f6b1949b4166fc38235701">More...</a><br /></td></tr>
 <tr class="separator:a7cb3c16713f6b1949b4166fc38235701"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae568b0c7d4bd3b32e2b5709c9180091c"><td class="memItemLeft" align="right" valign="top">uint16_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1TransportRemote.html#ae568b0c7d4bd3b32e2b5709c9180091c">port</a></td></tr>
-<tr class="memdesc:ae568b0c7d4bd3b32e2b5709c9180091c"><td class="mdescLeft">&#160;</td><td class="mdescRight">UDP destination or listening port.  <a href="structquicr_1_1TransportRemote.html#ae568b0c7d4bd3b32e2b5709c9180091c">More...</a><br /></td></tr>
+<tr class="memdesc:ae568b0c7d4bd3b32e2b5709c9180091c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destination or listening port.  <a href="structquicr_1_1TransportRemote.html#ae568b0c7d4bd3b32e2b5709c9180091c">More...</a><br /></td></tr>
 <tr class="separator:ae568b0c7d4bd3b32e2b5709c9180091c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab155d7561acfd987e24f13e90bdfdffe"><td class="memItemLeft" align="right" valign="top">std::optional&lt; <a class="el" href="structquicr_1_1WebTransportOptions.html">WebTransportOptions</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1TransportRemote.html#ab155d7561acfd987e24f13e90bdfdffe">web_transport_options</a></td></tr>
 <tr class="memdesc:ab155d7561acfd987e24f13e90bdfdffe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enables WT protocol with given options.  <a href="structquicr_1_1TransportRemote.html#ab155d7561acfd987e24f13e90bdfdffe">More...</a><br /></td></tr>
 <tr class="separator:ab155d7561acfd987e24f13e90bdfdffe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a72415b69251f23bbc00d21ccc81cff45"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1TransportRemote.html#a72415b69251f23bbc00d21ccc81cff45">qmux</a> { false }</td></tr>
+<tr class="memdesc:a72415b69251f23bbc00d21ccc81cff45"><td class="mdescLeft">&#160;</td><td class="mdescRight">QMUX in use.  <a href="structquicr_1_1TransportRemote.html#a72415b69251f23bbc00d21ccc81cff45">More...</a><br /></td></tr>
+<tr class="separator:a72415b69251f23bbc00d21ccc81cff45"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Remote/Destination endpoint address info. </p>
@@ -139,7 +142,23 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>UDP destination or listening port. </p>
+<p>Destination or listening port. </p>
+
+</div>
+</div>
+<a id="a72415b69251f23bbc00d21ccc81cff45"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a72415b69251f23bbc00d21ccc81cff45">&#9670;&nbsp;</a></span>qmux</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool quicr::TransportRemote::qmux { false }</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>QMUX in use. </p>
 
 </div>
 </div>

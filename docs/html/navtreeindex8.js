@@ -66,6 +66,7 @@ var NAVTREEINDEX8 =
 "stream__buffer_8h_source.html":[3,0,1,0,0,3],
 "structquicr_1_1ClientConfig.html":[2,0,0,15],
 "structquicr_1_1ClientConfig.html#a4b4f77d48719604432a87389f78ee22c":[2,0,0,15,2],
+"structquicr_1_1ClientConfig.html#a5157b23256bd2525f90fc9f0985c2596":[2,0,0,15,5],
 "structquicr_1_1ClientConfig.html#a8eced9153335235a4fd396d34606b081":[2,0,0,15,4],
 "structquicr_1_1ClientConfig.html#aa6b0b5406607428025ea40d64f18d570":[2,0,0,15,0],
 "structquicr_1_1ClientConfig.html#ac61dcd9337d55b4694552338af12fe2e":[2,0,0,15,1],
@@ -248,6 +249,5 @@ var NAVTREEINDEX8 =
 "structquicr_1_1SessionManager_1_1Callbacks.html#aeed15acef8d19588f762aef956d76c45":[2,0,0,51,0,0],
 "structquicr_1_1Session_1_1Callbacks.html":[2,0,0,49,0],
 "structquicr_1_1Session_1_1Callbacks.html#a0bbaf6e1fe5a02ee9956d19d35f25413":[2,0,0,49,0,9],
-"structquicr_1_1Session_1_1Callbacks.html#a16c8538aabf8587bdcce2b69e1762f3b":[2,0,0,49,0,3],
-"structquicr_1_1Session_1_1Callbacks.html#a2ba5531e39e38f31c8227293e9c76431":[2,0,0,49,0,4]
+"structquicr_1_1Session_1_1Callbacks.html#a16c8538aabf8587bdcce2b69e1762f3b":[2,0,0,49,0,3]
 };

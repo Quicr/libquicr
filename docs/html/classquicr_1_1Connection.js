@@ -3,7 +3,8 @@ var classquicr_1_1Connection =
     [ "Delegate", "classquicr_1_1Connection_1_1Delegate.html", "classquicr_1_1Connection_1_1Delegate" ],
     [ "Protocol", "classquicr_1_1Connection.html#a8ec26275d98387f239ba2ea226dab746", [
       [ "kNativeQuic", "classquicr_1_1Connection.html#a8ec26275d98387f239ba2ea226dab746a2d6fc91a8f9581108f19da9596cd394d", null ],
-      [ "kWebTransport", "classquicr_1_1Connection.html#a8ec26275d98387f239ba2ea226dab746a8d72ce5b9de03191db06ddb1159a7eca", null ]
+      [ "kWebTransport", "classquicr_1_1Connection.html#a8ec26275d98387f239ba2ea226dab746a8d72ce5b9de03191db06ddb1159a7eca", null ],
+      [ "kQmux", "classquicr_1_1Connection.html#a8ec26275d98387f239ba2ea226dab746a4b3c4e949ce4ab7eeafcc377ffcca02a", null ]
     ] ],
     [ "Status", "classquicr_1_1Connection.html#a6e7ef2f367e7272a78ef606594851273", [
       [ "kReady", "classquicr_1_1Connection.html#a6e7ef2f367e7272a78ef606594851273a25d5606fe07425ea73f245c48612c039", null ],

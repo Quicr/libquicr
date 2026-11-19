@@ -68,7 +68,7 @@ var NAVTREE =
 
 var NAVTREEINDEX =
 [
-"",
+"annotated.html",
 "classquicr_1_1ForwardingSubscribeTrackHandler.html#a44a22b00ede78da103f109a335f54dfb",
 "classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98da1a92f7a65f6718e345298f8e4c4093b1",
 "classquicr_1_1SubscribeNamespaceHandler.html#a1a0011bf40fce001f9737dca3c504efa",
@@ -77,9 +77,9 @@ var NAVTREEINDEX =
 "namespacequicr.html#afa08da627c4aa379f61774da6ba93b61a428619f5cc217376ae939f57c8dc15ba",
 "parameters_8h.html#a2947177aa07039fc26c47a7a25327eeaa0e6a5f48386d5e64047e2d726ec952a4",
 "quicr_8h.html#ae84c40d55372e856c4c5e24d3e4579c5",
-"structquicr_1_1Session_1_1Callbacks.html#a47c5c4100bf0c3b32652384ba6c2f54a",
-"structquicr_1_1messages_1_1StreamSubGroupObject.html#a99af2244cbbe615f12621360c2728248",
-"structquicr__subscribe__namespace__handler__callbacks.html#a2b953cb760db85dd97e71f4b83c31291"
+"structquicr_1_1Session_1_1Callbacks.html#a2ba5531e39e38f31c8227293e9c76431",
+"structquicr_1_1messages_1_1StreamSubGroupObject.html#a419a0537f00222d6ded33ba5769eb5fe",
+"structquicr__stream__header__properties.html#a958c99b039c6d4cd5acbe09b209dc9ca"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';

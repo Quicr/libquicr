@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['webtransportoptions_1640',['WebTransportOptions',['../structquicr_1_1WebTransportOptions.html',1,'quicr']]]
+  ['webtransportoptions_1638',['WebTransportOptions',['../structquicr_1_1WebTransportOptions.html',1,'quicr']]]
 ];

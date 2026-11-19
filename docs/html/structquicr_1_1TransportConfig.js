@@ -8,6 +8,7 @@ var structquicr_1_1TransportConfig =
     [ "initial_max_stream_id", "structquicr_1_1TransportConfig.html#ae0b8a3607885a1c7f4a02f965b21ac25", null ],
     [ "max_connections", "structquicr_1_1TransportConfig.html#a20be629af5e6e131159a5eccc540ef1c", null ],
     [ "metrics_sample_ms", "structquicr_1_1TransportConfig.html#afca4e72d72d55f8d1ab05c55395a6533", null ],
+    [ "qmux_port", "structquicr_1_1TransportConfig.html#a39037544d2ed64eed8503856557557d6", null ],
     [ "quic_cwin_minimum", "structquicr_1_1TransportConfig.html#add5a1dd2919991646d1fb2c84371afb0", null ],
     [ "quic_priority_limit", "structquicr_1_1TransportConfig.html#a199ad1d621bf7fa4a986865209d59767", null ],
     [ "quic_qlog_path", "structquicr_1_1TransportConfig.html#add35c8e996859ea96c68e977a14a5118", null ],
