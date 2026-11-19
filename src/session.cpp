@@ -271,18 +271,18 @@ namespace quicr {
         return request;
     }
 
-    std::shared_ptr<Request> Session::FindResponseRequest(const RequestKey& key)
+    std::shared_ptr<Request> Session::FindResponseRequest(const Connection& connection, std::uint64_t request_id)
     {
-        if (auto request = FindRequest(key)) {
+        if (auto request = FindRequest({ connection.GetID(), request_id })) {
             return request;
         }
 
-        const auto migration = FindMigration(key.first);
-        if (migration == migrations_.end() || !migration->second.pending.contains(key.second)) {
+        const auto migration = FindMigration(connection);
+        if (migration == migrations_.end() || !migration->second.pending.contains(request_id)) {
             return nullptr;
         }
 
-        return FindRequest({ migration->second.source_connection->GetID(), key.second });
+        return FindRequest({ migration->second.source_connection->GetID(), request_id });
     }
 
     bool Session::RemoveRequest(const std::shared_ptr<Request>& request)
@@ -2040,7 +2040,7 @@ namespace quicr {
                 std::string connect_uri = client_config_.connect_uri;
                 {
                     std::lock_guard lock(state_mutex_);
-                    if (const auto migration = FindMigration(connection->GetID()); migration != migrations_.end()) {
+                    if (const auto migration = FindMigration(*connection); migration != migrations_.end()) {
                         connect_uri = migration->second.redirect.uri;
                     }
                 }
@@ -2617,7 +2617,7 @@ namespace quicr {
                     request_id = req_it->second.request_id;
                     request_by_stream.erase(req_it);
 
-                    const auto migration = FindMigration(connection_id);
+                    const auto migration = FindMigration(*connection);
                     if (migration != migrations_.end()) {
                         const auto pending = migration->second.pending.find(*request_id);
                         failed_migration =
@@ -3137,11 +3137,11 @@ namespace quicr {
         return !redirect.request_id.has_value() || handler.GetRequestId() == redirect.request_id;
     }
 
-    Session::MigrationMap::iterator Session::FindMigration(std::uint64_t candidate_connection_id)
+    Session::MigrationMap::iterator Session::FindMigration(const Connection& candidate)
     {
         return std::ranges::find_if(migrations_, [&](const auto& migration) {
             return migration.second.candidate_connection &&
-                   migration.second.candidate_connection->GetID() == candidate_connection_id;
+                   migration.second.candidate_connection->GetID() == candidate.GetID();
         });
     }
 
@@ -3153,7 +3153,7 @@ namespace quicr {
         std::vector<std::shared_ptr<TrackHandler>> handlers;
         {
             std::lock_guard lock(state_mutex_);
-            const auto migration = FindMigration(connection->GetID());
+            const auto migration = FindMigration(*connection);
             if (migration == migrations_.end()) {
                 return;
             }
@@ -3446,7 +3446,7 @@ namespace quicr {
         std::shared_ptr<TrackHandler> handler;
         {
             std::lock_guard lock(state_mutex_);
-            const auto migration = FindMigration(connection->GetID());
+            const auto migration = FindMigration(*connection);
             if (migration == migrations_.end()) {
                 return;
             }
@@ -3594,7 +3594,7 @@ namespace quicr {
         bool close_connection = false;
         {
             std::lock_guard lock(state_mutex_);
-            const auto migration = FindMigration(connection->GetID());
+            const auto migration = FindMigration(*connection);
             if (migration == migrations_.end()) {
                 return false;
             }
@@ -4250,7 +4250,7 @@ namespace quicr {
                 std::shared_ptr<TrackHandler> track_handler;
                 {
                     std::lock_guard lock(state_mutex_);
-                    track_handler = GetRequestHandler(FindResponseRequest({ connection->GetID(), request_id }));
+                    track_handler = GetRequestHandler(FindResponseRequest(*connection, request_id));
                 }
 
                 if (!track_handler) {
@@ -4400,7 +4400,7 @@ namespace quicr {
                 std::shared_ptr<TrackHandler> track_handler;
                 {
                     std::lock_guard lock(state_mutex_);
-                    track_handler = GetRequestHandler(FindResponseRequest({ connection->GetID(), request_id }));
+                    track_handler = GetRequestHandler(FindResponseRequest(*connection, request_id));
                 }
                 const bool migration_failed = FailMigration(connection, request_id);
 

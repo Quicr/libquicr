@@ -750,7 +750,8 @@ namespace quicr {
 
         std::shared_ptr<Request> FindRequestForHandler(const TrackHandler& handler) const QUICR_REQUIRES(state_mutex_);
 
-        std::shared_ptr<Request> FindResponseRequest(const RequestKey& key) QUICR_REQUIRES(state_mutex_);
+        std::shared_ptr<Request> FindResponseRequest(const Connection& connection, std::uint64_t request_id)
+          QUICR_REQUIRES(state_mutex_);
 
         bool RemoveRequest(const std::shared_ptr<Request>& request) QUICR_REQUIRES(state_mutex_);
 
@@ -886,7 +887,7 @@ namespace quicr {
 
         bool MatchesRedirect(const TrackHandler& handler, const Redirect& redirect) const;
 
-        MigrationMap::iterator FindMigration(std::uint64_t candidate_connection_id) QUICR_REQUIRES(state_mutex_);
+        MigrationMap::iterator FindMigration(const Connection& candidate) QUICR_REQUIRES(state_mutex_);
 
         void ResetSubgroup(const std::shared_ptr<Stream>& stream);
 
