@@ -1,5 +1,6 @@
 var NAVTREEINDEX8 =
 {
+"quicr_8h.html#ae4f8e1c6eafa27d549b9cfbee77e54f2":[3,0,1,0,11,140],
 "quicr_8h.html#ae84c40d55372e856c4c5e24d3e4579c5":[3,0,1,0,11,99],
 "quicr_8h.html#ae8ff32c8ce11d65ef2d2ec63188b186d":[3,0,1,0,11,205],
 "quicr_8h.html#aeb58ffdf48d0fad134c7bbbf4a8a1f75":[3,0,1,0,11,58],
@@ -248,6 +249,5 @@ var NAVTREEINDEX8 =
 "structquicr_1_1SessionManager_1_1Callbacks.html#aed17fdf3d94c2f2f8dbfbd427f0734c5":[2,0,0,51,0,1],
 "structquicr_1_1SessionManager_1_1Callbacks.html#aeed15acef8d19588f762aef956d76c45":[2,0,0,51,0,0],
 "structquicr_1_1Session_1_1Callbacks.html":[2,0,0,49,0],
-"structquicr_1_1Session_1_1Callbacks.html#a0bbaf6e1fe5a02ee9956d19d35f25413":[2,0,0,49,0,9],
-"structquicr_1_1Session_1_1Callbacks.html#a16c8538aabf8587bdcce2b69e1762f3b":[2,0,0,49,0,3]
+"structquicr_1_1Session_1_1Callbacks.html#a0bbaf6e1fe5a02ee9956d19d35f25413":[2,0,0,49,0,9]
 };

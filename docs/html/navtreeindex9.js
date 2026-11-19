@@ -1,5 +1,6 @@
 var NAVTREEINDEX9 =
 {
+"structquicr_1_1Session_1_1Callbacks.html#a16c8538aabf8587bdcce2b69e1762f3b":[2,0,0,49,0,3],
 "structquicr_1_1Session_1_1Callbacks.html#a2ba5531e39e38f31c8227293e9c76431":[2,0,0,49,0,4],
 "structquicr_1_1Session_1_1Callbacks.html#a47c5c4100bf0c3b32652384ba6c2f54a":[2,0,0,49,0,7],
 "structquicr_1_1Session_1_1Callbacks.html#a5d63592b3c58052a1387e414934c64a6":[2,0,0,49,0,1],
@@ -248,6 +249,5 @@ var NAVTREEINDEX9 =
 "structquicr_1_1messages_1_1StreamHeaderSubGroup.html#a388269ab6c845599f980a0b2626ee862":[2,0,0,1,19,1],
 "structquicr_1_1messages_1_1StreamHeaderSubGroup.html#a4c32fc173d32b2a73ec47e51a5e4d01d":[2,0,0,1,19,5],
 "structquicr_1_1messages_1_1StreamHeaderSubGroup.html#a9e14684caf5464d0ce35af394c3bd72c":[2,0,0,1,19,0],
-"structquicr_1_1messages_1_1StreamHeaderSubGroup.html#abe26e67a20f8250e9a418b41c5d38f54":[2,0,0,1,19,2],
-"structquicr_1_1messages_1_1StreamSubGroupObject.html":[2,0,0,1,20]
+"structquicr_1_1messages_1_1StreamHeaderSubGroup.html#abe26e67a20f8250e9a418b41c5d38f54":[2,0,0,1,19,2]
 };

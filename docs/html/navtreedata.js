@@ -68,18 +68,18 @@ var NAVTREE =
 
 var NAVTREEINDEX =
 [
-"annotated.html",
-"classquicr_1_1ForwardingSubscribeTrackHandler.html#a44a22b00ede78da103f109a335f54dfb",
-"classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98da1a92f7a65f6718e345298f8e4c4093b1",
-"classquicr_1_1SubscribeNamespaceHandler.html#a1a0011bf40fce001f9737dca3c504efa",
-"classquicr_1_1messages_1_1Message.html#af0b3bc95062b219a4c3c925f4d327173",
-"functions_func_e.html",
-"namespacequicr.html#afa08da627c4aa379f61774da6ba93b61a428619f5cc217376ae939f57c8dc15ba",
-"parameters_8h.html#a2947177aa07039fc26c47a7a25327eeaa0e6a5f48386d5e64047e2d726ec952a4",
-"quicr_8h.html#ae84c40d55372e856c4c5e24d3e4579c5",
-"structquicr_1_1Session_1_1Callbacks.html#a2ba5531e39e38f31c8227293e9c76431",
-"structquicr_1_1messages_1_1StreamSubGroupObject.html#a419a0537f00222d6ded33ba5769eb5fe",
-"structquicr__stream__header__properties.html#a958c99b039c6d4cd5acbe09b209dc9ca"
+"",
+"classquicr_1_1ForwardingSubscribeTrackHandler.html#a3c07d9be23f528614085804ebae6961a",
+"classquicr_1_1PublishNamespaceHandler.html#a574b111ab4917771cead57cb765ae98d",
+"classquicr_1_1SubscribeNamespaceHandler.html#a120ceb0902f07b9e3532102a7142ee3c",
+"classquicr_1_1messages_1_1Message.html#ad71a3c3f33d199eb69a0fb7855dacb18",
+"functions_func_d.html",
+"namespacequicr.html#afa08da627c4aa379f61774da6ba93b61a3826524c2ca9f2fd3dec26f15cb5fe83",
+"parameters_8h.html#a2947177aa07039fc26c47a7a25327eea",
+"quicr_8h.html#ae4f8e1c6eafa27d549b9cfbee77e54f2",
+"structquicr_1_1Session_1_1Callbacks.html#a16c8538aabf8587bdcce2b69e1762f3b",
+"structquicr_1_1messages_1_1StreamSubGroupObject.html",
+"structquicr__stream__header__properties.html#a4a9da8814b52d7bf4833331d7fd4371a"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';
