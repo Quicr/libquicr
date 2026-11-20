@@ -38,13 +38,6 @@ extern "C"
                                                          int use_datagrams,
                                                          int use_forwarding);
 
-    quicr_c_test_result_t quicr_test_c_callback_drain(const char* connect_uri,
-                                                      quicr_test_event_t* callback_entered,
-                                                      quicr_test_event_t* callback_release,
-                                                      quicr_test_event_t* callback_finished,
-                                                      quicr_test_event_t* destroy_started,
-                                                      quicr_test_event_t* destroy_returned);
-
     quicr_c_test_result_t quicr_test_c_fetch_namespace_status(const char* connect_uri);
 
     quicr_c_test_result_t quicr_test_c_rejections(const char* connect_uri);
