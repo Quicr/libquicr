@@ -148,29 +148,6 @@ namespace quicr {
             return request && !request->handlers.empty() ? request->handlers.back() : nullptr;
         }
 
-        std::shared_ptr<Request> MakeRequest(const std::shared_ptr<TrackHandler>& handler,
-                                             Request::Type type,
-                                             bool is_locally_initiated = true)
-        {
-            if (!handler) {
-                throw std::invalid_argument("Request handler cannot be null");
-            }
-
-            const auto binding = handler->GetBinding();
-            if (!binding.request_id.has_value()) {
-                throw std::logic_error("Request handler is missing a request ID");
-            }
-
-            return std::shared_ptr<Request>(new Request{
-              *binding.request_id,
-              type,
-              binding.request_stream,
-              handler->GetFullTrackName(),
-              std::vector<std::shared_ptr<TrackHandler>>{ handler },
-              is_locally_initiated,
-            });
-        }
-
         std::uint64_t ValidateRequest(const std::shared_ptr<Request>& request)
         {
             if (!request) {
@@ -231,17 +208,13 @@ namespace quicr {
             throw std::invalid_argument("Request and handler cannot be null");
         }
 
-        const auto binding = handler->GetBinding();
-        if (binding.request_id != request->request_id || binding.request_stream != request->stream ||
-            binding.connection_id != request->stream->GetConnectionID()) {
-            throw std::logic_error("Request handler binding does not match its request");
+        if (FindRequestForHandler(*handler)) {
+            throw std::logic_error("Request handler is already bound");
         }
 
-        const auto already_bound =
-          std::ranges::any_of(request->handlers, [&](const auto& bound) { return bound.get() == handler.get(); });
-        if (already_bound) {
-            return;
-        }
+        handler->SetConnectionId(request->stream->GetConnectionID());
+        handler->SetRequestStream(request->stream);
+        handler->SetRequestId(request->request_id);
 
         request->handlers.push_back(handler);
     }
@@ -989,6 +962,15 @@ namespace quicr {
         handler->RegisterSession(GetSharedPtr());
 
         const auto& prefix = handler->GetPrefix();
+        const auto request = std::make_shared<Request>(Request{
+          .request_id = GetNextRequestID(),
+          .type = Request::Type::kSubscribeNamespace,
+          .stream = quic_transport_->CreateRequestStream(connection),
+          .name = { prefix, {} },
+          .handlers = {},
+          .is_locally_initiated = true,
+        });
+
         handler->SetConnectionId(connection->GetID());
 
         [[maybe_unused]] auto th = TrackHash({ prefix, {} });
@@ -999,24 +981,25 @@ namespace quicr {
                           th.track_namespace_hash,
                           handler->GetMode() == SubscribeNamespaceHandler::Mode::kNamespaces ? "namespaces" : "tracks");
 
-        std::lock_guard<std::mutex> lock(state_mutex_);
-
-        handler->SetRequestId(GetNextRequestID());
-        if (FindRequest({ connection->GetID(), *handler->GetRequestId() })) {
-            QUICR_LOGGER_WARN(logger_, "Namespace already subscribed to (prefix_hash={})", th.track_namespace_hash);
-            return;
+        {
+            std::lock_guard _(state_mutex_);
+            AddRequest(request);
+            BindHandlerToRequest(request, handler);
         }
 
-        const auto message_type = handler->GetMode() == SubscribeNamespaceHandler::Mode::kNamespaces
-                                    ? ControlMessageType::kSubscribeNamespace
-                                    : ControlMessageType::kSubscribeTracks;
+        const bool is_tracks = handler->GetMode() == SubscribeNamespaceHandler::Mode::kTracks;
+        QUICR_LOGGER_INFO(logger_,
+                          "Subscribe namespace conn_id: {} prefix_hash: {} mode: {}",
+                          connection->GetID(),
+                          TrackHash({ prefix, {} }).track_namespace_hash,
+                          is_tracks ? "tracks" : "namespaces");
 
-        const auto request_stream = quic_transport_->CreateRequestStream(connection);
-        handler->SetRequestStream(request_stream);
-        AddRequest(MakeRequest(handler, Request::Type::kSubscribeNamespace));
-
-        SendSubscribeNamespace(
-          request_stream, handler->GetRequestId().value(), prefix, handler->GetFilter(), message_type);
+        SendSubscribeNamespace(request->stream,
+                               request->request_id,
+                               prefix,
+                               handler->GetFilter(),
+                               is_tracks ? ControlMessageType::kSubscribeTracks
+                                         : ControlMessageType::kSubscribeNamespace);
     }
 
     void Session::UnsubscribeNamespace(const std::shared_ptr<SubscribeNamespaceHandler>& handler)
@@ -1171,17 +1154,22 @@ namespace quicr {
                           ftn.NameStr());
         handler->SetStatus(TrackStatusHandler::Status::kPendingResponse);
 
-        std::lock_guard _(state_mutex_);
+        const auto request = std::make_shared<Request>(Request{
+          .request_id = GetNextRequestID(),
+          .type = Request::Type::kTrackStatus,
+          .stream = quic_transport_->CreateRequestStream(connection),
+          .name = ftn,
+          .handlers = {},
+          .is_locally_initiated = true,
+        });
 
-        const auto request_id = GetNextRequestID();
-        handler->SetRequestId(request_id);
-        handler->SetConnectionId(connection->GetID());
+        {
+            std::lock_guard _(state_mutex_);
+            AddRequest(request);
+            BindHandlerToRequest(request, handler);
+        }
 
-        const auto request_stream = quic_transport_->CreateRequestStream(connection);
-        handler->SetRequestStream(request_stream);
-        AddRequest(MakeRequest(handler, Request::Type::kTrackStatus));
-
-        SendTrackStatus(request_stream, request_id, ftn);
+        SendTrackStatus(request->stream, request->request_id, ftn);
     }
 
     void Session::CancelTrackStatus(const std::shared_ptr<TrackStatusHandler>& handler)
@@ -1253,53 +1241,10 @@ namespace quicr {
 
         std::lock_guard<std::mutex> _(state_mutex_);
 
-        std::shared_ptr<Request> publisher_request;
-        if (track_handler->IsPublisherInitiated()) {
-            if (!track_handler->GetReceivedTrackAlias().has_value()) {
-                throw std::runtime_error("Missing received track alias for publisher initiated subscribe");
-            }
-
-            if (!track_handler->GetRequestId().has_value()) {
-                throw std::runtime_error("Missing request id for publisher initiated subscribe");
-            }
-
-            const auto req_it = recv_req_id.find(*track_handler->GetRequestId());
-            auto connection_id = track_handler->GetConnectionId();
-            if (req_it != recv_req_id.end() && req_it->second.stream) {
-                connection_id = req_it->second.stream->GetConnectionID();
-            }
-
-            // The relay may have adopted this handler before PublishReceived returned. A second
-            // call would attach the handler again while a peer thread is already using the session.
-            publisher_request = FindRequest({ connection_id, *track_handler->GetRequestId() });
-            const auto existing = GetRequestHandler(publisher_request);
-            if (existing.get() == track_handler.get()) {
-                return;
-            }
-
-            if (existing) {
-                throw std::logic_error("Publisher-initiated request is already bound to another handler");
-            }
-        }
-
         track_handler->RegisterSession(GetSharedPtr());
 
         if (not proposed_track_alias.has_value()) {
             track_handler->SetTrackAlias(th.track_fullname_hash);
-        }
-
-        if (!track_handler->IsPublisherInitiated()) {
-            // increment and get the next request id if not initiated by publisher, which request Id is reused
-            track_handler->SetRequestId(GetNextRequestID());
-        } else {
-            const auto req_it = recv_req_id.find(*track_handler->GetRequestId());
-            if (req_it != recv_req_id.end() && req_it->second.stream) {
-                track_handler->SetRequestStream(req_it->second.stream);
-                track_handler->SetConnectionId(req_it->second.stream->GetConnectionID());
-            }
-
-            sub_by_recv_track_alias[{ track_handler->GetConnectionId(), *track_handler->GetReceivedTrackAlias() }] =
-              track_handler;
         }
 
         auto priority = track_handler->GetSubscriberPriority();
@@ -1309,19 +1254,19 @@ namespace quicr {
         auto rendezvous_timeout = track_handler->GetRendezvousTimeout();
 
         if (!track_handler->IsPublisherInitiated()) {
-            if (FindRequest({ connection->GetID(), *track_handler->GetRequestId() })) {
-                QUICR_LOGGER_WARN(logger_,
-                                  "Track already subscribed conn_id: {} track_alias: {}",
-                                  connection->GetID(),
-                                  th.track_fullname_hash);
-                return;
-            }
+            const auto request = std::make_shared<Request>(Request{
+              .request_id = GetNextRequestID(),
+              .type = Request::Type::kSubscribe,
+              .stream = quic_transport_->CreateRequestStream(connection),
+              .name = track_handler->GetFullTrackName(),
+              .handlers = {},
+              .is_locally_initiated = true,
+            });
 
-            const auto request_stream = quic_transport_->CreateRequestStream(connection);
-            track_handler->SetRequestStream(request_stream);
-            AddRequest(MakeRequest(track_handler, Request::Type::kSubscribe));
+            AddRequest(request);
+            BindHandlerToRequest(request, track_handler);
 
-            SendSubscribe(request_stream,
+            SendSubscribe(request->stream,
                           *track_handler->GetRequestId(),
                           tfn,
                           th,
@@ -1338,23 +1283,31 @@ namespace quicr {
                 // Make a joining fetch handler.
                 const auto joining_fetch_handler = std::make_shared<JoiningFetchHandler>(
                   track_handler, info.group_order.value_or(messages::GroupOrder::kAscending));
-                const auto fetch_rid = GetNextRequestID();
+
+                joining_fetch_handler->RegisterSession(GetSharedPtr());
+
+                const auto fetch_request = std::make_shared<Request>(Request{
+                  .request_id = GetNextRequestID(),
+                  .type = Request::Type::kFetch,
+                  .stream = quic_transport_->CreateRequestStream(connection),
+                  .name = joining_fetch_handler->GetFullTrackName(),
+                  .handlers = {},
+                  .is_locally_initiated = true,
+                });
+
+                AddRequest(fetch_request);
+                BindHandlerToRequest(fetch_request, joining_fetch_handler);
+
                 QUICR_LOGGER_INFO(logger_,
                                   "Subscribe with joining fetch conn_id: {} track_alias: {} subscribe id: {} "
                                   "joining subscribe id: {}",
                                   connection->GetID(),
                                   th.track_fullname_hash,
-                                  fetch_rid,
+                                  fetch_request->request_id,
                                   *track_handler->GetRequestId());
-                joining_fetch_handler->SetRequestId(fetch_rid);
-                joining_fetch_handler->SetConnectionId(connection->GetID());
-                joining_fetch_handler->RegisterSession(GetSharedPtr());
 
-                const auto fetch_stream = quic_transport_->CreateRequestStream(connection);
-                joining_fetch_handler->SetRequestStream(fetch_stream);
-                AddRequest(MakeRequest(joining_fetch_handler, Request::Type::kFetch));
-                SendJoiningFetch(fetch_stream,
-                                 fetch_rid,
+                SendJoiningFetch(fetch_request->stream,
+                                 fetch_request->request_id,
                                  info.priority,
                                  info.group_order,
                                  *track_handler->GetRequestId(),
@@ -1362,15 +1315,50 @@ namespace quicr {
                                  info.absolute);
             }
         } else {
-            if (publisher_request) {
-                if (publisher_request->type != Request::Type::kPublish || publisher_request->is_locally_initiated) {
+            if (!track_handler->GetReceivedTrackAlias().has_value()) {
+                throw std::runtime_error("Missing received track alias for publisher initiated subscribe");
+            }
+
+            if (!track_handler->GetRequestId().has_value()) {
+                throw std::runtime_error("Missing request id for publisher initiated subscribe");
+            }
+
+            const auto request_id = *track_handler->GetRequestId();
+            const auto req_it = recv_req_id.find(request_id);
+            if (req_it == recv_req_id.end() || !req_it->second.stream) {
+                throw std::logic_error("Publisher-initiated subscribe is missing its received request stream");
+            }
+
+            const auto& request_stream = req_it->second.stream;
+            const auto connection_id = request_stream->GetConnectionID();
+
+            if (auto request = FindRequest({ connection_id, request_id })) {
+                if (request->type != Request::Type::kPublish || request->is_locally_initiated) {
                     throw std::logic_error("Subscriber track cannot bind to this request");
                 }
 
-                BindHandlerToRequest(publisher_request, track_handler);
+                const auto existing = GetRequestHandler(request);
+                if (existing.get() != track_handler.get()) {
+                    if (existing) {
+                        throw std::logic_error("Publisher-initiated request is already bound to another handler");
+                    }
+                    BindHandlerToRequest(request, track_handler);
+                }
             } else {
-                AddRequest(MakeRequest(track_handler, Request::Type::kPublish, false));
+                request = std::make_shared<Request>(Request{
+                  .request_id = request_id,
+                  .type = Request::Type::kPublish,
+                  .stream = request_stream,
+                  .name = track_handler->GetFullTrackName(),
+                  .handlers = {},
+                  .is_locally_initiated = false,
+                });
+
+                AddRequest(request);
+                BindHandlerToRequest(request, track_handler);
             }
+
+            sub_by_recv_track_alias[{ connection_id, *track_handler->GetReceivedTrackAlias() }] = track_handler;
         }
     }
 
@@ -1733,21 +1721,28 @@ namespace quicr {
                           tfn.NamespaceStr(),
                           tfn.NameStr());
 
-        std::lock_guard _(state_mutex_);
+        const auto request = std::make_shared<Request>(Request{
+          .request_id = GetNextRequestID(),
+          .type = Request::Type::kPublish,
+          .stream = quic_transport_->CreateRequestStream(connection),
+          .name = tfn,
+          .handlers = {},
+          .is_locally_initiated = true,
+        });
 
-        track_handler->SetRequestId(GetNextRequestID());
+        std::lock_guard _(state_mutex_);
 
         if (!track_handler->GetTrackAlias().has_value()) {
             track_handler->SetTrackAlias(th.track_fullname_hash);
         }
 
         // Add state to received request ID since a subscribe will not be received for this request
-        recv_req_id[*track_handler->GetRequestId()] = { track_handler->GetFullTrackName(), th };
+        recv_req_id[request->request_id] = { track_handler->GetFullTrackName(), th };
+
+        AddRequest(request);
+        BindHandlerToRequest(request, track_handler);
 
         track_handler->SetStatus(PublishTrackHandler::Status::kPendingPublishOk);
-
-        const auto ctrl_stream = quic_transport_->CreateRequestStream(connection);
-        track_handler->SetRequestStream(ctrl_stream);
 
         const PublishAttributes publish{ .track_full_name = { tfn },
                                          .track_alias = track_handler->GetTrackAlias().value(),
@@ -1764,7 +1759,6 @@ namespace quicr {
                                          .delivery_timeout = track_handler->GetDefaultTTL(),
                                          .track_properties = {} };
 
-        track_handler->SetConnectionId(connection->GetID());
         QUICR_LOGGER_INFO(logger_,
                           "Publish track connId {}, track namespace hash: {}, name hash: {}",
                           connection->GetID(),
@@ -1774,9 +1768,8 @@ namespace quicr {
         // Hold ref to track handler
         pub_tracks_by_name[th.track_namespace_hash][th.track_name_hash] = track_handler;
         pub_tracks_by_track_alias[th.track_fullname_hash][connection->GetID()] = track_handler;
-        AddRequest(MakeRequest(track_handler, Request::Type::kPublish));
 
-        SendPublish(ctrl_stream, *track_handler->GetRequestId(), publish);
+        SendPublish(request->stream, request->request_id, publish);
     }
 
     void Session::PublishNamespace(std::shared_ptr<PublishNamespaceHandler> ns_handler, bool passive)
@@ -1802,20 +1795,23 @@ namespace quicr {
 
             ns_handler->SetStatus(PublishNamespaceHandler::Status::kPendingResponse);
 
-            const auto request_stream = quic_transport_->CreateRequestStream(connection);
-            ns_handler->SetRequestStream(request_stream);
+            const auto request = std::make_shared<Request>(Request{
+              .request_id = GetNextRequestID(),
+              .type = Request::Type::kPublishNamespace,
+              .stream = quic_transport_->CreateRequestStream(connection),
+              .name = ns_handler->GetFullTrackName(),
+              .handlers = {},
+              .is_locally_initiated = true,
+            });
 
-            std::uint64_t request_id;
             {
                 std::lock_guard lock(state_mutex_);
 
-                request_id = GetNextRequestID();
-                ns_handler->SetRequestId(request_id);
-
-                AddRequest(MakeRequest(ns_handler, Request::Type::kPublishNamespace));
+                AddRequest(request);
+                BindHandlerToRequest(request, ns_handler);
             }
 
-            SendPublishNamespace(request_stream, request_id, ns_handler->GetPrefix());
+            SendPublishNamespace(request->stream, request->request_id, ns_handler->GetPrefix());
         } else {
             ns_handler->SetStatus(PublishNamespaceHandler::Status::kOk);
         }
@@ -1868,10 +1864,16 @@ namespace quicr {
 
         QUICR_LOGGER_INFO(logger_, "Fetch track conn_id: {} hash: {}", connection->GetID(), th.track_fullname_hash);
 
-        std::lock_guard<std::mutex> _(state_mutex_);
+        const auto request = std::make_shared<Request>(Request{
+          .request_id = GetNextRequestID(),
+          .type = Request::Type::kFetch,
+          .stream = quic_transport_->CreateRequestStream(connection),
+          .name = tfn,
+          .handlers = {},
+          .is_locally_initiated = true,
+        });
 
-        track_handler->SetRequestId(GetNextRequestID());
-        track_handler->SetConnectionId(connection->GetID());
+        std::lock_guard<std::mutex> _(state_mutex_);
 
         QUICR_LOGGER_DEBUG(logger_, "subscribe id (from fetch) to add to memory: {}", *track_handler->GetRequestId());
 
@@ -1882,13 +1884,10 @@ namespace quicr {
 
         track_handler->SetStatus(FetchTrackHandler::Status::kPendingResponse);
 
-        const auto request_id = *track_handler->GetRequestId();
+        AddRequest(request);
+        BindHandlerToRequest(request, track_handler);
 
-        const auto request_stream = quic_transport_->CreateRequestStream(connection);
-        track_handler->SetRequestStream(request_stream);
-        AddRequest(MakeRequest(track_handler, Request::Type::kFetch));
-
-        SendFetch(request_stream, request_id, tfn, priority, group_order, start_location, end_location);
+        SendFetch(request->stream, request->request_id, tfn, priority, group_order, start_location, end_location);
     }
 
     void Session::CancelFetchTrack(std::shared_ptr<FetchTrackHandler> track_handler)
@@ -3755,24 +3754,37 @@ namespace quicr {
                 track_handler->SetTrackAlias(th.track_fullname_hash);
             }
 
-            track_handler->SetRequestId(request_id);
-            track_handler->SetConnectionId(src_id);
-
             const auto req_it = recv_req_id.find(request_id);
-            if (req_it != recv_req_id.end() && req_it->second.stream) {
-                track_handler->SetRequestStream(req_it->second.stream);
-                track_handler->SetConnectionId(req_it->second.stream->GetConnectionID());
+            if (req_it == recv_req_id.end() || !req_it->second.stream) {
+                throw std::logic_error("Publisher track is missing its received request stream");
             }
 
-            const RequestKey request_key{ track_handler->GetConnectionId(), request_id };
-            if (const auto request = FindRequest(request_key)) {
+            const auto& request_stream = req_it->second.stream;
+            const RequestKey request_key{ request_stream->GetConnectionID(), request_id };
+            if (auto request = FindRequest(request_key)) {
                 if (request->type != Request::Type::kSubscribe || request->is_locally_initiated) {
                     throw std::logic_error("Publisher track cannot bind to this request");
                 }
 
-                BindHandlerToRequest(request, track_handler);
+                const auto existing = GetRequestHandler(request);
+                if (existing.get() != track_handler.get()) {
+                    if (existing) {
+                        throw std::logic_error("Subscribe request is already bound to another handler");
+                    }
+                    BindHandlerToRequest(request, track_handler);
+                }
             } else {
-                AddRequest(MakeRequest(track_handler, Request::Type::kSubscribe, false));
+                request = std::make_shared<Request>(Request{
+                  .request_id = request_id,
+                  .type = Request::Type::kSubscribe,
+                  .stream = request_stream,
+                  .name = tfn,
+                  .handlers = {},
+                  .is_locally_initiated = false,
+                });
+
+                AddRequest(request);
+                BindHandlerToRequest(request, track_handler);
             }
 
             if (!ephemeral) {
