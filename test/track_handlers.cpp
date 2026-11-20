@@ -11,6 +11,8 @@
 
 #include <doctest/doctest.h>
 
+#include <thread>
+
 class TestPublishTrackHandler : public quicr::PublishTrackHandler
 {
     TestPublishTrackHandler()
@@ -73,6 +75,8 @@ class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
         return std::shared_ptr<TestSubscribeTrackHandler>(new TestSubscribeTrackHandler());
     }
 
+    void SetStatusForTest(Status status) { SetStatus(status); }
+
     void ObjectStatusReceived(const uint64_t group_id,
                               const uint64_t object_id,
                               const std::uint8_t priority,
@@ -106,6 +110,27 @@ class TestSubscribeTrackHandler : public quicr::SubscribeTrackHandler
     int status_received_count{ 0 };
     std::vector<ReceivedObject> received_objects;
 };
+
+TEST_CASE("Subscribe status and priority support concurrent access")
+{
+    TestSubscribeTrackHandler subscribe;
+
+    std::thread writer([&] {
+        for (std::uint16_t value = 0; value < 1000; ++value) {
+            subscribe.SetSubscriberPriority(static_cast<std::uint8_t>(value));
+            subscribe.SetStatusForTest(quicr::SubscribeTrackHandler::Status::kPendingResponse);
+        }
+    });
+    std::thread reader([&] {
+        for (std::uint16_t value = 0; value < 1000; ++value) {
+            static_cast<void>(subscribe.GetSubscriberPriority());
+            static_cast<void>(subscribe.GetStatus());
+        }
+    });
+
+    writer.join();
+    reader.join();
+}
 
 TEST_CASE("Subscribe Track Handler ObjectStatusReceived - kDoesNotExist")
 {

@@ -7,6 +7,7 @@
 #include "quicr/handlers/publish_track_handler.h"
 #include "quicr/track_name.h"
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -35,7 +36,7 @@ namespace quicr {
             kPendingResponse,      ///< Waiting for the peer's response.
             kPublishNotAuthorized, ///< Peer denied publication.
             kSendingDone,          ///< In this state, callbacks will not be called
-            kError,                ///< Request failed; inspect `GetError()`.
+            kError,                ///< Request failed.
         };
 
       protected:
@@ -149,39 +150,18 @@ namespace quicr {
          *
          * @return Status of the Publish
          */
-        constexpr Status GetStatus() const noexcept { return status_; }
-
-        /**
-         * @brief Get the error code and reason for the Publish namespace, if any.
-         * @return Publish namespace error code and reason.
-         */
-        std::optional<Error<ErrorCode>> GetError() const noexcept { return error_; }
+        Status GetStatus() const noexcept { return status_.load(std::memory_order_relaxed); }
 
       protected:
         /**
          * @brief Set the Publish status
          * @param status Status of the Publish
-         * @details Entering `kError` without a preceding `SetError()` installs an internal-error
-         * fallback, then invokes `StatusChanged` even if the value did not change.
+         * @details Invokes `StatusChanged` even if the value did not change.
          */
         void SetStatus(const Status status) noexcept
         {
-            status_ = status;
-            if (status == Status::kError && !error_.has_value()) {
-                error_ = Error<ErrorCode>{ ErrorCode::kInternalError, "Unknown error" };
-            }
-
+            status_.store(status, std::memory_order_relaxed);
             StatusChanged(status);
-        }
-
-        /**
-         * @brief Stores an error and transitions to `kError`.
-         * @param error Error code and optional reason, copied into the handler.
-         */
-        void SetError(const Error<ErrorCode>& error)
-        {
-            error_ = error;
-            SetStatus(Status::kError);
         }
 
         /**
@@ -199,14 +179,9 @@ namespace quicr {
         Reply<messages::Parameters, ErrorCode> RequestUpdateReceived(const messages::Parameters& params) override;
 
         /**
-         * @brief Stores a request error and enters `kError`.
-         * @param error_code Peer-provided error code.
-         * @param reason Peer-provided reason, moved into the stored error.
+         * @brief Enters `kError` after a rejected request.
          */
-        void RequestError(ErrorCode error_code, std::string reason) override
-        {
-            SetError(Error<ErrorCode>{ error_code, std::move(reason) });
-        }
+        void RequestError(ErrorCode, std::string) override { SetStatus(Status::kError); }
 
         /**
          * @brief Track publishers keyed by the full-track-name hash.
@@ -223,9 +198,7 @@ namespace quicr {
 
         const TrackNamespace prefix_; ///< Prefix namespace for contained handlers.
 
-        Status status_{ Status::kNotPublished };
-
-        std::optional<Error<ErrorCode>> error_{};
+        std::atomic<Status> status_{ Status::kNotPublished };
 
         friend class Session;
     };

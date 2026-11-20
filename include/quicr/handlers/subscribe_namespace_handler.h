@@ -7,6 +7,7 @@
 #include "quicr/handlers/subscribe_track_handler.h"
 #include "quicr/track_name.h"
 
+#include <atomic>
 #include <map>
 #include <memory>
 
@@ -18,8 +19,7 @@ namespace quicr {
      * @brief Receives namespace or track publication notifications below a prefix.
      *
      * @details Create the handler, customize its protected callbacks in a derived class, and pass it
-     * to the session. Callback and status mutation occur on session processing paths; getters are
-     * not synchronized with those callbacks.
+     * to the session. Status access is thread-safe; other state is not synchronized with callbacks.
      */
     class SubscribeNamespaceHandler : public TrackHandler
     {
@@ -38,7 +38,7 @@ namespace quicr {
         {
             kOk = 0,        ///< The peer accepted the subscription.
             kNotSubscribed, ///< Initial state; no active namespace subscription.
-            kError,         ///< The peer or library rejected the request; inspect `GetError()`.
+            kError,         ///< The peer or library rejected the request.
         };
 
       protected:
@@ -94,13 +94,7 @@ namespace quicr {
          *
          * @return Status of the subscribe
          */
-        constexpr Status GetStatus() const noexcept { return status_; }
-
-        /**
-         * @brief Get the error code and reason for the subscribe namespace, if any.
-         * @return Subscribe namespace error code and reason.
-         */
-        std::optional<Error<ErrorCode>> GetError() const noexcept { return error_; }
+        Status GetStatus() const noexcept { return status_.load(std::memory_order_relaxed); }
 
         /**
          * @brief Get the mode this handler is operating in.
@@ -133,26 +127,12 @@ namespace quicr {
         /**
          * @brief Set the subscribe status
          * @param status Status of the subscribe
-         * @details Entering `kError` without a preceding `SetError()` installs an internal-error
-         * fallback, then invokes `StatusChanged` even if the value did not change.
+         * @details Invokes `StatusChanged` even if the value did not change.
          */
         void SetStatus(const Status status) noexcept
         {
-            status_ = status;
-            if (status == Status::kError && !error_.has_value()) {
-                error_ = Error<ErrorCode>{ ErrorCode::kInternalError, "Unknown error" };
-            }
+            status_.store(status, std::memory_order_relaxed);
             StatusChanged(status);
-        }
-
-        /**
-         * @brief Stores an error and transitions to `kError`.
-         * @param error Error code and optional reason, copied into the handler.
-         */
-        void SetError(const Error<ErrorCode>& error)
-        {
-            error_ = error;
-            SetStatus(Status::kError);
         }
 
         /**
@@ -171,14 +151,9 @@ namespace quicr {
         Reply<messages::Parameters, ErrorCode> RequestUpdateReceived(const messages::Parameters& params) override;
 
         /**
-         * @brief Stores a request error and enters `kError`.
-         * @param error_code Peer-provided error code.
-         * @param reason Peer-provided reason, moved into the stored error.
+         * @brief Enters `kError` after a rejected request.
          */
-        void RequestError(ErrorCode error_code, std::string reason) override
-        {
-            SetError(Error<ErrorCode>{ error_code, std::move(reason) });
-        }
+        void RequestError(ErrorCode, std::string) override { SetStatus(Status::kError); }
 
       private:
         const Mode mode_; ///< Mode in use.
@@ -187,9 +162,7 @@ namespace quicr {
 
         messages::Filter filter_; ///< Filter value for namespace subscription.
 
-        Status status_{ Status::kNotSubscribed };
-
-        std::optional<Error<ErrorCode>> error_{};
+        std::atomic<Status> status_{ Status::kNotSubscribed };
 
         friend class Session;
     };

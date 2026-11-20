@@ -9,6 +9,7 @@
 #include "quicr/messages/message_serialisation.h"
 #include "quicr/metrics.h"
 
+#include <atomic>
 #include <stdexcept>
 
 namespace quicr {
@@ -18,8 +19,8 @@ namespace quicr {
      *
      * @details Receives one track's object callbacks and manages its subscription controls.
      * Payload callbacks are synchronous on session receive processing; borrowed spans become
-     * invalid on return. State and most attributes are not synchronized, so applications should
-     * serialize calls with callbacks unless a method explicitly says otherwise.
+     * invalid on return. Status and subscriber-priority access are thread-safe. Other attributes
+     * are not synchronized, so applications should serialize their access with callbacks.
      */
     class SubscribeTrackHandler : public TrackHandler
     {
@@ -125,20 +126,26 @@ namespace quicr {
          *
          * @return Status of the subscribe
          */
-        constexpr Status GetStatus() const noexcept { return status_; }
+        Status GetStatus() const noexcept { return status_.load(std::memory_order_relaxed); }
 
         /**
          * @brief Sets the subscriber priority used in subsequent control updates.
          * @param priority Priority value; existing streams and already-sent requests are unchanged.
          */
-        void SetSubscriberPriority(uint8_t priority) noexcept { subscriber_priority_ = priority; }
+        void SetSubscriberPriority(uint8_t priority) noexcept
+        {
+            subscriber_priority_.store(priority, std::memory_order_relaxed);
+        }
 
         /**
          * @brief Get subscription priority
          *
          * @return Current subscription priority.
          */
-        constexpr std::uint8_t GetSubscriberPriority() const noexcept { return subscriber_priority_; }
+        std::uint8_t GetSubscriberPriority() const noexcept
+        {
+            return subscriber_priority_.load(std::memory_order_relaxed);
+        }
 
         /**
          * @brief Get subscription group order
@@ -508,7 +515,7 @@ namespace quicr {
          */
         void SetStatus(Status status) noexcept
         {
-            status_ = status;
+            status_.store(status, std::memory_order_relaxed);
             StatusChanged(status);
         }
 
@@ -519,8 +526,8 @@ namespace quicr {
         StreamBuffer<uint8_t> dgram_buffer_;
 
       private:
-        Status status_{ Status::kNotSubscribed };
-        std::uint8_t subscriber_priority_;
+        std::atomic<Status> status_{ Status::kNotSubscribed };
+        std::atomic_uint8_t subscriber_priority_;
         std::optional<messages::GroupOrder> group_order_;
         messages::GroupOrder publisher_default_group_order_{ messages::GroupOrder::kAscending };
         messages::Filter filter_;

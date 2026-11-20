@@ -4006,6 +4006,32 @@ extern "C"
         });
     }
 
+    quicr_status_t quicr_subscribe_track_handler_get_subscriber_priority(const quicr_subscribe_track_handler_t* handler,
+                                                                         uint8_t* priority)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl || !priority) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *priority = handler->impl->GetSubscriberPriority();
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_subscribe_track_handler_set_subscriber_priority(quicr_subscribe_track_handler_t* handler,
+                                                                         uint8_t priority)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            handler->impl->SetSubscriberPriority(priority);
+            return QUICR_STATUS_OK;
+        });
+    }
+
     quicr_status_t quicr_subscribe_track_handler_pause(quicr_subscribe_track_handler_t* handler)
     {
         return SafeCall([&] {
@@ -4132,6 +4158,32 @@ extern "C"
         });
     }
 
+    quicr_status_t quicr_fetch_track_handler_get_subscriber_priority(const quicr_fetch_track_handler_t* handler,
+                                                                     uint8_t* priority)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl || !priority) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *priority = handler->impl->GetSubscriberPriority();
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_fetch_track_handler_set_subscriber_priority(quicr_fetch_track_handler_t* handler,
+                                                                     uint8_t priority)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            handler->impl->SetSubscriberPriority(priority);
+            return QUICR_STATUS_OK;
+        });
+    }
+
     quicr_status_t quicr_fetch_track_handler_pause(quicr_fetch_track_handler_t* handler)
     {
         return SafeCall([&] {
@@ -4228,20 +4280,6 @@ extern "C"
 
             *status = ToCType<quicr_publish_namespace_handler_status_t>(handler->impl->GetStatus());
             return QUICR_STATUS_OK;
-        });
-    }
-
-    quicr_status_t quicr_publish_namespace_handler_get_error(const quicr_publish_namespace_handler_t* handler,
-                                                             quicr_error_code_t* code,
-                                                             char* reason,
-                                                             size_t* reason_size)
-    {
-        return SafeCall([&]() -> quicr_status_t {
-            if (!handler || !handler->impl) {
-                return QUICR_STATUS_INVALID_ARGUMENT;
-            }
-
-            return CopyHandlerError(handler->impl->GetError(), code, reason, reason_size);
         });
     }
 
@@ -4347,20 +4385,6 @@ extern "C"
 
             *status = ToCType<quicr_subscribe_namespace_handler_status_t>(handler->impl->GetStatus());
             return QUICR_STATUS_OK;
-        });
-    }
-
-    quicr_status_t quicr_subscribe_namespace_handler_get_error(const quicr_subscribe_namespace_handler_t* handler,
-                                                               quicr_error_code_t* code,
-                                                               char* reason,
-                                                               size_t* reason_size)
-    {
-        return SafeCall([&]() -> quicr_status_t {
-            if (!handler || !handler->impl) {
-                return QUICR_STATUS_INVALID_ARGUMENT;
-            }
-
-            return CopyHandlerError(handler->impl->GetError(), code, reason, reason_size);
         });
     }
 

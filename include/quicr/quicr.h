@@ -2182,6 +2182,29 @@ extern "C"
                                                                         quicr_subscribe_track_handler_status_t* status);
 
     /**
+     * @brief Read the subscriber priority used for future subscription updates.
+     *
+     * @param handler Handler to inspect.
+     * @param priority Receives the subscriber priority.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler or priority is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_subscribe_track_handler_get_subscriber_priority(const quicr_subscribe_track_handler_t* handler,
+                                                          uint8_t* priority);
+
+    /**
+     * @brief Set the subscriber priority used for future subscription updates.
+     *
+     * @param handler Handler to update.
+     * @param priority New subscriber priority.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_subscribe_track_handler_set_subscriber_priority(quicr_subscribe_track_handler_t* handler, uint8_t priority);
+
+    /**
      * @brief Pause delivery asynchronously without invoking status_changed.
      *
      * @param handler Subscribe handler.
@@ -2360,6 +2383,28 @@ extern "C"
                                                                     quicr_fetch_track_handler_status_t* status);
 
     /**
+     * @brief Read the fetch handler's subscriber priority.
+     *
+     * @param handler Handler to inspect.
+     * @param priority Receives the subscriber priority.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler or priority is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t
+    quicr_fetch_track_handler_get_subscriber_priority(const quicr_fetch_track_handler_t* handler, uint8_t* priority);
+
+    /**
+     * @brief Set the fetch handler's subscriber priority.
+     *
+     * @param handler Handler to update.
+     * @param priority New subscriber priority; an already-sent FETCH request is unchanged.
+     *
+     * @return `OK` on success; `INVALID_ARGUMENT` when handler is NULL; otherwise `INTERNAL_ERROR`.
+     */
+    QUICR_C_API quicr_status_t quicr_fetch_track_handler_set_subscriber_priority(quicr_fetch_track_handler_t* handler,
+                                                                                 uint8_t priority);
+
+    /**
      * @brief Pause fetch delivery asynchronously.
      *
      * @param handler Fetch handler.
@@ -2485,24 +2530,6 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_publish_namespace_handler_get_status(const quicr_publish_namespace_handler_t* handler,
                                                quicr_publish_namespace_handler_status_t* status);
-
-    /**
-     * @brief Copy the handler's latest protocol error.
-     *
-     * @param handler Handler whose latest error is copied.
-     * @param code Required output error code.
-     * @param reason Optional output buffer; may be NULL to query size.
-     * @param reason_size Required only when reason is non-NULL; input capacity and output required size including NUL.
-     *
-     * @return `OK` when copied; `BUFFER_TOO_SMALL` when reason lacks capacity, with the required size reported;
-     * `INVALID_ARGUMENT` for invalid pointers; `NOT_FOUND` when no protocol error is stored; otherwise
-     * `INTERNAL_ERROR`.
-     */
-    QUICR_C_API quicr_status_t
-    quicr_publish_namespace_handler_get_error(const quicr_publish_namespace_handler_t* handler,
-                                              quicr_error_code_t* code,
-                                              char* reason,
-                                              size_t* reason_size);
 
     /**
      * @brief Associate a publish-track handler with this namespace handler; neither object is transferred.
@@ -2644,24 +2671,6 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_subscribe_namespace_handler_get_status(const quicr_subscribe_namespace_handler_t* handler,
                                                  quicr_subscribe_namespace_handler_status_t* status);
-
-    /**
-     * @brief Copy the handler's latest protocol error.
-     *
-     * @param handler Handler whose latest error is copied.
-     * @param code Required output error code.
-     * @param reason Optional output buffer; may be NULL to query size.
-     * @param reason_size Required only when reason is non-NULL; input capacity and output required size including NUL.
-     *
-     * @return `OK` when copied; `BUFFER_TOO_SMALL` when reason lacks capacity, with the required size reported;
-     * `INVALID_ARGUMENT` for invalid pointers; `NOT_FOUND` when no protocol error is stored; otherwise
-     * `INTERNAL_ERROR`.
-     */
-    QUICR_C_API quicr_status_t
-    quicr_subscribe_namespace_handler_get_error(const quicr_subscribe_namespace_handler_t* handler,
-                                                quicr_error_code_t* code,
-                                                char* reason,
-                                                size_t* reason_size);
 
     /** @brief Opaque owned track-status query handler with the common lifecycle contract. */
     typedef struct quicr_track_status_track_handler quicr_track_status_track_handler_t;
