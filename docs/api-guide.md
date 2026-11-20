@@ -110,7 +110,8 @@ Notification callbacks return `void`, for example:
 - handler `ObjectReceived()` and `StatusChanged()` callbacks.
 
 Callbacks that answer a peer request return `quicr::Reply<T, E>`. Return a value
-to accept or an `Unexpected<Error<E>>` to reject:
+to accept or an `Unexpected<Error<E>>` to reject. The session answers a
+rejection with REQUEST_ERROR and closes the request stream with FIN:
 
 ```cpp
 quicr::Reply<quicr::SubscribeResponse, quicr::RequestErrorCode>
@@ -179,7 +180,8 @@ SubscribeReply SubscribeReceived(
 
 Each deferred reply starts a detached thread and resolves once. Capture owned
 state, not temporary references. An exception escaping the action is swallowed
-and leaves the request unanswered until the peer times it out.
+and leaves the request unanswered until the peer times it out. If the peer
+cancels the request before the reply resolves, the result is discarded.
 
 ## Creating a client session
 
@@ -361,6 +363,13 @@ session->SubscribeNamespace(namespaces);
   requests are delivered through session callbacks.
 
 Use `UnsubscribeNamespace(handler)` to end either mode.
+
+## Ending requests
+
+`UnsubscribeTrack()`, `PublishNamespaceDone()`, and `UnsubscribeNamespace()`
+cancel their request whether it is pending or established: the session resets
+the request stream and unbinds the handler.
+Calling them again has no effect.
 
 ## Track status
 
