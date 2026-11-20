@@ -308,8 +308,7 @@ TEST_CASE("C sessions and track handlers interoperate with the C++ relay")
         joining_client_manager.AddHandler(joining_session, joining_handler);
 
         REQUIRE(namespace_failed.wait_for(std::chrono::seconds(10)) == std::future_status::ready);
-        REQUIRE(namespace_handler->GetError().has_value());
-        CHECK(namespace_handler->GetError()->reason_code == quicr::ErrorCode::kGoingAway);
+        CHECK(namespace_handler->GetStatus() == quicr::SubscribeNamespaceHandler::Status::kError);
 
         REQUIRE(notification_ready.wait_for(std::chrono::seconds(10)) == std::future_status::ready);
         REQUIRE(joining_ready.wait_for(std::chrono::seconds(10)) == std::future_status::ready);

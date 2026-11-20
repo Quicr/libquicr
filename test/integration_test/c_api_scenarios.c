@@ -1656,12 +1656,6 @@ quicr_test_c_server_fetch(const char* connect_uri, const uint16_t server_port)
     SCENARIO_REQUIRE(quicr_test_event_wait(context.namespace_request, QUICR_TEST_TIMEOUT_MS));
     SCENARIO_REQUIRE(quicr_test_event_wait(context.namespace_rejected, QUICR_TEST_TIMEOUT_MS));
 
-    quicr_error_code_t namespace_error = 0U;
-    size_t namespace_reason_size = 0U;
-    SCENARIO_REQUIRE(quicr_publish_namespace_handler_get_error(
-                       rejected_namespace, &namespace_error, NULL, &namespace_reason_size) == QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(namespace_error == QUICR_ERROR_INTERNAL_ERROR);
-    SCENARIO_REQUIRE(namespace_reason_size == sizeof("intentional namespace rejection"));
     SCENARIO_REQUIRE(quicr_session_manager_remove_handler(client_manager, client_session, rejected_namespace) ==
                      QUICR_STATUS_OK);
     rejected_namespace_registered = false;

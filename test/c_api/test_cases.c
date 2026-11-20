@@ -491,6 +491,16 @@ quicr_c_test_handlers(void)
                        QUICR_STATUS_OK);
     quicr_subscribe_track_handler_status_t subscribe_status;
     QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_get_status(subscribe, &subscribe_status) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_get_subscriber_priority(subscribe, &priority) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(priority == 1);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_set_subscriber_priority(subscribe, 2) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_get_subscriber_priority(subscribe, &priority) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(priority == 2);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_get_subscriber_priority(NULL, &priority) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_get_subscriber_priority(subscribe, NULL) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_set_subscriber_priority(NULL, 0) == QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_pause(subscribe) == QUICR_STATUS_NOT_APPLIED);
     QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_resume(subscribe) == QUICR_STATUS_NOT_APPLIED);
     QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_request_new_group(subscribe, 0) == QUICR_STATUS_NOT_APPLIED);
@@ -513,6 +523,15 @@ quicr_c_test_handlers(void)
                        QUICR_STATUS_OK);
     quicr_fetch_track_handler_status_t fetch_status;
     QUICR_C_TEST_CHECK(quicr_fetch_track_handler_get_status(fetch, &fetch_status) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_get_subscriber_priority(fetch, &priority) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(priority == 1);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_set_subscriber_priority(fetch, 2) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_get_subscriber_priority(fetch, &priority) == QUICR_STATUS_OK);
+    QUICR_C_TEST_CHECK(priority == 2);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_get_subscriber_priority(NULL, &priority) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_get_subscriber_priority(fetch, NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_set_subscriber_priority(NULL, 0) == QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_fetch_track_handler_pause(fetch) == QUICR_STATUS_NOT_APPLIED);
     QUICR_C_TEST_CHECK(quicr_fetch_track_handler_resume(fetch) == QUICR_STATUS_NOT_APPLIED);
     QUICR_C_TEST_CHECK(quicr_fetch_track_handler_request_new_group(fetch, 0) == QUICR_STATUS_NOT_APPLIED);
@@ -527,10 +546,6 @@ quicr_c_test_handlers(void)
     quicr_publish_namespace_handler_status_t publish_namespace_status;
     QUICR_C_TEST_CHECK(quicr_publish_namespace_handler_get_status(publish_namespace, &publish_namespace_status) ==
                        QUICR_STATUS_OK);
-    quicr_error_code_t error_code = 0;
-    size_t reason_size = 0;
-    QUICR_C_TEST_CHECK(quicr_publish_namespace_handler_get_error(publish_namespace, &error_code, NULL, &reason_size) ==
-                       QUICR_STATUS_NOT_FOUND);
     quicr_publish_namespace_handler_destroy(publish_namespace);
 
     quicr_subscribe_namespace_handler_t* subscribe_namespace = NULL;
@@ -541,8 +556,6 @@ quicr_c_test_handlers(void)
     quicr_subscribe_namespace_handler_status_t subscribe_namespace_status;
     QUICR_C_TEST_CHECK(quicr_subscribe_namespace_handler_get_status(subscribe_namespace, &subscribe_namespace_status) ==
                        QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_subscribe_namespace_handler_get_error(
-                         subscribe_namespace, &error_code, NULL, &reason_size) == QUICR_STATUS_NOT_FOUND);
     quicr_subscribe_namespace_handler_destroy(subscribe_namespace);
 
     quicr_track_status_track_handler_t* track_status = NULL;
@@ -555,6 +568,8 @@ quicr_c_test_handlers(void)
     QUICR_C_TEST_CHECK(quicr_track_status_handler_get_response(track_status, &has_response, &response, NULL) ==
                        QUICR_STATUS_OK);
     QUICR_C_TEST_CHECK(!has_response);
+    quicr_error_code_t error_code = 0;
+    size_t reason_size = 0;
     QUICR_C_TEST_CHECK(quicr_track_status_handler_get_error(track_status, &error_code, NULL, &reason_size) ==
                        QUICR_STATUS_NOT_FOUND);
     quicr_track_status_handler_destroy(track_status);

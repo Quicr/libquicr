@@ -437,7 +437,7 @@ Errors are reported through:
 - `PublishObjectStatus`;
 - request `Reply` error types;
 - `TransportError` and `TransportException`;
-- namespace handler `GetError()`.
+- track-status handler `GetError()`.
 
 Prefer status callbacks for transitions and getters for snapshots.
 

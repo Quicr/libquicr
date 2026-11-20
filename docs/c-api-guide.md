@@ -432,26 +432,25 @@ or live state. `NOT_APPLIED` reports a valid control operation that was a no-op
 in the current handler state. Allocation failures and unexpected C++ exceptions
 map to `OUT_OF_MEMORY` and `INTERNAL_ERROR`.
 
-Each publish-namespace, subscribe-namespace, and track-status `get_error()`
-function copies an error code and optional NUL-terminated reason. Query or
-retry the reason buffer size like this:
+The track-status `get_error()` function copies an error code and optional
+NUL-terminated reason. Query or retry the reason buffer size like this:
 
 ```c
 quicr_error_code_t code;
 size_t size = 0;
 quicr_status_t status =
-    quicr_subscribe_namespace_handler_get_error(handler, &code, NULL, &size);
+    quicr_track_status_handler_get_error(handler, &code, NULL, &size);
 if (status == QUICR_STATUS_OK && size != 0) {
     char *reason = malloc(size);
-    status = quicr_subscribe_namespace_handler_get_error(
+    status = quicr_track_status_handler_get_error(
         handler, &code, reason, &size);
     /* BUFFER_TOO_SMALL reports the new required size in size. */
     free(reason);
 }
 ```
 
-When no protocol error is stored, these getters return
-`QUICR_STATUS_NOT_FOUND`. When a reason buffer is supplied, `reason_size` is
+When no protocol error is stored, the getter returns `QUICR_STATUS_NOT_FOUND`.
+When a reason buffer is supplied, `reason_size` is
 both input capacity and output required size, including the terminating NUL.
 
 ## Shutdown
