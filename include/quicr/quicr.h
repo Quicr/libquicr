@@ -36,8 +36,6 @@ extern "C"
         QUICR_STATUS_INTERNAL_ERROR = 3,   ///< An unexpected implementation error occurred.
         QUICR_STATUS_NOT_FOUND = 4,        ///< The referenced live session or resource no longer exists.
         QUICR_STATUS_BUFFER_TOO_SMALL = 5, ///< The supplied output buffer is too small; retry with the reported size.
-        QUICR_STATUS_BUSY = 6, ///< The object is registered or a callback is active. Remove it first, return from the
-                               ///< callback if applicable, then retry the same operation.
         QUICR_STATUS_NOT_APPLIED = 7, ///< The request was valid but current state prevented applying the operation.
     };
     /** @} */
@@ -1395,8 +1393,8 @@ extern "C"
     /**
      * @brief Opaque owned publish-track handler.
      *
-     * Create, add to one session, remove, then destroy. Destroying NULL succeeds. Destruction returns BUSY while
-     * registered or while a callback is active; after removing or returning from the callback, retry destruction.
+     * Create, optionally add or bind to one session, then destroy. Destruction synchronously removes the handler,
+     * drains callbacks, and accepts NULL.
      */
     typedef struct quicr_publish_track_handler quicr_publish_track_handler_t;
 
@@ -1431,12 +1429,13 @@ extern "C"
      * Callbacks may run synchronously on an API caller thread, including while session locks are held, or on a
      * transport notification thread. They may be concurrent across objects or transports. Callback pointer arguments
      * are borrowed for the call. Do not re-enter manager, session, or handler operations on the same objects unless a
-     * specific API explicitly permits it. Never destroy a callback-owning object from its callback. Keep user_data
-     * valid from creation until successful destruction.
+     * specific API explicitly permits it. Application calls using the same C handle, including destruction, must be
+     * serialized. Never destroy a callback-owning object from its callback. The application owns user_data and must
+     * keep it valid from creation until synchronous destruction returns; libquicr never frees it.
      */
     typedef struct quicr_publish_track_handler_callbacks
     {
-        void* user_data; ///< Opaque callback value.
+        void* user_data; ///< Application-owned opaque callback value.
 
         /**
          * @brief Lifecycle transition.
@@ -1500,13 +1499,15 @@ extern "C"
                                        quicr_publish_track_handler_t** handler);
 
     /**
-     * @brief Destroy a detached publish handler.
+     * @brief Synchronously remove and destroy a publish handler.
+     *
+     * @details New callbacks are stopped and callbacks already in progress finish before a registered or bound handler
+     * is removed from its session. NULL is a no-op. Do not call from one of this handler's callbacks. The application
+     * owns callback user_data and may release it after this function returns.
      *
      * @param handler Handler to destroy.
-     *
-     * @return `OK` when handler is NULL or destroyed; `BUSY` while registered, internally invalid, or in a callback.
      */
-    QUICR_C_API quicr_status_t quicr_publish_track_handler_destroy(quicr_publish_track_handler_t* handler);
+    QUICR_C_API void quicr_publish_track_handler_destroy(quicr_publish_track_handler_t* handler);
 
     /**
      * @brief Determine whether the handler can currently publish.
@@ -1722,7 +1723,7 @@ extern "C"
     QUICR_C_API quicr_status_t quicr_session_bind_publish_track_handler(quicr_session_t* session,
                                                                         uint64_t src_id,
                                                                         uint64_t request_id,
-                                                                        const quicr_publish_track_handler_t* handler,
+                                                                        quicr_publish_track_handler_t* handler,
                                                                         bool ephemeral);
 
     /**
@@ -1730,8 +1731,7 @@ extern "C"
      *
      * src_id must identify the publisher-origin alias entry used when binding. When send_publish_done is true,
      * PUBLISH_DONE is sent with SUBSCRIPTION_ENDED if the binding has a local request stream; peer-only bindings
-     * without one are still removed without sending. After successful return, destroy may briefly report BUSY until
-     * any callback already in progress has returned.
+     * without one are still removed without sending.
      *
      * @param session Borrowed live server session handle.
      * @param src_id Connection or peering identifier supplied when binding.
@@ -1743,14 +1743,14 @@ extern "C"
      */
     QUICR_C_API quicr_status_t quicr_session_unbind_publish_track_handler(quicr_session_t* session,
                                                                           uint64_t src_id,
-                                                                          const quicr_publish_track_handler_t* handler,
+                                                                          quicr_publish_track_handler_t* handler,
                                                                           bool send_publish_done);
 
     /**
      * @brief Opaque owned server-side FETCH publisher.
      *
-     * Create, bind to the session that received the FETCH, publish objects, unbind, then destroy. Destroying NULL
-     * succeeds. Destruction returns BUSY while bound or while a callback is active.
+     * Create, bind to the session that received the FETCH, publish objects, then destroy. Destruction synchronously
+     * unbinds the handler, drains callbacks, and accepts NULL.
      */
     typedef struct quicr_publish_fetch_handler quicr_publish_fetch_handler_t;
 
@@ -1765,7 +1765,7 @@ extern "C"
      */
     typedef struct quicr_publish_fetch_handler_callbacks
     {
-        void* user_data; ///< Opaque callback value.
+        void* user_data; ///< Application-owned opaque callback value.
 
         /**
          * @brief Lifecycle transition.
@@ -1827,13 +1827,15 @@ extern "C"
                                        quicr_publish_fetch_handler_t** handler);
 
     /**
-     * @brief Destroy a detached publish-fetch handler.
+     * @brief Synchronously unbind and destroy a publish-fetch handler.
+     *
+     * @details If bound, the handler is first unbound from its session. New callbacks are stopped and callbacks already
+     * in progress finish before this function returns. NULL is a no-op. Do not call from one of this handler's
+     * callbacks. The application owns callback user_data and may release it after this function returns.
      *
      * @param handler Handler to destroy.
-     *
-     * @return `OK` when handler is NULL or destroyed; `BUSY` while bound, internally invalid, or in a callback.
      */
-    QUICR_C_API quicr_status_t quicr_publish_fetch_handler_destroy(quicr_publish_fetch_handler_t* handler);
+    QUICR_C_API void quicr_publish_fetch_handler_destroy(quicr_publish_fetch_handler_t* handler);
 
     /**
      * @brief Determine whether the handler can currently publish.
@@ -1884,7 +1886,7 @@ extern "C"
      * `NOT_FOUND` if the session is not live; `OUT_OF_MEMORY` if allocation fails; otherwise `INTERNAL_ERROR`.
      */
     QUICR_C_API quicr_status_t quicr_session_bind_publish_fetch_handler(quicr_session_t* session,
-                                                                        const quicr_publish_fetch_handler_t* handler);
+                                                                        quicr_publish_fetch_handler_t* handler);
 
     /**
      * @brief Unbind a publish-fetch handler, drain queued objects, and finish its response stream.
@@ -1896,7 +1898,7 @@ extern "C"
      * session is not live; `OUT_OF_MEMORY` if allocation fails; otherwise `INTERNAL_ERROR`.
      */
     QUICR_C_API quicr_status_t quicr_session_unbind_publish_fetch_handler(quicr_session_t* session,
-                                                                          const quicr_publish_fetch_handler_t* handler);
+                                                                          quicr_publish_fetch_handler_t* handler);
 
     /** @brief Opaque owned subscribe handler with the common create/add/remove/destroy contract. */
     typedef struct quicr_subscribe_track_handler quicr_subscribe_track_handler_t;
@@ -1933,7 +1935,7 @@ extern "C"
      */
     typedef struct quicr_subscribe_track_handler_callbacks
     {
-        void* user_data; ///< Opaque callback value.
+        void* user_data; ///< Application-owned opaque callback value.
 
         /**
          * @brief Lifecycle transition.
@@ -2158,13 +2160,15 @@ extern "C"
       quicr_subscribe_track_handler_t** handler);
 
     /**
-     * @brief Destroy a detached subscribe handler.
+     * @brief Synchronously remove and destroy a subscribe handler.
+     *
+     * @details New callbacks are stopped and callbacks already in progress finish before a registered handler is
+     * removed from its session. NULL is a no-op. Do not call from one of this handler's callbacks. The application owns
+     * callback user_data and may release it after this function returns.
      *
      * @param handler Handler to destroy.
-     *
-     * @return `OK` when handler is NULL or destroyed; `BUSY` while registered, internally invalid, or in a callback.
      */
-    QUICR_C_API quicr_status_t quicr_subscribe_track_handler_destroy(quicr_subscribe_track_handler_t* handler);
+    QUICR_C_API void quicr_subscribe_track_handler_destroy(quicr_subscribe_track_handler_t* handler);
 
     /**
      * @brief Read handler status.
@@ -2247,7 +2251,7 @@ extern "C"
      */
     typedef struct quicr_fetch_track_handler_callbacks
     {
-        void* user_data; ///< Opaque callback value.
+        void* user_data; ///< Application-owned opaque callback value.
 
         /**
          * @brief Lifecycle transition.
@@ -2334,13 +2338,15 @@ extern "C"
                                                                 quicr_fetch_track_handler_t** handler);
 
     /**
-     * @brief Destroy a detached fetch handler.
+     * @brief Synchronously cancel and destroy a fetch handler.
+     *
+     * @details If registered, the fetch is first cancelled in its session. New callbacks are stopped and callbacks
+     * already in progress finish before this function returns. NULL is a no-op. Do not call from one of this handler's
+     * callbacks. The application owns callback user_data and may release it after this function returns.
      *
      * @param handler Handler to destroy.
-     *
-     * @return `OK` when handler is NULL or destroyed; `BUSY` while registered, internally invalid, or in a callback.
      */
-    QUICR_C_API quicr_status_t quicr_fetch_track_handler_destroy(quicr_fetch_track_handler_t* handler);
+    QUICR_C_API void quicr_fetch_track_handler_destroy(quicr_fetch_track_handler_t* handler);
 
     /**
      * @brief Read handler status.
@@ -2427,7 +2433,7 @@ extern "C"
      */
     typedef struct quicr_publish_namespace_handler_callbacks
     {
-        void* user_data; ///< Kept valid until successful destruction.
+        void* user_data; ///< Application-owned opaque callback value.
 
         /**
          * @brief Lifecycle callback; see the handler callback threading contract.
@@ -2457,13 +2463,16 @@ extern "C"
                                            quicr_publish_namespace_handler_t** handler);
 
     /**
-     * @brief Destroy a detached namespace-publish handler.
+     * @brief Synchronously remove and destroy a namespace-publish handler.
+     *
+     * @details If registered, contained track publishers are removed before the namespace publication ends. New
+     * callbacks are stopped and callbacks already in progress finish before this function returns. NULL is a no-op. Do
+     * not call from one of this handler's callbacks. The application owns callback user_data and may release it after
+     * this function returns.
      *
      * @param handler Handler to destroy.
-     *
-     * @return `OK` when handler is NULL or destroyed; `BUSY` while registered, internally invalid, or in a callback.
      */
-    QUICR_C_API quicr_status_t quicr_publish_namespace_handler_destroy(quicr_publish_namespace_handler_t* handler);
+    QUICR_C_API void quicr_publish_namespace_handler_destroy(quicr_publish_namespace_handler_t* handler);
 
     /**
      * @brief Read handler status.
@@ -2506,10 +2515,10 @@ extern "C"
      */
     QUICR_C_API quicr_status_t
     quicr_publish_namespace_handler_publish_track(quicr_publish_namespace_handler_t* handler,
-                                                  const quicr_publish_track_handler_t* track_handler);
+                                                  quicr_publish_track_handler_t* track_handler);
 
     /**
-     * @brief Remove a prior publish-track association before destroying either handler.
+     * @brief Remove a prior publish-track association without destroying either handler.
      *
      * @param handler Namespace-publish handler.
      * @param track_handler Associated publish-track handler.
@@ -2519,7 +2528,7 @@ extern "C"
      */
     QUICR_C_API quicr_status_t
     quicr_publish_namespace_handler_unpublish_track(quicr_publish_namespace_handler_t* handler,
-                                                    const quicr_publish_track_handler_t* track_handler);
+                                                    quicr_publish_track_handler_t* track_handler);
 
     /**
      * @name Namespace subscription modes
@@ -2558,7 +2567,7 @@ extern "C"
      */
     typedef struct quicr_subscribe_namespace_handler_callbacks
     {
-        void* user_data; ///< Opaque callback value.
+        void* user_data; ///< Application-owned opaque callback value.
 
         /**
          * @brief Lifecycle transition.
@@ -2614,13 +2623,15 @@ extern "C"
                                              quicr_subscribe_namespace_handler_t** handler);
 
     /**
-     * @brief Destroy a detached namespace-subscribe handler.
+     * @brief Synchronously remove and destroy a namespace-subscribe handler.
+     *
+     * @details New callbacks are stopped and callbacks already in progress finish before a registered handler is
+     * removed from its session. NULL is a no-op. Do not call from one of this handler's callbacks. The application owns
+     * callback user_data and may release it after this function returns.
      *
      * @param handler Handler to destroy.
-     *
-     * @return `OK` when handler is NULL or destroyed; `BUSY` while registered, internally invalid, or in a callback.
      */
-    QUICR_C_API quicr_status_t quicr_subscribe_namespace_handler_destroy(quicr_subscribe_namespace_handler_t* handler);
+    QUICR_C_API void quicr_subscribe_namespace_handler_destroy(quicr_subscribe_namespace_handler_t* handler);
 
     /**
      * @brief Read handler status.
@@ -2682,7 +2693,7 @@ extern "C"
      */
     typedef struct quicr_track_status_handler_callbacks
     {
-        void* user_data; ///< Kept valid until successful destruction.
+        void* user_data; ///< Application-owned opaque callback value.
 
         /**
          * @brief Lifecycle callback; see the handler callback threading contract.
@@ -2712,13 +2723,15 @@ extern "C"
                                       quicr_track_status_track_handler_t** handler);
 
     /**
-     * @brief Destroy a detached track-status handler.
+     * @brief Synchronously cancel and destroy a track-status handler.
+     *
+     * @details If registered, the request is first cancelled in its session. New callbacks are stopped and callbacks
+     * already in progress finish before this function returns. NULL is a no-op. Do not call from one of this handler's
+     * callbacks. The application owns callback user_data and may release it after this function returns.
      *
      * @param handler Handler to destroy.
-     *
-     * @return `OK` when handler is NULL or destroyed; `BUSY` while registered, internally invalid, or in a callback.
      */
-    QUICR_C_API quicr_status_t quicr_track_status_handler_destroy(quicr_track_status_track_handler_t* handler);
+    QUICR_C_API void quicr_track_status_handler_destroy(quicr_track_status_track_handler_t* handler);
 
     /**
      * @brief Read handler status.
@@ -2775,9 +2788,7 @@ extern "C"
  * subscribe-namespace, and track-status handlers. C++ and pre-C11 builds do not define this macro. Arguments are
  * evaluated once.
  *
- * @param handler Handler to destroy.
- *
- * @return The selected handler-specific destroy status.
+ * @param handler Handler to synchronously remove and destroy.
  */
 #define quicr_track_handler_destroy(handler)                                                                           \
     _Generic((handler),                                                                                                \
@@ -3273,8 +3284,8 @@ extern "C"
     /**
      * @brief Create a publish-acceptance response retaining handler's implementation.
      *
-     * handler must remain a valid C handle through this call, but may subsequently be destroyed once otherwise
-     * eligible. Return the response from publish_received, then destroy the response after that callback returns.
+     * handler must remain a valid C handle until publish_received returns when this response is accepted. Destroying
+     * it before callback return invalidates acceptance. Destroy the response after the callback returns.
      *
      * @param handler Subscribe handler whose implementation the response retains.
      * @param response Receives the owned response and is set NULL on failure.
@@ -3479,13 +3490,12 @@ extern "C"
      * @return `OK` on success; `INVALID_ARGUMENT` for a null or expired object, wrong registration, or invalid state;
      * `OUT_OF_MEMORY` if allocation fails; or `INTERNAL_ERROR` for another exception.
      */
-    QUICR_C_API quicr_status_t
-    quicr_session_manager_add_publish_track_handler(quicr_session_manager_t* manager,
-                                                    quicr_session_t* session,
-                                                    const quicr_publish_track_handler_t* handler);
+    QUICR_C_API quicr_status_t quicr_session_manager_add_publish_track_handler(quicr_session_manager_t* manager,
+                                                                               quicr_session_t* session,
+                                                                               quicr_publish_track_handler_t* handler);
 
     /**
-     * @brief Unregister a publish handler; after return, destroy it, retrying if destruction reports BUSY.
+     * @brief Explicitly unregister a publish handler without destroying it.
      *
      * @param manager Session manager.
      * @param session Borrowed session handle.
@@ -3497,7 +3507,7 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_session_manager_remove_publish_track_handler(quicr_session_manager_t* manager,
                                                        quicr_session_t* session,
-                                                       const quicr_publish_track_handler_t* handler);
+                                                       quicr_publish_track_handler_t* handler);
 
     /**
      * @brief Register a detached subscribe handler with session; ownership remains with the caller.
@@ -3512,10 +3522,10 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_session_manager_add_subscribe_track_handler(quicr_session_manager_t* manager,
                                                       quicr_session_t* session,
-                                                      const quicr_subscribe_track_handler_t* handler);
+                                                      quicr_subscribe_track_handler_t* handler);
 
     /**
-     * @brief Unregister a subscribe handler before destroying it.
+     * @brief Explicitly unregister a subscribe handler without destroying it.
      *
      * @param manager Session manager.
      * @param session Borrowed session handle.
@@ -3527,7 +3537,7 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_session_manager_remove_subscribe_track_handler(quicr_session_manager_t* manager,
                                                          quicr_session_t* session,
-                                                         const quicr_subscribe_track_handler_t* handler);
+                                                         quicr_subscribe_track_handler_t* handler);
 
     /**
      * @brief Register a detached fetch handler with session; ownership remains with the caller.
@@ -3539,13 +3549,12 @@ extern "C"
      * @return `OK` on success; `INVALID_ARGUMENT` for a null or expired object, wrong registration, or invalid state;
      * `OUT_OF_MEMORY` if allocation fails; or `INTERNAL_ERROR` for another exception.
      */
-    QUICR_C_API quicr_status_t
-    quicr_session_manager_add_fetch_track_handler(quicr_session_manager_t* manager,
-                                                  quicr_session_t* session,
-                                                  const quicr_fetch_track_handler_t* handler);
+    QUICR_C_API quicr_status_t quicr_session_manager_add_fetch_track_handler(quicr_session_manager_t* manager,
+                                                                             quicr_session_t* session,
+                                                                             quicr_fetch_track_handler_t* handler);
 
     /**
-     * @brief Unregister a fetch handler before destroying it.
+     * @brief Explicitly unregister a fetch handler without destroying it.
      *
      * @param manager Session manager.
      * @param session Borrowed session handle.
@@ -3554,10 +3563,9 @@ extern "C"
      * @return `OK` on success; `INVALID_ARGUMENT` for a null or expired object, wrong registration, or invalid state;
      * `OUT_OF_MEMORY` if allocation fails; or `INTERNAL_ERROR` for another exception.
      */
-    QUICR_C_API quicr_status_t
-    quicr_session_manager_remove_fetch_track_handler(quicr_session_manager_t* manager,
-                                                     quicr_session_t* session,
-                                                     const quicr_fetch_track_handler_t* handler);
+    QUICR_C_API quicr_status_t quicr_session_manager_remove_fetch_track_handler(quicr_session_manager_t* manager,
+                                                                                quicr_session_t* session,
+                                                                                quicr_fetch_track_handler_t* handler);
 
     /**
      * @brief Register a detached namespace-publish handler with session.
@@ -3572,10 +3580,10 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_session_manager_add_publish_namespace_handler(quicr_session_manager_t* manager,
                                                         quicr_session_t* session,
-                                                        const quicr_publish_namespace_handler_t* handler);
+                                                        quicr_publish_namespace_handler_t* handler);
 
     /**
-     * @brief Unregister a namespace-publish handler before destroying it.
+     * @brief Explicitly unregister a namespace-publish handler without destroying it.
      *
      * @param manager Session manager.
      * @param session Borrowed session handle.
@@ -3587,7 +3595,7 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_session_manager_remove_publish_namespace_handler(quicr_session_manager_t* manager,
                                                            quicr_session_t* session,
-                                                           const quicr_publish_namespace_handler_t* handler);
+                                                           quicr_publish_namespace_handler_t* handler);
 
     /**
      * @brief Register a detached namespace-subscribe handler with session.
@@ -3602,10 +3610,10 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_session_manager_add_subscribe_namespace_handler(quicr_session_manager_t* manager,
                                                           quicr_session_t* session,
-                                                          const quicr_subscribe_namespace_handler_t* handler);
+                                                          quicr_subscribe_namespace_handler_t* handler);
 
     /**
-     * @brief Unregister a namespace-subscribe handler before destroying it.
+     * @brief Explicitly unregister a namespace-subscribe handler without destroying it.
      *
      * @param manager Session manager.
      * @param session Borrowed session handle.
@@ -3617,7 +3625,7 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_session_manager_remove_subscribe_namespace_handler(quicr_session_manager_t* manager,
                                                              quicr_session_t* session,
-                                                             const quicr_subscribe_namespace_handler_t* handler);
+                                                             quicr_subscribe_namespace_handler_t* handler);
 
     /**
      * @brief Register a detached track-status handler with session.
@@ -3632,10 +3640,10 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_session_manager_add_track_status_track_handler(quicr_session_manager_t* manager,
                                                          quicr_session_t* session,
-                                                         const quicr_track_status_track_handler_t* handler);
+                                                         quicr_track_status_track_handler_t* handler);
 
     /**
-     * @brief Unregister a track-status handler before destroying it.
+     * @brief Explicitly unregister a track-status handler without destroying it.
      *
      * @param manager Session manager.
      * @param session Borrowed session handle.
@@ -3647,15 +3655,15 @@ extern "C"
     QUICR_C_API quicr_status_t
     quicr_session_manager_remove_track_status_track_handler(quicr_session_manager_t* manager,
                                                             quicr_session_t* session,
-                                                            const quicr_track_status_track_handler_t* handler);
+                                                            quicr_track_status_track_handler_t* handler);
 
 #if !defined(__cplusplus) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 
 /**
  * @brief Type-generic handler registration for C11 and later C translation units.
  *
- * Supports mutable and const pointers to publish, subscribe, fetch, publish-namespace, subscribe-namespace, and
- * track-status handlers. C++ and pre-C11 builds do not define it. Arguments are evaluated once.
+ * Supports mutable pointers to publish, subscribe, fetch, publish-namespace, subscribe-namespace, and track-status
+ * handlers. C++ and pre-C11 builds do not define it. Arguments are evaluated once.
  *
  * @param manager Session manager.
  * @param session Borrowed target session handle.
@@ -3666,24 +3674,17 @@ extern "C"
 #define quicr_session_manager_add_handler(manager, session, handler)                                                   \
     _Generic((handler),                                                                                                \
       quicr_publish_track_handler_t *: quicr_session_manager_add_publish_track_handler,                                \
-      const quicr_publish_track_handler_t*: quicr_session_manager_add_publish_track_handler,                           \
-      quicr_subscribe_track_handler_t*: quicr_session_manager_add_subscribe_track_handler,                             \
-      const quicr_subscribe_track_handler_t*: quicr_session_manager_add_subscribe_track_handler,                       \
-      quicr_fetch_track_handler_t*: quicr_session_manager_add_fetch_track_handler,                                     \
-      const quicr_fetch_track_handler_t*: quicr_session_manager_add_fetch_track_handler,                               \
-      quicr_publish_namespace_handler_t*: quicr_session_manager_add_publish_namespace_handler,                         \
-      const quicr_publish_namespace_handler_t*: quicr_session_manager_add_publish_namespace_handler,                   \
-      quicr_subscribe_namespace_handler_t*: quicr_session_manager_add_subscribe_namespace_handler,                     \
-      const quicr_subscribe_namespace_handler_t*: quicr_session_manager_add_subscribe_namespace_handler,               \
-      quicr_track_status_track_handler_t*: quicr_session_manager_add_track_status_track_handler,                       \
-      const quicr_track_status_track_handler_t*: quicr_session_manager_add_track_status_track_handler)(                \
+      quicr_subscribe_track_handler_t *: quicr_session_manager_add_subscribe_track_handler,                            \
+      quicr_fetch_track_handler_t *: quicr_session_manager_add_fetch_track_handler,                                    \
+      quicr_publish_namespace_handler_t *: quicr_session_manager_add_publish_namespace_handler,                        \
+      quicr_subscribe_namespace_handler_t *: quicr_session_manager_add_subscribe_namespace_handler,                    \
+      quicr_track_status_track_handler_t *: quicr_session_manager_add_track_status_track_handler)(                     \
       manager, session, handler)
 
 /**
  * @brief Type-generic handler removal for C11 and later C translation units.
  *
- * Supports the same mutable and const handler pointer types as quicr_session_manager_add_handler(). Arguments are
- * evaluated once.
+ * Supports the same handler pointer types as quicr_session_manager_add_handler(). Arguments are evaluated once.
  *
  * @param manager Session manager.
  * @param session Borrowed session handle.
@@ -3694,17 +3695,11 @@ extern "C"
 #define quicr_session_manager_remove_handler(manager, session, handler)                                                \
     _Generic((handler),                                                                                                \
       quicr_publish_track_handler_t *: quicr_session_manager_remove_publish_track_handler,                             \
-      const quicr_publish_track_handler_t*: quicr_session_manager_remove_publish_track_handler,                        \
-      quicr_subscribe_track_handler_t*: quicr_session_manager_remove_subscribe_track_handler,                          \
-      const quicr_subscribe_track_handler_t*: quicr_session_manager_remove_subscribe_track_handler,                    \
-      quicr_fetch_track_handler_t*: quicr_session_manager_remove_fetch_track_handler,                                  \
-      const quicr_fetch_track_handler_t*: quicr_session_manager_remove_fetch_track_handler,                            \
-      quicr_publish_namespace_handler_t*: quicr_session_manager_remove_publish_namespace_handler,                      \
-      const quicr_publish_namespace_handler_t*: quicr_session_manager_remove_publish_namespace_handler,                \
-      quicr_subscribe_namespace_handler_t*: quicr_session_manager_remove_subscribe_namespace_handler,                  \
-      const quicr_subscribe_namespace_handler_t*: quicr_session_manager_remove_subscribe_namespace_handler,            \
-      quicr_track_status_track_handler_t*: quicr_session_manager_remove_track_status_track_handler,                    \
-      const quicr_track_status_track_handler_t*: quicr_session_manager_remove_track_status_track_handler)(             \
+      quicr_subscribe_track_handler_t *: quicr_session_manager_remove_subscribe_track_handler,                         \
+      quicr_fetch_track_handler_t *: quicr_session_manager_remove_fetch_track_handler,                                 \
+      quicr_publish_namespace_handler_t *: quicr_session_manager_remove_publish_namespace_handler,                     \
+      quicr_subscribe_namespace_handler_t *: quicr_session_manager_remove_subscribe_namespace_handler,                 \
+      quicr_track_status_track_handler_t *: quicr_session_manager_remove_track_status_track_handler)(                  \
       manager, session, handler)
 #endif
 

@@ -16,16 +16,7 @@ quicr::PublishNamespaceHandler::PublishNamespaceHandler(const TrackNamespace& pr
 
 quicr::PublishNamespaceHandler::~PublishNamespaceHandler()
 {
-    const auto& transport = GetSession().lock();
-    if (!transport) {
-        return;
-    }
-
-    for (const auto& [_, handler] : handlers_) {
-        if (handler) {
-            transport->UnpublishTrack(handler);
-        }
-    }
+    UnPublishAllTracks();
 }
 
 void
@@ -40,14 +31,29 @@ quicr::PublishNamespaceHandler::PublishTrack(std::shared_ptr<PublishTrackHandler
         throw std::invalid_argument("New Publish track MUST have the same prefix as owning Namespace Handler");
     }
 
-    handlers_.emplace(TrackHash(handler->GetFullTrackName()).track_fullname_hash, handler);
-
     const auto& transport = GetSession().lock();
     if (!transport) {
         throw std::runtime_error("Cannot create publish track when transport is null");
     }
 
-    transport->PublishTrack(std::move(handler));
+    const auto track_hash = TrackHash(handler->GetFullTrackName()).track_fullname_hash;
+    {
+        std::lock_guard lock(handlers_mutex_);
+        if (!handlers_.emplace(track_hash, handler).second) {
+            throw std::logic_error("Track is already published by this namespace");
+        }
+    }
+
+    try {
+        transport->PublishTrack(handler);
+    } catch (...) {
+        std::lock_guard lock(handlers_mutex_);
+        const auto handler_it = handlers_.find(track_hash);
+        if (handler_it != handlers_.end() && handler_it->second == handler) {
+            handlers_.erase(handler_it);
+        }
+        throw;
+    }
 }
 
 void
@@ -58,8 +64,42 @@ quicr::PublishNamespaceHandler::UnPublishTrack(std::shared_ptr<PublishTrackHandl
         throw std::runtime_error("Cannot create publish track when transport is null");
     }
 
+    {
+        std::lock_guard lock(handlers_mutex_);
+        const auto handler_it = handlers_.find(TrackHash(handler->GetFullTrackName()).track_fullname_hash);
+        if (handler_it == handlers_.end() || handler_it->second != handler) {
+            return;
+        }
+
+        handlers_.erase(handler_it);
+    }
+
     transport->UnpublishTrack(handler);
-    handlers_.erase(TrackHash(handler->GetFullTrackName()).track_fullname_hash);
+}
+
+void
+quicr::PublishNamespaceHandler::UnPublishAllTracks() noexcept
+{
+    decltype(handlers_) handlers;
+    {
+        std::lock_guard lock(handlers_mutex_);
+        handlers.swap(handlers_);
+    }
+
+    const auto& transport = GetSession().lock();
+    if (!transport) {
+        return;
+    }
+
+    for (const auto& [_, handler] : handlers) {
+        if (handler) {
+            try {
+                transport->UnpublishTrack(handler);
+            } catch (...) {
+                // Cleanup is final. Session::UnpublishTrack unregisters the child before propagating an error.
+            }
+        }
+    }
 }
 
 quicr::PublishTrackHandler::PublishObjectStatus
@@ -68,8 +108,17 @@ quicr::PublishNamespaceHandler::PublishObject(uint64_t track_alias,
                                               BytesSpan data,
                                               std::optional<messages::StreamHeaderProperties> stream_mode)
 {
-    if (const auto pub_it = handlers_.find(track_alias); pub_it != handlers_.end()) {
-        return pub_it->second->PublishObject(object_headers, data, stream_mode);
+    std::shared_ptr<PublishTrackHandler> handler;
+    {
+        std::lock_guard lock(handlers_mutex_);
+        const auto handler_it = handlers_.find(track_alias);
+        if (handler_it != handlers_.end()) {
+            handler = handler_it->second;
+        }
+    }
+
+    if (handler) {
+        return handler->PublishObject(object_headers, data, stream_mode);
     }
 
     return PublishTrackHandler::PublishObjectStatus::kInternalError;

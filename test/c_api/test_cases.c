@@ -344,7 +344,6 @@ quicr_c_test_responses(void)
     };
     QUICR_C_TEST_CHECK(quicr_publish_response_set_filter(response, &filter) == QUICR_STATUS_OK);
 
-    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_destroy(handler) == QUICR_STATUS_BUSY);
     QUICR_C_TEST_CHECK(quicr_publish_response_set_forward(response, false) == QUICR_STATUS_OK);
 
     QUICR_C_TEST_CHECK(quicr_publish_response_set_subscriber_priority(NULL, 0) == QUICR_STATUS_INVALID_ARGUMENT);
@@ -357,14 +356,15 @@ quicr_c_test_responses(void)
     QUICR_C_TEST_CHECK(quicr_publish_response_set_object_delivery_timeout(response, UINT64_MAX) ==
                        QUICR_STATUS_INVALID_ARGUMENT);
 
+    QUICR_C_TEST_CHECK(quicr_publish_response_create(NULL, &response) == QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_response_create(handler, NULL) == QUICR_STATUS_INVALID_ARGUMENT);
+    quicr_subscribe_track_handler_destroy(handler);
+    handler = NULL;
+    QUICR_C_TEST_CHECK(quicr_publish_response_set_forward(response, true) == QUICR_STATUS_OK);
     quicr_publish_response_destroy(response);
     quicr_publish_response_destroy(NULL);
     quicr_full_track_name_destroy(full_track_name);
     quicr_track_namespace_destroy(track_namespace);
-
-    QUICR_C_TEST_CHECK(quicr_publish_response_create(NULL, &response) == QUICR_STATUS_INVALID_ARGUMENT);
-    QUICR_C_TEST_CHECK(quicr_publish_response_create(handler, NULL) == QUICR_STATUS_INVALID_ARGUMENT);
-    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_destroy(handler) == QUICR_STATUS_OK);
     return QUICR_C_TEST_SUCCESS;
 }
 
@@ -474,7 +474,7 @@ quicr_c_test_handlers(void)
     QUICR_C_TEST_CHECK(quicr_publish_track_handler_publish_object(
                          publish, &headers, (quicr_byte_span_t){ 0 }, NULL, &object_status) == QUICR_STATUS_OK);
     QUICR_C_TEST_CHECK(object_status != QUICR_PUBLISH_OBJECT_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_publish_track_handler_destroy(publish) == QUICR_STATUS_OK);
+    quicr_publish_track_handler_destroy(publish);
 
     quicr_publish_fetch_handler_t* publish_fetch = NULL;
     QUICR_C_TEST_CHECK(quicr_publish_fetch_handler_create(
@@ -483,7 +483,7 @@ quicr_c_test_handlers(void)
     quicr_publish_fetch_handler_status_t publish_fetch_status;
     QUICR_C_TEST_CHECK(quicr_publish_fetch_handler_get_status(publish_fetch, &publish_fetch_status) == QUICR_STATUS_OK);
     QUICR_C_TEST_CHECK(!quicr_publish_fetch_handler_can_publish(publish_fetch));
-    QUICR_C_TEST_CHECK(quicr_publish_fetch_handler_destroy(publish_fetch) == QUICR_STATUS_OK);
+    quicr_publish_fetch_handler_destroy(publish_fetch);
 
     quicr_subscribe_track_handler_t* subscribe = NULL;
     QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_create(
@@ -497,13 +497,13 @@ quicr_c_test_handlers(void)
     QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_pause(NULL) == QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_resume(NULL) == QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_request_new_group(NULL, 0) == QUICR_STATUS_INVALID_ARGUMENT);
-    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_destroy(subscribe) == QUICR_STATUS_OK);
+    quicr_subscribe_track_handler_destroy(subscribe);
 
     quicr_subscribe_track_handler_t* forwarding = NULL;
     QUICR_C_TEST_CHECK(quicr_forwarding_subscribe_track_handler_create(
                          NULL, names.full_track_name, 1, QUICR_GROUP_ORDER_UNSPECIFIED, NULL, &forwarding) ==
                        QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_destroy(forwarding) == QUICR_STATUS_OK);
+    quicr_subscribe_track_handler_destroy(forwarding);
 
     const quicr_location_t start = { .group = 0, .object = 0 };
     const quicr_fetch_end_location_t end = { .group = 1, .has_object = true, .object = 2 };
@@ -519,7 +519,7 @@ quicr_c_test_handlers(void)
     QUICR_C_TEST_CHECK(quicr_fetch_track_handler_pause(NULL) == QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_fetch_track_handler_resume(NULL) == QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_fetch_track_handler_request_new_group(NULL, 0) == QUICR_STATUS_INVALID_ARGUMENT);
-    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_destroy(fetch) == QUICR_STATUS_OK);
+    quicr_fetch_track_handler_destroy(fetch);
 
     quicr_publish_namespace_handler_t* publish_namespace = NULL;
     QUICR_C_TEST_CHECK(quicr_publish_namespace_handler_create(NULL, names.track_namespace, &publish_namespace) ==
@@ -531,7 +531,7 @@ quicr_c_test_handlers(void)
     size_t reason_size = 0;
     QUICR_C_TEST_CHECK(quicr_publish_namespace_handler_get_error(publish_namespace, &error_code, NULL, &reason_size) ==
                        QUICR_STATUS_NOT_FOUND);
-    QUICR_C_TEST_CHECK(quicr_publish_namespace_handler_destroy(publish_namespace) == QUICR_STATUS_OK);
+    quicr_publish_namespace_handler_destroy(publish_namespace);
 
     quicr_subscribe_namespace_handler_t* subscribe_namespace = NULL;
     QUICR_C_TEST_CHECK(
@@ -543,7 +543,7 @@ quicr_c_test_handlers(void)
                        QUICR_STATUS_OK);
     QUICR_C_TEST_CHECK(quicr_subscribe_namespace_handler_get_error(
                          subscribe_namespace, &error_code, NULL, &reason_size) == QUICR_STATUS_NOT_FOUND);
-    QUICR_C_TEST_CHECK(quicr_subscribe_namespace_handler_destroy(subscribe_namespace) == QUICR_STATUS_OK);
+    quicr_subscribe_namespace_handler_destroy(subscribe_namespace);
 
     quicr_track_status_track_handler_t* track_status = NULL;
     QUICR_C_TEST_CHECK(quicr_track_status_handler_create(NULL, names.full_track_name, &track_status) ==
@@ -557,15 +557,15 @@ quicr_c_test_handlers(void)
     QUICR_C_TEST_CHECK(!has_response);
     QUICR_C_TEST_CHECK(quicr_track_status_handler_get_error(track_status, &error_code, NULL, &reason_size) ==
                        QUICR_STATUS_NOT_FOUND);
-    QUICR_C_TEST_CHECK(quicr_track_status_handler_destroy(track_status) == QUICR_STATUS_OK);
+    quicr_track_status_handler_destroy(track_status);
 
-    QUICR_C_TEST_CHECK(quicr_publish_track_handler_destroy(NULL) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_publish_fetch_handler_destroy(NULL) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_subscribe_track_handler_destroy(NULL) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_fetch_track_handler_destroy(NULL) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_publish_namespace_handler_destroy(NULL) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_subscribe_namespace_handler_destroy(NULL) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_track_status_handler_destroy(NULL) == QUICR_STATUS_OK);
+    quicr_publish_track_handler_destroy(NULL);
+    quicr_publish_fetch_handler_destroy(NULL);
+    quicr_subscribe_track_handler_destroy(NULL);
+    quicr_fetch_track_handler_destroy(NULL);
+    quicr_publish_namespace_handler_destroy(NULL);
+    quicr_subscribe_namespace_handler_destroy(NULL);
+    quicr_track_status_handler_destroy(NULL);
 
     DestroyTestNames(&names);
     return QUICR_C_TEST_SUCCESS;
@@ -639,13 +639,13 @@ quicr_c_test_generic_handlers(void)
     QUICR_C_TEST_CHECK(quicr_session_send_namespace(NULL, names.track_namespace) == QUICR_STATUS_INVALID_ARGUMENT);
     QUICR_C_TEST_CHECK(quicr_session_send_namespace_done(NULL, names.track_namespace) == QUICR_STATUS_INVALID_ARGUMENT);
 
-    QUICR_C_TEST_CHECK(quicr_track_handler_destroy(publish) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_track_handler_destroy(publish_fetch) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_track_handler_destroy(subscribe) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_track_handler_destroy(fetch) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_track_handler_destroy(publish_namespace) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_track_handler_destroy(subscribe_namespace) == QUICR_STATUS_OK);
-    QUICR_C_TEST_CHECK(quicr_track_handler_destroy(track_status) == QUICR_STATUS_OK);
+    quicr_track_handler_destroy(publish);
+    quicr_track_handler_destroy(publish_fetch);
+    quicr_track_handler_destroy(subscribe);
+    quicr_track_handler_destroy(fetch);
+    quicr_track_handler_destroy(publish_namespace);
+    quicr_track_handler_destroy(subscribe_namespace);
+    quicr_track_handler_destroy(track_status);
 
     DestroyTestNames(&names);
     return QUICR_C_TEST_SUCCESS;

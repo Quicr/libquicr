@@ -1641,6 +1641,7 @@ namespace quicr {
 
     void Session::PublishNamespaceDone(const std::shared_ptr<PublishNamespaceHandler>& track_handler)
     {
+        track_handler->UnPublishAllTracks();
         track_handler->UnregisterSession(GetSharedPtr());
 
         const auto& prefix = track_handler->GetPrefix();
@@ -1818,6 +1819,7 @@ namespace quicr {
             } else if (const auto h = handler->Get<SubscribeNamespaceHandler>()) {
                 h->SetStatus(SubscribeNamespaceHandler::Status::kNotSubscribed);
             } else if (const auto h = handler->Get<PublishNamespaceHandler>()) {
+                h->UnPublishAllTracks();
                 h->SetStatus(PublishNamespaceHandler::Status::kNotConnected);
             }
 
@@ -3533,6 +3535,8 @@ namespace quicr {
                                        const std::shared_ptr<PublishTrackHandler>& track_handler,
                                        bool send_publish_done)
     {
+        defer({ track_handler->UnregisterSession(GetSharedPtr()); });
+
         std::optional<PublishTrackHandler::Status> changed_status;
         {
             std::lock_guard binding_lock(track_handler->binding_operation_mutex_);
@@ -3580,7 +3584,6 @@ namespace quicr {
         if (changed_status) {
             track_handler->StatusChanged(*changed_status);
         }
-        track_handler->UnregisterSession(GetSharedPtr());
     }
 
     void Session::BindFetchTrack(std::shared_ptr<PublishFetchHandler> track_handler)
@@ -3614,6 +3617,8 @@ namespace quicr {
 
     void Session::UnbindFetchTrack(const std::shared_ptr<PublishFetchHandler>& track_handler)
     {
+        defer({ track_handler->UnregisterSession(GetSharedPtr()); });
+
         std::scoped_lock _(track_handler->binding_operation_mutex_, state_mutex_);
 
         auto request_id = *track_handler->GetRequestId();
@@ -3627,7 +3632,6 @@ namespace quicr {
         // Drain before closing: the fetch's objects are queued on its stream, and unbinding is the
         // normal end of a completed fetch rather than an abort.
         track_handler->EndFetch();
-        track_handler->UnregisterSession(GetSharedPtr());
     }
 
     // -- Private --
