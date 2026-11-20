@@ -5,6 +5,7 @@
 
 #include <quicr/quicr.h>
 
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -53,6 +54,8 @@ typedef struct track_context
     quicr_test_event_t* callback_entered;
     quicr_test_event_t* callback_release;
     quicr_test_event_t* callback_finished;
+    atomic_bool block_callback;
+    atomic_bool callback_release_timed_out;
 } track_context_t;
 
 typedef struct request_context
@@ -272,10 +275,13 @@ object_received(const quicr_object_headers_t* headers,
     context->received_object_id = headers->object_id;
     context->received_extension_count = headers->extensions == NULL ? 0U : headers->extensions->count;
     context->received_status = headers->status;
-    if (context->callback_entered != NULL) {
+    if (atomic_load(&context->block_callback)) {
+        // Both the scenario thread and the callback-releaser thread must observe entry.
         quicr_test_event_signal(context->callback_entered);
         quicr_test_event_signal(context->callback_entered);
-        (void)quicr_test_event_wait(context->callback_release, QUICR_TEST_TIMEOUT_MS);
+        if (!quicr_test_event_wait(context->callback_release, QUICR_TEST_TIMEOUT_MS)) {
+            atomic_store(&context->callback_release_timed_out, true);
+        }
         quicr_test_event_signal(context->callback_finished);
     }
     quicr_test_event_signal(context->object);
@@ -1013,6 +1019,10 @@ run_publish_subscribe(const char* connect_uri,
     quicr_publish_track_handler_t* publish_handler = NULL;
     quicr_subscribe_track_handler_t* subscribe_handler = NULL;
 
+    subscriber.callback_entered = callback_entered;
+    subscriber.callback_release = callback_release;
+    subscriber.callback_finished = callback_finished;
+
     publisher.session_ready = quicr_test_event_create();
     publisher.ready = quicr_test_event_create();
     publisher.metrics = quicr_test_event_create();
@@ -1179,37 +1189,44 @@ run_publish_subscribe(const char* connect_uri,
         SCENARIO_REQUIRE(quicr_test_event_wait(subscriber.subgroup_ended, QUICR_TEST_TIMEOUT_MS));
     }
 
-    SCENARIO_REQUIRE(quicr_subscribe_track_handler_pause(subscribe_handler) == QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(quicr_subscribe_track_handler_pause(subscribe_handler) == QUICR_STATUS_NOT_APPLIED);
-    SCENARIO_REQUIRE(quicr_subscribe_track_handler_resume(subscribe_handler) == QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(quicr_subscribe_track_handler_resume(subscribe_handler) == QUICR_STATUS_NOT_APPLIED);
-    SCENARIO_REQUIRE(quicr_subscribe_track_handler_support_new_group_request(subscribe_handler, true) ==
-                     QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(quicr_subscribe_track_handler_request_new_group(subscribe_handler, 0U) == QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(quicr_session_update_subscribe_track_handler(subscribe_session, subscribe_handler) ==
-                     QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(quicr_session_goaway_handler(subscribe_session, NULL, 100U, subscribe_handler) == QUICR_STATUS_OK);
+    if (callback_entered == NULL) {
+        SCENARIO_REQUIRE(quicr_subscribe_track_handler_pause(subscribe_handler) == QUICR_STATUS_OK);
+        SCENARIO_REQUIRE(quicr_subscribe_track_handler_pause(subscribe_handler) == QUICR_STATUS_NOT_APPLIED);
+        SCENARIO_REQUIRE(quicr_subscribe_track_handler_resume(subscribe_handler) == QUICR_STATUS_OK);
+        SCENARIO_REQUIRE(quicr_subscribe_track_handler_resume(subscribe_handler) == QUICR_STATUS_NOT_APPLIED);
+        SCENARIO_REQUIRE(quicr_subscribe_track_handler_support_new_group_request(subscribe_handler, true) ==
+                         QUICR_STATUS_OK);
+        SCENARIO_REQUIRE(quicr_subscribe_track_handler_request_new_group(subscribe_handler, 0U) == QUICR_STATUS_OK);
+        SCENARIO_REQUIRE(quicr_session_update_subscribe_track_handler(subscribe_session, subscribe_handler) ==
+                         QUICR_STATUS_OK);
+        SCENARIO_REQUIRE(quicr_session_goaway_handler(subscribe_session, NULL, 100U, subscribe_handler) ==
+                         QUICR_STATUS_OK);
+    }
     SCENARIO_REQUIRE(quicr_session_manager_remove_handler(manager, subscribe_session, publish_handler) ==
                      QUICR_STATUS_INVALID_ARGUMENT);
 
     if (callback_entered != NULL) {
-        subscriber.callback_entered = callback_entered;
-        subscriber.callback_release = callback_release;
-        subscriber.callback_finished = callback_finished;
-        headers.object_id = 14U;
-        headers.payload_length = 0U;
-        headers.status = QUICR_OBJECT_STATUS_AVAILABLE;
-        SCENARIO_REQUIRE(quicr_publish_track_handler_publish_object(
-                           publish_handler, &headers, (quicr_byte_span_t){ 0 }, NULL, &publish_status) ==
-                         QUICR_STATUS_OK);
-        SCENARIO_REQUIRE(publish_status == QUICR_PUBLISH_OBJECT_STATUS_OK);
-        SCENARIO_REQUIRE(quicr_test_event_wait(callback_entered, QUICR_TEST_TIMEOUT_MS));
+        atomic_store(&subscriber.block_callback, true);
+        bool callback_observed = false;
+        for (uint64_t attempt = 0U; attempt < 100U && !callback_observed; ++attempt) {
+            headers.group_id = 8U + attempt;
+            headers.object_id = 0U;
+            headers.payload_length = 0U;
+            headers.status = QUICR_OBJECT_STATUS_AVAILABLE;
+            SCENARIO_REQUIRE(quicr_publish_track_handler_publish_object(
+                               publish_handler, &headers, (quicr_byte_span_t){ 0 }, NULL, &publish_status) ==
+                             QUICR_STATUS_OK);
+            SCENARIO_REQUIRE(publish_status == QUICR_PUBLISH_OBJECT_STATUS_OK);
+            callback_observed = quicr_test_event_wait(callback_entered, 100U);
+        }
+        SCENARIO_REQUIRE(callback_observed);
         quicr_test_event_signal(destroy_started);
         quicr_subscribe_track_handler_destroy(subscribe_handler);
         subscribe_handler = NULL;
         quicr_test_event_signal(destroy_returned);
         SCENARIO_REQUIRE(quicr_test_event_wait(callback_finished, QUICR_TEST_TIMEOUT_MS));
-        headers.object_id = 15U;
+        SCENARIO_REQUIRE(!atomic_load(&subscriber.callback_release_timed_out));
+        headers.group_id = 108U;
         SCENARIO_REQUIRE(quicr_publish_track_handler_publish_object(
                            publish_handler, &headers, (quicr_byte_span_t){ 0 }, NULL, &publish_status) ==
                          QUICR_STATUS_OK);
