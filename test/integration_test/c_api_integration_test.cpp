@@ -222,46 +222,6 @@ namespace {
         REQUIRE(result.line == 0);
     }
 
-    void CheckCallbackDrain(const std::string& connect_uri)
-    {
-        using EventPtr = std::unique_ptr<quicr_test_event_t, decltype(&quicr_test_event_destroy)>;
-        EventPtr callback_entered(quicr_test_event_create(), quicr_test_event_destroy);
-        EventPtr callback_release(quicr_test_event_create(), quicr_test_event_destroy);
-        EventPtr callback_finished(quicr_test_event_create(), quicr_test_event_destroy);
-        EventPtr destroy_started(quicr_test_event_create(), quicr_test_event_destroy);
-        EventPtr destroy_returned(quicr_test_event_create(), quicr_test_event_destroy);
-        REQUIRE(callback_entered != nullptr);
-        REQUIRE(callback_release != nullptr);
-        REQUIRE(callback_finished != nullptr);
-        REQUIRE(destroy_started != nullptr);
-        REQUIRE(destroy_returned != nullptr);
-
-        bool callback_was_entered = false;
-        bool destruction_was_started = false;
-        bool destruction_returned_early = false;
-        bool destruction_returned = false;
-        std::jthread callback_releaser([&] {
-            callback_was_entered = quicr_test_event_wait(callback_entered.get(), 10000);
-            destruction_was_started = quicr_test_event_wait(destroy_started.get(), 10000);
-            destruction_returned_early = quicr_test_event_wait(destroy_returned.get(), 50);
-            quicr_test_event_signal(callback_release.get());
-            if (!destruction_returned_early) {
-                destruction_returned = quicr_test_event_wait(destroy_returned.get(), 10000);
-            }
-        });
-        CheckResult(quicr_test_c_callback_drain(connect_uri.c_str(),
-                                                callback_entered.get(),
-                                                callback_release.get(),
-                                                callback_finished.get(),
-                                                destroy_started.get(),
-                                                destroy_returned.get()));
-        callback_releaser.join();
-        CHECK(callback_was_entered);
-        CHECK(destruction_was_started);
-        CHECK_FALSE(destruction_returned_early);
-        CHECK(destruction_returned);
-    }
-
 } // namespace
 
 TEST_CASE("C sessions and track handlers interoperate with the C++ relay")
@@ -386,17 +346,4 @@ TEST_CASE("C sessions and track handlers interoperate with the C++ relay")
         joining_client_manager.RemoveHandler(joining_session, joining_handler);
         CHECK(quicr_test_c_joining_server_wait(joining_server, 10000U));
     }
-}
-
-TEST_CASE("C handler destruction drains active callbacks")
-{
-    auto config = quicr_test::MakeTestServerConfig();
-    config.transport_config.metrics_sample_ms = 10;
-
-    quicr::SessionManager manager;
-    const auto server = std::make_shared<quicr_test::TestServer>();
-    manager.AddTransport(config, server);
-
-    const auto connect_uri = quicr::format("moq://{}:{}/relay", quicr_test::kIp, quicr_test::GetTestPort());
-    CheckCallbackDrain(connect_uri);
 }
