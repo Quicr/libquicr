@@ -9,6 +9,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 
 namespace quicr {
 
@@ -17,8 +18,8 @@ namespace quicr {
     /**
      * @brief Publishes and manages tracks below one namespace prefix.
      *
-     * @details The handler owns shared references to registered track publishers. Public operations
-     * are not internally synchronized and should be serialized with session/application callbacks.
+     * @details The handler owns shared references to registered track publishers. Calls on the same
+     * handler should be serialized with session/application callbacks.
      */
     class PublishNamespaceHandler : public TrackHandler
     {
@@ -216,6 +217,10 @@ namespace quicr {
         std::map<std::uint64_t, std::shared_ptr<PublishTrackHandler>> handlers_;
 
       private:
+        void UnPublishAllTracks() noexcept;
+
+        std::mutex handlers_mutex_;
+
         const TrackNamespace prefix_; ///< Prefix namespace for contained handlers.
 
         Status status_{ Status::kNotPublished };

@@ -49,9 +49,10 @@ typedef struct track_context
     uint64_t received_object_id;
     size_t received_extension_count;
     quicr_object_status_t received_status;
-    quicr_subscribe_track_handler_t* handler;
-    quicr_status_t callback_destroy_status;
     size_t datagram_size;
+    quicr_test_event_t* callback_entered;
+    quicr_test_event_t* callback_release;
+    quicr_test_event_t* callback_finished;
 } track_context_t;
 
 typedef struct request_context
@@ -271,8 +272,11 @@ object_received(const quicr_object_headers_t* headers,
     context->received_object_id = headers->object_id;
     context->received_extension_count = headers->extensions == NULL ? 0U : headers->extensions->count;
     context->received_status = headers->status;
-    if (context->handler != NULL) {
-        context->callback_destroy_status = quicr_subscribe_track_handler_destroy(context->handler);
+    if (context->callback_entered != NULL) {
+        quicr_test_event_signal(context->callback_entered);
+        quicr_test_event_signal(context->callback_entered);
+        (void)quicr_test_event_wait(context->callback_release, QUICR_TEST_TIMEOUT_MS);
+        quicr_test_event_signal(context->callback_finished);
     }
     quicr_test_event_signal(context->object);
 }
@@ -979,8 +983,15 @@ cleanup:
     return result;
 }
 
-quicr_c_test_result_t
-quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams, const int use_forwarding)
+static quicr_c_test_result_t
+run_publish_subscribe(const char* connect_uri,
+                      const int use_datagrams,
+                      const int use_forwarding,
+                      quicr_test_event_t* callback_entered,
+                      quicr_test_event_t* callback_release,
+                      quicr_test_event_t* callback_finished,
+                      quicr_test_event_t* destroy_started,
+                      quicr_test_event_t* destroy_returned)
 {
     static const uint8_t payload[] = "C API integration payload";
     const char* track_name = "integration-stream";
@@ -1077,10 +1088,8 @@ quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams,
             &subscribe_callbacks, full_track_name, 0U, QUICR_GROUP_ORDER_ASCENDING, NULL, &subscribe_handler) ==
           QUICR_STATUS_OK);
     }
-    subscriber.handler = subscribe_handler;
     SCENARIO_REQUIRE(quicr_session_manager_add_handler(manager, subscribe_session, subscribe_handler) ==
                      QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(quicr_track_handler_destroy(subscribe_handler) == QUICR_STATUS_BUSY);
     SCENARIO_REQUIRE(quicr_test_event_wait(subscriber.ready, QUICR_TEST_TIMEOUT_MS));
 
     const quicr_publish_track_handler_callbacks_t publish_callbacks = {
@@ -1098,7 +1107,6 @@ quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams,
                                          NULL,
                                          &publish_handler) == QUICR_STATUS_OK);
     SCENARIO_REQUIRE(quicr_session_manager_add_handler(manager, publish_session, publish_handler) == QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(quicr_track_handler_destroy(publish_handler) == QUICR_STATUS_BUSY);
     SCENARIO_REQUIRE(quicr_test_event_wait(publisher.ready, QUICR_TEST_TIMEOUT_MS));
     SCENARIO_REQUIRE(quicr_test_event_wait(publisher.metrics, QUICR_TEST_TIMEOUT_MS));
     SCENARIO_REQUIRE(quicr_test_event_wait(subscriber.metrics, QUICR_TEST_TIMEOUT_MS));
@@ -1143,7 +1151,6 @@ quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams,
         SCENARIO_REQUIRE(subscriber.received_group_id == headers.group_id);
         SCENARIO_REQUIRE(subscriber.received_object_id == headers.object_id);
         SCENARIO_REQUIRE(subscriber.received_extension_count == 1U);
-        SCENARIO_REQUIRE(subscriber.callback_destroy_status == QUICR_STATUS_BUSY);
 
         headers.object_id = 12U;
         headers.payload_length = 0U;
@@ -1182,12 +1189,42 @@ quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams,
     SCENARIO_REQUIRE(quicr_session_update_subscribe_track_handler(subscribe_session, subscribe_handler) ==
                      QUICR_STATUS_OK);
     SCENARIO_REQUIRE(quicr_session_goaway_handler(subscribe_session, NULL, 100U, subscribe_handler) == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_session_manager_remove_handler(manager, subscribe_session, publish_handler) ==
+                     QUICR_STATUS_INVALID_ARGUMENT);
+
+    if (callback_entered != NULL) {
+        subscriber.callback_entered = callback_entered;
+        subscriber.callback_release = callback_release;
+        subscriber.callback_finished = callback_finished;
+        headers.object_id = 14U;
+        headers.payload_length = 0U;
+        headers.status = QUICR_OBJECT_STATUS_AVAILABLE;
+        SCENARIO_REQUIRE(quicr_publish_track_handler_publish_object(
+                           publish_handler, &headers, (quicr_byte_span_t){ 0 }, NULL, &publish_status) ==
+                         QUICR_STATUS_OK);
+        SCENARIO_REQUIRE(publish_status == QUICR_PUBLISH_OBJECT_STATUS_OK);
+        SCENARIO_REQUIRE(quicr_test_event_wait(callback_entered, QUICR_TEST_TIMEOUT_MS));
+        quicr_test_event_signal(destroy_started);
+        quicr_subscribe_track_handler_destroy(subscribe_handler);
+        subscribe_handler = NULL;
+        quicr_test_event_signal(destroy_returned);
+        SCENARIO_REQUIRE(quicr_test_event_wait(callback_finished, QUICR_TEST_TIMEOUT_MS));
+        headers.object_id = 15U;
+        SCENARIO_REQUIRE(quicr_publish_track_handler_publish_object(
+                           publish_handler, &headers, (quicr_byte_span_t){ 0 }, NULL, &publish_status) ==
+                         QUICR_STATUS_OK);
+        SCENARIO_REQUIRE(!quicr_test_event_wait(callback_entered, 100U));
+    }
+
+    quicr_publish_track_handler_destroy(publish_handler);
+    publish_handler = NULL;
+    quicr_subscribe_track_handler_destroy(subscribe_handler);
+    subscribe_handler = NULL;
 
 cleanup:
     quicr_session_manager_destroy(manager);
-    subscriber.handler = NULL;
-    (void)quicr_track_handler_destroy(publish_handler);
-    (void)quicr_track_handler_destroy(subscribe_handler);
+    quicr_track_handler_destroy(publish_handler);
+    quicr_track_handler_destroy(subscribe_handler);
     quicr_full_track_name_destroy(full_track_name);
     quicr_test_event_destroy(subscriber.object);
     quicr_test_event_destroy(subscriber.object_status);
@@ -1205,6 +1242,30 @@ cleanup:
 }
 
 quicr_c_test_result_t
+quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams, const int use_forwarding)
+{
+    return run_publish_subscribe(connect_uri, use_datagrams, use_forwarding, NULL, NULL, NULL, NULL, NULL);
+}
+
+quicr_c_test_result_t
+quicr_test_c_callback_drain(const char* connect_uri,
+                            quicr_test_event_t* callback_entered,
+                            quicr_test_event_t* callback_release,
+                            quicr_test_event_t* callback_finished,
+                            quicr_test_event_t* destroy_started,
+                            quicr_test_event_t* destroy_returned)
+{
+    return run_publish_subscribe(connect_uri,
+                                 false,
+                                 false,
+                                 callback_entered,
+                                 callback_release,
+                                 callback_finished,
+                                 destroy_started,
+                                 destroy_returned);
+}
+
+quicr_c_test_result_t
 quicr_test_c_fetch_namespace_status(const char* connect_uri)
 {
     static const uint8_t namespace_data[] = "c-api";
@@ -1219,6 +1280,7 @@ quicr_test_c_fetch_namespace_status(const char* connect_uri)
     quicr_fetch_track_handler_t* fetch_handler = NULL;
     quicr_publish_track_handler_t* namespace_track_handler = NULL;
     quicr_publish_namespace_handler_t* publish_namespace_handler = NULL;
+    quicr_publish_namespace_handler_t* wrong_publish_namespace_handler = NULL;
     quicr_subscribe_namespace_handler_t* namespace_handler = NULL;
     quicr_track_status_track_handler_t* track_status_handler = NULL;
     bool fetch_registered = false;
@@ -1303,8 +1365,34 @@ quicr_test_c_fetch_namespace_status(const char* connect_uri)
     SCENARIO_REQUIRE(quicr_test_event_wait(context.publish_namespace_ready, QUICR_TEST_TIMEOUT_MS));
     SCENARIO_REQUIRE(quicr_publish_namespace_handler_publish_track(publish_namespace_handler,
                                                                    namespace_track_handler) == QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(quicr_publish_namespace_handler_unpublish_track(publish_namespace_handler,
-                                                                     namespace_track_handler) == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_publish_namespace_handler_create(NULL, track_namespace, &wrong_publish_namespace_handler) ==
+                     QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_publish_namespace_handler_unpublish_track(
+                       wrong_publish_namespace_handler, namespace_track_handler) == QUICR_STATUS_INVALID_ARGUMENT);
+
+    SCENARIO_REQUIRE(quicr_session_manager_remove_publish_namespace_handler(
+                       manager, session, publish_namespace_handler) == QUICR_STATUS_OK);
+    publish_namespace_registered = false;
+    SCENARIO_REQUIRE(quicr_session_manager_add_handler(manager, session, namespace_track_handler) == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_session_manager_remove_publish_track_handler(manager, session, namespace_track_handler) ==
+                     QUICR_STATUS_OK);
+
+    SCENARIO_REQUIRE(quicr_session_manager_add_handler(manager, session, publish_namespace_handler) == QUICR_STATUS_OK);
+    publish_namespace_registered = true;
+    SCENARIO_REQUIRE(quicr_test_event_wait(context.publish_namespace_ready, QUICR_TEST_TIMEOUT_MS));
+    SCENARIO_REQUIRE(quicr_publish_namespace_handler_publish_track(publish_namespace_handler,
+                                                                   namespace_track_handler) == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_session_manager_remove_publish_track_handler(manager, session, namespace_track_handler) ==
+                     QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_session_manager_add_handler(manager, session, namespace_track_handler) == QUICR_STATUS_OK);
+
+    quicr_publish_namespace_handler_destroy(publish_namespace_handler);
+    publish_namespace_handler = NULL;
+    publish_namespace_registered = false;
+    quicr_publish_namespace_handler_destroy(wrong_publish_namespace_handler);
+    wrong_publish_namespace_handler = NULL;
+    quicr_publish_track_handler_destroy(namespace_track_handler);
+    namespace_track_handler = NULL;
 
     const quicr_track_status_handler_callbacks_t track_status_callbacks = {
         .user_data = &context,
@@ -1330,6 +1418,16 @@ quicr_test_c_fetch_namespace_status(const char* connect_uri)
     SCENARIO_REQUIRE(quicr_track_status_handler_get_error(track_status_handler, &error_code, NULL, &reason_size) ==
                      QUICR_STATUS_NOT_FOUND);
 
+    quicr_track_status_handler_destroy(track_status_handler);
+    track_status_handler = NULL;
+    track_status_registered = false;
+    quicr_subscribe_namespace_handler_destroy(namespace_handler);
+    namespace_handler = NULL;
+    namespace_registered = false;
+    quicr_fetch_track_handler_destroy(fetch_handler);
+    fetch_handler = NULL;
+    fetch_registered = false;
+
 cleanup:
     if (result.line == 0) {
         if (track_status_registered) {
@@ -1347,11 +1445,12 @@ cleanup:
     }
     quicr_session_manager_destroy(manager);
     manager = NULL;
-    (void)quicr_track_handler_destroy(track_status_handler);
-    (void)quicr_track_handler_destroy(namespace_handler);
-    (void)quicr_track_handler_destroy(publish_namespace_handler);
-    (void)quicr_track_handler_destroy(namespace_track_handler);
-    (void)quicr_track_handler_destroy(fetch_handler);
+    quicr_track_handler_destroy(track_status_handler);
+    quicr_track_handler_destroy(namespace_handler);
+    quicr_track_handler_destroy(publish_namespace_handler);
+    quicr_track_handler_destroy(wrong_publish_namespace_handler);
+    quicr_track_handler_destroy(namespace_track_handler);
+    quicr_track_handler_destroy(fetch_handler);
 
     quicr_full_track_name_destroy(full_track_name);
     quicr_track_namespace_destroy(track_namespace);
@@ -1483,9 +1582,9 @@ cleanup:
     }
     quicr_session_manager_destroy(manager);
     manager = NULL;
-    (void)quicr_track_handler_destroy(track_status_handler);
-    (void)quicr_track_handler_destroy(subscribe_handler);
-    (void)quicr_track_handler_destroy(publish_handler);
+    quicr_track_handler_destroy(track_status_handler);
+    quicr_track_handler_destroy(subscribe_handler);
+    quicr_track_handler_destroy(publish_handler);
     quicr_full_track_name_destroy(full_track_name);
     quicr_test_event_destroy(context.track_status_rejected);
     quicr_test_event_destroy(context.subscribe_rejected);
@@ -1513,7 +1612,6 @@ quicr_test_c_server_fetch(const char* connect_uri, const uint16_t server_port)
     bool accepted_fetch_registered = false;
     bool rejected_namespace_registered = false;
     bool accepted_namespace_registered = false;
-    bool publish_fetch_bound = false;
 
     context.client_ready = quicr_test_event_create();
     context.fetch_rejected = quicr_test_event_create();
@@ -1590,7 +1688,7 @@ quicr_test_c_server_fetch(const char* connect_uri, const uint16_t server_port)
     SCENARIO_REQUIRE(quicr_session_manager_remove_handler(client_manager, client_session, rejected_fetch) ==
                      QUICR_STATUS_OK);
     rejected_fetch_registered = false;
-    SCENARIO_REQUIRE(quicr_track_handler_destroy(rejected_fetch) == QUICR_STATUS_OK);
+    quicr_track_handler_destroy(rejected_fetch);
     rejected_fetch = NULL;
 
     SCENARIO_REQUIRE(
@@ -1600,11 +1698,12 @@ quicr_test_c_server_fetch(const char* connect_uri, const uint16_t server_port)
     SCENARIO_REQUIRE(quicr_session_manager_add_handler(client_manager, client_session, accepted_fetch) ==
                      QUICR_STATUS_OK);
     accepted_fetch_registered = true;
+    SCENARIO_REQUIRE(quicr_session_manager_remove_handler(server_manager, client_session, accepted_fetch) ==
+                     QUICR_STATUS_INVALID_ARGUMENT);
     SCENARIO_REQUIRE(quicr_test_event_wait(context.fetch_ready, QUICR_TEST_TIMEOUT_MS));
     SCENARIO_REQUIRE(quicr_test_event_wait(context.fetch_object, QUICR_TEST_TIMEOUT_MS));
     SCENARIO_REQUIRE(context.fetch_size == 3U);
     SCENARIO_REQUIRE(context.publish_fetch_handler != NULL);
-    publish_fetch_bound = true;
 
     static const uint8_t namespace_data[] = "c-api-server";
     const quicr_byte_span_t namespace_entry = { namespace_data, sizeof(namespace_data) - 1U };
@@ -1653,19 +1752,17 @@ cleanup:
         if (rejected_fetch_registered) {
             (void)quicr_session_manager_remove_handler(client_manager, client_session, rejected_fetch);
         }
-        if (publish_fetch_bound) {
-            (void)quicr_session_unbind_publish_fetch_handler(context.server_session, context.publish_fetch_handler);
-        }
     }
+    quicr_track_handler_destroy(context.publish_fetch_handler);
+    context.publish_fetch_handler = NULL;
     quicr_session_manager_destroy(client_manager);
     client_manager = NULL;
     quicr_session_manager_destroy(server_manager);
     server_manager = NULL;
-    (void)quicr_track_handler_destroy(accepted_fetch);
-    (void)quicr_track_handler_destroy(rejected_fetch);
-    (void)quicr_track_handler_destroy(accepted_namespace);
-    (void)quicr_track_handler_destroy(rejected_namespace);
-    (void)quicr_track_handler_destroy(context.publish_fetch_handler);
+    quicr_track_handler_destroy(accepted_fetch);
+    quicr_track_handler_destroy(rejected_fetch);
+    quicr_track_handler_destroy(accepted_namespace);
+    quicr_track_handler_destroy(rejected_namespace);
     quicr_full_track_name_destroy(full_track_name);
     quicr_track_namespace_destroy(track_namespace);
     quicr_test_event_destroy(context.server_session_ready);
@@ -1736,10 +1833,10 @@ quicr_test_c_joining_server_start(const uint16_t port, quicr_test_joining_server
 
 cleanup:
     if (created != NULL) {
-        quicr_session_manager_destroy(created->manager);
+        quicr_subscribe_track_handler_destroy(created->received_publish_handler);
+        quicr_publish_track_handler_destroy(created->relay_publish_handler);
         quicr_publish_response_destroy(created->publish_response);
-        (void)quicr_subscribe_track_handler_destroy(created->received_publish_handler);
-        (void)quicr_publish_track_handler_destroy(created->relay_publish_handler);
+        quicr_session_manager_destroy(created->manager);
         quicr_test_event_destroy(created->unsubscribe_namespace_received);
         quicr_test_event_destroy(created->publish_namespace_done_received);
         quicr_test_event_destroy(created->unsubscribe_received);
@@ -1759,6 +1856,8 @@ quicr_test_c_joining_server_wait(quicr_test_joining_server_t* server, const uint
            quicr_test_event_wait(server->joining_received, timeout_ms) &&
            quicr_test_event_wait(server->publish_done_received, timeout_ms) &&
            quicr_test_event_wait(server->unsubscribe_received, timeout_ms) &&
+           quicr_session_unbind_publish_track_handler(
+             server->relay_session, 18U, server->relay_publish_handler, true) == QUICR_STATUS_INVALID_ARGUMENT &&
            quicr_session_unbind_publish_track_handler(
              server->relay_session, 17U, server->relay_publish_handler, false) == QUICR_STATUS_OK &&
            quicr_test_event_wait(server->publish_namespace_done_received, timeout_ms) &&
@@ -1795,10 +1894,10 @@ quicr_test_c_joining_server_destroy(quicr_test_joining_server_t* server)
         return;
     }
 
-    quicr_session_manager_destroy(server->manager);
+    quicr_subscribe_track_handler_destroy(server->received_publish_handler);
+    quicr_publish_track_handler_destroy(server->relay_publish_handler);
     quicr_publish_response_destroy(server->publish_response);
-    (void)quicr_subscribe_track_handler_destroy(server->received_publish_handler);
-    (void)quicr_publish_track_handler_destroy(server->relay_publish_handler);
+    quicr_session_manager_destroy(server->manager);
     quicr_test_event_destroy(server->unsubscribe_namespace_received);
     quicr_test_event_destroy(server->publish_namespace_done_received);
     quicr_test_event_destroy(server->unsubscribe_received);
