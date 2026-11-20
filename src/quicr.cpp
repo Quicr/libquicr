@@ -3713,9 +3713,10 @@ extern "C"
                 return QUICR_STATUS_NOT_FOUND;
             }
 
-            if (handler->bound_source_id || handler->impl->IsRegistered()) {
+            if (handler->impl->IsRegistered()) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
+            handler->bound_source_id.reset();
 
             EnableCallbacks(*handler->callback_state);
             try {
@@ -4904,9 +4905,7 @@ namespace {
             }
             if constexpr (std::is_same_v<CHandler, quicr_publish_track_handler>) {
                 handler->publish_namespace.reset();
-                if (handler->bound_source_id) {
-                    return QUICR_STATUS_INVALID_ARGUMENT;
-                }
+                handler->bound_source_id.reset();
             }
 
             EnableCallbacks(*handler->callback_state);
