@@ -17,6 +17,7 @@
 #include <limits>
 #include <mutex>
 #include <new>
+#include <optional>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -123,9 +124,20 @@ namespace {
     }
 }
 
+class PublishTrackHandlerAdapter;
+class PublishFetchHandlerAdapter;
+class SubscribeTrackHandlerAdapter;
+class ForwardingSubscribeTrackHandlerAdapter;
+class FetchTrackHandlerAdapter;
+class PublishNamespaceHandlerAdapter;
+class SubscribeNamespaceHandlerAdapter;
+class TrackStatusHandlerAdapter;
+
 struct quicr_reply
 {
     CReplyKind kind;
+    std::weak_ptr<Session> session;
+    bool accepted_handler_adopted{ false };
     bool completed{ false };
     bool accepted{ false };
     std::uint64_t error_code{ 0 };
@@ -215,6 +227,7 @@ struct quicr_publish_response
     std::optional<std::chrono::milliseconds> subgroup_delivery_timeout;
     std::optional<std::chrono::milliseconds> object_delivery_timeout;
     std::optional<std::uint64_t> new_group_request_id;
+    std::atomic_uint64_t* callback_state{ nullptr };
     std::shared_ptr<SubscribeTrackHandler> impl;
 };
 
@@ -1266,7 +1279,11 @@ namespace {
         }
         if (reply.accepted) {
             if (reply.publish_response) {
-                return ToCppType<PublishResponse>(*reply.publish_response);
+                auto response = ToCppType<PublishResponse>(*reply.publish_response);
+                if (reply.accepted_handler_adopted) {
+                    response.handler.reset();
+                }
+                return response;
             }
             return MakeError(PublishErrorCode::kInternalError, "Accepted publish reply has no response");
         }
@@ -1533,6 +1550,7 @@ namespace {
 struct quicr_session
 {
     std::weak_ptr<quicr::Session> impl;
+    quicr_session_manager_t* owner{ nullptr };
 };
 
 struct quicr_session_manager
@@ -1552,6 +1570,7 @@ struct quicr_session_manager
 
         auto new_handle = std::make_unique<quicr_session_t>();
         new_handle->impl = session;
+        new_handle->owner = this;
 
         auto* handle = new_handle.get();
         sessions.emplace(session.get(), std::move(new_handle));
@@ -1566,6 +1585,7 @@ struct quicr_session_manager
 
         auto* result = handle.get();
         handle->impl = session;
+        handle->owner = this;
         sessions.emplace(session.get(), std::move(handle));
         return result;
     }
@@ -1585,48 +1605,48 @@ struct quicr_session_manager
     }
 };
 
-class HandlerCallbackState;
-
 struct quicr_publish_track_handler
 {
-    std::shared_ptr<PublishTrackHandler> impl;
-    std::shared_ptr<HandlerCallbackState> callback_state;
+    std::shared_ptr<PublishTrackHandlerAdapter> impl;
+    std::atomic_uint64_t* callback_state{ nullptr };
+    std::weak_ptr<PublishNamespaceHandler> publish_namespace;
+    std::optional<std::uint64_t> bound_source_id;
 };
 
 struct quicr_publish_fetch_handler
 {
-    std::shared_ptr<PublishFetchHandler> impl;
-    std::shared_ptr<HandlerCallbackState> callback_state;
+    std::shared_ptr<PublishFetchHandlerAdapter> impl;
+    std::atomic_uint64_t* callback_state{ nullptr };
 };
 
 struct quicr_subscribe_track_handler
 {
     std::shared_ptr<SubscribeTrackHandler> impl;
-    std::shared_ptr<HandlerCallbackState> callback_state;
+    std::atomic_uint64_t* callback_state{ nullptr };
 };
 
 struct quicr_fetch_track_handler
 {
-    std::shared_ptr<FetchTrackHandler> impl;
-    std::shared_ptr<HandlerCallbackState> callback_state;
+    std::shared_ptr<FetchTrackHandlerAdapter> impl;
+    std::atomic_uint64_t* callback_state{ nullptr };
 };
 
 struct quicr_publish_namespace_handler
 {
-    std::shared_ptr<PublishNamespaceHandler> impl;
-    std::shared_ptr<HandlerCallbackState> callback_state;
+    std::shared_ptr<PublishNamespaceHandlerAdapter> impl;
+    std::atomic_uint64_t* callback_state{ nullptr };
 };
 
 struct quicr_subscribe_namespace_handler
 {
     std::shared_ptr<SubscribeNamespaceHandler> impl;
-    std::shared_ptr<HandlerCallbackState> callback_state;
+    std::atomic_uint64_t* callback_state{ nullptr };
 };
 
 struct quicr_track_status_track_handler
 {
-    std::shared_ptr<TrackStatusHandler> impl;
-    std::shared_ptr<HandlerCallbackState> callback_state;
+    std::shared_ptr<TrackStatusHandlerAdapter> impl;
+    std::atomic_uint64_t* callback_state{ nullptr };
 };
 
 namespace {
@@ -1675,50 +1695,97 @@ namespace {
 // C++ Adapters
 /*===========================================================================*/
 
-class HandlerCallbackState
+constexpr std::uint64_t kCallbacksDisabled = std::uint64_t{ 1 } << 63;
+constexpr std::uint64_t kCallbacksDestroyed = std::uint64_t{ 1 } << 62;
+constexpr std::uint64_t kCallbackStateMask = kCallbacksDisabled | kCallbacksDestroyed;
+constexpr std::uint64_t kCallbackCountMask = ~kCallbackStateMask;
+
+bool
+BeginCallback(std::atomic_uint64_t& state) noexcept
 {
-  public:
-    template<typename Callback, typename... Args>
-    void Invoke(Callback&& callback, Args&&... args) noexcept
-    {
-        if (!BeginCallback()) {
+    auto current = state.load();
+    while ((current & kCallbackStateMask) == 0) {
+        if ((current & kCallbackCountMask) == kCallbackCountMask) {
+            return false;
+        }
+        if (state.compare_exchange_weak(current, current + 1)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void
+EndCallback(std::atomic_uint64_t& state) noexcept
+{
+    if ((state.fetch_sub(1) & kCallbackCountMask) == 1) {
+        state.notify_all();
+    }
+}
+
+void
+DrainCallbacks(std::atomic_uint64_t& state, std::uint64_t flags) noexcept
+{
+    state.fetch_or(flags);
+    auto current = state.load();
+    while ((current & kCallbackCountMask) != 0) {
+        state.wait(current);
+        current = state.load();
+    }
+}
+
+void
+EnableCallbacks(std::atomic_uint64_t& state) noexcept
+{
+    auto current = state.load();
+    while ((current & kCallbacksDestroyed) == 0 && (current & kCallbacksDisabled) != 0) {
+        if (state.compare_exchange_weak(current, current & ~kCallbacksDisabled)) {
             return;
         }
+    }
+}
 
-        SafeCallback(std::forward<Callback>(callback), std::forward<Args>(args)...);
-        EndCallback();
+void
+DisableCallbacks(std::atomic_uint64_t& state) noexcept
+{
+    DrainCallbacks(state, kCallbacksDisabled);
+}
+
+void
+ShutdownCallbacks(std::atomic_uint64_t& state) noexcept
+{
+    DrainCallbacks(state, kCallbacksDisabled | kCallbacksDestroyed);
+}
+
+template<typename F>
+bool
+RunWhileCallbacksAlive(std::atomic_uint64_t& state, F&& function)
+{
+    if (!BeginCallback(state)) {
+        return false;
     }
 
-    void EnableCallbacks() noexcept { callbacks_enabled_ = true; }
+    try {
+        std::invoke(std::forward<F>(function));
+    } catch (...) {
+        EndCallback(state);
+        throw;
+    }
+    EndCallback(state);
+    return true;
+}
 
-    bool DisableCallbacks() noexcept
-    {
-        callbacks_enabled_ = false;
-        return active_callbacks_ == 0;
+template<typename Callback, typename... Args>
+void
+InvokeCallback(std::atomic_uint64_t& state, Callback&& callback, Args&&... args) noexcept
+{
+    if (!BeginCallback(state)) {
+        return;
     }
 
-  private:
-    bool BeginCallback() noexcept
-    {
-        if (!callbacks_enabled_) {
-            return false;
-        }
-
-        ++active_callbacks_;
-        if (!callbacks_enabled_) {
-            --active_callbacks_;
-            return false;
-        }
-
-        return true;
-    }
-
-    void EndCallback() noexcept { --active_callbacks_; }
-
-  private:
-    std::atomic<std::size_t> active_callbacks_{ 0 };
-    std::atomic<bool> callbacks_enabled_{ true };
-};
+    SafeCallback(std::forward<Callback>(callback), std::forward<Args>(args)...);
+    EndCallback(state);
+}
 
 template<typename DerivedSessionCallbacks, typename CCallbacks>
     requires std::is_base_of_v<Session::Callbacks, DerivedSessionCallbacks>
@@ -1800,14 +1867,37 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         const auto cpp_handler = sub_ns_handler.lock();
         quicr_subscribe_namespace_handler c_handler{ .impl = cpp_handler };
         return SafeCallback(
-          [&] {
-              quicr_reply_t reply{ .kind = CReplyKind::kPublish };
+          [&]() -> Reply<const PublishResponse, PublishErrorCode> {
+              quicr_reply_t reply{
+                  .kind = CReplyKind::kPublish,
+                  .session = session,
+              };
               callbacks.publish_received(GetSessionHandle(session),
                                          request_id,
                                          &c_attributes,
                                          cpp_handler ? &c_handler : nullptr,
                                          &reply,
                                          callbacks.user_data);
+              if (reply.accepted && reply.publish_response && reply.publish_response->callback_state) {
+                  const auto handler = reply.publish_response->impl;
+                  const bool adopted = RunWhileCallbacksAlive(*reply.publish_response->callback_state, [&] {
+                      handler->SetPublishInitiated();
+                      handler->SetRequestId(request_id);
+                      handler->SetReceivedTrackAlias(attributes.track_alias);
+                      handler->SetSubscriberPriority(attributes.publisher_priority);
+                      const std::uint64_t delivery_timeout_ms = attributes.delivery_timeout.value_or(0);
+                      handler->SetDeliveryTimeout(std::chrono::milliseconds(delivery_timeout_ms));
+                      handler->SetPublisherDefaultGroupOrder(attributes.default_publisher_group_order);
+                      handler->SupportNewGroupRequest(attributes.dynamic_groups);
+                      session->SubscribeTrack(handler);
+                  });
+                  if (!adopted) {
+                      return MakeError(PublishErrorCode::kInternalError,
+                                       "Accepted publish handler was destroyed before adoption");
+                  }
+                  reply.accepted_handler_adopted = true;
+              }
+
               return ToCppType<Reply<const PublishResponse, PublishErrorCode>>(reply);
           },
           CallbackInternalError<PublishErrorCode>());
@@ -2108,6 +2198,8 @@ class SessionManagerCallbacksAdapter final : public quicr::SessionManager::Callb
 class PublishTrackHandlerAdapter : public quicr::PublishTrackHandler
 {
   public:
+    using PublishTrackHandler::GetSession;
+
     PublishTrackHandlerAdapter(quicr_publish_track_handler* owner,
                                const quicr_publish_track_handler_callbacks_t& callbacks,
                                const FullTrackName& full_track_name,
@@ -2124,7 +2216,6 @@ class PublishTrackHandlerAdapter : public quicr::PublishTrackHandler
                             std::nullopt,
                             largest_location)
       , owner_(owner)
-      , callback_state_(owner->callback_state)
       , callbacks_(callbacks)
     {
     }
@@ -2132,10 +2223,11 @@ class PublishTrackHandlerAdapter : public quicr::PublishTrackHandler
     void StatusChanged(Status status) override
     {
         if (owner_ && callbacks_.status_changed) {
-            callback_state_->Invoke(callbacks_.status_changed,
-                                    owner_,
-                                    ToCType<quicr_publish_track_handler_status_t>(status),
-                                    callbacks_.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks_.status_changed,
+                           owner_,
+                           ToCType<quicr_publish_track_handler_status_t>(status),
+                           callbacks_.user_data);
         }
     }
 
@@ -2143,26 +2235,31 @@ class PublishTrackHandlerAdapter : public quicr::PublishTrackHandler
     {
         if (owner_ && callbacks_.metrics_sampled) {
             const auto c_metrics = ToCType<quicr_publish_track_metrics_t>(metrics);
-            callback_state_->Invoke(callbacks_.metrics_sampled, owner_, &c_metrics, callbacks_.user_data);
+            InvokeCallback(callback_state_, callbacks_.metrics_sampled, owner_, &c_metrics, callbacks_.user_data);
         }
     }
 
     void SubgroupCancelled(std::uint64_t group_id, std::uint64_t subgroup_id) override
     {
         if (owner_ && callbacks_.subgroup_cancelled) {
-            callback_state_->Invoke(callbacks_.subgroup_cancelled, owner_, group_id, subgroup_id, callbacks_.user_data);
+            InvokeCallback(
+              callback_state_, callbacks_.subgroup_cancelled, owner_, group_id, subgroup_id, callbacks_.user_data);
         }
     }
 
+    std::atomic_uint64_t& CallbackState() noexcept { return callback_state_; }
+
   private:
     quicr_publish_track_handler* owner_;
-    std::shared_ptr<HandlerCallbackState> callback_state_;
+    std::atomic_uint64_t callback_state_{ 0 };
     quicr_publish_track_handler_callbacks_t callbacks_;
 };
 
 class PublishFetchHandlerAdapter : public quicr::PublishFetchHandler
 {
   public:
+    using PublishFetchHandler::GetSession;
+
     PublishFetchHandlerAdapter(quicr_publish_fetch_handler* owner,
                                const quicr_publish_fetch_handler_callbacks_t& callbacks,
                                const FullTrackName& full_track_name,
@@ -2172,7 +2269,6 @@ class PublishFetchHandlerAdapter : public quicr::PublishFetchHandler
                                std::uint32_t default_ttl)
       : PublishFetchHandler(full_track_name, priority, request_id, group_order, default_ttl)
       , owner_(owner)
-      , callback_state_(owner->callback_state)
       , callbacks_(callbacks)
     {
     }
@@ -2180,10 +2276,11 @@ class PublishFetchHandlerAdapter : public quicr::PublishFetchHandler
     void StatusChanged(Status status) override
     {
         if (owner_ && callbacks_.status_changed) {
-            callback_state_->Invoke(callbacks_.status_changed,
-                                    owner_,
-                                    ToCType<quicr_publish_track_handler_status_t>(status),
-                                    callbacks_.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks_.status_changed,
+                           owner_,
+                           ToCType<quicr_publish_track_handler_status_t>(status),
+                           callbacks_.user_data);
         }
     }
 
@@ -2191,26 +2288,31 @@ class PublishFetchHandlerAdapter : public quicr::PublishFetchHandler
     {
         if (owner_ && callbacks_.metrics_sampled) {
             const auto c_metrics = ToCType<quicr_publish_track_metrics_t>(metrics);
-            callback_state_->Invoke(callbacks_.metrics_sampled, owner_, &c_metrics, callbacks_.user_data);
+            InvokeCallback(callback_state_, callbacks_.metrics_sampled, owner_, &c_metrics, callbacks_.user_data);
         }
     }
 
     void SubgroupCancelled(std::uint64_t group_id, std::uint64_t subgroup_id) override
     {
         if (owner_ && callbacks_.subgroup_cancelled) {
-            callback_state_->Invoke(callbacks_.subgroup_cancelled, owner_, group_id, subgroup_id, callbacks_.user_data);
+            InvokeCallback(
+              callback_state_, callbacks_.subgroup_cancelled, owner_, group_id, subgroup_id, callbacks_.user_data);
         }
     }
 
+    std::atomic_uint64_t& CallbackState() noexcept { return callback_state_; }
+
   private:
     quicr_publish_fetch_handler* owner_;
-    std::shared_ptr<HandlerCallbackState> callback_state_;
+    std::atomic_uint64_t callback_state_{ 0 };
     quicr_publish_fetch_handler_callbacks_t callbacks_;
 };
 
 class SubscribeTrackHandlerAdapter : public quicr::SubscribeTrackHandler
 {
   public:
+    using SubscribeTrackHandler::GetSession;
+
     SubscribeTrackHandlerAdapter(quicr_subscribe_track_handler* owner,
                                  const quicr_subscribe_track_handler_callbacks_t& callbacks,
                                  const FullTrackName& full_track_name,
@@ -2221,7 +2323,6 @@ class SubscribeTrackHandlerAdapter : public quicr::SubscribeTrackHandler
                                  bool publisher_initiated = false)
       : SubscribeTrackHandler(full_track_name, priority, group_order, filter, joining_fetch, publisher_initiated)
       , owner_(owner)
-      , callback_state_(owner->callback_state)
       , callbacks_(callbacks)
     {
     }
@@ -2229,10 +2330,11 @@ class SubscribeTrackHandlerAdapter : public quicr::SubscribeTrackHandler
     void StatusChanged(Status status) override
     {
         if (owner_ && callbacks_.status_changed) {
-            callback_state_->Invoke(callbacks_.status_changed,
-                                    owner_,
-                                    ToCType<quicr_subscribe_track_handler_status_t>(status),
-                                    callbacks_.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks_.status_changed,
+                           owner_,
+                           ToCType<quicr_subscribe_track_handler_status_t>(status),
+                           callbacks_.user_data);
         }
     }
 
@@ -2240,7 +2342,7 @@ class SubscribeTrackHandlerAdapter : public quicr::SubscribeTrackHandler
     {
         if (owner_ && callbacks_.metrics_sampled) {
             const auto c_metrics = ToCType<quicr_subscribe_track_metrics_t>(metrics);
-            callback_state_->Invoke(callbacks_.metrics_sampled, owner_, &c_metrics, callbacks_.user_data);
+            InvokeCallback(callback_state_, callbacks_.metrics_sampled, owner_, &c_metrics, callbacks_.user_data);
         }
     }
 
@@ -2269,11 +2371,12 @@ class SubscribeTrackHandlerAdapter : public quicr::SubscribeTrackHandler
             c_properties = ToCType<quicr_stream_header_properties_t>(*properties);
         }
 
-        callback_state_->Invoke(callbacks_.object_received,
-                                std::addressof(c_headers),
-                                ToCType<quicr_byte_span_t>(data),
-                                properties.has_value() ? std::addressof(c_properties) : nullptr,
-                                callbacks_.user_data);
+        InvokeCallback(callback_state_,
+                       callbacks_.object_received,
+                       std::addressof(c_headers),
+                       ToCType<quicr_byte_span_t>(data),
+                       properties.has_value() ? std::addressof(c_properties) : nullptr,
+                       callbacks_.user_data);
     }
 
     void ObjectStatusReceived(std::uint64_t group_id,
@@ -2304,14 +2407,15 @@ class SubscribeTrackHandlerAdapter : public quicr::SubscribeTrackHandler
                 headers.immutable_extensions = c_immutable_extensions->Get();
             }
 
-            callback_state_->Invoke(callbacks_.object_status_received, &headers, callbacks_.user_data);
+            InvokeCallback(callback_state_, callbacks_.object_status_received, &headers, callbacks_.user_data);
         }
     }
 
     void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
     {
         if (callbacks_.subgroup_ended) {
-            callback_state_->Invoke(callbacks_.subgroup_ended, group_id, subgroup_id, reset, callbacks_.user_data);
+            InvokeCallback(
+              callback_state_, callbacks_.subgroup_ended, group_id, subgroup_id, reset, callbacks_.user_data);
         }
     }
 
@@ -2323,21 +2427,26 @@ class SubscribeTrackHandlerAdapter : public quicr::SubscribeTrackHandler
         }
 
         if (data) {
-            callback_state_->Invoke(callbacks_.datagram_received,
-                                    ToCType<quicr_byte_span_t>(BytesSpan{ data->data(), data->size() }),
-                                    callbacks_.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks_.datagram_received,
+                           ToCType<quicr_byte_span_t>(BytesSpan{ data->data(), data->size() }),
+                           callbacks_.user_data);
         }
     }
 
+    std::atomic_uint64_t& CallbackState() noexcept { return callback_state_; }
+
   private:
     quicr_subscribe_track_handler* owner_;
-    std::shared_ptr<HandlerCallbackState> callback_state_;
+    std::atomic_uint64_t callback_state_{ 0 };
     quicr_subscribe_track_handler_callbacks_t callbacks_;
 };
 
 class ForwardingSubscribeTrackHandlerAdapter : public quicr::ForwardingSubscribeTrackHandler
 {
   public:
+    using ForwardingSubscribeTrackHandler::GetSession;
+
     ForwardingSubscribeTrackHandlerAdapter(quicr_subscribe_track_handler* owner,
                                            const quicr_forwarding_subscribe_track_handler_callbacks_t& callbacks,
                                            const FullTrackName& full_track_name,
@@ -2346,7 +2455,6 @@ class ForwardingSubscribeTrackHandlerAdapter : public quicr::ForwardingSubscribe
                                            const messages::Filter& filter)
       : ForwardingSubscribeTrackHandler(full_track_name, priority, group_order, filter)
       , owner_(owner)
-      , callback_state_(owner->callback_state)
       , callbacks_(callbacks)
     {
     }
@@ -2355,10 +2463,11 @@ class ForwardingSubscribeTrackHandlerAdapter : public quicr::ForwardingSubscribe
     {
         const auto& callbacks = callbacks_.track_callbacks;
         if (owner_ && callbacks.status_changed) {
-            callback_state_->Invoke(callbacks.status_changed,
-                                    owner_,
-                                    ToCType<quicr_subscribe_track_handler_status_t>(status),
-                                    callbacks.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks.status_changed,
+                           owner_,
+                           ToCType<quicr_subscribe_track_handler_status_t>(status),
+                           callbacks.user_data);
         }
     }
 
@@ -2367,7 +2476,7 @@ class ForwardingSubscribeTrackHandlerAdapter : public quicr::ForwardingSubscribe
         const auto& callbacks = callbacks_.track_callbacks;
         if (owner_ && callbacks.metrics_sampled) {
             const auto c_metrics = ToCType<quicr_subscribe_track_metrics_t>(metrics);
-            callback_state_->Invoke(callbacks.metrics_sampled, owner_, &c_metrics, callbacks.user_data);
+            InvokeCallback(callback_state_, callbacks.metrics_sampled, owner_, &c_metrics, callbacks.user_data);
         }
     }
 
@@ -2397,11 +2506,12 @@ class ForwardingSubscribeTrackHandlerAdapter : public quicr::ForwardingSubscribe
             c_properties = ToCType<quicr_stream_header_properties_t>(*properties);
         }
 
-        callback_state_->Invoke(callbacks.object_received,
-                                &c_headers,
-                                ToCType<quicr_byte_span_t>(data),
-                                properties ? &c_properties : nullptr,
-                                callbacks.user_data);
+        InvokeCallback(callback_state_,
+                       callbacks.object_received,
+                       &c_headers,
+                       ToCType<quicr_byte_span_t>(data),
+                       properties ? &c_properties : nullptr,
+                       callbacks.user_data);
     }
 
     void ObjectStatusReceived(std::uint64_t group_id,
@@ -2436,14 +2546,15 @@ class ForwardingSubscribeTrackHandlerAdapter : public quicr::ForwardingSubscribe
             headers.immutable_extensions = c_immutable_extensions->Get();
         }
 
-        callback_state_->Invoke(callbacks.object_status_received, &headers, callbacks.user_data);
+        InvokeCallback(callback_state_, callbacks.object_status_received, &headers, callbacks.user_data);
     }
 
     void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
     {
         const auto& callbacks = callbacks_.track_callbacks;
         if (callbacks.subgroup_ended) {
-            callback_state_->Invoke(callbacks.subgroup_ended, group_id, subgroup_id, reset, callbacks.user_data);
+            InvokeCallback(
+              callback_state_, callbacks.subgroup_ended, group_id, subgroup_id, reset, callbacks.user_data);
         }
     }
 
@@ -2456,9 +2567,10 @@ class ForwardingSubscribeTrackHandlerAdapter : public quicr::ForwardingSubscribe
         }
 
         if (data) {
-            callback_state_->Invoke(callbacks.datagram_received,
-                                    ToCType<quicr_byte_span_t>(BytesSpan{ data->data(), data->size() }),
-                                    callbacks.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks.datagram_received,
+                           ToCType<quicr_byte_span_t>(BytesSpan{ data->data(), data->size() }),
+                           callbacks.user_data);
         }
     }
 
@@ -2472,35 +2584,41 @@ class ForwardingSubscribeTrackHandlerAdapter : public quicr::ForwardingSubscribe
         }
 
         const auto c_properties = ToCType<quicr_stream_header_properties_t>(properties);
-        callback_state_->Invoke(callbacks_.subgroup_started,
-                                group_id,
-                                subgroup_id,
-                                priority.has_value(),
-                                priority.value_or(0),
-                                &c_properties,
-                                callbacks_.track_callbacks.user_data);
+        InvokeCallback(callback_state_,
+                       callbacks_.subgroup_started,
+                       group_id,
+                       subgroup_id,
+                       priority.has_value(),
+                       priority.value_or(0),
+                       &c_properties,
+                       callbacks_.track_callbacks.user_data);
     }
 
     void StreamBytesForwarded(std::uint64_t group_id, std::uint64_t subgroup_id, Bytes&& data) override
     {
         if (callbacks_.stream_bytes_forwarded) {
-            callback_state_->Invoke(callbacks_.stream_bytes_forwarded,
-                                    group_id,
-                                    subgroup_id,
-                                    ToCType<quicr_byte_span_t>(BytesSpan{ data.data(), data.size() }),
-                                    callbacks_.track_callbacks.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks_.stream_bytes_forwarded,
+                           group_id,
+                           subgroup_id,
+                           ToCType<quicr_byte_span_t>(BytesSpan{ data.data(), data.size() }),
+                           callbacks_.track_callbacks.user_data);
         }
     }
 
+    std::atomic_uint64_t& CallbackState() noexcept { return callback_state_; }
+
   private:
     quicr_subscribe_track_handler* owner_;
-    std::shared_ptr<HandlerCallbackState> callback_state_;
+    std::atomic_uint64_t callback_state_{ 0 };
     quicr_forwarding_subscribe_track_handler_callbacks_t callbacks_;
 };
 
 class FetchTrackHandlerAdapter : public quicr::FetchTrackHandler
 {
   public:
+    using FetchTrackHandler::GetSession;
+
     FetchTrackHandlerAdapter(quicr_fetch_track_handler* owner,
                              const quicr_fetch_track_handler_callbacks_t& callbacks,
                              const FullTrackName& full_track_name,
@@ -2510,7 +2628,6 @@ class FetchTrackHandlerAdapter : public quicr::FetchTrackHandler
                              messages::GroupOrder group_order)
       : FetchTrackHandler(full_track_name, priority, start_location, end_location, group_order)
       , owner_(owner)
-      , callback_state_(owner->callback_state)
       , callbacks_(callbacks)
     {
     }
@@ -2518,10 +2635,11 @@ class FetchTrackHandlerAdapter : public quicr::FetchTrackHandler
     void StatusChanged(Status status) override
     {
         if (owner_ && callbacks_.status_changed) {
-            callback_state_->Invoke(callbacks_.status_changed,
-                                    owner_,
-                                    ToCType<quicr_fetch_track_handler_status_t>(status),
-                                    callbacks_.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks_.status_changed,
+                           owner_,
+                           ToCType<quicr_fetch_track_handler_status_t>(status),
+                           callbacks_.user_data);
         }
     }
 
@@ -2529,7 +2647,7 @@ class FetchTrackHandlerAdapter : public quicr::FetchTrackHandler
     {
         if (owner_ && callbacks_.metrics_sampled) {
             const auto c_metrics = ToCType<quicr_subscribe_track_metrics_t>(metrics);
-            callback_state_->Invoke(callbacks_.metrics_sampled, owner_, &c_metrics, callbacks_.user_data);
+            InvokeCallback(callback_state_, callbacks_.metrics_sampled, owner_, &c_metrics, callbacks_.user_data);
         }
     }
 
@@ -2558,11 +2676,12 @@ class FetchTrackHandlerAdapter : public quicr::FetchTrackHandler
             c_properties = ToCType<quicr_stream_header_properties_t>(*properties);
         }
 
-        callback_state_->Invoke(callbacks_.object_received,
-                                &c_headers,
-                                ToCType<quicr_byte_span_t>(data),
-                                properties ? &c_properties : nullptr,
-                                callbacks_.user_data);
+        InvokeCallback(callback_state_,
+                       callbacks_.object_received,
+                       &c_headers,
+                       ToCType<quicr_byte_span_t>(data),
+                       properties ? &c_properties : nullptr,
+                       callbacks_.user_data);
     }
 
     void ObjectStatusReceived(std::uint64_t group_id,
@@ -2593,14 +2712,15 @@ class FetchTrackHandlerAdapter : public quicr::FetchTrackHandler
                 headers.immutable_extensions = c_immutable_extensions->Get();
             }
 
-            callback_state_->Invoke(callbacks_.object_status_received, &headers, callbacks_.user_data);
+            InvokeCallback(callback_state_, callbacks_.object_status_received, &headers, callbacks_.user_data);
         }
     }
 
     void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, bool reset) override
     {
         if (callbacks_.subgroup_ended) {
-            callback_state_->Invoke(callbacks_.subgroup_ended, group_id, subgroup_id, reset, callbacks_.user_data);
+            InvokeCallback(
+              callback_state_, callbacks_.subgroup_ended, group_id, subgroup_id, reset, callbacks_.user_data);
         }
     }
 
@@ -2612,27 +2732,31 @@ class FetchTrackHandlerAdapter : public quicr::FetchTrackHandler
         }
 
         if (data) {
-            callback_state_->Invoke(callbacks_.datagram_received,
-                                    ToCType<quicr_byte_span_t>(BytesSpan{ data->data(), data->size() }),
-                                    callbacks_.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks_.datagram_received,
+                           ToCType<quicr_byte_span_t>(BytesSpan{ data->data(), data->size() }),
+                           callbacks_.user_data);
         }
     }
 
+    std::atomic_uint64_t& CallbackState() noexcept { return callback_state_; }
+
   private:
     quicr_fetch_track_handler* owner_;
-    std::shared_ptr<HandlerCallbackState> callback_state_;
+    std::atomic_uint64_t callback_state_{ 0 };
     quicr_fetch_track_handler_callbacks_t callbacks_;
 };
 
 class PublishNamespaceHandlerAdapter : public quicr::PublishNamespaceHandler
 {
   public:
+    using PublishNamespaceHandler::GetSession;
+
     PublishNamespaceHandlerAdapter(quicr_publish_namespace_handler* owner,
                                    const quicr_publish_namespace_handler_callbacks_t& callbacks,
                                    const TrackNamespace& prefix)
       : PublishNamespaceHandler(prefix)
       , owner_(owner)
-      , callback_state_(owner->callback_state)
       , callbacks_(callbacks)
     {
     }
@@ -2640,22 +2764,27 @@ class PublishNamespaceHandlerAdapter : public quicr::PublishNamespaceHandler
     void StatusChanged(Status status) override
     {
         if (owner_ && callbacks_.status_changed) {
-            callback_state_->Invoke(callbacks_.status_changed,
-                                    owner_,
-                                    ToCType<quicr_publish_namespace_handler_status_t>(status),
-                                    callbacks_.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks_.status_changed,
+                           owner_,
+                           ToCType<quicr_publish_namespace_handler_status_t>(status),
+                           callbacks_.user_data);
         }
     }
 
+    std::atomic_uint64_t& CallbackState() noexcept { return callback_state_; }
+
   private:
     quicr_publish_namespace_handler* owner_;
-    std::shared_ptr<HandlerCallbackState> callback_state_;
+    std::atomic_uint64_t callback_state_{ 0 };
     quicr_publish_namespace_handler_callbacks_t callbacks_;
 };
 
 class SubscribeNamespaceHandlerAdapter : public quicr::SubscribeNamespaceHandler
 {
   public:
+    using SubscribeNamespaceHandler::GetSession;
+
     SubscribeNamespaceHandlerAdapter(quicr_subscribe_namespace_handler* owner,
                                      const quicr_subscribe_namespace_handler_callbacks_t& callbacks,
                                      const TrackNamespace& prefix,
@@ -2663,7 +2792,6 @@ class SubscribeNamespaceHandlerAdapter : public quicr::SubscribeNamespaceHandler
                                      const messages::Filter& filter)
       : SubscribeNamespaceHandler(prefix, mode, filter)
       , owner_(owner)
-      , callback_state_(owner->callback_state)
       , callbacks_(callbacks)
     {
     }
@@ -2671,10 +2799,11 @@ class SubscribeNamespaceHandlerAdapter : public quicr::SubscribeNamespaceHandler
     void StatusChanged(Status status) override
     {
         if (owner_ && callbacks_.status_changed) {
-            callback_state_->Invoke(callbacks_.status_changed,
-                                    owner_,
-                                    ToCType<quicr_subscribe_namespace_handler_status_t>(status),
-                                    callbacks_.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks_.status_changed,
+                           owner_,
+                           ToCType<quicr_subscribe_namespace_handler_status_t>(status),
+                           callbacks_.user_data);
         }
     }
 
@@ -2682,7 +2811,8 @@ class SubscribeNamespaceHandlerAdapter : public quicr::SubscribeNamespaceHandler
     {
         if (owner_ && callbacks_.namespace_received) {
             const auto c_track_namespace = ToCType<quicr_track_namespace_t>(track_namespace);
-            callback_state_->Invoke(callbacks_.namespace_received, owner_, &c_track_namespace, callbacks_.user_data);
+            InvokeCallback(
+              callback_state_, callbacks_.namespace_received, owner_, &c_track_namespace, callbacks_.user_data);
         }
     }
 
@@ -2690,26 +2820,29 @@ class SubscribeNamespaceHandlerAdapter : public quicr::SubscribeNamespaceHandler
     {
         if (owner_ && callbacks_.namespace_done_received) {
             const auto c_track_namespace = ToCType<quicr_track_namespace_t>(track_namespace);
-            callback_state_->Invoke(
-              callbacks_.namespace_done_received, owner_, &c_track_namespace, callbacks_.user_data);
+            InvokeCallback(
+              callback_state_, callbacks_.namespace_done_received, owner_, &c_track_namespace, callbacks_.user_data);
         }
     }
 
+    std::atomic_uint64_t& CallbackState() noexcept { return callback_state_; }
+
   private:
     quicr_subscribe_namespace_handler* owner_;
-    std::shared_ptr<HandlerCallbackState> callback_state_;
+    std::atomic_uint64_t callback_state_{ 0 };
     quicr_subscribe_namespace_handler_callbacks_t callbacks_;
 };
 
 class TrackStatusHandlerAdapter : public quicr::TrackStatusHandler
 {
   public:
+    using TrackStatusHandler::GetSession;
+
     TrackStatusHandlerAdapter(quicr_track_status_track_handler* owner,
                               const quicr_track_status_handler_callbacks_t& callbacks,
                               const FullTrackName& full_track_name)
       : TrackStatusHandler(full_track_name)
       , owner_(owner)
-      , callback_state_(owner->callback_state)
       , callbacks_(callbacks)
     {
     }
@@ -2717,37 +2850,108 @@ class TrackStatusHandlerAdapter : public quicr::TrackStatusHandler
     void StatusChanged(Status status) override
     {
         if (owner_ && callbacks_.status_changed) {
-            callback_state_->Invoke(callbacks_.status_changed,
-                                    owner_,
-                                    ToCType<quicr_track_status_handler_status_t>(status),
-                                    callbacks_.user_data);
+            InvokeCallback(callback_state_,
+                           callbacks_.status_changed,
+                           owner_,
+                           ToCType<quicr_track_status_handler_status_t>(status),
+                           callbacks_.user_data);
         }
     }
 
+    std::atomic_uint64_t& CallbackState() noexcept { return callback_state_; }
+
   private:
     quicr_track_status_track_handler* owner_;
-    std::shared_ptr<HandlerCallbackState> callback_state_;
+    std::atomic_uint64_t callback_state_{ 0 };
     quicr_track_status_handler_callbacks_t callbacks_;
 };
 
 template<typename CHandler>
-quicr_status_t
-DestroyHandler(CHandler* handler)
+std::shared_ptr<Session>
+GetHandlerSession(CHandler* handler)
+{
+    return handler->impl->GetSession().lock();
+}
+
+std::shared_ptr<Session>
+GetHandlerSession(quicr_subscribe_track_handler* handler)
+{
+    if (const auto adapter = std::dynamic_pointer_cast<SubscribeTrackHandlerAdapter>(handler->impl)) {
+        return adapter->GetSession().lock();
+    }
+    if (const auto adapter = std::dynamic_pointer_cast<ForwardingSubscribeTrackHandlerAdapter>(handler->impl)) {
+        return adapter->GetSession().lock();
+    }
+    return {};
+}
+
+std::shared_ptr<Session>
+GetHandlerSession(quicr_subscribe_namespace_handler* handler)
+{
+    if (const auto adapter = std::dynamic_pointer_cast<SubscribeNamespaceHandlerAdapter>(handler->impl)) {
+        return adapter->GetSession().lock();
+    }
+    return {};
+}
+
+template<typename CHandler>
+void
+DetachHandler(CHandler* handler) noexcept
+{
+    try {
+        if constexpr (std::is_same_v<CHandler, quicr_publish_track_handler>) {
+            if (const auto publish_namespace = handler->publish_namespace.lock()) {
+                publish_namespace->UnPublishTrack(handler->impl);
+                if (!handler->impl->IsRegistered()) {
+                    return;
+                }
+            }
+        }
+
+        if (!handler->impl->IsRegistered()) {
+            return;
+        }
+
+        const auto session = GetHandlerSession(handler);
+        if (!session) {
+            return;
+        }
+
+        if constexpr (std::is_same_v<CHandler, quicr_publish_track_handler>) {
+            if (handler->bound_source_id) {
+                session->UnbindPublisherTrack(*handler->bound_source_id, handler->impl, false);
+            } else {
+                session->UnpublishTrack(handler->impl);
+            }
+        } else if constexpr (std::is_same_v<CHandler, quicr_publish_fetch_handler>) {
+            session->UnbindFetchTrack(handler->impl);
+        } else if constexpr (std::is_same_v<CHandler, quicr_subscribe_track_handler>) {
+            session->UnsubscribeTrack(handler->impl);
+        } else if constexpr (std::is_same_v<CHandler, quicr_fetch_track_handler>) {
+            session->CancelFetchTrack(handler->impl);
+        } else if constexpr (std::is_same_v<CHandler, quicr_publish_namespace_handler>) {
+            session->PublishNamespaceDone(handler->impl);
+        } else if constexpr (std::is_same_v<CHandler, quicr_subscribe_namespace_handler>) {
+            session->UnsubscribeNamespace(handler->impl);
+        } else if constexpr (std::is_same_v<CHandler, quicr_track_status_track_handler>) {
+            session->CancelTrackStatus(handler->impl);
+        }
+    } catch (...) {
+        // Destruction is final; session teardown releases any remaining native reference.
+    }
+}
+
+template<typename CHandler>
+void
+DestroyHandler(CHandler* handler) noexcept
 {
     if (!handler) {
-        return QUICR_STATUS_OK;
+        return;
     }
 
-    if (!handler->impl || !handler->callback_state || handler->impl->IsRegistered() || handler->impl.use_count() != 1) {
-        return QUICR_STATUS_BUSY;
-    }
-
-    if (!handler->callback_state->DisableCallbacks()) {
-        return QUICR_STATUS_BUSY;
-    }
-
+    ShutdownCallbacks(*handler->callback_state);
+    DetachHandler(handler);
     delete handler;
-    return QUICR_STATUS_OK;
 }
 
 extern "C"
@@ -2788,6 +2992,17 @@ extern "C"
         if (reply->completed) {
             return QUICR_STATUS_INVALID_ARGUMENT;
         }
+
+        if (!response->impl || !response->callback_state || response->impl->IsRegistered()) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        const auto session = reply->session.lock();
+        if (!session) {
+            return QUICR_STATUS_NOT_FOUND;
+        }
+
+        EnableCallbacks(*response->callback_state);
 
         reply->completed = true;
         reply->accepted = true;
@@ -3280,7 +3495,6 @@ extern "C"
 
             *handler = nullptr;
             auto result = std::make_unique<quicr_publish_track_handler_t>();
-            result->callback_state = std::make_shared<HandlerCallbackState>();
 
             result->impl = std::make_shared<PublishTrackHandlerAdapter>(
               result.get(),
@@ -3291,15 +3505,16 @@ extern "C"
               publish_object_priority,
               default_ttl,
               largest_location ? ToCppType<messages::Location>(*largest_location) : messages::Location{});
+            result->callback_state = &result->impl->CallbackState();
 
             *handler = result.release();
             return QUICR_STATUS_OK;
         });
     }
 
-    quicr_status_t quicr_publish_track_handler_destroy(quicr_publish_track_handler_t* handler)
+    void quicr_publish_track_handler_destroy(quicr_publish_track_handler_t* handler)
     {
-        return DestroyHandler(handler);
+        DestroyHandler(handler);
     }
 
     bool quicr_publish_track_handler_can_publish(const quicr_publish_track_handler_t* handler)
@@ -3485,7 +3700,7 @@ extern "C"
     quicr_status_t quicr_session_bind_publish_track_handler(quicr_session_t* session,
                                                             uint64_t src_id,
                                                             uint64_t request_id,
-                                                            const quicr_publish_track_handler_t* handler,
+                                                            quicr_publish_track_handler_t* handler,
                                                             bool ephemeral)
     {
         return SafeCall([&] {
@@ -3498,15 +3713,21 @@ extern "C"
                 return QUICR_STATUS_NOT_FOUND;
             }
 
-            handler->callback_state->EnableCallbacks();
+            if (handler->impl->IsRegistered()) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+            handler->bound_source_id.reset();
+
+            EnableCallbacks(*handler->callback_state);
             try {
                 session_impl->BindPublisherTrack(src_id, request_id, handler->impl, ephemeral);
             } catch (...) {
                 if (!handler->impl->IsRegistered()) {
-                    handler->callback_state->DisableCallbacks();
+                    DisableCallbacks(*handler->callback_state);
                 }
                 throw;
             }
+            handler->bound_source_id = src_id;
 
             return QUICR_STATUS_OK;
         });
@@ -3514,7 +3735,7 @@ extern "C"
 
     quicr_status_t quicr_session_unbind_publish_track_handler(quicr_session_t* session,
                                                               uint64_t src_id,
-                                                              const quicr_publish_track_handler_t* handler,
+                                                              quicr_publish_track_handler_t* handler,
                                                               bool send_publish_done)
     {
         return SafeCall([&] {
@@ -3526,9 +3747,21 @@ extern "C"
             if (!session_impl) {
                 return QUICR_STATUS_NOT_FOUND;
             }
+            if (GetHandlerSession(handler) != session_impl || handler->bound_source_id != src_id) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
 
-            session_impl->UnbindPublisherTrack(src_id, handler->impl, send_publish_done);
-            handler->callback_state->DisableCallbacks();
+            try {
+                session_impl->UnbindPublisherTrack(src_id, handler->impl, send_publish_done);
+            } catch (...) {
+                if (!handler->impl->IsRegistered()) {
+                    handler->bound_source_id.reset();
+                    DisableCallbacks(*handler->callback_state);
+                }
+                throw;
+            }
+            handler->bound_source_id.reset();
+            DisableCallbacks(*handler->callback_state);
 
             return QUICR_STATUS_OK;
         });
@@ -3549,7 +3782,6 @@ extern "C"
 
             *handler = nullptr;
             auto result = std::make_unique<quicr_publish_fetch_handler_t>();
-            result->callback_state = std::make_shared<HandlerCallbackState>();
             result->impl = std::make_shared<PublishFetchHandlerAdapter>(
               result.get(),
               callbacks ? *callbacks : quicr_publish_fetch_handler_callbacks_t{},
@@ -3558,15 +3790,16 @@ extern "C"
               request_id,
               ToCppType<messages::GroupOrder>(group_order),
               default_ttl);
+            result->callback_state = &result->impl->CallbackState();
 
             *handler = result.release();
             return QUICR_STATUS_OK;
         });
     }
 
-    quicr_status_t quicr_publish_fetch_handler_destroy(quicr_publish_fetch_handler_t* handler)
+    void quicr_publish_fetch_handler_destroy(quicr_publish_fetch_handler_t* handler)
     {
-        return DestroyHandler(handler);
+        DestroyHandler(handler);
     }
 
     bool quicr_publish_fetch_handler_can_publish(const quicr_publish_fetch_handler_t* handler)
@@ -3608,7 +3841,7 @@ extern "C"
     }
 
     quicr_status_t quicr_session_bind_publish_fetch_handler(quicr_session_t* session,
-                                                            const quicr_publish_fetch_handler_t* handler)
+                                                            quicr_publish_fetch_handler_t* handler)
     {
         return SafeCall([&] {
             if (!session || !handler || !handler->impl || !handler->callback_state) {
@@ -3620,19 +3853,23 @@ extern "C"
                 return QUICR_STATUS_NOT_FOUND;
             }
 
-            handler->callback_state->EnableCallbacks();
+            if (handler->impl->IsRegistered()) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            EnableCallbacks(*handler->callback_state);
             try {
                 session_impl->BindFetchTrack(handler->impl);
             } catch (...) {
                 if (!handler->impl->IsRegistered()) {
-                    handler->callback_state->DisableCallbacks();
+                    DisableCallbacks(*handler->callback_state);
                 }
                 throw;
             }
 
             if (handler->impl->GetStatus() != PublishFetchHandler::Status::kOk) {
                 session_impl->UnbindFetchTrack(handler->impl);
-                handler->callback_state->DisableCallbacks();
+                DisableCallbacks(*handler->callback_state);
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
@@ -3641,7 +3878,7 @@ extern "C"
     }
 
     quicr_status_t quicr_session_unbind_publish_fetch_handler(quicr_session_t* session,
-                                                              const quicr_publish_fetch_handler_t* handler)
+                                                              quicr_publish_fetch_handler_t* handler)
     {
         return SafeCall([&] {
             if (!session || !handler || !handler->impl || !handler->callback_state || !handler->impl->IsRegistered()) {
@@ -3652,9 +3889,19 @@ extern "C"
             if (!session_impl) {
                 return QUICR_STATUS_NOT_FOUND;
             }
+            if (GetHandlerSession(handler) != session_impl) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
 
-            session_impl->UnbindFetchTrack(handler->impl);
-            handler->callback_state->DisableCallbacks();
+            try {
+                session_impl->UnbindFetchTrack(handler->impl);
+            } catch (...) {
+                if (!handler->impl->IsRegistered()) {
+                    DisableCallbacks(*handler->callback_state);
+                }
+                throw;
+            }
+            DisableCallbacks(*handler->callback_state);
             return QUICR_STATUS_OK;
         });
     }
@@ -3692,8 +3939,7 @@ extern "C"
 
             *handler = nullptr;
             auto result = std::make_unique<quicr_subscribe_track_handler>();
-            result->callback_state = std::make_shared<HandlerCallbackState>();
-            result->impl = std::make_shared<SubscribeTrackHandlerAdapter>(
+            auto adapter = std::make_shared<SubscribeTrackHandlerAdapter>(
               result.get(),
               callbacks ? *callbacks : quicr_subscribe_track_handler_callbacks_t{},
               ToCppType<FullTrackName>(*ftn),
@@ -3702,6 +3948,8 @@ extern "C"
                 ? std::nullopt
                 : std::make_optional(ToCppType<messages::GroupOrder>(group_order)),
               filter ? ToCppType<messages::Filter>(*filter) : messages::Filter{});
+            result->callback_state = &adapter->CallbackState();
+            result->impl = std::move(adapter);
 
             *handler = result.release();
             return QUICR_STATUS_OK;
@@ -3723,8 +3971,7 @@ extern "C"
 
             *handler = nullptr;
             auto result = std::make_unique<quicr_subscribe_track_handler>();
-            result->callback_state = std::make_shared<HandlerCallbackState>();
-            result->impl = std::make_shared<ForwardingSubscribeTrackHandlerAdapter>(
+            auto adapter = std::make_shared<ForwardingSubscribeTrackHandlerAdapter>(
               result.get(),
               callbacks ? *callbacks : quicr_forwarding_subscribe_track_handler_callbacks_t{},
               ToCppType<FullTrackName>(*ftn),
@@ -3733,15 +3980,17 @@ extern "C"
                 ? std::nullopt
                 : std::make_optional(ToCppType<messages::GroupOrder>(group_order)),
               filter ? ToCppType<messages::Filter>(*filter) : messages::Filter{});
+            result->callback_state = &adapter->CallbackState();
+            result->impl = std::move(adapter);
 
             *handler = result.release();
             return QUICR_STATUS_OK;
         });
     }
 
-    quicr_status_t quicr_subscribe_track_handler_destroy(quicr_subscribe_track_handler_t* handler)
+    void quicr_subscribe_track_handler_destroy(quicr_subscribe_track_handler_t* handler)
     {
-        return DestroyHandler(handler);
+        DestroyHandler(handler);
     }
 
     quicr_status_t quicr_subscribe_track_handler_get_status(const quicr_subscribe_track_handler_t* handler,
@@ -3850,7 +4099,6 @@ extern "C"
 
             *handler = nullptr;
             auto result = std::make_unique<quicr_fetch_track_handler>();
-            result->callback_state = std::make_shared<HandlerCallbackState>();
             result->impl = std::make_shared<FetchTrackHandlerAdapter>(
               result.get(),
               callbacks ? *callbacks : quicr_fetch_track_handler_callbacks_t{},
@@ -3859,15 +4107,16 @@ extern "C"
               ToCppType<messages::Location>(*start_location),
               ToCppType<messages::FetchEndLocation>(*end_location),
               ToCppType<messages::GroupOrder>(group_order));
+            result->callback_state = &result->impl->CallbackState();
 
             *handler = result.release();
             return QUICR_STATUS_OK;
         });
     }
 
-    quicr_status_t quicr_fetch_track_handler_destroy(quicr_fetch_track_handler_t* handler)
+    void quicr_fetch_track_handler_destroy(quicr_fetch_track_handler_t* handler)
     {
-        return DestroyHandler(handler);
+        DestroyHandler(handler);
     }
 
     quicr_status_t quicr_fetch_track_handler_get_status(const quicr_fetch_track_handler_t* handler,
@@ -3953,20 +4202,20 @@ extern "C"
 
             *handler = nullptr;
             auto result = std::make_unique<quicr_publish_namespace_handler>();
-            result->callback_state = std::make_shared<HandlerCallbackState>();
             result->impl = std::make_shared<PublishNamespaceHandlerAdapter>(
               result.get(),
               callbacks ? *callbacks : quicr_publish_namespace_handler_callbacks_t{},
               ToCppType<TrackNamespace>(*prefix));
+            result->callback_state = &result->impl->CallbackState();
 
             *handler = result.release();
             return QUICR_STATUS_OK;
         });
     }
 
-    quicr_status_t quicr_publish_namespace_handler_destroy(quicr_publish_namespace_handler_t* handler)
+    void quicr_publish_namespace_handler_destroy(quicr_publish_namespace_handler_t* handler)
     {
-        return DestroyHandler(handler);
+        DestroyHandler(handler);
     }
 
     quicr_status_t quicr_publish_namespace_handler_get_status(const quicr_publish_namespace_handler_t* handler,
@@ -3997,28 +4246,59 @@ extern "C"
     }
 
     quicr_status_t quicr_publish_namespace_handler_publish_track(quicr_publish_namespace_handler_t* handler,
-                                                                 const quicr_publish_track_handler_t* track_handler)
+                                                                 quicr_publish_track_handler_t* track_handler)
     {
         return SafeCall([&] {
             if (!handler || !handler->impl || !track_handler || !track_handler->impl) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            handler->impl->PublishTrack(track_handler->impl);
+            if (!track_handler->impl->GetFullTrackName().name_space.HasSamePrefix(handler->impl->GetPrefix())) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            if (!track_handler->impl->IsRegistered()) {
+                track_handler->publish_namespace.reset();
+            }
+
+            if (!handler->impl->IsRegistered() || !track_handler->publish_namespace.expired() ||
+                track_handler->impl->IsRegistered()) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            track_handler->publish_namespace = handler->impl;
+            try {
+                handler->impl->PublishTrack(track_handler->impl);
+            } catch (...) {
+                track_handler->publish_namespace.reset();
+                throw;
+            }
 
             return QUICR_STATUS_OK;
         });
     }
 
     quicr_status_t quicr_publish_namespace_handler_unpublish_track(quicr_publish_namespace_handler_t* handler,
-                                                                   const quicr_publish_track_handler_t* track_handler)
+                                                                   quicr_publish_track_handler_t* track_handler)
     {
         return SafeCall([&] {
             if (!handler || !handler->impl || !track_handler || !track_handler->impl) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            handler->impl->UnPublishTrack(track_handler->impl);
+            if (track_handler->publish_namespace.lock() != handler->impl) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            try {
+                handler->impl->UnPublishTrack(track_handler->impl);
+            } catch (...) {
+                if (!track_handler->impl->IsRegistered()) {
+                    track_handler->publish_namespace.reset();
+                }
+                throw;
+            }
+            track_handler->publish_namespace.reset();
 
             return QUICR_STATUS_OK;
         });
@@ -4038,22 +4318,23 @@ extern "C"
 
             *handler = nullptr;
             auto result = std::make_unique<quicr_subscribe_namespace_handler>();
-            result->callback_state = std::make_shared<HandlerCallbackState>();
-            result->impl = std::make_shared<SubscribeNamespaceHandlerAdapter>(
+            auto adapter = std::make_shared<SubscribeNamespaceHandlerAdapter>(
               result.get(),
               callbacks ? *callbacks : quicr_subscribe_namespace_handler_callbacks_t{},
               ToCppType<TrackNamespace>(*prefix),
               ToCppType<SubscribeNamespaceHandler::Mode>(mode),
               filter ? ToCppType<messages::Filter>(*filter) : messages::Filter{});
+            result->callback_state = &adapter->CallbackState();
+            result->impl = std::move(adapter);
 
             *handler = result.release();
             return QUICR_STATUS_OK;
         });
     }
 
-    quicr_status_t quicr_subscribe_namespace_handler_destroy(quicr_subscribe_namespace_handler_t* handler)
+    void quicr_subscribe_namespace_handler_destroy(quicr_subscribe_namespace_handler_t* handler)
     {
-        return DestroyHandler(handler);
+        DestroyHandler(handler);
     }
 
     quicr_status_t quicr_subscribe_namespace_handler_get_status(const quicr_subscribe_namespace_handler_t* handler,
@@ -4094,20 +4375,20 @@ extern "C"
 
             *handler = nullptr;
             auto result = std::make_unique<quicr_track_status_track_handler>();
-            result->callback_state = std::make_shared<HandlerCallbackState>();
             result->impl = std::make_shared<TrackStatusHandlerAdapter>(
               result.get(),
               callbacks ? *callbacks : quicr_track_status_handler_callbacks_t{},
               ToCppType<FullTrackName>(*ftn));
+            result->callback_state = &result->impl->CallbackState();
 
             *handler = result.release();
             return QUICR_STATUS_OK;
         });
     }
 
-    quicr_status_t quicr_track_status_handler_destroy(quicr_track_status_track_handler_t* handler)
+    void quicr_track_status_handler_destroy(quicr_track_status_track_handler_t* handler)
     {
-        return DestroyHandler(handler);
+        DestroyHandler(handler);
     }
 
     quicr_status_t quicr_track_status_handler_get_status(const quicr_track_status_track_handler_t* handler,
@@ -4499,12 +4780,13 @@ extern "C"
                                                  quicr_publish_response_t** response)
     {
         return SafeCall([&] {
-            if (!handler || !handler->impl || !response) {
+            if (!handler || !handler->impl || !handler->callback_state || !response) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
             *response = nullptr;
             auto result = std::make_unique<quicr_publish_response_t>();
+            result->callback_state = handler->callback_state;
             result->impl = handler->impl;
             *response = result.release();
 
@@ -4605,10 +4887,11 @@ extern "C"
 
 namespace {
     template<typename CHandler>
-    quicr_status_t AddHandler(quicr_session_manager_t* manager, quicr_session_t* session, const CHandler* handler)
+    quicr_status_t AddHandler(quicr_session_manager_t* manager, quicr_session_t* session, CHandler* handler)
     {
         return SafeCall([&] {
-            if (!manager || !manager->impl || !session || !handler || !handler->impl || !handler->callback_state) {
+            if (!manager || !manager->impl || !session || session->owner != manager || !handler || !handler->impl ||
+                !handler->callback_state) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
@@ -4617,12 +4900,20 @@ namespace {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            handler->callback_state->EnableCallbacks();
+            if (handler->impl->IsRegistered()) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+            if constexpr (std::is_same_v<CHandler, quicr_publish_track_handler>) {
+                handler->publish_namespace.reset();
+                handler->bound_source_id.reset();
+            }
+
+            EnableCallbacks(*handler->callback_state);
             try {
                 manager->impl->AddHandler(session_impl, handler->impl);
             } catch (...) {
                 if (!handler->impl->IsRegistered()) {
-                    handler->callback_state->DisableCallbacks();
+                    DisableCallbacks(*handler->callback_state);
                 }
                 throw;
             }
@@ -4632,10 +4923,11 @@ namespace {
     }
 
     template<typename CHandler>
-    quicr_status_t RemoveHandler(quicr_session_manager_t* manager, quicr_session_t* session, const CHandler* handler)
+    quicr_status_t RemoveHandler(quicr_session_manager_t* manager, quicr_session_t* session, CHandler* handler)
     {
         return SafeCall([&] {
-            if (!manager || !manager->impl || !session || !handler || !handler->impl || !handler->callback_state) {
+            if (!manager || !manager->impl || !session || session->owner != manager || !handler || !handler->impl ||
+                !handler->callback_state) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
@@ -4643,9 +4935,40 @@ namespace {
             if (!session_impl) {
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
+            if (GetHandlerSession(handler) != session_impl) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
 
-            manager->impl->RemoveHandler(session_impl, handler->impl);
-            handler->callback_state->DisableCallbacks();
+            try {
+                if constexpr (std::is_same_v<CHandler, quicr_publish_track_handler>) {
+                    if (const auto publish_namespace = handler->publish_namespace.lock()) {
+                        publish_namespace->UnPublishTrack(handler->impl);
+                    }
+                    if (handler->impl->IsRegistered()) {
+                        session_impl->UnpublishTrack(handler->impl);
+                    }
+                    handler->publish_namespace.reset();
+                } else if constexpr (std::is_same_v<CHandler, quicr_subscribe_track_handler>) {
+                    session_impl->UnsubscribeTrack(handler->impl);
+                } else if constexpr (std::is_same_v<CHandler, quicr_fetch_track_handler>) {
+                    session_impl->CancelFetchTrack(handler->impl);
+                } else if constexpr (std::is_same_v<CHandler, quicr_publish_namespace_handler>) {
+                    session_impl->PublishNamespaceDone(handler->impl);
+                } else if constexpr (std::is_same_v<CHandler, quicr_subscribe_namespace_handler>) {
+                    session_impl->UnsubscribeNamespace(handler->impl);
+                } else if constexpr (std::is_same_v<CHandler, quicr_track_status_track_handler>) {
+                    session_impl->CancelTrackStatus(handler->impl);
+                }
+            } catch (...) {
+                if (!handler->impl->IsRegistered()) {
+                    if constexpr (std::is_same_v<CHandler, quicr_publish_track_handler>) {
+                        handler->publish_namespace.reset();
+                    }
+                    DisableCallbacks(*handler->callback_state);
+                }
+                throw;
+            }
+            DisableCallbacks(*handler->callback_state);
 
             return QUICR_STATUS_OK;
         });
@@ -4726,6 +5049,7 @@ quicr_session_manager_add_client(quicr_session_manager_t* manager,
 
         *session = nullptr;
         auto handle = std::make_unique<quicr_session_t>();
+        handle->owner = manager;
         auto adapter = std::make_shared<ClientCallbacksAdapter>(
           handle.get(), callbacks ? *callbacks : quicr_session_client_callbacks_t{});
         auto cpp_session = manager->impl->AddTransport(ToCppType<ClientConfig>(*config), std::move(adapter)).lock();
@@ -4760,7 +5084,7 @@ quicr_session_manager_add_server(quicr_session_manager_t* manager,
 quicr_status_t
 quicr_session_manager_add_publish_track_handler(quicr_session_manager_t* manager,
                                                 quicr_session_t* session,
-                                                const quicr_publish_track_handler_t* handler)
+                                                quicr_publish_track_handler_t* handler)
 {
     return AddHandler(manager, session, handler);
 }
@@ -4768,7 +5092,7 @@ quicr_session_manager_add_publish_track_handler(quicr_session_manager_t* manager
 quicr_status_t
 quicr_session_manager_remove_publish_track_handler(quicr_session_manager_t* manager,
                                                    quicr_session_t* session,
-                                                   const quicr_publish_track_handler_t* handler)
+                                                   quicr_publish_track_handler_t* handler)
 {
     return RemoveHandler(manager, session, handler);
 }
@@ -4776,7 +5100,7 @@ quicr_session_manager_remove_publish_track_handler(quicr_session_manager_t* mana
 quicr_status_t
 quicr_session_manager_add_subscribe_track_handler(quicr_session_manager_t* manager,
                                                   quicr_session_t* session,
-                                                  const quicr_subscribe_track_handler_t* handler)
+                                                  quicr_subscribe_track_handler_t* handler)
 {
     return AddHandler(manager, session, handler);
 }
@@ -4784,7 +5108,7 @@ quicr_session_manager_add_subscribe_track_handler(quicr_session_manager_t* manag
 quicr_status_t
 quicr_session_manager_remove_subscribe_track_handler(quicr_session_manager_t* manager,
                                                      quicr_session_t* session,
-                                                     const quicr_subscribe_track_handler_t* handler)
+                                                     quicr_subscribe_track_handler_t* handler)
 {
     return RemoveHandler(manager, session, handler);
 }
@@ -4792,7 +5116,7 @@ quicr_session_manager_remove_subscribe_track_handler(quicr_session_manager_t* ma
 quicr_status_t
 quicr_session_manager_add_fetch_track_handler(quicr_session_manager_t* manager,
                                               quicr_session_t* session,
-                                              const quicr_fetch_track_handler_t* handler)
+                                              quicr_fetch_track_handler_t* handler)
 {
     return AddHandler(manager, session, handler);
 }
@@ -4800,7 +5124,7 @@ quicr_session_manager_add_fetch_track_handler(quicr_session_manager_t* manager,
 quicr_status_t
 quicr_session_manager_remove_fetch_track_handler(quicr_session_manager_t* manager,
                                                  quicr_session_t* session,
-                                                 const quicr_fetch_track_handler_t* handler)
+                                                 quicr_fetch_track_handler_t* handler)
 {
     return RemoveHandler(manager, session, handler);
 }
@@ -4808,7 +5132,7 @@ quicr_session_manager_remove_fetch_track_handler(quicr_session_manager_t* manage
 quicr_status_t
 quicr_session_manager_add_publish_namespace_handler(quicr_session_manager_t* manager,
                                                     quicr_session_t* session,
-                                                    const quicr_publish_namespace_handler_t* handler)
+                                                    quicr_publish_namespace_handler_t* handler)
 {
     return AddHandler(manager, session, handler);
 }
@@ -4816,7 +5140,7 @@ quicr_session_manager_add_publish_namespace_handler(quicr_session_manager_t* man
 quicr_status_t
 quicr_session_manager_remove_publish_namespace_handler(quicr_session_manager_t* manager,
                                                        quicr_session_t* session,
-                                                       const quicr_publish_namespace_handler_t* handler)
+                                                       quicr_publish_namespace_handler_t* handler)
 {
     return RemoveHandler(manager, session, handler);
 }
@@ -4824,7 +5148,7 @@ quicr_session_manager_remove_publish_namespace_handler(quicr_session_manager_t* 
 quicr_status_t
 quicr_session_manager_add_subscribe_namespace_handler(quicr_session_manager_t* manager,
                                                       quicr_session_t* session,
-                                                      const quicr_subscribe_namespace_handler_t* handler)
+                                                      quicr_subscribe_namespace_handler_t* handler)
 {
     return AddHandler(manager, session, handler);
 }
@@ -4832,7 +5156,7 @@ quicr_session_manager_add_subscribe_namespace_handler(quicr_session_manager_t* m
 quicr_status_t
 quicr_session_manager_remove_subscribe_namespace_handler(quicr_session_manager_t* manager,
                                                          quicr_session_t* session,
-                                                         const quicr_subscribe_namespace_handler_t* handler)
+                                                         quicr_subscribe_namespace_handler_t* handler)
 {
     return RemoveHandler(manager, session, handler);
 }
@@ -4840,7 +5164,7 @@ quicr_session_manager_remove_subscribe_namespace_handler(quicr_session_manager_t
 quicr_status_t
 quicr_session_manager_add_track_status_track_handler(quicr_session_manager_t* manager,
                                                      quicr_session_t* session,
-                                                     const quicr_track_status_track_handler_t* handler)
+                                                     quicr_track_status_track_handler_t* handler)
 {
     return AddHandler(manager, session, handler);
 }
@@ -4848,7 +5172,7 @@ quicr_session_manager_add_track_status_track_handler(quicr_session_manager_t* ma
 quicr_status_t
 quicr_session_manager_remove_track_status_track_handler(quicr_session_manager_t* manager,
                                                         quicr_session_t* session,
-                                                        const quicr_track_status_track_handler_t* handler)
+                                                        quicr_track_status_track_handler_t* handler)
 {
     return RemoveHandler(manager, session, handler);
 }

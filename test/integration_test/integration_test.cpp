@@ -2076,12 +2076,32 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
         REQUIRE(handler->GetRequestId().has_value());
         const auto request_id = handler->GetRequestId().value();
 
+        const FullTrackName track_name{ ns, { 1 } };
+        std::atomic_bool removal_callback_called{ false };
+        std::weak_ptr<PublishTrackHandler> weak_track_handler;
+        const auto track_handler = std::make_shared<CallbackPublishTrackHandler>(
+          track_name, 1, 5000, [&](const PublishTrackHandler::Status status) {
+              if (status != PublishTrackHandler::Status::kNotAnnounced) {
+                  return;
+              }
+
+              removal_callback_called = true;
+              if (const auto removed_handler = weak_track_handler.lock()) {
+                  handler->UnPublishTrack(removed_handler);
+              }
+          });
+        weak_track_handler = track_handler;
+        CHECK_NOTHROW(handler->PublishTrack(track_handler));
+        REQUIRE(track_handler->IsRegistered());
+
         const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
         const auto request_stream = connection->GetStream(request_stream_id);
         REQUIRE(request_stream != nullptr);
 
         // Done.
         CHECK_NOTHROW(session->PublishNamespaceDone(handler));
+        CHECK_FALSE(track_handler->IsRegistered());
+        CHECK(removal_callback_called);
 
         // Request stream reset.
         REQUIRE(WaitFor([&]() { return server->WasStreamReset(request_stream_id).has_value(); }));

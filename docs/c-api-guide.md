@@ -107,28 +107,30 @@ registered. Every handler follows the same lifecycle:
 1. Create a detached handler.
 2. Add it to one live session.
 3. Use it and receive callbacks.
-4. Remove it from the session.
-5. Destroy it.
+4. Destroy it.
 
 C11 callers can use `quicr_session_manager_add_handler()`,
 `quicr_session_manager_remove_handler()`, `quicr_track_handler_get_status()`,
 and `quicr_track_handler_destroy()`. Typed functions provide the same
 operations for each handler family.
 
-Registration does not transfer ownership. Destroying a registered handler
-returns `QUICR_STATUS_BUSY`. Removal prevents new callbacks, but a callback
-already in flight may still make destruction return `BUSY`; return from the
-callback and retry. A NULL handler can be destroyed successfully.
+Registration does not transfer ownership. Destruction is synchronous and
+final: it prevents new callbacks, waits for callbacks already in flight,
+removes or unbinds the handler from its session, and releases the C handle.
+Destroying NULL is a no-op. Never destroy a handler from one of its own
+callbacks because synchronous callback draining would deadlock.
 
 Session and handler callbacks may run synchronously on an API caller thread,
 including while session locks are held, or on a transport notification thread.
 Callbacks can run concurrently across objects or transports. Return promptly
 and synchronize shared application state. Do not re-enter operations on the
-same manager, session, or handler unless a specific API permits it.
+same manager, session, or handler unless a specific API permits it. Serialize
+application calls that use the same C handle, especially against destruction.
 
 Unless a declaration says otherwise, input bytes and strings are copied before
-the call returns. `user_data` is only passed through; keep it valid for the
-callback table's documented lifetime.
+the call returns. Handler `user_data` is application-owned and only passed
+through. Keep it valid until synchronous handler destruction returns; libquicr
+never frees it.
 
 ## Session callbacks and replies
 
@@ -139,8 +141,8 @@ callback.
 
 Set the callback table's `user_data` field to recover application state.
 Session callback data must remain valid until `session_removed` or manager
-destruction. Handler callback data must remain valid until successful handler
-destruction.
+destruction. Handler callback data must remain valid until handler destruction
+returns.
 
 Setup, publish-namespace, and fetch attributes expose documented fields
 directly. Publish and subscribe attributes are callback-scoped opaque objects;
@@ -179,10 +181,10 @@ An accepted `publish_received` reply is special. Create its response from a
 subscribe handler with `quicr_publish_response_create()`, optionally configure
 priority, order, filter, forwarding, timeouts, or new-group request ID, and
 pass it to `quicr_reply_accept_publish()`. The library does not take ownership.
-Destroy it after the callback returns. The subscribe handler remains pinned
-while a response or pending session adoption references it, so handler
-destruction returns `QUICR_STATUS_BUSY` until that reference is released or
-registration completes.
+Destroy it after the callback returns. Keep the subscribe handler alive until
+the callback returns so native adoption can complete; destroying it earlier
+invalidates acceptance. After adoption, destroying it synchronously stops
+callbacks and detaches it from the session.
 
 C reply callbacks and responders are synchronous. The C API does not expose the C++
 `Reply::Defer()` facility, so applications must complete the responder before
@@ -273,8 +275,8 @@ currently expose the C++ partial-object callback.
 
 Registered subscribe handlers can be paused, resumed, updated, and used for
 new-group requests. These controls return `QUICR_STATUS_NOT_APPLIED` when the
-current state makes the operation a no-op. Remove the handler before destroying
-it.
+current state makes the operation a no-op. Destruction removes a registered
+handler automatically.
 
 ## Publishing a track
 
@@ -333,15 +335,16 @@ request ID received by `standalone_fetch_received` or
 `quicr_session_bind_publish_fetch_handler()`, publish the requested objects, and
 call `quicr_session_unbind_publish_fetch_handler()` to drain queued objects and
 finish the response stream. The request's group order determines the order in
-which objects must be published. Destroy the handler after unbinding it.
+which objects must be published. Destroying a still-bound handler performs the
+same unbind synchronously.
 
 ## Namespace operations
 
 Create a `quicr_publish_namespace_handler_t` to publish a namespace. It can
 associate application-owned publish-track handlers through
 `quicr_publish_namespace_handler_publish_track()`. The association does not
-transfer C object ownership; call the matching `unpublish_track()` before
-destroying either object.
+transfer C object ownership. Destroying either handler removes the association;
+use `unpublish_track()` when both handlers should remain reusable.
 
 Namespace subscriptions use `quicr_subscribe_namespace_handler_t`:
 
@@ -408,8 +411,9 @@ synchronize application state.
 The server table also reports PUBLISH_DONE, UNSUBSCRIBE,
 PUBLISH_NAMESPACE_DONE, and namespace unsubscription. To relay an accepted
 publisher, create a publish-track handler and bind it to the inbound request
-with `quicr_session_bind_publish_track_handler()`. Unbind it with
-`quicr_session_unbind_publish_track_handler()` before destruction.
+with `quicr_session_bind_publish_track_handler()`. Use
+`quicr_session_unbind_publish_track_handler()` to retain the detached handler
+for reuse; destruction unbinds it automatically.
 
 Certificate and key material remain external files. Validate deployed
 certificates for validity dates, key strength, signature algorithm,
@@ -425,9 +429,8 @@ for the callback; copy samples that must outlive it.
 Check every fallible call. `INVALID_ARGUMENT` covers bad pointers, values, or
 object state. `NOT_FOUND` is returned only where documented for missing results
 or live state. `NOT_APPLIED` reports a valid control operation that was a no-op
-in the current handler state. `BUSY` means a handler cannot yet be destroyed.
-Allocation failures and unexpected C++ exceptions map to `OUT_OF_MEMORY` and
-`INTERNAL_ERROR`.
+in the current handler state. Allocation failures and unexpected C++ exceptions
+map to `OUT_OF_MEMORY` and `INTERNAL_ERROR`.
 
 Each publish-namespace, subscribe-namespace, and track-status `get_error()`
 function copies an error code and optional NUL-terminated reason. Query or
@@ -463,13 +466,12 @@ typed handler function. GOAWAY drains or redirects work;
 Order cleanup so no borrowed object outlives its owner:
 
 1. Finish stream subgroups and protocol work when needed.
-2. Remove every registered handler from its session.
-3. Destroy handlers, retrying after in-flight callbacks when the result is
-   `QUICR_STATUS_BUSY`.
-4. Destroy publish responses, extension collections, full track names, and
+2. Destroy handlers; destruction removes or unbinds registered handlers and
+   drains their callbacks.
+3. Destroy publish responses, extension collections, full track names, and
    namespaces owned by the application.
-5. Disconnect sessions when an explicit close is required.
-6. Destroy the manager last.
+4. Disconnect sessions when an explicit close is required.
+5. Destroy the manager last.
 
 Manager destruction shuts down its transports and invalidates all session
 handles, but it does not destroy application-owned handler C objects. Keep
