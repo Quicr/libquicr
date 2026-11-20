@@ -32,6 +32,7 @@
 namespace quicr {
 
     class Logger;
+    struct Request;
 
     /**
      * @brief Response to a received SUBSCRIBE.
@@ -732,10 +733,30 @@ namespace quicr {
         // Other member functions
         /*===================================================================*/
 
-        void RemoveSubscribeTrack(SubscribeTrackHandler& handler, bool remove_handler = true);
+        void RemoveSubscribeTrack(SubscribeTrackHandler& handler, bool remove_handler = true)
+          QUICR_REQUIRES(state_mutex_);
 
         void CloseRequestHandler(std::uint64_t request_id, const std::shared_ptr<Stream>& stream, StreamClosedFlag flag)
           QUICR_EXCLUDES(state_mutex_);
+
+        using RequestKey = std::pair<std::uint64_t, std::uint64_t>;
+
+        void AddRequest(const std::shared_ptr<Request>& request) QUICR_REQUIRES(state_mutex_);
+
+        void BindHandlerToRequest(const std::shared_ptr<Request>& request, const std::shared_ptr<TrackHandler>& handler)
+          QUICR_REQUIRES(state_mutex_);
+
+        std::shared_ptr<Request> FindRequest(const RequestKey& key) const QUICR_REQUIRES(state_mutex_);
+
+        std::shared_ptr<Request> FindRequestForHandler(const TrackHandler& handler) const QUICR_REQUIRES(state_mutex_);
+
+        std::shared_ptr<Request> FindResponseRequest(const Connection& connection, std::uint64_t request_id)
+          QUICR_REQUIRES(state_mutex_);
+
+        bool RemoveRequest(const std::shared_ptr<Request>& request) QUICR_REQUIRES(state_mutex_);
+
+        bool UnbindHandler(const std::shared_ptr<Request>& request, const TrackHandler& handler)
+          QUICR_REQUIRES(state_mutex_);
 
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th);
 
@@ -860,7 +881,9 @@ namespace quicr {
                                MigrationRequestType type,
                                std::optional<std::uint64_t> received_track_alias = std::nullopt);
 
-        bool FailMigration(const std::shared_ptr<Connection>& connection, std::uint64_t request_id);
+        bool FailMigration(const std::shared_ptr<Connection>& connection,
+                           std::uint64_t request_id,
+                           bool close_request_stream = true);
 
         bool MatchesRedirect(const TrackHandler& handler, const Redirect& redirect) const;
 
@@ -909,7 +932,7 @@ namespace quicr {
         /// Inbound SUBSCRIBE_NAMESPACE request IDs. The prefix and request stream live in recv_req_id.
         std::vector<std::uint64_t> recv_subscribe_namespaces;
 
-        std::map<std::uint64_t, std::shared_ptr<TrackHandler>> request_handlers; ///< Handlers by request ID
+        std::map<RequestKey, std::shared_ptr<Request>> requests QUICR_GUARDED_BY(state_mutex_);
 
         /**
          * Data is received with a track alias that is set by the publisher. The map key
