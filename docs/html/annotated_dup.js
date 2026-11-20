@@ -26,6 +26,7 @@ var annotated_dup =
         [ "ObjectDatagramStatus", "structquicr_1_1messages_1_1ObjectDatagramStatus.html", "structquicr_1_1messages_1_1ObjectDatagramStatus" ],
         [ "StreamHeaderSubGroup", "structquicr_1_1messages_1_1StreamHeaderSubGroup.html", "structquicr_1_1messages_1_1StreamHeaderSubGroup" ],
         [ "StreamSubGroupObject", "structquicr_1_1messages_1_1StreamSubGroupObject.html", "structquicr_1_1messages_1_1StreamSubGroupObject" ],
+        [ "ParameterSpec", "structquicr_1_1messages_1_1ParameterSpec.html", "structquicr_1_1messages_1_1ParameterSpec" ],
         [ "ParameterList", "classquicr_1_1messages_1_1ParameterList.html", "classquicr_1_1messages_1_1ParameterList" ]
       ] ],
       [ "TrackStatusResponse", "structquicr_1_1TrackStatusResponse.html", "structquicr_1_1TrackStatusResponse" ],

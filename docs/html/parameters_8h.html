@@ -96,12 +96,17 @@ $(document).ready(function(){initNavTree('parameters_8h.html',''); initResizable
 <div class="textblock"><code>#include &quot;<a class="el" href="ctrl__message__types_8h_source.html">quicr/messages/ctrl_message_types.h</a>&quot;</code><br />
 <code>#include &lt;algorithm&gt;</code><br />
 <code>#include &lt;initializer_list&gt;</code><br />
+<code>#include &lt;limits&gt;</code><br />
+<code>#include &lt;map&gt;</code><br />
 <code>#include &lt;vector&gt;</code><br />
 </div>
 <p><a href="parameters_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structquicr_1_1messages_1_1ParameterSpec.html">quicr::messages::ParameterSpec</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wire properties of a parameter type.  <a href="structquicr_1_1messages_1_1ParameterSpec.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1messages_1_1ParameterList.html">quicr::messages::ParameterList&lt; Type &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -167,14 +172,8 @@ Functions</h2></td></tr>
 <tr class="separator:aaa60f21ea98a7df6c7f8922fa9b5780e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1b6fcd973f63bcf27ee03f7b687a8869"><td class="memItemLeft" align="right" valign="top">Parameter&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacequicr_1_1messages.html#a1b6fcd973f63bcf27ee03f7b687a8869">quicr::messages::SerializeFilter</a> (FilterType filter_type, const Filter &amp;filter)</td></tr>
 <tr class="separator:a1b6fcd973f63bcf27ee03f7b687a8869"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5c37f6af5cd8f97458b6d20381eb8f68"><td class="memItemLeft" align="right" valign="top">ParameterEncoding&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacequicr_1_1messages.html#a5c37f6af5cd8f97458b6d20381eb8f68">quicr::messages::GetParameterEncoding</a> (ParameterType type)</td></tr>
-<tr class="separator:a5c37f6af5cd8f97458b6d20381eb8f68"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa8eaa7693f5444683abd7962fe0cd287"><td class="memTemplParams" colspan="2">template&lt;typename Type  = ParameterType&gt; </td></tr>
-<tr class="memitem:aa8eaa7693f5444683abd7962fe0cd287"><td class="memTemplItemLeft" align="right" valign="top">BytesSpan&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacequicr_1_1messages.html#aa8eaa7693f5444683abd7962fe0cd287">quicr::messages::operator&gt;&gt;</a> (BytesSpan buffer, ParameterList&lt; Type &gt; &amp;msg)</td></tr>
-<tr class="separator:aa8eaa7693f5444683abd7962fe0cd287"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a68f4a2f8cce52afc170bfe04479190ef"><td class="memTemplParams" colspan="2">template&lt;typename Type  = ParameterType&gt; </td></tr>
-<tr class="memitem:a68f4a2f8cce52afc170bfe04479190ef"><td class="memTemplItemLeft" align="right" valign="top">Bytes &amp;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacequicr_1_1messages.html#a68f4a2f8cce52afc170bfe04479190ef">quicr::messages::operator&lt;&lt;</a> (Bytes &amp;buffer, const ParameterList&lt; Type &gt; &amp;msg)</td></tr>
-<tr class="separator:a68f4a2f8cce52afc170bfe04479190ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9eb8821ba88706418b42ecd026a2e63e"><td class="memItemLeft" align="right" valign="top">ParameterSpec&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacequicr_1_1messages.html#a9eb8821ba88706418b42ecd026a2e63e">quicr::messages::GetParameterSpec</a> (ParameterType type)</td></tr>
+<tr class="separator:a9eb8821ba88706418b42ecd026a2e63e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad79bacda1b2cc20a4fa00e0aeba6c4da"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacequicr_1_1messages.html#ad79bacda1b2cc20a4fa00e0aeba6c4da">quicr::messages::ValidateParameters</a> (const Parameters &amp;params, std::initializer_list&lt; ParameterType &gt; allowed)</td></tr>
 <tr class="separator:ad79bacda1b2cc20a4fa00e0aeba6c4da"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a18d05bd11dcba7181dc253b58acdc5b2"><td class="memItemLeft" align="right" valign="top">std::vector&lt; Token &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacequicr_1_1messages.html#a18d05bd11dcba7181dc253b58acdc5b2">quicr::messages::CollectAuthTokens</a> (const Parameters &amp;params)</td></tr>

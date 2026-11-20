@@ -1,10 +1,5 @@
 var NAVTREEINDEX8 =
 {
-"quicr_8h.html#ae4f8e1c6eafa27d549b9cfbee77e54f2":[3,0,1,0,11,140],
-"quicr_8h.html#ae84c40d55372e856c4c5e24d3e4579c5":[3,0,1,0,11,99],
-"quicr_8h.html#ae8ff32c8ce11d65ef2d2ec63188b186d":[3,0,1,0,11,205],
-"quicr_8h.html#aeb58ffdf48d0fad134c7bbbf4a8a1f75":[3,0,1,0,11,58],
-"quicr_8h.html#aed25ee3dc2cca1798857d7d6c12e3d8a":[3,0,1,0,11,95],
 "quicr_8h.html#aee263ebb2d8379613335e046827bf1d9":[3,0,1,0,11,236],
 "quicr_8h.html#aefcb96661872f2590e9be7c37f8a267d":[3,0,1,0,11,86],
 "quicr_8h.html#af07cf7b5130e0cb35c02dd866f1bba65":[3,0,1,0,11,186],
@@ -249,5 +244,10 @@ var NAVTREEINDEX8 =
 "structquicr_1_1SessionManager_1_1Callbacks.html#aed17fdf3d94c2f2f8dbfbd427f0734c5":[2,0,0,51,0,1],
 "structquicr_1_1SessionManager_1_1Callbacks.html#aeed15acef8d19588f762aef956d76c45":[2,0,0,51,0,0],
 "structquicr_1_1Session_1_1Callbacks.html":[2,0,0,49,0],
-"structquicr_1_1Session_1_1Callbacks.html#a0bbaf6e1fe5a02ee9956d19d35f25413":[2,0,0,49,0,9]
+"structquicr_1_1Session_1_1Callbacks.html#a0bbaf6e1fe5a02ee9956d19d35f25413":[2,0,0,49,0,9],
+"structquicr_1_1Session_1_1Callbacks.html#a16c8538aabf8587bdcce2b69e1762f3b":[2,0,0,49,0,3],
+"structquicr_1_1Session_1_1Callbacks.html#a2ba5531e39e38f31c8227293e9c76431":[2,0,0,49,0,4],
+"structquicr_1_1Session_1_1Callbacks.html#a47c5c4100bf0c3b32652384ba6c2f54a":[2,0,0,49,0,7],
+"structquicr_1_1Session_1_1Callbacks.html#a5d63592b3c58052a1387e414934c64a6":[2,0,0,49,0,1],
+"structquicr_1_1Session_1_1Callbacks.html#a7dbf8b73fd7a1b270f07bfa52a2d0e5d":[2,0,0,49,0,2]
 };

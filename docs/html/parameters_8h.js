@@ -1,5 +1,6 @@
 var parameters_8h =
 [
+    [ "ParameterSpec", "structquicr_1_1messages_1_1ParameterSpec.html", "structquicr_1_1messages_1_1ParameterSpec" ],
     [ "ParameterList", "classquicr_1_1messages_1_1ParameterList.html", "classquicr_1_1messages_1_1ParameterList" ],
     [ "Parameter", "parameters_8h.html#ac9a425a819cfb29ce80d40f9ad9da13b", null ],
     [ "Parameters", "parameters_8h.html#ae3085a8b393b6b12a488019656437241", null ],
@@ -30,9 +31,7 @@ var parameters_8h =
     [ "CollectAuthTokens", "parameters_8h.html#a18d05bd11dcba7181dc253b58acdc5b2", null ],
     [ "ContainsAnyFilter", "parameters_8h.html#a60564b2ff75987d5a018e1e275e32e28", null ],
     [ "GetFilterParameterType", "parameters_8h.html#aaa60f21ea98a7df6c7f8922fa9b5780e", null ],
-    [ "GetParameterEncoding", "parameters_8h.html#a5c37f6af5cd8f97458b6d20381eb8f68", null ],
-    [ "operator<<", "parameters_8h.html#a68f4a2f8cce52afc170bfe04479190ef", null ],
-    [ "operator>>", "parameters_8h.html#aa8eaa7693f5444683abd7962fe0cd287", null ],
+    [ "GetParameterSpec", "parameters_8h.html#a9eb8821ba88706418b42ecd026a2e63e", null ],
     [ "ResolveExpires", "parameters_8h.html#ac963b2e26bdee7282962b974e4a70d82", null ],
     [ "ResolveFilter", "parameters_8h.html#aeda2bc141771426abdc924d4ebde5372", null ],
     [ "ResolveForward", "parameters_8h.html#a0aa1579cd214c47718c264668b074139", null ],

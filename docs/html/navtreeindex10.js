@@ -1,7 +1,5 @@
 var NAVTREEINDEX10 =
 {
-"structquicr_1_1messages_1_1StreamSubGroupObject.html":[2,0,0,1,20],
-"structquicr_1_1messages_1_1StreamSubGroupObject.html#a419a0537f00222d6ded33ba5769eb5fe":[2,0,0,1,20,5],
 "structquicr_1_1messages_1_1StreamSubGroupObject.html#a7851e844a9202c1909e7b3974000e503":[2,0,0,1,20,3],
 "structquicr_1_1messages_1_1StreamSubGroupObject.html#a9462eb635f25ad7e455da1a3c924f469":[2,0,0,1,20,2],
 "structquicr_1_1messages_1_1StreamSubGroupObject.html#a99af2244cbbe615f12621360c2728248":[2,0,0,1,20,6],
@@ -249,5 +247,7 @@ var NAVTREEINDEX10 =
 "structquicr__standalone__fetch__attributes.html#ae5270ed554df3a0916a07bbeb85f46b8":[2,0,39,2],
 "structquicr__stream__header__properties.html":[2,0,40],
 "structquicr__stream__header__properties.html#a0403ac5aff3760195dac2966655f18d1":[2,0,40,3],
-"structquicr__stream__header__properties.html#a42d9dae2a2f8e0517bbcbae0553e3686":[2,0,40,0]
+"structquicr__stream__header__properties.html#a42d9dae2a2f8e0517bbcbae0553e3686":[2,0,40,0],
+"structquicr__stream__header__properties.html#a4a9da8814b52d7bf4833331d7fd4371a":[2,0,40,2],
+"structquicr__stream__header__properties.html#a958c99b039c6d4cd5acbe09b209dc9ca":[2,0,40,1]
 };

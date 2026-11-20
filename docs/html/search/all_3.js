@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['data_96',['Data',['../classquicr_1_1StreamBuffer.html#ac29541731d2b98a4baa31c664d0dbbe0',1,'quicr::StreamBuffer']]],
-  ['data_97',['data',['../structquicr__byte__span.html#a51814f2fa1265b3bb180067b061b16f5',1,'quicr_byte_span::data()'],['../structquicr_1_1ConnData.html#a85f819e650f54b2d06b2c4f492deea50',1,'quicr::ConnData::data()'],['../classquicr_1_1UintVar.html#a1b2ff787e3a951f90ef601f39884c653',1,'quicr::UintVar::data()'],['../classquicr_1_1TrackNamespace.html#a42ff768dd2526ddebc9f71cfec8036fa',1,'quicr::TrackNamespace::data()']]],
+  ['data_96',['data',['../structquicr__byte__span.html#a51814f2fa1265b3bb180067b061b16f5',1,'quicr_byte_span::data()'],['../structquicr_1_1ConnData.html#a85f819e650f54b2d06b2c4f492deea50',1,'quicr::ConnData::data()'],['../classquicr_1_1UintVar.html#a1b2ff787e3a951f90ef601f39884c653',1,'quicr::UintVar::data()'],['../classquicr_1_1TrackNamespace.html#a42ff768dd2526ddebc9f71cfec8036fa',1,'quicr::TrackNamespace::data()']]],
+  ['data_97',['Data',['../classquicr_1_1StreamBuffer.html#ac29541731d2b98a4baa31c664d0dbbe0',1,'quicr::StreamBuffer']]],
   ['data_5fstorage_2eh_98',['data_storage.h',['../data__storage_8h.html',1,'']]],
   ['datagram_99',['datagram',['../structquicr_1_1messages_1_1FetchSerializationProperties.html#ae7c836d5e9ad42341f563d8efcf74c56',1,'quicr::messages::FetchSerializationProperties']]],
   ['datagram_5freceived_100',['datagram_received',['../structquicr__fetch__track__handler__callbacks.html#a2450bfc78ede815804dcc3ea64e9f99b',1,'quicr_fetch_track_handler_callbacks::datagram_received()'],['../structquicr__subscribe__track__handler__callbacks.html#a04eb27627150e4f763cd08fb8fcf6ee2',1,'quicr_subscribe_track_handler_callbacks::datagram_received()']]],

@@ -77,6 +77,7 @@ var hierarchy =
     [ "quicr::messages::ObjectDatagramStatus", "structquicr_1_1messages_1_1ObjectDatagramStatus.html", null ],
     [ "quicr::ObjectHeaders", "structquicr_1_1ObjectHeaders.html", null ],
     [ "quicr::messages::ParameterList< Type >", "classquicr_1_1messages_1_1ParameterList.html", null ],
+    [ "quicr::messages::ParameterSpec", "structquicr_1_1messages_1_1ParameterSpec.html", null ],
     [ "quicr::PublishAttributes", "structquicr_1_1PublishAttributes.html", null ],
     [ "quicr::PublishNamespaceAttributes", "structquicr_1_1PublishNamespaceAttributes.html", null ],
     [ "quicr::PublishOkAttributes", "structquicr_1_1PublishOkAttributes.html", null ],

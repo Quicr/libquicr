@@ -1,7 +1,5 @@
 var NAVTREEINDEX11 =
 {
-"structquicr__stream__header__properties.html#a4a9da8814b52d7bf4833331d7fd4371a":[2,0,40,2],
-"structquicr__stream__header__properties.html#a958c99b039c6d4cd5acbe09b209dc9ca":[2,0,40,1],
 "structquicr__stream__header__properties.html#ad4de76f1f434cbbc212e966c7e95a3d7":[2,0,40,4],
 "structquicr__subscribe__namespace__handler__callbacks.html":[2,0,41],
 "structquicr__subscribe__namespace__handler__callbacks.html#a2b953cb760db85dd97e71f4b83c31291":[2,0,41,1],
@@ -145,5 +143,6 @@ var NAVTREEINDEX11 =
 "transport_8h.html#addc5b4757eb7e5a3545d99b2c2516a06af469e2a5b05d423dd49764004270f117":[3,0,1,0,17,10,3],
 "transport_8h_source.html":[3,0,1,0,17],
 "uintvar_8h.html":[3,0,1,0,2,5],
-"uintvar_8h_source.html":[3,0,1,0,2,5]
+"uintvar_8h_source.html":[3,0,1,0,2,5],
+"":[1,0,1]
 };

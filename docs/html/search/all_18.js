@@ -1,18 +1,18 @@
 var searchData=
 [
-  ['_7ecallbacks_1470',['~Callbacks',['../structquicr_1_1Session_1_1Callbacks.html#ac46ab43090a52d86cad87f2a49cfa152',1,'quicr::Session::Callbacks::~Callbacks()'],['../structquicr_1_1SessionManager_1_1Callbacks.html#aeed15acef8d19588f762aef956d76c45',1,'quicr::SessionManager::Callbacks::~Callbacks()']]],
-  ['_7eclientcallbacks_1471',['~ClientCallbacks',['../structquicr_1_1Session_1_1ClientCallbacks.html#a893d2c9c2c4fae079f960c605fec1df4',1,'quicr::Session::ClientCallbacks']]],
-  ['_7eclock_1472',['~Clock',['../classquicr_1_1Clock.html#a1513fc449f4ea9d1ff58be031ffa2d46',1,'quicr::Clock']]],
-  ['_7econnection_1473',['~Connection',['../classquicr_1_1Connection.html#a9265fdb997e5003fca9d85552a93bd15',1,'quicr::Connection']]],
-  ['_7edelegate_1474',['~Delegate',['../classquicr_1_1Connection_1_1Delegate.html#adb0391063f5d9a09a1e209c705ce4b89',1,'quicr::Connection::Delegate']]],
-  ['_7elogger_1475',['~Logger',['../classquicr_1_1Logger.html#a536f55bb8b0f3649677a1694c9bd898c',1,'quicr::Logger']]],
-  ['_7epublishnamespacehandler_1476',['~PublishNamespaceHandler',['../classquicr_1_1PublishNamespaceHandler.html#a83f9c1b2b35e7c52357b812a9d71e0b7',1,'quicr::PublishNamespaceHandler']]],
-  ['_7esafequeue_1477',['~SafeQueue',['../classquicr_1_1SafeQueue.html#a1b01322dc9c4cfc081056c5360f94150',1,'quicr::SafeQueue']]],
-  ['_7escopeguard_1478',['~ScopeGuard',['../classquicr_1_1ScopeGuard.html#a48a85d753b25b6ecb0f5a619cc70576e',1,'quicr::ScopeGuard']]],
-  ['_7eservercallbacks_1479',['~ServerCallbacks',['../structquicr_1_1Session_1_1ServerCallbacks.html#af230ff0328ca71ab902c25a04197ef41',1,'quicr::Session::ServerCallbacks']]],
-  ['_7esession_1480',['~Session',['../classquicr_1_1Session.html#ac730e7936385b4848654425a99258991',1,'quicr::Session']]],
-  ['_7esessionmanager_1481',['~SessionManager',['../classquicr_1_1SessionManager.html#abcb39100cfb31a688f71b67c4bd7828d',1,'quicr::SessionManager']]],
-  ['_7esubscribenamespacehandler_1482',['~SubscribeNamespaceHandler',['../classquicr_1_1SubscribeNamespaceHandler.html#ae9f1d11445152afe40365ab99274a825',1,'quicr::SubscribeNamespaceHandler']]],
-  ['_7etrackhandler_1483',['~TrackHandler',['../classquicr_1_1TrackHandler.html#abb2e170ec94f32dae6cbdbb024eac6a2',1,'quicr::TrackHandler']]],
-  ['_7etransport_1484',['~Transport',['../classquicr_1_1Transport.html#a3bfe0a1ab0aa8c4c748ab1869deb340a',1,'quicr::Transport']]]
+  ['_7ecallbacks_1475',['~Callbacks',['../structquicr_1_1Session_1_1Callbacks.html#ac46ab43090a52d86cad87f2a49cfa152',1,'quicr::Session::Callbacks::~Callbacks()'],['../structquicr_1_1SessionManager_1_1Callbacks.html#aeed15acef8d19588f762aef956d76c45',1,'quicr::SessionManager::Callbacks::~Callbacks()']]],
+  ['_7eclientcallbacks_1476',['~ClientCallbacks',['../structquicr_1_1Session_1_1ClientCallbacks.html#a893d2c9c2c4fae079f960c605fec1df4',1,'quicr::Session::ClientCallbacks']]],
+  ['_7eclock_1477',['~Clock',['../classquicr_1_1Clock.html#a1513fc449f4ea9d1ff58be031ffa2d46',1,'quicr::Clock']]],
+  ['_7econnection_1478',['~Connection',['../classquicr_1_1Connection.html#a9265fdb997e5003fca9d85552a93bd15',1,'quicr::Connection']]],
+  ['_7edelegate_1479',['~Delegate',['../classquicr_1_1Connection_1_1Delegate.html#adb0391063f5d9a09a1e209c705ce4b89',1,'quicr::Connection::Delegate']]],
+  ['_7elogger_1480',['~Logger',['../classquicr_1_1Logger.html#a536f55bb8b0f3649677a1694c9bd898c',1,'quicr::Logger']]],
+  ['_7epublishnamespacehandler_1481',['~PublishNamespaceHandler',['../classquicr_1_1PublishNamespaceHandler.html#a83f9c1b2b35e7c52357b812a9d71e0b7',1,'quicr::PublishNamespaceHandler']]],
+  ['_7esafequeue_1482',['~SafeQueue',['../classquicr_1_1SafeQueue.html#a1b01322dc9c4cfc081056c5360f94150',1,'quicr::SafeQueue']]],
+  ['_7escopeguard_1483',['~ScopeGuard',['../classquicr_1_1ScopeGuard.html#a48a85d753b25b6ecb0f5a619cc70576e',1,'quicr::ScopeGuard']]],
+  ['_7eservercallbacks_1484',['~ServerCallbacks',['../structquicr_1_1Session_1_1ServerCallbacks.html#af230ff0328ca71ab902c25a04197ef41',1,'quicr::Session::ServerCallbacks']]],
+  ['_7esession_1485',['~Session',['../classquicr_1_1Session.html#ac730e7936385b4848654425a99258991',1,'quicr::Session']]],
+  ['_7esessionmanager_1486',['~SessionManager',['../classquicr_1_1SessionManager.html#abcb39100cfb31a688f71b67c4bd7828d',1,'quicr::SessionManager']]],
+  ['_7esubscribenamespacehandler_1487',['~SubscribeNamespaceHandler',['../classquicr_1_1SubscribeNamespaceHandler.html#ae9f1d11445152afe40365ab99274a825',1,'quicr::SubscribeNamespaceHandler']]],
+  ['_7etrackhandler_1488',['~TrackHandler',['../classquicr_1_1TrackHandler.html#abb2e170ec94f32dae6cbdbb024eac6a2',1,'quicr::TrackHandler']]],
+  ['_7etransport_1489',['~Transport',['../classquicr_1_1Transport.html#a3bfe0a1ab0aa8c4c748ab1869deb340a',1,'quicr::Transport']]]
 ];
