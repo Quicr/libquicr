@@ -343,7 +343,7 @@ TEST_CASE("Parameters wire encoding")
 
         Parameters out;
         buffer >> out;
-        CHECK_EQ(out.Get<Bytes>(ParameterType::kAuthorizationToken), value);
+        CHECK_EQ(out.GetAll<Bytes>(ParameterType::kAuthorizationToken), std::vector<Bytes>{ value });
     }
 
     SUBCASE("multiple length-prefixed bytes")
@@ -369,7 +369,7 @@ TEST_CASE("Parameters wire encoding")
 
         Parameters out;
         buffer >> out;
-        CHECK_EQ(out.Get<Bytes>(ParameterType::kAuthorizationToken), auth);
+        CHECK_EQ(out.GetAll<Bytes>(ParameterType::kAuthorizationToken), std::vector<Bytes>{ auth });
         CHECK_EQ(out.Get<Bytes>(ParameterType::kTrackNamespacePrefix), prefix);
     }
 }
@@ -610,6 +610,59 @@ TEST_CASE("TrackExtensions Get returns value when present and nullopt when absen
     CHECK_FALSE(ext.GetImmutable<bool>(ExtensionType::kDefaultPublisherPriority).has_value());
 }
 
+TEST_CASE("Get is non-repeatable and GetAll is")
+{
+    const Token token{ .alias_type = Token::AliasType::kUseAlias, .token_alias = 7 };
+    const auto params =
+      Parameters{}.Add(ParameterType::kForward, std::uint8_t{ 1 }).Add(ParameterType::kAuthorizationToken, token);
+
+    CHECK_EQ(params.Get<std::uint8_t>(ParameterType::kForward), 1);
+    CHECK_EQ(params.GetAll<Token>(ParameterType::kAuthorizationToken), std::vector<Token>{ token });
+    CHECK(Parameters{}.GetAll<Token>(ParameterType::kAuthorizationToken).empty());
+
+    CHECK_THROWS_AS(params.Get<Token>(ParameterType::kAuthorizationToken), std::logic_error);
+    CHECK_THROWS_AS(params.GetAll<std::uint8_t>(ParameterType::kForward), std::logic_error);
+}
+
+TEST_CASE("Parameters reject a repeated non-repeatable type")
+{
+    // DELIVERY_TIMEOUT = 5, then a delta of 0 repeating it with 6.
+    const Bytes wire{ 0x02, 0x02, 0x05, 0x00, 0x06 };
+    Parameters out;
+    CHECK_THROWS_AS(BytesSpan(wire) >> out, ProtocolViolationException);
+}
+
+TEST_CASE("Adding a non-repeatable parameter again throws and keeps the original")
+{
+    auto params = Parameters{}.Add(ParameterType::kDeliveryTimeout, std::uint64_t{ 5 });
+    CHECK_THROWS_AS(params.Add(ParameterType::kDeliveryTimeout, std::uint64_t{ 6 }), std::invalid_argument);
+    CHECK_EQ(params.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), 5);
+
+    Bytes buffer;
+    buffer << params;
+    CHECK_EQ(buffer, Bytes{ 0x01, 0x02, 0x05 });
+}
+
+TEST_CASE("Parameters reject a type delta that overflows")
+{
+    // DELIVERY_TIMEOUT (0x02), FORWARD (0x10), then a delta that wraps back to 0x02.
+    Bytes wire{ 0x03, 0x02, 0x05, 0x0E, 0x01 };
+    wire << UintVar(std::numeric_limits<std::uint64_t>::max() - 0x0D);
+    wire.push_back(0x06);
+    Parameters out;
+    CHECK_THROWS_AS(BytesSpan(wire) >> out, ProtocolViolationException);
+}
+
+TEST_CASE("Parameters decode rejects a count larger than the input")
+{
+    // The largest possible count, followed by a single DELIVERY_TIMEOUT parameter.
+    Bytes wire;
+    wire << UintVar(std::numeric_limits<std::uint64_t>::max());
+    wire.insert(wire.end(), { 0x02, 0x05 });
+    Parameters out;
+    CHECK_THROWS_AS(BytesSpan(wire) >> out, UintVarInvalidArgException);
+}
+
 TEST_CASE("Parameters")
 {
     Parameters params;
@@ -631,7 +684,6 @@ TEST_CASE("Parameters")
 TEST_CASE("Absent parameters remain distinct from explicit zero values")
 {
     Parameters params;
-    CHECK_FALSE(params.Find(ParameterType::kForward).has_value());
     CHECK_FALSE(params.Get<std::uint8_t>(ParameterType::kForward).has_value());
     CHECK_FALSE(params.Get<Location>(ParameterType::kLargestObject).has_value());
     CHECK_FALSE(ResolveGroupOrder(params).has_value());
@@ -647,9 +699,8 @@ TEST_CASE("Absent parameters remain distinct from explicit zero values")
     CHECK_FALSE(ResolveForward(params, true));
     CHECK_FALSE(ResolveExpires(params).has_value());
 
-    params.Remove(ParameterType::kForward);
-    params.Add(ParameterType::kForward, std::uint8_t{ 2 });
-    CHECK_THROWS_AS(ResolveForward(params, true), ProtocolViolationException);
+    const auto invalid_forward = Parameters{}.Add(ParameterType::kForward, std::uint8_t{ 2 });
+    CHECK_THROWS_AS(ResolveForward(invalid_forward, true), ProtocolViolationException);
     params.Add(ParameterType::kGroupOrder, std::uint8_t{ 0 });
     CHECK_THROWS_AS(ResolveGroupOrder(params), ProtocolViolationException);
 }
