@@ -64,6 +64,7 @@ namespace quicr {
     // -- Session::ClientCallbacks ---------------------------------------------------------------
 
     Reply<void, ErrorCode> Session::ClientCallbacks::UnpublishedSubscribeReceived(const std::shared_ptr<Session>&,
+                                                                                  std::uint64_t,
                                                                                   const FullTrackName&,
                                                                                   const SubscribeAttributes&)
     {
