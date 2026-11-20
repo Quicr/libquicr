@@ -624,6 +624,35 @@ TEST_CASE("Get is non-repeatable and GetAll is")
     CHECK_THROWS_AS(params.GetAll<std::uint8_t>(ParameterType::kForward), std::logic_error);
 }
 
+TEST_CASE("Repeatable parameters roundtrip")
+{
+    const Bytes first{ 0xBB };
+    const Bytes second{ 0xAA, 0xCC };
+    const auto params = Parameters{}
+                          .Add(ParameterType::kAuthorizationToken, first)
+                          .Add(ParameterType::kDeliveryTimeout, std::uint64_t{ 5 })
+                          .Add(ParameterType::kAuthorizationToken, second);
+
+    Bytes buffer;
+    buffer << params;
+    CHECK_EQ(buffer,
+             Bytes{ 0x03,    // 3 parameters.
+                    0x02,    // DELIVERY_TIMEOUT.
+                    0x05,    // 5ms.
+                    0x01,    // AUTHORIZATION_TOKEN.
+                    0x01,    // 1 byte.
+                    0xBB,    // Token.
+                    0x00,    // Another AUTHORIZATION_TOKEN.
+                    0x02,    // 2 bytes.
+                    0xAA,    // Token byte 1.
+                    0xCC }); // Token byte 2.
+
+    Parameters out;
+    buffer >> out;
+    CHECK_EQ(out.GetAll<Bytes>(ParameterType::kAuthorizationToken), std::vector<Bytes>{ first, second });
+    CHECK_EQ(out.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), 5);
+}
+
 TEST_CASE("Parameters reject a repeated non-repeatable type")
 {
     // DELIVERY_TIMEOUT = 5, then a delta of 0 repeating it with 6.
