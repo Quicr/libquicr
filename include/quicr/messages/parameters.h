@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <initializer_list>
+#include <limits>
+#include <map>
 #include <vector>
 
 namespace quicr::messages {
@@ -124,37 +126,46 @@ namespace quicr::messages {
         kBytes     ///< Unsigned-varint length followed by bytes.
     };
 
+    /// Wire properties of a parameter type.
+    struct ParameterSpec
+    {
+        ParameterEncoding encoding; ///< Value encoding.
+        bool repeatable;            ///< True if there can be multiple instances of this type.
+    };
+
     /**
      * Look up the wire encoding for a Message Parameter type.
      * @param type The parameter type.
      * @return The encoding it uses.
      * @throws ProtocolViolationException if the type is unknown.
      */
-    inline ParameterEncoding GetParameterEncoding(ParameterType type)
+    inline ParameterSpec GetParameterSpec(ParameterType type)
     {
-        static const std::map<ParameterType, ParameterEncoding> encodings = {
-            { ParameterType::kDeliveryTimeout, ParameterEncoding::kVarint },
-            { ParameterType::kAuthorizationToken, ParameterEncoding::kBytes },
-            { ParameterType::kRendezvousTimeout, ParameterEncoding::kVarint },
-            { ParameterType::kSubgroupDeliveryTimeout, ParameterEncoding::kVarint },
-            { ParameterType::kExpires, ParameterEncoding::kVarint },
-            { ParameterType::kLargestObject, ParameterEncoding::kLocation },
-            { ParameterType::kFillTimeout, ParameterEncoding::kVarint },
-            { ParameterType::kForward, ParameterEncoding::kByte },
-            { ParameterType::kSubscriberPriority, ParameterEncoding::kByte },
-            { ParameterType::kGroupOrder, ParameterEncoding::kByte },
-            { ParameterType::kNewGroupRequest, ParameterEncoding::kVarint },
-            { ParameterType::kTrackNamespacePrefix, ParameterEncoding::kBytes },
-            { ParameterType::kSubscriptionFilter, ParameterEncoding::kBytes },
-            { ParameterType::kTrackFilter, ParameterEncoding::kBytes },
-        };
-
-        const auto it = encodings.find(type);
-        if (it == encodings.end()) {
-            throw ProtocolViolationException(
-              "Unknown Message Parameter type (type=" + std::to_string(static_cast<std::uint64_t>(type)) + ")");
+        switch (type) {
+            case ParameterType::kDeliveryTimeout:
+            case ParameterType::kRendezvousTimeout:
+            case ParameterType::kSubgroupDeliveryTimeout:
+            case ParameterType::kFillTimeout:
+            case ParameterType::kExpires:
+            case ParameterType::kNewGroupRequest:
+                return { ParameterEncoding::kVarint, false };
+            case ParameterType::kAuthorizationToken:
+                return { ParameterEncoding::kBytes, true };
+            case ParameterType::kLargestObject:
+                return { ParameterEncoding::kLocation, false };
+            case ParameterType::kForward:
+            case ParameterType::kSubscriberPriority:
+            case ParameterType::kGroupOrder:
+                return { ParameterEncoding::kByte, false };
+            case ParameterType::kSubscriptionFilter:
+            case ParameterType::kTrackNamespacePrefix:
+            case ParameterType::kTrackFilter:
+                return { ParameterEncoding::kBytes, false };
+            case ParameterType::kInvalid:
+                break;
         }
-        return it->second;
+        throw ProtocolViolationException(
+          "Unknown Message Parameter type (type=" + std::to_string(static_cast<std::uint64_t>(type)) + ")");
     }
 
     /**
@@ -170,12 +181,6 @@ namespace quicr::messages {
 
     /**
      * Sorted parameter collection with type-directed wire encoding.
-     *
-     * The map representation permits only one stored value per numeric key;
-     * adding the same type appends to that value rather than creating a second
-     * map entry. Consequently, duplicate authorization-token parameters are
-     * not represented independently by this class.
-     *
      * @tparam Type uint64-compatible parameter-key enum or integer type.
      */
     template<typename Type = ParameterType>
@@ -206,11 +211,12 @@ namespace quicr::messages {
         ParameterList& operator=(ParameterList&& other) = default;
 
         /**
-         * Encodes and appends a value under a parameter key.
+         * Encode a parameter into the list.
          * @tparam T Value type accepted by the selected encoding.
          * @param type Parameter key that determines the wire encoding.
-         * @param value Value to append to the key's stored bytes.
+         * @param value Value to encode.
          * @return This list.
+         * @throws std::invalid_argument if @p type is not repeatable and already has a value.
          * @throws ProtocolViolationException if the key is unknown or the value type is incompatible.
          */
         template<typename T>
@@ -220,35 +226,12 @@ namespace quicr::messages {
                      }
         ParameterList& Add(Type type, const T& value)
         {
-            const std::uint64_t key = static_cast<std::uint64_t>(type);
-            switch (GetParameterEncoding(type)) {
-                case ParameterEncoding::kByte:
-                    if constexpr (ByteParameter<T>) {
-                        parameters[key].push_back(static_cast<std::uint8_t>(value));
-                        break;
-                    } else {
-                        throw ProtocolViolationException(
-                          "Given parameter type must be u8 (type=" + std::to_string(key) + ")");
-                    }
-                case ParameterEncoding::kVarint:
-                    if constexpr (requires { UintVar(value); }) {
-                        parameters[key] << UintVar(value);
-                        break;
-                    } else {
-                        throw ProtocolViolationException(
-                          "Given parameter type must be uvarint(u64) (type=" + std::to_string(key) + ")");
-                    }
-                default:
-                    if constexpr (std::is_same_v<T, Bytes> || std::is_same_v<T, BytesSpan>) {
-                        parameters[key].insert(parameters[key].end(), value.begin(), value.end());
-                    } else if constexpr (HasByteStreamOperators<T>) {
-                        parameters[key] << value;
-                    } else {
-                        throw ProtocolViolationException(
-                          "Given parameter type must be Location or Bytes (type=" + std::to_string(key) + ")");
-                    }
-                    break;
+            const auto key = static_cast<std::uint64_t>(type);
+            const auto spec = GetParameterSpec(type);
+            if (!spec.repeatable && parameters.contains(key)) {
+                throw std::invalid_argument("ParameterList already has a value for this non-repeating type");
             }
+            parameters.emplace(key, Encode(spec.encoding, key, value));
 
             return *this;
         }
@@ -281,71 +264,57 @@ namespace quicr::messages {
         bool Contains(Type type) const { return parameters.contains(static_cast<std::uint64_t>(type)); }
 
         /**
-         * Finds encoded value bytes without copying.
-         * @param type Parameter key.
-         * @return View into this list's storage, or std::nullopt when absent.
-         * The view is invalidated by mutation or destruction of this list.
-         */
-        std::optional<BytesSpan> Find(Type type) const
-        {
-            const auto it = parameters.find(static_cast<std::uint64_t>(type));
-            if (it == parameters.end()) {
-                return std::nullopt;
-            }
-
-            return it->second;
-        }
-
-        /// @param type Parameter key to remove if present.
-        void Remove(Type type) { parameters.erase(static_cast<std::uint64_t>(type)); }
-
-        /**
-         * Decodes a typed value.
+         * Decodes the value of a non-repeatable parameter key.
          * @tparam T Requested value type.
          * @param type Parameter key controlling decoding.
          * @return Decoded value, or std::nullopt when absent.
+         * @throws std::logic_error if @p type is repeatable; use GetAll().
          * @throws ProtocolViolationException for empty values, unknown keys, or incompatible requested types.
          * @throws UintVarInvalidArgException for malformed varints.
          */
         template<ParameterValueType T>
         std::optional<T> Get(Type type) const
         {
-            const auto bytes_opt = Find(type);
-            if (!bytes_opt.has_value()) {
+            const auto spec = GetParameterSpec(type);
+            if (spec.repeatable) {
+                throw std::logic_error("Get() is only for non-repeatable types");
+            }
+            const auto key = static_cast<std::uint64_t>(type);
+            const auto it = parameters.find(key);
+            if (it == parameters.end()) {
                 return std::nullopt;
             }
-            const auto bytes = *bytes_opt;
-            if (bytes.empty()) {
-                throw ProtocolViolationException("Parameter value must not be empty");
+            return Decode<T>(spec.encoding, key, it->second);
+        }
+
+        /**
+         * Decodes every value of a repeatable parameter key, in insertion order.
+         * @tparam T Requested value type.
+         * @param type Parameter key controlling decoding.
+         * @return Decoded values; empty when absent.
+         * @throws std::logic_error if @p type is not repeatable; use Get().
+         * @throws ProtocolViolationException for empty values, unknown keys, or incompatible requested types.
+         * @throws UintVarInvalidArgException for malformed varints.
+         */
+        template<ParameterValueType T>
+        std::vector<T> GetAll(Type type) const
+        {
+            const auto spec = GetParameterSpec(type);
+            if (!spec.repeatable) {
+                throw std::logic_error("GetAll() is only for repeatable types");
             }
 
-            switch (GetParameterEncoding(type)) {
-                case ParameterEncoding::kByte:
-                    if constexpr (ByteParameter<T>) {
-                        return static_cast<T>(bytes[0]);
-                    } else {
-                        throw ProtocolViolationException("Given parameter type must be u8 (type=" +
-                                                         std::to_string(static_cast<std::uint64_t>(type)) + ")");
-                    }
-                case ParameterEncoding::kVarint:
-                    if constexpr (requires(T v) { UintVar(v); }) {
-                        return static_cast<T>(UintVar(bytes).Get());
-                    } else {
-                        throw ProtocolViolationException("Given parameter type must be uvarint(u64) (type=" +
-                                                         std::to_string(static_cast<std::uint64_t>(type)) + ")");
-                    }
-                default:
-                    if constexpr (std::is_same_v<T, Bytes> || std::is_same_v<T, BytesSpan>) {
-                        return Bytes{ bytes.begin(), bytes.end() };
-                    } else if constexpr (HasByteStreamOperators<T>) {
-                        T result;
-                        bytes >> result;
-                        return result;
-                    } else {
-                        throw ProtocolViolationException("Given parameter type must be Location or Bytes (type=" +
-                                                         std::to_string(static_cast<std::uint64_t>(type)) + ")");
-                    }
+            const auto key = static_cast<std::uint64_t>(type);
+            const auto [first, last] = parameters.equal_range(key);
+            if (first == last) {
+                return {};
             }
+
+            std::vector<T> values;
+            for (auto it = first; it != last; ++it) {
+                values.push_back(Decode<T>(spec.encoding, key, it->second));
+            }
+            return values;
         }
 
         /**
@@ -367,103 +336,178 @@ namespace quicr::messages {
             return DeserializeFilter(type, *bytes);
         }
 
-        /// Lexicographically compares the underlying sorted maps.
+        /// Compares entries in key order.
         /// @param other List to compare.
-        /// @return Lexicographic comparison of the maps.
+        /// @return Lexicographic comparison of the entries.
         auto operator<=>(const ParameterList& other) const = default;
 
-        std::map<std::uint64_t, Bytes> parameters; ///< Encoded values keyed by absolute numeric parameter type.
-    };
+        /**
+         * Parses a counted, delta-keyed parameter list.
+         * @param buffer Input span passed by value.
+         * @param msg Destination list.
+         * @return Unconsumed suffix of @p buffer.
+         * @throws ProtocolViolationException for unknown types, a type delta past 2^64-1, a repeat
+         * of a non-repeatable type, or a length-prefixed value longer than the remaining input.
+         * @throws std::invalid_argument (including UintVarInvalidArgException) for other truncated input.
+         */
+        friend BytesSpan operator>>(BytesSpan buffer, ParameterList& msg)
+        {
+            std::uint64_t count = 0;
+            buffer = buffer >> count;
 
-    /**
-     * Parses a counted, delta-keyed parameter list and advances the span.
-     * Existing entries are not cleared; decoded bytes append to matching keys.
-     * @tparam Type Parameter-key type.
-     * @param buffer Input span passed by value.
-     * @param msg Destination list.
-     * @return Unconsumed suffix of @p buffer.
-     * @throws ProtocolViolationException for unknown parameter types.
-     * @throws UintVarInvalidArgException or std::invalid_argument for truncated input.
-     */
-    template<typename Type = ParameterType>
-    BytesSpan operator>>(BytesSpan buffer, ParameterList<Type>& msg)
-    {
-        std::uint64_t num = 0;
-        buffer = buffer >> num;
+            std::multimap<std::uint64_t, Bytes> parameters;
+            std::uint64_t type = 0;
+            for (std::uint64_t i = 0; i < count; ++i) {
+                std::uint64_t delta = 0;
+                buffer = buffer >> delta;
+                if (delta > std::numeric_limits<std::uint64_t>::max() - type) {
+                    throw ProtocolViolationException("Parameter type delta overflows");
+                }
+                type += delta;
 
-        std::uint64_t prev_type = 0;
-        std::uint64_t delta = 0;
-        for (std::uint64_t i = 0; i < num; ++i) {
-            buffer = buffer >> delta;
+                const auto spec = GetParameterSpec(static_cast<Type>(type));
+                if (delta == 0 && !parameters.empty() && !spec.repeatable) {
+                    throw ProtocolViolationException("Unexpected duplicate parameter");
+                }
 
-            const std::uint64_t type = prev_type += delta;
-            Bytes& value = msg.parameters[type];
-
-            switch (GetParameterEncoding(static_cast<Type>(type))) {
-                case ParameterEncoding::kByte: {
-                    std::uint8_t byte = 0;
-                    buffer = buffer >> byte;
-                    value.push_back(byte);
-                    break;
+                Bytes value;
+                switch (spec.encoding) {
+                    case ParameterEncoding::kByte: {
+                        std::uint8_t byte = 0;
+                        buffer = buffer >> byte;
+                        value.push_back(byte);
+                        break;
+                    }
+                    case ParameterEncoding::kVarint: {
+                        UintVar uval(buffer);
+                        value << uval;
+                        buffer = buffer.subspan(uval.size());
+                        break;
+                    }
+                    case ParameterEncoding::kLocation: {
+                        Location loc{};
+                        buffer = buffer >> loc;
+                        value << loc;
+                        break;
+                    }
+                    case ParameterEncoding::kBytes: {
+                        buffer = buffer >> value;
+                        break;
+                    }
                 }
-                case ParameterEncoding::kVarint: {
-                    UintVar uval(buffer);
-                    value << uval;
-                    buffer = buffer.subspan(uval.size());
-                    break;
-                }
-                case ParameterEncoding::kLocation: {
-                    Location loc{};
-                    buffer = buffer >> loc;
-                    value << loc;
-                    break;
-                }
-                case ParameterEncoding::kBytes: {
-                    buffer = buffer >> value;
-                    break;
-                }
+                parameters.emplace_hint(parameters.end(), type, std::move(value));
             }
+
+            msg.parameters = std::move(parameters);
+            return buffer;
         }
 
-        return buffer;
-    }
+        /**
+         * Appends a counted, sorted, delta-keyed parameter list.
+         * @param buffer Destination byte vector.
+         * @param msg List to serialize.
+         * @return @p buffer.
+         */
+        friend Bytes& operator<<(Bytes& buffer, const ParameterList& msg)
+        {
+            buffer << UintVar(msg.parameters.size());
 
-    /**
-     * Appends a counted, sorted, delta-keyed parameter list.
-     * @tparam Type Parameter-key type.
-     * @param buffer Destination byte vector.
-     * @param msg List to serialize.
-     * @return @p buffer.
-     * @throws ProtocolViolationException for unknown parameter types.
-     * @warning A present byte-encoded parameter must contain at least one byte.
-     */
-    template<typename Type = ParameterType>
-    Bytes& operator<<(Bytes& buffer, const ParameterList<Type>& msg)
-    {
-        buffer << UintVar(msg.parameters.size());
+            std::uint64_t prev_type = 0;
+            for (const auto& [type, value] : msg.parameters) {
+                buffer << UintVar(type - prev_type);
+                prev_type = type;
 
-        std::uint64_t prev_type = 0;
-        for (const auto& [type, value] : msg.parameters) {
-            buffer << UintVar(type - prev_type);
-            prev_type = type;
+                switch (GetParameterSpec(static_cast<Type>(type)).encoding) {
+                    case ParameterEncoding::kByte:
+                        buffer << value.front();
+                        break;
+                    case ParameterEncoding::kVarint:
+                        [[fallthrough]];
+                    case ParameterEncoding::kLocation:
+                        buffer.insert(buffer.end(), value.begin(), value.end());
+                        break;
+                    case ParameterEncoding::kBytes:
+                        buffer << value;
+                        break;
+                }
+            }
 
-            switch (GetParameterEncoding(static_cast<Type>(type))) {
+            return buffer;
+        }
+
+      private:
+        template<typename T>
+        static Bytes Encode(ParameterEncoding encoding, std::uint64_t key, const T& value)
+        {
+            Bytes bytes;
+            switch (encoding) {
                 case ParameterEncoding::kByte:
-                    buffer << value.front();
-                    break;
+                    if constexpr (ByteParameter<T>) {
+                        bytes.push_back(static_cast<std::uint8_t>(value));
+                        return bytes;
+                    } else {
+                        throw ProtocolViolationException(
+                          "Given parameter type must be u8 (type=" + std::to_string(key) + ")");
+                    }
                 case ParameterEncoding::kVarint:
-                    [[fallthrough]];
-                case ParameterEncoding::kLocation:
-                    buffer.insert(buffer.end(), value.begin(), value.end());
-                    break;
-                case ParameterEncoding::kBytes:
-                    buffer << value;
-                    break;
+                    if constexpr (requires { UintVar(value); }) {
+                        bytes << UintVar(value);
+                        return bytes;
+                    } else {
+                        throw ProtocolViolationException(
+                          "Given parameter type must be uvarint(u64) (type=" + std::to_string(key) + ")");
+                    }
+                default:
+                    if constexpr (std::is_same_v<T, Bytes> || std::is_same_v<T, BytesSpan>) {
+                        bytes.assign(value.begin(), value.end());
+                    } else if constexpr (HasByteStreamOperators<T>) {
+                        bytes << value;
+                    } else {
+                        throw ProtocolViolationException(
+                          "Given parameter type must be Location or Bytes (type=" + std::to_string(key) + ")");
+                    }
+                    return bytes;
             }
         }
 
-        return buffer;
-    }
+        template<typename T>
+        static T Decode(ParameterEncoding encoding, std::uint64_t key, BytesSpan bytes)
+        {
+            if (bytes.empty()) {
+                throw ProtocolViolationException("Parameter value must not be empty");
+            }
+
+            switch (encoding) {
+                case ParameterEncoding::kByte:
+                    if constexpr (ByteParameter<T>) {
+                        return static_cast<T>(bytes[0]);
+                    } else {
+                        throw ProtocolViolationException(
+                          "Given parameter type must be u8 (type=" + std::to_string(key) + ")");
+                    }
+                case ParameterEncoding::kVarint:
+                    if constexpr (requires(T v) { UintVar(v); }) {
+                        return static_cast<T>(UintVar(bytes).Get());
+                    } else {
+                        throw ProtocolViolationException(
+                          "Given parameter type must be uvarint(u64) (type=" + std::to_string(key) + ")");
+                    }
+                default:
+                    if constexpr (std::is_same_v<T, Bytes> || std::is_same_v<T, BytesSpan>) {
+                        return T(bytes.begin(), bytes.end());
+                    } else if constexpr (HasByteStreamOperators<T>) {
+                        T result;
+                        bytes >> result;
+                        return result;
+                    } else {
+                        throw ProtocolViolationException(
+                          "Given parameter type must be Location or Bytes (type=" + std::to_string(key) + ")");
+                    }
+            }
+        }
+
+        std::multimap<std::uint64_t, Bytes> parameters;
+    };
 
     /// Standard message-parameter list.
     using Parameters = quicr::messages::ParameterList<quicr::messages::ParameterType>;
@@ -472,24 +516,14 @@ namespace quicr::messages {
      * Ensures every stored key is allowed.
      * @param params Parameters to inspect.
      * @param allowed Allowed parameter types.
-     * @throws ProtocolViolationException for a disallowed key or duplicate non-token key.
-     * @note ParameterList uses a map, so separately encoded duplicate entries have already
-     * coalesced by the time this function runs; duplicate detection is therefore limited.
+     * @throws ProtocolViolationException for a disallowed type.
      */
     inline void ValidateParameters(const Parameters& params, std::initializer_list<ParameterType> allowed)
     {
-        std::vector<ParameterType> seen;
         for (const auto& [type_value, value] : params) {
             const auto type = static_cast<ParameterType>(type_value);
             if (std::ranges::find(allowed, type) == allowed.end()) {
                 throw ProtocolViolationException("Parameter not valid for this message type");
-            }
-
-            if (type != ParameterType::kAuthorizationToken) {
-                if (std::ranges::find(seen, type) != seen.end()) {
-                    throw ProtocolViolationException("Unexpected duplicate parameter");
-                }
-                seen.push_back(type);
             }
         }
     }
