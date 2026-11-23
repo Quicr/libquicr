@@ -262,6 +262,7 @@ namespace quicr {
                 const auto properties = stream_mode ? *stream_mode : GetStreamMode().value();
                 is_stream_header_needed = true;
                 stream = session->CreateStream(std::static_pointer_cast<PublishTrackHandler>(shared_from_this()));
+                publish_track_metrics_.opened_streams++;
 
                 auto& subgroup_map = stream_info_by_group_[object_headers.group_id];
                 auto [it, _] = subgroup_map.emplace(

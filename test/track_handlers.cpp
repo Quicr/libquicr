@@ -247,6 +247,9 @@ class TestTransport : public quicr::Transport
     {
         closed_stream = stream;
         close_operation = operation;
+        if (operation == quicr::StreamOperation::kReset) {
+            reset_streams.push_back(stream->GetStreamId());
+        }
     }
     bool Enqueue(const std::shared_ptr<quicr::Connection>&,
                  const std::shared_ptr<quicr::Stream>& stream,
@@ -261,6 +264,10 @@ class TestTransport : public quicr::Transport
         if (stream && bytes) {
             auto& data = stream_data[stream->GetStreamId()];
             data.insert(data.end(), bytes->begin(), bytes->end());
+            if (stream->GetStreamId() == 0 && !bytes->empty() &&
+                bytes->front() == static_cast<std::uint8_t>(quicr::messages::ControlMessageType::kPublishDone)) {
+                reset_streams_at_publish_done = reset_streams;
+            }
         }
         return true;
     }
@@ -301,6 +308,8 @@ class TestTransport : public quicr::Transport
     int created_streams{ 0 };
     std::shared_ptr<quicr::Stream> last_data_stream;
     std::map<std::uint64_t, quicr::Bytes> stream_data;
+    std::vector<std::uint64_t> reset_streams;
+    std::optional<std::vector<std::uint64_t>> reset_streams_at_publish_done;
 
   private:
     void QueueDeferredReply(std::function<void()>&&) override {}
@@ -573,4 +582,32 @@ TEST_CASE("Fetch closure is terminal")
     CHECK(handler->PublishObject(headers, payload) == Status::kFetchClosed);
     CHECK(transport->enqueue_count == attempts);
     CHECK(transport->created_streams == expected_streams);
+}
+
+TEST_CASE("PUBLISH_DONE follows the reset of every unfinished subgroup stream")
+{
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>();
+
+    session->PublishTrack(handler);
+
+    // As PUBLISH_OK would.
+    handler->SetStatus(quicr::PublishTrackHandler::Status::kOk);
+
+    // Two groups, so two subgroup streams the application leaves open.
+    quicr::ObjectHeaders headers{};
+    const quicr::Bytes payload{ 1 };
+    headers.payload_length = payload.size();
+    REQUIRE(handler->PublishObject(headers, payload) == quicr::PublishTrackHandler::PublishObjectStatus::kOk);
+    const auto first_stream_id = transport->last_data_stream->GetStreamId();
+    headers.group_id = 1;
+    REQUIRE(handler->PublishObject(headers, payload) == quicr::PublishTrackHandler::PublishObjectStatus::kOk);
+    const auto second_stream_id = transport->last_data_stream->GetStreamId();
+    REQUIRE(transport->created_streams == 2);
+
+    session->UnpublishTrack(handler);
+
+    REQUIRE(transport->reset_streams_at_publish_done.has_value());
+    CHECK_EQ(*transport->reset_streams_at_publish_done, std::vector{ first_stream_id, second_stream_id });
 }
