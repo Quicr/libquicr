@@ -37,14 +37,34 @@ TEST_CASE("Hash namespace")
 {
     TrackNamespace ns{ "example"s, "chat555"s, "user1"s, "dev1"s, "time1"s };
 
-    auto h = hash({ ns.begin(), ns.end() });
-    CHECK_EQ(16475043982530834963ull, h);
+    auto h = ns.Hash();
+    CHECK_EQ(12425957723681742502ull, h);
 
     TrackHash th({ ns, {} });
     CHECK_EQ(h, th.track_namespace_hash);
 
     auto ns_hash = std::hash<TrackNamespace>{}(ns);
     CHECK_EQ(ns_hash, h);
+}
+
+TEST_CASE("Hash single entry namespace")
+{
+    TrackNamespace ns{ "example"s };
+    CHECK_EQ(ns.Hash(), hash({ ns.begin(), ns.end() }));
+}
+
+TEST_CASE("Entry boundaries are significant")
+{
+    TrackNamespace ab_c{ "ab"s, "c"s };
+    TrackNamespace a_bc{ "a"s, "bc"s };
+
+    CHECK_NE(ab_c, a_bc);
+    CHECK_LT(a_bc, ab_c);
+    CHECK_GT(ab_c, a_bc);
+    CHECK_NE(ab_c.Hash(), a_bc.Hash());
+
+    const std::vector<uint8_t> name{ 'x' };
+    CHECK_NE(TrackHash({ ab_c, name }).track_fullname_hash, TrackHash({ a_bc, name }).track_fullname_hash);
 }
 
 TEST_CASE("Empty namespaces are allowed")
@@ -110,6 +130,7 @@ TEST_CASE("Find prefix matching map of namespaces")
     ns_map.emplace(TrackNamespace{ "example"s, "chat1"s, "user1"s, "dev2"s }, "chat-1-user-1-dev-2");
     ns_map.emplace(TrackNamespace{ "example"s, "chat2"s, "user1"s, "dev1"s }, "chat-2-user-1-dev-1");
     ns_map.emplace(TrackNamespace{ "example"s, "chat2"s, "user2"s, "dev1"s }, "chat-2-user-2-dev-1");
+    ns_map.emplace(TrackNamespace{ "example"s, "chat20"s, "user1"s, "dev1"s }, "chat-20-user-1-dev-1");
     ns_map.emplace(TrackNamespace{ "example"s, "chat3"s, "user1"s, "dev1"s }, "chat-3-user-1-dev-1");
 
     TrackNamespace prefix_ns{ "example"s, "chat2"s };

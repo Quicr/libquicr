@@ -324,46 +324,76 @@ namespace quicr {
         bool empty() const noexcept { return bytes_.empty(); }
         // NOLINTEND(readability-identifier-naming)
 
-        /// @brief Compare flattened namespace bytes for equality.
+        /**
+         * @brief Hash the namespace tuple in order.
+         * @details An empty namespace hashes zero bytes and one entry hashes that entry. Each later entry hashes the
+         *      previous value as 8 big-endian bytes followed by the entry.
+         * @return Hash value compatible with `operator==`.
+         */
+        constexpr std::uint64_t Hash() const noexcept
+        {
+            if (hashes_.empty()) {
+                return quicr::hash({});
+            }
+
+            std::uint64_t value = hashes_.front();
+            std::vector<uint8_t> material;
+            for (std::size_t i = 1; i < entries_.size(); ++i) {
+                material.clear();
+                for (std::size_t shift = 64; shift > 0; shift -= 8) {
+                    material.push_back(static_cast<uint8_t>(value >> (shift - 8)));
+                }
+                material.insert(material.end(), entries_[i].begin(), entries_[i].end());
+                value = quicr::hash(material);
+            }
+
+            return value;
+        }
+
+        /// @brief Compare namespaces entry by entry for equality.
         /// @param lhs Left namespace.
         /// @param rhs Right namespace.
-        /// @return `true` when the flattened bytes are equal.
+        /// @return `true` when both have the same entries in the same order.
         friend bool operator==(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
         {
-            return lhs.bytes_ == rhs.bytes_;
+            return std::ranges::equal(
+              lhs.entries_, rhs.entries_, [](const auto& a, const auto& b) { return std::ranges::equal(a, b); });
         }
 
-        /// @brief Compare flattened namespace bytes for inequality.
+        /// @brief Compare namespaces entry by entry for inequality.
         /// @param lhs Left namespace.
         /// @param rhs Right namespace.
-        /// @return `true` when the flattened bytes differ.
+        /// @return `true` when the entries differ.
         friend bool operator!=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs == rhs); }
 
-        /// @brief Compare flattened namespace bytes lexicographically.
-        /// @param lhs Left namespace.
-        /// @param rhs Right namespace.
-        /// @return `true` when @p lhs sorts before @p rhs.
+        /**
+         * @brief Compare namespaces entry by entry lexicographically.
+         * @details Entries compare bytewise and a proper prefix sorts first, so namespaces sharing a tuple prefix
+         *      are contiguous in sorted order.
+         * @param lhs Left namespace.
+         * @param rhs Right namespace.
+         * @return `true` when @p lhs sorts before @p rhs.
+         */
         friend bool operator<(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
         {
-            return lhs.bytes_ < rhs.bytes_;
+            return std::ranges::lexicographical_compare(lhs.entries_, rhs.entries_, [](const auto& a, const auto& b) {
+                return std::ranges::lexicographical_compare(a, b);
+            });
         }
 
-        /// @brief Compare flattened namespace bytes lexicographically.
+        /// @brief Compare namespaces entry by entry lexicographically.
         /// @param lhs Left namespace.
         /// @param rhs Right namespace.
         /// @return `true` when @p lhs sorts after @p rhs.
-        friend bool operator>(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept
-        {
-            return lhs.bytes_ > rhs.bytes_;
-        }
+        friend bool operator>(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return rhs < lhs; }
 
-        /// @brief Compare flattened namespace bytes lexicographically.
+        /// @brief Compare namespaces entry by entry lexicographically.
         /// @param lhs Left namespace.
         /// @param rhs Right namespace.
         /// @return `true` when @p lhs does not sort after @p rhs.
         friend bool operator<=(const TrackNamespace& lhs, const TrackNamespace& rhs) noexcept { return !(lhs > rhs); }
 
-        /// @brief Compare flattened namespace bytes lexicographically.
+        /// @brief Compare namespaces entry by entry lexicographically.
         /// @param lhs Left namespace.
         /// @param rhs Right namespace.
         /// @return `true` when @p lhs does not sort before @p rhs.
@@ -420,10 +450,10 @@ namespace quicr {
 template<>
 struct std::hash<quicr::TrackNamespace>
 {
-    /// @brief Hash a namespace's flattened bytes.
+    /// @brief Hash a namespace tuple in order.
     /// @param value Namespace to hash.
-    /// @return Hash value compatible with `TrackNamespace::operator==`.
-    constexpr std::uint64_t operator()(const quicr::TrackNamespace& value) const { return quicr::hash(value); }
+    /// @return `TrackNamespace::Hash()`.
+    constexpr std::uint64_t operator()(const quicr::TrackNamespace& value) const { return value.Hash(); }
 };
 
 namespace quicr {
@@ -473,7 +503,7 @@ namespace quicr {
     /// @brief Cached hashes for a full track name and its components.
     struct TrackHash
     {
-        std::uint64_t track_namespace_hash = 0; ///< Hash of the namespace bytes.
+        std::uint64_t track_namespace_hash = 0; ///< Ordered hash of the namespace tuple.
         std::uint64_t track_name_hash = 0;      ///< Hash of the track-name bytes.
 
         uint64_t track_fullname_hash = 0; ///< Combined namespace and track-name hash.
@@ -492,7 +522,7 @@ namespace quicr {
         /// @brief Compute component and combined hashes for a full track name.
         /// @param ftn Full track name to hash.
         TrackHash(const FullTrackName& ftn) noexcept
-          : track_namespace_hash{ hash(ftn.name_space) }
+          : track_namespace_hash{ ftn.name_space.Hash() }
           , track_name_hash{ hash(ftn.name) }
           , track_fullname_hash(std::hash<FullTrackName>{}(ftn))
         {
