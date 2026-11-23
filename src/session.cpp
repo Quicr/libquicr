@@ -1023,31 +1023,17 @@ namespace quicr {
             return;
         }
 
-        const auto request_id = handler->GetRequestId();
-        const auto request_stream = handler->GetRequestStream();
+        std::shared_ptr<Stream> stream;
         {
             std::lock_guard lock(state_mutex_);
-            if (!request_id) {
-                return;
-            }
-
-            const auto handler_it = request_handlers.find(*request_id);
-            if (handler_it == request_handlers.end() || handler_it->second.get() != handler.get()) {
-                return;
-            }
-
-            request_handlers.erase(handler_it);
-            if (request_stream) {
-                request_by_stream.erase({ request_stream->GetConnectionID(), request_stream->GetStreamId() });
+            stream = handler->GetRequestStream();
+            if (const auto request_id = handler->GetRequestId()) {
+                DetachRequestHandler(*request_id, stream);
+                handler->SetRequestId(std::nullopt);
             }
         }
 
-        if (request_stream) {
-            quic_transport_->CloseStream(request_stream, StreamOperation::kCancel);
-        }
-
-        handler->SetRequestId(std::nullopt);
-        handler->SetRequestStream(nullptr);
+        quic_transport_->CloseStream(stream, StreamOperation::kCancel);
         handler->SetStatus(TrackStatusHandler::Status::kDoneByReset);
     }
 
@@ -1203,9 +1189,20 @@ namespace quicr {
                           track_handler->GetConnectionId(),
                           th.track_fullname_hash);
 
-        std::lock_guard<std::mutex> lock(state_mutex_);
+        std::shared_ptr<Stream> stream;
+        {
+            std::lock_guard _(state_mutex_);
+            stream = track_handler->GetRequestStream();
+            if (const auto request_id = track_handler->GetRequestId()) {
+                DetachRequestHandler(*request_id, stream);
+                track_handler->SetRequestId(std::nullopt);
+            }
+        }
 
-        RemoveSubscribeTrack(*track_handler);
+        quic_transport_->CloseStream(stream, StreamOperation::kCancel);
+        if (track_handler->GetStatus() != SubscribeTrackHandler::Status::kNotSubscribed) {
+            track_handler->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
+        }
     }
 
     void Session::UpdateTrackSubscription(std::shared_ptr<SubscribeTrackHandler> track_handler)
@@ -1241,47 +1238,47 @@ namespace quicr {
         SendRequestUpdate(request_stream, th, track_handler->pending_new_group_request_id_, priority, true);
     }
 
-    void Session::RemoveSubscribeTrack(SubscribeTrackHandler& handler, bool remove_handler)
+    std::shared_ptr<TrackHandler> Session::DetachRequestHandler(std::uint64_t request_id,
+                                                                const std::shared_ptr<Stream>& stream)
     {
-        auto handler_status = handler.GetStatus();
+        if (stream) {
+            request_by_stream.erase({ stream->GetConnectionID(), stream->GetStreamId() });
+        }
+        recv_req_id.erase(request_id);
 
-        switch (handler_status) {
-            case SubscribeTrackHandler::Status::kDoneByFin:
-                [[fallthrough]];
-            case SubscribeTrackHandler::Status::kDoneByReset:
-                [[fallthrough]];
-            case SubscribeTrackHandler::Status::kOk:
-                try {
-                    if (not handler.IsPublisherInitiated()) {
-                        // TODO: Is it possible for these to not be sent at this point?
-                        const auto request_stream = handler.GetRequestStream();
-                        quic_transport_->CloseStream(request_stream, StreamOperation::kCancel);
-                    }
-                } catch (const std::exception& e) {
-                    QUICR_LOGGER_ERROR(logger_, "Failed to send unsubscribe: {}", e.what());
+        const auto req_it = request_handlers.find(request_id);
+        if (req_it == request_handlers.end()) {
+            return nullptr;
+        }
+        auto handler = std::move(req_it->second);
+        request_handlers.erase(req_it);
+
+        // TODO: With Tomas' change, possibly we call UnregisterSession or Binding and have the handler reset its own
+        // state there, rather than all this switching on type and session reaching in.
+        handler->SetRequestStream(nullptr);
+        if (const auto sub_handler = handler->Get<SubscribeTrackHandler>()) {
+            if (const auto alias = sub_handler->GetReceivedTrackAlias()) {
+                sub_by_recv_track_alias.erase({ handler->GetConnectionId(), *alias });
+                sub_handler->SetReceivedTrackAlias(std::nullopt);
+            }
+        } else if (const auto pub_handler = handler->Get<PublishTrackHandler>()) {
+            const auto th = TrackHash(pub_handler->GetFullTrackName());
+            pub_tracks_by_track_alias.erase(th.track_fullname_hash);
+            if (const auto pub_ns_it = pub_tracks_by_name.find(th.track_namespace_hash);
+                pub_ns_it != pub_tracks_by_name.end()) {
+                pub_ns_it->second.erase(th.track_name_hash);
+                if (pub_ns_it->second.empty()) {
+                    pub_tracks_by_name.erase(pub_ns_it);
                 }
-
-                handler.SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
-                break;
-
-            default:
-                break;
-        }
-
-        if (remove_handler) {
-            if (handler.GetRequestId().has_value()) {
-                request_handlers.erase(*handler.GetRequestId());
-            }
-
-            if (handler.GetReceivedTrackAlias().has_value()) {
-                sub_by_recv_track_alias.erase({ handler.GetConnectionId(), handler.GetReceivedTrackAlias().value() });
             }
         }
+
+        return handler;
     }
 
-    void Session::CloseRequestHandler(std::uint64_t request_id,
-                                      const std::shared_ptr<Stream>& stream,
-                                      StreamClosedFlag flag)
+    void Session::OnRemoteRequestClose(std::uint64_t request_id,
+                                       const std::shared_ptr<Stream>& stream,
+                                       StreamClosedFlag flag)
     {
         std::shared_ptr<TrackHandler> handler;
         bool is_pub_ns = false;
@@ -1302,44 +1299,13 @@ namespace quicr {
                 recv_req_id.erase(request_id);
                 is_pub_ns = true;
             } else {
-                const auto handler_it = request_handlers.find(request_id);
-                if (handler_it == request_handlers.end()) {
+                handler = DetachRequestHandler(request_id, stream);
+                if (!handler) {
                     QUICR_LOGGER_DEBUG(logger_,
                                        "Stream closed for unknown request_id conn_id: {} request_id: {}",
                                        stream->GetConnectionID(),
                                        request_id);
-                    recv_req_id.erase(request_id);
-                    return;
                 }
-
-                // Common request cleanup.
-                handler = handler_it->second;
-                request_handlers.erase(handler_it);
-                if (const auto request_stream = handler->GetRequestStream()) {
-                    request_by_stream.erase({ request_stream->GetConnectionID(), request_stream->GetStreamId() });
-                }
-
-                // Request specific cleanup.
-                if (const auto sub_handler = handler->Get<SubscribeTrackHandler>()) {
-                    if (const auto alias = sub_handler->GetReceivedTrackAlias()) {
-                        sub_by_recv_track_alias.erase({ handler->GetConnectionId(), *alias });
-                    }
-                } else if (const auto pub_handler = handler->Get<PublishTrackHandler>()) {
-                    const auto th = TrackHash(pub_handler->GetFullTrackName());
-                    pub_tracks_by_track_alias.erase(th.track_fullname_hash);
-                    if (const auto pub_request_id = pub_handler->GetRequestId()) {
-                        recv_req_id.erase(*pub_request_id);
-                    }
-                    if (const auto pub_ns_it = pub_tracks_by_name.find(th.track_namespace_hash);
-                        pub_ns_it != pub_tracks_by_name.end()) {
-                        pub_ns_it->second.erase(th.track_name_hash);
-                        if (pub_ns_it->second.empty()) {
-                            pub_tracks_by_name.erase(pub_ns_it);
-                        }
-                    }
-                }
-
-                recv_req_id.erase(request_id);
             }
         }
 
@@ -1356,6 +1322,7 @@ namespace quicr {
         const bool is_reset = operation == StreamOperation::kCancel;
 
         if (is_sub_ns) {
+            quic_transport_->CloseStream(stream, operation);
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->UnsubscribeNamespaceReceived(GetSharedPtr(), sub_ns_prefix);
             }
@@ -1371,12 +1338,17 @@ namespace quicr {
             return;
         }
 
+        if (!handler) {
+            // Pre-request setup cancel.
+            quic_transport_->CloseStream(stream, operation);
+            return;
+        }
+
         // The peer we requested TRACK_STATUS from has closed the stream. Either they responded,
         // or errored, which has already occurred by now. Close our side, and notify.
         // TODO: Does setting this status mean anything. A better one might have already been set.
         if (const auto status_handler = handler->Get<TrackStatusHandler>()) {
             quic_transport_->CloseStream(stream, operation);
-            status_handler->SetRequestStream(nullptr);
             status_handler->SetStatus(is_reset ? TrackStatusHandler::Status::kDoneByReset
                                                : TrackStatusHandler::Status::kDoneByFin);
             return;
@@ -1388,7 +1360,6 @@ namespace quicr {
             quic_transport_->CloseStream(stream, operation);
             fetch_handler->SetStatus(is_reset ? FetchTrackHandler::Status::kDoneByReset
                                               : FetchTrackHandler::Status::kDoneByFin);
-            fetch_handler->SetRequestStream(nullptr);
             // TODO: If the fetch data stream has FIN'd already, we should clean it up now?
             // TODO: But if it hasn't, the data stream FIN observation will need to do the cleanup?
             return;
@@ -1401,7 +1372,6 @@ namespace quicr {
             quic_transport_->CloseStream(stream, operation);
             sub_handler->SetStatus(is_reset ? SubscribeTrackHandler::Status::kDoneByReset
                                             : SubscribeTrackHandler::Status::kDoneByFin);
-            sub_handler->SetRequestStream(nullptr);
 
             // TODO(RichLogan): Why do we reset the status? I don't think we should.
             // TODO: kDoneByFin should be something like "kFinished"or "kComplete".
@@ -1423,7 +1393,6 @@ namespace quicr {
                                             : PublishTrackHandler::Status::kDoneByFin);
             pub_handler->EndAllSubgroups(false);
             quic_transport_->CloseStream(stream, operation);
-            pub_handler->SetRequestStream(nullptr);
 
             if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                 callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
@@ -1435,7 +1404,6 @@ namespace quicr {
         if (auto ns_handler = handler->Get<SubscribeNamespaceHandler>()) {
             // The namespace publisher has cancelled the request.
             quic_transport_->CloseStream(stream, operation);
-            ns_handler->SetRequestStream(nullptr);
             // TODO: All learnt namespaces should be effectively NAMESPACE_DONE'd?
             if (ns_handler->GetStatus() == SubscribeNamespaceHandler::Status::kOk) {
                 ns_handler->SetStatus(SubscribeNamespaceHandler::Status::kNotSubscribed);
@@ -1446,7 +1414,6 @@ namespace quicr {
         if (auto pub_ns_handler = handler->Get<PublishNamespaceHandler>()) {
             // The namespace subscriber has cancelled the request.
             quic_transport_->CloseStream(stream, operation);
-            pub_ns_handler->SetRequestStream(nullptr);
             pub_ns_handler->SetStatus(PublishNamespaceHandler::Status::kNotPublished);
             return;
         }
@@ -1653,19 +1620,20 @@ namespace quicr {
         QUICR_LOGGER_INFO(
           logger_, "PublishNamespaceDone (conn_id={}, prefix_hash={})", track_handler->GetConnectionId(), prefix_hash);
 
-        std::lock_guard<std::mutex> lock(state_mutex_);
-
-        const auto request_stream = track_handler->GetRequestStream();
-        if (request_stream == nullptr) {
-            QUICR_LOGGER_ERROR(logger_,
-                               "PublishNamespaceDone missing request context conn_id: {} prefix_hash: {}",
-                               track_handler->GetConnectionId(),
-                               prefix_hash);
-            return;
+        std::shared_ptr<Stream> stream;
+        {
+            std::lock_guard lock(state_mutex_);
+            stream = track_handler->GetRequestStream();
+            if (const auto request_id = track_handler->GetRequestId()) {
+                DetachRequestHandler(*request_id, stream);
+                track_handler->SetRequestId(std::nullopt);
+            }
         }
 
-        quic_transport_->CloseStream(request_stream, StreamOperation::kCancel);
-        request_handlers.erase(track_handler->GetRequestId().value());
+        quic_transport_->CloseStream(stream, StreamOperation::kCancel);
+        if (track_handler->GetStatus() != PublishNamespaceHandler::Status::kNotPublished) {
+            track_handler->SetStatus(PublishNamespaceHandler::Status::kNotPublished);
+        }
     }
 
     void Session::FetchTrack(std::shared_ptr<FetchTrackHandler> track_handler)
@@ -2427,6 +2395,9 @@ namespace quicr {
                 std::lock_guard _(state_mutex_);
                 const auto req_it = request_by_stream.find({ connection_id, stream_id });
                 if (req_it != request_by_stream.end() && req_it->second.is_request_stream) {
+                    if (flag == StreamClosedFlag::kFin && !req_it->second.fin_cancels) {
+                        return;
+                    }
                     request_id = req_it->second.request_id;
                     request_by_stream.erase(req_it);
 
@@ -2451,7 +2422,7 @@ namespace quicr {
                                        *request_id);
                     return;
                 }
-                CloseRequestHandler(*request_id, stream, flag);
+                OnRemoteRequestClose(*request_id, stream, flag);
                 return;
             }
             // If this was a data stream, notify the handler.
@@ -4233,7 +4204,7 @@ namespace quicr {
                 {
                     std::lock_guard _(state_mutex_);
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
-                        .request_id = request_id, .is_request_stream = true
+                        .request_id = request_id, .is_request_stream = true, .fin_cancels = false
                     };
                 }
 
@@ -4277,10 +4248,12 @@ namespace quicr {
                                       break;
                               }
 
-                              return;
+                          } else {
+                              self->SendTrackStatusOk(stream, result.value());
                           }
 
-                          self->SendTrackStatusOk(stream, result.value());
+                          std::lock_guard lock(self->state_mutex_);
+                          self->request_by_stream.erase({ stream->GetConnectionID(), stream->GetStreamId() });
                       });
                 }
 
@@ -4376,7 +4349,7 @@ namespace quicr {
 
                 if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
                     // Record the subscription before the application callback. A deferred reply can
-                    // outlive the request stream, and CloseRequestHandler can only clean it up if it
+                    // outlive the request stream, and OnRemoteRequestClose can only clean it up if it
                     // is already registered.
                     if (subscribe_namespace) {
                         std::lock_guard _(state_mutex_);

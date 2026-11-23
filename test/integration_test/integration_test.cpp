@@ -1788,7 +1788,14 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
             data_streams.push_back(data_stream);
         }
 
-        // Unsubscribe.
+        // Pausing must not prevent cancellation and detachment of the request.
+        handler->Pause();
+        REQUIRE_EQ(handler->GetStatus(), SubscribeTrackHandler::Status::kPaused);
+        CHECK_NOTHROW(session->UnsubscribeTrack(handler));
+        CHECK_FALSE(handler->GetRequestId().has_value());
+        CHECK_FALSE(handler->GetReceivedTrackAlias().has_value());
+        CHECK_FALSE(handler->GetRequestStreamId().has_value());
+        CHECK_EQ(handler->GetStatus(), SubscribeTrackHandler::Status::kNotSubscribed);
         CHECK_NOTHROW(session->UnsubscribeTrack(handler));
 
         // The peer should see that we closed our SUBSCRIBE request stream with RESET.
@@ -1832,7 +1839,7 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
     }
 }
 
-TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client UnsubscribeTrack")
+TEST_CASE("Integration - UnsubscribeReceived when client UnsubscribeTrack")
 {
     auto session_mgr = MakeTestSessionManager();
     auto server = MakeTestServer(session_mgr);

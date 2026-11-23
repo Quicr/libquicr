@@ -298,7 +298,7 @@ namespace quicr_test {
         void SetUnsubscribePromise(std::promise<uint64_t> promise) { unsubscribe_promise_ = std::move(promise); }
 
         // UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session,) server callback from
-        // CloseRequestHandler().
+        // OnRemoteRequestClose().
         void SetUnsubscribeReceivedPromise(std::promise<UnsubscribeReceivedDetails> promise)
         {
             unsubscribe_received_promise_ = std::move(promise);
