@@ -1,5 +1,10 @@
 var NAVTREEINDEX11 =
 {
+"structquicr__stream__header__properties.html":[2,0,40],
+"structquicr__stream__header__properties.html#a0403ac5aff3760195dac2966655f18d1":[2,0,40,3],
+"structquicr__stream__header__properties.html#a42d9dae2a2f8e0517bbcbae0553e3686":[2,0,40,0],
+"structquicr__stream__header__properties.html#a4a9da8814b52d7bf4833331d7fd4371a":[2,0,40,2],
+"structquicr__stream__header__properties.html#a958c99b039c6d4cd5acbe09b209dc9ca":[2,0,40,1],
 "structquicr__stream__header__properties.html#ad4de76f1f434cbbc212e966c7e95a3d7":[2,0,40,4],
 "structquicr__subscribe__namespace__handler__callbacks.html":[2,0,41],
 "structquicr__subscribe__namespace__handler__callbacks.html#a2b953cb760db85dd97e71f4b83c31291":[2,0,41,1],

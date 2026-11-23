@@ -34,6 +34,7 @@ var classquicr_1_1JoiningFetchHandler =
     [ "GetJoiningFetch", "classquicr_1_1JoiningFetchHandler.html#ad5d76456a341b5f7b00aae6852a13156", null ],
     [ "GetLatestDeliveredLocation", "classquicr_1_1JoiningFetchHandler.html#afee4afc1d0b2b1aa28d7b8fcc8fc071b", null ],
     [ "GetLatestLocation", "classquicr_1_1JoiningFetchHandler.html#a905a3367e4a9e8194510026dd269c301", null ],
+    [ "GetPublishDoneStreamCount", "classquicr_1_1JoiningFetchHandler.html#a7e2b9a98035f5898ee0626149a967fde", null ],
     [ "GetPublisherDefaultGroupOrder", "classquicr_1_1JoiningFetchHandler.html#a1c0e1c00d87a6ddbf97b4d7c4a4a4076", null ],
     [ "GetReceivedTrackAlias", "classquicr_1_1JoiningFetchHandler.html#ab5cbb4d4e08caaaf4dbfa152dc7f7be2", null ],
     [ "GetRendezvousTimeout", "classquicr_1_1JoiningFetchHandler.html#a82f302d9e558417d11d46afa00c03a9d", null ],

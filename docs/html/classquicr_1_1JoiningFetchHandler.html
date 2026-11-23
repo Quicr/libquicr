@@ -150,6 +150,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a520dfe48f9e5a3a82d154d579ee1ff01"><td class="memItemLeft" align="right" valign="top">constexpr <a class="el" href="classquicr_1_1SubscribeTrackHandler.html#a9de21a18d0ef99ddba39efc9833d74ee">Status</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1SubscribeTrackHandler.html#a520dfe48f9e5a3a82d154d579ee1ff01">GetStatus</a> () const noexcept</td></tr>
 <tr class="memdesc:a520dfe48f9e5a3a82d154d579ee1ff01"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the status of the subscribe.  <a href="classquicr_1_1SubscribeTrackHandler.html#a520dfe48f9e5a3a82d154d579ee1ff01">More...</a><br /></td></tr>
 <tr class="separator:a520dfe48f9e5a3a82d154d579ee1ff01"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7e2b9a98035f5898ee0626149a967fde"><td class="memItemLeft" align="right" valign="top">std::optional&lt; std::uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1SubscribeTrackHandler.html#a7e2b9a98035f5898ee0626149a967fde">GetPublishDoneStreamCount</a> () const</td></tr>
+<tr class="memdesc:a7e2b9a98035f5898ee0626149a967fde"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the Stream Count of the last PUBLISH_DONE received for this subscription.  <a href="classquicr_1_1SubscribeTrackHandler.html#a7e2b9a98035f5898ee0626149a967fde">More...</a><br /></td></tr>
+<tr class="separator:a7e2b9a98035f5898ee0626149a967fde"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa81d5a830dec8939df669235f6f36226"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classquicr_1_1SubscribeTrackHandler.html#aa81d5a830dec8939df669235f6f36226">SetSubscriberPriority</a> (uint8_t priority) noexcept</td></tr>
 <tr class="memdesc:aa81d5a830dec8939df669235f6f36226"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the subscriber priority used in subsequent control updates.  <a href="classquicr_1_1SubscribeTrackHandler.html#aa81d5a830dec8939df669235f6f36226">More...</a><br /></td></tr>
 <tr class="separator:aa81d5a830dec8939df669235f6f36226"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -899,6 +902,35 @@ template&lt;typename T &gt; </div>
 </table>
 </div><div class="memdoc">
 <dl class="section return"><dt>Returns</dt><dd>Most recently recorded object location, or <code>std::nullopt</code> if none is known. </dd></dl>
+
+</div>
+</div>
+<a id="a7e2b9a98035f5898ee0626149a967fde"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7e2b9a98035f5898ee0626149a967fde">&#9670;&nbsp;</a></span>GetPublishDoneStreamCount()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::optional&lt;std::uint64_t&gt; quicr::SubscribeTrackHandler::GetPublishDoneStreamCount </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">inherited</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the Stream Count of the last PUBLISH_DONE received for this subscription. </p>
+<p>The number of data streams the publisher says it opened.</p>
+<dl class="section return"><dt>Returns</dt><dd>Stream Count, or nullopt if no PUBLISH_DONE has been received </dd></dl>
 
 </div>
 </div>

@@ -500,211 +500,212 @@ $(document).ready(function(){initNavTree('session_8h_source.html',''); initResiz
 <div class="line"><a name="l00682"></a><span class="lineno">  682</span>&#160;        <span class="keywordtype">void</span> SendPublishDone(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream,</div>
 <div class="line"><a name="l00683"></a><span class="lineno">  683</span>&#160;                             std::uint64_t request_id,</div>
 <div class="line"><a name="l00684"></a><span class="lineno">  684</span>&#160;                             <a class="code" href="namespacequicr_1_1messages.html#a3c0094be0db9cb7cd4837a4859cf323c">messages::PublishDoneStatusCode</a> status,</div>
-<div class="line"><a name="l00685"></a><span class="lineno">  685</span>&#160;                             <span class="keyword">const</span> std::string&amp; reason);</div>
-<div class="line"><a name="l00686"></a><span class="lineno">  686</span>&#160; </div>
-<div class="line"><a name="l00687"></a><span class="lineno">  687</span>&#160;        <span class="keywordtype">void</span> SendPublishOk(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream, <span class="keyword">const</span> PublishOkAttributes&amp; attributes);</div>
-<div class="line"><a name="l00688"></a><span class="lineno">  688</span>&#160; </div>
-<div class="line"><a name="l00689"></a><span class="lineno">  689</span>&#160;        std::shared_ptr&lt;Stream&gt; FindSubscribeNamespaceStream(<span class="keyword">const</span> TrackNamespace&amp; track_namespace) <span class="keyword">const</span>;</div>
-<div class="line"><a name="l00690"></a><span class="lineno">  690</span>&#160; </div>
-<div class="line"><a name="l00691"></a><span class="lineno">  691</span>&#160;        std::optional&lt;std::uint64_t&gt; FindRequestIdByStream(<span class="keyword">const</span> Stream&amp; stream) <a class="code" href="thread__safety_8h.html#a0aea660b82b7ff7e52afff3ee886187b">QUICR_EXCLUDES</a>(state_mutex_);</div>
-<div class="line"><a name="l00692"></a><span class="lineno">  692</span>&#160; </div>
-<div class="line"><a name="l00693"></a><span class="lineno">  693</span>&#160;        <span class="keywordtype">bool</span> IsCurrentRequestStream(std::uint64_t request_id, <span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream)</div>
-<div class="line"><a name="l00694"></a><span class="lineno">  694</span>&#160;          <a class="code" href="thread__safety_8h.html#a0aea660b82b7ff7e52afff3ee886187b">QUICR_EXCLUDES</a>(state_mutex_);</div>
-<div class="line"><a name="l00695"></a><span class="lineno">  695</span>&#160; </div>
-<div class="line"><a name="l00696"></a><span class="lineno">  696</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
-<div class="line"><a name="l00697"></a><span class="lineno">  697</span>&#160;        <span class="comment">// Track Status</span></div>
-<div class="line"><a name="l00698"></a><span class="lineno">  698</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
-<div class="line"><a name="l00699"></a><span class="lineno">  699</span>&#160; </div>
-<div class="line"><a name="l00700"></a><span class="lineno">  700</span>&#160;        <span class="keywordtype">void</span> SendTrackStatus(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream, std::uint64_t request_id, <span class="keyword">const</span> FullTrackName&amp; tfn);</div>
-<div class="line"><a name="l00701"></a><span class="lineno">  701</span>&#160; </div>
-<div class="line"><a name="l00702"></a><span class="lineno">  702</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
-<div class="line"><a name="l00703"></a><span class="lineno">  703</span>&#160;        <span class="comment">// Fetch</span></div>
-<div class="line"><a name="l00704"></a><span class="lineno">  704</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
-<div class="line"><a name="l00705"></a><span class="lineno">  705</span>&#160; </div>
-<div class="line"><a name="l00706"></a><span class="lineno">  706</span>&#160;        <span class="keywordtype">void</span> ResolveFetch(uint64_t request_id,</div>
-<div class="line"><a name="l00707"></a><span class="lineno">  707</span>&#160;                          std::optional&lt;messages::GroupOrder&gt; group_order,</div>
-<div class="line"><a name="l00708"></a><span class="lineno">  708</span>&#160;                          <span class="keyword">const</span> FetchResponse&amp; response);</div>
-<div class="line"><a name="l00709"></a><span class="lineno">  709</span>&#160; </div>
-<div class="line"><a name="l00710"></a><span class="lineno">  710</span>&#160;        <span class="keywordtype">bool</span> SendFetch(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream,</div>
-<div class="line"><a name="l00711"></a><span class="lineno">  711</span>&#160;                       std::uint64_t request_id,</div>
-<div class="line"><a name="l00712"></a><span class="lineno">  712</span>&#160;                       <span class="keyword">const</span> FullTrackName&amp; tfn,</div>
-<div class="line"><a name="l00713"></a><span class="lineno">  713</span>&#160;                       std::uint8_t priority,</div>
-<div class="line"><a name="l00714"></a><span class="lineno">  714</span>&#160;                       std::optional&lt;messages::GroupOrder&gt; group_order,</div>
-<div class="line"><a name="l00715"></a><span class="lineno">  715</span>&#160;                       <span class="keyword">const</span> messages::Location&amp; start_location,</div>
-<div class="line"><a name="l00716"></a><span class="lineno">  716</span>&#160;                       <span class="keyword">const</span> messages::FetchEndLocation&amp; end_location);</div>
-<div class="line"><a name="l00717"></a><span class="lineno">  717</span>&#160; </div>
-<div class="line"><a name="l00718"></a><span class="lineno">  718</span>&#160;        <span class="keywordtype">void</span> SendJoiningFetch(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream,</div>
-<div class="line"><a name="l00719"></a><span class="lineno">  719</span>&#160;                              std::uint64_t request_id,</div>
-<div class="line"><a name="l00720"></a><span class="lineno">  720</span>&#160;                              std::uint8_t priority,</div>
-<div class="line"><a name="l00721"></a><span class="lineno">  721</span>&#160;                              std::optional&lt;messages::GroupOrder&gt; group_order,</div>
-<div class="line"><a name="l00722"></a><span class="lineno">  722</span>&#160;                              std::uint64_t joining_request_id,</div>
-<div class="line"><a name="l00723"></a><span class="lineno">  723</span>&#160;                              std::uint64_t joining_start,</div>
-<div class="line"><a name="l00724"></a><span class="lineno">  724</span>&#160;                              <span class="keywordtype">bool</span> absolute);</div>
-<div class="line"><a name="l00725"></a><span class="lineno">  725</span>&#160; </div>
-<div class="line"><a name="l00726"></a><span class="lineno">  726</span>&#160;        <span class="keywordtype">void</span> SendFetchOk(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream,</div>
-<div class="line"><a name="l00727"></a><span class="lineno">  727</span>&#160;                         <a class="code" href="namespacequicr_1_1messages.html#ae23e69bec511588a8ac56da335bf9d67">messages::GroupOrder</a> publisher_default_group_order,</div>
-<div class="line"><a name="l00728"></a><span class="lineno">  728</span>&#160;                         <span class="keywordtype">bool</span> end_of_track,</div>
-<div class="line"><a name="l00729"></a><span class="lineno">  729</span>&#160;                         messages::Location end_location);</div>
-<div class="line"><a name="l00730"></a><span class="lineno">  730</span>&#160; </div>
-<div class="line"><a name="l00731"></a><span class="lineno">  731</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
-<div class="line"><a name="l00732"></a><span class="lineno">  732</span>&#160;        <span class="comment">// Other member functions</span></div>
-<div class="line"><a name="l00733"></a><span class="lineno">  733</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
-<div class="line"><a name="l00734"></a><span class="lineno">  734</span>&#160; </div>
-<div class="line"><a name="l00735"></a><span class="lineno">  735</span>&#160;        <span class="keywordtype">void</span> RemoveSubscribeTrack(<a class="code" href="classquicr_1_1Session.html#a6c0cffca708c77829cdc1d5cc5e96c6c">SubscribeTrackHandler</a>&amp; handler, <span class="keywordtype">bool</span> remove_handler = <span class="keyword">true</span>);</div>
-<div class="line"><a name="l00736"></a><span class="lineno">  736</span>&#160; </div>
-<div class="line"><a name="l00737"></a><span class="lineno">  737</span>&#160;        <span class="keywordtype">void</span> CloseRequestHandler(std::uint64_t request_id, <span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream, <a class="code" href="namespacequicr.html#a76a22ba36529ce9735bc6d8c5eae4954">StreamClosedFlag</a> flag)</div>
-<div class="line"><a name="l00738"></a><span class="lineno">  738</span>&#160;          <a class="code" href="thread__safety_8h.html#a0aea660b82b7ff7e52afff3ee886187b">QUICR_EXCLUDES</a>(state_mutex_);</div>
-<div class="line"><a name="l00739"></a><span class="lineno">  739</span>&#160; </div>
-<div class="line"><a name="l00740"></a><span class="lineno">  740</span>&#160;        std::shared_ptr&lt;PublishTrackHandler&gt; GetPubTrackHandler(TrackHash&amp; th);</div>
-<div class="line"><a name="l00741"></a><span class="lineno">  741</span>&#160; </div>
-<div class="line"><a name="l00742"></a><span class="lineno">  742</span>&#160;        <span class="keywordtype">void</span> RemoveTracksForConnectionClose(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection);</div>
-<div class="line"><a name="l00743"></a><span class="lineno">  743</span>&#160; </div>
-<div class="line"><a name="l00744"></a><span class="lineno">  744</span>&#160;        [[nodiscard]] uint64_t GetNextRequestID();</div>
-<div class="line"><a name="l00745"></a><span class="lineno">  745</span>&#160; </div>
-<div class="line"><a name="l00755"></a><span class="lineno">  755</span>&#160;        <span class="keywordtype">bool</span> BindRecvStream(Stream&amp; stream);</div>
-<div class="line"><a name="l00756"></a><span class="lineno">  756</span>&#160; </div>
-<div class="line"><a name="l00767"></a><span class="lineno">  767</span>&#160; </div>
-<div class="line"><a name="l00769"></a><span class="lineno">  769</span>&#160;        <span class="keywordtype">bool</span> RecvCtrlMessage(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection,</div>
-<div class="line"><a name="l00770"></a><span class="lineno">  770</span>&#160;                             <span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream,</div>
-<div class="line"><a name="l00771"></a><span class="lineno">  771</span>&#160;                             <span class="keywordtype">bool</span> is_request_stream);</div>
-<div class="line"><a name="l00772"></a><span class="lineno">  772</span>&#160; </div>
-<div class="line"><a name="l00773"></a><span class="lineno">  773</span>&#160;        <span class="keywordtype">bool</span> RecvSubgroupObject(Stream&amp; stream, <a class="code" href="classquicr_1_1Session.html#a6c0cffca708c77829cdc1d5cc5e96c6c">SubscribeTrackHandler</a>&amp; handler);</div>
-<div class="line"><a name="l00774"></a><span class="lineno">  774</span>&#160; </div>
-<div class="line"><a name="l00775"></a><span class="lineno">  775</span>&#160;        <span class="keywordtype">bool</span> RecvFetchObject(Stream&amp; stream, <a class="code" href="classquicr_1_1Session.html#a6c0cffca708c77829cdc1d5cc5e96c6c">SubscribeTrackHandler</a>&amp; handler);</div>
-<div class="line"><a name="l00776"></a><span class="lineno">  776</span>&#160; </div>
-<div class="line"><a name="l00778"></a><span class="lineno">  778</span>&#160; </div>
-<div class="line"><a name="l00789"></a><span class="lineno">  789</span>&#160;        <span class="keywordtype">bool</span> ForwardSubgroupBytes(Stream&amp; stream, ForwardingSubscribeTrackHandler&amp; handler);</div>
-<div class="line"><a name="l00790"></a><span class="lineno">  790</span>&#160; </div>
-<div class="line"><a name="l00791"></a><span class="lineno">  791</span>&#160;        <span class="keywordtype">bool</span> OnRecvSubgroup(std::uint64_t track_alias, Stream&amp; stream);</div>
-<div class="line"><a name="l00792"></a><span class="lineno">  792</span>&#160; </div>
-<div class="line"><a name="l00793"></a><span class="lineno">  793</span>&#160;        <span class="keywordtype">bool</span> OnRecvFetch(std::uint64_t request_id, Stream&amp; stream);</div>
-<div class="line"><a name="l00794"></a><span class="lineno">  794</span>&#160; </div>
-<div class="line"><a name="l00801"></a><span class="lineno">  801</span>&#160;        std::shared_ptr&lt;Stream&gt; CreateStream(<span class="keyword">const</span> std::shared_ptr&lt;PublishTrackHandler&gt;&amp; handler);</div>
-<div class="line"><a name="l00802"></a><span class="lineno">  802</span>&#160; </div>
-<div class="line"><a name="l00814"></a><span class="lineno">  814</span>&#160;        <span class="keywordtype">bool</span> Enqueue(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection,</div>
-<div class="line"><a name="l00815"></a><span class="lineno">  815</span>&#160;                     <span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream,</div>
-<div class="line"><a name="l00816"></a><span class="lineno">  816</span>&#160;                     std::shared_ptr&lt;<span class="keyword">const</span> std::vector&lt;uint8_t&gt;&gt; bytes,</div>
-<div class="line"><a name="l00817"></a><span class="lineno">  817</span>&#160;                     <span class="keyword">const</span> uint8_t priority,</div>
-<div class="line"><a name="l00818"></a><span class="lineno">  818</span>&#160;                     <span class="keyword">const</span> uint32_t ttl_ms,</div>
-<div class="line"><a name="l00819"></a><span class="lineno">  819</span>&#160;                     <span class="keyword">const</span> Transport::EnqueueFlags flags);</div>
-<div class="line"><a name="l00820"></a><span class="lineno">  820</span>&#160; </div>
-<div class="line"><a name="l00821"></a><span class="lineno">  821</span>&#160;      <span class="keyword">private</span>:</div>
-<div class="line"><a name="l00822"></a><span class="lineno">  822</span>&#160;        <span class="keywordtype">void</span> SetConnectionAddedCallback(</div>
-<div class="line"><a name="l00823"></a><span class="lineno">  823</span>&#160;          std::function&lt;<span class="keywordtype">void</span>(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp;, <span class="keyword">const</span> std::shared_ptr&lt;Session&gt;&amp;)&gt; callback)</div>
-<div class="line"><a name="l00824"></a><span class="lineno">  824</span>&#160;        {</div>
-<div class="line"><a name="l00825"></a><span class="lineno">  825</span>&#160;            connection_added_callback_ = std::move(callback);</div>
-<div class="line"><a name="l00826"></a><span class="lineno">  826</span>&#160;        }</div>
-<div class="line"><a name="l00827"></a><span class="lineno">  827</span>&#160; </div>
-<div class="line"><a name="l00828"></a><span class="lineno">  828</span>&#160;        <span class="keyword">enum class</span> MigrationRequestType : std::uint8_t</div>
-<div class="line"><a name="l00829"></a><span class="lineno">  829</span>&#160;        {</div>
-<div class="line"><a name="l00830"></a><span class="lineno">  830</span>&#160;            <a class="code" href="namespacequicr_1_1messages.html#ad2340d2d263efbe3a1e7630b714ed39cac0acd4d9ef5688b94cd5a587724a1e2e">kSubscribe</a>,</div>
-<div class="line"><a name="l00831"></a><span class="lineno">  831</span>&#160;            <a class="code" href="namespacequicr_1_1messages.html#ad2340d2d263efbe3a1e7630b714ed39ca59c7fcd9c22cbb41e716c26907c4143e">kPublish</a>,</div>
-<div class="line"><a name="l00832"></a><span class="lineno">  832</span>&#160;            <a class="code" href="namespacequicr_1_1messages.html#ad2340d2d263efbe3a1e7630b714ed39cad0ca152329b79f4c25f99658c3ac6d84">kSubscribeNamespace</a>,</div>
-<div class="line"><a name="l00833"></a><span class="lineno">  833</span>&#160;            <a class="code" href="namespacequicr_1_1messages.html#ad2340d2d263efbe3a1e7630b714ed39cac557818734c4db2aec8fb5769093798b">kPublishNamespace</a>,</div>
-<div class="line"><a name="l00834"></a><span class="lineno">  834</span>&#160;            <a class="code" href="namespacequicr_1_1messages.html#ad2340d2d263efbe3a1e7630b714ed39cab21a5bd2e5c5fc16c817394a40cd5eea">kFetch</a>,</div>
-<div class="line"><a name="l00835"></a><span class="lineno">  835</span>&#160;        };</div>
-<div class="line"><a name="l00836"></a><span class="lineno">  836</span>&#160; </div>
-<div class="line"><a name="l00837"></a><span class="lineno">  837</span>&#160;        <span class="keyword">struct </span>PendingMigration</div>
-<div class="line"><a name="l00838"></a><span class="lineno">  838</span>&#160;        {</div>
-<div class="line"><a name="l00839"></a><span class="lineno">  839</span>&#160;            MigrationRequestType type;</div>
-<div class="line"><a name="l00840"></a><span class="lineno">  840</span>&#160;            std::shared_ptr&lt;Stream&gt; request_stream;</div>
-<div class="line"><a name="l00841"></a><span class="lineno">  841</span>&#160;        };</div>
-<div class="line"><a name="l00842"></a><span class="lineno">  842</span>&#160; </div>
-<div class="line"><a name="l00843"></a><span class="lineno">  843</span>&#160;        <span class="keyword">struct </span>Migration</div>
-<div class="line"><a name="l00844"></a><span class="lineno">  844</span>&#160;        {</div>
-<div class="line"><a name="l00845"></a><span class="lineno">  845</span>&#160;            Redirect redirect;</div>
-<div class="line"><a name="l00846"></a><span class="lineno">  846</span>&#160;            std::shared_ptr&lt;Connection&gt; source_connection;</div>
-<div class="line"><a name="l00847"></a><span class="lineno">  847</span>&#160;            std::shared_ptr&lt;Connection&gt; candidate_connection;</div>
-<div class="line"><a name="l00848"></a><span class="lineno">  848</span>&#160;            std::map&lt;std::uint64_t, PendingMigration&gt; pending;</div>
-<div class="line"><a name="l00849"></a><span class="lineno">  849</span>&#160;        };</div>
-<div class="line"><a name="l00850"></a><span class="lineno">  850</span>&#160; </div>
-<div class="line"><a name="l00851"></a><span class="lineno">  851</span>&#160;        <span class="keyword">using</span> MigrationKey = std::pair&lt;std::uint64_t, std::optional&lt;std::uint64_t&gt;&gt;;</div>
-<div class="line"><a name="l00852"></a><span class="lineno">  852</span>&#160;        <span class="keyword">using</span> MigrationMap = std::map&lt;MigrationKey, Migration&gt;;</div>
-<div class="line"><a name="l00853"></a><span class="lineno">  853</span>&#160; </div>
-<div class="line"><a name="l00854"></a><span class="lineno">  854</span>&#160;        <span class="keywordtype">void</span> Migrate(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; source_connection, <span class="keyword">const</span> Redirect&amp; redirect);</div>
-<div class="line"><a name="l00855"></a><span class="lineno">  855</span>&#160; </div>
-<div class="line"><a name="l00856"></a><span class="lineno">  856</span>&#160;        <span class="keywordtype">void</span> StartMigrationRequests(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection);</div>
-<div class="line"><a name="l00857"></a><span class="lineno">  857</span>&#160; </div>
-<div class="line"><a name="l00858"></a><span class="lineno">  858</span>&#160;        <span class="keywordtype">void</span> CompleteMigration(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection,</div>
-<div class="line"><a name="l00859"></a><span class="lineno">  859</span>&#160;                               std::uint64_t request_id,</div>
-<div class="line"><a name="l00860"></a><span class="lineno">  860</span>&#160;                               MigrationRequestType type,</div>
-<div class="line"><a name="l00861"></a><span class="lineno">  861</span>&#160;                               std::optional&lt;std::uint64_t&gt; received_track_alias = std::nullopt);</div>
-<div class="line"><a name="l00862"></a><span class="lineno">  862</span>&#160; </div>
-<div class="line"><a name="l00863"></a><span class="lineno">  863</span>&#160;        <span class="keywordtype">bool</span> FailMigration(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection, std::uint64_t request_id);</div>
-<div class="line"><a name="l00864"></a><span class="lineno">  864</span>&#160; </div>
-<div class="line"><a name="l00865"></a><span class="lineno">  865</span>&#160;        <span class="keywordtype">bool</span> MatchesRedirect(<span class="keyword">const</span> TrackHandler&amp; handler, <span class="keyword">const</span> Redirect&amp; redirect) <span class="keyword">const</span>;</div>
-<div class="line"><a name="l00866"></a><span class="lineno">  866</span>&#160; </div>
-<div class="line"><a name="l00867"></a><span class="lineno">  867</span>&#160;        MigrationMap::iterator FindMigration(<span class="keyword">const</span> Connection&amp; candidate) <a class="code" href="thread__safety_8h.html#abdf9033dcf6b4ec8c30d2c001e8cce34">QUICR_REQUIRES</a>(state_mutex_);</div>
-<div class="line"><a name="l00868"></a><span class="lineno">  868</span>&#160; </div>
-<div class="line"><a name="l00869"></a><span class="lineno">  869</span>&#160;        <span class="keywordtype">void</span> ResetSubgroup(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream);</div>
-<div class="line"><a name="l00870"></a><span class="lineno">  870</span>&#160; </div>
-<div class="line"><a name="l00871"></a><span class="lineno">  871</span>&#160;      <span class="keyword">private</span>:</div>
-<div class="line"><a name="l00872"></a><span class="lineno">  872</span>&#160;        <span class="keyword">mutable</span> std::mutex connections_mutex_;</div>
-<div class="line"><a name="l00873"></a><span class="lineno">  873</span>&#160;        std::map&lt;std::uint64_t, std::shared_ptr&lt;Connection&gt;&gt; connections_ <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(connections_mutex_);</div>
-<div class="line"><a name="l00874"></a><span class="lineno">  874</span>&#160;        MigrationMap migrations_ <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(state_mutex_);</div>
-<div class="line"><a name="l00875"></a><span class="lineno">  875</span>&#160;        std::shared_ptr&lt;Connection&gt; default_connection_ <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(state_mutex_);</div>
-<div class="line"><a name="l00876"></a><span class="lineno">  876</span>&#160;        std::function&lt;void(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp;, <span class="keyword">const</span> std::shared_ptr&lt;Session&gt;&amp;)&gt;</div>
-<div class="line"><a name="l00877"></a><span class="lineno">  877</span>&#160;          connection_added_callback_;</div>
-<div class="line"><a name="l00878"></a><span class="lineno">  878</span>&#160; </div>
-<div class="line"><a name="l00879"></a><span class="lineno">  879</span>&#160;        <span class="keyword">const</span> std::shared_ptr&lt;Callbacks&gt; callbacks_;</div>
-<div class="line"><a name="l00880"></a><span class="lineno">  880</span>&#160; </div>
-<div class="line"><a name="l00885"></a><span class="lineno">  885</span>&#160;        std::atomic&lt;uint64_t&gt; next_request_id_;</div>
-<div class="line"><a name="l00886"></a><span class="lineno">  886</span>&#160; </div>
-<div class="line"><a name="l00887"></a><span class="lineno">  887</span>&#160;        std::map&lt;std::uint64_t, SubscribeContext&gt; recv_req_id;</div>
-<div class="line"><a name="l00888"></a><span class="lineno">  888</span>&#160; </div>
-<div class="line"><a name="l00889"></a><span class="lineno">  889</span>&#160;        <span class="keyword">struct </span>StreamRequest</div>
-<div class="line"><a name="l00890"></a><span class="lineno">  890</span>&#160;        {</div>
-<div class="line"><a name="l00891"></a><span class="lineno">  891</span>&#160;            std::uint64_t request_id;</div>
-<div class="line"><a name="l00892"></a><span class="lineno">  892</span>&#160; </div>
-<div class="line"><a name="l00899"></a><span class="lineno">  899</span>&#160;            <span class="keywordtype">bool</span> is_request_stream;</div>
-<div class="line"><a name="l00900"></a><span class="lineno">  900</span>&#160;        };</div>
-<div class="line"><a name="l00901"></a><span class="lineno">  901</span>&#160; </div>
-<div class="line"><a name="l00903"></a><span class="lineno">  903</span>&#160;        <span class="keyword">using</span> StreamKey = std::pair&lt;std::uint64_t, std::uint64_t&gt;;</div>
-<div class="line"><a name="l00904"></a><span class="lineno">  904</span>&#160;        std::map&lt;StreamKey, StreamRequest&gt; request_by_stream <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(state_mutex_);</div>
-<div class="line"><a name="l00905"></a><span class="lineno">  905</span>&#160; </div>
-<div class="line"><a name="l00906"></a><span class="lineno">  906</span>&#160;        std::vector&lt;std::uint64_t&gt;</div>
-<div class="line"><a name="l00907"></a><span class="lineno">  907</span>&#160;          recv_publish_namespaces; </div>
-<div class="line"><a name="l00908"></a><span class="lineno">  908</span>&#160; </div>
-<div class="line"><a name="l00910"></a><span class="lineno">  910</span>&#160;        std::vector&lt;std::uint64_t&gt; recv_subscribe_namespaces;</div>
-<div class="line"><a name="l00911"></a><span class="lineno">  911</span>&#160; </div>
-<div class="line"><a name="l00912"></a><span class="lineno">  912</span>&#160;        std::map&lt;std::uint64_t, std::shared_ptr&lt;TrackHandler&gt;&gt; request_handlers; </div>
-<div class="line"><a name="l00913"></a><span class="lineno">  913</span>&#160; </div>
-<div class="line"><a name="l00920"></a><span class="lineno">  920</span>&#160;        std::map&lt;std::pair&lt;std::uint64_t, std::uint64_t&gt;, std::shared_ptr&lt;SubscribeTrackHandler&gt;&gt;</div>
-<div class="line"><a name="l00921"></a><span class="lineno">  921</span>&#160;          sub_by_recv_track_alias;</div>
-<div class="line"><a name="l00922"></a><span class="lineno">  922</span>&#160; </div>
-<div class="line"><a name="l00927"></a><span class="lineno">  927</span>&#160;        std::map&lt;std::uint64_t, std::map&lt;std::uint64_t, std::shared_ptr&lt;PublishTrackHandler&gt;&gt;&gt; pub_tracks_by_name;</div>
-<div class="line"><a name="l00928"></a><span class="lineno">  928</span>&#160; </div>
-<div class="line"><a name="l00930"></a><span class="lineno">  930</span>&#160;        std::map&lt;std::uint64_t, std::map&lt;uint64_t, std::shared_ptr&lt;PublishTrackHandler&gt;&gt;&gt; pub_tracks_by_track_alias</div>
-<div class="line"><a name="l00931"></a><span class="lineno">  931</span>&#160;          <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(state_mutex_);</div>
-<div class="line"><a name="l00932"></a><span class="lineno">  932</span>&#160; </div>
-<div class="line"><a name="l00933"></a><span class="lineno">  933</span>&#160;        std::map&lt;std::uint64_t, std::shared_ptr&lt;PublishTrackHandler&gt;&gt;</div>
-<div class="line"><a name="l00934"></a><span class="lineno">  934</span>&#160;          pub_fetch_tracks_by_request_id; </div>
-<div class="line"><a name="l00935"></a><span class="lineno">  935</span>&#160; </div>
-<div class="line"><a name="l00936"></a><span class="lineno">  936</span>&#160;        <span class="keyword">mutable</span> std::mutex state_mutex_;</div>
-<div class="line"><a name="l00937"></a><span class="lineno">  937</span>&#160; </div>
-<div class="line"><a name="l00938"></a><span class="lineno">  938</span>&#160;        <span class="keyword">const</span> <span class="keywordtype">bool</span> client_mode_;</div>
-<div class="line"><a name="l00939"></a><span class="lineno">  939</span>&#160; </div>
-<div class="line"><a name="l00940"></a><span class="lineno">  940</span>&#160;        <span class="keyword">const</span> std::shared_ptr&lt;Logger&gt; logger_;</div>
-<div class="line"><a name="l00941"></a><span class="lineno">  941</span>&#160; </div>
-<div class="line"><a name="l00942"></a><span class="lineno">  942</span>&#160;        <span class="keywordtype">bool</span> stop_{ <span class="keyword">false</span> };</div>
-<div class="line"><a name="l00943"></a><span class="lineno">  943</span>&#160; </div>
-<div class="line"><a name="l00944"></a><span class="lineno">  944</span>&#160;        <span class="keyword">const</span> ServerConfig server_config_;</div>
-<div class="line"><a name="l00945"></a><span class="lineno">  945</span>&#160; </div>
-<div class="line"><a name="l00946"></a><span class="lineno">  946</span>&#160;        <span class="keyword">const</span> ClientConfig client_config_;</div>
-<div class="line"><a name="l00947"></a><span class="lineno">  947</span>&#160; </div>
-<div class="line"><a name="l00948"></a><span class="lineno">  948</span>&#160;        std::atomic&lt;Status&gt; status_{ <a class="code" href="classquicr_1_1Session.html#aac74865cd7822117fc2bd5c1596e2b26ab714c11518d545c225d456731dab0dd0">Status::kConnecting</a> };</div>
-<div class="line"><a name="l00949"></a><span class="lineno">  949</span>&#160; </div>
-<div class="line"><a name="l00950"></a><span class="lineno">  950</span>&#160;        <span class="keyword">const</span> std::shared_ptr&lt;Clock&gt; clock_;</div>
-<div class="line"><a name="l00951"></a><span class="lineno">  951</span>&#160; </div>
-<div class="line"><a name="l00952"></a><span class="lineno">  952</span>&#160;        <span class="keyword">const</span> std::shared_ptr&lt;Transport&gt; quic_transport_; <span class="comment">// **MUST** be last for proper order of destruction</span></div>
-<div class="line"><a name="l00953"></a><span class="lineno">  953</span>&#160; </div>
-<div class="line"><a name="l00954"></a><span class="lineno"><a class="line" href="classquicr_1_1Session.html#a678483f839a35e16e25017a06e47958a">  954</a></span>&#160;        <span class="keyword">friend</span> <span class="keyword">class </span><a class="code" href="classquicr_1_1PublishTrackHandler.html">PublishTrackHandler</a>;</div>
-<div class="line"><a name="l00955"></a><span class="lineno"><a class="line" href="classquicr_1_1Session.html#ac187b76218b16024dedf1aa28a03ffa1">  955</a></span>&#160;        <span class="keyword">friend</span> <span class="keyword">class </span><a class="code" href="classquicr_1_1PublishFetchHandler.html">PublishFetchHandler</a>;</div>
-<div class="line"><a name="l00956"></a><span class="lineno"><a class="line" href="classquicr_1_1Session.html#a6c0cffca708c77829cdc1d5cc5e96c6c">  956</a></span>&#160;        <span class="keyword">friend</span> <span class="keyword">class </span><a class="code" href="classquicr_1_1SubscribeTrackHandler.html">SubscribeTrackHandler</a>;</div>
-<div class="line"><a name="l00957"></a><span class="lineno"><a class="line" href="classquicr_1_1Session.html#ac01f2e55f53ab751ca060dd59189c930">  957</a></span>&#160;        <span class="keyword">friend</span> <span class="keyword">class </span><a class="code" href="classquicr_1_1SessionManager.html">SessionManager</a>;</div>
-<div class="line"><a name="l00958"></a><span class="lineno">  958</span>&#160;    };</div>
-<div class="line"><a name="l00959"></a><span class="lineno">  959</span>&#160; </div>
-<div class="line"><a name="l00960"></a><span class="lineno">  960</span>&#160;} <span class="comment">// namespace quicr</span></div>
+<div class="line"><a name="l00685"></a><span class="lineno">  685</span>&#160;                             std::uint64_t stream_count,</div>
+<div class="line"><a name="l00686"></a><span class="lineno">  686</span>&#160;                             <span class="keyword">const</span> std::string&amp; reason);</div>
+<div class="line"><a name="l00687"></a><span class="lineno">  687</span>&#160; </div>
+<div class="line"><a name="l00688"></a><span class="lineno">  688</span>&#160;        <span class="keywordtype">void</span> SendPublishOk(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream, <span class="keyword">const</span> PublishOkAttributes&amp; attributes);</div>
+<div class="line"><a name="l00689"></a><span class="lineno">  689</span>&#160; </div>
+<div class="line"><a name="l00690"></a><span class="lineno">  690</span>&#160;        std::shared_ptr&lt;Stream&gt; FindSubscribeNamespaceStream(<span class="keyword">const</span> TrackNamespace&amp; track_namespace) <span class="keyword">const</span>;</div>
+<div class="line"><a name="l00691"></a><span class="lineno">  691</span>&#160; </div>
+<div class="line"><a name="l00692"></a><span class="lineno">  692</span>&#160;        std::optional&lt;std::uint64_t&gt; FindRequestIdByStream(<span class="keyword">const</span> Stream&amp; stream) <a class="code" href="thread__safety_8h.html#a0aea660b82b7ff7e52afff3ee886187b">QUICR_EXCLUDES</a>(state_mutex_);</div>
+<div class="line"><a name="l00693"></a><span class="lineno">  693</span>&#160; </div>
+<div class="line"><a name="l00694"></a><span class="lineno">  694</span>&#160;        <span class="keywordtype">bool</span> IsCurrentRequestStream(std::uint64_t request_id, <span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream)</div>
+<div class="line"><a name="l00695"></a><span class="lineno">  695</span>&#160;          <a class="code" href="thread__safety_8h.html#a0aea660b82b7ff7e52afff3ee886187b">QUICR_EXCLUDES</a>(state_mutex_);</div>
+<div class="line"><a name="l00696"></a><span class="lineno">  696</span>&#160; </div>
+<div class="line"><a name="l00697"></a><span class="lineno">  697</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
+<div class="line"><a name="l00698"></a><span class="lineno">  698</span>&#160;        <span class="comment">// Track Status</span></div>
+<div class="line"><a name="l00699"></a><span class="lineno">  699</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
+<div class="line"><a name="l00700"></a><span class="lineno">  700</span>&#160; </div>
+<div class="line"><a name="l00701"></a><span class="lineno">  701</span>&#160;        <span class="keywordtype">void</span> SendTrackStatus(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream, std::uint64_t request_id, <span class="keyword">const</span> FullTrackName&amp; tfn);</div>
+<div class="line"><a name="l00702"></a><span class="lineno">  702</span>&#160; </div>
+<div class="line"><a name="l00703"></a><span class="lineno">  703</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
+<div class="line"><a name="l00704"></a><span class="lineno">  704</span>&#160;        <span class="comment">// Fetch</span></div>
+<div class="line"><a name="l00705"></a><span class="lineno">  705</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
+<div class="line"><a name="l00706"></a><span class="lineno">  706</span>&#160; </div>
+<div class="line"><a name="l00707"></a><span class="lineno">  707</span>&#160;        <span class="keywordtype">void</span> ResolveFetch(uint64_t request_id,</div>
+<div class="line"><a name="l00708"></a><span class="lineno">  708</span>&#160;                          std::optional&lt;messages::GroupOrder&gt; group_order,</div>
+<div class="line"><a name="l00709"></a><span class="lineno">  709</span>&#160;                          <span class="keyword">const</span> FetchResponse&amp; response);</div>
+<div class="line"><a name="l00710"></a><span class="lineno">  710</span>&#160; </div>
+<div class="line"><a name="l00711"></a><span class="lineno">  711</span>&#160;        <span class="keywordtype">bool</span> SendFetch(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream,</div>
+<div class="line"><a name="l00712"></a><span class="lineno">  712</span>&#160;                       std::uint64_t request_id,</div>
+<div class="line"><a name="l00713"></a><span class="lineno">  713</span>&#160;                       <span class="keyword">const</span> FullTrackName&amp; tfn,</div>
+<div class="line"><a name="l00714"></a><span class="lineno">  714</span>&#160;                       std::uint8_t priority,</div>
+<div class="line"><a name="l00715"></a><span class="lineno">  715</span>&#160;                       std::optional&lt;messages::GroupOrder&gt; group_order,</div>
+<div class="line"><a name="l00716"></a><span class="lineno">  716</span>&#160;                       <span class="keyword">const</span> messages::Location&amp; start_location,</div>
+<div class="line"><a name="l00717"></a><span class="lineno">  717</span>&#160;                       <span class="keyword">const</span> messages::FetchEndLocation&amp; end_location);</div>
+<div class="line"><a name="l00718"></a><span class="lineno">  718</span>&#160; </div>
+<div class="line"><a name="l00719"></a><span class="lineno">  719</span>&#160;        <span class="keywordtype">void</span> SendJoiningFetch(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream,</div>
+<div class="line"><a name="l00720"></a><span class="lineno">  720</span>&#160;                              std::uint64_t request_id,</div>
+<div class="line"><a name="l00721"></a><span class="lineno">  721</span>&#160;                              std::uint8_t priority,</div>
+<div class="line"><a name="l00722"></a><span class="lineno">  722</span>&#160;                              std::optional&lt;messages::GroupOrder&gt; group_order,</div>
+<div class="line"><a name="l00723"></a><span class="lineno">  723</span>&#160;                              std::uint64_t joining_request_id,</div>
+<div class="line"><a name="l00724"></a><span class="lineno">  724</span>&#160;                              std::uint64_t joining_start,</div>
+<div class="line"><a name="l00725"></a><span class="lineno">  725</span>&#160;                              <span class="keywordtype">bool</span> absolute);</div>
+<div class="line"><a name="l00726"></a><span class="lineno">  726</span>&#160; </div>
+<div class="line"><a name="l00727"></a><span class="lineno">  727</span>&#160;        <span class="keywordtype">void</span> SendFetchOk(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream,</div>
+<div class="line"><a name="l00728"></a><span class="lineno">  728</span>&#160;                         <a class="code" href="namespacequicr_1_1messages.html#ae23e69bec511588a8ac56da335bf9d67">messages::GroupOrder</a> publisher_default_group_order,</div>
+<div class="line"><a name="l00729"></a><span class="lineno">  729</span>&#160;                         <span class="keywordtype">bool</span> end_of_track,</div>
+<div class="line"><a name="l00730"></a><span class="lineno">  730</span>&#160;                         messages::Location end_location);</div>
+<div class="line"><a name="l00731"></a><span class="lineno">  731</span>&#160; </div>
+<div class="line"><a name="l00732"></a><span class="lineno">  732</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
+<div class="line"><a name="l00733"></a><span class="lineno">  733</span>&#160;        <span class="comment">// Other member functions</span></div>
+<div class="line"><a name="l00734"></a><span class="lineno">  734</span>&#160;        <span class="comment">/*===================================================================*/</span></div>
+<div class="line"><a name="l00735"></a><span class="lineno">  735</span>&#160; </div>
+<div class="line"><a name="l00736"></a><span class="lineno">  736</span>&#160;        <span class="keywordtype">void</span> RemoveSubscribeTrack(<a class="code" href="classquicr_1_1Session.html#a6c0cffca708c77829cdc1d5cc5e96c6c">SubscribeTrackHandler</a>&amp; handler, <span class="keywordtype">bool</span> remove_handler = <span class="keyword">true</span>);</div>
+<div class="line"><a name="l00737"></a><span class="lineno">  737</span>&#160; </div>
+<div class="line"><a name="l00738"></a><span class="lineno">  738</span>&#160;        <span class="keywordtype">void</span> CloseRequestHandler(std::uint64_t request_id, <span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream, <a class="code" href="namespacequicr.html#a76a22ba36529ce9735bc6d8c5eae4954">StreamClosedFlag</a> flag)</div>
+<div class="line"><a name="l00739"></a><span class="lineno">  739</span>&#160;          <a class="code" href="thread__safety_8h.html#a0aea660b82b7ff7e52afff3ee886187b">QUICR_EXCLUDES</a>(state_mutex_);</div>
+<div class="line"><a name="l00740"></a><span class="lineno">  740</span>&#160; </div>
+<div class="line"><a name="l00741"></a><span class="lineno">  741</span>&#160;        std::shared_ptr&lt;PublishTrackHandler&gt; GetPubTrackHandler(TrackHash&amp; th);</div>
+<div class="line"><a name="l00742"></a><span class="lineno">  742</span>&#160; </div>
+<div class="line"><a name="l00743"></a><span class="lineno">  743</span>&#160;        <span class="keywordtype">void</span> RemoveTracksForConnectionClose(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection);</div>
+<div class="line"><a name="l00744"></a><span class="lineno">  744</span>&#160; </div>
+<div class="line"><a name="l00745"></a><span class="lineno">  745</span>&#160;        [[nodiscard]] uint64_t GetNextRequestID();</div>
+<div class="line"><a name="l00746"></a><span class="lineno">  746</span>&#160; </div>
+<div class="line"><a name="l00756"></a><span class="lineno">  756</span>&#160;        <span class="keywordtype">bool</span> BindRecvStream(Stream&amp; stream);</div>
+<div class="line"><a name="l00757"></a><span class="lineno">  757</span>&#160; </div>
+<div class="line"><a name="l00768"></a><span class="lineno">  768</span>&#160; </div>
+<div class="line"><a name="l00770"></a><span class="lineno">  770</span>&#160;        <span class="keywordtype">bool</span> RecvCtrlMessage(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection,</div>
+<div class="line"><a name="l00771"></a><span class="lineno">  771</span>&#160;                             <span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream,</div>
+<div class="line"><a name="l00772"></a><span class="lineno">  772</span>&#160;                             <span class="keywordtype">bool</span> is_request_stream);</div>
+<div class="line"><a name="l00773"></a><span class="lineno">  773</span>&#160; </div>
+<div class="line"><a name="l00774"></a><span class="lineno">  774</span>&#160;        <span class="keywordtype">bool</span> RecvSubgroupObject(Stream&amp; stream, <a class="code" href="classquicr_1_1Session.html#a6c0cffca708c77829cdc1d5cc5e96c6c">SubscribeTrackHandler</a>&amp; handler);</div>
+<div class="line"><a name="l00775"></a><span class="lineno">  775</span>&#160; </div>
+<div class="line"><a name="l00776"></a><span class="lineno">  776</span>&#160;        <span class="keywordtype">bool</span> RecvFetchObject(Stream&amp; stream, <a class="code" href="classquicr_1_1Session.html#a6c0cffca708c77829cdc1d5cc5e96c6c">SubscribeTrackHandler</a>&amp; handler);</div>
+<div class="line"><a name="l00777"></a><span class="lineno">  777</span>&#160; </div>
+<div class="line"><a name="l00779"></a><span class="lineno">  779</span>&#160; </div>
+<div class="line"><a name="l00790"></a><span class="lineno">  790</span>&#160;        <span class="keywordtype">bool</span> ForwardSubgroupBytes(Stream&amp; stream, ForwardingSubscribeTrackHandler&amp; handler);</div>
+<div class="line"><a name="l00791"></a><span class="lineno">  791</span>&#160; </div>
+<div class="line"><a name="l00792"></a><span class="lineno">  792</span>&#160;        <span class="keywordtype">bool</span> OnRecvSubgroup(std::uint64_t track_alias, Stream&amp; stream);</div>
+<div class="line"><a name="l00793"></a><span class="lineno">  793</span>&#160; </div>
+<div class="line"><a name="l00794"></a><span class="lineno">  794</span>&#160;        <span class="keywordtype">bool</span> OnRecvFetch(std::uint64_t request_id, Stream&amp; stream);</div>
+<div class="line"><a name="l00795"></a><span class="lineno">  795</span>&#160; </div>
+<div class="line"><a name="l00802"></a><span class="lineno">  802</span>&#160;        std::shared_ptr&lt;Stream&gt; CreateStream(<span class="keyword">const</span> std::shared_ptr&lt;PublishTrackHandler&gt;&amp; handler);</div>
+<div class="line"><a name="l00803"></a><span class="lineno">  803</span>&#160; </div>
+<div class="line"><a name="l00815"></a><span class="lineno">  815</span>&#160;        <span class="keywordtype">bool</span> Enqueue(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection,</div>
+<div class="line"><a name="l00816"></a><span class="lineno">  816</span>&#160;                     <span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream,</div>
+<div class="line"><a name="l00817"></a><span class="lineno">  817</span>&#160;                     std::shared_ptr&lt;<span class="keyword">const</span> std::vector&lt;uint8_t&gt;&gt; bytes,</div>
+<div class="line"><a name="l00818"></a><span class="lineno">  818</span>&#160;                     <span class="keyword">const</span> uint8_t priority,</div>
+<div class="line"><a name="l00819"></a><span class="lineno">  819</span>&#160;                     <span class="keyword">const</span> uint32_t ttl_ms,</div>
+<div class="line"><a name="l00820"></a><span class="lineno">  820</span>&#160;                     <span class="keyword">const</span> Transport::EnqueueFlags flags);</div>
+<div class="line"><a name="l00821"></a><span class="lineno">  821</span>&#160; </div>
+<div class="line"><a name="l00822"></a><span class="lineno">  822</span>&#160;      <span class="keyword">private</span>:</div>
+<div class="line"><a name="l00823"></a><span class="lineno">  823</span>&#160;        <span class="keywordtype">void</span> SetConnectionAddedCallback(</div>
+<div class="line"><a name="l00824"></a><span class="lineno">  824</span>&#160;          std::function&lt;<span class="keywordtype">void</span>(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp;, <span class="keyword">const</span> std::shared_ptr&lt;Session&gt;&amp;)&gt; callback)</div>
+<div class="line"><a name="l00825"></a><span class="lineno">  825</span>&#160;        {</div>
+<div class="line"><a name="l00826"></a><span class="lineno">  826</span>&#160;            connection_added_callback_ = std::move(callback);</div>
+<div class="line"><a name="l00827"></a><span class="lineno">  827</span>&#160;        }</div>
+<div class="line"><a name="l00828"></a><span class="lineno">  828</span>&#160; </div>
+<div class="line"><a name="l00829"></a><span class="lineno">  829</span>&#160;        <span class="keyword">enum class</span> MigrationRequestType : std::uint8_t</div>
+<div class="line"><a name="l00830"></a><span class="lineno">  830</span>&#160;        {</div>
+<div class="line"><a name="l00831"></a><span class="lineno">  831</span>&#160;            <a class="code" href="namespacequicr_1_1messages.html#ad2340d2d263efbe3a1e7630b714ed39cac0acd4d9ef5688b94cd5a587724a1e2e">kSubscribe</a>,</div>
+<div class="line"><a name="l00832"></a><span class="lineno">  832</span>&#160;            <a class="code" href="namespacequicr_1_1messages.html#ad2340d2d263efbe3a1e7630b714ed39ca59c7fcd9c22cbb41e716c26907c4143e">kPublish</a>,</div>
+<div class="line"><a name="l00833"></a><span class="lineno">  833</span>&#160;            <a class="code" href="namespacequicr_1_1messages.html#ad2340d2d263efbe3a1e7630b714ed39cad0ca152329b79f4c25f99658c3ac6d84">kSubscribeNamespace</a>,</div>
+<div class="line"><a name="l00834"></a><span class="lineno">  834</span>&#160;            <a class="code" href="namespacequicr_1_1messages.html#ad2340d2d263efbe3a1e7630b714ed39cac557818734c4db2aec8fb5769093798b">kPublishNamespace</a>,</div>
+<div class="line"><a name="l00835"></a><span class="lineno">  835</span>&#160;            <a class="code" href="namespacequicr_1_1messages.html#ad2340d2d263efbe3a1e7630b714ed39cab21a5bd2e5c5fc16c817394a40cd5eea">kFetch</a>,</div>
+<div class="line"><a name="l00836"></a><span class="lineno">  836</span>&#160;        };</div>
+<div class="line"><a name="l00837"></a><span class="lineno">  837</span>&#160; </div>
+<div class="line"><a name="l00838"></a><span class="lineno">  838</span>&#160;        <span class="keyword">struct </span>PendingMigration</div>
+<div class="line"><a name="l00839"></a><span class="lineno">  839</span>&#160;        {</div>
+<div class="line"><a name="l00840"></a><span class="lineno">  840</span>&#160;            MigrationRequestType type;</div>
+<div class="line"><a name="l00841"></a><span class="lineno">  841</span>&#160;            std::shared_ptr&lt;Stream&gt; request_stream;</div>
+<div class="line"><a name="l00842"></a><span class="lineno">  842</span>&#160;        };</div>
+<div class="line"><a name="l00843"></a><span class="lineno">  843</span>&#160; </div>
+<div class="line"><a name="l00844"></a><span class="lineno">  844</span>&#160;        <span class="keyword">struct </span>Migration</div>
+<div class="line"><a name="l00845"></a><span class="lineno">  845</span>&#160;        {</div>
+<div class="line"><a name="l00846"></a><span class="lineno">  846</span>&#160;            Redirect redirect;</div>
+<div class="line"><a name="l00847"></a><span class="lineno">  847</span>&#160;            std::shared_ptr&lt;Connection&gt; source_connection;</div>
+<div class="line"><a name="l00848"></a><span class="lineno">  848</span>&#160;            std::shared_ptr&lt;Connection&gt; candidate_connection;</div>
+<div class="line"><a name="l00849"></a><span class="lineno">  849</span>&#160;            std::map&lt;std::uint64_t, PendingMigration&gt; pending;</div>
+<div class="line"><a name="l00850"></a><span class="lineno">  850</span>&#160;        };</div>
+<div class="line"><a name="l00851"></a><span class="lineno">  851</span>&#160; </div>
+<div class="line"><a name="l00852"></a><span class="lineno">  852</span>&#160;        <span class="keyword">using</span> MigrationKey = std::pair&lt;std::uint64_t, std::optional&lt;std::uint64_t&gt;&gt;;</div>
+<div class="line"><a name="l00853"></a><span class="lineno">  853</span>&#160;        <span class="keyword">using</span> MigrationMap = std::map&lt;MigrationKey, Migration&gt;;</div>
+<div class="line"><a name="l00854"></a><span class="lineno">  854</span>&#160; </div>
+<div class="line"><a name="l00855"></a><span class="lineno">  855</span>&#160;        <span class="keywordtype">void</span> Migrate(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; source_connection, <span class="keyword">const</span> Redirect&amp; redirect);</div>
+<div class="line"><a name="l00856"></a><span class="lineno">  856</span>&#160; </div>
+<div class="line"><a name="l00857"></a><span class="lineno">  857</span>&#160;        <span class="keywordtype">void</span> StartMigrationRequests(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection);</div>
+<div class="line"><a name="l00858"></a><span class="lineno">  858</span>&#160; </div>
+<div class="line"><a name="l00859"></a><span class="lineno">  859</span>&#160;        <span class="keywordtype">void</span> CompleteMigration(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection,</div>
+<div class="line"><a name="l00860"></a><span class="lineno">  860</span>&#160;                               std::uint64_t request_id,</div>
+<div class="line"><a name="l00861"></a><span class="lineno">  861</span>&#160;                               MigrationRequestType type,</div>
+<div class="line"><a name="l00862"></a><span class="lineno">  862</span>&#160;                               std::optional&lt;std::uint64_t&gt; received_track_alias = std::nullopt);</div>
+<div class="line"><a name="l00863"></a><span class="lineno">  863</span>&#160; </div>
+<div class="line"><a name="l00864"></a><span class="lineno">  864</span>&#160;        <span class="keywordtype">bool</span> FailMigration(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp; connection, std::uint64_t request_id);</div>
+<div class="line"><a name="l00865"></a><span class="lineno">  865</span>&#160; </div>
+<div class="line"><a name="l00866"></a><span class="lineno">  866</span>&#160;        <span class="keywordtype">bool</span> MatchesRedirect(<span class="keyword">const</span> TrackHandler&amp; handler, <span class="keyword">const</span> Redirect&amp; redirect) <span class="keyword">const</span>;</div>
+<div class="line"><a name="l00867"></a><span class="lineno">  867</span>&#160; </div>
+<div class="line"><a name="l00868"></a><span class="lineno">  868</span>&#160;        MigrationMap::iterator FindMigration(<span class="keyword">const</span> Connection&amp; candidate) <a class="code" href="thread__safety_8h.html#abdf9033dcf6b4ec8c30d2c001e8cce34">QUICR_REQUIRES</a>(state_mutex_);</div>
+<div class="line"><a name="l00869"></a><span class="lineno">  869</span>&#160; </div>
+<div class="line"><a name="l00870"></a><span class="lineno">  870</span>&#160;        <span class="keywordtype">void</span> ResetSubgroup(<span class="keyword">const</span> std::shared_ptr&lt;Stream&gt;&amp; stream);</div>
+<div class="line"><a name="l00871"></a><span class="lineno">  871</span>&#160; </div>
+<div class="line"><a name="l00872"></a><span class="lineno">  872</span>&#160;      <span class="keyword">private</span>:</div>
+<div class="line"><a name="l00873"></a><span class="lineno">  873</span>&#160;        <span class="keyword">mutable</span> std::mutex connections_mutex_;</div>
+<div class="line"><a name="l00874"></a><span class="lineno">  874</span>&#160;        std::map&lt;std::uint64_t, std::shared_ptr&lt;Connection&gt;&gt; connections_ <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(connections_mutex_);</div>
+<div class="line"><a name="l00875"></a><span class="lineno">  875</span>&#160;        MigrationMap migrations_ <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(state_mutex_);</div>
+<div class="line"><a name="l00876"></a><span class="lineno">  876</span>&#160;        std::shared_ptr&lt;Connection&gt; default_connection_ <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(state_mutex_);</div>
+<div class="line"><a name="l00877"></a><span class="lineno">  877</span>&#160;        std::function&lt;void(<span class="keyword">const</span> std::shared_ptr&lt;Connection&gt;&amp;, <span class="keyword">const</span> std::shared_ptr&lt;Session&gt;&amp;)&gt;</div>
+<div class="line"><a name="l00878"></a><span class="lineno">  878</span>&#160;          connection_added_callback_;</div>
+<div class="line"><a name="l00879"></a><span class="lineno">  879</span>&#160; </div>
+<div class="line"><a name="l00880"></a><span class="lineno">  880</span>&#160;        <span class="keyword">const</span> std::shared_ptr&lt;Callbacks&gt; callbacks_;</div>
+<div class="line"><a name="l00881"></a><span class="lineno">  881</span>&#160; </div>
+<div class="line"><a name="l00886"></a><span class="lineno">  886</span>&#160;        std::atomic&lt;uint64_t&gt; next_request_id_;</div>
+<div class="line"><a name="l00887"></a><span class="lineno">  887</span>&#160; </div>
+<div class="line"><a name="l00888"></a><span class="lineno">  888</span>&#160;        std::map&lt;std::uint64_t, SubscribeContext&gt; recv_req_id;</div>
+<div class="line"><a name="l00889"></a><span class="lineno">  889</span>&#160; </div>
+<div class="line"><a name="l00890"></a><span class="lineno">  890</span>&#160;        <span class="keyword">struct </span>StreamRequest</div>
+<div class="line"><a name="l00891"></a><span class="lineno">  891</span>&#160;        {</div>
+<div class="line"><a name="l00892"></a><span class="lineno">  892</span>&#160;            std::uint64_t request_id;</div>
+<div class="line"><a name="l00893"></a><span class="lineno">  893</span>&#160; </div>
+<div class="line"><a name="l00900"></a><span class="lineno">  900</span>&#160;            <span class="keywordtype">bool</span> is_request_stream;</div>
+<div class="line"><a name="l00901"></a><span class="lineno">  901</span>&#160;        };</div>
+<div class="line"><a name="l00902"></a><span class="lineno">  902</span>&#160; </div>
+<div class="line"><a name="l00904"></a><span class="lineno">  904</span>&#160;        <span class="keyword">using</span> StreamKey = std::pair&lt;std::uint64_t, std::uint64_t&gt;;</div>
+<div class="line"><a name="l00905"></a><span class="lineno">  905</span>&#160;        std::map&lt;StreamKey, StreamRequest&gt; request_by_stream <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(state_mutex_);</div>
+<div class="line"><a name="l00906"></a><span class="lineno">  906</span>&#160; </div>
+<div class="line"><a name="l00907"></a><span class="lineno">  907</span>&#160;        std::vector&lt;std::uint64_t&gt;</div>
+<div class="line"><a name="l00908"></a><span class="lineno">  908</span>&#160;          recv_publish_namespaces; </div>
+<div class="line"><a name="l00909"></a><span class="lineno">  909</span>&#160; </div>
+<div class="line"><a name="l00911"></a><span class="lineno">  911</span>&#160;        std::vector&lt;std::uint64_t&gt; recv_subscribe_namespaces;</div>
+<div class="line"><a name="l00912"></a><span class="lineno">  912</span>&#160; </div>
+<div class="line"><a name="l00913"></a><span class="lineno">  913</span>&#160;        std::map&lt;std::uint64_t, std::shared_ptr&lt;TrackHandler&gt;&gt; request_handlers; </div>
+<div class="line"><a name="l00914"></a><span class="lineno">  914</span>&#160; </div>
+<div class="line"><a name="l00921"></a><span class="lineno">  921</span>&#160;        std::map&lt;std::pair&lt;std::uint64_t, std::uint64_t&gt;, std::shared_ptr&lt;SubscribeTrackHandler&gt;&gt;</div>
+<div class="line"><a name="l00922"></a><span class="lineno">  922</span>&#160;          sub_by_recv_track_alias;</div>
+<div class="line"><a name="l00923"></a><span class="lineno">  923</span>&#160; </div>
+<div class="line"><a name="l00928"></a><span class="lineno">  928</span>&#160;        std::map&lt;std::uint64_t, std::map&lt;std::uint64_t, std::shared_ptr&lt;PublishTrackHandler&gt;&gt;&gt; pub_tracks_by_name;</div>
+<div class="line"><a name="l00929"></a><span class="lineno">  929</span>&#160; </div>
+<div class="line"><a name="l00931"></a><span class="lineno">  931</span>&#160;        std::map&lt;std::uint64_t, std::map&lt;uint64_t, std::shared_ptr&lt;PublishTrackHandler&gt;&gt;&gt; pub_tracks_by_track_alias</div>
+<div class="line"><a name="l00932"></a><span class="lineno">  932</span>&#160;          <a class="code" href="thread__safety_8h.html#ae926701de596fa920f40e86b21393a90">QUICR_GUARDED_BY</a>(state_mutex_);</div>
+<div class="line"><a name="l00933"></a><span class="lineno">  933</span>&#160; </div>
+<div class="line"><a name="l00934"></a><span class="lineno">  934</span>&#160;        std::map&lt;std::uint64_t, std::shared_ptr&lt;PublishTrackHandler&gt;&gt;</div>
+<div class="line"><a name="l00935"></a><span class="lineno">  935</span>&#160;          pub_fetch_tracks_by_request_id; </div>
+<div class="line"><a name="l00936"></a><span class="lineno">  936</span>&#160; </div>
+<div class="line"><a name="l00937"></a><span class="lineno">  937</span>&#160;        <span class="keyword">mutable</span> std::mutex state_mutex_;</div>
+<div class="line"><a name="l00938"></a><span class="lineno">  938</span>&#160; </div>
+<div class="line"><a name="l00939"></a><span class="lineno">  939</span>&#160;        <span class="keyword">const</span> <span class="keywordtype">bool</span> client_mode_;</div>
+<div class="line"><a name="l00940"></a><span class="lineno">  940</span>&#160; </div>
+<div class="line"><a name="l00941"></a><span class="lineno">  941</span>&#160;        <span class="keyword">const</span> std::shared_ptr&lt;Logger&gt; logger_;</div>
+<div class="line"><a name="l00942"></a><span class="lineno">  942</span>&#160; </div>
+<div class="line"><a name="l00943"></a><span class="lineno">  943</span>&#160;        <span class="keywordtype">bool</span> stop_{ <span class="keyword">false</span> };</div>
+<div class="line"><a name="l00944"></a><span class="lineno">  944</span>&#160; </div>
+<div class="line"><a name="l00945"></a><span class="lineno">  945</span>&#160;        <span class="keyword">const</span> ServerConfig server_config_;</div>
+<div class="line"><a name="l00946"></a><span class="lineno">  946</span>&#160; </div>
+<div class="line"><a name="l00947"></a><span class="lineno">  947</span>&#160;        <span class="keyword">const</span> ClientConfig client_config_;</div>
+<div class="line"><a name="l00948"></a><span class="lineno">  948</span>&#160; </div>
+<div class="line"><a name="l00949"></a><span class="lineno">  949</span>&#160;        std::atomic&lt;Status&gt; status_{ <a class="code" href="classquicr_1_1Session.html#aac74865cd7822117fc2bd5c1596e2b26ab714c11518d545c225d456731dab0dd0">Status::kConnecting</a> };</div>
+<div class="line"><a name="l00950"></a><span class="lineno">  950</span>&#160; </div>
+<div class="line"><a name="l00951"></a><span class="lineno">  951</span>&#160;        <span class="keyword">const</span> std::shared_ptr&lt;Clock&gt; clock_;</div>
+<div class="line"><a name="l00952"></a><span class="lineno">  952</span>&#160; </div>
+<div class="line"><a name="l00953"></a><span class="lineno">  953</span>&#160;        <span class="keyword">const</span> std::shared_ptr&lt;Transport&gt; quic_transport_; <span class="comment">// **MUST** be last for proper order of destruction</span></div>
+<div class="line"><a name="l00954"></a><span class="lineno">  954</span>&#160; </div>
+<div class="line"><a name="l00955"></a><span class="lineno"><a class="line" href="classquicr_1_1Session.html#a678483f839a35e16e25017a06e47958a">  955</a></span>&#160;        <span class="keyword">friend</span> <span class="keyword">class </span><a class="code" href="classquicr_1_1PublishTrackHandler.html">PublishTrackHandler</a>;</div>
+<div class="line"><a name="l00956"></a><span class="lineno"><a class="line" href="classquicr_1_1Session.html#ac187b76218b16024dedf1aa28a03ffa1">  956</a></span>&#160;        <span class="keyword">friend</span> <span class="keyword">class </span><a class="code" href="classquicr_1_1PublishFetchHandler.html">PublishFetchHandler</a>;</div>
+<div class="line"><a name="l00957"></a><span class="lineno"><a class="line" href="classquicr_1_1Session.html#a6c0cffca708c77829cdc1d5cc5e96c6c">  957</a></span>&#160;        <span class="keyword">friend</span> <span class="keyword">class </span><a class="code" href="classquicr_1_1SubscribeTrackHandler.html">SubscribeTrackHandler</a>;</div>
+<div class="line"><a name="l00958"></a><span class="lineno"><a class="line" href="classquicr_1_1Session.html#ac01f2e55f53ab751ca060dd59189c930">  958</a></span>&#160;        <span class="keyword">friend</span> <span class="keyword">class </span><a class="code" href="classquicr_1_1SessionManager.html">SessionManager</a>;</div>
+<div class="line"><a name="l00959"></a><span class="lineno">  959</span>&#160;    };</div>
+<div class="line"><a name="l00960"></a><span class="lineno">  960</span>&#160; </div>
+<div class="line"><a name="l00961"></a><span class="lineno">  961</span>&#160;} <span class="comment">// namespace quicr</span></div>
 <div class="ttc" id="aattributes_8h_html"><div class="ttname"><a href="attributes_8h.html">attributes.h</a></div></div>
 <div class="ttc" id="aclassquicr_1_1Clock_html"><div class="ttname"><a href="classquicr_1_1Clock.html">quicr::Clock</a></div><div class="ttdoc">Monotonic microsecond clock abstraction.</div><div class="ttdef"><b>Definition:</b> clock.h:14</div></div>
 <div class="ttc" id="aclassquicr_1_1Connection_1_1Delegate_html"><div class="ttname"><a href="classquicr_1_1Connection_1_1Delegate.html">quicr::Connection::Delegate</a></div><div class="ttdoc">Async Callback API on the transport.</div><div class="ttdef"><b>Definition:</b> connection.h:63</div></div>
@@ -734,7 +735,7 @@ $(document).ready(function(){initNavTree('session_8h_source.html',''); initResiz
 <div class="ttc" id="aclassquicr_1_1Session_html_a4fecdfbd697cf70e3722839ef01e80a4"><div class="ttname"><a href="classquicr_1_1Session.html#a4fecdfbd697cf70e3722839ef01e80a4">quicr::Session::Session</a></div><div class="ttdeci">Session(const ServerConfig &amp;cfg, std::shared_ptr&lt; Transport &gt; transport, std::shared_ptr&lt; Connection &gt; connection, std::shared_ptr&lt; ServerCallbacks &gt; callbacks, std::shared_ptr&lt; Logger &gt; logger)</div><div class="ttdoc">Server mode constructor.</div></div>
 <div class="ttc" id="aclassquicr_1_1Session_html_a6345e21e0f068d1a7ec8953aa3fee4ee"><div class="ttname"><a href="classquicr_1_1Session.html#a6345e21e0f068d1a7ec8953aa3fee4ee">quicr::Session::SubscribeTrack</a></div><div class="ttdeci">void SubscribeTrack(std::shared_ptr&lt; SubscribeTrackHandler &gt; track_handler)</div><div class="ttdoc">Subscribe to a track.</div></div>
 <div class="ttc" id="aclassquicr_1_1Session_html_a697ca407971952a863a0eeb6a19cd3d0"><div class="ttname"><a href="classquicr_1_1Session.html#a697ca407971952a863a0eeb6a19cd3d0">quicr::Session::GoAway</a></div><div class="ttdeci">void GoAway(const std::string &amp;new_session_uri, std::chrono::milliseconds timeout, const std::shared_ptr&lt; TrackHandler &gt; &amp;handler)</div><div class="ttdoc">Send GOAWAY on one request stream.</div></div>
-<div class="ttc" id="aclassquicr_1_1Session_html_a6c0cffca708c77829cdc1d5cc5e96c6c"><div class="ttname"><a href="classquicr_1_1Session.html#a6c0cffca708c77829cdc1d5cc5e96c6c">quicr::Session::SubscribeTrackHandler</a></div><div class="ttdeci">friend class SubscribeTrackHandler</div><div class="ttdef"><b>Definition:</b> session.h:956</div></div>
+<div class="ttc" id="aclassquicr_1_1Session_html_a6c0cffca708c77829cdc1d5cc5e96c6c"><div class="ttname"><a href="classquicr_1_1Session.html#a6c0cffca708c77829cdc1d5cc5e96c6c">quicr::Session::SubscribeTrackHandler</a></div><div class="ttdeci">friend class SubscribeTrackHandler</div><div class="ttdef"><b>Definition:</b> session.h:957</div></div>
 <div class="ttc" id="aclassquicr_1_1Session_html_a72146cc45859f9704c3cf94bc46fd95b"><div class="ttname"><a href="classquicr_1_1Session.html#a72146cc45859f9704c3cf94bc46fd95b">quicr::Session::FetchTrack</a></div><div class="ttdeci">void FetchTrack(std::shared_ptr&lt; FetchTrackHandler &gt; track_handler)</div><div class="ttdoc">Fetch track.</div></div>
 <div class="ttc" id="aclassquicr_1_1Session_html_a73e20764bc4ee3d647c8ec8125e42417"><div class="ttname"><a href="classquicr_1_1Session.html#a73e20764bc4ee3d647c8ec8125e42417">quicr::Session::GetTickService</a></div><div class="ttdeci">const std::shared_ptr&lt; Clock &gt; &amp; GetTickService() const noexcept</div><div class="ttdoc">Return shared ownership of the tick service used by the session.</div><div class="ttdef"><b>Definition:</b> session.h:213</div></div>
 <div class="ttc" id="aclassquicr_1_1Session_html_a76edb2e2bc0fdf9da1d298ae8a709bce"><div class="ttname"><a href="classquicr_1_1Session.html#a76edb2e2bc0fdf9da1d298ae8a709bce">quicr::Session::UnbindFetchTrack</a></div><div class="ttdeci">void UnbindFetchTrack(const std::shared_ptr&lt; PublishFetchHandler &gt; &amp;track_handler)</div><div class="ttdoc">Unbind a server fetch publisher track handler.</div></div>

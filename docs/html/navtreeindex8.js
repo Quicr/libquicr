@@ -1,5 +1,9 @@
 var NAVTREEINDEX8 =
 {
+"quicr_8h.html#ae84c40d55372e856c4c5e24d3e4579c5":[3,0,1,0,11,99],
+"quicr_8h.html#ae8ff32c8ce11d65ef2d2ec63188b186d":[3,0,1,0,11,205],
+"quicr_8h.html#aeb58ffdf48d0fad134c7bbbf4a8a1f75":[3,0,1,0,11,58],
+"quicr_8h.html#aed25ee3dc2cca1798857d7d6c12e3d8a":[3,0,1,0,11,95],
 "quicr_8h.html#aee263ebb2d8379613335e046827bf1d9":[3,0,1,0,11,236],
 "quicr_8h.html#aefcb96661872f2590e9be7c37f8a267d":[3,0,1,0,11,86],
 "quicr_8h.html#af07cf7b5130e0cb35c02dd866f1bba65":[3,0,1,0,11,186],
@@ -162,8 +166,9 @@ var NAVTREEINDEX8 =
 "structquicr_1_1PublishTrackMetrics.html":[2,0,0,45],
 "structquicr_1_1PublishTrackMetrics.html#a1b904152d53e05c40a548bff30c2c68c":[2,0,0,45,1],
 "structquicr_1_1PublishTrackMetrics.html#a5329ac823fd89261234dfb5d5d11d6d0":[2,0,0,45,3],
-"structquicr_1_1PublishTrackMetrics.html#a7e0e7bf91f7f7ff1268bc05bda6d6639":[2,0,0,45,5],
+"structquicr_1_1PublishTrackMetrics.html#a7e0e7bf91f7f7ff1268bc05bda6d6639":[2,0,0,45,6],
 "structquicr_1_1PublishTrackMetrics.html#aa00898861132cd32c0fc5a126300af6c":[2,0,0,45,4],
+"structquicr_1_1PublishTrackMetrics.html#ab44d63fa2f0629cd25ed8db5ffb35926":[2,0,0,45,5],
 "structquicr_1_1PublishTrackMetrics.html#ad54254b2933d1283ed2c5d88b46f3e4b":[2,0,0,45,2],
 "structquicr_1_1PublishTrackMetrics_1_1Quic.html":[2,0,0,45,0],
 "structquicr_1_1PublishTrackMetrics_1_1Quic.html#a035153e90eb912bf57a3726f3772fbe6":[2,0,0,45,0,3],
@@ -244,10 +249,5 @@ var NAVTREEINDEX8 =
 "structquicr_1_1SessionManager_1_1Callbacks.html#aed17fdf3d94c2f2f8dbfbd427f0734c5":[2,0,0,51,0,1],
 "structquicr_1_1SessionManager_1_1Callbacks.html#aeed15acef8d19588f762aef956d76c45":[2,0,0,51,0,0],
 "structquicr_1_1Session_1_1Callbacks.html":[2,0,0,49,0],
-"structquicr_1_1Session_1_1Callbacks.html#a0bbaf6e1fe5a02ee9956d19d35f25413":[2,0,0,49,0,9],
-"structquicr_1_1Session_1_1Callbacks.html#a16c8538aabf8587bdcce2b69e1762f3b":[2,0,0,49,0,3],
-"structquicr_1_1Session_1_1Callbacks.html#a2ba5531e39e38f31c8227293e9c76431":[2,0,0,49,0,4],
-"structquicr_1_1Session_1_1Callbacks.html#a47c5c4100bf0c3b32652384ba6c2f54a":[2,0,0,49,0,7],
-"structquicr_1_1Session_1_1Callbacks.html#a5d63592b3c58052a1387e414934c64a6":[2,0,0,49,0,1],
-"structquicr_1_1Session_1_1Callbacks.html#a7dbf8b73fd7a1b270f07bfa52a2d0e5d":[2,0,0,49,0,2]
+"structquicr_1_1Session_1_1Callbacks.html#a0bbaf6e1fe5a02ee9956d19d35f25413":[2,0,0,49,0,9]
 };
