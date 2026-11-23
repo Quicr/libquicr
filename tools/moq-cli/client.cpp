@@ -510,9 +510,8 @@ class MyClient : public quicr::Session::ClientCallbacks
         const auto resolved_group_order = group_order.value_or(quicr::messages::GroupOrder::kAscending);
 
         // TODO: Adjust the TTL
-        auto pub_fetch_h =
-          quicr::PublishFetchHandler::Create(track_full_name, priority, request_id, resolved_group_order, 50000);
-        session->BindFetchTrack(pub_fetch_h);
+        auto pub_fetch_h = quicr::PublishFetchHandler::Create(track_full_name, priority, resolved_group_order, 50000);
+        session->BindFetchTrack(request_id, pub_fetch_h);
 
         std::thread retrieve_cache_thread([session, pub_fetch_h, cache_entries = std::move(cache_entries), start, end] {
             defer(session->UnbindFetchTrack(pub_fetch_h));

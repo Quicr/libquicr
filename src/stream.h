@@ -17,6 +17,8 @@
 namespace quicr {
 
     class PublishTrackHandler;
+    struct Request;
+    class Session;
     class SubscribeTrackHandler;
 
     /**
@@ -39,6 +41,8 @@ namespace quicr {
      */
     class Stream : public std::enable_shared_from_this<Stream>
     {
+        friend class Session;
+
       public:
         /// Streams are referenced by raw pointer from transport internals, so they must never be
         /// copied or relocated.
@@ -226,6 +230,9 @@ namespace quicr {
         std::uint64_t stream_id_{ 0 };
         std::uint64_t conn_id_{ 0 };
         std::weak_ptr<Connection> connection_;
+
+        /// Request using this as its control stream; weak because the request owns the stream.
+        std::weak_ptr<Request> request_;
 
         /// Read from application threads while the transport thread clears it, so it must be atomic.
         std::atomic_bool open_{ true };

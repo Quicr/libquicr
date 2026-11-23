@@ -325,8 +325,8 @@ A joining fetch is configured on a custom `SubscribeTrackHandler` and combines a
 historical fetch range with the live subscription.
 
 Applications serving fetches answer `StandaloneFetchReceived()` or
-`JoiningFetchReceived()`, create a `PublishFetchHandler` using the incoming
-request ID, and bind it with `BindFetchTrack()`. After publishing the requested
+`JoiningFetchReceived()`, create a `PublishFetchHandler`, and bind it with
+`BindFetchTrack(request_id, handler)`. After publishing the requested
 range, call `UnbindFetchTrack()` to drain and finish the fetch stream.
 
 `FetchCancelReceived()` exists in the callback interface, but FETCH_CANCEL send

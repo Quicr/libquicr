@@ -21,40 +21,30 @@ namespace quicr {
          * @brief Constructs a server-side FETCH publisher.
          * @param full_track_name Track being fetched.
          * @param priority Publisher and transport scheduling priority.
-         * @param subscribe_id Request identifier written in the FETCH header.
          * @param group_order Serialization order promised for returned objects.
          * @param ttl Default object queue lifetime used when an object has no TTL.
          */
         PublishFetchHandler(const FullTrackName& full_track_name,
                             uint8_t priority,
-                            uint64_t subscribe_id,
                             messages::GroupOrder group_order,
-                            uint32_t ttl)
-          : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, priority, ttl)
-          , group_order_(group_order)
-          , serialization_state_(group_order)
-        {
-            SetRequestId(subscribe_id);
-        }
+                            uint32_t ttl);
 
       public:
         /**
          * @brief Creates a FETCH publisher with shared ownership.
          * @param full_track_name Track being fetched.
          * @param priority Publisher and transport scheduling priority.
-         * @param subscribe_id Request identifier written in the FETCH header.
          * @param group_order Serialization order promised for returned objects.
          * @param ttl Default object queue lifetime used when an object has no TTL.
          * @return Shared ownership of the new handler.
          */
         static std::shared_ptr<PublishFetchHandler> Create(const FullTrackName& full_track_name,
                                                            uint8_t priority,
-                                                           uint64_t subscribe_id,
                                                            messages::GroupOrder group_order,
                                                            uint32_t ttl)
         {
             return std::shared_ptr<PublishFetchHandler>(
-              new PublishFetchHandler(full_track_name, priority, subscribe_id, group_order, ttl));
+              new PublishFetchHandler(full_track_name, priority, group_order, ttl));
         }
 
         /**

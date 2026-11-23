@@ -309,6 +309,11 @@ namespace quicr {
          * A per-object `track_mode` changes the default mode before encoding subsequent framing,
          * but mode changes while streams are open require application coordination.
          *
+         * A call that has acquired the handler's publication lock is allowed to finish if its
+         * request is concurrently removed. It retains the request context and may create a data
+         * stream and enqueue this object before teardown closes the handler's subgroup streams.
+         * Calls that begin after request removal return `kNoSubscribers`.
+         *
          * @param object_headers Object headers, must include group and object Ids
          * @param data Full complete payload data for the object
          * @param stream_mode Subgroup header properties

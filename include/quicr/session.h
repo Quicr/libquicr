@@ -238,7 +238,7 @@ namespace quicr {
          *
          * @param track_handler Track handler to use for track related functions and callbacks
          * @pre @p track_handler must not be null.
-         * @throws std::runtime_error if a publisher-initiated subscription lacks required request metadata.
+         * @throws std::logic_error if the handler is publisher-initiated or the session has no default connection.
          */
         void SubscribeTrack(std::shared_ptr<SubscribeTrackHandler> track_handler);
 
@@ -422,11 +422,11 @@ namespace quicr {
         /**
          * @brief Bind a server fetch publisher track handler
          *
+         * @param request_id The inbound FETCH request identifier.
          * @param track_handler The fetch publisher
          * @pre @p track_handler must not be null.
-         * @pre @p track_handler must already carry the inbound fetch request identifier.
          */
-        void BindFetchTrack(std::shared_ptr<PublishFetchHandler> track_handler);
+        void BindFetchTrack(std::uint64_t request_id, std::shared_ptr<PublishFetchHandler> track_handler);
 
         /**
          * @brief Unbind a server fetch publisher track handler
@@ -756,8 +756,7 @@ namespace quicr {
 
         bool RemoveRequest(const std::shared_ptr<Request>& request) QUICR_REQUIRES(state_mutex_);
 
-        bool UnbindHandler(const std::shared_ptr<Request>& request, const TrackHandler& handler)
-          QUICR_REQUIRES(state_mutex_);
+        bool UnbindHandler(const std::shared_ptr<Request>& request, TrackHandler& handler) QUICR_REQUIRES(state_mutex_);
 
         std::shared_ptr<PublishTrackHandler> GetPubTrackHandler(TrackHash& th);
 

@@ -6,6 +6,7 @@
 #include "quicr/messages/message_serialisation.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
+#include "request.h"
 #include "stream.h"
 
 namespace quicr {
@@ -111,9 +112,12 @@ namespace quicr {
         std::shared_ptr<Stream> stream;
         publish_track_metrics_.bytes_published += data->size();
 
-        if (!GetRequestId().has_value()) {
+        const auto& request = GetRequest();
+        const auto request_stream = request ? request->GetStream() : nullptr;
+        if (!request_stream) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
+        const auto connection = request_stream->GetConnection();
 
         Transport::EnqueueFlags eflags;
 
@@ -135,7 +139,7 @@ namespace quicr {
                     // first object parsed
 #if 0
                     auto stream =
-                      session->CreateStream(GetConnection(), *GetRequestId(), GetPublishObjectPriority());
+                      session->CreateStream(connection, request->request_id, GetPublishObjectPriority());
                     stream_info_by_group_[group_id][subgroup_id] = { stream, group_id, subgroup_id };
 #endif
 
@@ -157,7 +161,7 @@ namespace quicr {
             }
         }
 
-        auto result = session->Enqueue(GetConnection(), stream, data, GetPublishObjectPriority(), default_ttl_, eflags);
+        auto result = session->Enqueue(connection, stream, data, GetPublishObjectPriority(), default_ttl_, eflags);
 
         if (!result) {
             return PublishObjectStatus::kSubgroupClosed;
@@ -226,9 +230,12 @@ namespace quicr {
                 return PublishObjectStatus::kInternalError;
         }
 
-        if (!GetRequestId().has_value()) {
+        const auto& request = GetRequest();
+        const auto request_stream = request ? request->GetStream() : nullptr;
+        if (!request_stream) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
+        const auto connection = request_stream->GetConnection();
 
         std::uint16_t ttl = object_headers.ttl.value_or(default_ttl_);
 
@@ -359,7 +366,7 @@ namespace quicr {
         }
 
         auto result =
-          session->Enqueue(GetConnection(),
+          session->Enqueue(connection,
                            stream,
                            std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
                            GetPublishObjectPriority(),
@@ -404,8 +411,11 @@ namespace quicr {
             eflags.use_reliable = true;
             eflags.close_stream = true;
 
+            const auto& request = GetRequest();
+            const auto request_stream = request ? request->GetStream() : nullptr;
+            const auto connection = request_stream ? request_stream->GetConnection() : nullptr;
             session->Enqueue(
-              GetConnection(), subgroup_it->second.stream, {}, GetPublishObjectPriority(), default_ttl_, eflags);
+              connection, subgroup_it->second.stream, {}, GetPublishObjectPriority(), default_ttl_, eflags);
         } else {
             session->ResetSubgroup(subgroup_it->second.stream);
         }

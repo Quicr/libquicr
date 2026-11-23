@@ -4,8 +4,20 @@
 #include "quicr/handlers/publish_fetch_handler.h"
 
 #include "quicr/session.h"
+#include "request.h"
+#include "stream.h"
 
 namespace quicr {
+    PublishFetchHandler::PublishFetchHandler(const FullTrackName& full_track_name,
+                                             uint8_t priority,
+                                             messages::GroupOrder group_order,
+                                             uint32_t ttl)
+      : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, priority, ttl)
+      , group_order_(group_order)
+      , serialization_state_(group_order)
+    {
+    }
+
     PublishTrackHandler::PublishObjectStatus PublishFetchHandler::PublishObject(
       const ObjectHeaders& object_headers,
       const BytesSpan data,
@@ -28,10 +40,12 @@ namespace quicr {
             serialization_state_ = messages::FetchObjectSerializationState(group_order_);
         }
 
-        const auto request_id = GetRequestId();
-        if (!request_id.has_value()) {
+        const auto& request = GetRequest();
+        const auto request_stream = request ? request->GetStream() : nullptr;
+        if (!request_stream) {
             return PublishTrackHandler::PublishObjectStatus::kNoSubscribers;
         }
+        const auto connection = request_stream->GetConnection();
 
         Transport::EnqueueFlags eflags;
 
@@ -48,11 +62,11 @@ namespace quicr {
             stream_ = session->CreateStream(std::static_pointer_cast<PublishFetchHandler>(shared_from_this()));
 
             messages::FetchHeader fetch_hdr;
-            fetch_hdr.request_id = *request_id;
+            fetch_hdr.request_id = request->request_id;
             object_msg_buffer_ << fetch_hdr;
 
             auto result = session->Enqueue(
-              GetConnection(),
+              connection,
               stream_,
               std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
               GetPublishObjectPriority(),
@@ -76,7 +90,7 @@ namespace quicr {
         object_msg_buffer_ << object;
 
         auto result =
-          session->Enqueue(GetConnection(),
+          session->Enqueue(connection,
                            stream_,
                            std::make_shared<std::vector<uint8_t>>(object_msg_buffer_.begin(), object_msg_buffer_.end()),
                            GetPublishObjectPriority(),
@@ -114,7 +128,10 @@ namespace quicr {
         eflags.close_stream = true;
         eflags.use_reset = false;
 
-        session->Enqueue(GetConnection(), stream_, {}, GetPublishObjectPriority(), default_ttl_, eflags);
+        const auto& request = GetRequest();
+        const auto request_stream = request ? request->GetStream() : nullptr;
+        const auto connection = request_stream ? request_stream->GetConnection() : nullptr;
+        session->Enqueue(connection, stream_, {}, GetPublishObjectPriority(), default_ttl_, eflags);
 
         stream_.reset();
     }

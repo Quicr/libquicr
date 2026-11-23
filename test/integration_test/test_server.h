@@ -110,13 +110,15 @@ namespace quicr_test {
                                 uint8_t publisher_priority,
                                 uint8_t publish_object_priority,
                                 uint32_t default_ttl,
-                                const std::weak_ptr<TestServer> server = {})
+                                const std::weak_ptr<TestServer> server = {},
+                                std::optional<std::uint64_t> request_id = std::nullopt)
           : quicr::PublishTrackHandler(full_track_name,
                                        track_mode,
                                        publisher_priority,
                                        publish_object_priority,
                                        default_ttl)
           , server_(server)
+          , request_id_(request_id)
         {
         }
 
@@ -153,6 +155,7 @@ namespace quicr_test {
 
       private:
         std::weak_ptr<TestServer> server_;
+        std::optional<std::uint64_t> request_id_;
         mutable std::mutex cancelled_mutex_;
         std::vector<std::pair<std::uint64_t, std::uint64_t>> cancelled_;
     };

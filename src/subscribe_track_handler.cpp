@@ -8,6 +8,7 @@
 #include "quicr/messages/message_serialisation.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
+#include "request.h"
 
 namespace quicr {
 
@@ -73,7 +74,8 @@ namespace quicr {
     void SubscribeTrackHandler::Pause() noexcept
     {
         auto session = GetSession().lock();
-        const auto request_stream = GetRequestStream();
+        const auto& request = GetRequest();
+        const auto request_stream = request ? request->GetStream() : nullptr;
         if (!session || status_ == Status::kPaused || status_ == Status::kNotConnected || request_stream == nullptr) {
             return;
         }
@@ -86,7 +88,8 @@ namespace quicr {
     void SubscribeTrackHandler::Resume() noexcept
     {
         auto session = GetSession().lock();
-        const auto request_stream = GetRequestStream();
+        const auto& request = GetRequest();
+        const auto request_stream = request ? request->GetStream() : nullptr;
         if (!session || request_stream == nullptr) {
             return;
         }
@@ -103,7 +106,8 @@ namespace quicr {
     void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
     {
         auto session = GetSession().lock();
-        const auto request_stream = GetRequestStream();
+        const auto& request = GetRequest();
+        const auto request_stream = request ? request->GetStream() : nullptr;
         if (!session || (status_ != Status::kOk && status_ != Status::kPaused) || !support_new_group_request_ ||
             request_stream == nullptr) {
             return;

@@ -39,15 +39,15 @@ TestPublishTrackHandler::StatusChanged(Status status)
         case Status::kOk: {
             if (auto svr = server_.lock()) {
                 if (svr->publish_accepted_promise_.has_value()) {
-                    svr->publish_accepted_promise_->set_value({ GetRequestId().value(), GetFullTrackName(), {} });
+                    svr->publish_accepted_promise_->set_value({ request_id_.value_or(0), GetFullTrackName(), {} });
                 }
             }
             break;
         }
         case Status::kUnsubscribed: {
             if (const auto svr = server_.lock()) {
-                if (svr->unsubscribe_promise_.has_value()) {
-                    svr->unsubscribe_promise_->set_value(GetRequestId().value());
+                if (svr->unsubscribe_promise_.has_value() && request_id_) {
+                    svr->unsubscribe_promise_->set_value(*request_id_);
                     svr->unsubscribe_promise_.reset();
                 }
             }
@@ -82,7 +82,8 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
                                                                      publish_attributes.publisher_priority,
                                                                      publish_attributes.publisher_priority,
                                                                      delivery_timeout,
-                                                                     shared_from_this());
+                                                                     shared_from_this(),
+                                                                     request_id);
             ns_handler->PublishTrack(handler);
         }
     }
@@ -144,7 +145,8 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
                                                 subscribe_attributes.priority,
                                                 subscribe_attributes.priority,
                                                 ttl,
-                                                std::static_pointer_cast<TestServer>(shared_from_this()));
+                                                std::static_pointer_cast<TestServer>(shared_from_this()),
+                                                request_id);
 
     // Store the publish handler for this subscriber, visible to every session sharing
     // these callbacks.
@@ -320,14 +322,10 @@ TestServer::StandaloneFetchReceived(const std::shared_ptr<quicr::Session>& sessi
                                                   .object = fetch_response_data_.back().headers.object_id };
 
     // Publish the response
-    auto pub_fetch_handler =
-      PublishFetchHandler::Create(track_full_name,
-                                  attrs.priority,
-                                  request_id,
-                                  attrs.group_order.value_or(attrs.publisher_default_group_order),
-                                  500);
+    auto pub_fetch_handler = PublishFetchHandler::Create(
+      track_full_name, attrs.priority, attrs.group_order.value_or(attrs.publisher_default_group_order), 500);
 
-    session->BindFetchTrack(pub_fetch_handler);
+    session->BindFetchTrack(request_id, pub_fetch_handler);
     for (size_t i = 0; i < fetch_response_data_.size(); ++i) {
         pub_fetch_handler->PublishObject(fetch_response_data_[i].headers, fetch_response_data_[i].payload);
     }
@@ -354,13 +352,9 @@ TestServer::JoiningFetchReceived(const std::shared_ptr<quicr::Session>& session,
               std::max(largest_location, messages::Location{ response.headers.group_id, response.headers.object_id });
         }
 
-        auto pub_fetch_handler =
-          PublishFetchHandler::Create(track_full_name,
-                                      attrs.priority,
-                                      request_id,
-                                      attrs.group_order.value_or(attrs.publisher_default_group_order),
-                                      500);
-        session->BindFetchTrack(pub_fetch_handler);
+        auto pub_fetch_handler = PublishFetchHandler::Create(
+          track_full_name, attrs.priority, attrs.group_order.value_or(attrs.publisher_default_group_order), 500);
+        session->BindFetchTrack(request_id, pub_fetch_handler);
         for (const auto& response : fetch_response_data_) {
             pub_fetch_handler->PublishObject(response.headers, response.payload);
         }
