@@ -59,6 +59,31 @@ namespace quicr_test {
             }
         }
 
+        void ObjectStatusReceived(std::uint64_t group_id,
+                                  std::uint64_t object_id,
+                                  std::uint8_t priority,
+                                  quicr::ObjectStatus status,
+                                  std::optional<quicr::Extensions> extensions,
+                                  std::optional<quicr::Extensions> immutable_extensions) override
+        {
+            std::lock_guard lock(mutex_);
+            if (pub_handler_) {
+                pub_handler_->PublishObject(
+                  quicr::ObjectHeaders{
+                    .group_id = group_id,
+                    .object_id = object_id,
+                    .payload_length = 0,
+                    .status = status,
+                    .priority = priority,
+                    .ttl = std::nullopt,
+                    .track_mode = std::nullopt,
+                    .extensions = std::move(extensions),
+                    .immutable_extensions = std::move(immutable_extensions),
+                  },
+                  {});
+            }
+        }
+
         void StatusChanged([[maybe_unused]] Status status) override {}
 
         void SubgroupEnded(std::uint64_t group_id, std::uint64_t subgroup_id, [[maybe_unused]] bool reset) override
@@ -113,8 +138,23 @@ namespace quicr_test {
             return subgroup_it->second.stream;
         }
 
+        void SubgroupCancelled(std::uint64_t group_id, std::uint64_t subgroup_id) override
+        {
+            std::lock_guard lock(cancelled_mutex_);
+            cancelled_.emplace_back(group_id, subgroup_id);
+        }
+
+        /// @returns Every subgroup the subscriber has cancelled, in order.
+        std::vector<std::pair<std::uint64_t, std::uint64_t>> GetCancelledSubgroups() const
+        {
+            std::lock_guard lock(cancelled_mutex_);
+            return cancelled_;
+        }
+
       private:
         std::weak_ptr<TestServer> server_;
+        mutable std::mutex cancelled_mutex_;
+        std::vector<std::pair<std::uint64_t, std::uint64_t>> cancelled_;
     };
 
     class TestServer final
@@ -126,6 +166,12 @@ namespace quicr_test {
         {
             std::lock_guard lock(state_mutex_);
             setup_received_ = std::move(promise);
+        }
+
+        void SetSessionEstablishedPromise(std::promise<std::shared_ptr<quicr::Session>> promise)
+        {
+            std::lock_guard lock(state_mutex_);
+            session_established_ = std::move(promise);
         }
 
         quicr::Expected<void, quicr::Error<quicr::ErrorCode>> SetupReceived(
@@ -208,10 +254,19 @@ namespace quicr_test {
         // Set up promise for subscription event
         void SetSubscribePromise(std::promise<SubscribeDetails> promise) { subscribe_promise_ = std::move(promise); }
 
-        void SetSubscribeError(quicr::RequestErrorCode reason_code, std::string error_reason)
+        void SetSubscribeError(quicr::RequestErrorCode reason_code,
+                               std::string error_reason,
+                               std::optional<quicr::Redirect> redirect = std::nullopt)
         {
             std::lock_guard lock(state_mutex_);
-            subscribe_error_ = quicr::Error<quicr::RequestErrorCode>{ reason_code, std::move(error_reason) };
+            subscribe_error_ =
+              quicr::Error<quicr::RequestErrorCode>{ reason_code, std::move(error_reason), std::move(redirect) };
+        }
+
+        void SetPublishError(quicr::PublishErrorCode reason_code, std::string error_reason)
+        {
+            std::lock_guard lock(state_mutex_);
+            publish_error_ = quicr::Error<quicr::PublishErrorCode>{ reason_code, std::move(error_reason) };
         }
 
         void SetTrackStatusError(std::optional<quicr::Error<quicr::RequestErrorCode>> error)
@@ -278,7 +333,7 @@ namespace quicr_test {
                 }
             }
             if (session != nullptr) {
-                session->GetConnection()->OnStreamClosed(stream, flag);
+                session->GetDefaultConnection()->OnStreamClosed(stream, flag);
             }
         }
         /**
@@ -294,6 +349,21 @@ namespace quicr_test {
          */
         bool UnbindSubscriberPublishTrack(std::uint64_t track_alias, bool send_publish_done = false);
 
+        /**
+         * Check the state of a stream.
+         * @param stream_id The stream to query.
+         * @return Stream closure, or std::nullopt if not closed.
+         */
+        std::optional<std::set<quicr::StreamClosedFlag>> CheckStreamState(std::uint64_t stream_id) const
+        {
+            std::lock_guard lock(state_mutex_);
+            const auto it = closed_streams_.find(stream_id);
+            if (it == closed_streams_.end()) {
+                return std::nullopt;
+            }
+            return it->second;
+        }
+
         // True = reset, false = FIN, nullopt = not closed.
         std::optional<bool> WasStreamReset(std::uint64_t stream_id) const
         {
@@ -302,7 +372,13 @@ namespace quicr_test {
             if (it == closed_streams_.end()) {
                 return std::nullopt;
             }
-            return it->second;
+            if (it->second.contains(quicr::StreamClosedFlag::kReset)) {
+                return true;
+            }
+            if (it->second.contains(quicr::StreamClosedFlag::kFin)) {
+                return false;
+            }
+            return std::nullopt;
         }
 
         // Set up data to respond with when a fetch is received
@@ -322,11 +398,8 @@ namespace quicr_test {
       protected:
         void OnStreamClosed(std::uint64_t stream_id, quicr::StreamClosedFlag flag) override
         {
-            if (flag == quicr::StreamClosedFlag::kStopSending) {
-                return;
-            }
             std::lock_guard lock(state_mutex_);
-            closed_streams_[stream_id] = (flag == quicr::StreamClosedFlag::kReset);
+            closed_streams_[stream_id].insert(flag);
         }
 
         void MetricsSampled(const std::shared_ptr<quicr::Session>& session,
@@ -354,12 +427,7 @@ namespace quicr_test {
         {
         }
 
-        quicr::Reply<void, quicr::FetchErrorCode> FetchCancelReceived(
-          const std::shared_ptr<quicr::Session>& session,
-          [[maybe_unused]] std::uint64_t request_id) override
-        {
-            return {};
-        }
+        void FetchCancelReceived(const std::shared_ptr<quicr::Session>&, std::uint64_t) override {}
 
         quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode> PublishReceived(
           const std::shared_ptr<quicr::Session>& session,
@@ -418,9 +486,11 @@ namespace quicr_test {
       private:
         mutable std::mutex state_mutex_;
         std::optional<std::promise<quicr::SetupAttributes>> setup_received_;
+        std::optional<std::promise<std::shared_ptr<quicr::Session>>> session_established_;
 
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<quicr::Error<quicr::RequestErrorCode>> subscribe_error_;
+        std::optional<quicr::Error<quicr::PublishErrorCode>> publish_error_;
         std::optional<quicr::Error<quicr::RequestErrorCode>> track_status_error_;
         std::optional<quicr::TrackStatusResponse> track_status_state_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;
@@ -431,7 +501,7 @@ namespace quicr_test {
         std::set<const quicr::Session*> metrics_reporting_sessions_;
         std::optional<std::promise<UnsubscribeReceivedDetails>> unsubscribe_received_promise_;
         std::optional<UnsubscribeReceivedDetails::HandlerType> expected_unsubscribe_handler_type_;
-        std::map<std::uint64_t, bool> closed_streams_;
+        std::map<std::uint64_t, std::set<quicr::StreamClosedFlag>> closed_streams_;
         std::shared_ptr<quicr::PublishNamespaceHandler> publish_namespace_handler_;
         std::vector<FetchResponseData> fetch_response_data_;
 

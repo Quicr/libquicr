@@ -10,6 +10,8 @@ CPMAddPackage("gh:gabime/spdlog@1.17.0")
 # Add the integration test executable
 add_executable(quicr_integration_test
     integration_test.cpp
+    integration_test_support.h
+    integration_test_support.cpp
     test_server.h
     test_server.cpp
     test_client.h
@@ -22,23 +24,21 @@ if(QUICR_ENABLE_SANITIZERS)
     )
 endif()
 
-# Include directories
+# quicr links its implementation dependencies privately, so their include paths do not reach this
+# target. They are needed here because tests of private headers include picoquic headers.
 target_include_directories(quicr_integration_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/src
+    $<TARGET_PROPERTY:picoquic-core,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:picoquic-log,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:picohttp-core,INTERFACE_INCLUDE_DIRECTORIES>
 )
 
-# Link against the quicr library and test framework. quicr links picoquic privately, so its include
-# paths do not reach this target. They are needed here because tests of internal classes include
-# private headers that pull in picoquic.
 target_link_libraries(quicr_integration_test PRIVATE
-    quicr
+    quicr::quicr
     doctest::doctest
     spdlog::spdlog
-    timeq
-    picoquic-core
-    picoquic-log
-    picohttp-core
+    timeq::timeq
 )
 
 # Compiler options
@@ -57,39 +57,107 @@ set_target_properties(quicr_integration_test
 )
 
 if (WIN32)
-    target_compile_definitions(quicr_integration_test PRIVATE NOMINMAX)
+    target_compile_definitions(quicr_integration_test PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS)
 endif()
 
-set(TEST_KEY ${CMAKE_CURRENT_BINARY_DIR}/server-key.pem)
-set(TEST_CERT ${CMAKE_CURRENT_BINARY_DIR}/server-cert.pem)
-add_custom_command(
-    OUTPUT ${TEST_KEY} ${TEST_CERT}
+set(TEST_CERT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+set(TEST_KEY "${TEST_CERT_DIRECTORY}/server-key.pem")
+set(TEST_CERT "${TEST_CERT_DIRECTORY}/server-cert.pem")
+
+set(TEST_OTHER_KEY "${TEST_CERT_DIRECTORY}/other-key.pem")
+set(TEST_OTHER_CERT "${TEST_CERT_DIRECTORY}/other-cert.pem")
+set(TEST_WRONG_HOST_CERT "${TEST_CERT_DIRECTORY}/wrong-host-cert.pem")
+
+add_custom_target(generate_test_certs
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${TEST_CERT_DIRECTORY}"
     COMMAND ${QUICR_OPENSSL_EXECUTABLE} genpkey -algorithm EC
-        -pkeyopt ec_paramgen_curve:P-256 -out ${TEST_KEY}
+        -pkeyopt ec_paramgen_curve:P-256 -out "${TEST_KEY}"
     COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 1
         -subj "/C=US/ST=CA/L=San Jose/O=Cisco/CN=test.m10x.org"
-        -key ${TEST_KEY} -out ${TEST_CERT}
-    COMMENT "Creating certificate in ${CMAKE_CURRENT_BINARY_DIR}"
+        -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+        -key "${TEST_KEY}" -out "${TEST_CERT}"
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} genpkey -algorithm EC
+        -pkeyopt ec_paramgen_curve:P-256 -out "${TEST_OTHER_KEY}"
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 3650
+        -subj "/CN=other-root" -key "${TEST_OTHER_KEY}" -out "${TEST_OTHER_CERT}"
+    COMMAND ${QUICR_OPENSSL_EXECUTABLE} req -new -x509 -sha256 -days 3650
+        -subj "/CN=wrong.example" -addext "subjectAltName=DNS:wrong.example"
+        -key "${TEST_KEY}" -out "${TEST_WRONG_HOST_CERT}"
+    COMMENT "Creating integration test certificate"
+    VERBATIM
 )
 
-add_custom_target(generate_test_certs ALL DEPENDS ${TEST_KEY} ${TEST_CERT})
+file(WRITE "${TEST_CERT_DIRECTORY}/empty-roots.pem" "")
+file(WRITE "${TEST_CERT_DIRECTORY}/malformed-roots.pem" "not a PEM certificate\n")
 
-if (CMAKE_CONFIGURATION_TYPES)
-    add_dependencies(quicr_integration_test generate_test_certs)
-    add_custom_command(TARGET quicr_integration_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${TEST_KEY} ${TEST_CERT} $<TARGET_FILE_DIR:quicr_integration_test>
-        COMMENT "Copying test certificates next to quicr_integration_test"
+add_dependencies(quicr_integration_test generate_test_certs)
+
+add_executable(quicr_c_integration_test
+    c_api_integration_test.cpp
+    c_api_scenarios.c
+    integration_test_support.h
+    integration_test_support.cpp
+    test_server.h
+    test_server.cpp
+    test_client.h
+    test_client.cpp
+)
+target_include_directories(quicr_c_integration_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/src
+    $<TARGET_PROPERTY:picoquic-core,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:picoquic-log,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:picohttp-core,INTERFACE_INCLUDE_DIRECTORIES>
+)
+target_link_libraries(quicr_c_integration_test PRIVATE
+    quicr::c
+    quicr::quicr
+    doctest::doctest
+    spdlog::spdlog
+    timeq::timeq
+)
+set_target_properties(quicr_c_integration_test PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED YES
+    C_EXTENSIONS OFF
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS OFF
+)
+target_compile_options(quicr_c_integration_test PRIVATE
+    $<$<COMPILE_LANG_AND_ID:C,Clang,AppleClang,GNU>:-Wall;-Wextra;-Wpedantic>
+    $<$<COMPILE_LANG_AND_ID:CXX,Clang,AppleClang,GNU>:-Wall;-Wextra;-Wpedantic>
+)
+if(QUICR_ENABLE_SANITIZERS)
+    target_sources(quicr_c_integration_test PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}/../sanitizer_options.cpp"
     )
 endif()
+if(WIN32)
+    target_compile_definitions(quicr_c_integration_test PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS)
+endif()
+add_dependencies(quicr_c_integration_test generate_test_certs)
+
+if(NOT TARGET picotls-openssl AND NOT WITH_MBEDTLS)
+    target_compile_definitions(quicr_integration_test PRIVATE QUICR_TEST_NO_CERT_VERIFIER)
+    target_compile_definitions(quicr_c_integration_test PRIVATE QUICR_TEST_NO_CERT_VERIFIER)
+endif()
+
+doctest_discover_tests(quicr_integration_test
+    WORKING_DIRECTORY "${TEST_CERT_DIRECTORY}"
+)
+doctest_discover_tests(quicr_c_integration_test
+    WORKING_DIRECTORY "${TEST_CERT_DIRECTORY}"
+)
 
 # Each test process gets its own server port.
-doctest_discover_tests(quicr_integration_test)
 set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/ctest_integration_test_properties.cmake")
+    "${CMAKE_CURRENT_SOURCE_DIR}/ctest_integration_test_properties.cmake"
+)
 
 # Linting configuration
-if(LINT)
+if(QUICR_LINT)
     include(Lint)
-    Lint(quicr_integration_test)
+    lint(quicr_integration_test)
+    lint(quicr_c_integration_test)
 endif()

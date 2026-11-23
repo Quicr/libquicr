@@ -47,17 +47,18 @@ quicr::PicoQuicConnection::ReportMetricsSample(const MetricsTimeStamp& sample_ti
 
     // Report the streams first: the connection sample is what tells the delegate the period is
     // complete, so anything a track accumulates from its streams has to be in by then.
+    const auto self = shared_from_this();
     for (const auto& stream : sample.streams) {
-        delegate->OnStreamMetricsStampled(sample_time, stream.stream_id, stream.metrics, stream.is_final);
+        delegate->OnStreamMetricsStampled(self, sample_time, stream.stream_id, stream.metrics, stream.is_final);
     }
 
-    delegate->OnConnectionMetricsSampled(sample_time, sample.connection);
+    delegate->OnConnectionMetricsSampled(self, sample_time, sample.connection);
 }
 
 quicr::PicoQuicStream::PicoQuicStream(const std::uint64_t stream_id,
-                                      const std::uint64_t conn_id,
+                                      const std::shared_ptr<Connection>& connection,
                                       std::unique_ptr<timeq::time_queue<ConnData>> tx_queue)
-  : Stream(stream_id, conn_id)
+  : Stream(stream_id, connection)
   , tx_data(std::move(tx_queue))
 {
 }
@@ -79,7 +80,7 @@ std::shared_ptr<quicr::PicoQuicStream>
 quicr::PicoQuicConnection::AddStream(const std::uint64_t stream_id,
                                      std::unique_ptr<timeq::time_queue<ConnData>> tx_queue)
 {
-    auto stream = std::make_shared<PicoQuicStream>(stream_id, GetID(), std::move(tx_queue));
+    auto stream = std::make_shared<PicoQuicStream>(stream_id, shared_from_this(), std::move(tx_queue));
 
     std::lock_guard _(stream_mutex_);
     streams_[stream_id] = stream;
@@ -98,7 +99,7 @@ quicr::PicoQuicConnection::GetOrAddStream(const std::uint64_t stream_id,
         return it->second;
     }
 
-    auto stream = std::make_shared<PicoQuicStream>(stream_id, GetID(), std::move(tx_queue));
+    auto stream = std::make_shared<PicoQuicStream>(stream_id, shared_from_this(), std::move(tx_queue));
     streams_.emplace(stream_id, stream);
 
     return stream;

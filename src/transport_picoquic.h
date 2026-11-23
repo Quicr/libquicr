@@ -32,13 +32,6 @@
 #include <thread>
 #include <vector>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <netinet/in.h>
-#include <sys/types.h>
-#endif
-
 namespace quicr {
 
     class Clock;
@@ -87,6 +80,7 @@ namespace quicr {
             std::atomic<std::thread::id> thread_id{};
 
             picoquic_quic_t* quic_ctx{ nullptr };
+            picoquic_quic_t* qmux_ctx{ nullptr };
             picoquic_network_thread_ctx_t* quic_network_thread_ctx{ nullptr };
             picoquic_packet_loop_param_t quic_network_thread_params{};
             int quic_loop_return_value{ 0 };
@@ -130,14 +124,15 @@ namespace quicr {
                           const TransportConfig& tcfg,
                           bool is_server_mode,
                           std::shared_ptr<Clock> tick_service,
-                          std::shared_ptr<Logger> logger,
-                          Connection::API connection_api);
+                          std::shared_ptr<Logger> logger);
 
         virtual ~PicoQuicTransport();
 
         TransportStatus Status() const override;
 
         std::shared_ptr<Connection> Start() override;
+
+        std::shared_ptr<Connection> Connect(const TransportRemote& remote) override;
 
         void Shutdown() override;
 
@@ -146,8 +141,6 @@ namespace quicr {
 
         void CloseInternal(const std::shared_ptr<Connection>& connection,
                            AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose);
-
-        virtual bool GetPeerAddrInfo(const std::shared_ptr<Connection>& connection, sockaddr_storage* addr) override;
 
         void EnqueueDatagram(const std::shared_ptr<Connection>& connection,
                              std::shared_ptr<const std::vector<uint8_t>> bytes,
@@ -202,8 +195,9 @@ namespace quicr {
         /// @returns A TX queue for a send-capable stream.
         std::unique_ptr<timeq::time_queue<ConnData>> MakeStreamTxQueue() const;
 
-        const std::shared_ptr<PicoQuicConnection>& CreateConnection(picoquic_cnx_t* pq_cnx,
-                                                                    Connection::API api = Connection::API::kNativeQuic);
+        const std::shared_ptr<PicoQuicConnection>& CreateConnection(
+          picoquic_cnx_t* pq_cnx,
+          Connection::Protocol protocol = Connection::Protocol::kNativeQuic);
 
         void SendNextDatagram(const std::shared_ptr<PicoQuicConnection>& conn_ctx, uint8_t* bytes_ctx, size_t max_len);
 
@@ -228,9 +222,7 @@ namespace quicr {
                                int is_fin,
                                std::span<const uint8_t> bytes);
 
-        void OnStreamClosed(std::shared_ptr<PicoQuicConnection> connection,
-                            std::shared_ptr<PicoQuicStream> stream,
-                            StreamClosedFlag flag);
+        void OnStreamClosed(std::shared_ptr<PicoQuicStream> stream, StreamClosedFlag flag);
 
         // Notify new stream data arrived.
         void NotifyStreamRecv(const std::shared_ptr<PicoQuicConnection>& connection,
@@ -243,9 +235,7 @@ namespace quicr {
         void EmitMetrics(std::size_t shard_idx);
         void RemoveClosedStreams(std::size_t shard_idx);
 
-        void CloseStream(const std::shared_ptr<Connection>& connection,
-                         const std::shared_ptr<Stream>& stream,
-                         StreamOperation operation) override;
+        void CloseStream(const std::shared_ptr<Stream>& stream, StreamOperation operation) override;
 
         /**
          * @brief Deregister WebTransport context
@@ -324,7 +314,6 @@ namespace quicr {
         bool is_server_mode;
         bool is_unidirectional{ false };
         bool debug{ false };
-        Connection::API connection_api{ Connection::API::kNativeQuic };
 
       private:
         /// Get shard ID for given connection ID.
@@ -333,7 +322,7 @@ namespace quicr {
         std::shared_ptr<Connection> StartClient();
 
         /// Create a picoquic instance for the current config.
-        picoquic_quic_t* CreateQuicInstance(uint64_t current_time);
+        picoquic_quic_t* CreateQuicInstance(uint64_t current_time, bool qmux = false);
 
         void Server();
         bool ClientLoop();
@@ -445,13 +434,10 @@ namespace quicr {
          *
          * @warning This method must be called within the picoquic thread
          *
-         * @param conn_ctx      Connection context for the stream
          * @param stream        Stream to close; no-op if the transport has already torn it down
-         * @param send_reset    Indicates if the stream should be closed by RESET, otherwise FIN
+         * @param operation     How to close the stream
          */
-        void CloseStream(const std::shared_ptr<PicoQuicConnection>& connection,
-                         const std::shared_ptr<PicoQuicStream>& stream,
-                         StreamOperation operation);
+        void CloseStream(const std::shared_ptr<PicoQuicStream>& stream, StreamOperation operation);
 
         void QueueDeferredReply(std::function<void()>&& reply_handler) override;
 

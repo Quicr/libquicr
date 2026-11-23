@@ -1,11 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
 # SPDX-License-Identifier: BSD-2-Clause
 
-if (${QUICR_BUILD_SHARED})
+#=============================================================================#
+# QuicR Library
+#=============================================================================#
+
+if (QUICR_BUILD_SHARED)
     add_library(quicr SHARED)
 else()
     add_library(quicr)
 endif()
+
+add_library(quicr::quicr ALIAS quicr)
 
 set_target_properties(quicr PROPERTIES
     CXX_STANDARD 20
@@ -13,15 +19,13 @@ set_target_properties(quicr PROPERTIES
     CXX_EXTENSIONS OFF
 )
 
+target_compile_features(quicr PUBLIC cxx_std_20)
+target_compile_options(quicr PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>)
 target_compile_options(quicr PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>: -Wall -pedantic -Wextra -Wmissing-declarations -Werror=switch>
     $<$<CXX_COMPILER_ID:MSVC>:/MP>
 )
 
-target_compile_options(quicr PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>
-)
-
-# Request, and check support for, clang's thread safety analysis.
 include(CheckThreadSafetyAnnotations)
 if(QUICR_HAS_THREAD_SAFETY_ANNOTATIONS)
     target_compile_definitions(quicr PUBLIC
@@ -59,7 +63,7 @@ target_sources(quicr PRIVATE
 )
 
 target_link_libraries(quicr PRIVATE
-    timeq
+    timeq::timeq
     picoquic-core
     picoquic-log
     picohttp-core
@@ -68,16 +72,55 @@ target_link_libraries(quicr PRIVATE
 if (WIN32)
     target_compile_definitions(quicr PRIVATE NOMINMAX)
     target_link_libraries(quicr PRIVATE ws2_32)
-else()
 endif()
 
-if (NOT QUICR_HAS_STD_FORMAT)
+if (QUICR_HAS_STD_FORMAT)
+    target_compile_definitions(quicr PUBLIC QUICR_HAS_STD_FORMAT)
+else()
     target_link_libraries(quicr PUBLIC fmt::fmt)
 endif()
 
-target_include_directories(quicr PUBLIC ${CMAKE_BINARY_DIR}/include ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(quicr PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 
-if(LINT)
+#=============================================================================#
+# QuicR C API
+#=============================================================================#
+
+if (QUICR_BUILD_SHARED)
+    add_library(quicr_c SHARED)
+else()
+    add_library(quicr_c)
+endif()
+
+add_library(quicr::c ALIAS quicr_c)
+set_target_properties(quicr_c PROPERTIES EXPORT_NAME c)
+target_compile_features(quicr_c INTERFACE c_std_11)
+
+include(GenerateExportHeader)
+generate_export_header(quicr_c
+    EXPORT_FILE_NAME "${PROJECT_BINARY_DIR}/include/quicr/quicr_c_export.h"
+    EXPORT_MACRO_NAME QUICR_C_API
+    STATIC_DEFINE QUICR_C_STATIC_DEFINE
+)
+
+target_sources(quicr_c PRIVATE quicr.cpp)
+target_link_libraries(quicr_c PRIVATE quicr::quicr)
+target_include_directories(quicr_c PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+#=============================================================================#
+# Linting
+#=============================================================================#
+
+if(QUICR_LINT)
     include(Lint)
     lint(quicr)
+    lint(quicr_c)
 endif()

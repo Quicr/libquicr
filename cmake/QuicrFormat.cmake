@@ -23,11 +23,17 @@ function(quicr_configure_format)
     " QUICR_HAS_STD_FORMAT)
 
     if(QUICR_HAS_STD_FORMAT)
-        add_compile_definitions("QUICR_HAS_STD_FORMAT")
         message(STATUS "Using std::format")
     else()
         message(STATUS "Using fmt::format")
-        CPMAddPackage("gh:fmtlib/fmt#12.2.0")
+        set(FMT_INSTALL ${QUICR_INSTALL})
+        CPMAddPackage(
+            URI "gh:fmtlib/fmt#12.2.0"
+            EXCLUDE_FROM_ALL YES
+        )
+        if(QUICR_INSTALL)
+            set_property(DIRECTORY "${fmt_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL NO)
+        endif()
     endif()
 endfunction()
 

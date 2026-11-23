@@ -238,6 +238,8 @@ extern "C"
         uint32_t tick_service_sleep_delay_us;
         /** Enable debug logging (default: false) */
         bool debug_logs;
+        /** PEM CA bundle for server certificate and hostname verification; empty disables verification. */
+        char tls_root_trust_filename[QBRIDGE_MAX_FILENAME_LEN];
     } qbridge_client_config_t;
 
     /**

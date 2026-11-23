@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/messages/message_serialisation.h"
+#include "quicr/messages/parameters.h"
 #include <cstddef>
 
 using namespace quicr;
@@ -17,6 +18,14 @@ LLVMFuzzerTestOneInput(const std::uint8_t* data, const std::size_t size)
         const auto uintvar = UintVar(input_span);
     } catch (...) {
         // This is fine.
+    }
+
+    // Message parameter decoding.
+    try {
+        messages::Parameters params;
+        input_span >> params;
+    } catch (const std::exception&) {
+        // Malformed input is expected.
     }
 
     // TODO: Add control messages.

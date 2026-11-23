@@ -16,10 +16,24 @@ namespace quicr {
      *
      *      Stream objects are not delivered to `ObjectReceived` or counted individually. Datagrams
      *      are still delivered to `ObjectReceived`, which a relay should override if it expects them.
+     *      Callbacks run synchronously on the session receive path and may interleave across subgroup
+     *      streams, but calls themselves are not concurrent from one session's receive processing.
      */
     class ForwardingSubscribeTrackHandler : public SubscribeTrackHandler
     {
       protected:
+        /**
+         * @brief Inherits the protected subscription constructors.
+         *
+         * @details Derived forwarding handlers supply the same subscription attributes and obey
+         * the same session-ownership and state rules as `SubscribeTrackHandler`.
+         * @param full_track_name Track identity copied into the handler.
+         * @param priority Subscription scheduling priority.
+         * @param group_order Requested group order, or no value for the publisher default.
+         * @param filter Subscription selection filter.
+         * @param joining_fetch Optional joining-fetch attributes.
+         * @param publisher_initiated Whether the publisher initiated the subscription.
+         */
         using SubscribeTrackHandler::SubscribeTrackHandler;
 
       public:
@@ -29,11 +43,13 @@ namespace quicr {
          * @details Called once per stream, before any of its bytes, with enough of the subgroup
          *      header to write an equivalent one.
          *
-         * @param group_id      Group the subgroup belongs to
-         * @param subgroup_id   Subgroup the bytes belong to
-         * @param priority      Priority the publisher gave the subgroup, unset if it left it to
+         * @param group_id Group the subgroup belongs to
+         * @param subgroup_id Subgroup the bytes belong to
+         * @param priority Priority the publisher gave the subgroup, unset if it left it to
          *                      the framing's default
-         * @param properties    How the subgroup is framed
+         * @param properties How the subgroup is framed
+         *
+         * @note Called synchronously before the first `StreamBytesForwarded` call for this stream.
          */
         virtual void SubgroupStarted(std::uint64_t group_id,
                                      std::uint64_t subgroup_id,
@@ -49,9 +65,13 @@ namespace quicr {
          *      subgroups arrive on streams of their own and so interleave here, which is why every
          *      call names one.
          *
-         * @param group_id      Group the subgroup belongs to
-         * @param subgroup_id   Subgroup the bytes belong to
-         * @param data          Bytes to pass on, to take if it wants them
+         * @param group_id Group the subgroup belongs to
+         * @param subgroup_id Subgroup the bytes belong to
+         * @param data Owning byte buffer transferred to the callback; it may be moved
+         *                      elsewhere and retained after return
+         *
+         * @note Called synchronously on the session receive path. The buffer contains only bytes
+         * received since the preceding call for this subgroup.
          */
         virtual void StreamBytesForwarded(std::uint64_t group_id, std::uint64_t subgroup_id, Bytes&& data) = 0;
     };

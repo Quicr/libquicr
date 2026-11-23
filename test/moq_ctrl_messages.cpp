@@ -343,7 +343,7 @@ TEST_CASE("Parameters wire encoding")
 
         Parameters out;
         buffer >> out;
-        CHECK_EQ(out.Get<Bytes>(ParameterType::kAuthorizationToken), value);
+        CHECK_EQ(out.GetAll<Bytes>(ParameterType::kAuthorizationToken), std::vector<Bytes>{ value });
     }
 
     SUBCASE("multiple length-prefixed bytes")
@@ -369,7 +369,7 @@ TEST_CASE("Parameters wire encoding")
 
         Parameters out;
         buffer >> out;
-        CHECK_EQ(out.Get<Bytes>(ParameterType::kAuthorizationToken), auth);
+        CHECK_EQ(out.GetAll<Bytes>(ParameterType::kAuthorizationToken), std::vector<Bytes>{ auth });
         CHECK_EQ(out.Get<Bytes>(ParameterType::kTrackNamespacePrefix), prefix);
     }
 }
@@ -585,29 +585,111 @@ TEST_CASE("TrackExtensions even-type round-trip preserves values")
     }
 }
 
-TEST_CASE("TrackExtensions GetOptional returns value when present and nullopt when absent")
+TEST_CASE("TrackExtensions Get returns value when present and nullopt when absent")
 {
     TrackExtensions ext;
     ext.Add(ExtensionType::kDeliveryTimeout, std::uint64_t{ 42 });
     ext.AddImmutable(ExtensionType::kDefaultPublisherGroupOrder, GroupOrder::kAscending);
 
     // Present keys return the value.
-    auto result = ext.GetOptional<std::uint64_t>(ExtensionType::kDeliveryTimeout);
+    auto result = ext.Get<std::uint64_t>(ExtensionType::kDeliveryTimeout);
     REQUIRE(result.has_value());
     CHECK_EQ(result.value(), 42);
 
-    auto immutable_result = ext.GetImmutableOptional<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder);
+    auto immutable_result = ext.GetImmutable<GroupOrder>(ExtensionType::kDefaultPublisherGroupOrder);
     REQUIRE(immutable_result.has_value());
     CHECK_EQ(immutable_result.value(), GroupOrder::kAscending);
 
     ext.AddImmutable(ExtensionType::kDynamicGroups, true);
-    auto bool_result = ext.GetImmutableOptional<bool>(ExtensionType::kDynamicGroups);
+    auto bool_result = ext.GetImmutable<bool>(ExtensionType::kDynamicGroups);
     REQUIRE(bool_result.has_value());
     CHECK(bool_result.value());
 
     // Absent keys return nullopt.
-    CHECK_FALSE(ext.GetOptional<std::uint64_t>(ExtensionType::kMaxCacheDuration).has_value());
-    CHECK_FALSE(ext.GetImmutableOptional<bool>(ExtensionType::kDefaultPublisherPriority).has_value());
+    CHECK_FALSE(ext.Get<std::uint64_t>(ExtensionType::kMaxCacheDuration).has_value());
+    CHECK_FALSE(ext.GetImmutable<bool>(ExtensionType::kDefaultPublisherPriority).has_value());
+}
+
+TEST_CASE("Get is non-repeatable and GetAll is")
+{
+    const Token token{ .alias_type = Token::AliasType::kUseAlias, .token_alias = 7 };
+    const auto params =
+      Parameters{}.Add(ParameterType::kForward, std::uint8_t{ 1 }).Add(ParameterType::kAuthorizationToken, token);
+
+    CHECK_EQ(params.Get<std::uint8_t>(ParameterType::kForward), 1);
+    CHECK_EQ(params.GetAll<Token>(ParameterType::kAuthorizationToken), std::vector<Token>{ token });
+    CHECK(Parameters{}.GetAll<Token>(ParameterType::kAuthorizationToken).empty());
+
+    CHECK_THROWS_AS(params.Get<Token>(ParameterType::kAuthorizationToken), std::logic_error);
+    CHECK_THROWS_AS(params.GetAll<std::uint8_t>(ParameterType::kForward), std::logic_error);
+}
+
+TEST_CASE("Repeatable parameters roundtrip")
+{
+    const Bytes first{ 0xBB };
+    const Bytes second{ 0xAA, 0xCC };
+    const auto params = Parameters{}
+                          .Add(ParameterType::kAuthorizationToken, first)
+                          .Add(ParameterType::kDeliveryTimeout, std::uint64_t{ 5 })
+                          .Add(ParameterType::kAuthorizationToken, second);
+
+    Bytes buffer;
+    buffer << params;
+    CHECK_EQ(buffer,
+             Bytes{ 0x03,    // 3 parameters.
+                    0x02,    // DELIVERY_TIMEOUT.
+                    0x05,    // 5ms.
+                    0x01,    // AUTHORIZATION_TOKEN.
+                    0x01,    // 1 byte.
+                    0xBB,    // Token.
+                    0x00,    // Another AUTHORIZATION_TOKEN.
+                    0x02,    // 2 bytes.
+                    0xAA,    // Token byte 1.
+                    0xCC }); // Token byte 2.
+
+    Parameters out;
+    buffer >> out;
+    CHECK_EQ(out.GetAll<Bytes>(ParameterType::kAuthorizationToken), std::vector<Bytes>{ first, second });
+    CHECK_EQ(out.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), 5);
+}
+
+TEST_CASE("Parameters reject a repeated non-repeatable type")
+{
+    // DELIVERY_TIMEOUT = 5, then a delta of 0 repeating it with 6.
+    const Bytes wire{ 0x02, 0x02, 0x05, 0x00, 0x06 };
+    Parameters out;
+    CHECK_THROWS_AS(BytesSpan(wire) >> out, ProtocolViolationException);
+}
+
+TEST_CASE("Adding a non-repeatable parameter again throws and keeps the original")
+{
+    auto params = Parameters{}.Add(ParameterType::kDeliveryTimeout, std::uint64_t{ 5 });
+    CHECK_THROWS_AS(params.Add(ParameterType::kDeliveryTimeout, std::uint64_t{ 6 }), std::invalid_argument);
+    CHECK_EQ(params.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), 5);
+
+    Bytes buffer;
+    buffer << params;
+    CHECK_EQ(buffer, Bytes{ 0x01, 0x02, 0x05 });
+}
+
+TEST_CASE("Parameters reject a type delta that overflows")
+{
+    // DELIVERY_TIMEOUT (0x02), FORWARD (0x10), then a delta that wraps back to 0x02.
+    Bytes wire{ 0x03, 0x02, 0x05, 0x0E, 0x01 };
+    wire << UintVar(std::numeric_limits<std::uint64_t>::max() - 0x0D);
+    wire.push_back(0x06);
+    Parameters out;
+    CHECK_THROWS_AS(BytesSpan(wire) >> out, ProtocolViolationException);
+}
+
+TEST_CASE("Parameters decode rejects a count larger than the input")
+{
+    // The largest possible count, followed by a single DELIVERY_TIMEOUT parameter.
+    Bytes wire;
+    wire << UintVar(std::numeric_limits<std::uint64_t>::max());
+    wire.insert(wire.end(), { 0x02, 0x05 });
+    Parameters out;
+    CHECK_THROWS_AS(BytesSpan(wire) >> out, UintVarInvalidArgException);
 }
 
 TEST_CASE("Parameters")
@@ -626,6 +708,30 @@ TEST_CASE("Parameters")
     CHECK(params.Contains(ParameterType::kLargestObject));
 
     CHECK_EQ(params.Get<std::uint64_t>(ParameterType::kDeliveryTimeout), std::uint64_t(5000));
+}
+
+TEST_CASE("Absent parameters remain distinct from explicit zero values")
+{
+    Parameters params;
+    CHECK_FALSE(params.Get<std::uint8_t>(ParameterType::kForward).has_value());
+    CHECK_FALSE(params.Get<Location>(ParameterType::kLargestObject).has_value());
+    CHECK_FALSE(ResolveGroupOrder(params).has_value());
+    CHECK_FALSE(ResolveExpires(params).has_value());
+    CHECK(ResolveForward(params, true));
+    CHECK_FALSE(ResolveForward(params, false));
+    CHECK(std::holds_alternative<std::monostate>(ResolveFilter(params)));
+    CHECK(std::holds_alternative<std::monostate>(params.GetFilter(FilterType::kSubscriptionFilter)));
+
+    params.Add(ParameterType::kForward, std::uint8_t{ 0 });
+    params.Add(ParameterType::kExpires, std::uint64_t{ 0 });
+    CHECK(params.Get<std::uint8_t>(ParameterType::kForward).has_value());
+    CHECK_FALSE(ResolveForward(params, true));
+    CHECK_FALSE(ResolveExpires(params).has_value());
+
+    const auto invalid_forward = Parameters{}.Add(ParameterType::kForward, std::uint8_t{ 2 });
+    CHECK_THROWS_AS(ResolveForward(invalid_forward, true), ProtocolViolationException);
+    params.Add(ParameterType::kGroupOrder, std::uint8_t{ 0 });
+    CHECK_THROWS_AS(ResolveGroupOrder(params), ProtocolViolationException);
 }
 
 TEST_CASE("Filters")
@@ -662,18 +768,25 @@ TEST_CASE("Filters")
     };
     serialise_filter(FilterType::kTrackFilter, filter);
 
+    for (const auto type : { SubscriptionFilterType::kNextGroupStart, SubscriptionFilterType::kLargestObject }) {
+        filter = SubscriptionFilter{ .type = type };
+        serialise_filter(FilterType::kSubscriptionFilter, filter);
+    }
+
     filter = SubscriptionFilter{
-        { .start = 1 },
+        .type = SubscriptionFilterType::kAbsoluteStart,
+        .start_location = { 1, 2 },
     };
     serialise_filter(FilterType::kSubscriptionFilter, filter);
 
-    filter = SubscriptionFilter{
-        {
-          .start = 1,
-          .end = 2,
-        },
-    };
-    serialise_filter(FilterType::kSubscriptionFilter, filter);
+    for (const auto delta : { std::uint64_t{ 0 }, std::uint64_t{ 2 }, std::numeric_limits<std::uint64_t>::max() - 1 }) {
+        filter = SubscriptionFilter{
+            .type = SubscriptionFilterType::kAbsoluteRange,
+            .start_location = { 1, 2 },
+            .end_group_delta = delta,
+        };
+        serialise_filter(FilterType::kSubscriptionFilter, filter);
+    }
 }
 
 TEST_CASE("Parameters - Filters")
@@ -696,4 +809,20 @@ TEST_CASE("Parameters - Filters")
 
     auto recv_filter = recv_params.GetFilter(FilterType::kTrackFilter);
     CHECK_EQ(recv_filter, filter);
+}
+
+TEST_CASE("Length prefix overflows are rejected")
+{
+    SUBCASE("Bytes")
+    {
+        const Bytes wire{ 0x05, 0x01, 0x02 };
+        Bytes value;
+        CHECK_THROWS_AS(BytesSpan(wire) >> value, ProtocolViolationException);
+    }
+    SUBCASE("Parameters")
+    {
+        const Bytes param_wire{ 0x01, 0x03, 0x05, 0x03, 0x01 };
+        Parameters params;
+        CHECK_THROWS_AS(BytesSpan(param_wire) >> params, ProtocolViolationException);
+    }
 }

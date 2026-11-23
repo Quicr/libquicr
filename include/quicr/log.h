@@ -20,28 +20,62 @@ namespace quicr {
 #define QUICR_LOG_CRITICAL 5
 #define QUICR_LOG_OFF 6
 
+    /// @brief Abstract sink for libquicr diagnostic messages.
     class Logger
     {
       public:
+        /// @brief Log severity in increasing order.
         enum class Level
         {
-            Trace = QUICR_LOG_TRACE,
-            Debug = QUICR_LOG_DEBUG,
-            Info = QUICR_LOG_INFO,
-            Warn = QUICR_LOG_WARN,
-            Error = QUICR_LOG_ERROR,
-            Critical = QUICR_LOG_CRITICAL,
-            Off = QUICR_LOG_OFF,
+            Trace = QUICR_LOG_TRACE,       ///< Fine-grained execution tracing.
+            Debug = QUICR_LOG_DEBUG,       ///< Diagnostic information for debugging.
+            Info = QUICR_LOG_INFO,         ///< Normal operational information.
+            Warn = QUICR_LOG_WARN,         ///< A recoverable or potentially harmful condition.
+            Error = QUICR_LOG_ERROR,       ///< An operation failed.
+            Critical = QUICR_LOG_CRITICAL, ///< A severe failure requiring immediate attention.
+            Off = QUICR_LOG_OFF,           ///< Disable logging.
         };
 
+        /// @brief Destroy the logger.
         virtual ~Logger() = default;
 
+        /**
+         * @brief Set the minimum severity emitted by this logger.
+         *
+         * @param max_level Severity threshold, or `Level::Off` to suppress all messages.
+         */
         virtual void SetLevel(Level max_level) = 0;
 
-        virtual void Log(Level level, std::string_view msg, std::source_location = std::source_location::current()) = 0;
+        /**
+         * @brief Emit an already formatted message.
+         *
+         * @param level Message severity.
+         * @param msg Message text; implementations must not retain the view after returning.
+         * @param location Source location associated with the logging call.
+         */
+        virtual void Log(Level level,
+                         std::string_view msg,
+                         std::source_location location = std::source_location::current()) = 0;
 
+        /**
+         * @brief Determine whether a message severity is enabled at compile time.
+         *
+         * @param level Severity to test.
+         * @return `true` when the active compile-time level permits the message.
+         */
         virtual bool ShouldLog(Level level) const noexcept;
 
+        /**
+         * @brief Format and emit a message if its severity is enabled.
+         *
+         * @details Formatting failures derived from `std::exception` are converted to an error log.
+         *
+         * @tparam Args Types of the formatting arguments.
+         * @param location Source location associated with the logging call.
+         * @param level Message severity.
+         * @param msg Format string, or message text when no arguments are supplied.
+         * @param args Arguments interpolated into @p msg.
+         */
         template<typename... Args>
         void Log(std::source_location location,
                  Level level,
