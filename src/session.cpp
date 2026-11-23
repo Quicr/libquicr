@@ -3784,8 +3784,36 @@ namespace quicr {
                 }
 
                 if (client_mode_) {
+                    auto accept_subscribe = [self =
+                                               GetSharedPtr()](const std::shared_ptr<Stream>& request_stream,
+                                                               std::uint64_t subscribe_request_id,
+                                                               const std::shared_ptr<PublishTrackHandler>& handler) {
+                        handler->SetRequestStream(request_stream);
+
+                        // TODO: These should not exist and only be set by a callback, but preserving existing
+                        // behaviour.
+                        SubscribeResponse default_response;
+                        default_response.expires = std::chrono::milliseconds(kSubscribeExpires);
+                        default_response.track_properties = TrackExtensions{}
+                                                              .Add(ExtensionType::kDefaultPublisherPriority, 1)
+                                                              .Add(ExtensionType::kDynamicGroups, true);
+
+                        self->SendSubscribeOk(
+                          request_stream, subscribe_request_id, handler->GetTrackAlias().value(), default_response);
+
+                        handler->SetRequestId(subscribe_request_id);
+                        handler->SetTrackAlias(handler->GetTrackAlias().value());
+                        handler->SetStatus(PublishTrackHandler::Status::kOk);
+                    };
+
                     auto ptd = GetPubTrackHandler(th);
-                    if (ptd == nullptr) {
+                    if (ptd != nullptr) {
+                        accept_subscribe(stream, request_id, ptd);
+                        return true;
+                    }
+
+                    auto callbacks = std::dynamic_pointer_cast<ClientCallbacks>(callbacks_);
+                    if (!callbacks) {
                         QUICR_LOGGER_WARN(logger_,
                                           "Received subscribe unknown publish track conn_id: {} namespace hash: {} "
                                           "name hash: {} request_id: {}",
@@ -3799,20 +3827,79 @@ namespace quicr {
                         return true;
                     }
 
-                    ptd->SetRequestStream(stream);
+                    auto delivery_timeout =
+                      parameters.Get<std::uint64_t>(messages::ParameterType::kDeliveryTimeout).value_or(0);
+                    const auto rendezvous_timeout_ms =
+                      parameters.Get<std::uint64_t>(messages::ParameterType::kRendezvousTimeout).value_or(0);
+                    if (rendezvous_timeout_ms > std::chrono::milliseconds::max().count()) {
+                        SendRequestError(
+                          stream, request_id, ErrorCode::kNotSupported, 0ms, "Rendezvous timeout too large", true);
+                        return true;
+                    }
+                    const auto rendezvous_timeout = std::chrono::milliseconds{ rendezvous_timeout_ms };
+                    auto priority = parameters.Get<uint8_t>(messages::ParameterType::kSubscriberPriority).value_or(128);
+                    auto group_order = messages::ResolveGroupOrder(parameters);
+                    const auto publisher_default_group_order = messages::GroupOrder::kAscending;
+                    auto forward = messages::ResolveForward(parameters, true);
+                    auto new_group_request_id =
+                      parameters.Get<std::uint64_t>(messages::ParameterType::kNewGroupRequest);
+                    auto filter = messages::ResolveFilter(parameters);
 
-                    // TODO: These should not exist and only be set by a callback, but preserving existing behaviour.
-                    SubscribeResponse default_response;
-                    default_response.expires = std::chrono::milliseconds(kSubscribeExpires);
-                    default_response.track_properties = TrackExtensions{}
-                                                          .Add(ExtensionType::kDefaultPublisherPriority, 1)
-                                                          .Add(ExtensionType::kDynamicGroups, true);
+                    QUICR_LOGGER_INFO(logger_,
+                                      "Received subscribe for unpublished track conn_id: {} namespace hash: {} "
+                                      "name hash: {} request_id: {}",
+                                      connection->GetID(),
+                                      th.track_namespace_hash,
+                                      th.track_name_hash,
+                                      request_id);
 
-                    SendSubscribeOk(stream, request_id, ptd->GetTrackAlias().value(), default_response);
+                    callbacks
+                      ->UnpublishedSubscribeReceived(
+                        GetSharedPtr(),
+                        request_id,
+                        tfn,
+                        {
+                          .priority = priority,
+                          .group_order = group_order,
+                          .publisher_default_group_order = publisher_default_group_order,
+                          .delivery_timeout = std::chrono::milliseconds{ delivery_timeout },
+                          .expires = std::chrono::milliseconds{ delivery_timeout },
+                          .filter = filter,
+                          .forward = forward,
+                          .new_group_request_id = new_group_request_id,
+                          .is_publisher_initiated = false,
+                          .start_location = {},
+                          .rendezvous_timeout = rendezvous_timeout,
+                        })
+                      .Resolve(
+                        quic_transport_,
+                        [=, self = GetSharedPtr(), accept = accept_subscribe, track_hash = th](const auto& result) {
+                            if (!self->IsCurrentRequestStream(request_id, stream)) {
+                                return;
+                            }
 
-                    ptd->SetRequestId(request_id);
-                    ptd->SetTrackAlias(ptd->GetTrackAlias().value());
-                    ptd->SetStatus(PublishTrackHandler::Status::kOk);
+                            if (!result) {
+                                const auto& [code, reason, redirect] = result.error();
+                                self->SendRequestError(stream,
+                                                       request_id,
+                                                       code,
+                                                       0ms,
+                                                       reason.value_or("Track does not exist"),
+                                                       true,
+                                                       redirect);
+                                return;
+                            }
+
+                            auto hash = track_hash;
+                            auto handler = self->GetPubTrackHandler(hash);
+                            if (handler == nullptr) {
+                                self->SendRequestError(
+                                  stream, request_id, ErrorCode::kDoesNotExist, 0ms, "Published track not found");
+                                return;
+                            }
+
+                            accept(stream, request_id, handler);
+                        });
 
                     return true;
                 }
