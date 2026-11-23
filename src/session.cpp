@@ -2041,7 +2041,7 @@ namespace quicr {
     } catch (const TransportException& e) {
         QUICR_LOGGER_INFO(logger_, "OnRecvStream: connection or stream no longer exists (error={})", e.what());
         if (const auto failed_connection = stream->GetConnection()) {
-            quic_transport_->Close(failed_connection, AppReasonForClose::kInternalError);
+            quic_transport_->Close(failed_connection, TerminationReason::kInternalError);
         }
         return false;
     } catch (const std::exception& e) {
@@ -2051,7 +2051,7 @@ namespace quicr {
         QUICR_LOGGER_ERROR(logger_, "Caught exception on receiving stream, closing connection. (error={})", e.what());
         if (const auto failed_connection = stream->GetConnection()) {
             failed_connection->metrics.invalid_ctrl_stream_msg++;
-            quic_transport_->Close(failed_connection, AppReasonForClose::kProtocolViolation);
+            quic_transport_->Close(failed_connection, TerminationReason::kProtocolViolation);
         }
 
         // TODO(tievens): Add metrics to track if this happens
@@ -3668,7 +3668,7 @@ namespace quicr {
                         if (connection == GetDefaultConnection()) {
                             SetStatus(Status::kInternalError);
                         }
-                        quic_transport_->Close(connection, AppReasonForClose::kNotAuthorized);
+                        quic_transport_->Close(connection, TerminationReason::kUnauthorized);
                         return true;
                     }
                 }

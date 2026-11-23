@@ -326,18 +326,17 @@ try {
             QUICR_LOGGER_INFO(transport->logger, "Application closed conn_id: {}", conn_id);
             [[fallthrough]];
         case picoquic_callback_close: {
-            uint64_t app_reason_code = picoquic_get_application_error(pq_cnx);
             std::ostringstream log_msg;
             log_msg << "Closing connection conn_id: " << conn_id << " stream_id: " << stream_id;
 
+            auto status = TransportStatus::kRemoteRequestClose;
             switch (picoquic_get_local_error(pq_cnx)) {
                 case PICOQUIC_ERROR_IDLE_TIMEOUT:
                     log_msg << " Idle timeout";
-                    app_reason_code = static_cast<uint64_t>(AppReasonForClose::kIdleTimeout);
+                    status = TransportStatus::kIdleTimeout;
                     break;
 
                 default:
-                    app_reason_code = picoquic_get_remote_error(pq_cnx);
                     log_msg << " local_error: " << picoquic_get_local_error(pq_cnx)
                             << " remote_error: " << picoquic_get_remote_error(pq_cnx)
                             << " app_error: " << picoquic_get_application_error(pq_cnx);
@@ -352,19 +351,8 @@ try {
 
             QUICR_LOGGER_INFO(transport->logger, log_msg.str());
 
-            switch (app_reason_code) {
-                case static_cast<uint64_t>(AppReasonForClose::kIdleTimeout):
-                case static_cast<uint64_t>(AppReasonForClose::kShutdown):
-                case static_cast<uint64_t>(AppReasonForClose::kRemoteRequestClose):
-                case static_cast<uint64_t>(AppReasonForClose::kNotAuthorized):
-                case static_cast<uint64_t>(AppReasonForClose::kProtocolViolation):
-                case static_cast<uint64_t>(AppReasonForClose::kInternalError):
-                    transport->CloseInternal(connection, static_cast<AppReasonForClose>(app_reason_code));
-                    break;
-                default:
-                    transport->CloseInternal(connection, AppReasonForClose::kUnknown);
-                    break;
-            }
+            // The connection is already closed, so the termination code is never sent.
+            transport->CloseInternal(connection, status, messages::TerminationReason::kNoError);
 
             if (!transport->is_server_mode && transport->Status() == TransportStatus::kShutdown) {
                 // TODO: Fix picoquic. Apparently picoquic is not processing return values for this callback
@@ -527,7 +515,8 @@ try {
                     QUICR_LOGGER_INFO(
                       transport->logger, "Closing connection id {}", reinterpret_cast<uint64_t>(close_cnx));
                     transport->CloseInternal(transport->GetConnection(reinterpret_cast<uint64_t>(close_cnx)),
-                                             AppReasonForClose::kShutdown);
+                                             TransportStatus::kShutdown,
+                                             messages::TerminationReason::kNoError);
                     close_cnx = picoquic_get_next_cnx(close_cnx);
                 }
 
@@ -1359,7 +1348,8 @@ quicr::PicoQuicTransport::Connect(const TransportRemote& server)
 
             const auto fail_webtransport = [&](const char* message, int error) {
                 QUICR_LOGGER_ERROR(logger, "{} ret: {}", message, error);
-                CloseInternal(state->connection, AppReasonForClose::kInternalError);
+                CloseInternal(
+                  state->connection, TransportStatus::kRemoteRequestClose, messages::TerminationReason::kInternalError);
                 state->connection.reset();
                 notify_caller(1);
                 return error;
@@ -1598,7 +1588,15 @@ PicoQuicTransport::Dequeue(const std::shared_ptr<Connection>& connection)
 }
 
 void
-PicoQuicTransport::Close(const std::shared_ptr<Connection>& connection, AppReasonForClose app_reason)
+PicoQuicTransport::Close(const std::shared_ptr<Connection>& connection, messages::TerminationReason reason)
+{
+    Close(connection, TransportStatus::kRemoteRequestClose, reason);
+}
+
+void
+PicoQuicTransport::Close(const std::shared_ptr<Connection>& connection,
+                         TransportStatus status,
+                         messages::TerminationReason reason)
 {
     auto pq_conn = std::static_pointer_cast<PicoQuicConnection>(connection);
     if (!pq_conn) {
@@ -1609,7 +1607,7 @@ PicoQuicTransport::Close(const std::shared_ptr<Connection>& connection, AppReaso
     auto future = done->get_future();
 
     RunPqFunction(pq_conn->shard_idx, [=, this]() {
-        CloseInternal(connection, app_reason);
+        CloseInternal(connection, status, reason);
         done->set_value();
 
         return 0;
@@ -1622,7 +1620,9 @@ PicoQuicTransport::Close(const std::shared_ptr<Connection>& connection, AppReaso
 }
 
 void
-PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, AppReasonForClose app_reason)
+PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection,
+                                 TransportStatus status,
+                                 messages::TerminationReason reason)
 {
     std::unique_lock<std::mutex> lock(state_mutex_);
 
@@ -1690,20 +1690,7 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
 
     // Only one datagram context is per connection, if it's deleted, then the connection is to be terminated
     // TODO(trigaux): Figure out if this logic can live exclusively in Transport here instead of spread to Session.
-    switch (app_reason) {
-        case AppReasonForClose::kRemoteRequestClose:
-            OnConnectionStatus(pq_conn, TransportStatus::kRemoteRequestClose);
-            break;
-        case AppReasonForClose::kIdleTimeout:
-            OnConnectionStatus(pq_conn, TransportStatus::kIdleTimeout);
-            break;
-        case AppReasonForClose::kShutdown:
-            OnConnectionStatus(pq_conn, TransportStatus::kShutdown);
-            break;
-        default:
-            OnConnectionStatus(pq_conn, TransportStatus::kRemoteRequestClose);
-            break;
-    }
+    OnConnectionStatus(pq_conn, status);
 
     // Cleanup client-owned WebTransport h3_ctx before closing connection
     // Server-side h3_ctx is managed by h3zero library and shared across connections
@@ -1715,7 +1702,7 @@ PicoQuicTransport::CloseInternal(const std::shared_ptr<Connection>& connection, 
         pq_conn->wt_h3_ctx = nullptr;
     }
 
-    picoquic_close(pq_conn->pq_cnx, static_cast<uint64_t>(app_reason));
+    picoquic_close(pq_conn->pq_cnx, static_cast<uint64_t>(reason));
 
     connections_.erase(connection->GetID());
     if (!is_server_mode && connections_.empty()) {
@@ -2736,7 +2723,7 @@ PicoQuicTransport::Shutdown()
     }
 
     for (const auto& connection : connections_to_close) {
-        Close(connection, AppReasonForClose::kShutdown);
+        Close(connection, TransportStatus::kShutdown, messages::TerminationReason::kNoError);
     }
 
     for (auto& shard : shards_) {
@@ -3602,5 +3589,5 @@ PicoQuicTransport::DeregisterWebTransport(picoquic_cnx_t* cnx)
     // Clear WebTransport stream mappings for this session
     connection->wt_stream_to_stream.clear();
 
-    CloseInternal(connection, AppReasonForClose::kShutdown);
+    CloseInternal(connection, TransportStatus::kShutdown, messages::TerminationReason::kNoError);
 }

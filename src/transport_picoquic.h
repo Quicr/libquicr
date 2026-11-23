@@ -137,10 +137,16 @@ namespace quicr {
         void Shutdown() override;
 
         void Close(const std::shared_ptr<Connection>& connection,
-                   AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose) override;
+                   messages::TerminationReason reason = messages::TerminationReason::kNoError) override;
+
+        /// Closes on the connection's network thread and waits, reporting @p status for the connection.
+        void Close(const std::shared_ptr<Connection>& connection,
+                   TransportStatus status,
+                   messages::TerminationReason reason);
 
         void CloseInternal(const std::shared_ptr<Connection>& connection,
-                           AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose);
+                           TransportStatus status,
+                           messages::TerminationReason reason);
 
         void EnqueueDatagram(const std::shared_ptr<Connection>& connection,
                              std::shared_ptr<const std::vector<uint8_t>> bytes,
