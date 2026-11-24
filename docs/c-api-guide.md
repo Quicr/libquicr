@@ -148,39 +148,45 @@ inspect them with `quicr_publish_attributes_*()` and
 `quicr_subscribe_attributes_*()`. Returned token values, full track names, and
 track extensions remain borrowed for that callback only.
 
-Callbacks that answer peer requests return tagged reply structures. Initialize
-the whole reply and write only the active member:
+Optional publish and subscribe attribute getters return `true` and write their
+output only when the value is present. They return `false` for an absent value
+or invalid input and leave the output unchanged.
+
+Callbacks that answer peer requests receive a borrowed `quicr_reply_t`.
+Complete it exactly once before returning:
 
 ```c
-return (quicr_subscribe_reply_t){
-    .result = QUICR_REPLY_RESULT_REJECT,
-    .error = {
-        .code = QUICR_REQUEST_ERROR_UNAUTHORIZED,
-        .reason = "not permitted",
-    },
-};
+(void)quicr_reply_reject(
+    reply,
+    QUICR_REQUEST_ERROR_UNAUTHORIZED,
+    "not permitted",
+    NULL);
 ```
 
-On `ACCEPT`, use `response` for subscribe, fetch, track-status, and
-track-namespaces replies. On `REJECT`, use `error`. Response-less replies use
-`error` only when rejecting. Reply strings, nested extensions, and namespace
-lists are borrowed and copied before the callback returns.
+Use `quicr_reply_accept()` for response-less acceptance, or the
+response-specific accept function for publish, subscribe, fetch, track-status,
+and namespace-list responses. The responder is callback-scoped and must not be
+retained or destroyed. Reply strings, redirects, nested extensions, namespace
+lists, and response objects are currently borrowed through synchronous return
+processing; their backing must not be callback-local.
 
-To redirect a request, reject it with the reply type's redirect error code and
-set `error.redirect`. A NULL or empty `connect_uri` reuses the current session
+To redirect a request, pass its redirect error code and redirect details to
+`quicr_reply_reject()`. A NULL or empty `connect_uri` reuses the current session
 URI; NULL `track_namespace` and `track_name` fields preserve those parts of the
 original request. Namespace-scoped requests leave `track_name` NULL.
 
 An accepted `publish_received` reply is special. Create its response from a
 subscribe handler with `quicr_publish_response_create()`, optionally configure
 priority, order, filter, forwarding, timeouts, or new-group request ID, and
-return its pointer as the active `response` member. The library consumes it
-synchronously but does not take ownership. Destroy it after the callback
-returns.
+pass it to `quicr_reply_accept_publish()`. The library does not take ownership.
+Destroy it after the callback returns. The subscribe handler remains pinned
+while a response or pending session adoption references it, so handler
+destruction returns `QUICR_STATUS_BUSY` until that reference is released or
+registration completes.
 
-C reply callbacks are synchronous. The C API does not expose the C++
-`Reply::Defer()` facility, so applications must return a reply before the
-callback completes.
+C reply callbacks and responders are synchronous. The C API does not expose the C++
+`Reply::Defer()` facility, so applications must complete the responder before
+the callback returns.
 
 ## Creating a client session
 
@@ -208,6 +214,10 @@ settings. Configuration strings are nullable and borrowed during the add call;
 the implementation copies or consumes them before returning. Callback tables
 are also copied.
 
+Set `transport_config.tls_root_trust_filename` on clients to verify the relay
+against a PEM CA bundle. Leaving it NULL or empty disables server certificate
+and hostname verification. Server configurations must leave it empty.
+
 `moq://` and `moqt://` select native QUIC. An `https://` URI selects
 WebTransport. Wait for `QUICR_SESSION_STATUS_READY` before starting track
 operations. Prefer `status_changed`; polling `quicr_session_get_status()` is
@@ -226,6 +236,11 @@ also supported.
 Handler creation copies the filter. Subscription filters select next-group,
 largest-object, absolute-start, or absolute-range delivery. Track filters carry
 a property type, track limit, and timeout.
+
+Inbound subscribe callbacks inspect their callback-scoped filter with
+`quicr_subscribe_attributes_filter()`. Namespace and track-prefix callbacks use
+`quicr_subscribe_namespace_attributes_filter_type()` and
+`quicr_subscribe_namespace_attributes_filter()`.
 
 Supply only the callbacks the application needs. Received data is borrowed:
 
@@ -257,7 +272,9 @@ adds subgroup-start and encoded-stream-byte callbacks. The C API does not
 currently expose the C++ partial-object callback.
 
 Registered subscribe handlers can be paused, resumed, updated, and used for
-new-group requests. Remove the handler before destroying it.
+new-group requests. These controls return `QUICR_STATUS_NOT_APPLIED` when the
+current state makes the operation a no-op. Remove the handler before destroying
+it.
 
 ## Publishing a track
 
@@ -292,6 +309,11 @@ The stream-header properties argument is optional. For stream mode, finish open
 subgroups with `quicr_publish_track_handler_end_subgroup()` or
 `quicr_publish_track_handler_end_all_subgroups()` before removal when
 completion matters.
+
+Publisher priority, object priority, default TTL, and default track mode can be
+read or changed through the corresponding
+`quicr_publish_track_handler_get_*()` and `set_*()` functions. Serialize these
+changes with publication and handler callbacks.
 
 ## Fetch
 
@@ -335,6 +357,10 @@ Server callbacks answer inbound namespace publications, namespace-prefix
 subscriptions, and track-prefix subscriptions. Accepted namespace-list replies
 are copied before the callback returns.
 
+Relay implementations can use `quicr_session_send_namespace()` and
+`quicr_session_send_namespace_done()` to notify matching inbound namespace
+subscribers.
+
 ## Track status
 
 Create a `quicr_track_status_track_handler_t` for a full track name, register
@@ -344,8 +370,8 @@ it, and wait for its status callback. Read the optional result with
 Protocol rejection details are available through
 `quicr_track_status_handler_get_error()`.
 
-Receiving peers answer `track_status_received` with a
-`quicr_track_status_reply_t`.
+Receiving peers answer `track_status_received` with
+`quicr_reply_accept_track_status()` or `quicr_reply_reject()`.
 
 ## Creating a server
 
@@ -379,6 +405,12 @@ incoming SETUP, SUBSCRIBE, PUBLISH, namespace, fetch, track-status, and group
 requests. The same callback table may serve several sessions concurrently, so
 synchronize application state.
 
+The server table also reports PUBLISH_DONE, UNSUBSCRIBE,
+PUBLISH_NAMESPACE_DONE, and namespace unsubscription. To relay an accepted
+publisher, create a publish-track handler and bind it to the inbound request
+with `quicr_session_bind_publish_track_handler()`. Unbind it with
+`quicr_session_unbind_publish_track_handler()` before destruction.
+
 Certificate and key material remain external files. Validate deployed
 certificates for validity dates, key strength, signature algorithm,
 hostname/SAN, and the intended trust model.
@@ -392,8 +424,9 @@ for the callback; copy samples that must outlive it.
 
 Check every fallible call. `INVALID_ARGUMENT` covers bad pointers, values, or
 object state. `NOT_FOUND` is returned only where documented for missing results
-or live state. `BUSY` means a handler cannot yet be destroyed. Allocation
-failures and unexpected C++ exceptions map to `OUT_OF_MEMORY` and
+or live state. `NOT_APPLIED` reports a valid control operation that was a no-op
+in the current handler state. `BUSY` means a handler cannot yet be destroyed.
+Allocation failures and unexpected C++ exceptions map to `OUT_OF_MEMORY` and
 `INTERNAL_ERROR`.
 
 Each publish-namespace, subscribe-namespace, and track-status `get_error()`

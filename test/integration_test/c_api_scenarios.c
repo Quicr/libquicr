@@ -21,31 +21,20 @@
         }                                                                                                              \
     } while (0)
 
-static quicr_status_t
-destroy_publish_namespace_handler_when_idle(quicr_publish_namespace_handler_t* handler)
-{
-    quicr_status_t status = QUICR_STATUS_BUSY;
-    for (uint32_t elapsed_ms = 0U; elapsed_ms < QUICR_TEST_TIMEOUT_MS; ++elapsed_ms) {
-        status = quicr_publish_namespace_handler_destroy(handler);
-        if (status != QUICR_STATUS_BUSY) {
-            break;
-        }
-        quicr_test_sleep_ms(1U);
-    }
-
-    return status;
-}
-
 typedef struct connection_context
 {
     quicr_test_event_t* ready;
     quicr_test_event_t* removed;
     quicr_test_event_t* metrics;
     bool setup_received;
+    quicr_status_t wrong_reply_kind_status;
+    quicr_status_t reply_accept_status;
+    quicr_status_t duplicate_reply_status;
 } connection_context_t;
 
 typedef struct track_context
 {
+    quicr_test_event_t* session_ready;
     quicr_test_event_t* ready;
     quicr_test_event_t* object;
     quicr_test_event_t* object_status;
@@ -62,7 +51,6 @@ typedef struct track_context
     quicr_object_status_t received_status;
     quicr_subscribe_track_handler_t* handler;
     quicr_status_t callback_destroy_status;
-    size_t forwarded_size;
     size_t datagram_size;
 } track_context_t;
 
@@ -75,6 +63,7 @@ typedef struct request_context
     quicr_test_event_t* namespace_received;
     quicr_test_event_t* publish_namespace_ready;
     quicr_test_event_t* track_status_ready;
+    size_t expected_fetch_size;
     size_t fetch_size;
     size_t namespace_count;
 } request_context_t;
@@ -89,18 +78,21 @@ typedef struct server_fetch_context
     quicr_test_event_t* namespace_request;
     quicr_test_event_t* namespace_rejected;
     quicr_test_event_t* namespace_accepted;
+    quicr_test_event_t* server_session_ready;
     quicr_session_t* server_session;
     quicr_publish_fetch_handler_t* publish_fetch_handler;
     size_t fetch_request_count;
     size_t fetch_size;
     quicr_fetch_track_handler_status_t fetch_status;
+    size_t expected_fetch_size;
     quicr_object_status_t object_status;
     size_t namespace_request_count;
 } server_fetch_context_t;
 
 typedef struct rejection_context
 {
-    quicr_test_event_t* session_ready;
+    quicr_test_event_t* publish_session_ready;
+    quicr_test_event_t* subscribe_session_ready;
     quicr_test_event_t* publish_rejected;
     quicr_test_event_t* subscribe_rejected;
     quicr_test_event_t* track_status_rejected;
@@ -112,11 +104,25 @@ typedef struct rejection_context
 struct quicr_test_joining_server
 {
     quicr_session_manager_t* manager;
+    quicr_test_event_t* subscribe_received;
+    quicr_test_event_t* subscribe_tracks_received;
     quicr_test_event_t* joining_received;
+    quicr_test_event_t* publish_done_received;
+    quicr_test_event_t* unsubscribe_received;
+    quicr_test_event_t* publish_namespace_done_received;
+    quicr_test_event_t* unsubscribe_namespace_received;
+    quicr_session_t* relay_session;
+    quicr_publish_track_handler_t* relay_publish_handler;
+    quicr_subscribe_track_handler_t* received_publish_handler;
+    quicr_publish_response_t* publish_response;
+    uint64_t relay_request_id;
 };
 
-static quicr_error_reply_t
-accept_setup(quicr_session_t* session, const quicr_setup_attributes_t* attributes, void* user_data)
+static void
+accept_setup(quicr_session_t* session,
+             const quicr_setup_attributes_t* attributes,
+             quicr_reply_t* reply,
+             void* user_data)
 {
     connection_context_t* context = user_data;
     (void)session;
@@ -124,23 +130,27 @@ accept_setup(quicr_session_t* session, const quicr_setup_attributes_t* attribute
 
     if (context != NULL) {
         context->setup_received = true;
+        const quicr_fetch_response_t response = { 0 };
+        context->wrong_reply_kind_status = quicr_reply_accept_fetch(reply, &response);
+        context->reply_accept_status = quicr_reply_accept(reply);
+        context->duplicate_reply_status = quicr_reply_reject(reply, QUICR_ERROR_INTERNAL_ERROR, "duplicate", NULL);
+        return;
     }
 
-    quicr_error_reply_t reply = { 0 };
-    reply.result = QUICR_REPLY_RESULT_ACCEPT;
-    return reply;
+    (void)quicr_reply_accept(reply);
 }
 
-static quicr_error_reply_t
-accept_track_setup(quicr_session_t* session, const quicr_setup_attributes_t* attributes, void* user_data)
+static void
+accept_track_setup(quicr_session_t* session,
+                   const quicr_setup_attributes_t* attributes,
+                   quicr_reply_t* reply,
+                   void* user_data)
 {
     (void)session;
     (void)attributes;
     (void)user_data;
 
-    quicr_error_reply_t reply = { 0 };
-    reply.result = QUICR_REPLY_RESULT_ACCEPT;
-    return reply;
+    (void)quicr_reply_accept(reply);
 }
 
 static void
@@ -151,6 +161,17 @@ connection_status_changed(quicr_session_t* session, quicr_session_status_t statu
 
     if (context != NULL && status == QUICR_SESSION_STATUS_READY) {
         quicr_test_event_signal(context->ready);
+    }
+}
+
+static void
+track_session_status_changed(quicr_session_t* session, quicr_session_status_t status, void* user_data)
+{
+    track_context_t* context = user_data;
+    (void)session;
+
+    if (context != NULL && status == QUICR_SESSION_STATUS_READY) {
+        quicr_test_event_signal(context->session_ready);
     }
 }
 
@@ -310,7 +331,6 @@ forwarding_stream_bytes(uint64_t group_id, uint64_t subgroup_id, quicr_byte_span
     (void)subgroup_id;
 
     if (context != NULL && data.size != 0U) {
-        context->forwarded_size += data.size;
         quicr_test_event_signal(context->forwarding_data);
     }
 }
@@ -359,7 +379,9 @@ fetch_object_received(const quicr_object_headers_t* headers,
 
     if (context != NULL && data.size != 0U) {
         context->fetch_size += data.size;
-        quicr_test_event_signal(context->fetch_object);
+        if (context->fetch_size >= context->expected_fetch_size) {
+            quicr_test_event_signal(context->fetch_object);
+        }
     }
 }
 
@@ -419,11 +441,11 @@ track_status_changed(quicr_track_status_track_handler_t* handler,
 static void
 rejection_session_status_changed(quicr_session_t* session, quicr_session_status_t status, void* user_data)
 {
-    rejection_context_t* context = user_data;
+    quicr_test_event_t* session_ready = user_data;
     (void)session;
 
-    if (context != NULL && status == QUICR_SESSION_STATUS_READY) {
-        quicr_test_event_signal(context->session_ready);
+    if (status == QUICR_SESSION_STATUS_READY) {
+        quicr_test_event_signal(session_ready);
     }
 }
 
@@ -490,6 +512,7 @@ server_fetch_new_session(quicr_session_manager_t* manager, quicr_session_t* sess
 
     if (context != NULL) {
         context->server_session = session;
+        quicr_test_event_signal(context->server_session_ready);
     }
 }
 
@@ -536,7 +559,9 @@ server_fetch_object_received(const quicr_object_headers_t* headers,
 
     if (context != NULL && data.size != 0U) {
         context->fetch_size += data.size;
-        quicr_test_event_signal(context->fetch_object);
+        if (context->fetch_size >= context->expected_fetch_size) {
+            quicr_test_event_signal(context->fetch_object);
+        }
     }
 }
 
@@ -550,41 +575,35 @@ server_fetch_object_status_received(const quicr_object_headers_t* headers, void*
     }
 }
 
-static quicr_fetch_reply_t
+static void
 server_standalone_fetch_received(quicr_session_t* session,
                                  uint64_t request_id,
                                  const quicr_full_track_name_t* full_track_name,
                                  const quicr_standalone_fetch_attributes_t* attributes,
+                                 quicr_reply_t* reply,
                                  void* user_data)
 {
     static const uint8_t payload[] = { 4U, 5U, 6U };
     server_fetch_context_t* context = user_data;
     (void)attributes;
 
-    quicr_fetch_reply_t reply = { 0 };
     if (context == NULL) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_FETCH_ERROR_INTERNAL_ERROR;
-        reply.error.reason = "missing test context";
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_FETCH_ERROR_INTERNAL_ERROR, "missing test context", NULL);
+        return;
     }
 
     ++context->fetch_request_count;
     if (context->fetch_request_count == 1U) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_FETCH_ERROR_INVALID_RANGE;
-        reply.error.reason = "intentional rejection";
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_FETCH_ERROR_INVALID_RANGE, "intentional rejection", NULL);
+        return;
     }
 
     const quicr_status_t create_status = quicr_publish_fetch_handler_create(
       NULL, full_track_name, 0U, request_id, QUICR_GROUP_ORDER_ASCENDING, 1000U, &context->publish_fetch_handler);
     if (create_status != QUICR_STATUS_OK ||
         quicr_session_bind_publish_fetch_handler(session, context->publish_fetch_handler) != QUICR_STATUS_OK) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_FETCH_ERROR_INTERNAL_ERROR;
-        reply.error.reason = "failed to bind response";
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_FETCH_ERROR_INTERNAL_ERROR, "failed to bind response", NULL);
+        return;
     }
 
     quicr_object_headers_t headers;
@@ -597,25 +616,24 @@ server_standalone_fetch_received(quicr_session_t* session,
     if (quicr_publish_fetch_handler_publish_object(context->publish_fetch_handler, &headers, data, &publish_status) !=
           QUICR_STATUS_OK ||
         publish_status != QUICR_PUBLISH_OBJECT_STATUS_OK) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_FETCH_ERROR_INTERNAL_ERROR;
-        reply.error.reason = "failed to publish response";
-        return reply;
+        (void)quicr_reply_reject(reply, QUICR_FETCH_ERROR_INTERNAL_ERROR, "failed to publish response", NULL);
+        return;
     }
 
-    reply.result = QUICR_REPLY_RESULT_ACCEPT;
-    reply.response.has_largest_location = true;
-    reply.response.largest_location.group = 1U;
-    reply.response.largest_location.object = 2U;
-    reply.response.publisher_default_group_order = QUICR_GROUP_ORDER_ASCENDING;
-    return reply;
+    const quicr_fetch_response_t response = {
+        .largest_location = { .group = 1U, .object = 2U },
+        .publisher_default_group_order = QUICR_GROUP_ORDER_ASCENDING,
+        .has_largest_location = true,
+    };
+    (void)quicr_reply_accept_fetch(reply, &response);
 }
 
-static quicr_fetch_reply_t
+static void
 joining_fetch_rejected(quicr_session_t* session,
                        uint64_t request_id,
                        const quicr_full_track_name_t* full_track_name,
                        const quicr_joining_fetch_attributes_t* attributes,
+                       quicr_reply_t* reply,
                        void* user_data)
 {
     quicr_test_joining_server_t* server = user_data;
@@ -628,17 +646,210 @@ joining_fetch_rejected(quicr_session_t* session,
         quicr_test_event_signal(server->joining_received);
     }
 
-    quicr_fetch_reply_t reply = { 0 };
-    reply.result = QUICR_REPLY_RESULT_REJECT;
-    reply.error.code = QUICR_FETCH_ERROR_INVALID_RANGE;
-    reply.error.reason = "intentional joining-fetch rejection";
-    return reply;
+    (void)quicr_reply_reject(reply, QUICR_FETCH_ERROR_INVALID_RANGE, "intentional joining-fetch rejection", NULL);
 }
 
-static quicr_publish_namespace_reply_t
+static bool
+validate_joining_subscribe_attributes(const quicr_subscribe_attributes_t* attributes)
+{
+    quicr_filter_t filter = { 0 };
+    if (quicr_subscribe_attributes_filter(attributes, &filter) != QUICR_STATUS_OK ||
+        quicr_subscribe_attributes_filter(NULL, &filter) != QUICR_STATUS_INVALID_ARGUMENT ||
+        quicr_subscribe_attributes_filter(attributes, NULL) != QUICR_STATUS_INVALID_ARGUMENT) {
+        return false;
+    }
+
+    quicr_group_order_t group_order = QUICR_GROUP_ORDER_UNSPECIFIED;
+    if (!quicr_subscribe_attributes_group_order(attributes, &group_order) ||
+        group_order != QUICR_GROUP_ORDER_ASCENDING || quicr_subscribe_attributes_group_order(attributes, NULL)) {
+        return false;
+    }
+
+    uint64_t new_group_request_id = UINT64_MAX;
+    if (quicr_subscribe_attributes_new_group_request_id(attributes, &new_group_request_id) ||
+        new_group_request_id != UINT64_MAX || quicr_subscribe_attributes_new_group_request_id(attributes, NULL)) {
+        return false;
+    }
+
+    return filter.type == QUICR_FILTER_TYPE_SUBSCRIPTION_FILTER &&
+           filter.subscription.type == QUICR_SUBSCRIPTION_FILTER_TYPE_ABSOLUTE_RANGE &&
+           filter.subscription.start_location.group == 2U && filter.subscription.start_location.object == 3U &&
+           filter.subscription.end_group_delta == 4U;
+}
+
+static void
+joining_subscribe_received(quicr_session_t* session,
+                           uint64_t request_id,
+                           const quicr_full_track_name_t* full_track_name,
+                           const quicr_subscribe_attributes_t* attributes,
+                           quicr_reply_t* reply,
+                           void* user_data)
+{
+    quicr_test_joining_server_t* server = user_data;
+    if (server == NULL || !validate_joining_subscribe_attributes(attributes)) {
+        (void)quicr_reply_reject(reply, QUICR_REQUEST_ERROR_INTERNAL_ERROR, "failed to prepare relay publisher", NULL);
+        return;
+    }
+
+    if (quicr_publish_track_handler_create(
+          NULL, full_track_name, QUICR_TRACK_MODE_STREAM, 0U, 0U, 1000U, NULL, &server->relay_publish_handler) !=
+        QUICR_STATUS_OK) {
+        (void)quicr_reply_reject(reply, QUICR_REQUEST_ERROR_INTERNAL_ERROR, "failed to prepare relay publisher", NULL);
+        return;
+    }
+    if (quicr_session_bind_publish_track_handler(session, 17U, request_id, server->relay_publish_handler, true) !=
+        QUICR_STATUS_OK) {
+        (void)quicr_reply_reject(reply, QUICR_REQUEST_ERROR_INTERNAL_ERROR, "failed to prepare relay publisher", NULL);
+        return;
+    }
+
+    server->relay_session = session;
+    server->relay_request_id = request_id;
+    quicr_test_event_signal(server->subscribe_received);
+    const quicr_subscribe_response_t response = { 0 };
+    (void)quicr_reply_accept_subscribe(reply, &response);
+}
+
+static bool
+validate_joining_publish_attributes(const quicr_publish_attributes_t* attributes)
+{
+    uint64_t expires = UINT64_MAX;
+    if (quicr_publish_attributes_expires(attributes, &expires) || expires != UINT64_MAX ||
+        quicr_publish_attributes_expires(attributes, NULL)) {
+        return false;
+    }
+
+    quicr_location_t largest_object = { UINT64_MAX, UINT64_MAX };
+    if (!quicr_publish_attributes_largest_object(attributes, &largest_object) || largest_object.group != 0U ||
+        largest_object.object != 0U || quicr_publish_attributes_largest_object(attributes, NULL)) {
+        return false;
+    }
+
+    uint64_t max_cache_duration = UINT64_MAX;
+    if (quicr_publish_attributes_max_cache_duration(attributes, &max_cache_duration) ||
+        max_cache_duration != UINT64_MAX || quicr_publish_attributes_max_cache_duration(attributes, NULL)) {
+        return false;
+    }
+
+    uint64_t delivery_timeout = UINT64_MAX;
+    return quicr_publish_attributes_delivery_timeout(attributes, &delivery_timeout) && delivery_timeout == 1000U &&
+           !quicr_publish_attributes_delivery_timeout(attributes, NULL);
+}
+
+static void
+joining_publish_received(quicr_session_t* session,
+                         uint64_t request_id,
+                         const quicr_publish_attributes_t* attributes,
+                         const quicr_subscribe_namespace_handler_t* handler,
+                         quicr_reply_t* reply,
+                         void* user_data)
+{
+    quicr_test_joining_server_t* server = user_data;
+    const quicr_full_track_name_t* full_track_name = quicr_publish_attributes_full_track_name(attributes);
+    (void)session;
+    (void)request_id;
+    (void)handler;
+
+    if (server == NULL || full_track_name == NULL || !validate_joining_publish_attributes(attributes)) {
+        (void)quicr_reply_reject(reply, QUICR_PUBLISH_ERROR_INTERNAL_ERROR, "failed to create publish response", NULL);
+        return;
+    }
+
+    if (quicr_subscribe_track_handler_create(
+          NULL, full_track_name, 0U, QUICR_GROUP_ORDER_UNSPECIFIED, NULL, &server->received_publish_handler) !=
+        QUICR_STATUS_OK) {
+        (void)quicr_reply_reject(reply, QUICR_PUBLISH_ERROR_INTERNAL_ERROR, "failed to create publish response", NULL);
+        return;
+    }
+    if (quicr_publish_response_create(server->received_publish_handler, &server->publish_response) != QUICR_STATUS_OK) {
+        (void)quicr_reply_reject(reply, QUICR_PUBLISH_ERROR_INTERNAL_ERROR, "failed to create publish response", NULL);
+        return;
+    }
+
+    (void)quicr_reply_accept_publish(reply, server->publish_response);
+}
+
+static void
+joining_publish_done_received(quicr_session_t* session, uint64_t request_id, void* user_data)
+{
+    quicr_test_joining_server_t* server = user_data;
+    (void)session;
+    (void)request_id;
+
+    if (server != NULL) {
+        quicr_test_event_signal(server->publish_done_received);
+    }
+}
+
+static void
+joining_unsubscribe_received(quicr_session_t* session, uint64_t request_id, void* user_data)
+{
+    quicr_test_joining_server_t* server = user_data;
+    (void)session;
+
+    if (server != NULL && request_id == server->relay_request_id) {
+        quicr_test_event_signal(server->unsubscribe_received);
+    }
+}
+
+static void
+joining_publish_namespace_done_received(quicr_session_t* session, uint64_t request_id, void* user_data)
+{
+    quicr_test_joining_server_t* server = user_data;
+    (void)session;
+    (void)request_id;
+
+    if (server != NULL) {
+        quicr_test_event_signal(server->publish_namespace_done_received);
+    }
+}
+
+static void
+joining_unsubscribe_namespace_received(quicr_session_t* session,
+                                       const quicr_track_namespace_t* track_namespace,
+                                       void* user_data)
+{
+    quicr_test_joining_server_t* server = user_data;
+    (void)session;
+
+    if (server != NULL && track_namespace != NULL) {
+        quicr_test_event_signal(server->unsubscribe_namespace_received);
+    }
+}
+
+static void
+joining_subscribe_tracks_received(quicr_session_t* session,
+                                  const quicr_track_namespace_t* prefix_namespace,
+                                  const quicr_subscribe_namespace_attributes_t* attributes,
+                                  quicr_reply_t* reply,
+                                  void* user_data)
+{
+    quicr_test_joining_server_t* server = user_data;
+    quicr_filter_type_t filter_type = QUICR_FILTER_TYPE_NONE;
+    quicr_filter_t filter = { 0 };
+    (void)session;
+    (void)prefix_namespace;
+
+    if (server != NULL &&
+        quicr_subscribe_namespace_attributes_filter_type(attributes, &filter_type) == QUICR_STATUS_OK &&
+        quicr_subscribe_namespace_attributes_filter(attributes, &filter) == QUICR_STATUS_OK &&
+        quicr_subscribe_namespace_attributes_filter_type(NULL, &filter_type) == QUICR_STATUS_INVALID_ARGUMENT &&
+        quicr_subscribe_namespace_attributes_filter_type(attributes, NULL) == QUICR_STATUS_INVALID_ARGUMENT &&
+        quicr_subscribe_namespace_attributes_filter(NULL, &filter) == QUICR_STATUS_INVALID_ARGUMENT &&
+        quicr_subscribe_namespace_attributes_filter(attributes, NULL) == QUICR_STATUS_INVALID_ARGUMENT &&
+        filter_type == QUICR_FILTER_TYPE_TRACK_FILTER && filter.type == QUICR_FILTER_TYPE_TRACK_FILTER &&
+        filter.track.property_type == 5U && filter.track.max_tracks_selected == 6U && filter.track.timeout == 7U) {
+        quicr_test_event_signal(server->subscribe_tracks_received);
+    }
+
+    (void)quicr_reply_reject(reply, QUICR_REQUEST_ERROR_GOING_AWAY, "going away conversion test", NULL);
+}
+
+static void
 server_publish_namespace_received(quicr_session_t* session,
                                   const quicr_track_namespace_t* track_namespace,
                                   const quicr_publish_namespace_attributes_t* attributes,
+                                  quicr_reply_t* reply,
                                   void* user_data)
 {
     server_fetch_context_t* context = user_data;
@@ -646,24 +857,20 @@ server_publish_namespace_received(quicr_session_t* session,
     (void)track_namespace;
     (void)attributes;
 
-    quicr_publish_namespace_reply_t reply = { 0 };
     if (context == NULL) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_PUBLISH_NAMESPACE_ERROR_INTERNAL_ERROR;
-        reply.error.reason = "intentional namespace rejection";
-        return reply;
+        (void)quicr_reply_reject(
+          reply, QUICR_PUBLISH_NAMESPACE_ERROR_INTERNAL_ERROR, "intentional namespace rejection", NULL);
+        return;
     }
 
     quicr_test_event_signal(context->namespace_request);
     if (++context->namespace_request_count == 1U) {
-        reply.result = QUICR_REPLY_RESULT_REJECT;
-        reply.error.code = QUICR_PUBLISH_NAMESPACE_ERROR_INTERNAL_ERROR;
-        reply.error.reason = "intentional namespace rejection";
-        return reply;
+        (void)quicr_reply_reject(
+          reply, QUICR_PUBLISH_NAMESPACE_ERROR_INTERNAL_ERROR, "intentional namespace rejection", NULL);
+        return;
     }
 
-    reply.result = QUICR_REPLY_RESULT_ACCEPT;
-    return reply;
+    (void)quicr_reply_accept(reply);
 }
 
 static void
@@ -685,12 +892,11 @@ server_namespace_status_changed(quicr_publish_namespace_handler_t* handler,
 }
 
 static quicr_status_t
-create_track_name(quicr_full_track_name_t** full_track_name)
+create_track_name(const char* track_data, quicr_full_track_name_t** full_track_name)
 {
     static const uint8_t namespace_data[] = "c-api";
-    static const uint8_t track_data[] = "integration";
     const quicr_byte_span_t namespace_entry = { namespace_data, sizeof(namespace_data) - 1U };
-    const quicr_byte_span_t track_name = { track_data, sizeof(track_data) - 1U };
+    const quicr_byte_span_t track_name = { (const uint8_t*)track_data, strlen(track_data) };
     quicr_track_namespace_t* track_namespace = NULL;
 
     quicr_status_t status = quicr_track_namespace_create(&namespace_entry, 1U, &track_namespace);
@@ -726,6 +932,9 @@ quicr_test_c_connection(const char* connect_uri)
     quicr_client_config_init(&config);
     config.endpoint_id = "c-api-client";
     config.connect_uri = connect_uri;
+#ifndef QUICR_TEST_NO_CERT_VERIFIER
+    config.transport_config.tls_root_trust_filename = "server-cert.pem";
+#endif
     config.transport_config.metrics_sample_ms = 10U;
 
     quicr_session_client_callbacks_t callbacks = {
@@ -738,6 +947,9 @@ quicr_test_c_connection(const char* connect_uri)
     memset(&callbacks, 0, sizeof(callbacks));
     SCENARIO_REQUIRE(quicr_test_event_wait(context.ready, QUICR_TEST_TIMEOUT_MS));
     SCENARIO_REQUIRE(context.setup_received);
+    SCENARIO_REQUIRE(context.wrong_reply_kind_status == QUICR_STATUS_INVALID_ARGUMENT);
+    SCENARIO_REQUIRE(context.reply_accept_status == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(context.duplicate_reply_status == QUICR_STATUS_INVALID_ARGUMENT);
     SCENARIO_REQUIRE(quicr_session_get_status(session, &status) == QUICR_STATUS_OK);
     SCENARIO_REQUIRE(status == QUICR_SESSION_STATUS_READY);
     SCENARIO_REQUIRE(quicr_test_event_wait(context.metrics, QUICR_TEST_TIMEOUT_MS));
@@ -771,6 +983,14 @@ quicr_c_test_result_t
 quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams, const int use_forwarding)
 {
     static const uint8_t payload[] = "C API integration payload";
+    const char* track_name = "integration-stream";
+    if (use_datagrams) {
+        track_name = "integration-datagram";
+    } else if (use_forwarding) {
+        track_name = "integration-forwarding";
+    } else if (strncmp(connect_uri, "moqt://", sizeof("moqt://") - 1U) == 0) {
+        track_name = "integration-webtransport";
+    }
 
     quicr_c_test_result_t result = QUICR_C_TEST_SUCCESS;
     track_context_t publisher = { 0 };
@@ -781,11 +1001,11 @@ quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams,
     quicr_full_track_name_t* full_track_name = NULL;
     quicr_publish_track_handler_t* publish_handler = NULL;
     quicr_subscribe_track_handler_t* subscribe_handler = NULL;
-    bool publish_registered = false;
-    bool subscribe_registered = false;
 
+    publisher.session_ready = quicr_test_event_create();
     publisher.ready = quicr_test_event_create();
     publisher.metrics = quicr_test_event_create();
+    subscriber.session_ready = quicr_test_event_create();
     subscriber.ready = quicr_test_event_create();
     subscriber.object = quicr_test_event_create();
     subscriber.object_status = quicr_test_event_create();
@@ -794,10 +1014,11 @@ quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams,
     subscriber.forwarding_started = quicr_test_event_create();
     subscriber.forwarding_data = quicr_test_event_create();
     subscriber.datagram = quicr_test_event_create();
-    SCENARIO_REQUIRE(publisher.ready != NULL && subscriber.ready != NULL && subscriber.object != NULL &&
-                     subscriber.object_status != NULL && subscriber.subgroup_ended != NULL &&
-                     publisher.metrics != NULL && subscriber.metrics != NULL && subscriber.forwarding_started != NULL &&
-                     subscriber.forwarding_data != NULL && subscriber.datagram != NULL);
+    SCENARIO_REQUIRE(publisher.session_ready != NULL && publisher.ready != NULL && subscriber.session_ready != NULL &&
+                     subscriber.ready != NULL && subscriber.object != NULL && subscriber.object_status != NULL &&
+                     subscriber.subgroup_ended != NULL && publisher.metrics != NULL && subscriber.metrics != NULL &&
+                     subscriber.forwarding_started != NULL && subscriber.forwarding_data != NULL &&
+                     subscriber.datagram != NULL);
     SCENARIO_REQUIRE(quicr_session_manager_create(NULL, &manager) == QUICR_STATUS_OK);
 
     quicr_client_config_t publish_config;
@@ -812,14 +1033,24 @@ quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams,
     subscribe_config.connect_uri = connect_uri;
     subscribe_config.transport_config.metrics_sample_ms = 10U;
 
-    const quicr_session_client_callbacks_t session_callbacks = {
+    const quicr_session_client_callbacks_t subscribe_session_callbacks = {
+        .user_data = &subscriber,
         .setup_received = accept_track_setup,
+        .status_changed = track_session_status_changed,
     };
+    const quicr_session_client_callbacks_t publish_session_callbacks = {
+        .user_data = &publisher,
+        .setup_received = accept_track_setup,
+        .status_changed = track_session_status_changed,
+    };
+    SCENARIO_REQUIRE(
+      quicr_session_manager_add_client(manager, &subscribe_config, &subscribe_session_callbacks, &subscribe_session) ==
+      QUICR_STATUS_OK);
     SCENARIO_REQUIRE(quicr_session_manager_add_client(
-                       manager, &subscribe_config, &session_callbacks, &subscribe_session) == QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(quicr_session_manager_add_client(manager, &publish_config, &session_callbacks, &publish_session) ==
-                     QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(create_track_name(&full_track_name) == QUICR_STATUS_OK);
+                       manager, &publish_config, &publish_session_callbacks, &publish_session) == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_test_event_wait(subscriber.session_ready, QUICR_TEST_TIMEOUT_MS));
+    SCENARIO_REQUIRE(quicr_test_event_wait(publisher.session_ready, QUICR_TEST_TIMEOUT_MS));
+    SCENARIO_REQUIRE(create_track_name(track_name, &full_track_name) == QUICR_STATUS_OK);
 
     const quicr_subscribe_track_handler_callbacks_t subscribe_callbacks = {
         .user_data = &subscriber,
@@ -849,7 +1080,6 @@ quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams,
     subscriber.handler = subscribe_handler;
     SCENARIO_REQUIRE(quicr_session_manager_add_handler(manager, subscribe_session, subscribe_handler) ==
                      QUICR_STATUS_OK);
-    subscribe_registered = true;
     SCENARIO_REQUIRE(quicr_track_handler_destroy(subscribe_handler) == QUICR_STATUS_BUSY);
     SCENARIO_REQUIRE(quicr_test_event_wait(subscriber.ready, QUICR_TEST_TIMEOUT_MS));
 
@@ -868,7 +1098,6 @@ quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams,
                                          NULL,
                                          &publish_handler) == QUICR_STATUS_OK);
     SCENARIO_REQUIRE(quicr_session_manager_add_handler(manager, publish_session, publish_handler) == QUICR_STATUS_OK);
-    publish_registered = true;
     SCENARIO_REQUIRE(quicr_track_handler_destroy(publish_handler) == QUICR_STATUS_BUSY);
     SCENARIO_REQUIRE(quicr_test_event_wait(publisher.ready, QUICR_TEST_TIMEOUT_MS));
     SCENARIO_REQUIRE(quicr_test_event_wait(publisher.metrics, QUICR_TEST_TIMEOUT_MS));
@@ -907,7 +1136,6 @@ quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams,
     } else if (use_forwarding) {
         SCENARIO_REQUIRE(quicr_test_event_wait(subscriber.forwarding_started, QUICR_TEST_TIMEOUT_MS));
         SCENARIO_REQUIRE(quicr_test_event_wait(subscriber.forwarding_data, QUICR_TEST_TIMEOUT_MS));
-        SCENARIO_REQUIRE(subscriber.forwarded_size != 0U);
     } else {
         SCENARIO_REQUIRE(quicr_test_event_wait(subscriber.object, QUICR_TEST_TIMEOUT_MS));
         SCENARIO_REQUIRE(subscriber.received_size == sizeof(payload) - 1U);
@@ -945,25 +1173,22 @@ quicr_test_c_publish_subscribe(const char* connect_uri, const int use_datagrams,
     }
 
     SCENARIO_REQUIRE(quicr_subscribe_track_handler_pause(subscribe_handler) == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_subscribe_track_handler_pause(subscribe_handler) == QUICR_STATUS_NOT_APPLIED);
     SCENARIO_REQUIRE(quicr_subscribe_track_handler_resume(subscribe_handler) == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_subscribe_track_handler_resume(subscribe_handler) == QUICR_STATUS_NOT_APPLIED);
     SCENARIO_REQUIRE(quicr_subscribe_track_handler_support_new_group_request(subscribe_handler, true) ==
                      QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_subscribe_track_handler_request_new_group(subscribe_handler, 0U) == QUICR_STATUS_OK);
     SCENARIO_REQUIRE(quicr_session_update_subscribe_track_handler(subscribe_session, subscribe_handler) ==
                      QUICR_STATUS_OK);
     SCENARIO_REQUIRE(quicr_session_goaway_handler(subscribe_session, NULL, 100U, subscribe_handler) == QUICR_STATUS_OK);
 
 cleanup:
-    if (publish_registered) {
-        (void)quicr_session_manager_remove_handler(manager, publish_session, publish_handler);
-    }
-    if (subscribe_registered) {
-        (void)quicr_session_manager_remove_handler(manager, subscribe_session, subscribe_handler);
-    }
+    quicr_session_manager_destroy(manager);
     subscriber.handler = NULL;
     (void)quicr_track_handler_destroy(publish_handler);
     (void)quicr_track_handler_destroy(subscribe_handler);
     quicr_full_track_name_destroy(full_track_name);
-    quicr_session_manager_destroy(manager);
     quicr_test_event_destroy(subscriber.object);
     quicr_test_event_destroy(subscriber.object_status);
     quicr_test_event_destroy(subscriber.subgroup_ended);
@@ -972,8 +1197,10 @@ cleanup:
     quicr_test_event_destroy(subscriber.forwarding_started);
     quicr_test_event_destroy(subscriber.datagram);
     quicr_test_event_destroy(subscriber.ready);
+    quicr_test_event_destroy(subscriber.session_ready);
     quicr_test_event_destroy(publisher.metrics);
     quicr_test_event_destroy(publisher.ready);
+    quicr_test_event_destroy(publisher.session_ready);
     return result;
 }
 
@@ -1006,6 +1233,7 @@ quicr_test_c_fetch_namespace_status(const char* connect_uri)
     context.namespace_received = quicr_test_event_create();
     context.publish_namespace_ready = quicr_test_event_create();
     context.track_status_ready = quicr_test_event_create();
+    context.expected_fetch_size = 3U;
     SCENARIO_REQUIRE(context.session_ready != NULL && context.fetch_ready != NULL && context.fetch_object != NULL &&
                      context.namespace_ready != NULL && context.namespace_received != NULL &&
                      context.publish_namespace_ready != NULL && context.track_status_ready != NULL);
@@ -1103,18 +1331,22 @@ quicr_test_c_fetch_namespace_status(const char* connect_uri)
                      QUICR_STATUS_NOT_FOUND);
 
 cleanup:
-    if (track_status_registered) {
-        (void)quicr_session_manager_remove_handler(manager, session, track_status_handler);
+    if (result.line == 0) {
+        if (track_status_registered) {
+            (void)quicr_session_manager_remove_handler(manager, session, track_status_handler);
+        }
+        if (namespace_registered) {
+            (void)quicr_session_manager_remove_handler(manager, session, namespace_handler);
+        }
+        if (publish_namespace_registered) {
+            (void)quicr_session_manager_remove_handler(manager, session, publish_namespace_handler);
+        }
+        if (fetch_registered) {
+            (void)quicr_session_manager_remove_handler(manager, session, fetch_handler);
+        }
     }
-    if (namespace_registered) {
-        (void)quicr_session_manager_remove_handler(manager, session, namespace_handler);
-    }
-    if (publish_namespace_registered) {
-        (void)quicr_session_manager_remove_handler(manager, session, publish_namespace_handler);
-    }
-    if (fetch_registered) {
-        (void)quicr_session_manager_remove_handler(manager, session, fetch_handler);
-    }
+    quicr_session_manager_destroy(manager);
+    manager = NULL;
     (void)quicr_track_handler_destroy(track_status_handler);
     (void)quicr_track_handler_destroy(namespace_handler);
     (void)quicr_track_handler_destroy(publish_namespace_handler);
@@ -1123,7 +1355,6 @@ cleanup:
 
     quicr_full_track_name_destroy(full_track_name);
     quicr_track_namespace_destroy(track_namespace);
-    quicr_session_manager_destroy(manager);
     quicr_test_event_destroy(context.track_status_ready);
     quicr_test_event_destroy(context.namespace_received);
     quicr_test_event_destroy(context.namespace_ready);
@@ -1150,12 +1381,14 @@ quicr_test_c_rejections(const char* connect_uri)
     bool subscribe_registered = false;
     bool track_status_registered = false;
 
-    context.session_ready = quicr_test_event_create();
+    context.publish_session_ready = quicr_test_event_create();
+    context.subscribe_session_ready = quicr_test_event_create();
     context.publish_rejected = quicr_test_event_create();
     context.subscribe_rejected = quicr_test_event_create();
     context.track_status_rejected = quicr_test_event_create();
-    SCENARIO_REQUIRE(context.session_ready != NULL && context.publish_rejected != NULL &&
-                     context.subscribe_rejected != NULL && context.track_status_rejected != NULL);
+    SCENARIO_REQUIRE(context.publish_session_ready != NULL && context.subscribe_session_ready != NULL &&
+                     context.publish_rejected != NULL && context.subscribe_rejected != NULL &&
+                     context.track_status_rejected != NULL);
     SCENARIO_REQUIRE(quicr_session_manager_create(NULL, &manager) == QUICR_STATUS_OK);
 
     quicr_client_config_t publish_config;
@@ -1168,18 +1401,24 @@ quicr_test_c_rejections(const char* connect_uri)
     subscribe_config.endpoint_id = "c-api-rejected-subscriber";
     subscribe_config.connect_uri = connect_uri;
 
-    const quicr_session_client_callbacks_t session_callbacks = {
-        .user_data = &context,
+    const quicr_session_client_callbacks_t publish_session_callbacks = {
+        .user_data = context.publish_session_ready,
         .setup_received = accept_track_setup,
         .status_changed = rejection_session_status_changed,
     };
-    SCENARIO_REQUIRE(quicr_session_manager_add_client(manager, &publish_config, &session_callbacks, &publish_session) ==
-                     QUICR_STATUS_OK);
+    const quicr_session_client_callbacks_t subscribe_session_callbacks = {
+        .user_data = context.subscribe_session_ready,
+        .setup_received = accept_track_setup,
+        .status_changed = rejection_session_status_changed,
+    };
     SCENARIO_REQUIRE(quicr_session_manager_add_client(
-                       manager, &subscribe_config, &session_callbacks, &subscribe_session) == QUICR_STATUS_OK);
-    SCENARIO_REQUIRE(quicr_test_event_wait(context.session_ready, QUICR_TEST_TIMEOUT_MS));
-    SCENARIO_REQUIRE(quicr_test_event_wait(context.session_ready, QUICR_TEST_TIMEOUT_MS));
-    SCENARIO_REQUIRE(create_track_name(&full_track_name) == QUICR_STATUS_OK);
+                       manager, &publish_config, &publish_session_callbacks, &publish_session) == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(
+      quicr_session_manager_add_client(manager, &subscribe_config, &subscribe_session_callbacks, &subscribe_session) ==
+      QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(quicr_test_event_wait(context.publish_session_ready, QUICR_TEST_TIMEOUT_MS));
+    SCENARIO_REQUIRE(quicr_test_event_wait(context.subscribe_session_ready, QUICR_TEST_TIMEOUT_MS));
+    SCENARIO_REQUIRE(create_track_name("integration", &full_track_name) == QUICR_STATUS_OK);
 
     const quicr_publish_track_handler_callbacks_t publish_callbacks = {
         .user_data = &context,
@@ -1231,24 +1470,28 @@ quicr_test_c_rejections(const char* connect_uri)
     SCENARIO_REQUIRE(strlen(reason) + 1U == reason_size);
 
 cleanup:
-    if (track_status_registered) {
-        (void)quicr_session_manager_remove_handler(manager, subscribe_session, track_status_handler);
+    if (result.line == 0) {
+        if (track_status_registered) {
+            (void)quicr_session_manager_remove_handler(manager, subscribe_session, track_status_handler);
+        }
+        if (subscribe_registered) {
+            (void)quicr_session_manager_remove_handler(manager, subscribe_session, subscribe_handler);
+        }
+        if (publish_registered) {
+            (void)quicr_session_manager_remove_handler(manager, publish_session, publish_handler);
+        }
     }
-    if (subscribe_registered) {
-        (void)quicr_session_manager_remove_handler(manager, subscribe_session, subscribe_handler);
-    }
-    if (publish_registered) {
-        (void)quicr_session_manager_remove_handler(manager, publish_session, publish_handler);
-    }
+    quicr_session_manager_destroy(manager);
+    manager = NULL;
     (void)quicr_track_handler_destroy(track_status_handler);
     (void)quicr_track_handler_destroy(subscribe_handler);
     (void)quicr_track_handler_destroy(publish_handler);
     quicr_full_track_name_destroy(full_track_name);
-    quicr_session_manager_destroy(manager);
     quicr_test_event_destroy(context.track_status_rejected);
     quicr_test_event_destroy(context.subscribe_rejected);
     quicr_test_event_destroy(context.publish_rejected);
-    quicr_test_event_destroy(context.session_ready);
+    quicr_test_event_destroy(context.subscribe_session_ready);
+    quicr_test_event_destroy(context.publish_session_ready);
     return result;
 }
 
@@ -1280,10 +1523,12 @@ quicr_test_c_server_fetch(const char* connect_uri, const uint16_t server_port)
     context.namespace_request = quicr_test_event_create();
     context.namespace_rejected = quicr_test_event_create();
     context.namespace_accepted = quicr_test_event_create();
+    context.server_session_ready = quicr_test_event_create();
+    context.expected_fetch_size = 3U;
     SCENARIO_REQUIRE(context.client_ready != NULL && context.fetch_rejected != NULL && context.fetch_ready != NULL &&
                      context.fetch_object != NULL && context.fetch_object_status != NULL &&
                      context.namespace_request != NULL && context.namespace_rejected != NULL &&
-                     context.namespace_accepted != NULL);
+                     context.namespace_accepted != NULL && context.server_session_ready != NULL);
 
     const quicr_session_manager_callbacks_t server_manager_callbacks = {
         .user_data = &context,
@@ -1320,8 +1565,9 @@ quicr_test_c_server_fetch(const char* connect_uri, const uint16_t server_port)
     SCENARIO_REQUIRE(quicr_session_manager_add_client(
                        client_manager, &client_config, &client_callbacks, &client_session) == QUICR_STATUS_OK);
     SCENARIO_REQUIRE(quicr_test_event_wait(context.client_ready, QUICR_TEST_TIMEOUT_MS));
+    SCENARIO_REQUIRE(quicr_test_event_wait(context.server_session_ready, QUICR_TEST_TIMEOUT_MS));
     SCENARIO_REQUIRE(context.server_session != NULL);
-    SCENARIO_REQUIRE(create_track_name(&full_track_name) == QUICR_STATUS_OK);
+    SCENARIO_REQUIRE(create_track_name("integration", &full_track_name) == QUICR_STATUS_OK);
 
     const quicr_location_t start = { .group = 0U, .object = 0U };
     const quicr_fetch_end_location_t end = { .group = 10U, .has_object = false };
@@ -1384,8 +1630,6 @@ quicr_test_c_server_fetch(const char* connect_uri, const uint16_t server_port)
     SCENARIO_REQUIRE(quicr_session_manager_remove_handler(client_manager, client_session, rejected_namespace) ==
                      QUICR_STATUS_OK);
     rejected_namespace_registered = false;
-    SCENARIO_REQUIRE(destroy_publish_namespace_handler_when_idle(rejected_namespace) == QUICR_STATUS_OK);
-    rejected_namespace = NULL;
 
     SCENARIO_REQUIRE(quicr_publish_namespace_handler_create(
                        &namespace_callbacks, track_namespace, &accepted_namespace) == QUICR_STATUS_OK);
@@ -1396,30 +1640,35 @@ quicr_test_c_server_fetch(const char* connect_uri, const uint16_t server_port)
     SCENARIO_REQUIRE(quicr_test_event_wait(context.namespace_accepted, QUICR_TEST_TIMEOUT_MS));
 
 cleanup:
-    if (accepted_namespace_registered) {
-        (void)quicr_session_manager_remove_handler(client_manager, client_session, accepted_namespace);
+    if (result.line == 0) {
+        if (accepted_namespace_registered) {
+            (void)quicr_session_manager_remove_handler(client_manager, client_session, accepted_namespace);
+        }
+        if (rejected_namespace_registered) {
+            (void)quicr_session_manager_remove_handler(client_manager, client_session, rejected_namespace);
+        }
+        if (accepted_fetch_registered) {
+            (void)quicr_session_manager_remove_handler(client_manager, client_session, accepted_fetch);
+        }
+        if (rejected_fetch_registered) {
+            (void)quicr_session_manager_remove_handler(client_manager, client_session, rejected_fetch);
+        }
+        if (publish_fetch_bound) {
+            (void)quicr_session_unbind_publish_fetch_handler(context.server_session, context.publish_fetch_handler);
+        }
     }
-    if (rejected_namespace_registered) {
-        (void)quicr_session_manager_remove_handler(client_manager, client_session, rejected_namespace);
-    }
-    if (accepted_fetch_registered) {
-        (void)quicr_session_manager_remove_handler(client_manager, client_session, accepted_fetch);
-    }
-    if (rejected_fetch_registered) {
-        (void)quicr_session_manager_remove_handler(client_manager, client_session, rejected_fetch);
-    }
-    if (publish_fetch_bound) {
-        (void)quicr_session_unbind_publish_fetch_handler(context.server_session, context.publish_fetch_handler);
-    }
+    quicr_session_manager_destroy(client_manager);
+    client_manager = NULL;
+    quicr_session_manager_destroy(server_manager);
+    server_manager = NULL;
     (void)quicr_track_handler_destroy(accepted_fetch);
     (void)quicr_track_handler_destroy(rejected_fetch);
-    (void)destroy_publish_namespace_handler_when_idle(accepted_namespace);
-    (void)destroy_publish_namespace_handler_when_idle(rejected_namespace);
+    (void)quicr_track_handler_destroy(accepted_namespace);
+    (void)quicr_track_handler_destroy(rejected_namespace);
     (void)quicr_track_handler_destroy(context.publish_fetch_handler);
     quicr_full_track_name_destroy(full_track_name);
     quicr_track_namespace_destroy(track_namespace);
-    quicr_session_manager_destroy(client_manager);
-    quicr_session_manager_destroy(server_manager);
+    quicr_test_event_destroy(context.server_session_ready);
     quicr_test_event_destroy(context.namespace_accepted);
     quicr_test_event_destroy(context.namespace_rejected);
     quicr_test_event_destroy(context.namespace_request);
@@ -1444,8 +1693,20 @@ quicr_test_c_joining_server_start(const uint16_t port, quicr_test_joining_server
 
     created = calloc(1U, sizeof(*created));
     SCENARIO_REQUIRE(created != NULL);
+    created->subscribe_received = quicr_test_event_create();
+    SCENARIO_REQUIRE(created->subscribe_received != NULL);
+    created->subscribe_tracks_received = quicr_test_event_create();
+    SCENARIO_REQUIRE(created->subscribe_tracks_received != NULL);
     created->joining_received = quicr_test_event_create();
     SCENARIO_REQUIRE(created->joining_received != NULL);
+    created->publish_done_received = quicr_test_event_create();
+    SCENARIO_REQUIRE(created->publish_done_received != NULL);
+    created->unsubscribe_received = quicr_test_event_create();
+    SCENARIO_REQUIRE(created->unsubscribe_received != NULL);
+    created->publish_namespace_done_received = quicr_test_event_create();
+    SCENARIO_REQUIRE(created->publish_namespace_done_received != NULL);
+    created->unsubscribe_namespace_received = quicr_test_event_create();
+    SCENARIO_REQUIRE(created->unsubscribe_namespace_received != NULL);
     SCENARIO_REQUIRE(quicr_session_manager_create(NULL, &created->manager) == QUICR_STATUS_OK);
 
     quicr_server_config_t config;
@@ -1459,7 +1720,14 @@ quicr_test_c_joining_server_start(const uint16_t port, quicr_test_joining_server
     const quicr_session_server_callbacks_t callbacks = {
         .user_data = created,
         .setup_received = accept_track_setup,
+        .publish_received = joining_publish_received,
+        .subscribe_tracks_received = joining_subscribe_tracks_received,
+        .subscribe_received = joining_subscribe_received,
         .joining_fetch_received = joining_fetch_rejected,
+        .publish_done_received = joining_publish_done_received,
+        .unsubscribe_received = joining_unsubscribe_received,
+        .publish_namespace_done_received = joining_publish_namespace_done_received,
+        .unsubscribe_namespace_received = joining_unsubscribe_namespace_received,
     };
     SCENARIO_REQUIRE(quicr_session_manager_add_server(created->manager, &config, &callbacks) == QUICR_STATUS_OK);
 
@@ -1469,6 +1737,15 @@ quicr_test_c_joining_server_start(const uint16_t port, quicr_test_joining_server
 cleanup:
     if (created != NULL) {
         quicr_session_manager_destroy(created->manager);
+        quicr_publish_response_destroy(created->publish_response);
+        (void)quicr_subscribe_track_handler_destroy(created->received_publish_handler);
+        (void)quicr_publish_track_handler_destroy(created->relay_publish_handler);
+        quicr_test_event_destroy(created->unsubscribe_namespace_received);
+        quicr_test_event_destroy(created->publish_namespace_done_received);
+        quicr_test_event_destroy(created->unsubscribe_received);
+        quicr_test_event_destroy(created->publish_done_received);
+        quicr_test_event_destroy(created->subscribe_received);
+        quicr_test_event_destroy(created->subscribe_tracks_received);
         quicr_test_event_destroy(created->joining_received);
         free(created);
     }
@@ -1478,7 +1755,37 @@ cleanup:
 int
 quicr_test_c_joining_server_wait(quicr_test_joining_server_t* server, const uint32_t timeout_ms)
 {
-    return server != NULL && quicr_test_event_wait(server->joining_received, timeout_ms);
+    return server != NULL && quicr_test_event_wait(server->subscribe_tracks_received, timeout_ms) &&
+           quicr_test_event_wait(server->joining_received, timeout_ms) &&
+           quicr_test_event_wait(server->publish_done_received, timeout_ms) &&
+           quicr_test_event_wait(server->unsubscribe_received, timeout_ms) &&
+           quicr_session_unbind_publish_track_handler(
+             server->relay_session, 17U, server->relay_publish_handler, false) == QUICR_STATUS_OK &&
+           quicr_test_event_wait(server->publish_namespace_done_received, timeout_ms) &&
+           quicr_test_event_wait(server->unsubscribe_namespace_received, timeout_ms);
+}
+
+int
+quicr_test_c_joining_server_send_namespace(quicr_test_joining_server_t* server)
+{
+    static const uint8_t first_entry_data[] = "c-api";
+    static const uint8_t second_entry_data[] = "joining";
+    const quicr_byte_span_t entries[] = {
+        { first_entry_data, sizeof(first_entry_data) - 1U },
+        { second_entry_data, sizeof(second_entry_data) - 1U },
+    };
+    quicr_track_namespace_t* track_namespace = NULL;
+
+    if (server == NULL || !quicr_test_event_wait(server->subscribe_received, QUICR_TEST_TIMEOUT_MS) ||
+        server->relay_session == NULL ||
+        quicr_track_namespace_create(entries, 2U, &track_namespace) != QUICR_STATUS_OK) {
+        return false;
+    }
+
+    const bool sent = quicr_session_send_namespace(server->relay_session, track_namespace) == QUICR_STATUS_OK &&
+                      quicr_session_send_namespace_done(server->relay_session, track_namespace) == QUICR_STATUS_OK;
+    quicr_track_namespace_destroy(track_namespace);
+    return sent;
 }
 
 void
@@ -1489,6 +1796,15 @@ quicr_test_c_joining_server_destroy(quicr_test_joining_server_t* server)
     }
 
     quicr_session_manager_destroy(server->manager);
+    quicr_publish_response_destroy(server->publish_response);
+    (void)quicr_subscribe_track_handler_destroy(server->received_publish_handler);
+    (void)quicr_publish_track_handler_destroy(server->relay_publish_handler);
+    quicr_test_event_destroy(server->unsubscribe_namespace_received);
+    quicr_test_event_destroy(server->publish_namespace_done_received);
+    quicr_test_event_destroy(server->unsubscribe_received);
+    quicr_test_event_destroy(server->publish_done_received);
+    quicr_test_event_destroy(server->subscribe_received);
+    quicr_test_event_destroy(server->subscribe_tracks_received);
     quicr_test_event_destroy(server->joining_received);
     free(server);
 }

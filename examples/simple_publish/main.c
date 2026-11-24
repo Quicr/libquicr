@@ -27,8 +27,11 @@ sleep_ms(unsigned int milliseconds)
 #endif
 }
 
-static quicr_error_reply_t
-setup_received(quicr_session_t* session, const quicr_setup_attributes_t* attributes, void* user_data)
+static void
+setup_received(quicr_session_t* session,
+               const quicr_setup_attributes_t* attributes,
+               quicr_reply_t* reply,
+               void* user_data)
 {
     (void)session;
     (void)user_data;
@@ -38,9 +41,7 @@ setup_received(quicr_session_t* session, const quicr_setup_attributes_t* attribu
     fwrite(endpoint_id.data, sizeof(*endpoint_id.data), endpoint_id.size, stderr);
     fprintf(stderr, "'\n");
 
-    return (quicr_error_reply_t){
-        .result = QUICR_REPLY_RESULT_ACCEPT,
-    };
+    (void)quicr_reply_accept(reply);
 }
 
 int

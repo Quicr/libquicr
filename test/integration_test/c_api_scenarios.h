@@ -32,8 +32,6 @@ extern "C"
 
     bool quicr_test_event_wait(quicr_test_event_t* event, uint32_t timeout_ms);
 
-    void quicr_test_sleep_ms(uint32_t duration_ms);
-
     quicr_c_test_result_t quicr_test_c_connection(const char* connect_uri);
 
     quicr_c_test_result_t quicr_test_c_publish_subscribe(const char* connect_uri,
@@ -49,6 +47,8 @@ extern "C"
     quicr_c_test_result_t quicr_test_c_joining_server_start(uint16_t port, quicr_test_joining_server_t** server);
 
     int quicr_test_c_joining_server_wait(quicr_test_joining_server_t* server, uint32_t timeout_ms);
+
+    int quicr_test_c_joining_server_send_namespace(quicr_test_joining_server_t* server);
 
     void quicr_test_c_joining_server_destroy(quicr_test_joining_server_t* server);
 

@@ -74,7 +74,69 @@ namespace {
 
     template<typename Cpp, typename C>
     Cpp ToCppType(const C&);
+
+    enum class CReplyKind : std::uint8_t
+    {
+        kSetup,
+        kPublish,
+        kPublishNamespace,
+        kFetch,
+        kTrackStatus,
+        kSubscribe,
+        kTrackNamespaces,
+        kError,
+    };
+
+    bool AcceptsEmptyResponse(const CReplyKind kind)
+    {
+        switch (kind) {
+            case CReplyKind::kSetup:
+            case CReplyKind::kPublishNamespace:
+            case CReplyKind::kError:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    bool IsGenericErrorCode(const std::uint64_t error_code)
+    {
+        switch (error_code) {
+            case QUICR_ERROR_INTERNAL_ERROR:
+            case QUICR_ERROR_UNAUTHORIZED:
+            case QUICR_ERROR_TIMEOUT:
+            case QUICR_ERROR_NOT_SUPPORTED:
+            case QUICR_ERROR_MALFORMED_AUTH_TOKEN:
+            case QUICR_ERROR_EXPIRED_AUTH_TOKEN:
+            case QUICR_ERROR_DOES_NOT_EXIST:
+            case QUICR_ERROR_INVALID_RANGE:
+            case QUICR_ERROR_MALFORMED_TRACK:
+            case QUICR_ERROR_DUPLICATE_SUBSCRIPTION:
+            case QUICR_ERROR_UNINTERESTED:
+            case QUICR_ERROR_PREFIX_OVERLAP:
+            case QUICR_ERROR_INVALID_JOINING_REQUEST_ID:
+            case QUICR_ERROR_REDIRECT:
+                return true;
+            default:
+                return false;
+        }
+    }
 }
+
+struct quicr_reply
+{
+    CReplyKind kind;
+    bool completed{ false };
+    bool accepted{ false };
+    std::uint64_t error_code{ 0 };
+    const char* reason{ nullptr };
+    const quicr_redirect_t* redirect{ nullptr };
+    const quicr_publish_response_t* publish_response{ nullptr };
+    quicr_subscribe_response_t subscribe_response{};
+    quicr_fetch_response_t fetch_response{};
+    quicr_track_status_response_t track_status_response{};
+    const quicr_track_namespace_list_t* track_namespaces_response{ nullptr };
+};
 
 struct quicr_track_namespace
 {
@@ -320,6 +382,83 @@ namespace {
             .group = location.group,
             .object = location.object,
         };
+    }
+
+    template<>
+    quicr_filter_type_t ToCType<quicr_filter_type_t, messages::FilterType>(const messages::FilterType& filter_type)
+    {
+        switch (filter_type) {
+            case messages::FilterType::kNone:
+                return QUICR_FILTER_TYPE_NONE;
+            case messages::FilterType::kSubscriptionFilter:
+                return QUICR_FILTER_TYPE_SUBSCRIPTION_FILTER;
+            case messages::FilterType::kTrackFilter:
+                return QUICR_FILTER_TYPE_TRACK_FILTER;
+        }
+
+        throw std::invalid_argument("Invalid filter type value");
+    }
+
+    template<>
+    quicr_subscription_filter_t ToCType<quicr_subscription_filter_t, messages::SubscriptionFilter>(
+      const messages::SubscriptionFilter& filter)
+    {
+        quicr_subscription_filter_type_t type;
+        switch (filter.type) {
+            case messages::SubscriptionFilterType::kNextGroupStart:
+                type = QUICR_SUBSCRIPTION_FILTER_TYPE_NEXT_GROUP_START;
+                break;
+            case messages::SubscriptionFilterType::kLargestObject:
+                type = QUICR_SUBSCRIPTION_FILTER_TYPE_LARGEST_OBJECT;
+                break;
+            case messages::SubscriptionFilterType::kAbsoluteStart:
+                type = QUICR_SUBSCRIPTION_FILTER_TYPE_ABSOLUTE_START;
+                break;
+            case messages::SubscriptionFilterType::kAbsoluteRange:
+                type = QUICR_SUBSCRIPTION_FILTER_TYPE_ABSOLUTE_RANGE;
+                break;
+            default:
+                throw std::invalid_argument("Invalid subscription filter type value");
+        }
+
+        return {
+            .type = type,
+            .start_location = ToCType<quicr_location_t>(filter.start_location),
+            .end_group_delta = filter.end_group_delta,
+        };
+    }
+
+    template<>
+    quicr_track_filter_t ToCType<quicr_track_filter_t, messages::TrackFilter>(const messages::TrackFilter& filter)
+    {
+        return {
+            .property_type = filter.property_type,
+            .max_tracks_selected = filter.max_tracks_selected,
+            .timeout = filter.timeout,
+        };
+    }
+
+    template<>
+    quicr_filter_t ToCType<quicr_filter_t, messages::Filter>(const messages::Filter& filter)
+    {
+        return std::visit(
+          [](const auto& value) -> quicr_filter_t {
+              using T = std::decay_t<decltype(value)>;
+              if constexpr (std::is_same_v<T, std::monostate>) {
+                  return { .type = QUICR_FILTER_TYPE_NONE };
+              } else if constexpr (std::is_same_v<T, messages::SubscriptionFilter>) {
+                  return {
+                      .type = QUICR_FILTER_TYPE_SUBSCRIPTION_FILTER,
+                      .subscription = ToCType<quicr_subscription_filter_t>(value),
+                  };
+              } else {
+                  return {
+                      .type = QUICR_FILTER_TYPE_TRACK_FILTER,
+                      .track = ToCType<quicr_track_filter_t>(value),
+                  };
+              }
+          },
+          filter);
     }
 
     template<>
@@ -874,6 +1013,7 @@ namespace {
         TransportConfig result{};
         result.tls_cert_filename = config.tls_cert_filename ? config.tls_cert_filename : "";
         result.tls_key_filename = config.tls_key_filename ? config.tls_key_filename : "";
+        result.tls_root_trust_filename = config.tls_root_trust_filename ? config.tls_root_trust_filename : "";
         result.time_queue_init_queue_size = config.time_queue_init_queue_size;
         result.time_queue_max_duration = config.time_queue_max_duration;
         result.time_queue_bucket_interval = config.time_queue_bucket_interval;
@@ -966,7 +1106,7 @@ namespace {
     template<>
     RequestErrorCode ToCppType<RequestErrorCode, quicr_request_error_code_t>(const quicr_request_error_code_t& code)
     {
-        if (code < QUICR_REQUEST_ERROR_INTERNAL_ERROR || code > QUICR_REQUEST_ERROR_REDIRECT) {
+        if (code < QUICR_REQUEST_ERROR_INTERNAL_ERROR || code > QUICR_REQUEST_ERROR_GOING_AWAY) {
             return RequestErrorCode::kInternalError;
         }
         return static_cast<RequestErrorCode>(code);
@@ -1010,6 +1150,7 @@ namespace {
             case QUICR_ERROR_NOT_SUPPORTED:
             case QUICR_ERROR_MALFORMED_AUTH_TOKEN:
             case QUICR_ERROR_EXPIRED_AUTH_TOKEN:
+            case QUICR_ERROR_GOING_AWAY:
             case QUICR_ERROR_DOES_NOT_EXIST:
             case QUICR_ERROR_INVALID_RANGE:
             case QUICR_ERROR_MALFORMED_TRACK:
@@ -1111,144 +1252,152 @@ namespace {
         return result;
     }
 
+    bool IsCompletedReply(const quicr_reply_t& reply, const CReplyKind kind)
+    {
+        return reply.kind == kind && reply.completed;
+    }
+
     template<>
     Reply<const PublishResponse, PublishErrorCode>
-    ToCppType<Reply<const PublishResponse, PublishErrorCode>, quicr_publish_reply_t>(const quicr_publish_reply_t& reply)
+    ToCppType<Reply<const PublishResponse, PublishErrorCode>, quicr_reply_t>(const quicr_reply_t& reply)
     {
-        if (reply.result == QUICR_REPLY_RESULT_ACCEPT) {
-            if (reply.response) {
-                return ToCppType<PublishResponse>(*reply.response);
+        if (!IsCompletedReply(reply, CReplyKind::kPublish)) {
+            return MakeError(PublishErrorCode::kInternalError, "Publish callback did not complete its reply");
+        }
+        if (reply.accepted) {
+            if (reply.publish_response) {
+                return ToCppType<PublishResponse>(*reply.publish_response);
             }
             return MakeError(PublishErrorCode::kInternalError, "Accepted publish reply has no response");
         }
-        if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            return MakeError(ToCppType<PublishErrorCode>(reply.error.code), reply.error.reason);
-        }
-        return MakeError(PublishErrorCode::kInternalError, "Invalid publish reply result");
+
+        const auto code = static_cast<quicr_publish_error_code_t>(reply.error_code);
+        return MakeError(ToCppType<PublishErrorCode>(code), reply.reason);
     }
 
     template<>
-    Reply<void, PublishNamespaceErrorCode>
-    ToCppType<Reply<void, PublishNamespaceErrorCode>, quicr_publish_namespace_reply_t>(
-      const quicr_publish_namespace_reply_t& reply)
+    Reply<void, PublishNamespaceErrorCode> ToCppType<Reply<void, PublishNamespaceErrorCode>, quicr_reply_t>(
+      const quicr_reply_t& reply)
     {
-        if (reply.result == QUICR_REPLY_RESULT_ACCEPT) {
+        if (!IsCompletedReply(reply, CReplyKind::kPublishNamespace)) {
+            return MakeError(PublishNamespaceErrorCode::kInternalError,
+                             "Publish namespace callback did not complete its reply");
+        }
+        if (reply.accepted) {
             return {};
         }
-        if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            const auto code = ToCppType<PublishNamespaceErrorCode>(reply.error.code);
-            return MakeRedirectableError(code,
-                                         reply.error.reason,
-                                         reply.error.redirect,
-                                         PublishNamespaceErrorCode::kRedirect,
-                                         PublishNamespaceErrorCode::kInternalError);
-        }
-        return MakeError(PublishNamespaceErrorCode::kInternalError, "Invalid publish namespace reply result");
+
+        const auto error_code = static_cast<quicr_publish_namespace_error_code_t>(reply.error_code);
+        const auto code = ToCppType<PublishNamespaceErrorCode>(error_code);
+        return MakeRedirectableError(code,
+                                     reply.reason,
+                                     reply.redirect,
+                                     PublishNamespaceErrorCode::kRedirect,
+                                     PublishNamespaceErrorCode::kInternalError);
     }
 
     template<>
-    Reply<const FetchResponse, FetchErrorCode>
-    ToCppType<Reply<const FetchResponse, FetchErrorCode>, quicr_fetch_reply_t>(const quicr_fetch_reply_t& reply)
+    Reply<const FetchResponse, FetchErrorCode> ToCppType<Reply<const FetchResponse, FetchErrorCode>, quicr_reply_t>(
+      const quicr_reply_t& reply)
     {
-        if (reply.result == QUICR_REPLY_RESULT_ACCEPT) {
-            return ToCppType<FetchResponse>(reply.response);
+        if (!IsCompletedReply(reply, CReplyKind::kFetch)) {
+            return MakeError(FetchErrorCode::kInternalError, "Fetch callback did not complete its reply");
         }
-        if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            const auto code = ToCppType<FetchErrorCode>(reply.error.code);
-            return MakeRedirectableError(code,
-                                         reply.error.reason,
-                                         reply.error.redirect,
-                                         FetchErrorCode::kRedirect,
-                                         FetchErrorCode::kInternalError);
+        if (reply.accepted) {
+            return ToCppType<FetchResponse>(reply.fetch_response);
         }
-        return MakeError(FetchErrorCode::kInternalError, "Invalid fetch reply result");
+
+        const auto error_code = static_cast<quicr_fetch_error_code_t>(reply.error_code);
+        const auto code = ToCppType<FetchErrorCode>(error_code);
+        return MakeRedirectableError(
+          code, reply.reason, reply.redirect, FetchErrorCode::kRedirect, FetchErrorCode::kInternalError);
     }
 
     template<>
-    Reply<TrackStatusResponse, RequestErrorCode>
-    ToCppType<Reply<TrackStatusResponse, RequestErrorCode>, quicr_track_status_reply_t>(
-      const quicr_track_status_reply_t& reply)
+    Reply<TrackStatusResponse, RequestErrorCode> ToCppType<Reply<TrackStatusResponse, RequestErrorCode>, quicr_reply_t>(
+      const quicr_reply_t& reply)
     {
-        if (reply.result == QUICR_REPLY_RESULT_ACCEPT) {
-            return ToCppType<TrackStatusResponse>(reply.response);
+        if (!IsCompletedReply(reply, CReplyKind::kTrackStatus)) {
+            return MakeError(RequestErrorCode::kInternalError, "Track status callback did not complete its reply");
         }
-        if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            const auto code = ToCppType<RequestErrorCode>(reply.error.code);
-            return MakeRedirectableError(code,
-                                         reply.error.reason,
-                                         reply.error.redirect,
-                                         RequestErrorCode::kRedirect,
-                                         RequestErrorCode::kInternalError);
+        if (reply.accepted) {
+            return ToCppType<TrackStatusResponse>(reply.track_status_response);
         }
-        return MakeError(RequestErrorCode::kInternalError, "Invalid track status reply result");
+
+        const auto error_code = static_cast<quicr_request_error_code_t>(reply.error_code);
+        const auto code = ToCppType<RequestErrorCode>(error_code);
+        return MakeRedirectableError(
+          code, reply.reason, reply.redirect, RequestErrorCode::kRedirect, RequestErrorCode::kInternalError);
     }
 
     template<>
-    Reply<SubscribeResponse, RequestErrorCode>
-    ToCppType<Reply<SubscribeResponse, RequestErrorCode>, quicr_subscribe_reply_t>(const quicr_subscribe_reply_t& reply)
+    Reply<SubscribeResponse, RequestErrorCode> ToCppType<Reply<SubscribeResponse, RequestErrorCode>, quicr_reply_t>(
+      const quicr_reply_t& reply)
     {
-        if (reply.result == QUICR_REPLY_RESULT_ACCEPT) {
-            return ToCppType<SubscribeResponse>(reply.response);
+        if (!IsCompletedReply(reply, CReplyKind::kSubscribe)) {
+            return MakeError(RequestErrorCode::kInternalError, "Subscribe callback did not complete its reply");
         }
-        if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            const auto code = ToCppType<RequestErrorCode>(reply.error.code);
-            return MakeRedirectableError(code,
-                                         reply.error.reason,
-                                         reply.error.redirect,
-                                         RequestErrorCode::kRedirect,
-                                         RequestErrorCode::kInternalError);
+        if (reply.accepted) {
+            return ToCppType<SubscribeResponse>(reply.subscribe_response);
         }
-        return MakeError(RequestErrorCode::kInternalError, "Invalid subscribe reply result");
+
+        const auto error_code = static_cast<quicr_request_error_code_t>(reply.error_code);
+        const auto code = ToCppType<RequestErrorCode>(error_code);
+        return MakeRedirectableError(
+          code, reply.reason, reply.redirect, RequestErrorCode::kRedirect, RequestErrorCode::kInternalError);
     }
 
     template<>
     Reply<std::vector<TrackNamespace>, RequestErrorCode>
-    ToCppType<Reply<std::vector<TrackNamespace>, RequestErrorCode>, quicr_track_namespaces_reply_t>(
-      const quicr_track_namespaces_reply_t& reply)
+    ToCppType<Reply<std::vector<TrackNamespace>, RequestErrorCode>, quicr_reply_t>(const quicr_reply_t& reply)
     {
-        if (reply.result == QUICR_REPLY_RESULT_ACCEPT) {
-            return reply.response ? ToCppType<std::vector<TrackNamespace>>(*reply.response)
-                                  : std::vector<TrackNamespace>{};
+        if (!IsCompletedReply(reply, CReplyKind::kTrackNamespaces)) {
+            return MakeError(RequestErrorCode::kInternalError, "Namespace callback did not complete its reply");
         }
-        if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            const auto code = ToCppType<RequestErrorCode>(reply.error.code);
-            return MakeRedirectableError(code,
-                                         reply.error.reason,
-                                         reply.error.redirect,
-                                         RequestErrorCode::kRedirect,
-                                         RequestErrorCode::kInternalError);
+        if (reply.accepted) {
+            return reply.track_namespaces_response
+                     ? ToCppType<std::vector<TrackNamespace>>(*reply.track_namespaces_response)
+                     : std::vector<TrackNamespace>{};
         }
-        return MakeError(RequestErrorCode::kInternalError, "Invalid track namespaces reply result");
+
+        const auto error_code = static_cast<quicr_request_error_code_t>(reply.error_code);
+        const auto code = ToCppType<RequestErrorCode>(error_code);
+        return MakeRedirectableError(
+          code, reply.reason, reply.redirect, RequestErrorCode::kRedirect, RequestErrorCode::kInternalError);
     }
 
     template<>
-    Reply<void, ErrorCode> ToCppType<Reply<void, ErrorCode>, quicr_error_reply_t>(const quicr_error_reply_t& reply)
+    Reply<void, ErrorCode> ToCppType<Reply<void, ErrorCode>, quicr_reply_t>(const quicr_reply_t& reply)
     {
-        if (reply.result == QUICR_REPLY_RESULT_ACCEPT) {
+        if (!IsCompletedReply(reply, CReplyKind::kError)) {
+            return MakeError(ErrorCode::kInternalError, "Callback did not complete its reply");
+        }
+        if (reply.accepted) {
             return {};
         }
-        if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            const auto code = ToCppType<ErrorCode>(reply.error.code);
-            return MakeRedirectableError(
-              code, reply.error.reason, reply.error.redirect, ErrorCode::kRedirect, ErrorCode::kInternalError);
-        }
-        return MakeError(ErrorCode::kInternalError, "Invalid protocol reply result");
+
+        const auto error_code = static_cast<quicr_error_code_t>(reply.error_code);
+        const auto code = ToCppType<ErrorCode>(error_code);
+        return MakeRedirectableError(
+          code, reply.reason, reply.redirect, ErrorCode::kRedirect, ErrorCode::kInternalError);
     }
 
     template<>
-    Expected<void, Error<ErrorCode>> ToCppType<Expected<void, Error<ErrorCode>>, quicr_error_reply_t>(
-      const quicr_error_reply_t& reply)
+    Expected<void, Error<ErrorCode>> ToCppType<Expected<void, Error<ErrorCode>>, quicr_reply_t>(
+      const quicr_reply_t& reply)
     {
-        if (reply.result == QUICR_REPLY_RESULT_ACCEPT) {
+        if (!IsCompletedReply(reply, CReplyKind::kSetup)) {
+            return MakeError(ErrorCode::kInternalError, "Setup callback did not complete its reply");
+        }
+        if (reply.accepted) {
             return {};
         }
-        if (reply.result == QUICR_REPLY_RESULT_REJECT) {
-            if (reply.error.redirect || reply.error.code == QUICR_ERROR_REDIRECT) {
-                return MakeError(ErrorCode::kInternalError, "Redirect is not valid in a setup reply");
-            }
-            return MakeError(ToCppType<ErrorCode>(reply.error.code), reply.error.reason);
+
+        const auto error_code = static_cast<quicr_error_code_t>(reply.error_code);
+        if (reply.redirect || error_code == QUICR_ERROR_REDIRECT) {
+            return MakeError(ErrorCode::kInternalError, "Redirect is not valid in a setup reply");
         }
-        return MakeError(ErrorCode::kInternalError, "Invalid setup reply result");
+        return MakeError(ToCppType<ErrorCode>(error_code), reply.reason);
     }
 
     template<>
@@ -1598,8 +1747,8 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         const auto c_attributes = ToCType<quicr_setup_attributes>(attributes);
         return SafeCallback(
           [&] {
-              const auto reply =
-                callbacks.setup_received(GetSessionHandle(session), &c_attributes, callbacks.user_data);
+              quicr_reply_t reply{ .kind = CReplyKind::kSetup };
+              callbacks.setup_received(GetSessionHandle(session), &c_attributes, &reply, callbacks.user_data);
               return ToCppType<Expected<void, Error<ErrorCode>>>(reply);
           },
           CallbackInternalError<ErrorCode>());
@@ -1652,11 +1801,13 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         quicr_subscribe_namespace_handler c_handler{ .impl = cpp_handler };
         return SafeCallback(
           [&] {
-              const auto reply = callbacks.publish_received(GetSessionHandle(session),
-                                                            request_id,
-                                                            &c_attributes,
-                                                            cpp_handler ? &c_handler : nullptr,
-                                                            callbacks.user_data);
+              quicr_reply_t reply{ .kind = CReplyKind::kPublish };
+              callbacks.publish_received(GetSessionHandle(session),
+                                         request_id,
+                                         &c_attributes,
+                                         cpp_handler ? &c_handler : nullptr,
+                                         &reply,
+                                         callbacks.user_data);
               return ToCppType<Reply<const PublishResponse, PublishErrorCode>>(reply);
           },
           CallbackInternalError<PublishErrorCode>());
@@ -1675,8 +1826,9 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         const auto c_attributes = ToCType<quicr_publish_namespace_attributes>(attributes);
         return SafeCallback(
           [&] {
-              const auto reply = callbacks.publish_namespace_received(
-                GetSessionHandle(session), &c_track_namespace, &c_attributes, callbacks.user_data);
+              quicr_reply_t reply{ .kind = CReplyKind::kPublishNamespace };
+              callbacks.publish_namespace_received(
+                GetSessionHandle(session), &c_track_namespace, &c_attributes, &reply, callbacks.user_data);
               return ToCppType<Reply<void, PublishNamespaceErrorCode>>(reply);
           },
           CallbackInternalError<PublishNamespaceErrorCode>());
@@ -1696,8 +1848,9 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         const auto c_attributes = ToCType<quicr_standalone_fetch_attributes>(attributes);
         return SafeCallback(
           [&] {
-              const auto reply = callbacks.standalone_fetch_received(
-                GetSessionHandle(session), request_id, &c_full_track_name, &c_attributes, callbacks.user_data);
+              quicr_reply_t reply{ .kind = CReplyKind::kFetch };
+              callbacks.standalone_fetch_received(
+                GetSessionHandle(session), request_id, &c_full_track_name, &c_attributes, &reply, callbacks.user_data);
               return ToCppType<Reply<const FetchResponse, FetchErrorCode>>(reply);
           },
           CallbackInternalError<FetchErrorCode>());
@@ -1716,8 +1869,9 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         const auto c_attributes = ToCType<quicr_joining_fetch_attributes>(attributes);
         return SafeCallback(
           [&] {
-              const auto reply = callbacks.joining_fetch_received(
-                GetSessionHandle(session), request_id, &c_full_track_name, &c_attributes, callbacks.user_data);
+              quicr_reply_t reply{ .kind = CReplyKind::kFetch };
+              callbacks.joining_fetch_received(
+                GetSessionHandle(session), request_id, &c_full_track_name, &c_attributes, &reply, callbacks.user_data);
               return ToCppType<Reply<const FetchResponse, FetchErrorCode>>(reply);
           },
           CallbackInternalError<FetchErrorCode>());
@@ -1743,8 +1897,9 @@ class SessionCallbacksAdapter : public DerivedSessionCallbacks
         const auto c_full_track_name = ToCType<quicr_full_track_name_t>(full_track_name);
         return SafeCallback(
           [&] {
-              const auto reply =
-                callbacks.track_status_received(GetSessionHandle(session), &c_full_track_name, callbacks.user_data);
+              quicr_reply_t reply{ .kind = CReplyKind::kTrackStatus };
+              callbacks.track_status_received(
+                GetSessionHandle(session), &c_full_track_name, &reply, callbacks.user_data);
               return ToCppType<Reply<TrackStatusResponse, RequestErrorCode>>(reply);
           },
           CallbackInternalError<RequestErrorCode>());
@@ -1779,8 +1934,9 @@ class ClientCallbacksAdapter final
         const auto c_attributes = ToCType<quicr_subscribe_attributes>(attributes);
         return SafeCallback(
           [&] {
-              const auto reply = callbacks.unpublished_subscribe_received(
-                GetSessionHandle(session), &c_full_track_name, &c_attributes, callbacks.user_data);
+              quicr_reply_t reply{ .kind = CReplyKind::kError };
+              callbacks.unpublished_subscribe_received(
+                GetSessionHandle(session), &c_full_track_name, &c_attributes, &reply, callbacks.user_data);
               return ToCppType<Reply<void, ErrorCode>>(reply);
           },
           CallbackInternalError<ErrorCode>());
@@ -1792,6 +1948,40 @@ class ServerCallbacksAdapter final
 {
   public:
     using SessionCallbacksAdapter::SessionCallbacksAdapter;
+
+    void PublishDoneReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id) override
+    {
+        if (callbacks.publish_done_received) {
+            SafeCallback(callbacks.publish_done_received, GetSessionHandle(session), request_id, callbacks.user_data);
+        }
+    }
+
+    void UnsubscribeReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id) override
+    {
+        if (callbacks.unsubscribe_received) {
+            SafeCallback(callbacks.unsubscribe_received, GetSessionHandle(session), request_id, callbacks.user_data);
+        }
+    }
+
+    void PublishNamespaceDoneReceived(const std::shared_ptr<Session>& session, std::uint64_t request_id) override
+    {
+        if (callbacks.publish_namespace_done_received) {
+            SafeCallback(
+              callbacks.publish_namespace_done_received, GetSessionHandle(session), request_id, callbacks.user_data);
+        }
+    }
+
+    void UnsubscribeNamespaceReceived(const std::shared_ptr<Session>& session,
+                                      const TrackNamespace& track_namespace) override
+    {
+        if (!callbacks.unsubscribe_namespace_received) {
+            return;
+        }
+
+        const auto c_track_namespace = ToCType<quicr_track_namespace_t>(track_namespace);
+        SafeCallback(
+          callbacks.unsubscribe_namespace_received, GetSessionHandle(session), &c_track_namespace, callbacks.user_data);
+    }
 
     Reply<std::vector<TrackNamespace>, RequestErrorCode> SubscribeNamespaceReceived(
       const std::shared_ptr<Session>& session,
@@ -1806,8 +1996,9 @@ class ServerCallbacksAdapter final
         const auto c_attributes = ToCType<quicr_subscribe_namespace_attributes>(attributes);
         return SafeCallback(
           [&] {
-              const auto reply = callbacks.subscribe_namespace_received(
-                GetSessionHandle(session), &c_prefix_namespace, &c_attributes, callbacks.user_data);
+              quicr_reply_t reply{ .kind = CReplyKind::kTrackNamespaces };
+              callbacks.subscribe_namespace_received(
+                GetSessionHandle(session), &c_prefix_namespace, &c_attributes, &reply, callbacks.user_data);
               return ToCppType<Reply<std::vector<TrackNamespace>, RequestErrorCode>>(reply);
           },
           CallbackInternalError<RequestErrorCode>());
@@ -1826,8 +2017,9 @@ class ServerCallbacksAdapter final
         const auto c_attributes = ToCType<quicr_subscribe_namespace_attributes>(attributes);
         return SafeCallback(
           [&] {
-              const auto reply = callbacks.subscribe_tracks_received(
-                GetSessionHandle(session), &c_prefix_namespace, &c_attributes, callbacks.user_data);
+              quicr_reply_t reply{ .kind = CReplyKind::kTrackNamespaces };
+              callbacks.subscribe_tracks_received(
+                GetSessionHandle(session), &c_prefix_namespace, &c_attributes, &reply, callbacks.user_data);
               return ToCppType<Reply<std::vector<TrackNamespace>, RequestErrorCode>>(reply);
           },
           CallbackInternalError<RequestErrorCode>());
@@ -1846,8 +2038,9 @@ class ServerCallbacksAdapter final
         const auto c_attributes = ToCType<quicr_subscribe_attributes>(attributes);
         return SafeCallback(
           [&] {
-              const auto reply = callbacks.subscribe_received(
-                GetSessionHandle(session), request_id, &c_full_track_name, &c_attributes, callbacks.user_data);
+              quicr_reply_t reply{ .kind = CReplyKind::kSubscribe };
+              callbacks.subscribe_received(
+                GetSessionHandle(session), request_id, &c_full_track_name, &c_attributes, &reply, callbacks.user_data);
               return ToCppType<Reply<SubscribeResponse, RequestErrorCode>>(reply);
           },
           CallbackInternalError<RequestErrorCode>());
@@ -1862,7 +2055,8 @@ class ServerCallbacksAdapter final
         const auto c_full_track_name = ToCType<quicr_full_track_name_t>(full_track_name);
         return SafeCallback(
           [&] {
-              const auto reply = callbacks.new_group_requested(&c_full_track_name, group_id, callbacks.user_data);
+              quicr_reply_t reply{ .kind = CReplyKind::kError };
+              callbacks.new_group_requested(&c_full_track_name, group_id, &reply, callbacks.user_data);
               return ToCppType<Reply<void, ErrorCode>>(reply);
           },
           CallbackInternalError<ErrorCode>());
@@ -2544,7 +2738,7 @@ DestroyHandler(CHandler* handler)
         return QUICR_STATUS_OK;
     }
 
-    if (!handler->impl || !handler->callback_state || handler->impl->IsRegistered()) {
+    if (!handler->impl || !handler->callback_state || handler->impl->IsRegistered() || handler->impl.use_count() != 1) {
         return QUICR_STATUS_BUSY;
     }
 
@@ -2558,6 +2752,215 @@ DestroyHandler(CHandler* handler)
 
 extern "C"
 {
+    quicr_status_t quicr_reply_accept(quicr_reply_t* reply)
+    {
+        if (!reply) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (!AcceptsEmptyResponse(reply->kind)) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->completed) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        reply->completed = true;
+        reply->accepted = true;
+        return QUICR_STATUS_OK;
+    }
+
+    quicr_status_t quicr_reply_accept_publish(quicr_reply_t* reply, const quicr_publish_response_t* response)
+    {
+        if (!reply) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->kind != CReplyKind::kPublish) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (!response) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->completed) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        reply->completed = true;
+        reply->accepted = true;
+        reply->publish_response = response;
+        return QUICR_STATUS_OK;
+    }
+
+    quicr_status_t quicr_reply_accept_subscribe(quicr_reply_t* reply, const quicr_subscribe_response_t* response)
+    {
+        if (!reply) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->kind != CReplyKind::kSubscribe) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (!response) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->completed) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        reply->completed = true;
+        reply->accepted = true;
+        reply->subscribe_response = *response;
+        return QUICR_STATUS_OK;
+    }
+
+    quicr_status_t quicr_reply_accept_fetch(quicr_reply_t* reply, const quicr_fetch_response_t* response)
+    {
+        if (!reply) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->kind != CReplyKind::kFetch) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (!response) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->completed) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        reply->completed = true;
+        reply->accepted = true;
+        reply->fetch_response = *response;
+        return QUICR_STATUS_OK;
+    }
+
+    quicr_status_t quicr_reply_accept_track_status(quicr_reply_t* reply, const quicr_track_status_response_t* response)
+    {
+        if (!reply) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->kind != CReplyKind::kTrackStatus) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (!response) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->completed) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        reply->completed = true;
+        reply->accepted = true;
+        reply->track_status_response = *response;
+        return QUICR_STATUS_OK;
+    }
+
+    quicr_status_t quicr_reply_accept_track_namespaces(quicr_reply_t* reply,
+                                                       const quicr_track_namespace_list_t* response)
+    {
+        if (!reply) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->kind != CReplyKind::kTrackNamespaces) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->completed) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        reply->completed = true;
+        reply->accepted = true;
+        reply->track_namespaces_response = response;
+        return QUICR_STATUS_OK;
+    }
+
+    quicr_status_t quicr_reply_reject(quicr_reply_t* reply,
+                                      const uint64_t error_code,
+                                      const char* reason,
+                                      const quicr_redirect_t* redirect)
+    {
+        if (!reply) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        if (reply->completed) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+
+        bool valid = false;
+        bool redirect_supported = false;
+        bool is_redirect = false;
+        switch (reply->kind) {
+            case CReplyKind::kSetup:
+            case CReplyKind::kError:
+                valid = IsGenericErrorCode(error_code);
+                redirect_supported = reply->kind == CReplyKind::kError;
+                is_redirect = error_code == QUICR_ERROR_REDIRECT;
+                if (!redirect_supported) {
+                    if (is_redirect) {
+                        valid = false;
+                    }
+                }
+                break;
+            case CReplyKind::kPublish:
+                valid = error_code >= QUICR_PUBLISH_ERROR_INTERNAL_ERROR && error_code <= QUICR_PUBLISH_ERROR_REJECTED;
+                break;
+            case CReplyKind::kPublishNamespace:
+                valid = error_code >= QUICR_PUBLISH_NAMESPACE_ERROR_INTERNAL_ERROR &&
+                        error_code <= QUICR_PUBLISH_NAMESPACE_ERROR_REDIRECT;
+                redirect_supported = true;
+                is_redirect = error_code == QUICR_PUBLISH_NAMESPACE_ERROR_REDIRECT;
+                break;
+            case CReplyKind::kFetch:
+                valid = error_code >= QUICR_FETCH_ERROR_INVALID_RANGE && error_code <= QUICR_FETCH_ERROR_REDIRECT;
+                redirect_supported = true;
+                is_redirect = error_code == QUICR_FETCH_ERROR_REDIRECT;
+                break;
+            case CReplyKind::kTrackStatus:
+            case CReplyKind::kSubscribe:
+            case CReplyKind::kTrackNamespaces:
+                valid =
+                  error_code >= QUICR_REQUEST_ERROR_INTERNAL_ERROR && error_code <= QUICR_REQUEST_ERROR_GOING_AWAY;
+                redirect_supported = true;
+                is_redirect = error_code == QUICR_REQUEST_ERROR_REDIRECT;
+                break;
+        }
+
+        if (!valid) {
+            return QUICR_STATUS_INVALID_ARGUMENT;
+        }
+        if (!redirect_supported) {
+            if (redirect) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+        } else {
+            if (is_redirect != (redirect != nullptr)) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+        }
+
+        reply->completed = true;
+        reply->accepted = false;
+        reply->error_code = error_code;
+        reply->reason = reason;
+        reply->redirect = redirect;
+        return QUICR_STATUS_OK;
+    }
+
     quicr_status_t quicr_track_namespace_create(const quicr_byte_span_t* entries,
                                                 size_t count,
                                                 quicr_track_namespace_t** track_namespace)
@@ -2672,6 +3075,7 @@ extern "C"
         *config = {
             .tls_cert_filename = "",
             .tls_key_filename = "",
+            .tls_root_trust_filename = "",
             .time_queue_init_queue_size = defaults.time_queue_init_queue_size,
             .time_queue_max_duration = defaults.time_queue_max_duration,
             .time_queue_bucket_interval = defaults.time_queue_bucket_interval,
@@ -2792,6 +3196,42 @@ extern "C"
         });
     }
 
+    quicr_status_t quicr_session_send_namespace(quicr_session_t* session,
+                                                const quicr_track_namespace_t* track_namespace)
+    {
+        return SafeCall([&] {
+            if (!session || !track_namespace) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto session_impl = session->impl.lock();
+            if (!session_impl) {
+                return QUICR_STATUS_NOT_FOUND;
+            }
+
+            session_impl->SendNamespace(ToCppType<TrackNamespace>(*track_namespace));
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_session_send_namespace_done(quicr_session_t* session,
+                                                     const quicr_track_namespace_t* track_namespace)
+    {
+        return SafeCall([&] {
+            if (!session || !track_namespace) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto session_impl = session->impl.lock();
+            if (!session_impl) {
+                return QUICR_STATUS_NOT_FOUND;
+            }
+
+            session_impl->SendNamespaceDone(ToCppType<TrackNamespace>(*track_namespace));
+            return QUICR_STATUS_OK;
+        });
+    }
+
     /*=======================================================================*/
     // Handlers
     /*=======================================================================*/
@@ -2886,6 +3326,109 @@ extern "C"
         });
     }
 
+    quicr_status_t quicr_publish_track_handler_get_publisher_priority(const quicr_publish_track_handler_t* handler,
+                                                                      uint8_t* priority)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl || !priority) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *priority = handler->impl->GetPublisherPriority();
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_publish_track_handler_set_publisher_priority(quicr_publish_track_handler_t* handler,
+                                                                      uint8_t priority)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            handler->impl->SetPublisherPriority(priority);
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_publish_track_handler_get_publish_object_priority(const quicr_publish_track_handler_t* handler,
+                                                                           uint8_t* priority)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl || !priority) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *priority = handler->impl->GetPublishObjectPriority();
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_publish_track_handler_set_publish_object_priority(quicr_publish_track_handler_t* handler,
+                                                                           uint8_t priority)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            handler->impl->SetPublishObjectPriority(priority);
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_publish_track_handler_get_default_ttl(const quicr_publish_track_handler_t* handler,
+                                                               uint32_t* ttl)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl || !ttl) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *ttl = handler->impl->GetDefaultTTL();
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_publish_track_handler_set_default_ttl(quicr_publish_track_handler_t* handler, uint32_t ttl)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            handler->impl->SetDefaultTTL(ttl);
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_publish_track_handler_get_default_track_mode(const quicr_publish_track_handler_t* handler,
+                                                                      quicr_track_mode_t* track_mode)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl || !track_mode) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *track_mode = ToCType<quicr_track_mode_t>(handler->impl->GetDefaultTrackMode());
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_publish_track_handler_set_default_track_mode(quicr_publish_track_handler_t* handler,
+                                                                      quicr_track_mode_t track_mode)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            handler->impl->SetDefaultTrackMode(ToCppType<TrackMode>(track_mode));
+            return QUICR_STATUS_OK;
+        });
+    }
+
     quicr_status_t quicr_publish_track_handler_publish_object(quicr_publish_track_handler_t* handler,
                                                               const quicr_object_headers_t* headers,
                                                               quicr_byte_span_t data,
@@ -2934,6 +3477,58 @@ extern "C"
             }
 
             handler->impl->EndAllSubgroups(completed);
+
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_session_bind_publish_track_handler(quicr_session_t* session,
+                                                            uint64_t src_id,
+                                                            uint64_t request_id,
+                                                            const quicr_publish_track_handler_t* handler,
+                                                            bool ephemeral)
+    {
+        return SafeCall([&] {
+            if (!session || !handler || !handler->impl || !handler->callback_state) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto session_impl = session->impl.lock();
+            if (!session_impl) {
+                return QUICR_STATUS_NOT_FOUND;
+            }
+
+            handler->callback_state->EnableCallbacks();
+            try {
+                session_impl->BindPublisherTrack(src_id, request_id, handler->impl, ephemeral);
+            } catch (...) {
+                if (!handler->impl->IsRegistered()) {
+                    handler->callback_state->DisableCallbacks();
+                }
+                throw;
+            }
+
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_session_unbind_publish_track_handler(quicr_session_t* session,
+                                                              uint64_t src_id,
+                                                              const quicr_publish_track_handler_t* handler,
+                                                              bool send_publish_done)
+    {
+        return SafeCall([&] {
+            if (!session || !handler || !handler->impl || !handler->callback_state || !handler->impl->IsRegistered()) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto session_impl = session->impl.lock();
+            if (!session_impl) {
+                return QUICR_STATUS_NOT_FOUND;
+            }
+
+            session_impl->UnbindPublisherTrack(src_id, handler->impl, send_publish_done);
+            handler->callback_state->DisableCallbacks();
 
             return QUICR_STATUS_OK;
         });
@@ -3169,9 +3764,11 @@ extern "C"
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            handler->impl->Pause();
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
+            }
 
-            return QUICR_STATUS_OK;
+            return handler->impl->Pause() ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;
         });
     }
 
@@ -3182,9 +3779,11 @@ extern "C"
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            handler->impl->Resume();
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
+            }
 
-            return QUICR_STATUS_OK;
+            return handler->impl->Resume() ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;
         });
     }
 
@@ -3196,9 +3795,11 @@ extern "C"
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            handler->impl->RequestNewGroup(group_id);
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
+            }
 
-            return QUICR_STATUS_OK;
+            return handler->impl->RequestNewGroup(group_id) ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;
         });
     }
 
@@ -3289,9 +3890,11 @@ extern "C"
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            handler->impl->Pause();
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
+            }
 
-            return QUICR_STATUS_OK;
+            return handler->impl->Pause() ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;
         });
     }
 
@@ -3302,9 +3905,11 @@ extern "C"
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            handler->impl->Resume();
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
+            }
 
-            return QUICR_STATUS_OK;
+            return handler->impl->Resume() ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;
         });
     }
 
@@ -3315,9 +3920,11 @@ extern "C"
                 return QUICR_STATUS_INVALID_ARGUMENT;
             }
 
-            handler->impl->RequestNewGroup(group_id);
+            if (!handler->impl->IsRegistered()) {
+                return QUICR_STATUS_NOT_APPLIED;
+            }
 
-            return QUICR_STATUS_OK;
+            return handler->impl->RequestNewGroup(group_id) ? QUICR_STATUS_OK : QUICR_STATUS_NOT_APPLIED;
         });
     }
 
@@ -3694,38 +4301,25 @@ extern "C"
         });
     }
 
-    quicr_status_t quicr_publish_attributes_expires(const quicr_publish_attributes_t* attributes,
-                                                    bool* has_expires,
-                                                    uint64_t* expires)
+    bool quicr_publish_attributes_expires(const quicr_publish_attributes_t* attributes, uint64_t* expires)
     {
-        return SafeCall([&] {
-            if (!attributes || !has_expires || !expires) {
-                return QUICR_STATUS_INVALID_ARGUMENT;
-            }
+        if (!attributes || !expires || !attributes->impl.expires) {
+            return false;
+        }
 
-            *has_expires = attributes->impl.expires.has_value();
-            *expires = attributes->impl.expires.value_or(0);
-
-            return QUICR_STATUS_OK;
-        });
+        *expires = *attributes->impl.expires;
+        return true;
     }
 
-    quicr_status_t quicr_publish_attributes_largest_object(const quicr_publish_attributes_t* attributes,
-                                                           bool* has_largest_object,
-                                                           quicr_location_t* largest_object)
+    bool quicr_publish_attributes_largest_object(const quicr_publish_attributes_t* attributes,
+                                                 quicr_location_t* largest_object)
     {
-        return SafeCall([&] {
-            if (!attributes || !has_largest_object || !largest_object) {
-                return QUICR_STATUS_INVALID_ARGUMENT;
-            }
+        if (!attributes || !largest_object || !attributes->impl.largest_object) {
+            return false;
+        }
 
-            *has_largest_object = attributes->impl.largest_object.has_value();
-            *largest_object = attributes->impl.largest_object
-                                ? ToCType<quicr_location_t>(*attributes->impl.largest_object)
-                                : quicr_location_t{};
-
-            return QUICR_STATUS_OK;
-        });
+        *largest_object = ToCType<quicr_location_t>(*attributes->impl.largest_object);
+        return true;
     }
 
     bool quicr_publish_attributes_forward(const quicr_publish_attributes_t* attributes)
@@ -3763,36 +4357,26 @@ extern "C"
         return attributes ? &attributes->track_extensions : nullptr;
     }
 
-    quicr_status_t quicr_publish_attributes_max_cache_duration(const quicr_publish_attributes_t* attributes,
-                                                               bool* has_max_cache_duration,
-                                                               uint64_t* max_cache_duration)
+    bool quicr_publish_attributes_max_cache_duration(const quicr_publish_attributes_t* attributes,
+                                                     uint64_t* max_cache_duration)
     {
-        return SafeCall([&] {
-            if (!attributes || !has_max_cache_duration || !max_cache_duration) {
-                return QUICR_STATUS_INVALID_ARGUMENT;
-            }
+        if (!attributes || !max_cache_duration || !attributes->impl.max_cache_duration) {
+            return false;
+        }
 
-            *has_max_cache_duration = attributes->impl.max_cache_duration.has_value();
-            *max_cache_duration = attributes->impl.max_cache_duration.value_or(0);
-
-            return QUICR_STATUS_OK;
-        });
+        *max_cache_duration = *attributes->impl.max_cache_duration;
+        return true;
     }
 
-    quicr_status_t quicr_publish_attributes_delivery_timeout(const quicr_publish_attributes_t* attributes,
-                                                             bool* has_delivery_timeout,
-                                                             uint64_t* delivery_timeout)
+    bool quicr_publish_attributes_delivery_timeout(const quicr_publish_attributes_t* attributes,
+                                                   uint64_t* delivery_timeout)
     {
-        return SafeCall([&] {
-            if (!attributes || !has_delivery_timeout || !delivery_timeout) {
-                return QUICR_STATUS_INVALID_ARGUMENT;
-            }
+        if (!attributes || !delivery_timeout || !attributes->impl.delivery_timeout) {
+            return false;
+        }
 
-            *has_delivery_timeout = attributes->impl.delivery_timeout.has_value();
-            *delivery_timeout = attributes->impl.delivery_timeout.value_or(0);
-
-            return QUICR_STATUS_OK;
-        });
+        *delivery_timeout = *attributes->impl.delivery_timeout;
+        return true;
     }
 
     uint8_t quicr_subscribe_attributes_priority(const quicr_subscribe_attributes_t* attributes)
@@ -3800,21 +4384,15 @@ extern "C"
         return attributes ? attributes->impl.priority : 0;
     }
 
-    quicr_status_t quicr_subscribe_attributes_group_order(const quicr_subscribe_attributes_t* attributes,
-                                                          bool* has_group_order,
-                                                          quicr_group_order_t* group_order)
+    bool quicr_subscribe_attributes_group_order(const quicr_subscribe_attributes_t* attributes,
+                                                quicr_group_order_t* group_order)
     {
-        return SafeCall([&] {
-            if (!attributes || !has_group_order || !group_order) {
-                return QUICR_STATUS_INVALID_ARGUMENT;
-            }
+        if (!attributes || !group_order || !attributes->impl.group_order) {
+            return false;
+        }
 
-            *has_group_order = attributes->impl.group_order.has_value();
-            *group_order = attributes->impl.group_order ? ToCType<quicr_group_order_t>(*attributes->impl.group_order)
-                                                        : QUICR_GROUP_ORDER_ASCENDING;
-
-            return QUICR_STATUS_OK;
-        });
+        *group_order = ToCType<quicr_group_order_t>(*attributes->impl.group_order);
+        return true;
     }
 
     quicr_status_t quicr_subscribe_attributes_publisher_group_order(const quicr_subscribe_attributes_t* attributes,
@@ -3841,25 +4419,33 @@ extern "C"
         return attributes ? static_cast<uint64_t>(attributes->impl.expires.count()) : 0;
     }
 
+    quicr_status_t quicr_subscribe_attributes_filter(const quicr_subscribe_attributes_t* attributes,
+                                                     quicr_filter_t* filter)
+    {
+        return SafeCall([&] {
+            if (!attributes || !filter) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *filter = ToCType<quicr_filter_t>(attributes->impl.filter);
+            return QUICR_STATUS_OK;
+        });
+    }
+
     bool quicr_subscribe_attributes_forward(const quicr_subscribe_attributes_t* attributes)
     {
         return attributes && attributes->impl.forward != 0;
     }
 
-    quicr_status_t quicr_subscribe_attributes_new_group_request_id(const quicr_subscribe_attributes_t* attributes,
-                                                                   bool* has_new_group_request_id,
-                                                                   uint64_t* new_group_request_id)
+    bool quicr_subscribe_attributes_new_group_request_id(const quicr_subscribe_attributes_t* attributes,
+                                                         uint64_t* new_group_request_id)
     {
-        return SafeCall([&] {
-            if (!attributes || !has_new_group_request_id || !new_group_request_id) {
-                return QUICR_STATUS_INVALID_ARGUMENT;
-            }
+        if (!attributes || !new_group_request_id || !attributes->impl.new_group_request_id) {
+            return false;
+        }
 
-            *has_new_group_request_id = attributes->impl.new_group_request_id.has_value();
-            *new_group_request_id = attributes->impl.new_group_request_id.value_or(0);
-
-            return QUICR_STATUS_OK;
-        });
+        *new_group_request_id = *attributes->impl.new_group_request_id;
+        return true;
     }
 
     bool quicr_subscribe_attributes_is_publisher_initiated(const quicr_subscribe_attributes_t* attributes)
@@ -3880,6 +4466,33 @@ extern "C"
     uint64_t quicr_subscribe_namespace_attributes_request_id(const quicr_subscribe_namespace_attributes_t* attributes)
     {
         return attributes ? attributes->impl.request_id : 0;
+    }
+
+    quicr_status_t quicr_subscribe_namespace_attributes_filter_type(
+      const quicr_subscribe_namespace_attributes_t* attributes,
+      quicr_filter_type_t* filter_type)
+    {
+        return SafeCall([&] {
+            if (!attributes || !filter_type) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *filter_type = ToCType<quicr_filter_type_t>(attributes->impl.filter_type);
+            return QUICR_STATUS_OK;
+        });
+    }
+
+    quicr_status_t quicr_subscribe_namespace_attributes_filter(const quicr_subscribe_namespace_attributes_t* attributes,
+                                                               quicr_filter_t* filter)
+    {
+        return SafeCall([&] {
+            if (!attributes || !filter) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            *filter = ToCType<quicr_filter_t>(attributes->impl.filter);
+            return QUICR_STATUS_OK;
+        });
     }
 
     quicr_status_t quicr_publish_response_create(quicr_subscribe_track_handler_t* handler,

@@ -70,48 +70,66 @@ namespace quicr {
         }
     }
 
-    void SubscribeTrackHandler::Pause() noexcept
+    bool SubscribeTrackHandler::Pause()
     {
         auto session = GetSession().lock();
+        if (!session) {
+            throw std::runtime_error("Handlers must be registered to a session to perform track actions");
+        }
+
         const auto request_stream = GetRequestStream();
-        if (!session || status_ == Status::kPaused || status_ == Status::kNotConnected || request_stream == nullptr) {
-            return;
+        if (status_ == Status::kPaused || status_ == Status::kNotConnected || request_stream == nullptr) {
+            return false;
         }
 
         status_ = Status::kPaused;
         session->SendRequestUpdate(
           request_stream, TrackHash(GetFullTrackName()), std::nullopt, GetSubscriberPriority(), false);
+
+        return true;
     }
 
-    void SubscribeTrackHandler::Resume() noexcept
+    bool SubscribeTrackHandler::Resume()
     {
         auto session = GetSession().lock();
+        if (!session) {
+            throw std::runtime_error("Handlers must be registered to a session to perform track actions");
+        }
+
         const auto request_stream = GetRequestStream();
-        if (!session || request_stream == nullptr) {
-            return;
+        if (request_stream == nullptr) {
+            return false;
         }
 
         if (status_ != Status::kPaused) {
-            return;
+            return false;
         }
 
         status_ = Status::kOk;
         session->SendRequestUpdate(
           request_stream, TrackHash(GetFullTrackName()), std::nullopt, GetSubscriberPriority(), true);
+
+        return true;
     }
 
-    void SubscribeTrackHandler::RequestNewGroup(uint64_t group_id) noexcept
+    bool SubscribeTrackHandler::RequestNewGroup(uint64_t group_id)
     {
         auto session = GetSession().lock();
+        if (!session) {
+            throw std::runtime_error("Handlers must be registered to a session to perform track actions");
+        }
+
         const auto request_stream = GetRequestStream();
-        if (!session || (status_ != Status::kOk && status_ != Status::kPaused) || !support_new_group_request_ ||
+        if ((status_ != Status::kOk && status_ != Status::kPaused) || !support_new_group_request_ ||
             request_stream == nullptr) {
-            return;
+            return false;
         }
 
         // Keep the paused forwarding state. A new-group request must not resume the publisher.
         session->SendRequestUpdate(
           request_stream, TrackHash(GetFullTrackName()), group_id, GetSubscriberPriority(), status_ == Status::kOk);
+
+        return true;
     }
 
     void SubscribeTrackHandler::RequestOkReceived(const messages::Parameters& params)

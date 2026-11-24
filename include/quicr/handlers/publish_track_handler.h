@@ -238,6 +238,12 @@ namespace quicr {
         void SetDefaultTrackMode(const TrackMode track_mode) noexcept { default_track_mode_ = track_mode; }
 
         /**
+         * @brief Gets the framing mode used for subsequent objects.
+         * @return Datagram or subgroup-stream framing mode.
+         */
+        TrackMode GetDefaultTrackMode() const noexcept { return default_track_mode_; }
+
+        /**
          * @brief Get the current stream mode.
          * @return Default subgroup framing properties in stream mode, or `std::nullopt` in datagram mode.
          */
