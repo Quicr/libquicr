@@ -149,9 +149,6 @@ if (QUICR_INSTALL)
     if(TARGET quicr_c)
         list(APPEND quicr_INSTALL_TARGETS quicr_c)
     endif()
-    if(TARGET quicr-bridge)
-        list(APPEND quicr_INSTALL_TARGETS quicr-bridge)
-    endif()
 
     install(TARGETS ${quicr_INSTALL_TARGETS}
         EXPORT quicrTargets

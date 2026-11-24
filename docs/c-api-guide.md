@@ -6,9 +6,8 @@ date: 2026-NOV-13
 # API overview
 
 The native libquicr C API is declared by `<quicr/quicr.h>`. It is a direct C
-interface to the same sessions and handlers as the C++ API and is distinct from
-the legacy c-bridge. The current wire implementation uses the `moqt-18` ALPN
-and draft-18 message encodings.
+interface to the same sessions and handlers as the C++ API. The current wire
+implementation uses the `moqt-18` ALPN and draft-18 message encodings.
 
 With CMake, link the C target:
 
