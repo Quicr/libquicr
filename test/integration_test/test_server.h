@@ -110,15 +110,13 @@ namespace quicr_test {
                                 uint8_t publisher_priority,
                                 uint8_t publish_object_priority,
                                 uint32_t default_ttl,
-                                const std::weak_ptr<TestServer> server = {},
-                                std::optional<std::uint64_t> request_id = std::nullopt)
+                                const std::weak_ptr<TestServer> server = {})
           : quicr::PublishTrackHandler(full_track_name,
                                        track_mode,
                                        publisher_priority,
                                        publish_object_priority,
                                        default_ttl)
           , server_(server)
-          , request_id_(request_id)
         {
         }
 
@@ -155,7 +153,6 @@ namespace quicr_test {
 
       private:
         std::weak_ptr<TestServer> server_;
-        std::optional<std::uint64_t> request_id_;
         mutable std::mutex cancelled_mutex_;
         std::vector<std::pair<std::uint64_t, std::uint64_t>> cancelled_;
     };
@@ -286,7 +283,7 @@ namespace quicr_test {
             subscribe_namespace_promise_ = std::move(promise);
         }
 
-        void SetPublishAcceptedPromise(std::promise<SubscribeDetails> promise)
+        void SetPublishAcceptedPromise(std::promise<quicr::FullTrackName> promise)
         {
             publish_accepted_promise_ = std::move(promise);
         }
@@ -298,7 +295,7 @@ namespace quicr_test {
         }
 
         // Unsubscribe received via PublishTrackHandler::StatusChanged.
-        void SetUnsubscribePromise(std::promise<uint64_t> promise) { unsubscribe_promise_ = std::move(promise); }
+        void SetUnsubscribePromise(std::promise<void> promise) { unsubscribe_promise_ = std::move(promise); }
 
         // UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session,) server callback from
         // CloseRequestHandler().
@@ -483,8 +480,8 @@ namespace quicr_test {
         void UnsubscribeReceived(const std::shared_ptr<quicr::Session>& session, std::uint64_t request_id) override;
 
       public:
-        std::optional<std::promise<SubscribeDetails>> publish_accepted_promise_;
-        std::optional<std::promise<uint64_t>> unsubscribe_promise_;
+        std::optional<std::promise<quicr::FullTrackName>> publish_accepted_promise_;
+        std::optional<std::promise<void>> unsubscribe_promise_;
 
       private:
         mutable std::mutex state_mutex_;

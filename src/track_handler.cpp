@@ -19,26 +19,14 @@ namespace quicr {
         if (!request_.expired()) {
             throw std::logic_error("Handler is already bound to a request.");
         }
+
         request_ = std::move(request);
     }
 
-    bool TrackHandler::UnbindRequest()
+    void TrackHandler::UnbindRequest()
     {
-        std::shared_ptr<Request> request;
-        {
-            std::lock_guard lock(request_mutex_);
-            request = request_.lock();
-            request_.reset();
-            if (!request) {
-                return false;
-            }
-        }
-
-        if (std::erase(request->handlers, shared_from_this()) == 0) {
-            throw std::logic_error("Handler was already removed from the request");
-        }
-
-        return true;
+        std::lock_guard lock(request_mutex_);
+        request_.reset();
     }
 
     std::weak_ptr<Session> TrackHandler::GetSession() const

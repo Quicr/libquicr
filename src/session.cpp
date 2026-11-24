@@ -271,7 +271,12 @@ namespace quicr {
         // Do not take a handler's binding_operation_mutex_ here. A publication that already holds
         // it retains this request and is allowed to drain before the caller closes its subgroups.
         // New publications observe the cleared handler binding and fail with kNoSubscribers.
-        const auto request_stream = request ? request->GetStream() : nullptr;
+
+        if (!request) {
+            return false;
+        }
+
+        const auto request_stream = request->GetStream();
         if (!request_stream) {
             return false;
         }
@@ -285,34 +290,30 @@ namespace quicr {
 
         request_by_stream.erase({ connection_id, request_stream->GetStreamId() });
         requests.erase(request_it);
+
         if (request_stream->request_.lock() == removed_request) {
             request_stream->request_.reset();
         }
+
         while (!removed_request->handlers.empty()) {
-            removed_request->handlers.back()->UnbindRequest();
+            UnbindHandler(removed_request, *removed_request->handlers.back());
         }
+
         return true;
     }
 
     bool Session::UnbindHandler(const std::shared_ptr<Request>& request, TrackHandler& handler)
     {
-        const auto request_stream = request ? request->GetStream() : nullptr;
-        if (!request_stream) {
-            return false;
-        }
-
-        const auto registered = FindRequest({ request_stream->GetConnectionID(), request->request_id });
-        if (registered.get() != request.get()) {
-            return false;
-        }
-
         const auto handler_it =
           std::ranges::find_if(request->handlers, [&](const auto& bound) { return bound.get() == &handler; });
         if (handler_it == request->handlers.end()) {
             return false;
         }
 
-        return handler.UnbindRequest();
+        handler.UnbindRequest();
+
+        request->handlers.erase(handler_it);
+        return true;
     }
 
     TransportException::TransportException(TransportError error, std::source_location location)

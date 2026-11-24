@@ -1758,14 +1758,14 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
         std::future<TestServer::SubscribeDetails> sub_future = sub_promise.get_future();
         server->SetSubscribePromise(std::move(sub_promise));
 
-        std::promise<uint64_t> unsub_promise;
-        std::future<uint64_t> unsub_future = unsub_promise.get_future();
+        std::promise<void> unsub_promise;
+        std::future<void> unsub_future = unsub_promise.get_future();
         server->SetUnsubscribePromise(std::move(unsub_promise));
 
         // Subscribe and wait for the track to go live.
         CHECK_NOTHROW(session->SubscribeTrack(handler));
         REQUIRE(sub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
-        const auto request_id = sub_future.get().request_id;
+        sub_future.get();
         REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
         const auto request_stream_ids = GetOpenRequestStreamIds(session);
         REQUIRE(request_stream_ids.size() == 1);
@@ -1820,7 +1820,7 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 
         // Callback should fire.
         REQUIRE(unsub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
-        CHECK_EQ(unsub_future.get(), request_id);
+        CHECK_NOTHROW(unsub_future.get());
     };
 
     SUBCASE("Raw QUIC")
@@ -2575,7 +2575,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
         callbacks->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Set up promise to verify server gets accepted publish.
-        std::promise<TestServer::SubscribeDetails> publish_ok_promise;
+        std::promise<FullTrackName> publish_ok_promise;
         auto publish_ok_future = publish_ok_promise.get_future();
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
@@ -2594,8 +2594,8 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
         auto publish_ok_status = publish_ok_future.wait_for(kDefaultTimeout);
         REQUIRE(publish_ok_status == std::future_status::ready);
         const auto& received_publish_ok = publish_ok_future.get();
-        CHECK_EQ(received_publish_ok.track_full_name.name_space, existing_track.name_space);
-        CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
+        CHECK_EQ(received_publish_ok.name_space, existing_track.name_space);
+        CHECK_EQ(received_publish_ok.name, existing_track.name);
     };
 
     SUBCASE("Raw QUIC")
@@ -2634,7 +2634,7 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
         callbacks->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Set up promise to verify server gets accepted publish.
-        std::promise<TestServer::SubscribeDetails> publish_ok_promise;
+        std::promise<FullTrackName> publish_ok_promise;
         auto publish_ok_future = publish_ok_promise.get_future();
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
@@ -2660,8 +2660,8 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
         auto publish_ok_status = publish_ok_future.wait_for(kDefaultTimeout);
         REQUIRE(publish_ok_status == std::future_status::ready);
         const auto& received_publish_ok = publish_ok_future.get();
-        CHECK_EQ(received_publish_ok.track_full_name.name_space, existing_track.name_space);
-        CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
+        CHECK_EQ(received_publish_ok.name_space, existing_track.name_space);
+        CHECK_EQ(received_publish_ok.name, existing_track.name);
     };
 
     SUBCASE("Raw QUIC")

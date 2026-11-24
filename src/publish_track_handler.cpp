@@ -135,14 +135,6 @@ namespace quicr {
                 eflags.use_reliable = true;
 
                 if (is_new_stream) {
-                    // Disable creating stream and doing pipeline on new stream considering delta and subgroups needs
-                    // first object parsed
-#if 0
-                    auto stream =
-                      session->CreateStream(connection, request->request_id, GetPublishObjectPriority());
-                    stream_info_by_group_[group_id][subgroup_id] = { stream, group_id, subgroup_id };
-#endif
-
                     // Do not pipeline on new stream till PublishObject() is called once
                     return PublishObjectStatus::kObjectDataIncomplete;
                 }

@@ -39,15 +39,16 @@ TestPublishTrackHandler::StatusChanged(Status status)
         case Status::kOk: {
             if (auto svr = server_.lock()) {
                 if (svr->publish_accepted_promise_.has_value()) {
-                    svr->publish_accepted_promise_->set_value({ request_id_.value_or(0), GetFullTrackName(), {} });
+                    svr->publish_accepted_promise_->set_value(GetFullTrackName());
+                    svr->publish_accepted_promise_.reset();
                 }
             }
             break;
         }
         case Status::kUnsubscribed: {
             if (const auto svr = server_.lock()) {
-                if (svr->unsubscribe_promise_.has_value() && request_id_) {
-                    svr->unsubscribe_promise_->set_value(*request_id_);
+                if (svr->unsubscribe_promise_.has_value()) {
+                    svr->unsubscribe_promise_->set_value();
                     svr->unsubscribe_promise_.reset();
                 }
             }
@@ -59,8 +60,8 @@ TestPublishTrackHandler::StatusChanged(Status status)
 }
 
 quicr::Reply<const quicr::PublishResponse, quicr::PublishErrorCode>
-TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
-                            std::uint64_t request_id,
+TestServer::PublishReceived([[maybe_unused]] const std::shared_ptr<quicr::Session>& session,
+                            [[maybe_unused]] std::uint64_t request_id,
                             const PublishAttributes& publish_attributes,
                             [[maybe_unused]] std::weak_ptr<quicr::SubscribeNamespaceHandler> ns_handler)
 {
@@ -82,8 +83,7 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
                                                                      publish_attributes.publisher_priority,
                                                                      publish_attributes.publisher_priority,
                                                                      delivery_timeout,
-                                                                     shared_from_this(),
-                                                                     request_id);
+                                                                     shared_from_this());
             ns_handler->PublishTrack(handler);
         }
     }
@@ -145,8 +145,7 @@ TestServer::SubscribeReceived(const std::shared_ptr<quicr::Session>& session,
                                                 subscribe_attributes.priority,
                                                 subscribe_attributes.priority,
                                                 ttl,
-                                                std::static_pointer_cast<TestServer>(shared_from_this()),
-                                                request_id);
+                                                std::static_pointer_cast<TestServer>(shared_from_this()));
 
     // Store the publish handler for this subscriber, visible to every session sharing
     // these callbacks.

@@ -130,7 +130,7 @@ namespace quicr {
       private:
         void BindRequest(std::shared_ptr<Request> request);
 
-        bool UnbindRequest();
+        void UnbindRequest();
 
         void RegisterSession(const std::shared_ptr<Session>& session);
 
