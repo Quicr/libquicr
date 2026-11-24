@@ -1537,6 +1537,7 @@ namespace quicr {
         quic_transport_->CloseStream(stream, operation);
         bool notify_publish_done = false;
         bool notify_unsubscribe = false;
+        bool notify_fetch_cancel = false;
         for (const auto& handler : handlers) {
             if (const auto status_handler = handler->Get<TrackStatusHandler>()) {
                 status_handler->SetStatus(is_reset ? TrackStatusHandler::Status::kDoneByReset
@@ -1550,6 +1551,15 @@ namespace quicr {
                                                 : SubscribeTrackHandler::Status::kDoneByFin);
                 sub_handler->SetStatus(SubscribeTrackHandler::Status::kNotSubscribed);
                 notify_publish_done = true;
+            } else if (const auto pub_fetch_handler = handler->Get<PublishFetchHandler>()) {
+                // We must check FETCH before PUBLISH as it inherits.
+                pub_fetch_handler->SetStatus(is_reset ? PublishFetchHandler::Status::kUnsubscribed
+                                                      : PublishFetchHandler::Status::kDoneByFin);
+                {
+                    std::lock_guard lock(pub_fetch_handler->binding_operation_mutex_);
+                    pub_fetch_handler->EndFetch(!is_reset);
+                }
+                notify_fetch_cancel = is_reset;
             } else if (const auto pub_handler = handler->Get<PublishTrackHandler>()) {
                 pub_handler->SetStatus(is_reset ? PublishTrackHandler::Status::kUnsubscribed
                                                 : PublishTrackHandler::Status::kDoneByFin);
@@ -1572,6 +1582,9 @@ namespace quicr {
                 callbacks->UnsubscribeReceived(GetSharedPtr(), request_id);
             }
         }
+        if (notify_fetch_cancel && callbacks_) {
+            callbacks_->FetchCancelReceived(GetSharedPtr(), request_id);
+        }
     }
 
     void Session::UnpublishTrack(const std::shared_ptr<PublishTrackHandler>& track_handler)
@@ -1593,16 +1606,21 @@ namespace quicr {
         std::optional<PublishTrackHandler::Status> changed_status;
         std::shared_ptr<Request> removed_request;
         {
-            std::lock_guard binding_lock(track_handler->binding_operation_mutex_);
-            // Remaining open subgroups have not been declared complete.
-            track_handler->EndAllSubgroupsInternal(false);
-
             std::lock_guard state_lock(state_mutex_);
             removed_request = FindRequestForHandler(*track_handler);
             if (!removed_request) {
                 return;
             }
 
+            RemoveRequest(removed_request);
+        }
+
+        {
+            std::lock_guard binding_lock(track_handler->binding_operation_mutex_);
+            // Remaining open subgroups have not been declared complete.
+            track_handler->EndAllSubgroupsInternal(false);
+
+            std::lock_guard state_lock(state_mutex_);
             const auto connection_id = removed_request->GetStream()->GetConnectionID();
             if (auto alias_it = pub_tracks_by_track_alias.find(th.track_fullname_hash);
                 alias_it != pub_tracks_by_track_alias.end()) {
@@ -1614,8 +1632,6 @@ namespace quicr {
                     }
                 }
             }
-
-            RemoveRequest(removed_request);
 
             /*
              * This is a round about way to send subscribe done because of the announce flow. This

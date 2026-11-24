@@ -106,7 +106,7 @@ namespace quicr {
         return PublishTrackHandler::PublishObjectStatus::kOk;
     }
 
-    void PublishFetchHandler::EndFetch()
+    void PublishFetchHandler::EndFetch(bool completed)
     {
         if (closed_) {
             return;
@@ -123,14 +123,18 @@ namespace quicr {
             return;
         }
 
+        if (!completed) {
+            session->ResetSubgroup(stream_);
+            stream_.reset();
+            return;
+        }
+
         Transport::EnqueueFlags eflags;
         eflags.use_reliable = true;
         eflags.close_stream = true;
         eflags.use_reset = false;
 
-        const auto& request = GetRequest();
-        const auto request_stream = request ? request->GetStream() : nullptr;
-        const auto connection = request_stream ? request_stream->GetConnection() : nullptr;
+        const auto connection = stream_->GetConnection();
         session->Enqueue(connection, stream_, {}, GetPublishObjectPriority(), default_ttl_, eflags);
 
         stream_.reset();

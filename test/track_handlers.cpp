@@ -638,6 +638,14 @@ TEST_CASE("Fetch closure is terminal")
         REQUIRE(handler->PublishObject(headers, payload) == Status::kOk);
         session->UnbindFetchTrack(handler);
     }
+    SUBCASE("Cancelled by peer")
+    {
+        REQUIRE(handler->PublishObject(headers, payload) == Status::kOk);
+        session->GetDefaultConnection()->OnStreamClosed(request_stream, quicr::StreamClosedFlag::kReset);
+        CHECK(handler->GetStatus() == quicr::PublishTrackHandler::Status::kUnsubscribed);
+        CHECK(transport->closed_stream == transport->last_data_stream);
+        CHECK(transport->close_operation == quicr::StreamOperation::kReset);
+    }
     CHECK(handler->PublishObject(headers, payload) == Status::kFetchClosed);
     const auto attempts = transport->enqueue_count;
     CHECK(handler->PublishObject(headers, payload) == Status::kFetchClosed);

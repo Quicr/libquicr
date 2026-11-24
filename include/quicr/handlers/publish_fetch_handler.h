@@ -70,13 +70,15 @@ namespace quicr {
 
       private:
         /**
-         * @brief Finish the fetch: let whatever is queued drain, then close the stream.
+         * @brief Finish or cancel the fetch.
          *
-         * @details The empty object carries no payload; it exists to mark the stream close-on-empty
-         *      once the transport reaches it, so objects already queued still go out. Does nothing if
-         *      the fetch never sent an object, since there is no stream to close.
+         * @param completed `true` to drain queued objects and close with FIN; `false` to discard them
+         *      and reset the stream.
+         * @details A completed fetch enqueues an empty close marker after existing objects. Does
+         *      nothing to the transport if the fetch never sent an object, since there is no stream
+         *      to close. Either outcome makes the handler terminal.
          */
-        void EndFetch();
+        void EndFetch(bool completed = true);
 
         messages::GroupOrder group_order_;
         messages::FetchObjectSerializationState serialization_state_;
