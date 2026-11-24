@@ -59,8 +59,7 @@ target_link_libraries(your_target PRIVATE quicr::quicr)
 ```
 
 For an installation outside standard search paths, add its prefix to `CMAKE_PREFIX_PATH` when
-configuring the consuming project. When the C bridge is installed, its exported target is
-`quicr::bridge`.
+configuring the consuming project.
 
 <details>
 <summary>Installing or adding libquicr from source</summary>
@@ -115,7 +114,6 @@ See the [API guide](docs/api-guide.md) for session and handler usage.
 * [Makefile Shortcuts](#makefile-shortcuts)
 * [Command-line tools](#command-line-tools)
 * [TLS provider configuration](#tls-provider-configuration)
-* [C Bridge](#c-bridge)
 * [Documentation](#documentation)
 
 ## Support
@@ -147,7 +145,6 @@ See the [API guide](docs/api-guide.md) for session and handler usage.
 | --- | --- | --- |
 | C++ API | ✅ Supported | Requires C++20 |
 | C API | ✅ Supported | Requires C11 |
-| C bridge | ✅ Supported | Client-only API |
 
 ### TLS backends
 
@@ -216,7 +213,6 @@ cmake -B build -DQUICR_BUILD_EXAMPLES=ON
 | Option | Default | Purpose |
 | --- | --- | --- |
 | `QUICR_INSTALL` | Standalone: `ON`; subproject: `OFF` | Enable install and CMake package rules |
-| `QUICR_BUILD_C_BRIDGE` | Standalone: `ON`; subproject: `OFF` | Build the C bridge |
 | `QUICR_BUILD_EXAMPLES` | `OFF` | Build examples |
 | `QUICR_BUILD_TOOLS` | `OFF` | Build testing and debugging tools |
 | `QUICR_BUILD_TESTS` | Standalone: `ON`; subproject: `OFF` | Build the test suite |
@@ -230,14 +226,13 @@ cmake -B build -DQUICR_BUILD_EXAMPLES=ON
 | `WITH_BROTLI` | `OFF` | Enable picotls Brotli TLS certificate compression |
 
 `BUILD_TESTING` defaults to `ON` for standalone builds and gates tests, benchmarks, and fuzzers.
-When both the C bridge and examples are enabled, the bridge examples are built automatically. The
-`WITH_*` options configure picotls rather than libquicr itself.
+The `WITH_*` options configure picotls rather than libquicr itself.
 
 ## Makefile Shortcuts
 
 | Command | Action |
 | --- | --- |
-| `make` | Build libquicr, tests, benchmarks, examples, tools, and the C bridge in Debug mode |
+| `make` | Build libquicr, tests, benchmarks, examples, and tools in Debug mode |
 | `make test` | Build and run the test suite |
 | `make cclean` | Remove the build directory |
 | `make fuzz` | Build and run the control-message fuzzer |
@@ -284,12 +279,6 @@ installation.
 > authenticate servers in this mode. Use it only where peer authentication is not required.
 
 See the [TLS provider guide](docs/tls.md) for provider selection and configuration.
-
-## C Bridge
-
-The optional C bridge provides a client-only C wrapper around the C++ library. Enable it with
-`QUICR_BUILD_C_BRIDGE=ON`; also enable `QUICR_BUILD_EXAMPLES` to build its examples. See the
-[C bridge documentation](c-bridge/README.md) for API details.
 
 ## Documentation
 
