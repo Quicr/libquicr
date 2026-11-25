@@ -2497,48 +2497,6 @@ TEST_CASE("Integration - Subscribe Namespace notifications")
     }
 }
 
-TEST_CASE("Integration - Subscribe Tracks with matching namespace")
-{
-    auto session_mgr = MakeTestSessionManager();
-    auto server = MakeTestServer(session_mgr);
-
-    auto test_matching_namespace = [&](const std::string& protocol_scheme) {
-        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
-
-        // Target namespace.
-        TrackNamespace prefix_namespace(std::vector<std::string>{ "foo", "bar" });
-        TrackNamespace published_namespace(std::vector<std::string>{ "foo", "bar", "baz" });
-
-        // Set up promise to verify client received matching PUBLISH_NAMESPACE.
-        std::promise<TrackNamespace> publish_namespace_promise;
-        std::future<TrackNamespace> publish_namespace_future = publish_namespace_promise.get_future();
-        server->AddKnownPublishedNamespace(published_namespace);
-        callbacks->SetPublishNamespaceReceivedPromise(std::move(publish_namespace_promise));
-
-        // SUBSCRIBE_NAMESPACE to prefix.
-        CHECK_NOTHROW(session->SubscribeNamespace(
-          SubscribeNamespaceHandler::Create(prefix_namespace, SubscribeNamespaceHandler::Mode::kTracks)));
-
-        // Client should receive matched PUBLISH_NAMESPACE.
-        auto publish_namespace_status = publish_namespace_future.wait_for(kDefaultTimeout);
-        REQUIRE(publish_namespace_status == std::future_status::ready);
-        const auto& received_namespace = publish_namespace_future.get();
-        CHECK_EQ(received_namespace, published_namespace);
-    };
-
-    SUBCASE("Raw QUIC")
-    {
-        CAPTURE("Raw QUIC");
-        test_matching_namespace("moq");
-    }
-
-    SUBCASE("WebTransport")
-    {
-        CAPTURE("WebTransport");
-        test_matching_namespace("https");
-    }
-}
-
 TEST_CASE("Integration - Subscribe Tracks with matching track")
 {
 

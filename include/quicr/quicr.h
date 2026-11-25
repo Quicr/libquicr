@@ -1021,7 +1021,7 @@ extern "C"
           void* user_data);
 
         /**
-         * @brief Track-prefix subscription; accepted list copied.
+         * @brief Inbound track-prefix subscription request.
          *
          * @param session Borrowed session handle.
          * @param prefix_namespace Borrowed track-prefix namespace.
@@ -1030,11 +1030,10 @@ extern "C"
          *
          * @return An initialized ACCEPT or REJECT reply.
          */
-        quicr_track_namespaces_reply_t (*subscribe_tracks_received)(
-          quicr_session_t* session,
-          const quicr_track_namespace_t* prefix_namespace,
-          const quicr_subscribe_namespace_attributes_t* attributes,
-          void* user_data);
+        quicr_request_reply_t (*subscribe_tracks_received)(quicr_session_t* session,
+                                                           const quicr_track_namespace_t* prefix_namespace,
+                                                           const quicr_subscribe_namespace_attributes_t* attributes,
+                                                           void* user_data);
 
         /**
          * @brief Inbound track subscription.

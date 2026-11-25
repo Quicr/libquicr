@@ -459,7 +459,7 @@ namespace quicr_test {
 
         void PublishDoneReceived(const std::shared_ptr<quicr::Session>& session, uint64_t request_id) override;
 
-        quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode> SubscribeTracksReceived(
+        quicr::Reply<void, quicr::RequestErrorCode> SubscribeTracksReceived(
           const std::shared_ptr<quicr::Session>& session,
           const quicr::TrackNamespace& prefix_namespace,
           const quicr::SubscribeNamespaceAttributes& attributes) override;

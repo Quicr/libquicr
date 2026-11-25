@@ -182,7 +182,7 @@ TestServer::TrackStatusReceived([[maybe_unused]] const std::shared_ptr<Session>&
     return { track_status_state_.value() };
 }
 
-quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>
+quicr::Reply<void, quicr::RequestErrorCode>
 TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& session,
                                     const TrackNamespace& prefix_namespace,
                                     const SubscribeNamespaceAttributes& attributes)
@@ -213,7 +213,7 @@ TestServer::SubscribeTracksReceived(const std::shared_ptr<quicr::Session>& sessi
 
     // Deliberately not prefix matching to allow testing bad case. Tests should only add tracks
     // with this in mind. Blindly accept it.
-    return known_published_namespaces_;
+    return {};
 }
 
 quicr::Reply<std::vector<quicr::TrackNamespace>, quicr::RequestErrorCode>

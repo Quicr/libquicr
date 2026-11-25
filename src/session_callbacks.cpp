@@ -87,12 +87,11 @@ namespace quicr {
         return std::vector<TrackNamespace>{};
     }
 
-    Reply<std::vector<TrackNamespace>, RequestErrorCode> Session::ServerCallbacks::SubscribeTracksReceived(
-      const std::shared_ptr<Session>&,
-      const TrackNamespace&,
-      const SubscribeNamespaceAttributes&)
+    Reply<void, RequestErrorCode> Session::ServerCallbacks::SubscribeTracksReceived(const std::shared_ptr<Session>&,
+                                                                                    const TrackNamespace&,
+                                                                                    const SubscribeNamespaceAttributes&)
     {
-        return std::vector<TrackNamespace>{};
+        return {};
     }
 
     Reply<SubscribeResponse, RequestErrorCode> Session::ServerCallbacks::SubscribeReceived(
