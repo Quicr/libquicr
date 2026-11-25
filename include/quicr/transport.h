@@ -5,6 +5,7 @@
 
 #include "quicr/config.h"
 #include "quicr/containers/stream_buffer.h"
+#include "quicr/messages/ctrl_message_types.h"
 #include "quicr/metrics.h"
 
 #include <atomic>
@@ -26,18 +27,6 @@ namespace quicr {
     class Connection;
     class Logger;
     class Stream;
-
-    /// @brief Application reason sent when closing a connection.
-    enum class AppReasonForClose : uint8_t
-    {
-        kShutdown = 1,       ///< Local application shutdown.
-        kIdleTimeout,        ///< Connection exceeded its idle timeout.
-        kRemoteRequestClose, ///< Closure requested by the remote endpoint.
-        kInternalError,      ///< Unspecified local internal failure.
-        kProtocolViolation,  ///< Peer traffic violated the protocol.
-        kNotAuthorized,      ///< Peer is not authorized to continue.
-        kUnknown,            ///< No more specific reason is available.
-    };
 
     /// @brief Transport lifecycle state.
     enum class TransportStatus : uint8_t
@@ -247,11 +236,10 @@ namespace quicr {
          * @brief Close a transport context
          *
          * @param connection Connection to close.
-         * @param app_reason Application reason to close the connection
+         * @param reason MoQ termination code sent to the peer.
          * @pre @p connection must refer to a connection created by this transport.
          */
-        virtual void Close(const std::shared_ptr<Connection>& connection,
-                           AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose) = 0;
+        virtual void Close(const std::shared_ptr<Connection>& connection, messages::TerminationReason reason) = 0;
 
         /**
          * @brief Close a stream

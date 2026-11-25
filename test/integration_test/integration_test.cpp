@@ -3435,7 +3435,7 @@ TEST_CASE("Integration - Invalid stream type is a PROTOCOL_VIOLATION")
     // Should be rejected and the originating (subscriber's in this case) connection closed.
     CHECK_FALSE(connection->OnRecvStream(stream));
     CHECK_EQ(connection->metrics.rx_stream_invalid_type, 1);
-    CHECK(WaitFor([&connection] { return connection->GetStatus() == Connection::Status::kRemoteRequestClose; }));
+    CHECK(WaitFor([&connection] { return connection->GetStatus() == Connection::Status::kDisconnected; }));
 
     // Any other (publisher's in this case) session should stay up.
     CHECK_EQ(publisher->GetDefaultConnection()->GetStatus(), Connection::Status::kReady);
@@ -3452,6 +3452,69 @@ TEST_CASE("Integration - Invalid stream type is a PROTOCOL_VIOLATION")
                                  .track_mode = TrackMode::kStream };
     publish_handler->PublishObject(headers, payload);
     CHECK_FALSE(WaitFor([&subscribe_handler] { return subscribe_handler->GetReceivedCount() >= 1; }, kNegativeTimeout));
+}
+
+/// Both ends of a newly connected client's connection: the client's and the server's.
+struct ConnectionEnds
+{
+    std::shared_ptr<Session> client_session;
+    std::shared_ptr<Session> server_session;
+    std::shared_ptr<PicoQuicConnection> client;
+    std::shared_ptr<PicoQuicConnection> server;
+};
+
+static ConnectionEnds
+ConnectClient(SessionManager& session_mgr, const std::shared_ptr<TestServer>& server)
+{
+    std::promise<std::shared_ptr<Session>> server_session_promise;
+    auto server_session = server_session_promise.get_future();
+    server->SetSessionEstablishedPromise(std::move(server_session_promise));
+
+    ConnectionEnds ends;
+    ends.client_session = MakeTestClient(session_mgr).first;
+    REQUIRE(server_session.wait_for(kDefaultTimeout) == std::future_status::ready);
+    ends.server_session = server_session.get();
+    ends.client = std::dynamic_pointer_cast<PicoQuicConnection>(ends.client_session->GetDefaultConnection());
+    ends.server = std::dynamic_pointer_cast<PicoQuicConnection>(ends.server_session->GetDefaultConnection());
+    REQUIRE(ends.client != nullptr);
+    REQUIRE(ends.server != nullptr);
+    return ends;
+}
+
+TEST_CASE("Integration - Protocol violation sends PROTOCOL_VIOLATION")
+{
+    auto session_mgr = MakeTestSessionManager();
+    auto server = MakeTestServer(session_mgr);
+    const auto ends = ConnectClient(session_mgr, server);
+
+    constexpr std::uint64_t peer_unidirectional_stream_id = 202;
+    const auto stream = ends.server->AddStream(peer_unidirectional_stream_id, nullptr);
+    REQUIRE(stream != nullptr);
+    const std::vector<std::uint8_t> invalid_type{ 0x00, 0x00 };
+    {
+        std::lock_guard _(stream->rx_mutex);
+        stream->rx_data.Push(std::span{ invalid_type });
+    }
+    CHECK_FALSE(ends.server->OnRecvStream(stream));
+
+    REQUIRE(WaitFor([&ends] { return ends.client->GetStatus() != Connection::Status::kReady; }));
+    CHECK_EQ(ends.client->GetStatus(), Connection::Status::kRemoteRequestClose);
+    CHECK_EQ(ends.client->peer_termination_reason, messages::TerminationReason::kProtocolViolation);
+    CHECK_EQ(ends.server->GetStatus(), Connection::Status::kDisconnected);
+}
+
+TEST_CASE("Integration - Disconnecting sends NO_ERROR")
+{
+    auto session_mgr = MakeTestSessionManager();
+    auto server = MakeTestServer(session_mgr);
+    const auto ends = ConnectClient(session_mgr, server);
+
+    ends.server_session->Disconnect();
+
+    REQUIRE(WaitFor([&ends] { return ends.client->GetStatus() != Connection::Status::kReady; }));
+    CHECK_EQ(ends.client->GetStatus(), Connection::Status::kRemoteRequestClose);
+    CHECK_EQ(ends.client->peer_termination_reason, messages::TerminationReason::kNoError);
+    CHECK_EQ(ends.server->GetStatus(), Connection::Status::kDisconnected);
 }
 
 TEST_CASE("Integration - Failed publish does not create subgroup state")
@@ -4333,8 +4396,7 @@ TEST_CASE("Integration - QMUX reconnect and verified transport")
         CHECK_FALSE(connection->pq_cnx->is_qmux_cleartext);
         CHECK(connection->pq_cnx->is_qmux_tls_ready);
         session->Disconnect();
-        REQUIRE(
-          WaitFor([&connection]() { return connection->GetStatus() == Connection::Status::kRemoteRequestClose; }));
+        REQUIRE(WaitFor([&connection]() { return connection->GetStatus() == Connection::Status::kDisconnected; }));
     }
 }
 

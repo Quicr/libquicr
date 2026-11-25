@@ -136,11 +136,11 @@ namespace quicr {
 
         void Shutdown() override;
 
-        void Close(const std::shared_ptr<Connection>& connection,
-                   AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose) override;
+        void Close(const std::shared_ptr<Connection>& connection, messages::TerminationReason reason) override;
 
         void CloseInternal(const std::shared_ptr<Connection>& connection,
-                           AppReasonForClose app_reason = AppReasonForClose::kRemoteRequestClose);
+                           TransportStatus status,
+                           std::optional<messages::TerminationReason> reason);
 
         void EnqueueDatagram(const std::shared_ptr<Connection>& connection,
                              std::shared_ptr<const std::vector<uint8_t>> bytes,
@@ -328,6 +328,9 @@ namespace quicr {
         bool ClientLoop();
         void CbNotifier();
         void RunPqFunction(std::size_t shard_idx, std::function<int()>&& function);
+        void Close(const std::shared_ptr<Connection>& connection,
+                   messages::TerminationReason reason,
+                   TransportStatus status);
         void CheckCallbackDelta(const std::shared_ptr<PicoQuicStream>& stream, bool tx = true);
 
         /**

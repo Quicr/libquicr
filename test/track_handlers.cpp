@@ -242,7 +242,7 @@ class TestTransport : public quicr::Transport
     quicr::TransportStatus Status() const override { return quicr::TransportStatus::kReady; }
     std::shared_ptr<quicr::Connection> Start() override { return nullptr; }
     std::shared_ptr<quicr::Connection> Connect(const quicr::TransportRemote&) override { return nullptr; }
-    void Close(const std::shared_ptr<quicr::Connection>&, quicr::AppReasonForClose) override {}
+    void Close(const std::shared_ptr<quicr::Connection>&, quicr::messages::TerminationReason) override {}
     void CloseStream(const std::shared_ptr<quicr::Stream>& stream, quicr::StreamOperation operation) override
     {
         closed_stream = stream;

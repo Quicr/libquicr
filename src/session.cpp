@@ -310,7 +310,7 @@ namespace quicr {
             RemoveTracksForConnectionClose(connection);
             connection->SetDelegate(nullptr);
             if (quic_transport_) {
-                quic_transport_->Close(connection);
+                quic_transport_->Close(connection, TerminationReason::kNoError);
             }
         }
         SetStatus(Status::kNotConnected);
@@ -2044,7 +2044,7 @@ namespace quicr {
     } catch (const TransportException& e) {
         QUICR_LOGGER_INFO(logger_, "OnRecvStream: connection or stream no longer exists (error={})", e.what());
         if (const auto failed_connection = stream->GetConnection()) {
-            quic_transport_->Close(failed_connection, AppReasonForClose::kInternalError);
+            quic_transport_->Close(failed_connection, TerminationReason::kInternalError);
         }
         return false;
     } catch (const std::exception& e) {
@@ -2054,7 +2054,7 @@ namespace quicr {
         QUICR_LOGGER_ERROR(logger_, "Caught exception on receiving stream, closing connection. (error={})", e.what());
         if (const auto failed_connection = stream->GetConnection()) {
             failed_connection->metrics.invalid_ctrl_stream_msg++;
-            quic_transport_->Close(failed_connection, AppReasonForClose::kProtocolViolation);
+            quic_transport_->Close(failed_connection, TerminationReason::kProtocolViolation);
         }
 
         // TODO(tievens): Add metrics to track if this happens
@@ -2917,7 +2917,7 @@ namespace quicr {
                 connections_.erase(connection->GetID());
             }
             connection->SetDelegate(nullptr);
-            quic_transport_->Close(connection);
+            quic_transport_->Close(connection, TerminationReason::kInternalError);
         }
     }
 
@@ -2986,7 +2986,7 @@ namespace quicr {
                     connections_.erase(old_connection->GetID());
                 }
                 old_connection->SetDelegate(nullptr);
-                quic_transport_->Close(old_connection);
+                quic_transport_->Close(old_connection, TerminationReason::kNoError);
             } else if (!session_wide) {
                 {
                     std::lock_guard lock(connections_mutex_);
@@ -2994,7 +2994,7 @@ namespace quicr {
                 }
                 RemoveTracksForConnectionClose(connection);
                 connection->SetDelegate(nullptr);
-                quic_transport_->Close(connection);
+                quic_transport_->Close(connection, TerminationReason::kNoError);
             }
 
             return;
@@ -3018,7 +3018,7 @@ namespace quicr {
             }
 
             connection->SetDelegate(nullptr);
-            quic_transport_->Close(connection);
+            quic_transport_->Close(connection, TerminationReason::kNoError);
         });
 
         for (const auto& handler : handlers) {
@@ -3352,7 +3352,7 @@ namespace quicr {
             old_connection->SetDelegate(nullptr);
 
             if (old_connection->GetStatus() == Connection::Status::kReady) {
-                quic_transport_->Close(old_connection);
+                quic_transport_->Close(old_connection, TerminationReason::kNoError);
             }
         }
     }
@@ -3403,7 +3403,7 @@ namespace quicr {
             }
 
             connection->SetDelegate(nullptr);
-            quic_transport_->Close(connection);
+            quic_transport_->Close(connection, TerminationReason::kNoError);
         }
         return true;
     }
@@ -3675,7 +3675,7 @@ namespace quicr {
                         if (connection == GetDefaultConnection()) {
                             SetStatus(Status::kInternalError);
                         }
-                        quic_transport_->Close(connection, AppReasonForClose::kNotAuthorized);
+                        quic_transport_->Close(connection, TerminationReason::kUnauthorized);
                         return true;
                     }
                 }

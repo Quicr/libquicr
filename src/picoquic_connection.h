@@ -252,6 +252,9 @@ namespace quicr {
         /// Used to parse CLOSE_WEBTRANSPORT_SESSION and other capsules
         picowt_capsule_t wt_capsule{};
 
+        /// Session termination code the peer closed the connection with, if it sent one
+        std::optional<messages::TerminationReason> peer_termination_reason;
+
         char peer_addr_text[45]{ 0 };
 
         std::uint16_t peer_port{ 0 };
