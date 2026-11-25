@@ -687,8 +687,6 @@ namespace quicr {
 
         void SendPublishOk(const std::shared_ptr<Stream>& stream, const PublishOkAttributes& attributes);
 
-        std::shared_ptr<Stream> FindSubscribeNamespaceStream(const TrackNamespace& track_namespace) const;
-
         std::optional<std::uint64_t> FindRequestIdByStream(const Stream& stream) QUICR_EXCLUDES(state_mutex_);
 
         bool IsCurrentRequestStream(std::uint64_t request_id, const std::shared_ptr<Stream>& stream)

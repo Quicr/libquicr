@@ -1222,6 +1222,25 @@ namespace {
     }
 
     template<>
+    Reply<void, RequestErrorCode> ToCppType<Reply<void, RequestErrorCode>, quicr_request_reply>(
+      const quicr_request_reply& reply)
+    {
+        if (reply.result == QUICR_REPLY_RESULT_ACCEPT) {
+            return {};
+        }
+
+        if (reply.result == QUICR_REPLY_RESULT_REJECT) {
+            const auto code = ToCppType<RequestErrorCode>(reply.error.code);
+            return MakeRedirectableError(code,
+                                         reply.error.reason,
+                                         reply.error.redirect,
+                                         RequestErrorCode::kRedirect,
+                                         RequestErrorCode::kInternalError);
+        }
+        return MakeError(RequestErrorCode::kInternalError, "Invalid request reply result");
+    }
+
+    template<>
     Reply<void, ErrorCode> ToCppType<Reply<void, ErrorCode>, quicr_error_reply_t>(const quicr_error_reply_t& reply)
     {
         if (reply.result == QUICR_REPLY_RESULT_ACCEPT) {
@@ -1813,10 +1832,9 @@ class ServerCallbacksAdapter final
           CallbackInternalError<RequestErrorCode>());
     }
 
-    Reply<std::vector<TrackNamespace>, RequestErrorCode> SubscribeTracksReceived(
-      const std::shared_ptr<Session>& session,
-      const TrackNamespace& prefix_namespace,
-      const SubscribeNamespaceAttributes& attributes) override
+    Reply<void, RequestErrorCode> SubscribeTracksReceived(const std::shared_ptr<Session>& session,
+                                                          const TrackNamespace& prefix_namespace,
+                                                          const SubscribeNamespaceAttributes& attributes) override
     {
         if (!callbacks.subscribe_tracks_received) {
             return Session::ServerCallbacks::SubscribeTracksReceived(session, prefix_namespace, attributes);
@@ -1828,7 +1846,7 @@ class ServerCallbacksAdapter final
           [&] {
               const auto reply = callbacks.subscribe_tracks_received(
                 GetSessionHandle(session), &c_prefix_namespace, &c_attributes, callbacks.user_data);
-              return ToCppType<Reply<std::vector<TrackNamespace>, RequestErrorCode>>(reply);
+              return ToCppType<Reply<void, RequestErrorCode>>(reply);
           },
           CallbackInternalError<RequestErrorCode>());
     }

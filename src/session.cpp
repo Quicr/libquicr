@@ -3432,27 +3432,6 @@ namespace quicr {
           request_it->second.stream, response.publisher_default_group_order, false, response.largest_location.value());
     }
 
-    std::shared_ptr<Stream> Session::FindSubscribeNamespaceStream(const TrackNamespace& track_namespace) const
-    {
-        for (const auto& [_, handler] : request_handlers) {
-            if (auto h = handler->Get<SubscribeNamespaceHandler>()) {
-                auto request_stream = h->GetRequestStream();
-                if (request_stream == nullptr) {
-                    continue;
-                }
-
-                const auto match = h->GetPrefix().IsPrefixOf(track_namespace);
-                if (match == std::partial_ordering::unordered || match == std::partial_ordering::less) {
-                    continue;
-                }
-
-                return request_stream;
-            }
-        }
-
-        return nullptr;
-    }
-
     std::optional<std::uint64_t> Session::FindRequestIdByStream(const Stream& stream)
     {
         std::lock_guard _(state_mutex_);
@@ -4330,16 +4309,6 @@ namespace quicr {
                           }
 
                           self->SendPublishNamespaceOk(response_stream);
-
-                          const auto sub_stream = self->FindSubscribeNamespaceStream(track_namespace);
-                          if (sub_stream == nullptr) {
-                              QUICR_LOGGER_WARN(self->logger_,
-                                                "No subscribe namespace stream for publish namespace conn_id: {}",
-                                                stream->GetConnectionID());
-                              return;
-                          }
-
-                          self->SendPublishNamespace(sub_stream, self->GetNextRequestID(), track_namespace);
                       });
                 }
 
@@ -4366,7 +4335,11 @@ namespace quicr {
                     filter = parameters.GetFilter(messages::FilterType::kTrackFilter);
                 }
 
-                const bool subscribe_namespace = msg_type == messages::ControlMessageType::kSubscribeNamespace;
+                auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_);
+                if (!callbacks) {
+                    return true;
+                }
+
                 {
                     std::lock_guard _(state_mutex_);
                     request_by_stream[{ stream->GetConnectionID(), stream->GetStreamId() }] = {
@@ -4374,11 +4347,36 @@ namespace quicr {
                     };
                 }
 
-                if (auto callbacks = std::dynamic_pointer_cast<ServerCallbacks>(callbacks_)) {
-                    // Record the subscription before the application callback. A deferred reply can
-                    // outlive the request stream, and CloseRequestHandler can only clean it up if it
-                    // is already registered.
-                    if (subscribe_namespace) {
+                const SubscribeNamespaceAttributes attributes{
+                    .request_id = request_id,
+                    .filter_type = messages::FilterType::kTrackFilter,
+                    .filter = filter,
+                };
+
+                if (msg_type == messages::ControlMessageType::kSubscribeTracks) {
+                    callbacks->SubscribeTracksReceived(GetSharedPtr(), track_namespace_prefix, attributes)
+                      .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
+                          if (!self->IsCurrentRequestStream(request_id, stream)) {
+                              return;
+                          }
+
+                          if (!result) {
+                              const auto& [code, reason, redirect] = result.error();
+                              self->SendRequestError(stream,
+                                                     request_id,
+                                                     ToErrorCode(code),
+                                                     0ms,
+                                                     reason.value_or("Internal error"),
+                                                     true,
+                                                     redirect);
+
+                              return;
+                          }
+
+                          self->SendRequestOk(stream, {});
+                      });
+                } else {
+                    {
                         std::lock_guard _(state_mutex_);
                         recv_req_id[request_id] = { .track_full_name = { track_namespace_prefix, {} },
                                                     .track_hash = TrackHash({ track_namespace_prefix, {} }),
@@ -4386,73 +4384,54 @@ namespace quicr {
                         recv_subscribe_namespaces.push_back(request_id);
                     }
 
-                    const SubscribeNamespaceAttributes attributes{
-                        .request_id = request_id,
-                        .filter_type = messages::FilterType::kTrackFilter,
-                        .filter = filter,
-                    };
+                    callbacks->SubscribeNamespaceReceived(GetSharedPtr(), track_namespace_prefix, attributes)
+                      .Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
+                          if (!self->IsCurrentRequestStream(request_id, stream)) {
+                              return;
+                          }
 
-                    // SUBSCRIBE_TRACKS and SUBSCRIBE_NAMESPACE share parsing above, but must be
-                    // dispatched to their own distinct callback.
-                    auto reply =
-                      (msg_type == messages::ControlMessageType::kSubscribeTracks)
-                        ? callbacks->SubscribeTracksReceived(GetSharedPtr(), track_namespace_prefix, attributes)
-                        : callbacks->SubscribeNamespaceReceived(GetSharedPtr(), track_namespace_prefix, attributes);
+                          if (!result) {
+                              {
+                                  std::lock_guard _(self->state_mutex_);
+                                  std::erase(self->recv_subscribe_namespaces, request_id);
+                                  self->recv_req_id.erase(request_id);
+                              }
+                              const auto& [code, reason, redirect] = result.error();
+                              self->SendRequestError(stream,
+                                                     request_id,
+                                                     ToErrorCode(code),
+                                                     0ms,
+                                                     reason.value_or("Internal error"),
+                                                     true,
+                                                     redirect);
 
-                    reply.Resolve(quic_transport_, [=, self = GetSharedPtr()](const auto& result) {
-                        if (!self->IsCurrentRequestStream(request_id, stream)) {
-                            return;
-                        }
+                              return;
+                          }
 
-                        if (!result) {
-                            if (subscribe_namespace) {
-                                std::lock_guard _(self->state_mutex_);
-                                std::erase(self->recv_subscribe_namespaces, request_id);
-                                self->recv_req_id.erase(request_id);
-                            }
-                            const auto& [code, reason, redirect] = result.error();
-                            self->SendRequestError(stream,
-                                                   request_id,
-                                                   ToErrorCode(code),
-                                                   0ms,
-                                                   reason.value_or("Internal error"),
-                                                   true,
-                                                   redirect);
+                          std::lock_guard _(self->state_mutex_);
+                          const auto still_subscribed = std::find(self->recv_subscribe_namespaces.begin(),
+                                                                  self->recv_subscribe_namespaces.end(),
+                                                                  request_id) != self->recv_subscribe_namespaces.end();
+                          if (!still_subscribed) {
+                              return;
+                          }
 
-                            return;
-                        }
+                          self->SendSubscribeNamespaceOk(stream);
 
-                        if (subscribe_namespace) {
-                            std::lock_guard _(self->state_mutex_);
-                            const auto still_subscribed =
-                              std::find(self->recv_subscribe_namespaces.begin(),
-                                        self->recv_subscribe_namespaces.end(),
-                                        request_id) != self->recv_subscribe_namespaces.end();
-                            if (!still_subscribed) {
-                                return;
-                            }
-                        }
+                          for (const auto& name_space : result.value()) {
+                              const auto match = track_namespace_prefix.IsPrefixOf(name_space);
+                              if (match == std::partial_ordering::unordered ||
+                                  match == std::partial_ordering::greater) {
+                                  QUICR_LOGGER_WARN(self->logger_, "Dropping non prefix match");
+                                  continue;
+                              }
 
-                        self->SendSubscribeNamespaceOk(stream);
-
-                        // TODO: Could argue that this should be left to a relay implementation?
-                        for (const auto& name_space : result.value()) {
-                            const auto match = track_namespace_prefix.IsPrefixOf(name_space);
-                            if (match == std::partial_ordering::unordered || match == std::partial_ordering::greater) {
-                                QUICR_LOGGER_WARN(self->logger_, "Dropping non prefix match");
-                                continue;
-                            }
-
-                            if (subscribe_namespace) {
-                                const auto suffix_size =
-                                  name_space.GetEntries().size() - track_namespace_prefix.GetEntries().size();
-                                const auto suffix = name_space.GetSuffix(suffix_size);
-                                self->SendCtrlMsg(stream, messages::ControlMessageType::kNamespace, suffix);
-                            } else {
-                                self->SendPublishNamespace(stream, self->GetNextRequestID(), name_space);
-                            }
-                        }
-                    });
+                              const auto suffix_size =
+                                name_space.GetEntries().size() - track_namespace_prefix.GetEntries().size();
+                              self->SendCtrlMsg(
+                                stream, messages::ControlMessageType::kNamespace, name_space.GetSuffix(suffix_size));
+                          }
+                      });
                 }
 
                 return true;

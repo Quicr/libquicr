@@ -304,8 +304,8 @@ namespace quicr {
         /**
          * @brief Callback notification for new subscribe namespace received
          *
-         * @details Server mode only. Accept by returning the namespaces already published under the prefix,
-         *      which the session sends with the OK. Defaults to accepting with none.
+         * @details Server mode only. For an accepted reply, the session sends REQUEST_OK followed by a
+         *      NAMESPACE message for each returned matching namespace. Defaults to accepting with none.
          *
          * @param prefix_namespace Track namespace prefix
          * @param session Session that received the request.
@@ -320,18 +320,17 @@ namespace quicr {
         /**
          * @brief Callback notification for new subscribe tracks received
          *
-         * @details Server mode only. Accept by returning the namespaces already published under the prefix,
-         *      which the session sends with the OK. Defaults to accepting with none.
+         * @details Server mode only. The session sends REQUEST_OK for an accepted reply. Relay implementations
+         *      are responsible for routing matching track publications. Defaults to accepting.
          *
          * @param prefix_namespace Track namespace prefix
          * @param session Session that received the request.
          * @param attributes Attributes received
-         * @return Immediate or deferred list of already-active matching namespaces, or rejection reason.
+         * @return Immediate or deferred acceptance value, or rejection reason.
          */
-        virtual Reply<std::vector<TrackNamespace>, RequestErrorCode> SubscribeTracksReceived(
-          const std::shared_ptr<Session>& session,
-          const TrackNamespace& prefix_namespace,
-          const SubscribeNamespaceAttributes& attributes);
+        virtual Reply<void, RequestErrorCode> SubscribeTracksReceived(const std::shared_ptr<Session>& session,
+                                                                      const TrackNamespace& prefix_namespace,
+                                                                      const SubscribeNamespaceAttributes& attributes);
 
         /**
          * @brief Callback notification for new subscribe received
